@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParallaxPro - Editor</title>
+    <link rel="icon" href="/public/icons/favicon.png">
+</head>
+<body>
+    <div id="mobile-block" style="display:none;position:fixed;inset:0;z-index:999999;background:#111;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;">
+        <img src="/logos/main_logo.png" alt="ParallaxPro" style="width:180px;margin-bottom:24px;opacity:0.9;">
+        <h1 style="font-size:22px;font-weight:600;margin:0 0 12px;">Desktop Only</h1>
+        <p style="font-size:15px;color:#999;max-width:320px;line-height:1.5;margin:0;">The ParallaxPro editor requires a keyboard and mouse. Please open it on a desktop or laptop computer.</p>
+        <p style="font-size:13px;color:#666;margin-top:20px;">Games you create can be played on mobile!</p>
+    </div>
+    <div id="app"></div>
+    <script>
+        if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && 'ontouchstart' in window) {
+            document.getElementById('mobile-block').style.display = 'flex';
+            document.getElementById('app').style.display = 'none';
+            window.__mobileBlocked = true;
+        }
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

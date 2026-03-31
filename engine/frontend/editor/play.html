@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ParallaxPro - Play</title>
+    <link rel="icon" href="/public/icons/favicon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #111; }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #game-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            touch-action: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* ── Splash screen (Unity-style logo flash) ── */
+        #splash-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #111;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        #splash-screen .splash-logo {
+            max-width: 340px;
+            width: 60%;
+            opacity: 0;
+            animation: splashFade 2.4s ease-in-out forwards;
+        }
+        @keyframes splashFade {
+            0%   { opacity: 0; transform: scale(0.92); }
+            30%  { opacity: 1; transform: scale(1); }
+            70%  { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.02); }
+        }
+
+        /* ── Loading screen ── */
+        #loading-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #111;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 24px;
+            z-index: 1000;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #loading-screen .loading-logo {
+            max-width: 200px;
+            width: 40%;
+            margin-bottom: 8px;
+        }
+        #loading-screen .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(134, 72, 230, 0.3);
+            border-top-color: #8648e6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-screen .loading-text {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        #loading-screen .loading-progress-bar {
+            width: 220px;
+            height: 4px;
+            background: rgba(134, 72, 230, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        #loading-screen .loading-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: #8648e6;
+            border-radius: 2px;
+            transition: width 0.2s ease;
+        }
+
+        /* ── Settings button & panel ── */
+        #settings-btn {
+            position: fixed;
+            top: 12px;
+            right: 14px;
+            z-index: 200000;
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(30, 30, 30, 0.7);
+            color: #ccc;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+            transition: background 0.15s, color 0.15s;
+        }
+        #settings-btn:hover { background: rgba(50, 50, 50, 0.85); color: #fff; }
+        #settings-btn svg { width: 20px; height: 20px; }
+
+        #settings-panel {
+            position: fixed;
+            top: 54px;
+            right: 14px;
+            z-index: 200000;
+            background: rgba(24, 24, 28, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-width: 170px;
+        }
+        #settings-panel .settings-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        #settings-panel .quality-options {
+            display: flex;
+            gap: 6px;
+        }
+        #settings-panel .quality-btn {
+            flex: 1;
+            padding: 6px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            background: transparent;
+            color: #aaa;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        #settings-panel .quality-btn:hover { background: rgba(255,255,255,0.06); color: #ddd; }
+        #settings-panel .quality-btn.active {
+            background: rgba(134, 72, 230, 0.25);
+            border-color: #8648e6;
+            color: #c9a5f7;
+        }
+
+        /* ── FPS counter ── */
+        #fps-counter {
+            position: fixed;
+            top: 12px;
+            left: 14px;
+            z-index: 600;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 4px 10px;
+            border-radius: 6px;
+            pointer-events: none;
+            display: none;
+        }
+
+        /* ── Error screen ── */
+        #error-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #111;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 1000;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #error-screen .error-icon { font-size: 48px; }
+        #error-screen .error-title { font-size: 20px; font-weight: 600; }
+        #error-screen .error-msg { font-size: 14px; color: #999; }
+    </style>
+</head>
+<body>
+    <div id="splash-screen">
+        <img class="splash-logo" src="/logos/main_logo.png" alt="ParallaxPro">
+    </div>
+    <div id="loading-screen">
+        <img class="loading-logo" src="/logos/main_logo.png" alt="ParallaxPro">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading game...</div>
+        <div class="loading-progress-bar"><div class="loading-progress-fill" id="loading-progress-fill"></div></div>
+    </div>
+    <div id="error-screen">
+        <div class="error-icon">&#x26A0;</div>
+        <div class="error-title">Game Not Found</div>
+        <div class="error-msg" id="error-detail">This game may have been removed or made private.</div>
+        <a id="error-home-link" href="/" style="margin-top:20px;display:inline-block;padding:10px 28px;background:#8648e6;color:white;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Back to ParallaxPro</a>
+    </div>
+    <button id="settings-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+    </button>
+    <div id="settings-panel">
+        <div class="settings-label">Graphics Quality</div>
+        <div class="quality-options">
+            <button class="quality-btn" data-quality="low">Low</button>
+            <button class="quality-btn" data-quality="medium">Med</button>
+            <button class="quality-btn" data-quality="high">High</button>
+        </div>
+    </div>
+    <div id="fps-counter">-- FPS</div>
+    <div id="game-container"></div>
+    <script type="module" src="/src/play.ts"></script>
+</body>
+</html>
