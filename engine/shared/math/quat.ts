@@ -185,20 +185,6 @@ export class Quat {
         return this;
     }
 
-    /** Convert this quaternion to Euler angles in degrees. */
-    toEulerDegrees(): { x: number; y: number; z: number } {
-        const x = this.data[0], y = this.data[1], z = this.data[2], w = this.data[3];
-        const t0 = 2 * (w * x + y * z);
-        const t1 = 1 - 2 * (x * x + y * y);
-        const pitch = Math.atan2(t0, t1) * 180 / Math.PI;
-        let t2 = 2 * (w * y - z * x);
-        t2 = Math.max(-1, Math.min(1, t2));
-        const yaw = Math.asin(t2) * 180 / Math.PI;
-        const t3 = 2 * (w * z + x * y);
-        const t4 = 1 - 2 * (y * y + z * z);
-        const roll = Math.atan2(t3, t4) * 180 / Math.PI;
-        return { x: pitch, y: yaw, z: roll };
-    }
 
     /** Spherical linear interpolation between quaternions a and b. */
     static slerp(a: any, b: any, t: number, out?: Quat): Quat {
@@ -294,25 +280,26 @@ export class Quat {
         return r;
     }
 
-    /** Convert this quaternion to Euler angles (radians). Returns Vec3(pitch, yaw, roll). */
+    /** Convert this quaternion to Euler angles in degrees. Returns Vec3(pitch, yaw, roll). */
     toEuler(out?: Vec3): Vec3 {
         const r = out ?? new Vec3();
+        const RAD2DEG = 180 / Math.PI;
         const x = this.data[0], y = this.data[1], z = this.data[2], w = this.data[3];
 
         const sinr_cosp = 2 * (w * x + y * z);
         const cosr_cosp = 1 - 2 * (x * x + y * y);
-        r.data[0] = Math.atan2(sinr_cosp, cosr_cosp);
+        r.data[0] = Math.atan2(sinr_cosp, cosr_cosp) * RAD2DEG;
 
         const sinp = 2 * (w * y - z * x);
         if (Math.abs(sinp) >= 1) {
-            r.data[1] = Math.sign(sinp) * Math.PI / 2;
+            r.data[1] = Math.sign(sinp) * 90;
         } else {
-            r.data[1] = Math.asin(sinp);
+            r.data[1] = Math.asin(sinp) * RAD2DEG;
         }
 
         const siny_cosp = 2 * (w * z + x * y);
         const cosy_cosp = 1 - 2 * (y * y + z * z);
-        r.data[2] = Math.atan2(siny_cosp, cosy_cosp);
+        r.data[2] = Math.atan2(siny_cosp, cosy_cosp) * RAD2DEG;
 
         return r;
     }
