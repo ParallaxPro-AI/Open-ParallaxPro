@@ -32,11 +32,13 @@ export async function runFixer(
     description: string,
     projectData: any,
     activeSceneKey: string,
+    sendStatus?: (msg: string) => void,
 ): Promise<FixerResult> {
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
 
     try {
         // 1. Create sandbox
+        sendStatus?.('Setting up sandbox...');
         createSandbox(sandboxDir, projectData);
 
         // 2. Write task file
@@ -44,9 +46,11 @@ export async function runFixer(
         fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), `# Bug Report\n\n${description}\n\n# Current Project State\n\n${projectSummary}`);
 
         // 3. Spawn CLI
-        const cliOutput = await spawnCLI(sandboxDir, description);
+        sendStatus?.('Fixer agent is analyzing and fixing...');
+        const cliOutput = await spawnCLI(sandboxDir, description, sendStatus);
 
         // 4. Read changes
+        sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectData);
 
         if (changes.filesChanged.length === 0) {
@@ -187,7 +191,7 @@ function copyDirRecursive(src: string, dest: string): void {
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
-function spawnCLI(sandboxDir: string, description: string): Promise<string> {
+function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: string) => void): Promise<string> {
     return new Promise((resolve, reject) => {
         const cli = config.fixer.cli;
         const timeout = config.fixer.timeout;
@@ -198,19 +202,13 @@ function spawnCLI(sandboxDir: string, description: string): Promise<string> {
         if (cli === 'claude') {
             args = [
                 '-p', prompt,
-                '--output-format', 'text',
+                '--output-format', 'stream-json',
                 '--model', 'sonnet',
                 '--dangerously-skip-permissions',
                 '--max-turns', '30',
             ];
-        } else if (cli === 'codex') {
-            args = [
-                '--prompt', prompt,
-                '--auto-edit',
-            ];
         } else {
-            // Generic: pass prompt as argument
-            args = [prompt];
+            throw new Error(`Fixer CLI "${cli}" is not supported yet. Currently only "claude" is supported. Set FIXER_CLI=claude in .env`);
         }
 
         const proc = spawn(cli, args, {
@@ -220,18 +218,53 @@ function spawnCLI(sandboxDir: string, description: string): Promise<string> {
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });
 
-        let stdout = '';
+        let resultText = '';
         let stderr = '';
+        let buffer = '';
 
-        proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+        proc.stdout.on('data', (chunk: Buffer) => {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                try {
+                    const event = JSON.parse(line);
+                    if (event.type === 'assistant') {
+                        const content = event.message?.content;
+                        if (Array.isArray(content)) {
+                            for (const block of content) {
+                                if (block.type === 'tool_use') {
+                                    const name = block.name || '';
+                                    if (name === 'Read') sendStatus?.('Analyzing game code...');
+                                    else if (name === 'Edit') sendStatus?.('Applying fix...');
+                                    else if (name === 'Write') sendStatus?.('Creating new file...');
+                                    else if (name === 'Bash') sendStatus?.('Running validation...');
+                                    else if (name === 'Grep' || name === 'Glob') sendStatus?.('Searching for relevant code...');
+                                    else sendStatus?.('Working...');
+                                }
+                            }
+                        }
+                    }
+                    if (event.type === 'result') {
+                        resultText = event.result || '';
+                    }
+                } catch {}
+            }
+        });
+
         proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
 
         proc.on('close', (code) => {
+            // Parse any remaining buffer
+            if (buffer.trim()) {
+                try {
+                    const event = JSON.parse(buffer);
+                    if (event.type === 'result') resultText = event.result || '';
+                } catch {}
+            }
             if (code === 0 || code === null) {
-                // Extract summary from output — last meaningful paragraph
-                const lines = stdout.trim().split('\n').filter(l => l.trim());
-                const summary = lines.slice(-3).join('\n') || 'Changes applied.';
-                resolve(summary);
+                resolve(resultText || 'Changes applied.');
             } else {
                 console.error(`[CLIFixer] ${cli} exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
                 reject(new Error(`Fixer CLI exited with code ${code}`));

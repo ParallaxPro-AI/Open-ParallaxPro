@@ -41,11 +41,17 @@ This builds the full game (entities, scripts, UI) and loads it in the editor.
 Use this when the user asks to "create a game", "make chess", "build a racing game", etc.
 
 ### FIX_GAME
-When the user reports a bug or issue with their game, spawn a fixer agent:
+Spawn a smart fixer agent that can read, analyze, and edit project scripts/scenes/UI:
 <<<FIX_GAME description="the enemies don't move when they should chase the player">>><<<END>>>
-The fixer agent will analyze the project files, find the bug, and fix it automatically.
+<<<FIX_GAME description="add a timer UI that counts down from 60 seconds">>><<<END>>>
 
-Use this when the user says things like "enemies don't move", "camera is broken", "I can't shoot", "the HUD doesn't show", etc.
+Use FIX_GAME for:
+- Bug fixes: "enemies don't move", "camera is broken", "I can't shoot"
+- Complex features: "add a HUD", "add a timer", "add a scoreboard", "make enemies spawn in waves"
+- Script changes: "make the player faster", "add double jump", "change weapon damage"
+- Anything that requires editing scripts, creating UI files, or modifying game logic
+
+Use EDIT (via GET_EDIT_API) only for simple scene changes: adding/moving/deleting entities, changing colors/materials, adjusting positions. If the request involves scripts, UI, or game logic, use FIX_GAME instead.
 
 ## Rules
 1. ALL text in { }. ALL commands in <<<...>>>. Never mix them.
@@ -56,7 +62,7 @@ Use this when the user says things like "enemies don't move", "camera is broken"
 6. When the user asks for a real-world object (car, chair, tree, house, etc.), ALWAYS use LIST_ASSETS to find a 3D model first. Do NOT approximate with primitive shapes like cubes. Only use primitives (cube, sphere, etc.) when the user explicitly asks for them.
 7. When the user asks to create/build/make a game, use BUILD_NEW_GAME.
 8. When the user's ENTIRE message is just a game name or genre (e.g. "chess", "fps shooter", "gta", "csgo", "racing game"), treat it as a game request and IMMEDIATELY use BUILD_NEW_GAME. Do NOT ask clarifying questions.
-9. When the user reports a bug, problem, or something not working in their game, use FIX_GAME with a clear description of the issue. Include as much detail as possible from what the user said.
+9. When the user reports a bug, requests a complex feature, or asks for anything involving scripts/UI/game logic, use FIX_GAME. Include the user's full request in the description. Only use EDIT for simple scene manipulation (add cube, move entity, change color).
 `;
 
 export const EDIT_API_DOCS = `

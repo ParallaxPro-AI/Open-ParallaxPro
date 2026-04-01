@@ -187,11 +187,12 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 break;
             }
 
-            ctx.sendToFrontend('chat_status', { status: 'Fixing game...' });
+            const sendStatus = (msg: string) => ctx.sendToFrontend('fix_progress', { text: msg });
+            sendStatus('Fixing game...');
 
             try {
                 const pd = ctx.getProjectData();
-                const fixResult = await runFixer(ctx.projectId, description, pd, ctx.activeSceneKey);
+                const fixResult = await runFixer(ctx.projectId, description, pd, ctx.activeSceneKey, sendStatus);
 
                 if (fixResult.success && fixResult.filesChanged.length > 0) {
                     ctx.saveProjectData(pd);
