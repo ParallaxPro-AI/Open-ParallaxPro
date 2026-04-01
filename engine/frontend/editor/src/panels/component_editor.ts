@@ -192,12 +192,18 @@ export class ComponentEditor {
                 case 'euler': {
                     const val = currentValue ?? { x: 0, y: 0, z: 0 };
                     let euler: { x: number; y: number; z: number };
+                    const D2R = Math.PI / 180;
                     if (val && typeof val.toEuler === 'function') {
+                        // Quat instance — toEuler returns degrees, EulerField expects radians
                         const e = val.toEuler();
-                        euler = { x: e.x ?? e.data?.[0] ?? 0, y: e.y ?? e.data?.[1] ?? 0, z: e.z ?? e.data?.[2] ?? 0 };
+                        euler = { x: (e.x ?? e.data?.[0] ?? 0) * D2R, y: (e.y ?? e.data?.[1] ?? 0) * D2R, z: (e.z ?? e.data?.[2] ?? 0) * D2R };
                     } else if (val.w !== undefined) {
-                        euler = { x: 0, y: 0, z: 0 };
+                        // Plain quaternion object — convert to euler radians
+                        const q = new Quat(val.x, val.y, val.z, val.w);
+                        const e = q.toEuler();
+                        euler = { x: e.x * D2R, y: e.y * D2R, z: e.z * D2R };
                     } else {
+                        // Assume radians already
                         euler = typeof val.toJSON === 'function' ? val.toJSON() : val;
                     }
                     const field = new EulerField({
