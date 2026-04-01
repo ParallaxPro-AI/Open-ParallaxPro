@@ -1,0 +1,160 @@
+.editor-root {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.editor-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.editor-column {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.editor-column.left {
+    width: 260px;
+    min-width: 180px;
+    max-width: 500px;
+    border-right: 1px solid var(--border);
+    background: var(--bg-panel);
+}
+
+.editor-column.center {
+    flex: 1;
+    min-width: 300px;
+}
+
+.editor-column.right {
+    width: 320px;
+    min-width: 200px;
+    max-width: 600px;
+    border-left: 1px solid var(--border);
+    background: var(--bg-panel);
+}
+
+.column-resizer {
+    width: 4px;
+    cursor: col-resize;
+    background: transparent;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+.column-resizer:hover,
+.column-resizer.active {
+    background: var(--accent);
+}
+
+.row-resizer {
+    height: 4px;
+    cursor: row-resize;
+    background: transparent;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+.row-resizer:hover,
+.row-resizer.active {
+    background: var(--accent);
+}
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-panel);
+    min-height: 0;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    height: var(--panel-header-height);
+    min-height: var(--panel-header-height);
+    padding: 0 var(--spacing-md);
+    background: var(--bg-dark);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    gap: var(--spacing-sm);
+}
+
+.panel-header .panel-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.panel-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+}
+
+/* ── Connection status banner ── */
+
+.connection-banner {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0 12px;
+    flex-shrink: 0;
+    z-index: 99;
+}
+
+.connection-banner.warning {
+    background: #f39c12;
+    color: #1a1a2e;
+}
+
+.connection-banner.error {
+    background: #e74c3c;
+    color: #fff;
+}
+
+.connection-banner.success {
+    background: #27ae60;
+    color: #fff;
+}
+
+/* ── Disconnect overlay (blocks editing) ── */
+
+.disconnect-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: not-allowed;
+}
+
+.disconnect-overlay-msg {
+    background: var(--bg-dark, #1a1a2e);
+    border: 1px solid #e74c3c;
+    color: #e74c3c;
+    padding: 16px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}

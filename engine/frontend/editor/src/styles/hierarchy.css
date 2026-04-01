@@ -1,0 +1,234 @@
+.hierarchy-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.hierarchy-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 2px var(--spacing-sm);
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+}
+
+.hierarchy-tree {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--spacing-xs) 0;
+}
+
+.tree-node {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding-right: var(--spacing-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    transition: background var(--transition-fast);
+    position: relative;
+}
+
+.tree-node:hover {
+    background: var(--bg-hover);
+}
+
+.tree-node.selected {
+    background: var(--bg-selected);
+}
+
+.tree-node.selected:hover {
+    background: rgba(134, 72, 230, 0.15);
+}
+
+.tree-node.drag-over-above::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+}
+
+.tree-node.drag-over-below::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+}
+
+.tree-node.drag-over-inside {
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+}
+
+.tree-node-indent {
+    display: inline-block;
+    width: 16px;
+    flex-shrink: 0;
+}
+
+.tree-node-expand {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 8px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    border-radius: 2px;
+    transition: background var(--transition-fast);
+}
+
+.tree-node-expand:hover {
+    background: var(--bg-active);
+}
+
+.tree-node-expand.collapsed {
+    transform: rotate(-90deg);
+}
+
+.tree-node-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    margin-right: 4px;
+}
+
+.tree-node-icon svg,
+.tree-node-action svg {
+    stroke: currentColor;
+}
+
+.tree-node-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-sm);
+}
+
+.tree-node-name.inactive {
+    color: var(--text-disabled);
+    font-style: italic;
+}
+
+.tree-node-actions {
+    display: none;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.tree-node:hover .tree-node-actions {
+    display: flex;
+}
+
+.tree-node-action {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.tree-node-action:hover {
+    background: var(--bg-active);
+    color: var(--text-primary);
+}
+
+.tree-node-action.hidden-entity {
+    color: var(--text-disabled);
+}
+
+.hierarchy-add-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px var(--shadow);
+    min-width: 180px;
+    padding: var(--spacing-sm) 0;
+}
+
+.hierarchy-add-item {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    gap: var(--spacing-md);
+    transition: background var(--transition-fast);
+}
+
+.hierarchy-add-item:hover {
+    background: var(--bg-hover);
+}
+
+.hierarchy-add-separator {
+    height: 1px;
+    background: var(--border);
+    margin: var(--spacing-sm) 0;
+}
+
+.hierarchy-tree.drag-over-asset {
+    outline: 2px dashed var(--accent);
+    outline-offset: -2px;
+    background: rgba(134, 72, 230, 0.05);
+}
+
+.scene-node {
+    background: var(--bg-panel);
+    font-weight: 600;
+}
+
+.scene-node:hover {
+    background: var(--bg-hover);
+}
+
+.scene-node.active-scene {
+    color: var(--text-primary);
+}
+
+.scene-node:not(.active-scene) {
+    color: var(--text-secondary);
+}
+
+.scene-node .tree-node-icon svg {
+    stroke: var(--accent);
+}
+
+.scene-name {
+    font-weight: 600;
+}
+
+.rename-input {
+    background: var(--bg-input);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    padding: 1px 4px;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    width: 100%;
+    outline: none;
+}
