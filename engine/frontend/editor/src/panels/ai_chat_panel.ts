@@ -303,6 +303,18 @@ export class AiChatPanel {
 
     // ── Sending messages ────────────────────────────────────────────
 
+    sendInitialMessage(text: string): void {
+        const trySend = () => {
+            if (this.ctx.backend.isConnected) {
+                this.textarea.value = text;
+                this.sendMessage();
+            } else {
+                setTimeout(trySend, 100);
+            }
+        };
+        trySend();
+    }
+
     private sendMessage(): void {
         const text = this.textarea.value.trim();
         if (!text || this.state === State.STREAMING) return;

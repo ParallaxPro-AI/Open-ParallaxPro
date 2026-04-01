@@ -1,0 +1,370 @@
+{
+  "definitions": {
+    "board": {
+      "mesh": {
+        "type": "plane",
+        "color": [
+          0.3,
+          0.25,
+          0.2,
+          1
+        ],
+        "scale": [
+          8,
+          1,
+          8
+        ]
+      },
+      "tags": [
+        "board",
+        "ground"
+      ]
+    },
+    "camera": {
+      "camera": {
+        "fov": 50
+      },
+      "tags": [
+        "camera"
+      ],
+      "transform": {
+        "position": [
+          3.5,
+          10,
+          3.5
+        ]
+      },
+      "behaviors": [
+        {
+          "name": "board_camera",
+          "script": "camera/camera_board.ts",
+          "params": {
+            "height": 10,
+            "tilt": 65,
+            "yaw": 180
+          }
+        }
+      ]
+    },
+    "white_pawn": {
+      "mesh": {
+        "type": "sphere",
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          0.6,
+          0.8,
+          0.6
+        ]
+      },
+      "tags": [
+        "piece",
+        "white"
+      ]
+    },
+    "white_rook": {
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          0.7,
+          1,
+          0.7
+        ]
+      },
+      "tags": [
+        "piece",
+        "white"
+      ]
+    },
+    "white_knight": {
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          0.7,
+          0.9,
+          0.5
+        ]
+      },
+      "tags": [
+        "piece",
+        "white"
+      ]
+    },
+    "white_bishop": {
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          0.5,
+          1.2,
+          0.5
+        ]
+      },
+      "tags": [
+        "piece",
+        "white"
+      ]
+    },
+    "white_queen": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          0.7,
+          1.3,
+          0.7
+        ]
+      },
+      "tags": [
+        "piece",
+        "white"
+      ]
+    },
+    "white_king": {
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          0.7,
+          1.5,
+          0.7
+        ]
+      },
+      "tags": [
+        "piece",
+        "white"
+      ]
+    },
+    "black_pawn": {
+      "mesh": {
+        "type": "sphere",
+        "color": [
+          0.15,
+          0.12,
+          0.1,
+          1
+        ],
+        "scale": [
+          0.6,
+          0.8,
+          0.6
+        ]
+      },
+      "tags": [
+        "piece",
+        "black"
+      ]
+    },
+    "black_rook": {
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.15,
+          0.12,
+          0.1,
+          1
+        ],
+        "scale": [
+          0.7,
+          1,
+          0.7
+        ]
+      },
+      "tags": [
+        "piece",
+        "black"
+      ]
+    },
+    "black_knight": {
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.15,
+          0.12,
+          0.1,
+          1
+        ],
+        "scale": [
+          0.7,
+          0.9,
+          0.5
+        ]
+      },
+      "tags": [
+        "piece",
+        "black"
+      ]
+    },
+    "black_bishop": {
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.15,
+          0.12,
+          0.1,
+          1
+        ],
+        "scale": [
+          0.5,
+          1.2,
+          0.5
+        ]
+      },
+      "tags": [
+        "piece",
+        "black"
+      ]
+    },
+    "black_queen": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [
+          0.15,
+          0.12,
+          0.1,
+          1
+        ],
+        "scale": [
+          0.7,
+          1.3,
+          0.7
+        ]
+      },
+      "tags": [
+        "piece",
+        "black"
+      ]
+    },
+    "black_king": {
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.15,
+          0.12,
+          0.1,
+          1
+        ],
+        "scale": [
+          0.7,
+          1.5,
+          0.7
+        ]
+      },
+      "tags": [
+        "piece",
+        "black"
+      ]
+    },
+    "board_frame": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.25,
+          0.18,
+          0.12,
+          1
+        ],
+        "scale": [
+          9,
+          0.08,
+          9
+        ]
+      },
+      "tags": [
+        "frame"
+      ]
+    },
+    "board_square_light": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.85,
+          0.78,
+          0.65,
+          1
+        ],
+        "scale": [
+          0.95,
+          0.05,
+          0.95
+        ]
+      },
+      "tags": [
+        "square"
+      ]
+    },
+    "board_square_dark": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.55,
+          0.38,
+          0.25,
+          1
+        ],
+        "scale": [
+          0.95,
+          0.05,
+          0.95
+        ]
+      },
+      "tags": [
+        "square"
+      ]
+    },
+    "table_surface": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.3,
+          0.22,
+          0.15,
+          1
+        ],
+        "scale": [
+          12,
+          0.12,
+          12
+        ]
+      },
+      "tags": [
+        "decoration"
+      ]
+    }
+  }
+}

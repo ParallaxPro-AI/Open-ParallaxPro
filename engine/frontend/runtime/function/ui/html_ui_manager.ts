@@ -111,9 +111,10 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
         container.addEventListener('click', onClick, true);
         container.addEventListener('mousemove', onMouseMove);
 
+        const panelName = path.replace('ui/', '').replace('.html', '');
         const onMessage = (e: MessageEvent) => {
             if (e.source === iframe.contentWindow && e.data?.type === 'game_command') {
-                this.onUICommand?.(e.data);
+                this.onUICommand?.({ ...e.data, panel: panelName });
             }
         };
         window.addEventListener('message', onMessage);
@@ -129,9 +130,9 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
     }
 
     /**
-     * Send a partial state update to all UI overlays.
+     * Send a partial state update to all UI overlays (does NOT toggle visibility).
      */
-    sendState(state: any): void {
+    sendStatePartial(state: any): void {
         for (const iframe of this.overlays.values()) {
             try {
                 iframe.contentWindow?.dispatchEvent(new CustomEvent('gamestate', { detail: state }));
@@ -141,14 +142,36 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
     }
 
     /**
-     * Set visibility and pointer-events for overlays based on state flags.
-     * For an overlay loaded at path "foo/bar.html", checks `state.barVisible`.
+     * Send full state update: dispatch to iframes, toggle panel visibility,
+     * render virtual cursor, handle hover/clicks.
      */
-    applyVisibility(state: any): void {
+    sendState(state: any): void {
         for (const [path, iframe] of this.overlays.entries()) {
-            const name = path.replace(/^.*\//, '').replace('.html', '');
-            const flag = name + 'Visible';
+            try {
+                iframe.contentWindow?.dispatchEvent(new CustomEvent('gamestate', { detail: state }));
+                iframe.contentWindow?.postMessage({ type: 'gameState', state }, '*');
+            } catch { /* iframe may be unloaded */ }
 
+            const name = path.replace('ui/', '').replace('.html', '');
+
+            // HUD components (hud/*.html) — shown via hudVisible OR individual flag
+            if (name.startsWith('hud/')) {
+                const specificFlag = name.replace(/[^a-zA-Z0-9_]/g, '') + 'Visible';
+                const showHud = state.hudVisible === true || state[specificFlag] === true;
+                iframe.style.display = showHud ? '' : 'none';
+                iframe.style.pointerEvents = 'none';
+                continue;
+            }
+
+            // game_hud is special — controlled by hudVisible
+            if (name === 'game_hud') {
+                iframe.style.display = state.hudVisible === true ? '' : 'none';
+                iframe.style.pointerEvents = 'none';
+                continue;
+            }
+
+            // Direct match: filename -> state flag
+            const flag = name + 'Visible';
             if (flag in state) {
                 const show = !!state[flag];
                 iframe.style.display = show ? '' : 'none';
@@ -157,18 +180,18 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
                 }
             }
         }
-    }
 
-    /**
-     * Update the virtual cursor position and handle hover/click.
-     */
-    updateCursor(cursorState: { visible: boolean; x: number; y: number } | null, click?: { x: number; y: number }): void {
-        const container = this.container || document.querySelector('.viewport-canvas-container') as HTMLElement | null;
-        if (!container) return;
+        // Virtual cursor
+        if (!this.container) {
+            const found = document.querySelector('.viewport-canvas-container') as HTMLElement | null;
+            if (found) this.container = found;
+        }
+        const container = this.container;
+        const wantCursor = !!(state._cursor && state._cursor.visible && container);
 
-        if (cursorState?.visible) {
-            this.cursorRelX = cursorState.x;
-            this.cursorRelY = cursorState.y;
+        if (wantCursor) {
+            this.cursorRelX = state._cursor.x;
+            this.cursorRelY = state._cursor.y;
 
             let el = document.getElementById('__virtual_cursor__');
             if (!el) {
@@ -182,10 +205,10 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
                 const dot = document.createElement('div');
                 dot.style.cssText = 'position:absolute;top:50%;left:50%;width:4px;height:4px;background:white;border-radius:50%;transform:translate(-50%,-50%);';
                 el.appendChild(dot);
-                container.appendChild(el);
+                container!.appendChild(el);
             }
-            el.style.left = cursorState.x + 'px';
-            el.style.top = cursorState.y + 'px';
+            el.style.left = this.cursorRelX + 'px';
+            el.style.top = this.cursorRelY + 'px';
             el.style.display = 'block';
 
             // Virtual hover
@@ -204,10 +227,14 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
             }
         }
 
-        container.style.cursor = cursorState?.visible ? 'default' : 'none';
+        if (container) {
+            container.style.cursor = wantCursor ? 'default' : 'none';
+        }
 
-        if (click) {
-            this.virtualClick(click.x, click.y);
+        // Handle virtual cursor clicks
+        if (state._cursorClick && this.container) {
+            this.virtualClick(state._cursorClick.x, state._cursorClick.y);
+            delete state._cursorClick;
         }
     }
 

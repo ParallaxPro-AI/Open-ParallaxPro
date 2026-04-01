@@ -441,8 +441,8 @@ export class EditorContext extends EventBus {
         }
 
         if (htmlUIManager) {
-            htmlUIManager._onUICommand = (data: any) => {
-                scriptScene.events?.ui?.emit('uiCommand', data);
+            htmlUIManager.onUICommand = (data: any) => {
+                scriptScene.events?.ui?.emit('ui_command', data);
                 const mpHandler = (htmlUIManager as any)._mpCommandHandler;
                 if (mpHandler && data?.action?.startsWith('mp')) {
                     mpHandler(data);

@@ -1,0 +1,212 @@
+{
+  "id": "chess_flow",
+  "name": "Chess Game Flow",
+  "start": "boot",
+  "states": {
+    "boot": {
+      "description": "Initialize all systems",
+      "active_systems": [
+        "chess_engine",
+        "piece_interaction"
+      ],
+      "active_behaviors": [
+        "board_camera"
+      ],
+      "duration": -1,
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "on_exit": [],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "active_systems": [],
+      "active_behaviors": [],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay"
+        }
+      ]
+    },
+    "gameplay": {
+      "description": "Chess match",
+      "start": "white_turn",
+      "on_enter": [
+        "emit:game.game_ready"
+      ],
+      "on_exit": [],
+      "substates": {
+        "white_turn": {
+          "description": "Player's turn (white pieces)",
+          "active_systems": [
+            "chess_engine",
+            "piece_interaction"
+          ],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "on_enter": [
+            "show_ui:hud",
+            "show_cursor"
+          ],
+          "on_exit": [
+            "hide_ui:hud"
+          ],
+          "transitions": [
+            {
+              "when": "game_event:move_made",
+              "goto": "black_turn"
+            },
+            {
+              "when": "game_event:checkmate",
+              "goto": "game_over_win"
+            },
+            {
+              "when": "game_event:stalemate",
+              "goto": "game_over_draw"
+            }
+          ]
+        },
+        "black_turn": {
+          "description": "AI's turn (black pieces)",
+          "active_systems": [
+            "chess_engine"
+          ],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "duration": -1,
+          "on_enter": [
+            "set:ai_timer=0"
+          ],
+          "on_update": [
+            "increment:ai_timer"
+          ],
+          "on_exit": [],
+          "transitions": [
+            {
+              "when": "ai_timer>=60",
+              "goto": "ai_move"
+            }
+          ]
+        },
+        "ai_move": {
+          "description": "AI makes its move",
+          "active_systems": [
+            "chess_engine"
+          ],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "duration": -1,
+          "on_enter": [
+            "emit:game.ai_turn",
+            "set:ai_done_timer=0"
+          ],
+          "on_update": [
+            "increment:ai_done_timer"
+          ],
+          "on_exit": [],
+          "transitions": [
+            {
+              "when": "ai_done_timer>=30",
+              "goto": "white_turn"
+            },
+            {
+              "when": "game_event:checkmate",
+              "goto": "game_over_lose"
+            },
+            {
+              "when": "game_event:stalemate",
+              "goto": "game_over_draw"
+            }
+          ]
+        },
+        "game_over_win": {
+          "description": "Player wins",
+          "active_systems": [],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor"
+          ],
+          "on_exit": [
+            "hide_ui:game_over"
+          ],
+          "transitions": [
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "white_turn"
+            }
+          ]
+        },
+        "game_over_lose": {
+          "description": "AI wins",
+          "active_systems": [],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor"
+          ],
+          "on_exit": [
+            "hide_ui:game_over"
+          ],
+          "transitions": [
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "white_turn"
+            }
+          ]
+        },
+        "game_over_draw": {
+          "description": "Stalemate",
+          "active_systems": [],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor"
+          ],
+          "on_exit": [
+            "hide_ui:game_over"
+          ],
+          "transitions": [
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "white_turn"
+            }
+          ]
+        }
+      },
+      "transitions": []
+    }
+  },
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "Chess"
+    }
+  }
+}

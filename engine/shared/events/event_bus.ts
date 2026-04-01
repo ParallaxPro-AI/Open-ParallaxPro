@@ -1,26 +1,36 @@
 export type EventCallback<T = any> = (data: T) => void;
 
 /**
- * Generic typed event bus. Each bus handles one domain (e.g. combat, audio).
- * The type parameter maps event names to payload types for compile-time safety.
+ * Generic typed event bus with optional strict mode.
+ * When validEvents is set, emitting or listening to an unknown event throws an error.
  */
 export class EventBus<TEventMap extends Record<string, any> = Record<string, any>> {
   readonly channel: string;
   private listeners = new Map<string, Array<EventCallback>>();
   private entityListeners = new Map<number, Array<{ event: string; callback: EventCallback }>>();
   private emitDepth = 0;
+  private validEvents: Set<string> | null = null;
 
-  /** Optional hook called on every emit (useful for logging or testing). */
   onEmit: ((event: string, data: any) => void) | null = null;
-
-  /** Optional hook returning the current executing entity ID for auto-cleanup tracking. */
   getCurrentEntityId: (() => number) | null = null;
 
   constructor(channel: string = '') {
     this.channel = channel;
   }
 
+  /** Set valid event names. Once set, emitting or listening to unknown events throws. */
+  setValidEvents(events: Set<string>): void {
+    this.validEvents = events;
+  }
+
+  private checkEvent(event: string): void {
+    if (this.validEvents && !this.validEvents.has(event)) {
+      throw new Error(`[${this.channel}] Unknown event "${event}". Valid events: ${[...this.validEvents].slice(0, 10).join(', ')}...`);
+    }
+  }
+
   on<K extends keyof TEventMap & string>(event: K, cb: EventCallback<TEventMap[K]>): void {
+    this.checkEvent(event);
     if (!this.listeners.has(event)) this.listeners.set(event, []);
     this.listeners.get(event)!.push(cb as EventCallback);
 
@@ -40,6 +50,7 @@ export class EventBus<TEventMap extends Record<string, any> = Record<string, any
   }
 
   emit<K extends keyof TEventMap & string>(event: K, data?: TEventMap[K]): void {
+    this.checkEvent(event);
     if (this.emitDepth > 20) {
       console.warn(`[${this.channel}] Event recursion depth exceeded for '${event}'`);
       return;
@@ -59,7 +70,6 @@ export class EventBus<TEventMap extends Record<string, any> = Record<string, any
     this.emitDepth--;
   }
 
-  /** Remove all listeners registered by a specific entity. */
   cleanupEntity(entityId: number): void {
     const tracked = this.entityListeners.get(entityId);
     if (!tracked) return;
@@ -73,7 +83,6 @@ export class EventBus<TEventMap extends Record<string, any> = Record<string, any
     this.entityListeners.delete(entityId);
   }
 
-  /** Remove all listeners. */
   clear(): void {
     this.listeners.clear();
     this.entityListeners.clear();

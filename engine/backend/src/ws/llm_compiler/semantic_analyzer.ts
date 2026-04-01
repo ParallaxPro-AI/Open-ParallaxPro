@@ -16,6 +16,18 @@ export function analyze(ast: ASTNode[]): CompileError[] {
     for (const node of ast) {
         if (node.kind === 'edit') {
             analyzeEditBlock(node as EditNode, errors);
+        } else if (node.kind === 'tool_call' && node.name === 'BUILD_NEW_GAME') {
+            const validArgs = new Set(['template']);
+            for (const key of Object.keys(node.args)) {
+                if (!validArgs.has(key)) {
+                    errors.push({
+                        phase: 'semantic',
+                        message: `BUILD_NEW_GAME: unknown argument "${key}"`,
+                        hint: 'Without args: lists templates. With template="name": builds the game.',
+                    });
+                }
+            }
+            // No args = list templates (valid). With template = build (valid). Both are fine.
         } else if (node.kind === 'tool_call' && node.name === 'LIST_ASSETS') {
             listAssetsCount++;
             if (listAssetsCount > 1) {

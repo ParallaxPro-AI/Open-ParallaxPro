@@ -74,18 +74,18 @@ class App {
         this.clearView();
 
         const view = new ProjectListView();
-        view.onOpen((projectId: string) => {
+        view.onOpen((projectId: string, initialPrompt?: string) => {
             const url = new URL(window.location.href);
             url.searchParams.set('project', projectId);
             window.history.pushState({}, '', url.toString());
-            this.showEditor(projectId);
+            this.showEditor(projectId, initialPrompt);
         });
 
         this.appRoot.appendChild(view.el);
         this.currentView = { el: view.el };
     }
 
-    private async showEditor(projectId: string): Promise<void> {
+    private async showEditor(projectId: string, initialPrompt?: string): Promise<void> {
         this.clearView();
 
         const view = new EditorView();
@@ -93,6 +93,9 @@ class App {
 
         try {
             await view.initialize(projectId);
+            if (initialPrompt) {
+                view.sendInitialChatMessage(initialPrompt);
+            }
         } catch (e) {
             console.error('Failed to initialize editor:', e);
         }

@@ -52,6 +52,26 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(config.port, async () => {
     console.log(`[Server] Running on port ${config.port} (${config.nodeEnv})`);
 
+    // Validate all game templates at startup
+    import('./ws/services/pipeline/template_loader.js').then(({ loadTemplateCatalog, loadTemplate }) => {
+        import('./ws/services/pipeline/level_assembler.js').then(({ assembleGame }) => {
+            const catalog = loadTemplateCatalog();
+            let passed = 0, failed = 0;
+            for (const t of catalog) {
+                const template = loadTemplate(t.id);
+                if (!template?._folderPath) { failed++; continue; }
+                try {
+                    assembleGame(template._folderPath);
+                    passed++;
+                } catch (e: any) {
+                    console.error(`[Templates] FAILED: ${t.id} — ${e.message}`);
+                    failed++;
+                }
+            }
+            console.log(`[Templates] ${passed}/${catalog.length} templates validated${failed > 0 ? `, ${failed} failed` : ''}`);
+        });
+    });
+
     // Asset generators (non-blocking, run in background)
     import('./generators/thumbnail_generator.js').then(({ generateThumbnails }) => {
         generateThumbnails(config.assetsDir).catch(e => console.error('[Thumbnails] Failed:', e));

@@ -295,7 +295,7 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             send(client, 'chat_response_start', {});
             const abortController = new AbortController();
             client.abortController = abortController;
-            runLLMWithRetry(client, abortController, 0, []);
+            runLLMWithRetry(client, abortController, 0, [], []);
             break;
         }
 
@@ -388,7 +388,7 @@ function handleChatMessage(client: EditorClient, data: any): void {
     const abortController = new AbortController();
     client.abortController = abortController;
 
-    runLLMWithRetry(client, abortController, 0, []);
+    runLLMWithRetry(client, abortController, 0, [], []);
 }
 
 function buildMessages(client: EditorClient, retryContext: LLMMessage[]): LLMMessage[] {
@@ -447,6 +447,7 @@ function runLLMWithRetry(
     abortController: AbortController,
     attempt: number,
     retryContext: LLMMessage[],
+    accumulatedFileChanges: any[],
 ): void {
     const messages = buildMessages(client, retryContext);
 
@@ -478,7 +479,7 @@ function runLLMWithRetry(
                     ...retryContext,
                     { role: 'assistant', content: fullText },
                     { role: 'user', content: `[SYSTEM] Compile errors. Fix and try again:\n${errorMsg}` },
-                ]);
+                ], accumulatedFileChanges);
                 return;
             }
 
@@ -489,6 +490,8 @@ function runLLMWithRetry(
 
             const execResult = execute(compiled.ast, buildExecContext(client));
 
+            const allFileChanges = [...accumulatedFileChanges, ...execResult.fileChanges];
+
             // Tool call results — feed back to AI for a follow-up response
             if (execResult.toolResults && attempt < MAX_RETRIES) {
                 runLLMWithRetry(client, abortController, attempt + 1, [
@@ -498,8 +501,8 @@ function runLLMWithRetry(
                         compiled.ast.some(n => n.kind === 'edit')
                             ? '\n\nIMPORTANT: Your <<<EDIT>>> block was NOT executed because you included a tool call in the same response.'
                             : ''
-                    }\n\nNow write your <<<EDIT>>> block using the results above. Do NOT call GET_EDIT_API or LIST_ASSETS again.` },
-                ]);
+                    }\n\nNow continue with the user's request based on the results above.` },
+                ], allFileChanges);
                 return;
             }
 
@@ -508,7 +511,7 @@ function runLLMWithRetry(
                     ...retryContext,
                     { role: 'assistant', content: fullText },
                     { role: 'user', content: `[SYSTEM] Runtime errors. Fix and try again:\n${execResult.errors.join('\n')}` },
-                ]);
+                ], allFileChanges);
                 return;
             }
 
@@ -518,7 +521,7 @@ function runLLMWithRetry(
             }
 
             const displayContent = execResult.userMessages.join('\n') || '*Done.*';
-            finishChat(client, displayContent, execResult.fileChanges);
+            finishChat(client, displayContent, allFileChanges);
         },
         onError: (error) => {
             client.abortController = null;

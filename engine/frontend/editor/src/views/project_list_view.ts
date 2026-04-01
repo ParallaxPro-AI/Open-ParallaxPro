@@ -14,7 +14,7 @@ export class ProjectListView {
     private searchInput: HTMLInputElement;
     private projects: any[] = [];
     private selectedIds: Set<string> = new Set();
-    private onOpenProject: ((projectId: string) => void) | null = null;
+    private onOpenProject: ((projectId: string, initialPrompt?: string) => void) | null = null;
     private searchQuery: string = '';
     private statusFilter: 'all' | 'published' | 'draft' = 'all';
     private currentPage: number = 1;
@@ -166,7 +166,7 @@ export class ProjectListView {
         this.loadProjects();
     }
 
-    onOpen(callback: (projectId: string) => void): void {
+    onOpen(callback: (projectId: string, initialPrompt?: string) => void): void {
         this.onOpenProject = callback;
     }
 
@@ -596,7 +596,7 @@ export class ProjectListView {
                 const pid = project.projectId ?? project.id;
                 this.projects.unshift({ id: pid, name: project.name ?? name, prompt, ...project });
                 this.render();
-                this.onOpenProject?.(pid);
+                this.onOpenProject?.(pid, prompt);
             } catch (e) {
                 console.error('Failed to create project:', e);
             }

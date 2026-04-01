@@ -1,0 +1,831 @@
+{
+  "worlds": [
+    {
+      "id": "chess_board",
+      "name": "Chess Board",
+      "lighting": {
+        "ambient": [
+          0.4,
+          0.4,
+          0.45
+        ],
+        "sun_direction": [
+          0.3,
+          -0.8,
+          0.3
+        ],
+        "sun_color": [
+          1,
+          0.98,
+          0.9
+        ]
+      },
+      "terrain": {
+        "size": [
+          20,
+          20
+        ],
+        "color": [
+          0.2,
+          0.18,
+          0.15,
+          1
+        ]
+      },
+      "placements": [
+        {
+          "ref": "camera",
+          "position": [
+            3.5,
+            10,
+            3.5
+          ]
+        },
+        {
+          "ref": "table_surface",
+          "position": [
+            3.5,
+            -0.05,
+            3.5
+          ]
+        },
+        {
+          "ref": "board_frame",
+          "position": [
+            3.5,
+            0.01,
+            3.5
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            0,
+            0.08,
+            0
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            1,
+            0.08,
+            0
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            2,
+            0.08,
+            0
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            3,
+            0.08,
+            0
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            4,
+            0.08,
+            0
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            5,
+            0.08,
+            0
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            6,
+            0.08,
+            0
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            7,
+            0.08,
+            0
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            0,
+            0.08,
+            1
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            1,
+            0.08,
+            1
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            2,
+            0.08,
+            1
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            3,
+            0.08,
+            1
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            4,
+            0.08,
+            1
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            5,
+            0.08,
+            1
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            6,
+            0.08,
+            1
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            7,
+            0.08,
+            1
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            0,
+            0.08,
+            2
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            1,
+            0.08,
+            2
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            2,
+            0.08,
+            2
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            3,
+            0.08,
+            2
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            4,
+            0.08,
+            2
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            5,
+            0.08,
+            2
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            6,
+            0.08,
+            2
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            7,
+            0.08,
+            2
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            0,
+            0.08,
+            3
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            1,
+            0.08,
+            3
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            2,
+            0.08,
+            3
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            3,
+            0.08,
+            3
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            4,
+            0.08,
+            3
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            5,
+            0.08,
+            3
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            6,
+            0.08,
+            3
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            7,
+            0.08,
+            3
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            0,
+            0.08,
+            4
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            1,
+            0.08,
+            4
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            2,
+            0.08,
+            4
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            3,
+            0.08,
+            4
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            4,
+            0.08,
+            4
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            5,
+            0.08,
+            4
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            6,
+            0.08,
+            4
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            7,
+            0.08,
+            4
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            0,
+            0.08,
+            5
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            1,
+            0.08,
+            5
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            2,
+            0.08,
+            5
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            3,
+            0.08,
+            5
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            4,
+            0.08,
+            5
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            5,
+            0.08,
+            5
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            6,
+            0.08,
+            5
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            7,
+            0.08,
+            5
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            0,
+            0.08,
+            6
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            1,
+            0.08,
+            6
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            2,
+            0.08,
+            6
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            3,
+            0.08,
+            6
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            4,
+            0.08,
+            6
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            5,
+            0.08,
+            6
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            6,
+            0.08,
+            6
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            7,
+            0.08,
+            6
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            0,
+            0.08,
+            7
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            1,
+            0.08,
+            7
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            2,
+            0.08,
+            7
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            3,
+            0.08,
+            7
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            4,
+            0.08,
+            7
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            5,
+            0.08,
+            7
+          ]
+        },
+        {
+          "ref": "board_square_dark",
+          "position": [
+            6,
+            0.08,
+            7
+          ]
+        },
+        {
+          "ref": "board_square_light",
+          "position": [
+            7,
+            0.08,
+            7
+          ]
+        },
+        {
+          "ref": "white_rook",
+          "position": [
+            0,
+            0.555,
+            0
+          ]
+        },
+        {
+          "ref": "white_knight",
+          "position": [
+            1,
+            0.505,
+            0
+          ]
+        },
+        {
+          "ref": "white_bishop",
+          "position": [
+            2,
+            0.605,
+            0
+          ]
+        },
+        {
+          "ref": "white_queen",
+          "position": [
+            3,
+            0.705,
+            0
+          ]
+        },
+        {
+          "ref": "white_king",
+          "position": [
+            4,
+            0.755,
+            0
+          ]
+        },
+        {
+          "ref": "white_bishop",
+          "position": [
+            5,
+            0.605,
+            0
+          ]
+        },
+        {
+          "ref": "white_knight",
+          "position": [
+            6,
+            0.505,
+            0
+          ]
+        },
+        {
+          "ref": "white_rook",
+          "position": [
+            7,
+            0.555,
+            0
+          ]
+        },
+        {
+          "ref": "white_pawn",
+          "position": [
+            0,
+            0.455,
+            1
+          ]
+        },
+        {
+          "ref": "white_pawn",
+          "position": [
+            1,
+            0.455,
+            1
+          ]
+        },
+        {
+          "ref": "white_pawn",
+          "position": [
+            2,
+            0.455,
+            1
+          ]
+        },
+        {
+          "ref": "white_pawn",
+          "position": [
+            3,
+            0.455,
+            1
+          ]
+        },
+        {
+          "ref": "white_pawn",
+          "position": [
+            4,
+            0.455,
+            1
+          ]
+        },
+        {
+          "ref": "white_pawn",
+          "position": [
+            5,
+            0.455,
+            1
+          ]
+        },
+        {
+          "ref": "white_pawn",
+          "position": [
+            6,
+            0.455,
+            1
+          ]
+        },
+        {
+          "ref": "white_pawn",
+          "position": [
+            7,
+            0.455,
+            1
+          ]
+        },
+        {
+          "ref": "black_pawn",
+          "position": [
+            0,
+            0.455,
+            6
+          ]
+        },
+        {
+          "ref": "black_pawn",
+          "position": [
+            1,
+            0.455,
+            6
+          ]
+        },
+        {
+          "ref": "black_pawn",
+          "position": [
+            2,
+            0.455,
+            6
+          ]
+        },
+        {
+          "ref": "black_pawn",
+          "position": [
+            3,
+            0.455,
+            6
+          ]
+        },
+        {
+          "ref": "black_pawn",
+          "position": [
+            4,
+            0.455,
+            6
+          ]
+        },
+        {
+          "ref": "black_pawn",
+          "position": [
+            5,
+            0.455,
+            6
+          ]
+        },
+        {
+          "ref": "black_pawn",
+          "position": [
+            6,
+            0.455,
+            6
+          ]
+        },
+        {
+          "ref": "black_pawn",
+          "position": [
+            7,
+            0.455,
+            6
+          ]
+        },
+        {
+          "ref": "black_rook",
+          "position": [
+            0,
+            0.555,
+            7
+          ]
+        },
+        {
+          "ref": "black_knight",
+          "position": [
+            1,
+            0.505,
+            7
+          ]
+        },
+        {
+          "ref": "black_bishop",
+          "position": [
+            2,
+            0.605,
+            7
+          ]
+        },
+        {
+          "ref": "black_queen",
+          "position": [
+            3,
+            0.705,
+            7
+          ]
+        },
+        {
+          "ref": "black_king",
+          "position": [
+            4,
+            0.755,
+            7
+          ]
+        },
+        {
+          "ref": "black_bishop",
+          "position": [
+            5,
+            0.605,
+            7
+          ]
+        },
+        {
+          "ref": "black_knight",
+          "position": [
+            6,
+            0.505,
+            7
+          ]
+        },
+        {
+          "ref": "black_rook",
+          "position": [
+            7,
+            0.555,
+            7
+          ]
+        }
+      ]
+    }
+  ]
+}

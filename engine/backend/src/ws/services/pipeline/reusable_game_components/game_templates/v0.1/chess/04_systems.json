@@ -1,0 +1,14 @@
+{
+  "systems": {
+    "chess_engine": {
+      "description": "Core chess logic \u2014 board state, move validation, AI opponent, check/checkmate detection",
+      "script": "gameplay/chess_engine.ts",
+      "params": {}
+    },
+    "piece_interaction": {
+      "description": "Virtual cursor click to select and move chess pieces with valid move highlights",
+      "script": "gameplay/chess_interaction.ts",
+      "params": {}
+    }
+  }
+}

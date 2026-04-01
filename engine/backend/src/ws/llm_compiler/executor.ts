@@ -8,6 +8,8 @@
 import { ASTNode, MessageNode, EditNode, ToolCallNode } from './syntax_tree.js';
 import { executeSceneScript } from './scene_script_executor.js';
 import { EDIT_API_DOCS, getProjectSummary } from '../services/chat_protocol.js';
+import { loadTemplateCatalog, loadTemplate, formatCatalogForLLM } from '../services/pipeline/template_loader.js';
+import { assembleGame } from '../services/pipeline/level_assembler.js';
 
 export interface ExecutionContext {
     sendToFrontend: (type: string, data: any) => void;
@@ -110,6 +112,69 @@ function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result: Exec
             } else {
                 const lines = assets.map(a => `  ${a.name} → ${a.path}`);
                 result.toolResults = `[LIST_ASSETS] Found ${assets.length} assets:\n${lines.join('\n')}`;
+            }
+            break;
+        }
+
+        case 'BUILD_NEW_GAME': {
+            if (!node.args.template) {
+                // No template specified — list available templates
+                const catalog = loadTemplateCatalog();
+                if (catalog.length === 0) {
+                    result.toolResults = '[BUILD_NEW_GAME] No game templates found.';
+                } else {
+                    result.toolResults = `[BUILD_NEW_GAME] Available game templates:\n${formatCatalogForLLM(catalog)}\n\nChoose one and call: <<<BUILD_NEW_GAME template="template_id">>><<<END>>>`;
+                }
+            } else {
+                // Template specified — build the game
+                const template = loadTemplate(node.args.template);
+                if (!template || !template._folderPath) {
+                    result.toolResults = `[BUILD_NEW_GAME] Template "${node.args.template}" not found. Call <<<BUILD_NEW_GAME>>><<<END>>> to see available templates.`;
+                    break;
+                }
+
+                try {
+                    const assembled = assembleGame(template._folderPath);
+
+                    // Update project data with the assembled game
+                    const pd = ctx.getProjectData();
+                    const sceneKey = ctx.activeSceneKey;
+                    pd.scenes = pd.scenes || {};
+                    pd.scenes[sceneKey] = {
+                        name: template.name,
+                        entities: assembled.entities,
+                        environment: {
+                            ambientColor: [1, 1, 1],
+                            ambientIntensity: 0.3,
+                            fog: { enabled: false, color: [0.8, 0.8, 0.8], near: 10, far: 100 },
+                            gravity: [0, -9.81, 0],
+                            timeOfDay: 12,
+                            dayNightCycleSpeed: 0,
+                        },
+                    };
+
+                    // Merge scripts and UI files
+                    pd.scripts = { ...(pd.scripts || {}), ...assembled.scripts };
+                    pd.uiFiles = { ...(pd.uiFiles || {}), ...assembled.uiFiles };
+
+                    ctx.saveProjectData(pd);
+                    // Send full project reload (scene + scripts + UI) for game builds
+                    ctx.sendToFrontend('project_reload', {
+                        sceneKey,
+                        sceneData: pd.scenes[sceneKey],
+                        scripts: pd.scripts,
+                        uiFiles: pd.uiFiles,
+                    });
+
+                    result.madeChanges = true;
+                    result.fileChanges.push({ path: sceneKey, type: 'modified' });
+
+                    const entityCount = assembled.entities.length;
+                    const scriptCount = Object.keys(assembled.scripts).length;
+                    result.toolResults = `[BUILD_NEW_GAME] Successfully built "${template.name}" with ${entityCount} entities and ${scriptCount} scripts. The game is now loaded in the editor.\n\nTell the user: the game was generated from the "${template.name}" template. Ask if they want you to incorporate any customizations, or if they'd prefer to start from an empty template and build from scratch.`;
+                } catch (e: any) {
+                    result.toolResults = `[BUILD_NEW_GAME] Failed to build "${node.args.template}": ${e.message}`;
+                }
             }
             break;
         }

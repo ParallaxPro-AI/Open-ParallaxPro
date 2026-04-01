@@ -258,6 +258,27 @@ export class EditorView {
             this.ctx.emit('collabChatMessage', data);
         });
 
+        this.ctx.backend.onWsMessage('project_reload', async (data: any) => {
+            if (data.sceneData) {
+                this.ctx._isApplyingRemoteChange = true;
+                try {
+                    if (!this.ctx.state.projectData) this.ctx.state.projectData = {};
+                    if (!this.ctx.state.projectData.scenes) this.ctx.state.projectData.scenes = {};
+                    const sceneKey = data.sceneKey || Object.keys(this.ctx.state.projectData.scenes)[0] || 'main.json';
+                    this.ctx.state.projectData.scenes[sceneKey] = data.sceneData;
+                    if (data.scripts) this.ctx.state.projectData.scripts = data.scripts;
+                    if (data.uiFiles) this.ctx.state.projectData.uiFiles = data.uiFiles;
+
+                    await this.ctx.loadSceneFromData(data.sceneData);
+                    this.ctx.ensurePrimitiveMeshes();
+                    this.ctx.emit('sceneChanged');
+                    if (this.ctx.state.projectData) this.ctx.state.projectData._lastLoadedAt = Date.now();
+                } finally {
+                    this.ctx._isApplyingRemoteChange = false;
+                }
+            }
+        });
+
         this.ctx.backend.onWsMessage('scene_reload', async (data: any) => {
             if (data.sceneData) {
                 this.ctx._isApplyingRemoteChange = true;
@@ -382,5 +403,9 @@ export class EditorView {
         this.ctx.backend.disconnectWebSocket();
         this.editor.shutdown();
         this.shortcuts.destroy();
+    }
+
+    sendInitialChatMessage(prompt: string): void {
+        this.chat.sendInitialMessage(prompt);
     }
 }
