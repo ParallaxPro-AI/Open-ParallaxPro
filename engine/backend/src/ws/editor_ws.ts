@@ -1,10 +1,16 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { URL } from 'url';
+import { URL, fileURLToPath } from 'url';
+import fs from 'fs';
+import path from 'path';
 import { randomUUID } from 'crypto';
 import { config } from '../config.js';
 import { verifyToken, type AuthUser } from '../middleware/auth.js';
 import db from '../db/connection.js';
 import { callLLMStream, type LLMMessage } from './services/llm.js';
+import { SYSTEM_PROMPT } from './services/chat_protocol.js';
+import { appendToLog } from './services/chat_log.js';
+import { searchAssets } from '../routes/assets.js';
+import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
 
 interface EditorClient {
     ws: WebSocket;
@@ -13,6 +19,7 @@ interface EditorClient {
     userId: number;
     username: string;
     chatSessionId: string;
+    activeSceneKey: string;
     abortController: AbortController | null;
 }
 
@@ -65,7 +72,9 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         }
 
         const clientId = `${user.id}_${Date.now()}`;
-        const chatSessionId = `s_${randomUUID().slice(0, 8)}`;
+        const chatSessionId = `u${user.id}_p${projectId.slice(0, 8)}_${randomUUID()}`;
+        const pd = row.project_data ? JSON.parse(row.project_data) : {};
+        const firstSceneKey = Object.keys(pd.scenes || {})[0] || 'main.json';
         const client: EditorClient = {
             ws,
             clientId,
@@ -73,6 +82,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             userId: user.id,
             username: user.username,
             chatSessionId,
+            activeSceneKey: firstSceneKey,
             abortController: null,
         };
 
@@ -131,8 +141,14 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             handleChatMessage(client, data);
             break;
 
+        case 'set_active_scene':
+            if (data?.sceneKey && typeof data.sceneKey === 'string') {
+                client.activeSceneKey = data.sceneKey;
+            }
+            break;
+
         case 'new_chat_session': {
-            const newSessionId = `s_${randomUUID().slice(0, 8)}`;
+            const newSessionId = `u${client.userId}_p${client.projectId.slice(0, 8)}_${randomUUID()}`;
             client.chatSessionId = newSessionId;
             send(client, 'chat_cleared', {});
             send(client, 'connected', { chatSessionId: newSessionId });
@@ -163,6 +179,29 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
                 messages: history.map(m => ({ id: m.id, role: m.role, content: m.content })),
             });
             send(client, 'connected', { chatSessionId: sessionId });
+            break;
+        }
+
+        case 'get_raw_session_files': {
+            const logPath = path.join(
+                path.dirname(fileURLToPath(import.meta.url)),
+                '../../chat_logs',
+                `${client.projectId}_${client.chatSessionId}.jsonl`
+            );
+            const files: { name: string; content: string }[] = [];
+            try {
+                if (fs.existsSync(logPath)) {
+                    const lines = fs.readFileSync(logPath, 'utf8').split('\n').filter(Boolean);
+                    let idx = 0;
+                    for (const line of lines) {
+                        const entry = JSON.parse(line);
+                        const label = entry.role === 'user' ? 'Human' : entry.role === 'assistant' ? 'AI' : 'System';
+                        files.push({ name: `${String(idx).padStart(3, '0')}_${label}`, content: entry.content });
+                        idx++;
+                    }
+                }
+            } catch {}
+            send(client, 'raw_session_files', { sessionId: client.chatSessionId, files });
             break;
         }
 
@@ -241,46 +280,139 @@ function handleProjectSave(client: EditorClient, data: any): void {
     send(client, 'project_saved', { success: true });
 }
 
+const MAX_RETRIES = 3;
+
 function handleChatMessage(client: EditorClient, data: any): void {
     const content = data?.content;
     if (!content || typeof content !== 'string') return;
 
-    // Save user message
     stmtInsertMessage.run(client.projectId, client.chatSessionId, 'user', content);
-
-    // Build conversation history for LLM
-    const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
-    const messages: LLMMessage[] = [
-        { role: 'system', content: 'Your name is ParallaxPro AI. You are the built-in assistant for the ParallaxPro 3D game engine editor. When asked who you are, always say you are ParallaxPro AI. Help the user build games. Be concise and helpful.' },
-        ...history.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    ];
-
-    // Stream response
     send(client, 'chat_response_start', {});
 
     const abortController = new AbortController();
     client.abortController = abortController;
 
-    callLLMStream(messages, {
-        onChunk: (text) => {
-            send(client, 'chat_response_chunk', { content: text });
+    runLLMWithRetry(client, abortController, 0, []);
+}
+
+function buildMessages(client: EditorClient, retryContext: LLMMessage[]): LLMMessage[] {
+    const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
+
+    return [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...history.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        ...retryContext,
+    ];
+}
+
+function getProjectData(projectId: string): any {
+    const r = stmtGetProject.get(projectId) as any;
+    return r?.project_data ? JSON.parse(r.project_data) : {};
+}
+
+function buildExecContext(client: EditorClient): ExecutionContext {
+    return {
+        sendToFrontend: (type, data) => send(client, type, data),
+        getProjectData: () => getProjectData(client.projectId),
+        saveProjectData: (data) => {
+            stmtUpdateData.run(JSON.stringify(data), client.projectId);
         },
+        reloadScene: (sceneKey, sceneData) => {
+            send(client, 'scene_reload', { sceneKey, sceneData });
+        },
+        searchAssets,
+        projectId: client.projectId,
+        activeSceneKey: client.activeSceneKey,
+    };
+}
+
+function finishChat(client: EditorClient, displayContent: string, fileChanges: any[] = []): void {
+    const dbResult = stmtInsertMessage.run(client.projectId, client.chatSessionId, 'assistant', displayContent);
+    send(client, 'chat_response_end', {
+        fullContent: displayContent,
+        messageId: Number(dbResult.lastInsertRowid),
+        fileChanges,
+    });
+    send(client, 'dialogue_done', {});
+}
+
+function runLLMWithRetry(
+    client: EditorClient,
+    abortController: AbortController,
+    attempt: number,
+    retryContext: LLMMessage[],
+): void {
+    const messages = buildMessages(client, retryContext);
+
+    // Log: on first attempt just the user message (system prompt is always the same).
+    // On retry, log the retry context. LLM response is always logged in onDone.
+    if (attempt === 0) {
+        const userMsg = messages.filter(m => m.role === 'user').pop();
+        if (userMsg) appendToLog(client.projectId, client.chatSessionId, { role: 'user', content: userMsg.content });
+    } else {
+        // Only log the system/user retry message, not the assistant response (already logged in onDone)
+        const lastRetryMsg = retryContext[retryContext.length - 1];
+        if (lastRetryMsg && lastRetryMsg.role === 'user') {
+            appendToLog(client.projectId, client.chatSessionId, { role: 'user', content: lastRetryMsg.content });
+        }
+    }
+
+    callLLMStream(messages, {
+        onChunk: () => {},
         onDone: (fullText) => {
             client.abortController = null;
-            const result = stmtInsertMessage.run(client.projectId, client.chatSessionId, 'assistant', fullText);
+            // Log exact LLM response
+            appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: fullText });
 
-            send(client, 'chat_response_end', {
-                fullContent: fullText,
-                messageId: Number(result.lastInsertRowid),
-            });
-            send(client, 'dialogue_done', {});
+            const compiled = compile(fullText, getProjectData(client.projectId));
+
+            if (!compiled.success && attempt < MAX_RETRIES) {
+                const errorMsg = formatErrors(compiled.errors);
+                runLLMWithRetry(client, abortController, attempt + 1, [
+                    ...retryContext,
+                    { role: 'assistant', content: fullText },
+                    { role: 'user', content: `[SYSTEM] Compile errors. Fix and try again:\n${errorMsg}` },
+                ]);
+                return;
+            }
+
+            if (!compiled.success) {
+                finishChat(client, 'Sorry, I was unable to complete that request. Please try rephrasing.');
+                return;
+            }
+
+            const execResult = execute(compiled.ast, buildExecContext(client));
+
+            // Tool call results — feed back to AI for a follow-up response
+            if (execResult.toolResults && attempt < MAX_RETRIES) {
+                runLLMWithRetry(client, abortController, attempt + 1, [
+                    ...retryContext,
+                    { role: 'assistant', content: fullText },
+                    { role: 'user', content: `[SYSTEM] Tool results:\n${execResult.toolResults}\n\nNow write your <<<EDIT>>> block using the results above. Do NOT call GET_EDIT_API or LIST_ASSETS again — just write the <<<EDIT>>> block directly.` },
+                ]);
+                return;
+            }
+
+            if (execResult.errors.length > 0 && attempt < MAX_RETRIES) {
+                runLLMWithRetry(client, abortController, attempt + 1, [
+                    ...retryContext,
+                    { role: 'assistant', content: fullText },
+                    { role: 'user', content: `[SYSTEM] Runtime errors. Fix and try again:\n${execResult.errors.join('\n')}` },
+                ]);
+                return;
+            }
+
+            if (execResult.errors.length > 0) {
+                finishChat(client, 'Sorry, I was unable to complete that request. Please try rephrasing.');
+                return;
+            }
+
+            const displayContent = execResult.userMessages.join('\n') || '*Done.*';
+            finishChat(client, displayContent, execResult.fileChanges);
         },
         onError: (error) => {
             client.abortController = null;
-            send(client, 'chat_response_end', {
-                fullContent: `*Error: ${error}*`,
-            });
-            send(client, 'dialogue_done', {});
+            finishChat(client, `*Error: ${error}*`);
         },
     }, abortController.signal);
 }

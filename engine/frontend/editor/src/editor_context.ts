@@ -14,7 +14,6 @@ import { ScriptComponent } from '../../runtime/function/framework/components/scr
 import { GameUISystem } from '../../runtime/function/ui/game_ui.js';
 import { HTMLUIManager } from '../../runtime/function/ui/html_ui_manager.js';
 import { buildScriptScene } from './play_mode_helpers.js';
-import { handleEditorActions } from './editor_actions.js';
 import { MultiplayerManager } from './network/multiplayer_manager.js';
 
 function resolvePropertyValue(value: any, scriptScene: any): any {
@@ -64,9 +63,10 @@ export class EditorContext extends EventBus {
 
     constructor() {
         super();
-        this.backend.onWsMessage('editor_actions', (data: any) => {
-            if (Array.isArray(data.actions)) {
-                handleEditorActions(data.actions, this);
+        this.on('sceneChanged', () => {
+            const sceneKey = this.state.activeScenePath;
+            if (sceneKey) {
+                this.backend.sendWsMessage('set_active_scene', { sceneKey });
             }
         });
     }
@@ -1384,10 +1384,6 @@ export class EditorContext extends EventBus {
         if (this.state.hiddenEntities.has(entityId)) { this.state.hiddenEntities.delete(entityId); }
         else { this.state.hiddenEntities.add(entityId); }
         this.emit('sceneChanged');
-    }
-
-    executeEditorActions(actions: any[]): void {
-        handleEditorActions(actions, this);
     }
 
     restoreCollisionMeshVisibility(): void {

@@ -264,12 +264,8 @@ export class EditorView {
                 try {
                     if (!this.ctx.state.projectData) this.ctx.state.projectData = {};
                     if (!this.ctx.state.projectData.scenes) this.ctx.state.projectData.scenes = {};
-                    this.ctx.state.projectData.scenes['scenes/main.scene.json'] = data.sceneData;
-
-                    if (data.scripts) this.ctx.state.projectData.scripts = data.scripts;
-                    if (data.uiFiles) this.ctx.state.projectData.uiFiles = data.uiFiles;
-                    if (data.multiplayerConfig) this.ctx.state.projectData.multiplayerConfig = data.multiplayerConfig;
-                    if (data.mobileControls) this.ctx.state.projectData.mobileControls = data.mobileControls;
+                    const sceneKey = data.sceneKey || Object.keys(this.ctx.state.projectData.scenes)[0] || 'main.json';
+                    this.ctx.state.projectData.scenes[sceneKey] = data.sceneData;
 
                     await this.ctx.loadSceneFromData(data.sceneData);
                     this.ctx.ensurePrimitiveMeshes();

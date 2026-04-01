@@ -150,6 +150,28 @@ function safePath(userPath: string): string | null {
 scanAttributions();
 assetCache = scanAssets();
 for (const asset of assetCache) asset.attribution = getAttribution(asset.filePath);
+
+/**
+ * Search assets programmatically (used by AI tool calls).
+ * Returns compact results to avoid blowing up LLM context.
+ */
+export function searchAssets(opts: { category?: string; search?: string; source?: string; pack?: string; limit?: number }): { name: string; path: string; category: string; pack: string }[] {
+    let filtered = assetCache;
+    if (opts.category) filtered = filtered.filter(a => a.category === opts.category);
+    if (opts.source) filtered = filtered.filter(a => a.source === opts.source);
+    if (opts.pack) filtered = filtered.filter(a => a.pack === opts.pack);
+    if (opts.search) {
+        const s = opts.search.toLowerCase();
+        filtered = filtered.filter(a => a.name.toLowerCase().includes(s) || a.pack.toLowerCase().includes(s));
+    }
+    const max = Math.min(opts.limit ?? 20, 50);
+    return filtered.slice(0, max).map(a => ({
+        name: a.name,
+        path: `/assets/${a.filePath}`,
+        category: a.category,
+        pack: a.pack,
+    }));
+}
 console.log(`[Assets] ${assetCache.length} assets scanned`);
 
 // -- Routes --

@@ -24,6 +24,7 @@ engine/frontend/editor/package-lock.json
 # Backend
 engine/backend/package-lock.json
 engine/backend/uploads/
+engine/backend/chat_logs/
 
 # IDE
 .vscode/
