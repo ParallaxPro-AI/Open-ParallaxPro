@@ -203,6 +203,7 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
             args = [
                 '-p', prompt,
                 '--output-format', 'stream-json',
+                '--verbose',
                 '--model', 'sonnet',
                 '--dangerously-skip-permissions',
                 '--max-turns', '30',
