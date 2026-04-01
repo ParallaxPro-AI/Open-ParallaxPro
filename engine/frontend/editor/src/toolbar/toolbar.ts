@@ -947,7 +947,7 @@ export class Toolbar {
 
         const visSelect = document.createElement('select');
         visSelect.style.cssText = 'width:100%;height:28px;';
-        visSelect.innerHTML = '<option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option>';
+        visSelect.innerHTML = '<option value="public">Public</option><option value="unlisted">Unlisted</option>';
         body.appendChild(this.makeField('Visibility', () => visSelect));
 
         body.appendChild(this.makeThumbnailField());
