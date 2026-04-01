@@ -48,14 +48,16 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use(express.json({ limit: '10mb' }));
 
     // Static asset serving — local files first, fallback to CDN redirect for self-hosted
-    app.use('/assets', (_req, res, next) => {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        next();
-    });
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
     if (config.assetsCdn && !config.isHosted) {
-        app.use('/assets', (req, res) => {
-            res.redirect(301, `${config.assetsCdn}/assets${req.url}`);
+        // Redirect asset files to CDN (includes LOD and collision sidecar .bin files)
+        const CDN_EXTENSIONS = /\.(glb|gltf|obj|fbx|png|jpg|jpeg|webp|ogg|mp3|wav|json|bin)$/i;
+        app.use('/assets', (req, res, next) => {
+            if (CDN_EXTENSIONS.test(req.url)) {
+                res.redirect(301, `${config.assetsCdn}/assets${req.url}`);
+            } else {
+                next();
+            }
         });
     }
 
