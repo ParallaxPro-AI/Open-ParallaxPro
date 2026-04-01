@@ -27,6 +27,27 @@ export interface FixerResult {
     filesChanged: string[];
 }
 
+const MAX_CONCURRENT_FIXERS = 10;
+let activeFixerCount = 0;
+const waitQueue: (() => void)[] = [];
+
+function acquireSlot(sendStatus?: (msg: string) => void): Promise<void> {
+    if (activeFixerCount < MAX_CONCURRENT_FIXERS) {
+        activeFixerCount++;
+        return Promise.resolve();
+    }
+    sendStatus?.(`Queued — ${waitQueue.length + 1} in line, waiting for a slot...`);
+    return new Promise<void>((resolve) => {
+        waitQueue.push(() => { activeFixerCount++; resolve(); });
+    });
+}
+
+function releaseSlot(): void {
+    activeFixerCount--;
+    const next = waitQueue.shift();
+    if (next) next();
+}
+
 export async function runFixer(
     projectId: string,
     description: string,
@@ -34,6 +55,7 @@ export async function runFixer(
     activeSceneKey: string,
     sendStatus?: (msg: string) => void,
 ): Promise<FixerResult> {
+    await acquireSlot(sendStatus);
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
 
     try {
@@ -72,7 +94,7 @@ export async function runFixer(
             filesChanged: changes.filesChanged,
         };
     } finally {
-        // Cleanup sandbox
+        releaseSlot();
         try { fs.rmSync(sandboxDir, { recursive: true, force: true }); } catch {}
     }
 }
