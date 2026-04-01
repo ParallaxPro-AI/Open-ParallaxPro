@@ -19,6 +19,8 @@
     </a>
 </p>
 
+<h3 align="center">Turn prompts into playable games</h3>
+
 ## ParallaxPro
 
 LLMs can generate games, but without a real game engine behind them, those games hit a wall fast -- no real physics, no efficient rendering, no entity-component system, no shadow maps, no collision detection. The AI ends up writing hundreds of lines of hacky code to approximate what any game engine gives you for free.
