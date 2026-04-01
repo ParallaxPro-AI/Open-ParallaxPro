@@ -47,13 +47,13 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
     app.use(express.json({ limit: '10mb' }));
 
-    // Static asset serving — local files first, fallback to CDN redirect
+    // Static asset serving — local files first, fallback to CDN redirect for self-hosted
     app.use('/assets', (_req, res, next) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         next();
     });
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
-    if (config.assetsCdn) {
+    if (config.assetsCdn && !config.isHosted) {
         app.use('/assets', (req, res) => {
             res.redirect(301, `${config.assetsCdn}/assets${req.url}`);
         });

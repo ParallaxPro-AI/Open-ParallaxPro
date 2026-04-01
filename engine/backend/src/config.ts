@@ -42,6 +42,7 @@ export const config = {
         : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
     assetsDir: envString('ASSETS_DIR', path.resolve(__dirname, '../../../reusable_assets')),
     assetsCdn: envString('ASSETS_CDN', 'https://parallaxpro.ai'),
+    isHosted: !!process.env.WEBSITE_BACKEND_URL,
     ai: {
         baseUrl: envRequired('AI_BASE_URL'),
         model: envRequired('AI_MODEL'),
