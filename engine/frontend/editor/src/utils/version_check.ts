@@ -12,7 +12,13 @@ export function checkForUpdates(): void {
     const base = isHosted ? '' : UPDATE_URL.replace('/api/editor/updates', '');
     const source = isHosted ? 'hosted' : 'self-hosted';
 
-    fetch(`${base}/api/editor/updates?v=${EDITOR_VERSION}&source=${source}`)
+    const headers: Record<string, string> = {};
+    if (isHosted) {
+        const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    fetch(`${base}/api/editor/updates?v=${EDITOR_VERSION}&source=${source}`, { headers })
         .then(r => r.json())
         .then(data => {
             if (data.latest && data.latest !== EDITOR_VERSION) {
