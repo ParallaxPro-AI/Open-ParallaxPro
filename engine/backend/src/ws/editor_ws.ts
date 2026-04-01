@@ -436,7 +436,7 @@ function getProjectData(projectId: string): any {
     return r?.project_data ? JSON.parse(r.project_data) : {};
 }
 
-function buildExecContext(client: EditorClient): ExecutionContext {
+function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): ExecutionContext {
     return {
         sendToFrontend: (type, data) => send(client, type, data),
         getProjectData: () => getProjectData(client.projectId),
@@ -447,6 +447,7 @@ function buildExecContext(client: EditorClient): ExecutionContext {
             send(client, 'scene_reload', { sceneKey, sceneData });
         },
         searchAssets,
+        abortSignal,
         onFixerCost: (costUsd: number) => {
             for (const p of _plugins) {
                 if (p.onFixerCost) p.onFixerCost(client, costUsd);
@@ -538,7 +539,7 @@ async function runLLMWithRetry(
                 return;
             }
 
-            const execResult = await execute(compiled.ast, buildExecContext(client));
+            const execResult = await execute(compiled.ast, buildExecContext(client, abortController.signal));
 
             const allFileChanges = [...accumulatedFileChanges, ...execResult.fileChanges];
 

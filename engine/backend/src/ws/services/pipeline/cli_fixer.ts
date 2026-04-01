@@ -55,6 +55,7 @@ export async function runFixer(
     projectData: any,
     activeSceneKey: string,
     sendStatus?: (msg: string) => void,
+    abortSignal?: AbortSignal,
 ): Promise<FixerResult> {
     await acquireSlot(sendStatus);
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
@@ -70,7 +71,7 @@ export async function runFixer(
 
         // 3. Spawn CLI
         sendStatus?.('Fixer agent is analyzing and fixing...');
-        const cliResult = await spawnCLI(sandboxDir, description, sendStatus);
+        const cliResult = await spawnCLI(sandboxDir, description, sendStatus, abortSignal);
 
         // 4. Read changes
         sendStatus?.('Reading changes...');
@@ -330,7 +331,7 @@ function copyDirRecursive(src: string, dest: string): void {
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
-function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: string) => void): Promise<{ text: string; costUsd: number }> {
+function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal): Promise<{ text: string; costUsd: number }> {
     return new Promise((resolve, reject) => {
         const cli = config.fixer.cli;
         const timeout = config.fixer.timeout;
@@ -357,6 +358,18 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
             stdio: ['pipe', 'pipe', 'pipe'],
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });
+
+        // Kill the process if the user presses Stop
+        if (abortSignal) {
+            if (abortSignal.aborted) {
+                proc.kill('SIGTERM');
+                reject(new Error('Aborted'));
+                return;
+            }
+            const onAbort = () => { proc.kill('SIGTERM'); };
+            abortSignal.addEventListener('abort', onAbort, { once: true });
+            proc.on('close', () => abortSignal.removeEventListener('abort', onAbort));
+        }
 
         let resultText = '';
         let costUsd = 0;
