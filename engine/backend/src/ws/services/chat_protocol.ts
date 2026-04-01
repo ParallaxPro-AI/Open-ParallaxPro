@@ -48,6 +48,7 @@ Use this when the user asks to "create a game", "make chess", "build a racing ga
 5. Only output ONE tool call per response. Wait for the result before continuing.
 6. When the user asks for a real-world object (car, chair, tree, house, etc.), ALWAYS use LIST_ASSETS to find a 3D model first. Do NOT approximate with primitive shapes like cubes. Only use primitives (cube, sphere, etc.) when the user explicitly asks for them.
 7. When the user asks to create/build/make a game, use BUILD_NEW_GAME.
+8. When the user's ENTIRE message is just a game name or genre (e.g. "chess", "fps shooter", "gta", "csgo", "racing game"), treat it as a game request and IMMEDIATELY use BUILD_NEW_GAME. Do NOT ask clarifying questions.
 `;
 
 export const EDIT_API_DOCS = `
