@@ -272,11 +272,6 @@ export class Toolbar {
         });
         this.el.appendChild(feedbackBtn);
 
-        const shareBtn = this.createButton('Share', '', 'toolbar-btn share-btn', () => {
-            if (this.ctx.state.projectId) this.showShareModal();
-        });
-        this.el.appendChild(shareBtn);
-
         const settingsBtn = this.createIconButton(Settings, '', 'toolbar-btn', () => {
             this.showSettingsModal();
         });
@@ -675,6 +670,65 @@ export class Toolbar {
         textarea.style.cssText = 'width:100%;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-family:inherit;font-size:13px;';
         body.appendChild(textarea);
 
+        // Image upload area
+        const imageLabel = document.createElement('label');
+        imageLabel.textContent = 'Screenshots (optional, max 5 images, 5MB each)';
+        imageLabel.style.cssText = 'font-weight:600;font-size:13px;';
+        body.appendChild(imageLabel);
+
+        const imageFiles: File[] = [];
+        const previewContainer = document.createElement('div');
+        previewContainer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+        body.appendChild(previewContainer);
+
+        const uploadBtn = document.createElement('button');
+        uploadBtn.textContent = '+ Add Image';
+        uploadBtn.style.cssText = 'padding:6px 12px;border:1px dashed var(--border);border-radius:6px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;';
+        body.appendChild(uploadBtn);
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.multiple = true;
+        fileInput.style.display = 'none';
+        body.appendChild(fileInput);
+
+        uploadBtn.addEventListener('click', () => fileInput.click());
+
+        const renderPreviews = () => {
+            previewContainer.innerHTML = '';
+            for (let i = 0; i < imageFiles.length; i++) {
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'position:relative;width:60px;height:60px;border-radius:4px;overflow:hidden;border:1px solid var(--border);';
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(imageFiles[i]);
+                img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                const removeBtn = document.createElement('div');
+                removeBtn.textContent = '×';
+                removeBtn.style.cssText = 'position:absolute;top:0;right:0;width:18px;height:18px;background:rgba(0,0,0,0.7);color:white;text-align:center;line-height:18px;cursor:pointer;font-size:14px;';
+                removeBtn.addEventListener('click', () => { imageFiles.splice(i, 1); renderPreviews(); });
+                wrapper.appendChild(img);
+                wrapper.appendChild(removeBtn);
+                previewContainer.appendChild(wrapper);
+            }
+            uploadBtn.style.display = imageFiles.length >= 5 ? 'none' : '';
+        };
+
+        fileInput.addEventListener('change', () => {
+            const files = Array.from(fileInput.files || []);
+            for (const file of files) {
+                if (imageFiles.length >= 5) break;
+                if (file.size > 5 * 1024 * 1024) {
+                    errorMsg.textContent = `${file.name} exceeds 5MB limit.`;
+                    errorMsg.style.display = 'block';
+                    continue;
+                }
+                imageFiles.push(file);
+            }
+            fileInput.value = '';
+            renderPreviews();
+        });
+
         const errorMsg = document.createElement('div');
         errorMsg.style.cssText = 'color:#e53935;font-size:12px;display:none;';
         body.appendChild(errorMsg);
@@ -696,7 +750,7 @@ export class Toolbar {
                             return;
                         }
                         try {
-                            await this.ctx.backend.sendFeedback(this.ctx.state.projectId!, msg, []);
+                            await this.ctx.backend.sendFeedback(this.ctx.state.projectId!, msg, imageFiles);
                             close();
                             this.showToast('Feedback sent! Thank you.', 'success');
                         } catch (e: any) {

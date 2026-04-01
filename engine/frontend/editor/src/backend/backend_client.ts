@@ -102,11 +102,23 @@ export class BackendClient {
         });
     }
 
-    async sendFeedback(projectId: string, message: string, screenshots: string[]): Promise<any> {
-        return this.fetch(`/projects/${projectId}/feedback`, {
+    async sendFeedback(projectId: string, message: string, images: File[]): Promise<any> {
+        const formData = new FormData();
+        formData.append('message', message);
+        for (const file of images) {
+            formData.append('images', file);
+        }
+        const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token');
+        const res = await window.fetch(`${this.baseUrl}/projects/${projectId}/feedback`, {
             method: 'POST',
-            body: JSON.stringify({ message, screenshots }),
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            body: formData,
         });
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            throw new Error(`API error ${res.status}: ${text}`);
+        }
+        return res.json();
     }
 
     async shareProject(projectId: string, identifier: string, permission: string = 'editor'): Promise<any> {

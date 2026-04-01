@@ -1,7 +1,23 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import db from '../db/connection.js';
+
+const __dirname_proj = path.dirname(fileURLToPath(import.meta.url));
+const FEEDBACKS_DIR = path.resolve(__dirname_proj, '../../feedbacks');
+if (!fs.existsSync(FEEDBACKS_DIR)) fs.mkdirSync(FEEDBACKS_DIR, { recursive: true });
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024, files: 5 },
+    fileFilter: (_req, file, cb) => {
+        cb(null, file.mimetype.startsWith('image/'));
+    },
+});
 
 const router = Router();
 router.use(requireAuth);
@@ -165,4 +181,32 @@ router.post('/:id/duplicate', (req, res) => {
 });
 
 export { stmtGet, stmtUpdateData };
+// Submit feedback with optional image uploads
+router.post('/:id/feedback', upload.array('images', 5), (req, res) => {
+    const message = req.body.message;
+    if (!message || typeof message !== 'string') {
+        res.status(400).json({ error: 'Message is required' });
+        return;
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const feedbackDir = path.join(FEEDBACKS_DIR, `${timestamp}_u${req.user!.id}_p${req.params.id.slice(0, 8)}`);
+    fs.mkdirSync(feedbackDir, { recursive: true });
+
+    // Save message
+    fs.writeFileSync(path.join(feedbackDir, 'message.txt'), `User: ${req.user!.username} (id: ${req.user!.id})\nProject: ${req.params.id}\nTime: ${new Date().toISOString()}\n\n${message}`);
+
+    // Save images
+    const files = req.files as Express.Multer.File[];
+    if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+            const ext = path.extname(files[i].originalname) || '.png';
+            fs.writeFileSync(path.join(feedbackDir, `image_${i + 1}${ext}`), files[i].buffer);
+        }
+    }
+
+    console.log(`[Feedback] Saved to ${feedbackDir} (${files?.length || 0} images)`);
+    res.json({ success: true });
+});
+
 export default router;
