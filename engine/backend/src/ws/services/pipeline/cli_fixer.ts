@@ -141,15 +141,16 @@ function createSandbox(sandboxDir: string, projectData: any): void {
         fs.copyFileSync(FIXER_CONTEXT_PATH, path.join(sandboxDir, 'CONTEXT.md'));
     }
 
-    // Validation script — CLI can run this to check syntax
+    // Validation script — syntax check + headless smoke test
     const validateScript = `#!/bin/bash
-# Validates all project scripts for syntax errors.
+# Validates project scripts and runs headless smoke test.
 # Run: bash validate.sh
 
 ERRORS=0
+
+echo "=== Syntax Check ==="
 for f in project/scripts/*.ts project/scripts/**/*.ts; do
     [ -f "$f" ] || continue
-    # Use node to syntax-check: wrap in function to catch parse errors
     node -e "
         const fs = require('fs');
         const src = fs.readFileSync('$f', 'utf-8');
@@ -159,21 +160,135 @@ for f in project/scripts/*.ts project/scripts/**/*.ts; do
     if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 done
 
-# Validate scene JSON
+echo "=== JSON Check ==="
 for f in project/scenes/*.json; do
     [ -f "$f" ] || continue
     node -e "JSON.parse(require('fs').readFileSync('$f','utf-8'))" 2>&1
     if [ $? -ne 0 ]; then echo "JSON ERROR in $f"; ERRORS=$((ERRORS+1)); fi
 done
 
+echo "=== Headless Smoke Test ==="
+node validate_headless.js 2>&1
+if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
+
 if [ $ERRORS -eq 0 ]; then
-    echo "All files valid."
+    echo "All checks passed."
 else
-    echo "$ERRORS file(s) have errors."
+    echo "$ERRORS check(s) failed."
     exit 1
 fi
 `;
     fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), validateScript, { mode: 0o755 });
+
+    // Headless smoke test — loads scripts, runs them for 3 seconds, checks for errors
+    const headlessScript = `
+const fs = require('fs');
+const path = require('path');
+
+// Load project data from disk
+const scripts = {};
+const scriptsDir = 'project/scripts';
+function walkScripts(dir, prefix) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const rel = prefix ? prefix + '/' + entry.name : entry.name;
+        if (entry.isDirectory()) walkScripts(path.join(dir, entry.name), rel);
+        else scripts['scripts/' + rel] = fs.readFileSync(path.join(dir, entry.name), 'utf-8');
+    }
+}
+walkScripts(scriptsDir, '');
+
+const scenes = {};
+const scenesDir = 'project/scenes';
+if (fs.existsSync(scenesDir)) {
+    for (const f of fs.readdirSync(scenesDir)) {
+        if (f.endsWith('.json')) {
+            scenes[f] = JSON.parse(fs.readFileSync(path.join(scenesDir, f), 'utf-8'));
+        }
+    }
+}
+
+// Compile all scripts and check for runtime errors
+const errors = [];
+const compiledClasses = {};
+
+// Minimal GameScript base class
+class GameScript {
+    constructor() {
+        this.entity = { id: 0, name: '', active: true, transform: { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 }, lookAt() {}, setRotationEuler() {} }, getComponent() { return null; }, playAnimation() {}, tags: new Set() };
+        this.scene = { events: { game: { on() {}, emit() {} }, ui: { on() {}, emit() {} } }, findEntityByName() { return null; }, findEntitiesByTag() { return []; }, setPosition() {}, setVelocity() {}, destroyEntity() {}, createEntity() { return 0; }, raycast() { return null; }, screenRaycast() { return null; }, screenPointToGround() { return null; }, getAllEntities() { return []; }, _fpsYaw: 0, _multiplayer: null, reloadScene() {} };
+        this.input = { isKeyDown() { return false; }, isKeyPressed() { return false; }, isKeyReleased() { return false; }, getMouseDelta() { return { x: 0, y: 0 }; }, requestPointerLock() {} };
+        this.ui = { createText() { return { text: '', remove() {}, x: 0, y: 0 }; }, createPanel() { return { remove() {} }; }, createButton() { return { remove() {} }; }, createImage() { return { remove() {} }; }, sendState() {} };
+        this.audio = { playSound() {}, playMusic() {}, stopMusic() {}, setGroupVolume() {}, getGroupVolume() { return 1; }, preload() {} };
+        this.time = { time: 0, deltaTime: 1/60, frameCount: 0 };
+    }
+    onStart() {}
+    onUpdate() {}
+    onLateUpdate() {}
+    onFixedUpdate() {}
+    onDestroy() {}
+}
+
+class Vec3 { constructor(x,y,z) { this.x=x||0; this.y=y||0; this.z=z||0; } }
+class Quat { constructor(x,y,z,w) { this.x=x||0; this.y=y||0; this.z=z||0; this.w=w||1; } }
+
+// Compile each script
+for (const [key, source] of Object.entries(scripts)) {
+    try {
+        const classMatch = source.match(/class\\s+(\\w+)/);
+        if (!classMatch) continue;
+        const className = classMatch[1];
+        const fn = new Function('GameScript', 'Vec3', 'Quat', source + '\\nreturn ' + className + ';');
+        const ScriptClass = fn(GameScript, Vec3, Quat);
+        compiledClasses[key] = ScriptClass;
+    } catch (e) {
+        errors.push('COMPILE ERROR in ' + key + ': ' + e.message);
+    }
+}
+
+// Instantiate and run onStart on each script
+const instances = [];
+for (const [key, ScriptClass] of Object.entries(compiledClasses)) {
+    try {
+        const inst = new ScriptClass();
+        inst.onStart();
+        instances.push({ key, inst });
+    } catch (e) {
+        // Filter benign errors (no DOM, no audio context, etc.)
+        const msg = e.message || '';
+        if (!/document|window|canvas|AudioContext|WebSocket|fetch|pointerLock|requestAnimationFrame/i.test(msg)) {
+            errors.push('RUNTIME ERROR in ' + key + ' onStart: ' + msg);
+        }
+    }
+}
+
+// Tick 180 frames (3 seconds)
+for (let frame = 0; frame < 180; frame++) {
+    for (const { key, inst } of instances) {
+        try {
+            inst.time = { time: frame / 60, deltaTime: 1/60, frameCount: frame };
+            if (typeof inst.onUpdate === 'function') inst.onUpdate(1/60);
+        } catch (e) {
+            const msg = e.message || '';
+            if (!/document|window|canvas|AudioContext|WebSocket|fetch|pointerLock|requestAnimationFrame/i.test(msg)) {
+                if (!errors.some(err => err.includes(key))) {
+                    errors.push('RUNTIME ERROR in ' + key + ' onUpdate (frame ' + frame + '): ' + msg);
+                }
+            }
+        }
+    }
+}
+
+// Report
+if (errors.length === 0) {
+    console.log('Headless smoke test passed (' + Object.keys(scripts).length + ' scripts, 180 frames).');
+} else {
+    for (const e of errors) console.error(e);
+    console.error(errors.length + ' error(s) in headless smoke test.');
+    process.exit(1);
+}
+`;
+    fs.writeFileSync(path.join(sandboxDir, 'validate_headless.js'), headlessScript);
 }
 
 function copyDirRecursive(src: string, dest: string): void {
