@@ -4,9 +4,9 @@ import { GPUResourceManager } from '../gpu_resource_manager.js';
 import { ShaderLibrary } from '../shader_library.js';
 import { RenderScene, RenderMeshInstance, RenderCamera } from '../render_scene.js';
 
-const SHADOW_MAP_SIZE = 2048;
+const SHADOW_MAP_SIZE = 4096;
 const LIGHT_CAMERA_SIZE = 128; // 2 x mat4x4(64)
-const MAX_SHADOW_DISTANCE = 200;
+const MAX_SHADOW_DISTANCE = 50;
 
 /**
  * Single shadow map pass.
