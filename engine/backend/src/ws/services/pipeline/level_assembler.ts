@@ -522,12 +522,30 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   // 3. UI files
   // ════════════════════════════════════════════════════════════════════════════
 
+  // Collect UI panels referenced by the flow (show_ui: actions)
+  const referencedPanels = new Set<string>();
+  const collectUIRefs = (obj: any) => {
+    if (!obj) return;
+    if (typeof obj === 'string') {
+      if (obj.indexOf('show_ui:') === 0) referencedPanels.add(obj.substring(8));
+      return;
+    }
+    if (Array.isArray(obj)) { for (const item of obj) collectUIRefs(item); return; }
+    if (typeof obj === 'object') { for (const key in obj) collectUIRefs(obj[key]); }
+  };
+  collectUIRefs(flow?.states);
+  // Always include shared panels
+  referencedPanels.add('main_menu');
+  referencedPanels.add('game_over');
+
   const walkUI = (dir: string, prefix: string = '') => {
     if (!fs.existsSync(dir)) return;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) {
         walkUI(path.join(dir, entry.name), prefix + entry.name + '/');
       } else if (entry.name.endsWith('.html')) {
+        const panelName = `${prefix}${entry.name.replace('.html', '')}`;
+        if (referencedPanels.size > 0 && !referencedPanels.has(panelName)) return;
         const key = `ui/${prefix}${entry.name}`;
         try { uiFiles[key] = fs.readFileSync(path.join(dir, entry.name), 'utf-8'); } catch {}
       }
