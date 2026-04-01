@@ -42,8 +42,20 @@ export async function runCreator(
         sendStatus?.('Setting up creation sandbox...');
         createSandbox(sandboxDir, templateId);
 
+        // Build valid events list for the task file
+        let validEventsList = '';
+        try {
+            const evtSrc = fs.readFileSync(path.join(RGC_DIR, 'systems', 'v0.1', 'event_definitions.ts'), 'utf-8');
+            const nameMatches = evtSrc.matchAll(/^\s+(\w+)\s*:/gm);
+            const names: string[] = [];
+            for (const m of nameMatches) {
+                if (!['fields', 'type', 'optional'].includes(m[1])) names.push(m[1]);
+            }
+            validEventsList = `\n\n# CRITICAL: Valid Game Events\n\nYou MUST only use these event names with events.game.on/emit. Using any other name will cause validation to fail.\n\n${names.map(n => `- ${n}`).join('\n')}\n\nDo NOT invent new event names. If you need an event that's not listed, use the closest match (e.g., use "entity_killed" instead of "enemy_killed", use "wave_started" instead of "wave_cleared").`;
+        } catch {}
+
         fs.writeFileSync(path.join(sandboxDir, 'TASK.md'),
-            `# Game to Create\n\n${description}\n\n# Template ID\n\n${templateId}\n\nCreate all 4 template JSON files in template/ and any custom scripts in new_scripts/. Read reference/ for examples and assets/ for available 3D models, audio, and textures.`
+            `# Game to Create\n\n${description}\n\n# Template ID\n\n${templateId}\n\nCreate all 4 template JSON files in template/ and any custom scripts in new_scripts/. Read reference/ for examples and assets/ for available 3D models, audio, and textures.${validEventsList}`
         );
 
         sendStatus?.('Creator agent is building the game...');
@@ -56,24 +68,32 @@ export async function runCreator(
             return { success: false, summary: 'Creator did not produce template files.', templateId, assembled: null };
         }
 
-        // Save to reusable_game_components with conflict handling
-        sendStatus?.('Saving template...');
-        const templateDir = saveTemplate(templateId, created);
-
-        // Final validation — run assembleGame()
+        // Validate BEFORE saving — write temp copies of new scripts so assembler can find them
         sendStatus?.('Running final validation...');
+        const tempScriptsDir = path.join(sandboxDir, '_validate');
+        writeTempScripts(tempScriptsDir, created);
+
+        // Write template JSONs to a temp location for assembleGame
+        const tempTemplateDir = path.join(sandboxDir, '_validate_template');
+        fs.mkdirSync(tempTemplateDir, { recursive: true });
+        for (const [filename, content] of Object.entries(created.templateFiles)) {
+            fs.writeFileSync(path.join(tempTemplateDir, filename), content);
+        }
+
         let assembled: ConvertedScene;
         try {
-            assembled = assembleGame(templateDir, {
-                behaviors: path.join(RGC_DIR, 'behaviors', 'v0.1'),
-                systems: path.join(RGC_DIR, 'systems', 'v0.1'),
-                ui: path.join(RGC_DIR, 'ui', 'v0.1'),
+            assembled = assembleGame(tempTemplateDir, {
+                behaviors: path.join(tempScriptsDir, 'behaviors'),
+                systems: path.join(tempScriptsDir, 'systems'),
+                ui: path.join(tempScriptsDir, 'ui'),
             });
         } catch (e: any) {
-            // Cleanup failed template
-            try { fs.rmSync(templateDir, { recursive: true, force: true }); } catch {}
             return { success: false, summary: `Template validation failed: ${e.message}`, templateId, assembled: null };
         }
+
+        // Validation passed — now save to reusable_game_components
+        sendStatus?.('Saving template...');
+        saveTemplate(templateId, created);
 
         return {
             success: true,
@@ -151,6 +171,32 @@ function copyDirRecursive(src: string, dest: string): void {
     }
 }
 
+// ─── Temp scripts for validation ───────────────────────────────────────────
+
+function writeTempScripts(tempDir: string, created: CreatedFiles): void {
+    // Copy existing shared scripts as base
+    copyDirRecursive(path.join(RGC_DIR, 'behaviors', 'v0.1'), path.join(tempDir, 'behaviors'));
+    copyDirRecursive(path.join(RGC_DIR, 'systems', 'v0.1'), path.join(tempDir, 'systems'));
+    copyDirRecursive(path.join(RGC_DIR, 'ui', 'v0.1'), path.join(tempDir, 'ui'));
+
+    // Overlay new scripts on top
+    for (const [rel, content] of Object.entries(created.behaviors)) {
+        const p = path.join(tempDir, 'behaviors', rel);
+        fs.mkdirSync(path.dirname(p), { recursive: true });
+        fs.writeFileSync(p, content);
+    }
+    for (const [rel, content] of Object.entries(created.systems)) {
+        const p = path.join(tempDir, 'systems', rel);
+        fs.mkdirSync(path.dirname(p), { recursive: true });
+        fs.writeFileSync(p, content);
+    }
+    for (const [rel, content] of Object.entries(created.uiFiles)) {
+        const p = path.join(tempDir, 'ui', rel);
+        fs.mkdirSync(path.dirname(p), { recursive: true });
+        fs.writeFileSync(p, content);
+    }
+}
+
 // ─── Asset catalog generation ──────────────────────────────────────────────
 
 function generateAssetCatalog(assetsDir: string): void {
@@ -213,6 +259,10 @@ echo "=== Template Completeness ==="
 [ -f "template/01_flow.json" ] || { echo "MISSING: 01_flow.json"; ERRORS=$((ERRORS+1)); }
 [ -f "template/02_entities.json" ] || { echo "MISSING: 02_entities.json"; ERRORS=$((ERRORS+1)); }
 [ -f "template/03_worlds.json" ] || { echo "MISSING: 03_worlds.json"; ERRORS=$((ERRORS+1)); }
+
+echo "=== Event Validation ==="
+node validate_events.js 2>&1
+if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
 echo "=== Headless Smoke Test ==="
 node validate_headless.js 2>&1
@@ -289,6 +339,131 @@ if (errors.length === 0) {
 }
 `;
     fs.writeFileSync(path.join(sandboxDir, 'validate_headless.js'), headlessJs);
+
+    // Event validation script — checks scripts use only valid event names
+    const eventsJs = `
+const fs = require('fs');
+const path = require('path');
+
+// Read valid events from reference
+const evtSrc = fs.readFileSync('reference/systems/event_definitions.ts', 'utf-8');
+const validEvents = new Set();
+const matches = evtSrc.matchAll(/^\\s+(\\w+)\\s*:/gm);
+for (const m of matches) {
+    if (!['fields', 'type', 'optional'].includes(m[1])) validEvents.add(m[1]);
+}
+
+const errors = [];
+
+// Check all new scripts
+function checkDir(dir) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) { checkDir(full); continue; }
+        if (!entry.name.endsWith('.ts')) continue;
+        const src = fs.readFileSync(full, 'utf-8');
+        const gameRefs = src.matchAll(/events\\.game\\.(?:on|emit)\\s*\\(\\s*"([^"]+)"/g);
+        for (const m of gameRefs) {
+            if (!validEvents.has(m[1])) {
+                errors.push(full + ': unknown game event "' + m[1] + '"');
+            }
+        }
+        // Check for game events on ui bus
+        const uiRefs = src.matchAll(/events\\.ui\\.emit\\s*\\(\\s*"([^"]+)"/g);
+        for (const m of uiRefs) {
+            if (validEvents.has(m[1])) {
+                errors.push(full + ': game event "' + m[1] + '" emitted on ui bus — use events.game.emit');
+            }
+        }
+    }
+}
+
+checkDir('new_scripts/behaviors');
+checkDir('new_scripts/systems');
+
+// Also check flow JSON for invalid events
+try {
+    const flow = JSON.parse(fs.readFileSync('template/01_flow.json', 'utf-8'));
+    function checkStates(states, prefix) {
+        for (const [name, s] of Object.entries(states)) {
+            for (const t of (s.transitions || [])) {
+                const w = t.when || '';
+                if (w.startsWith('game_event:')) {
+                    const evt = w.substring(11);
+                    if (!validEvents.has(evt)) {
+                        errors.push('01_flow.json ' + prefix + name + ': unknown game event "' + evt + '" in "' + w + '"');
+                    }
+                }
+            }
+            for (const actionList of [s.on_enter, s.on_exit, s.on_update]) {
+                if (!Array.isArray(actionList)) continue;
+                for (const action of actionList) {
+                    if (typeof action === 'string' && action.startsWith('emit:game.')) {
+                        const evt = action.substring(10);
+                        if (!validEvents.has(evt)) {
+                            errors.push('01_flow.json ' + prefix + name + ': unknown game event "' + evt + '"');
+                        }
+                    }
+                }
+            }
+            if (s.substates) checkStates(s.substates, prefix + name + '/');
+        }
+    }
+    if (flow.states) checkStates(flow.states, '');
+
+    // UI button validation — check ui_event: transitions reference panels with matching buttons
+    const panelButtons = {};
+    // Scan new UI files
+    function scanUI(dir) {
+        if (!fs.existsSync(dir)) return;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) { scanUI(full); continue; }
+            if (!entry.name.endsWith('.html')) continue;
+            const panelName = entry.name.replace('.html', '');
+            const html = fs.readFileSync(full, 'utf-8');
+            const buttons = new Set();
+            const emitMatches = html.matchAll(/emit\\s*\\(\\s*['"]([^'"]+)['"]/g);
+            for (const m of emitMatches) buttons.add(m[1]);
+            if (buttons.size > 0) panelButtons[panelName] = buttons;
+        }
+    }
+    scanUI('new_scripts/ui');
+    scanUI('reference/ui');
+
+    function checkUITransitions(states, prefix) {
+        for (const [name, s] of Object.entries(states)) {
+            for (const t of (s.transitions || [])) {
+                const w = t.when || '';
+                if (!w.startsWith('ui_event:')) continue;
+                const parts = w.substring(9).split(':');
+                if (parts.length !== 2) { errors.push(prefix + name + ': malformed ui_event "' + w + '"'); continue; }
+                const panel = parts[0], action = parts[1];
+                const buttons = panelButtons[panel];
+                if (!buttons) {
+                    errors.push(prefix + name + ': ui_event references panel "' + panel + '" but no buttons found in ' + panel + '.html');
+                } else if (!buttons.has(action)) {
+                    errors.push(prefix + name + ': ui_event references button "' + action + '" but ' + panel + '.html only has: ' + [...buttons].join(', '));
+                }
+            }
+            if (s.substates) checkUITransitions(s.substates, prefix + name + '/');
+        }
+    }
+    if (flow.states) checkUITransitions(flow.states, '');
+} catch (e) {
+    errors.push('Failed to parse 01_flow.json: ' + e.message);
+}
+
+if (errors.length === 0) {
+    console.log('Event + UI validation passed (' + validEvents.size + ' valid events).');
+} else {
+    for (const e of errors) console.error('VALIDATION ERROR: ' + e);
+    console.error(errors.length + ' validation error(s) found.');
+    process.exit(1);
+}
+`;
+    fs.writeFileSync(path.join(sandboxDir, 'validate_events.js'), eventsJs);
 }
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
@@ -302,13 +477,13 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
             throw new Error(`Creator CLI "${cli}" is not supported yet. Currently only "claude" is supported.`);
         }
 
-        const prompt = `Read TASK.md for the game description. Read CONTEXT.md for template format docs and rules. Browse assets/ for available 3D models, audio, textures. Look at reference/game_templates/ for examples of complete templates. Create the game template in template/ and any custom scripts in new_scripts/. After creating, run "bash validate.sh" to verify. Fix any errors.`;
+        const prompt = `Read TASK.md for the game description AND the list of valid game events — you MUST only use events from that list. Read CONTEXT.md for template format docs and rules. Browse assets/ for available 3D models, audio, textures. Look at reference/game_templates/ for examples of complete templates. Create the game template in template/ and any custom scripts in new_scripts/. After creating, run "bash validate.sh" to verify. Fix any errors.`;
 
         const args = [
             '-p', prompt,
             '--output-format', 'stream-json',
             '--verbose',
-            '--model', 'haiku',
+            '--model', 'sonnet',
             '--dangerously-skip-permissions',
             '--max-turns', '50',
         ];

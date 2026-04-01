@@ -175,8 +175,16 @@ Read files in the `assets/` directory:
 - `assets/AUDIO.md` — all audio files with paths
 - `assets/TEXTURES.md` — all texture files with paths
 
-## Event Definitions
+## Event Definitions — STRICT
 Read `reference/event_definitions.ts` for all valid game event names and their payloads.
+
+**CRITICAL**: You MUST ONLY use event names that exist in event_definitions.ts. The assembler will REJECT any scripts that use unknown events. Do NOT invent new event names like "enemy_killed" or "wave_cleared" — use the existing ones:
+- Use `entity_killed` (not `enemy_killed`)
+- Use `wave_started` (not `wave_cleared` or `wave_complete`)
+- Use `entity_damaged` (not `enemy_damaged`)
+- Use `entity_destroyed` (not `enemy_reached_base`)
+
+The full list is in TASK.md and in `reference/event_definitions.ts`.
 
 ## Reference Templates
 Look at `reference/game_templates/` for working examples of complete templates.

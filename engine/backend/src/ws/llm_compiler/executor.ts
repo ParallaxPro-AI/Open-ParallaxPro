@@ -269,7 +269,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     result.fileChanges.push({ path: sceneKey, type: 'modified' });
                     result.toolResults = `[CREATE_GAME] ${createResult.summary}. The game "${createResult.templateId}" has been created and loaded. Tell the user to press Play to try it.`;
                 } else {
-                    result.toolResults = `[CREATE_GAME] Failed: ${createResult.summary}`;
+                    result.toolResults = `[CREATE_GAME] Failed: ${createResult.summary}\n\nDo NOT retry CREATE_GAME. Tell the user that creating this game from scratch was not possible right now, and suggest using an existing template instead.`;
                 }
             } catch (e: any) {
                 result.toolResults = `[CREATE_GAME] Error: ${e.message}`;

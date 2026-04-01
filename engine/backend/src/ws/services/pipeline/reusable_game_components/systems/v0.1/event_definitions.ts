@@ -125,6 +125,66 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     checkmate:          { fields: {} },
     stalemate:          { fields: {} },
     dialogue_choice:    { fields: { choice: { type: 'string', optional: true } } },
+
+    // ── Tower Defense ──
+    tower_placed:       { fields: { towerId: { type: 'number', optional: true }, towerType: { type: 'string', optional: true } } },
+    tower_upgraded:     { fields: { towerId: { type: 'number', optional: true }, level: { type: 'number', optional: true } } },
+    tower_sold:         { fields: { towerId: { type: 'number', optional: true } } },
+    wave_complete:      { fields: { wave: { type: 'number', optional: true } } },
+    all_waves_complete: { fields: {} },
+    enemy_reached_end:  { fields: { enemyId: { type: 'number', optional: true } } },
+
+    // ── Platformer ──
+    coin_collected:     { fields: { entityId: { type: 'number', optional: true } } },
+    level_complete:     { fields: { level: { type: 'number', optional: true } } },
+    checkpoint_reached: { fields: {} },
+    player_fell:        { fields: {} },
+    double_jump:        { fields: {} },
+    wall_jump:          { fields: {} },
+
+    // ── Survival / Crafting ──
+    hunger_changed:     { fields: { hunger: { type: 'number' } } },
+    thirst_changed:     { fields: { thirst: { type: 'number' } } },
+    item_crafted:       { fields: { item: { type: 'string', optional: true } } },
+    resource_gathered:  { fields: { resource: { type: 'string', optional: true }, amount: { type: 'number', optional: true } } },
+    building_placed:    { fields: { building: { type: 'string', optional: true } } },
+    building_destroyed: { fields: { buildingId: { type: 'number', optional: true } } },
+
+    // ── RPG / Turn-based ──
+    turn_started:       { fields: { turn: { type: 'number', optional: true } } },
+    turn_ended:         { fields: {} },
+    xp_gained:          { fields: { amount: { type: 'number' } } },
+    level_up:           { fields: { level: { type: 'number' } } },
+    quest_started:      { fields: { quest: { type: 'string', optional: true } } },
+    quest_completed:    { fields: { quest: { type: 'string', optional: true } } },
+    loot_dropped:       { fields: { item: { type: 'string', optional: true } } },
+
+    // ── Sports / Ball ──
+    goal_scored:        { fields: { team: { type: 'string', optional: true }, score: { type: 'number', optional: true } } },
+    ball_kicked:        { fields: {} },
+    ball_caught:        { fields: {} },
+    foul_committed:     { fields: {} },
+    period_ended:       { fields: { period: { type: 'number', optional: true } } },
+
+    // ── Puzzle ──
+    puzzle_solved:      { fields: {} },
+    piece_placed:       { fields: { piece: { type: 'string', optional: true } } },
+    piece_removed:      { fields: { piece: { type: 'string', optional: true } } },
+    match_found:        { fields: { count: { type: 'number', optional: true } } },
+    grid_cleared:       { fields: {} },
+
+    // ── Generic / Reusable ──
+    objective_complete: { fields: { objective: { type: 'string', optional: true } } },
+    objective_failed:   { fields: { objective: { type: 'string', optional: true } } },
+    phase_changed:      { fields: { phase: { type: 'string', optional: true } } },
+    countdown_tick:     { fields: { remaining: { type: 'number' } } },
+    countdown_done:     { fields: {} },
+    interact:           { fields: { entityId: { type: 'number', optional: true }, action: { type: 'string', optional: true } } },
+    teleport:           { fields: { entityId: { type: 'number', optional: true }, x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    power_up:           { fields: { type: { type: 'string', optional: true }, duration: { type: 'number', optional: true } } },
+    power_down:         { fields: {} },
+    combo_hit:          { fields: { combo: { type: 'number', optional: true } } },
+    streak_ended:       { fields: {} },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
