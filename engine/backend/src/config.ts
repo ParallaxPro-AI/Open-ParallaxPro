@@ -24,6 +24,7 @@ export const config = {
     corsOrigins: process.env.CORS_ORIGINS
         ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
         : ['http://localhost:5173', 'http://localhost:5174'],
+    assetsDir: envString('ASSETS_DIR', path.resolve(__dirname, '../../../reusable_assets')),
 };
 
 if (!config.isDev && config.jwtSecret === 'dev-secret-change-in-production') {

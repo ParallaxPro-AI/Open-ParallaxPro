@@ -10,6 +10,7 @@ import { createSchema } from './db/schema.js';
 createSchema(db);
 
 const { default: projectRoutes } = await import('./routes/projects.js');
+const { default: assetRoutes } = await import('./routes/assets.js');
 const { setupEditorWebSocket } = await import('./ws/editor_ws.js');
 
 // Express app
@@ -17,8 +18,12 @@ const app = express();
 app.use(cors({ origin: config.corsOrigins, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 
+// Static asset serving
+app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
+
 // Routes
 app.use('/api/engine/projects', projectRoutes);
+app.use('/api/engine/assets', assetRoutes);
 
 app.get('/api/engine/health', (_req, res) => {
     res.json({ status: 'ok', port: config.port, uptime: process.uptime() });
@@ -44,6 +49,17 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 // Start
-server.listen(config.port, () => {
+server.listen(config.port, async () => {
     console.log(`[Server] Running on port ${config.port} (${config.nodeEnv})`);
+
+    // Asset generators (non-blocking, run in background)
+    import('./generators/thumbnail_generator.js').then(({ generateThumbnails }) => {
+        generateThumbnails(config.assetsDir).catch(e => console.error('[Thumbnails] Failed:', e));
+    });
+    import('./generators/collision_mesh_generator.js').then(({ generateCollisionMeshes }) => {
+        generateCollisionMeshes(config.assetsDir).catch(e => console.error('[CollisionMesh] Failed:', e));
+    });
+    import('./generators/lod_generator.js').then(({ generateLODs }) => {
+        generateLODs(config.assetsDir).catch(e => console.error('[LOD] Failed:', e));
+    });
 });

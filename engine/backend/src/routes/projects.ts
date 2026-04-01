@@ -63,7 +63,15 @@ router.get('/', (req, res) => {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, parseInt(req.query.limit as string) || 100);
     const offset = (page - 1) * limit;
-    const projects = stmtList.all(req.user!.id, limit, offset);
+    const rows = stmtList.all(req.user!.id, limit, offset) as any[];
+    const projects = rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        thumbnail: r.thumbnail,
+        status: r.status,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+    }));
     res.json({ projects });
 });
 

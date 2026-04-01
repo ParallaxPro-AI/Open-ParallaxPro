@@ -33,3 +33,6 @@ engine/backend/uploads/
 
 # Logs
 *.log
+
+# Misc
+reusable_assets/
