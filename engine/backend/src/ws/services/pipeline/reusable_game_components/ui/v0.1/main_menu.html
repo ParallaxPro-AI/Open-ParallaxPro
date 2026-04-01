@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-dark: rgba(8, 8, 14, 0.92);
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.15);
+    --text: #eaf0f6;
+    --text-dim: #6b7280;
+    --text-muted: #3e4550;
+    --accent-1: #6366f1;
+    --accent-2: #8b5cf6;
+    --accent-3: #ec4899;
+    --glow-1: rgba(99, 102, 241, 0.4);
+    --glow-2: rgba(139, 92, 246, 0.3);
+  }
+
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== ANIMATED BACKGROUND ===== */
+  .bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+  }
+
+  .bg-gradient {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, rgba(236, 72, 153, 0.05) 0%, transparent 50%);
+    animation: bgShift 12s ease-in-out infinite alternate;
+  }
+
+  @keyframes bgShift {
+    0% {
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 60% 80%, rgba(236, 72, 153, 0.05) 0%, transparent 50%);
+    }
+    100% {
+      background:
+        radial-gradient(ellipse at 40% 30%, rgba(99, 102, 241, 0.1) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 70%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 30% 60%, rgba(236, 72, 153, 0.06) 0%, transparent 50%);
+    }
+  }
+
+  .bg-noise {
+    position: absolute;
+    inset: 0;
+    opacity: 0.015;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* Floating particles */
+  .particles {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    animation: particleFloat linear infinite;
+  }
+
+  @keyframes particleFloat {
+    0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-10vh) translateX(40px); opacity: 0; }
+  }
+
+  /* ===== MENU CONTAINER ===== */
+  .menu-container {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: menuFadeIn 1s ease forwards;
+  }
+
+  @keyframes menuFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ===== TITLE ===== */
+  .title-area {
+    text-align: center;
+    margin-bottom: 48px;
+    animation: titleSlideIn 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    opacity: 0;
+  }
+
+  @keyframes titleSlideIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .game-title {
+    font-size: 56px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    line-height: 1;
+    background: linear-gradient(135deg, #e0e7ff 0%, var(--accent-1) 30%, var(--accent-2) 60%, var(--accent-3) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px var(--glow-1));
+    position: relative;
+  }
+
+  .game-title::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #e0e7ff 0%, var(--accent-1) 30%, var(--accent-2) 60%, var(--accent-3) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: blur(20px);
+    opacity: 0.4;
+    z-index: -1;
+  }
+
+  .game-subtitle {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-top: 12px;
+  }
+
+  /* Decorative line */
+  .title-line {
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-1), var(--accent-2), transparent);
+    margin: 16px auto 0;
+    border-radius: 1px;
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 280px;
+    animation: btnsSlideIn 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) 0.2s forwards;
+    opacity: 0;
+  }
+
+  @keyframes btnsSlideIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .menu-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 16px 24px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .menu-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    border-radius: 10px;
+  }
+
+  .menu-btn:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3), 0 0 20px var(--glow-2);
+  }
+
+  .menu-btn:hover::before {
+    opacity: 0.12;
+  }
+
+  .menu-btn:active {
+    transform: translateY(0);
+    transition-duration: 0.1s;
+  }
+
+  .menu-btn span {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Primary button (Play) */
+  .menu-btn.primary {
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    border-color: transparent;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 18px 24px;
+  }
+
+  .menu-btn.primary::before {
+    background: linear-gradient(135deg, var(--accent-2), var(--accent-3));
+  }
+
+  .menu-btn.primary:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3), 0 0 30px var(--glow-1);
+    filter: brightness(1.1);
+  }
+
+  .menu-btn.primary:hover::before {
+    opacity: 0.3;
+  }
+
+  /* ===== FOOTER ===== */
+  .footer {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    animation: footerFadeIn 1s ease 0.6s forwards;
+    opacity: 0;
+  }
+
+  @keyframes footerFadeIn {
+    from { opacity: 0; }
+    to { opacity: 0.5; }
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<!-- Animated background -->
+<div class="bg-layer">
+  <div class="bg-gradient"></div>
+  <div class="bg-noise"></div>
+  <div class="particles" id="particles"></div>
+</div>
+
+<!-- Menu -->
+<div class="menu-container" id="menu-container">
+  <div class="title-area">
+    <div class="game-title" id="game-title" data-text="UNTITLED GAME">UNTITLED GAME</div>
+    <div class="game-subtitle" id="game-subtitle"></div>
+    <div class="title-line"></div>
+  </div>
+
+  <div class="btn-group">
+    <button class="menu-btn primary" id="btn-play" data-interactive style="pointer-events:auto"><span>Play</span></button>
+  </div>
+</div>
+
+<div class="footer" id="footer"></div>
+
+<script>
+(function() {
+  // Create floating particles
+  var particleContainer = document.getElementById('particles');
+  for (var i = 0; i < 30; i++) {
+    var p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = (Math.random() * 100) + '%';
+    p.style.animationDuration = (8 + Math.random() * 12) + 's';
+    p.style.animationDelay = (Math.random() * 10) + 's';
+    p.style.width = (1 + Math.random() * 2) + 'px';
+    p.style.height = p.style.width;
+    p.style.opacity = (0.05 + Math.random() * 0.15);
+    particleContainer.appendChild(p);
+  }
+
+  function emit(action, extra) {
+    var msg = { type: 'game_command', action: action };
+    if (extra) {
+      for (var k in extra) msg[k] = extra[k];
+    }
+    window.parent.postMessage(msg, '*');
+  }
+
+  document.getElementById('btn-play').onclick = function() {
+    emit('start_game');
+  };
+
+  function update(state) {
+    if (!state) return;
+    if (state.gameTitle) {
+      var titleEl = document.getElementById('game-title');
+      titleEl.textContent = state.gameTitle;
+      titleEl.setAttribute('data-text', state.gameTitle);
+    }
+    if (state.gameSubtitle) {
+      document.getElementById('game-subtitle').textContent = state.gameSubtitle;
+    }
+    if (state.phase === 'playing' || state.phase === 'game') {
+      document.getElementById('menu-container').classList.add('hidden');
+    } else if (state.phase === 'menu') {
+      document.getElementById('menu-container').classList.remove('hidden');
+    }
+    if (state.versionText) {
+      document.getElementById('footer').textContent = state.versionText;
+    }
+  }
+
+  window.addEventListener('gamestate', function(e) { if (e.detail) update(e.detail); });
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+  Object.defineProperty(window, 'gameState', {
+    configurable: true,
+    set: function(val) { update(val); },
+    get: function() { return {}; }
+  });
+})();
+</script>
+</body>
+</html>

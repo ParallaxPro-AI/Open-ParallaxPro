@@ -484,9 +484,12 @@ export class Scene {
         }
         if (!bestCam || !bestEntity) return null;
 
-        const aspectRatio = typeof window !== 'undefined'
-            ? window.innerWidth / window.innerHeight
-            : 16 / 9;
+        const canvas = typeof document !== 'undefined'
+            ? document.querySelector('.viewport-canvas-container canvas') as HTMLCanvasElement | null
+            : null;
+        const aspectRatio = canvas
+            ? canvas.clientWidth / canvas.clientHeight
+            : (typeof window !== 'undefined' ? window.innerWidth / window.innerHeight : 16 / 9);
 
         return {
             viewMatrix: bestCam.getViewMatrix(),

@@ -258,7 +258,7 @@ export class MeshData {
             }
 
             for (let i = 0; i < segs; i++) {
-                indices.push(centerIdx, centerIdx + 1 + i, centerIdx + 1 + i + 1);
+                indices.push(centerIdx, centerIdx + 1 + i + 1, centerIdx + 1 + i);
             }
         }
 
@@ -279,7 +279,7 @@ export class MeshData {
             }
 
             for (let i = 0; i < segs; i++) {
-                indices.push(centerIdx, centerIdx + 1 + i + 1, centerIdx + 1 + i);
+                indices.push(centerIdx, centerIdx + 1 + i, centerIdx + 1 + i + 1);
             }
         }
 

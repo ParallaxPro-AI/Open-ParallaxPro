@@ -55,7 +55,7 @@ export function doRaycast(
         if (!entity.active) continue;
         if (excludeEntityId !== undefined && (entity.id === excludeEntityId || (entity as any).parentId === excludeEntityId)) continue;
         const tags = entity.tags;
-        if (tags instanceof Set ? tags.has('#ground') : (tags as any)?.includes?.('#ground')) continue;
+        if (tags instanceof Set ? tags.has('ground') : (tags as any)?.includes?.('ground')) continue;
         const mr = entity.getComponent('MeshRendererComponent') as any;
         if (!mr || !mr.visible || !mr.gpuMesh) continue;
         const wp = entity.getWorldPosition();
