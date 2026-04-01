@@ -11,6 +11,7 @@ import { EDIT_API_DOCS, getProjectSummary } from '../services/chat_protocol.js';
 import { loadTemplateCatalog, loadTemplate, formatCatalogForLLM } from '../services/pipeline/template_loader.js';
 import { assembleGame } from '../services/pipeline/level_assembler.js';
 import { runFixer } from '../services/pipeline/cli_fixer.js';
+import { runCreator } from '../services/pipeline/cli_creator.js';
 
 export interface ExecutionContext {
     sendToFrontend: (type: string, data: any) => void;
@@ -220,6 +221,58 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 }
             } catch (e: any) {
                 result.toolResults = `[FIX_GAME] Error: ${e.message}`;
+            }
+            break;
+        }
+
+        case 'CREATE_GAME': {
+            const description = node.args.description;
+            if (!description) {
+                result.toolResults = '[CREATE_GAME] Missing description.';
+                break;
+            }
+
+            const sendStatus = (msg: string) => ctx.sendToFrontend('fix_progress', { text: msg });
+            sendStatus('Creating game from scratch...');
+
+            try {
+                const createResult = await runCreator(ctx.projectId, description, sendStatus);
+
+                if (createResult.success && createResult.assembled) {
+                    const pd = ctx.getProjectData();
+                    const sceneKey = ctx.activeSceneKey;
+                    pd.scenes = pd.scenes || {};
+                    pd.scenes[sceneKey] = {
+                        name: createResult.templateId,
+                        entities: createResult.assembled.entities,
+                        environment: {
+                            ambientColor: [1, 1, 1],
+                            ambientIntensity: 0.3,
+                            fog: { enabled: false, color: [0.8, 0.8, 0.8], near: 10, far: 100 },
+                            gravity: [0, -9.81, 0],
+                            timeOfDay: 12,
+                            dayNightCycleSpeed: 0,
+                        },
+                    };
+                    pd.scripts = { ...(pd.scripts || {}), ...createResult.assembled.scripts };
+                    pd.uiFiles = { ...(pd.uiFiles || {}), ...createResult.assembled.uiFiles };
+
+                    ctx.saveProjectData(pd);
+                    ctx.sendToFrontend('project_reload', {
+                        sceneKey,
+                        sceneData: pd.scenes[sceneKey],
+                        scripts: pd.scripts,
+                        uiFiles: pd.uiFiles,
+                    });
+
+                    result.madeChanges = true;
+                    result.fileChanges.push({ path: sceneKey, type: 'modified' });
+                    result.toolResults = `[CREATE_GAME] ${createResult.summary}. The game "${createResult.templateId}" has been created and loaded. Tell the user to press Play to try it.`;
+                } else {
+                    result.toolResults = `[CREATE_GAME] Failed: ${createResult.summary}`;
+                }
+            } catch (e: any) {
+                result.toolResults = `[CREATE_GAME] Error: ${e.message}`;
             }
             break;
         }

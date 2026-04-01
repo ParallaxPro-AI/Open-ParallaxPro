@@ -46,6 +46,14 @@ export function analyze(ast: ASTNode[]): CompileError[] {
                     hint: 'Describe the bug: <<<FIX_GAME description="...">>><<<END>>>',
                 });
             }
+        } else if (node.kind === 'tool_call' && node.name === 'CREATE_GAME') {
+            if (!node.args.description) {
+                errors.push({
+                    phase: 'semantic',
+                    message: 'CREATE_GAME: missing required argument "description"',
+                    hint: 'Describe the game: <<<CREATE_GAME description="a tower defense game with...">>><<<END>>>',
+                });
+            }
         } else if (node.kind === 'tool_call' && node.name === 'LIST_ASSETS') {
             listAssetsCount++;
             if (listAssetsCount > 1) {

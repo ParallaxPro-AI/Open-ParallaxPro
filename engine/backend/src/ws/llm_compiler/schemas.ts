@@ -25,4 +25,5 @@ export const VALID_BLOCK_NAMES = new Set([
     'GET_EDIT_API',
     'BUILD_NEW_GAME',
     'FIX_GAME',
+    'CREATE_GAME',
 ]);
