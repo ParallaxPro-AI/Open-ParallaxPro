@@ -27,8 +27,12 @@ const clients = new Map<string, EditorClient>();
 
 const stmtGetProject = db.prepare('SELECT * FROM projects WHERE id = ?');
 const stmtUpdateData = db.prepare("UPDATE projects SET project_data = ?, updated_at = datetime('now') WHERE id = ?");
-const stmtInsertMessage = db.prepare("INSERT INTO chat_messages (project_id, chat_session_id, role, content) VALUES (?, ?, ?, ?)");
-const stmtGetHistory = db.prepare("SELECT id, role, content, created_at FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id ASC");
+const stmtInsertMessage = db.prepare("INSERT INTO chat_messages (project_id, chat_session_id, role, content, file_changes, project_data_snapshot, project_data_before) VALUES (?, ?, ?, ?, ?, ?, ?)");
+const stmtGetHistory = db.prepare("SELECT id, role, content, feedback, file_changes, created_at FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id ASC");
+const stmtSetFeedback = db.prepare("UPDATE chat_messages SET feedback = ? WHERE id = ? AND project_id = ?");
+const stmtGetMessage = db.prepare("SELECT * FROM chat_messages WHERE id = ? AND project_id = ?");
+const stmtDeleteAfter = db.prepare("DELETE FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id > ?");
+const stmtDeleteFrom = db.prepare("DELETE FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id >= ?");
 
 function send(client: EditorClient, type: string, data: any): void {
     if (client.ws.readyState === WebSocket.OPEN) {
@@ -103,7 +107,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         const history = stmtGetHistory.all(projectId, chatSessionId) as any[];
         if (history.length > 0) {
             send(client, 'chat_history', {
-                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content })),
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
             });
         }
 
@@ -176,7 +180,7 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             client.chatSessionId = sessionId;
             const history = stmtGetHistory.all(client.projectId, sessionId) as any[];
             send(client, 'chat_history', {
-                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content })),
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
             });
             send(client, 'connected', { chatSessionId: sessionId });
             break;
@@ -202,6 +206,96 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
                 }
             } catch {}
             send(client, 'raw_session_files', { sessionId: client.chatSessionId, files });
+            break;
+        }
+
+        case 'message_feedback': {
+            const feedback = data?.feedback;
+            const messageId = data?.messageId;
+            if (messageId && (feedback === 'up' || feedback === 'down' || feedback === 'none')) {
+                stmtSetFeedback.run(feedback === 'none' ? null : feedback, messageId, client.projectId);
+            }
+            break;
+        }
+
+        case 'revert_to_message': {
+            const msg = stmtGetMessage.get(data?.messageId, client.projectId) as any;
+            if (!msg?.project_data_snapshot) {
+                send(client, 'error', { message: 'No snapshot available for this message.' });
+                break;
+            }
+            // Restore project state to the snapshot (state after this message)
+            stmtUpdateData.run(msg.project_data_snapshot, client.projectId);
+            // Delete all messages after this one
+            stmtDeleteAfter.run(client.projectId, client.chatSessionId, msg.id);
+            // Reload scene and chat
+            const restoredData = JSON.parse(msg.project_data_snapshot);
+            const sceneKey = Object.keys(restoredData.scenes || {})[0];
+            if (sceneKey) send(client, 'scene_reload', { sceneKey, sceneData: restoredData.scenes[sceneKey] });
+            const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
+            send(client, 'chat_history', {
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
+            });
+            break;
+        }
+
+        case 'revert_to_before_message': {
+            const msg = stmtGetMessage.get(data?.messageId, client.projectId) as any;
+            if (!msg) break;
+            // Find the project_data_before: check this message first, then the user message before it
+            let beforeData = msg.project_data_before;
+            if (!beforeData) {
+                // If this is an assistant message, the user message before it has the before snapshot
+                const prevUser = db.prepare(
+                    "SELECT project_data_before FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id < ? AND role = 'user' ORDER BY id DESC LIMIT 1"
+                ).get(client.projectId, client.chatSessionId, msg.id) as any;
+                beforeData = prevUser?.project_data_before;
+            }
+            if (!beforeData) {
+                send(client, 'error', { message: 'No snapshot available for before this message.' });
+                break;
+            }
+            stmtUpdateData.run(beforeData, client.projectId);
+            stmtDeleteFrom.run(client.projectId, client.chatSessionId, msg.id);
+            const restoredData = JSON.parse(beforeData);
+            const sceneKey = Object.keys(restoredData.scenes || {})[0];
+            if (sceneKey) send(client, 'scene_reload', { sceneKey, sceneData: restoredData.scenes[sceneKey] });
+            const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
+            send(client, 'chat_history', {
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
+            });
+            break;
+        }
+
+        case 'regenerate_response': {
+            const msg = stmtGetMessage.get(data?.messageId, client.projectId) as any;
+            if (!msg || msg.role !== 'assistant') break;
+            // Find the user message before this assistant message
+            const prevUser = db.prepare(
+                "SELECT * FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id < ? AND role = 'user' ORDER BY id DESC LIMIT 1"
+            ).get(client.projectId, client.chatSessionId, msg.id) as any;
+            if (!prevUser) break;
+            // Restore project state to before the assistant response
+            if (msg.project_data_before || prevUser.project_data_before) {
+                const beforeData = prevUser.project_data_before || msg.project_data_before;
+                stmtUpdateData.run(beforeData, client.projectId);
+            }
+            // Delete the assistant message and everything after
+            stmtDeleteFrom.run(client.projectId, client.chatSessionId, msg.id);
+            // Send updated chat history so frontend removes deleted messages
+            const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
+            send(client, 'chat_history', {
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
+            });
+            // Reload scene to restored state
+            const pd = getProjectData(client.projectId);
+            const sceneKey = Object.keys(pd.scenes || {})[0];
+            if (sceneKey) send(client, 'scene_reload', { sceneKey, sceneData: pd.scenes[sceneKey] });
+            // Re-trigger the AI
+            send(client, 'chat_response_start', {});
+            const abortController = new AbortController();
+            client.abortController = abortController;
+            runLLMWithRetry(client, abortController, 0, []);
             break;
         }
 
@@ -286,7 +380,9 @@ function handleChatMessage(client: EditorClient, data: any): void {
     const content = data?.content;
     if (!content || typeof content !== 'string') return;
 
-    stmtInsertMessage.run(client.projectId, client.chatSessionId, 'user', content);
+    // Save user message with current project state as "before" snapshot
+    const beforeSnapshot = JSON.stringify(getProjectData(client.projectId));
+    stmtInsertMessage.run(client.projectId, client.chatSessionId, 'user', content, null, null, beforeSnapshot);
     send(client, 'chat_response_start', {});
 
     const abortController = new AbortController();
@@ -331,7 +427,13 @@ function buildExecContext(client: EditorClient): ExecutionContext {
 }
 
 function finishChat(client: EditorClient, displayContent: string, fileChanges: any[] = []): void {
-    const dbResult = stmtInsertMessage.run(client.projectId, client.chatSessionId, 'assistant', displayContent);
+    // Save assistant message with post-edit snapshot
+    const snapshot = JSON.stringify(getProjectData(client.projectId));
+    const fileChangesJson = fileChanges.length > 0 ? JSON.stringify(fileChanges) : null;
+    const dbResult = stmtInsertMessage.run(
+        client.projectId, client.chatSessionId, 'assistant', displayContent,
+        fileChangesJson, snapshot, null
+    );
     send(client, 'chat_response_end', {
         fullContent: displayContent,
         messageId: Number(dbResult.lastInsertRowid),

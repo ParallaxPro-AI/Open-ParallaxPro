@@ -21,9 +21,22 @@ export function createSchema(db: Database.Database): void {
             chat_session_id TEXT,
             role TEXT NOT NULL,
             content TEXT NOT NULL,
+            feedback TEXT,
+            file_changes TEXT,
+            project_data_snapshot TEXT,
+            project_data_before TEXT,
             created_at TEXT DEFAULT (datetime('now'))
         );
 
         CREATE INDEX IF NOT EXISTS idx_chat_project ON chat_messages(project_id, chat_session_id);
     `);
+
+    // Migrations for existing databases
+    const addColumn = (table: string, col: string, type: string) => {
+        try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`); } catch {}
+    };
+    addColumn('chat_messages', 'feedback', 'TEXT');
+    addColumn('chat_messages', 'file_changes', 'TEXT');
+    addColumn('chat_messages', 'project_data_snapshot', 'TEXT');
+    addColumn('chat_messages', 'project_data_before', 'TEXT');
 }
