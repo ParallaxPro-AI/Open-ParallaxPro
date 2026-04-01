@@ -56,9 +56,12 @@ IMPORTANT: You now have the EDIT API. Do NOT call GET_EDIT_API again — use <<<
 - \`scene.setParent(childName, parentName)\` — null to unparent
 
 ### Transform
-- \`scene.setPosition(name, x, y, z)\`
-- \`scene.setScale(name, x, y, z)\`
-- \`scene.setRotation(name, x, y, z)\` — euler degrees
+- \`scene.setPosition(name, x, y, z)\` — set absolute position
+- \`scene.translate(name, dx, dy, dz)\` — move relative to current position
+- \`scene.setScale(name, x, y, z)\` — set absolute scale
+- \`scene.scaleBy(name, sx, sy, sz)\` — multiply current scale
+- \`scene.setRotation(name, x, y, z)\` — set absolute rotation (euler degrees)
+- \`scene.rotate(name, dx, dy, dz)\` — rotate relative to current rotation (euler degrees)
 
 ### Components
 - \`scene.addComponent(name, type, data)\`
@@ -116,7 +119,10 @@ export function getProjectSummary(projectData: any, activeSceneKey?: string): st
                 const meshInfo = mesh?.data?.meshAsset
                     ? ` [${mesh.data.meshAsset.split('/').pop()}]`
                     : (mesh?.data?.meshType ? ` [${mesh.data.meshType}]` : '');
-                return `  - ${e.name}${meshInfo}`;
+                const tc = e.components?.find((c: any) => c.type === 'TransformComponent');
+                const pos = tc?.data?.position;
+                const posInfo = pos ? ` at (${pos.x ?? 0}, ${pos.y ?? 0}, ${pos.z ?? 0})` : '';
+                return `  - ${e.name}${meshInfo}${posInfo}`;
             });
             parts.push(`Scene "${scenePath}"${marker} (${entities.length} entities):\n${entities.join('\n')}`);
         }

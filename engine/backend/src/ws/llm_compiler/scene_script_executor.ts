@@ -135,6 +135,21 @@ export function executeSceneScript(code: string, allScenes: Record<string, any>,
       changes.push({ action: 'set_position', entity: name });
     },
 
+    translate(name: string, dx: number, dy: number, dz: number) {
+      if (typeof dx !== 'number' || typeof dy !== 'number' || typeof dz !== 'number' || isNaN(dx) || isNaN(dy) || isNaN(dz)) {
+        throw new Error(`translate("${name}"): arguments must be numbers. Use translate("name", dx, dy, dz)`);
+      }
+      const entity = findEntity(name);
+      if (!entity) return;
+      const tc = getOrCreateTransform(entity);
+      tc.data.position = {
+        x: (tc.data.position.x ?? 0) + dx,
+        y: (tc.data.position.y ?? 0) + dy,
+        z: (tc.data.position.z ?? 0) + dz,
+      };
+      changes.push({ action: 'translate', entity: name });
+    },
+
     setScale(name: string, x: number, y: number, z: number) {
       if (typeof x !== 'number' || typeof y !== 'number' || typeof z !== 'number' || isNaN(x) || isNaN(y) || isNaN(z)) {
         throw new Error(`setScale("${name}"): arguments must be numbers. Use setScale("name", x, y, z)`);
@@ -143,6 +158,21 @@ export function executeSceneScript(code: string, allScenes: Record<string, any>,
       if (!entity) return;
       getOrCreateTransform(entity).data.scale = { x, y, z };
       changes.push({ action: 'set_scale', entity: name });
+    },
+
+    scaleBy(name: string, sx: number, sy: number, sz: number) {
+      if (typeof sx !== 'number' || typeof sy !== 'number' || typeof sz !== 'number' || isNaN(sx) || isNaN(sy) || isNaN(sz)) {
+        throw new Error(`scaleBy("${name}"): arguments must be numbers. Use scaleBy("name", sx, sy, sz)`);
+      }
+      const entity = findEntity(name);
+      if (!entity) return;
+      const tc = getOrCreateTransform(entity);
+      tc.data.scale = {
+        x: (tc.data.scale.x ?? 1) * sx,
+        y: (tc.data.scale.y ?? 1) * sy,
+        z: (tc.data.scale.z ?? 1) * sz,
+      };
+      changes.push({ action: 'scale_by', entity: name });
     },
 
     setRotation(name: string, rx: number, ry: number, rz: number) {
@@ -160,6 +190,32 @@ export function executeSceneScript(code: string, allScenes: Record<string, any>,
         w: cx * cy * cz + sx * sy * sz,
       };
       changes.push({ action: 'set_rotation', entity: name });
+    },
+
+    rotate(name: string, dx: number, dy: number, dz: number) {
+      const entity = findEntity(name);
+      if (!entity) return;
+      const tc = getOrCreateTransform(entity);
+      // Get current euler from quaternion, add delta, convert back
+      const r = tc.data.rotation || { x: 0, y: 0, z: 0, w: 1 };
+      const qx = r.x, qy = r.y, qz = r.z, qw = r.w;
+      const RAD2DEG = 180 / Math.PI;
+      const curX = Math.atan2(2 * (qw * qx + qy * qz), 1 - 2 * (qx * qx + qy * qy)) * RAD2DEG;
+      const curY = Math.asin(Math.max(-1, Math.min(1, 2 * (qw * qy - qz * qx)))) * RAD2DEG;
+      const curZ = Math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz)) * RAD2DEG;
+      // Apply delta and convert back to quaternion
+      const rx = curX + dx, ry = curY + dy, rz = curZ + dz;
+      const toRad = Math.PI / 180;
+      const cx = Math.cos(rx * toRad / 2), sx2 = Math.sin(rx * toRad / 2);
+      const cy = Math.cos(ry * toRad / 2), sy = Math.sin(ry * toRad / 2);
+      const cz = Math.cos(rz * toRad / 2), sz = Math.sin(rz * toRad / 2);
+      tc.data.rotation = {
+        x: sx2 * cy * cz - cx * sy * sz,
+        y: cx * sy * cz + sx2 * cy * sz,
+        z: cx * cy * sz - sx2 * sy * cz,
+        w: cx * cy * cz + sx2 * sy * sz,
+      };
+      changes.push({ action: 'rotate', entity: name });
     },
 
     addComponent(name: string, componentType: string, data?: any) {

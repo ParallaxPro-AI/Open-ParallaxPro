@@ -80,6 +80,30 @@ const SCENE_API: Record<string, MethodSchema> = {
             { name: 'z', type: 'number' },
         ],
     },
+    translate: {
+        args: [
+            { name: 'name', type: 'string' },
+            { name: 'dx', type: 'number' },
+            { name: 'dy', type: 'number' },
+            { name: 'dz', type: 'number' },
+        ],
+    },
+    scaleBy: {
+        args: [
+            { name: 'name', type: 'string' },
+            { name: 'sx', type: 'number' },
+            { name: 'sy', type: 'number' },
+            { name: 'sz', type: 'number' },
+        ],
+    },
+    rotate: {
+        args: [
+            { name: 'name', type: 'string' },
+            { name: 'dx', type: 'number' },
+            { name: 'dy', type: 'number' },
+            { name: 'dz', type: 'number' },
+        ],
+    },
     setScale: {
         args: [
             { name: 'name', type: 'string' },
