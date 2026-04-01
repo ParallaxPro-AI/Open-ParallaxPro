@@ -592,7 +592,7 @@ export class ProjectListView {
         const submit = async (prompt: string) => {
             const name = this.getNextProjectName();
             try {
-                const project = await this.ctx.backend.createProject(name, prompt);
+                const project = await this.ctx.backend.createProject(undefined, prompt);
                 const pid = project.projectId ?? project.id;
                 this.projects.unshift({ id: pid, name: project.name ?? name, prompt, ...project });
                 this.render();

@@ -76,9 +76,12 @@ router.get('/', (req, res) => {
 });
 
 // Create project
+const stmtCountProjects = db.prepare('SELECT COUNT(*) as count FROM projects WHERE user_id = ?');
+
 router.post('/', (req, res) => {
     const id = randomUUID();
-    const name = req.body.name || 'Untitled Project';
+    const count = (stmtCountProjects.get(req.user!.id) as any).count;
+    const name = `project-${count + 1}`;
 
     const projectData = JSON.parse(DEFAULT_PROJECT_DATA);
     projectData.projectConfig.name = name;
