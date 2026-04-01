@@ -9,7 +9,7 @@ import { EditorState } from './state/editor_state.js';
 import { UndoRedoManager } from './history/undo_redo_manager.js';
 import { BackendClient } from './backend/backend_client.js';
 import { loadGLB, ParsedMesh } from './utils/glb_loader.js';
-import { loadScriptClass, loadCompiledScriptClass } from '../../runtime/function/scripting/script_loader.js';
+import { loadScriptClass } from '../../runtime/function/scripting/script_loader.js';
 import { ScriptComponent } from '../../runtime/function/framework/components/script_component.js';
 import { GameUISystem } from '../../runtime/function/ui/game_ui.js';
 import { HTMLUIManager } from '../../runtime/function/ui/html_ui_manager.js';
@@ -490,9 +490,7 @@ export class EditorContext extends EventBus {
         }));
 
         for (const [url, source] of scriptSources) {
-            const ScriptClass = compiledScripts[url]
-                ? loadCompiledScriptClass(compiledScripts[url])
-                : loadScriptClass(source);
+            const ScriptClass = loadScriptClass(source);
             if (!ScriptClass) {
                 console.error('[Play] Failed to compile script:', url);
             }
