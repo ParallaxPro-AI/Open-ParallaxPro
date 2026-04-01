@@ -152,18 +152,10 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
 
             const name = path.replace('ui/', '').replace('.html', '');
 
-            // HUD components (hud/*.html) — shown via hudVisible OR individual flag
-            if (name.startsWith('hud/')) {
+            // HUD components (hud/*.html) — each shown only by its own flag
+            if (name.startsWith('hud/') || name === 'game_hud') {
                 const specificFlag = name.replace(/[^a-zA-Z0-9_]/g, '') + 'Visible';
-                const showHud = state.hudVisible === true || state[specificFlag] === true;
-                iframe.style.display = showHud ? '' : 'none';
-                iframe.style.pointerEvents = 'none';
-                continue;
-            }
-
-            // game_hud is special — controlled by hudVisible
-            if (name === 'game_hud') {
-                iframe.style.display = state.hudVisible === true ? '' : 'none';
+                iframe.style.display = state[specificFlag] === true ? '' : 'none';
                 iframe.style.pointerEvents = 'none';
                 continue;
             }
