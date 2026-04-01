@@ -93,8 +93,11 @@ class App {
 
         try {
             await view.initialize(projectId);
-            if (initialPrompt) {
-                view.sendInitialChatMessage(initialPrompt);
+            // Check for pending prompt from landing page or project creation
+            const prompt = initialPrompt || localStorage.getItem('pendingPrompt');
+            if (prompt) {
+                localStorage.removeItem('pendingPrompt');
+                view.sendInitialChatMessage(prompt);
             }
         } catch (e) {
             console.error('Failed to initialize editor:', e);
