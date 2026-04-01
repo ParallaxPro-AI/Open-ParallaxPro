@@ -14,5 +14,16 @@ export function createSchema(db: Database.Database): void {
         );
 
         CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
+
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            chat_session_id TEXT,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_chat_project ON chat_messages(project_id, chat_session_id);
     `);
 }

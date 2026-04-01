@@ -655,7 +655,7 @@ export class AiChatPanel {
             dot.className = 'chat-typing-dot';
             this.typingIndicator.appendChild(dot);
         }
-        this.typingIndicator.appendChild(document.createTextNode(' AI is thinking...'));
+        this.typingIndicator.appendChild(document.createTextNode(' ParallaxPro AI is thinking...'));
         this.messagesContainer.appendChild(this.typingIndicator);
     }
 
