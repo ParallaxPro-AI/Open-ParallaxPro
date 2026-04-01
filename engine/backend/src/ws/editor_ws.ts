@@ -388,7 +388,11 @@ function runLLMWithRetry(
                 runLLMWithRetry(client, abortController, attempt + 1, [
                     ...retryContext,
                     { role: 'assistant', content: fullText },
-                    { role: 'user', content: `[SYSTEM] Tool results:\n${execResult.toolResults}\n\nNow write your <<<EDIT>>> block using the results above. Do NOT call GET_EDIT_API or LIST_ASSETS again — just write the <<<EDIT>>> block directly.` },
+                    { role: 'user', content: `[SYSTEM] Tool results:\n${execResult.toolResults}${
+                        compiled.ast.some(n => n.kind === 'edit')
+                            ? '\n\nIMPORTANT: Your <<<EDIT>>> block was NOT executed because you included a tool call in the same response.'
+                            : ''
+                    }\n\nNow write your <<<EDIT>>> block using the results above. Do NOT call GET_EDIT_API or LIST_ASSETS again.` },
                 ]);
                 return;
             }
