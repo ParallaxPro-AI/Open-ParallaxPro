@@ -5,9 +5,15 @@ export interface LLMMessage {
     content: string;
 }
 
+export interface TokenUsage {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+}
+
 export interface LLMStreamCallbacks {
     onChunk: (text: string) => void;
-    onDone: (fullText: string) => void;
+    onDone: (fullText: string, usage?: TokenUsage) => void;
     onError: (error: string) => void;
 }
 
@@ -34,6 +40,7 @@ export async function callLLMStream(
                 model,
                 max_tokens: maxTokens,
                 stream: true,
+                stream_options: { include_usage: true },
                 messages: messages.map(m => ({ role: m.role, content: m.content })),
             }),
             signal: abortSignal,
@@ -46,6 +53,7 @@ export async function callLLMStream(
         }
 
         let fullText = '';
+        let usage: TokenUsage | undefined;
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -70,11 +78,19 @@ export async function callLLMStream(
                         fullText += content;
                         callbacks.onChunk(content);
                     }
+                    // Extract usage from final streaming event (OpenAI-compatible)
+                    if (event.usage) {
+                        usage = {
+                            promptTokens: event.usage.prompt_tokens ?? 0,
+                            completionTokens: event.usage.completion_tokens ?? 0,
+                            totalTokens: event.usage.total_tokens ?? 0,
+                        };
+                    }
                 } catch {}
             }
         }
 
-        callbacks.onDone(fullText);
+        callbacks.onDone(fullText, usage);
     } catch (e: any) {
         if (e.name === 'AbortError') return;
         callbacks.onError(e.message ?? 'LLM request failed');

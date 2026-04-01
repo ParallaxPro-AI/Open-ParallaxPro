@@ -19,6 +19,7 @@ export interface ExecutionContext {
     saveProjectData: (data: any) => void;
     reloadScene: (sceneKey: string, sceneData: any) => void;
     searchAssets: (opts: { category?: string; search?: string; source?: string; pack?: string }) => { name: string; path: string; category: string; pack: string }[];
+    onFixerCost?: (costUsd: number) => void;
     projectId: string;
     activeSceneKey: string;
 }
@@ -194,6 +195,11 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             try {
                 const pd = ctx.getProjectData();
                 const fixResult = await runFixer(ctx.projectId, description, pd, ctx.activeSceneKey, sendStatus);
+
+                // Report fixer cost for usage tracking
+                if (fixResult.costUsd && ctx.onFixerCost) {
+                    ctx.onFixerCost(fixResult.costUsd);
+                }
 
                 if (fixResult.success && fixResult.filesChanged.length > 0) {
                     ctx.saveProjectData(pd);

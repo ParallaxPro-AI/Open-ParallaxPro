@@ -25,6 +25,7 @@ export interface FixerResult {
     success: boolean;
     summary: string;
     filesChanged: string[];
+    costUsd?: number;
 }
 
 const MAX_CONCURRENT_FIXERS = 10;
@@ -69,20 +70,20 @@ export async function runFixer(
 
         // 3. Spawn CLI
         sendStatus?.('Fixer agent is analyzing and fixing...');
-        const cliOutput = await spawnCLI(sandboxDir, description, sendStatus);
+        const cliResult = await spawnCLI(sandboxDir, description, sendStatus);
 
         // 4. Read changes
         sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectData);
 
         if (changes.filesChanged.length === 0) {
-            return { success: true, summary: cliOutput || 'No changes were needed.', filesChanged: [] };
+            return { success: true, summary: cliResult.text || 'No changes were needed.', filesChanged: [], costUsd: cliResult.costUsd };
         }
 
         // 5. Validate
         const validationErrors = validateChanges(changes.newScripts);
         if (validationErrors.length > 0) {
-            return { success: false, summary: `Fix had syntax errors:\n${validationErrors.join('\n')}`, filesChanged: [] };
+            return { success: false, summary: `Fix had syntax errors:\n${validationErrors.join('\n')}`, filesChanged: [], costUsd: cliResult.costUsd };
         }
 
         // 6. Apply changes to project data
@@ -90,8 +91,9 @@ export async function runFixer(
 
         return {
             success: true,
-            summary: cliOutput || `Fixed ${changes.filesChanged.length} file(s).`,
+            summary: cliResult.text || `Fixed ${changes.filesChanged.length} file(s).`,
             filesChanged: changes.filesChanged,
+            costUsd: cliResult.costUsd,
         };
     } finally {
         releaseSlot();
@@ -328,7 +330,7 @@ function copyDirRecursive(src: string, dest: string): void {
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
-function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: string) => void): Promise<string> {
+function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: string) => void): Promise<{ text: string; costUsd: number }> {
     return new Promise((resolve, reject) => {
         const cli = config.fixer.cli;
         const timeout = config.fixer.timeout;
@@ -357,6 +359,7 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
         });
 
         let resultText = '';
+        let costUsd = 0;
         let stderr = '';
         let buffer = '';
 
@@ -386,6 +389,7 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
                     }
                     if (event.type === 'result') {
                         resultText = event.result || '';
+                        costUsd = event.total_cost_usd || 0;
                     }
                 } catch {}
             }
@@ -402,7 +406,7 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
                 } catch {}
             }
             if (code === 0 || code === null) {
-                resolve(resultText || 'Changes applied.');
+                resolve({ text: resultText || 'Changes applied.', costUsd });
             } else {
                 console.error(`[CLIFixer] ${cli} exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
                 reject(new Error(`Fixer CLI exited with code ${code}`));

@@ -22,6 +22,7 @@ interface EditorClient {
     projectId: string;
     userId: number;
     username: string;
+    authToken: string;
     chatSessionId: string;
     activeSceneKey: string;
     abortController: AbortController | null;
@@ -91,6 +92,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             projectId,
             userId: user.id,
             username: user.username,
+            authToken: token,
             chatSessionId,
             activeSceneKey: firstSceneKey,
             abortController: null,
@@ -445,6 +447,11 @@ function buildExecContext(client: EditorClient): ExecutionContext {
             send(client, 'scene_reload', { sceneKey, sceneData });
         },
         searchAssets,
+        onFixerCost: (costUsd: number) => {
+            for (const p of _plugins) {
+                if (p.onFixerCost) p.onFixerCost(client, costUsd);
+            }
+        },
         projectId: client.projectId,
         activeSceneKey: client.activeSceneKey,
     };
@@ -488,10 +495,29 @@ function runLLMWithRetry(
         }
     }
 
+    // Check budget before LLM call
+    for (const p of _plugins) {
+        if (p.checkLLMBudget) {
+            const budget = await p.checkLLMBudget(client);
+            if (!budget.allowed) {
+                finishChat(client, budget.error || 'Token usage limit reached. Please upgrade your plan.');
+                return;
+            }
+        }
+    }
+
     callLLMStream(messages, {
         onChunk: () => {},
-        onDone: async (fullText) => {
+        onDone: async (fullText, usage) => {
             client.abortController = null;
+
+            // Report token usage to plugins
+            if (usage) {
+                for (const p of _plugins) {
+                    if (p.onLLMUsage) p.onLLMUsage(client, usage);
+                }
+            }
+
             // Log exact LLM response
             appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: fullText });
 
