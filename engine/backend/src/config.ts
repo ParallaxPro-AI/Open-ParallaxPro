@@ -41,6 +41,7 @@ export const config = {
         ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
         : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
     assetsDir: envString('ASSETS_DIR', path.resolve(__dirname, '../../../reusable_assets')),
+    assetsCdn: envString('ASSETS_CDN', 'https://parallaxpro.ai'),
     ai: {
         baseUrl: envRequired('AI_BASE_URL'),
         model: envRequired('AI_MODEL'),

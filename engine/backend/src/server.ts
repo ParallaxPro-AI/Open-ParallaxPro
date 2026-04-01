@@ -47,8 +47,13 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
     app.use(express.json({ limit: '10mb' }));
 
-    // Static asset serving
+    // Static asset serving — local files first, fallback to CDN redirect
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
+    if (config.assetsCdn) {
+        app.use('/assets', (req, res) => {
+            res.redirect(301, `${config.assetsCdn}/assets${req.url}`);
+        });
+    }
 
     // Plugin routes (before core routes so plugins can add /api/engine/projects/* endpoints)
     for (const p of plugins) {

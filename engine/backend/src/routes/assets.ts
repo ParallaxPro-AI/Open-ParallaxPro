@@ -177,7 +177,12 @@ console.log(`[Assets] ${assetCache.length} assets scanned`);
 // -- Routes --
 
 // List assets with filtering
-router.get('/', (req: Request, res: Response): void => {
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+    if (assetCache.length === 0 && _cdnBase) {
+        const data = await proxyCdnAssets(req.url);
+        if (data) { res.json(data); return; }
+    }
+
     const search = ((req.query.search ?? req.query.q) as string || '').toLowerCase();
     const category = (req.query.category as string) || '';
     const source = (req.query.source as string) || '';
@@ -216,7 +221,12 @@ router.get('/', (req: Request, res: Response): void => {
 });
 
 // List categories
-router.get('/categories', (_req: Request, res: Response): void => {
+router.get('/categories', async (req: Request, res: Response): Promise<void> => {
+    if (assetCache.length === 0 && _cdnBase) {
+        const data = await proxyCdnAssets(req.url);
+        if (data) { res.json(data); return; }
+    }
+
     const counts: Record<string, number> = {};
     for (const a of assetCache) counts[a.category] = (counts[a.category] ?? 0) + 1;
     const categories = Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
@@ -224,7 +234,12 @@ router.get('/categories', (_req: Request, res: Response): void => {
 });
 
 // Browse directory structure
-router.get('/browse', (req: Request, res: Response): void => {
+router.get('/browse', async (req: Request, res: Response): Promise<void> => {
+    if (assetCache.length === 0 && _cdnBase) {
+        const data = await proxyCdnAssets(req.url);
+        if (data) { res.json(data); return; }
+    }
+
     const category = (req.query.category as string) || '';
     const source = (req.query.source as string) || '';
 
@@ -271,5 +286,19 @@ router.get('/glb-animations', (req: Request, res: Response): void => {
         res.status(500).json({ error: 'Failed to parse GLB' });
     }
 });
+
+// CDN proxy helper — when no local assets, forward to CDN
+const _cdnBase = (assetCache.length === 0 && config.assetsCdn) ? config.assetsCdn.replace(/\/$/, '') : '';
+if (_cdnBase) console.log(`[Assets] No local assets found. Will proxy asset API to ${_cdnBase}`);
+
+export async function proxyCdnAssets(reqUrl: string): Promise<any> {
+    if (!_cdnBase) return null;
+    try {
+        const resp = await fetch(`${_cdnBase}/api/engine/assets${reqUrl}`);
+        return await resp.json();
+    } catch {
+        return null;
+    }
+}
 
 export default router;
