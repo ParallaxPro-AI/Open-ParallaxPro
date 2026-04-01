@@ -68,7 +68,7 @@
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb",
         "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 180
+        "modelRotationY": 0
       },
       "physics": {
         "type": "dynamic",

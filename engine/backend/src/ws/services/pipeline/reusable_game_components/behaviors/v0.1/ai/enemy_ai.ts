@@ -12,6 +12,7 @@ class EnemyAIBehavior extends GameScript {
     _dead = false;
     _patrolDir = 1;
     _patrolTimer = 0;
+    _currentAnim = "";
 
     onStart() {
         var self = this;
@@ -21,10 +22,15 @@ class EnemyAIBehavior extends GameScript {
             if (self._health <= 0) {
                 self._health = 0;
                 self._dead = true;
+                self._playAnim("Death", { loop: false });
                 self.scene.events.game.emit("entity_killed", { entityId: self.entity.id });
-                self.entity.active = false;
+                setTimeout(function() { self.entity.active = false; }, 2000);
+            } else {
+                self._playAnim("RecieveHit", { loop: false });
+                setTimeout(function() { if (!self._dead) self._currentAnim = ""; }, 500);
             }
         });
+        this._playAnim("Idle", { loop: true });
     }
 
     onUpdate(dt) {
@@ -39,13 +45,12 @@ class EnemyAIBehavior extends GameScript {
         var dist = Math.sqrt(dx * dx + dz * dz);
 
         this._fireCooldown -= dt;
+        var isMoving = false;
 
         if (dist < this._detectionRange) {
-            // Face player
-            var angle = Math.atan2(dx, -dz) * 180 / Math.PI;
+            var angle = Math.atan2(dx, dz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, angle, 0);
 
-            // Chase if out of fire range
             if (dist > this._fireRange) {
                 var ndx = dx / dist, ndz = dz / dist;
                 this.scene.setPosition(this.entity.id,
@@ -53,11 +58,14 @@ class EnemyAIBehavior extends GameScript {
                     pos.y,
                     pos.z + ndz * this._moveSpeed * dt
                 );
+                isMoving = true;
             }
 
-            // Fire at player
             if (dist <= this._fireRange && this._fireCooldown <= 0) {
                 this._fireCooldown = this._fireRate;
+                this._playAnim("Shoot_OneHanded", { loop: false });
+                var self = this;
+                setTimeout(function() { if (!self._dead) self._currentAnim = ""; }, 400);
                 this.scene.events.game.emit("entity_damaged", {
                     entityId: player.id,
                     amount: this._damage,
@@ -65,7 +73,6 @@ class EnemyAIBehavior extends GameScript {
                 });
             }
         } else {
-            // Patrol
             this._patrolTimer += dt;
             if (this._patrolTimer > 3) {
                 this._patrolTimer = 0;
@@ -76,6 +83,22 @@ class EnemyAIBehavior extends GameScript {
                 pos.y,
                 pos.z
             );
+            isMoving = true;
+        }
+
+        // Animation
+        if (isMoving && this._currentAnim !== "Run") {
+            this._playAnim("Run", { loop: true });
+        } else if (!isMoving && this._currentAnim !== "Idle" && this._currentAnim !== "Shoot_OneHanded" && this._currentAnim !== "RecieveHit") {
+            this._playAnim("Idle", { loop: true });
+        }
+    }
+
+    _playAnim(name, options) {
+        if (this._currentAnim === name) return;
+        this._currentAnim = name;
+        if (this.entity.playAnimation) {
+            this.entity.playAnimation(name, options || {});
         }
     }
 }
