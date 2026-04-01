@@ -117,6 +117,20 @@ Open `http://localhost:5174` in your browser (Chrome/Edge recommended for WebGPU
 4. You can play immediately, then ask the AI to fix bugs or add features
 5. The fixer agent reads your game code, edits scripts, and validates changes
 
+### Creating New Game Templates
+
+The best way to generate a completely new game from scratch is to open a CLI coding agent (like Claude Code) in the repo and ask it to create a new template:
+
+```
+engine/backend/src/ws/services/pipeline/reusable_game_components/
+  game_templates/v0.1/   -- game templates (4-file format: flow, entities, worlds, systems)
+  behaviors/v0.1/        -- per-entity behavior scripts (movement, combat, AI, etc.)
+  systems/v0.1/          -- multi-entity system scripts (game managers, level logic)
+  ui/v0.1/               -- HTML UI overlays (HUD, menus, panels)
+```
+
+Ask the agent to study the existing templates (like `chess/` or `fps_shooter/`), then create a new one with its own behaviors, systems, and UI. Once the template is created, open the editor and type the template name in the chat to see it assembled and running.
+
 ### 3D Assets
 
 The hosted version at [parallaxpro.ai](https://parallaxpro.ai/) includes 5000+ 3D models, textures, and audio files from [Kenney](https://kenney.nl/), [Poly Haven](https://polyhaven.com/), and more.
