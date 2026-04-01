@@ -473,7 +473,7 @@ function finishChat(client: EditorClient, displayContent: string, fileChanges: a
     send(client, 'dialogue_done', {});
 }
 
-function runLLMWithRetry(
+async function runLLMWithRetry(
     client: EditorClient,
     abortController: AbortController,
     attempt: number,
