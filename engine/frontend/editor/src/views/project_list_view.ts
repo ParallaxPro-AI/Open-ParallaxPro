@@ -186,6 +186,16 @@ export class ProjectListView {
                 this.projects = await this.ctx.backend.listSharedProjects();
             } else {
                 this.projects = await this.ctx.backend.listProjects();
+                // Merge publish info if available
+                const pubInfo = await this.ctx.backend.getPublishInfo();
+                for (const p of this.projects) {
+                    const info = pubInfo[p.id];
+                    if (info) {
+                        p.publishedSlug = info.publishedSlug;
+                        p.publishedOwner = info.publishedOwner;
+                        p.publishedVersion = info.publishedVersion;
+                    }
+                }
             }
         } catch {
             this.projects = [];

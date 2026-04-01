@@ -987,34 +987,172 @@ export class Toolbar {
     }
 
     private showPublishManageModal(pubData: any): void {
+        const projectId = this.ctx.state.projectId!;
         const body = document.createElement('div');
         body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
 
+        // Info header
         const infoSection = document.createElement('div');
         infoSection.style.cssText = 'padding:12px;background:var(--bg-secondary);border-radius:6px;';
+        const gameUrl = `${window.location.origin}/games/${pubData.owner}/${pubData.slug}`;
         infoSection.innerHTML = `<div style="font-weight:600;font-size:14px;">${pubData.name}</div>
-            <div style="font-size:11px;color:var(--text-disabled);">Live: v${pubData.liveVersion} - ${pubData.versions.length} version(s) - ${pubData.visibility}</div>`;
+            <div style="font-size:11px;color:var(--text-disabled);margin-top:4px;">Live: v${pubData.liveVersion} &middot; ${pubData.versions.length} version(s) &middot; ${pubData.visibility}</div>
+            <a href="${gameUrl}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;">${gameUrl}</a>`;
         body.appendChild(infoSection);
 
+        // Version list
         const list = document.createElement('div');
-        list.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;';
-        for (const v of pubData.versions) {
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-secondary);border-radius:4px;';
-            row.innerHTML = `<span style="font-weight:600;min-width:60px;">v${v.version}</span>`;
-            if (v.isLive) {
-                const badge = document.createElement('span');
-                badge.textContent = 'LIVE';
-                badge.style.cssText = 'background:#27ae60;color:white;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;';
-                row.appendChild(badge);
+        list.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;';
+
+        const buildVersionList = () => {
+            list.innerHTML = '';
+            for (const v of pubData.versions) {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-secondary);border-radius:4px;';
+
+                const label = document.createElement('span');
+                label.style.cssText = 'font-weight:600;min-width:60px;';
+                label.textContent = `v${v.version}`;
+                row.appendChild(label);
+
+                if (v.isLive) {
+                    const badge = document.createElement('span');
+                    badge.textContent = 'LIVE';
+                    badge.style.cssText = 'background:#27ae60;color:white;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;';
+                    row.appendChild(badge);
+                }
+
+                if (v.changelog) {
+                    const cl = document.createElement('span');
+                    cl.textContent = v.changelog.slice(0, 40) + (v.changelog.length > 40 ? '...' : '');
+                    cl.style.cssText = 'font-size:11px;color:var(--text-disabled);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    row.appendChild(cl);
+                } else {
+                    row.appendChild(Object.assign(document.createElement('span'), { style: 'flex:1;' } as any));
+                }
+
+                const actions = document.createElement('div');
+                actions.style.cssText = 'display:flex;gap:4px;margin-left:auto;';
+
+                if (!v.isLive) {
+                    const setLiveBtn = document.createElement('button');
+                    setLiveBtn.textContent = 'Set Live';
+                    setLiveBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--accent);color:white;border:none;border-radius:3px;cursor:pointer;';
+                    setLiveBtn.addEventListener('click', async () => {
+                        try {
+                            await this.ctx.backend.setLiveVersion(projectId, v.id);
+                            for (const ver of pubData.versions) ver.isLive = ver.id === v.id;
+                            pubData.liveVersion = v.version;
+                            buildVersionList();
+                        } catch (e: any) {
+                            alert(e.message || 'Failed to set live version.');
+                        }
+                    });
+                    actions.appendChild(setLiveBtn);
+                }
+
+                const revertBtn = document.createElement('button');
+                revertBtn.textContent = 'Checkout';
+                revertBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);border-radius:3px;cursor:pointer;';
+                revertBtn.addEventListener('click', async () => {
+                    if (!confirm(`Revert project to v${v.version}? Your current editor state will be replaced.`)) return;
+                    try {
+                        await this.ctx.backend.revertToVersion(projectId, v.id);
+                        close();
+                        window.location.reload();
+                    } catch (e: any) {
+                        alert(e.message || 'Failed to revert.');
+                    }
+                });
+                actions.appendChild(revertBtn);
+
+                row.appendChild(actions);
+                list.appendChild(row);
             }
-            list.appendChild(row);
-        }
+        };
+        buildVersionList();
         body.appendChild(list);
 
+        // New version section
+        const newVerSection = document.createElement('div');
+        newVerSection.style.cssText = 'padding:12px;background:var(--bg-secondary);border-radius:6px;display:flex;flex-direction:column;gap:8px;';
+        const newVerTitle = document.createElement('div');
+        newVerTitle.textContent = 'Publish New Version';
+        newVerTitle.style.cssText = 'font-weight:600;font-size:12px;color:var(--text-secondary);';
+        newVerSection.appendChild(newVerTitle);
+
+        const newVerRow = document.createElement('div');
+        newVerRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
+        const vInput = document.createElement('input');
+        vInput.type = 'text';
+        // Auto-suggest next version
+        const latestVer = pubData.versions[0]?.version || '1.0.0';
+        const parts = latestVer.split('.').map(Number);
+        parts[parts.length - 1]++;
+        vInput.value = parts.join('.');
+        vInput.placeholder = '1.0.1';
+        vInput.style.cssText = 'width:80px;height:28px;padding:0 8px;font-size:13px;';
+        newVerRow.appendChild(vInput);
+
+        const clInput = document.createElement('input');
+        clInput.type = 'text';
+        clInput.placeholder = 'Changelog (optional)';
+        clInput.style.cssText = 'flex:1;height:28px;padding:0 8px;font-size:13px;';
+        newVerRow.appendChild(clInput);
+
+        const pubBtn = document.createElement('button');
+        pubBtn.textContent = 'Publish';
+        pubBtn.style.cssText = 'padding:4px 14px;font-size:12px;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;';
+        newVerRow.appendChild(pubBtn);
+        newVerSection.appendChild(newVerRow);
+
+        const newVerError = document.createElement('div');
+        newVerError.style.cssText = 'color:#e74c3c;font-size:11px;display:none;';
+        newVerSection.appendChild(newVerError);
+
+        pubBtn.addEventListener('click', async () => {
+            const ver = vInput.value.trim();
+            if (!ver || !this.isValidSemver(ver)) { newVerError.textContent = 'Enter a valid version.'; newVerError.style.display = 'block'; return; }
+            try {
+                const result = await this.ctx.backend.publishProject(projectId, pubData.name, pubData.slug, pubData.visibility, ver, clInput.value.trim());
+                pubData.versions.unshift({ id: result.gameId, version: ver, changelog: clInput.value.trim(), isLive: true });
+                for (const v2 of pubData.versions) { if (v2 !== pubData.versions[0]) v2.isLive = false; }
+                pubData.liveVersion = ver;
+                buildVersionList();
+                vInput.value = '';
+                clInput.value = '';
+                newVerError.style.display = 'none';
+                this.showToast(`v${ver} published!`, 'success');
+            } catch (e: any) {
+                newVerError.textContent = e.message?.replace(/^API error \d+: /, '') || 'Publish failed.';
+                try { newVerError.textContent = JSON.parse(e.message?.replace(/^API error \d+: /, '') || '{}').error || newVerError.textContent; } catch {}
+                newVerError.style.display = 'block';
+            }
+        });
+        body.appendChild(newVerSection);
+
+        // Unpublish button
+        const dangerSection = document.createElement('div');
+        dangerSection.style.cssText = 'display:flex;justify-content:flex-end;';
+        const unpubBtn = document.createElement('button');
+        unpubBtn.textContent = 'Unpublish Game';
+        unpubBtn.style.cssText = 'padding:4px 12px;font-size:11px;background:transparent;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;cursor:pointer;';
+        unpubBtn.addEventListener('click', async () => {
+            if (!confirm('Unpublish this game? It will no longer be accessible to players.')) return;
+            try {
+                await this.ctx.backend.unpublishProject(projectId);
+                close();
+                this.showToast('Game unpublished.', 'info');
+            } catch (e: any) {
+                alert(e.message || 'Failed to unpublish.');
+            }
+        });
+        dangerSection.appendChild(unpubBtn);
+        body.appendChild(dangerSection);
+
         const { close } = showModal({
-            title: 'Publish',
-            body, width: '440px',
+            title: 'Manage Published Game',
+            body, width: '520px',
             buttons: [{ label: 'Close', action: () => close() }],
         });
     }

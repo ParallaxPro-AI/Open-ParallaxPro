@@ -39,18 +39,23 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // Express app
     const app = express();
 
-    // Use plugin auth middleware if provided, otherwise default
+    // Auth middleware for project routes — applies to both core router and plugin routes
     const pluginAuth = plugins.find(p => p.authMiddleware)?.authMiddleware;
-    if (pluginAuth) {
-        // Replace the default dev auth on project routes
-        app.use('/api/engine/projects', pluginAuth);
-    }
+    const { requireAuth } = await import('./middleware/auth.js');
+    app.use('/api/engine/projects', pluginAuth || requireAuth);
 
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
     app.use(express.json({ limit: '10mb' }));
 
     // Static asset serving
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
+
+    // Plugin routes (before core routes so plugins can add /api/engine/projects/* endpoints)
+    for (const p of plugins) {
+        if (p.registerRoutes) {
+            p.registerRoutes(app);
+        }
+    }
 
     // Core routes
     app.use('/api/engine/projects', projectRoutes);
@@ -59,13 +64,6 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.get('/api/engine/health', (_req, res) => {
         res.json({ status: 'ok', port: config.port, uptime: process.uptime() });
     });
-
-    // Plugin routes
-    for (const p of plugins) {
-        if (p.registerRoutes) {
-            p.registerRoutes(app);
-        }
-    }
 
     // HTTP server
     const server = http.createServer(app);

@@ -145,6 +145,15 @@ export class BackendClient {
         return this.fetch(`/projects/${projectId}/versions/${versionId}`, { method: 'DELETE' });
     }
 
+    async getPublishInfo(): Promise<Record<string, { publishedSlug: string; publishedOwner: string; publishedVersion: string; visibility: string }>> {
+        try {
+            const res = await this.fetch('/projects/publish-info');
+            return res.info ?? {};
+        } catch {
+            return {};
+        }
+    }
+
     async uploadThumbnail(projectId: string, file: File): Promise<{ success: boolean; thumbnail: string }> {
         if (file.size > 5 * 1024 * 1024) {
             throw new Error('Image must be under 5 MB.');
