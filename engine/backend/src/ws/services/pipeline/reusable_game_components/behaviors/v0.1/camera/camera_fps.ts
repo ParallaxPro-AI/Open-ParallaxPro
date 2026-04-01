@@ -1,21 +1,12 @@
 // FPS camera — attached to the camera entity, follows the player in first person
 class CameraFPSBehavior extends GameScript {
     _behaviorName = "fps_camera";
-    _active = false;
     _pitchDeg = 0;
     _yawDeg = 0;
     _sensitivity = 0.15;
     _eyeHeight = 1.6;
 
-    onStart() {
-        var self = this;
-        this.scene.events.game.on("active_behaviors", function(d) {
-            self._active = d.behaviors && d.behaviors.indexOf(self._behaviorName) >= 0;
-        });
-    }
-
     onUpdate(dt) {
-        if (!this._active) return;
         var player = this.scene.findEntityByName("Player");
         if (!player) return;
 

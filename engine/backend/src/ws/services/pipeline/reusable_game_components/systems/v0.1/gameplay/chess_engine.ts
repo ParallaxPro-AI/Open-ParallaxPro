@@ -1,13 +1,7 @@
 // Chess engine — AI opponent with proper move rules
 class ChessEngineSystem extends GameScript {
-    _systemName = "chess_engine";
-    _active = false;
-
     onStart() {
         var self = this;
-        this.scene.events.game.on("active_systems", function(d) {
-            self._active = d.systems && d.systems.indexOf(self._systemName) >= 0;
-        });
         this.scene.events.game.on("ai_turn", function() {
             self._makeAiMove();
         });

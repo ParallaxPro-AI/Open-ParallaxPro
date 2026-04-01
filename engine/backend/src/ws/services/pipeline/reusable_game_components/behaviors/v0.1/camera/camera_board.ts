@@ -1,7 +1,6 @@
 // Board camera — angled view from behind white, right-click orbit
 class CameraBoardBehavior extends GameScript {
     _behaviorName = "board_camera";
-    _active = false;
     _height = 10;
     _tilt = 65;
     _centerX = 3.5;
@@ -10,9 +9,6 @@ class CameraBoardBehavior extends GameScript {
 
     onStart() {
         var self = this;
-        this.scene.events.game.on("active_behaviors", function(d) {
-            self._active = d.behaviors && d.behaviors.indexOf(self._behaviorName) >= 0;
-        });
         // Allow other systems to set the camera yaw (e.g. for multiplayer color swap)
         this.scene.events.game.on("set_camera_yaw", function(data) {
             if (data.yaw !== undefined) self._yaw = data.yaw;
@@ -20,7 +16,6 @@ class CameraBoardBehavior extends GameScript {
     }
 
     onUpdate(dt) {
-        if (!this._active) return;
 
         // Right-click drag to orbit
         if (this.input.isKeyDown("MouseRight")) {

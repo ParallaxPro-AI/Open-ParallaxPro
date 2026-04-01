@@ -1,7 +1,6 @@
 // Player health — takes damage, regenerates, emits player_died
 class PlayerHealthBehavior extends GameScript {
     _behaviorName = "player_health";
-    _active = false;
     _health = 100;
     _maxHealth = 100;
     _regenDelay = 5;
@@ -11,11 +10,8 @@ class PlayerHealthBehavior extends GameScript {
 
     onStart() {
         var self = this;
-        this.scene.events.game.on("active_behaviors", function(d) {
-            self._active = d.behaviors && d.behaviors.indexOf(self._behaviorName) >= 0;
-        });
         this.scene.events.game.on("entity_damaged", function(data) {
-            if (!self._active || self._dead) return;
+            if (self.entity.active === false || self._dead) return;
             if (data.entityId !== self.entity.id) return;
             self._health -= data.amount || 10;
             self._timeSinceDamage = 0;
@@ -36,7 +32,7 @@ class PlayerHealthBehavior extends GameScript {
     }
 
     onUpdate(dt) {
-        if (!this._active || this._dead) return;
+        if (this._dead) return;
         this._timeSinceDamage += dt;
         if (this._timeSinceDamage >= this._regenDelay && this._health < this._maxHealth) {
             this._health = Math.min(this._maxHealth, this._health + this._regenRate * dt);

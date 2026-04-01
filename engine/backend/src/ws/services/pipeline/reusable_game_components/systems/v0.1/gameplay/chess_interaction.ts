@@ -1,25 +1,20 @@
 // Chess piece interaction system — virtual cursor click to select/move pieces with highlights
 class ChessInteractionSystem extends GameScript {
-    _systemName = "piece_interaction";
-    _active = false;
     _selectedPiece = null;
     _pendingClick = null;
     _highlights = [];
     _validMoves = [];
     _highlight_y = 0.12;
     _selectedHighlightId = null;
-    _myColor = "white"; // Default: single player controls white
+    _myColor = "white";
     _mpBound = false;
     _isMultiplayer = false;
-    _turnColor = "white"; // Whose turn it is (white always first)
+    _turnColor = "white";
 
     onStart() {
         var self = this;
-        this.scene.events.game.on("active_systems", function(d) {
-            self._active = d.systems && d.systems.indexOf(self._systemName) >= 0;
-        });
         this.scene.events.ui.on("cursor_click", function(d) {
-            if (self._active) self._pendingClick = d;
+            if (self.entity.active !== false) self._pendingClick = d;
         });
         // Track turn changes — every moveMade toggles turn
         this.scene.events.game.on("move_made", function() {
@@ -160,7 +155,6 @@ class ChessInteractionSystem extends GameScript {
     }
 
     onUpdate(dt) {
-        if (!this._active) return;
 
         // Retry multiplayer binding (may not be ready in onStart)
         if (!this._mpBound) {

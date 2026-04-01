@@ -171,7 +171,7 @@ function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result: Exec
 
                     const entityCount = assembled.entities.length;
                     const scriptCount = Object.keys(assembled.scripts).length;
-                    result.toolResults = `[BUILD_NEW_GAME] Successfully built "${template.name}" with ${entityCount} entities and ${scriptCount} scripts. The game is now loaded in the editor.\n\nTell the user: the game was generated from the "${template.name}" template. Ask if they want you to incorporate any customizations, or if they'd prefer to start from an empty template and build from scratch.`;
+                    result.toolResults = `[BUILD_NEW_GAME] Successfully built "${template.name}" with ${entityCount} entities. The game is now loaded in the editor.\n\nTell the user: the game was generated from the "${template.name}" template. Ask if they want you to incorporate any customizations, or if they'd prefer to start from an empty template and build from scratch.`;
                 } catch (e: any) {
                     result.toolResults = `[BUILD_NEW_GAME] Failed to build "${node.args.template}": ${e.message}`;
                 }

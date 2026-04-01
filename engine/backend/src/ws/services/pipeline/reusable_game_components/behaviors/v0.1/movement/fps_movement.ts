@@ -1,21 +1,12 @@
 // FPS movement — WASD via physics velocity, gravity handled by physics engine
 class FPSMovementBehavior extends GameScript {
     _behaviorName = "fps_movement";
-    _active = false;
     _speed = 6;
     _sprintSpeed = 10;
     _jumpForce = 7;
     _canJump = true;
 
-    onStart() {
-        var self = this;
-        this.scene.events.game.on("active_behaviors", function(d) {
-            self._active = d.behaviors && d.behaviors.indexOf(self._behaviorName) >= 0;
-        });
-    }
-
     onUpdate(dt) {
-        if (!this._active) return;
         var yaw = (this.scene._fpsYaw || 0) * Math.PI / 180;
         var forward = 0, strafe = 0;
 

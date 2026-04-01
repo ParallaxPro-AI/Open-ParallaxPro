@@ -461,7 +461,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     const sysEntity: any = {
       id: nextId.value++,
       name: entityName,
-      active: false,
+      active: sysName === 'ui',
       components: [{ type: 'TransformComponent', data: { position: { x: 0, y: 0, z: 0 } } }],
       tags: ['manager', `system_${sysName}`],
       parentId: managersParentId,

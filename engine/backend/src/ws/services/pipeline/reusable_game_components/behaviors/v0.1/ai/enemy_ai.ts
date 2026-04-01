@@ -1,7 +1,6 @@
 // Enemy AI — patrols, chases player when in range, fires at player
 class EnemyAIBehavior extends GameScript {
     _behaviorName = "enemy_ai";
-    _active = false;
     _health = 100;
     _maxHealth = 100;
     _detectionRange = 20;
@@ -16,9 +15,6 @@ class EnemyAIBehavior extends GameScript {
 
     onStart() {
         var self = this;
-        this.scene.events.game.on("active_behaviors", function(d) {
-            self._active = d.behaviors && d.behaviors.indexOf(self._behaviorName) >= 0;
-        });
         this.scene.events.game.on("entity_damaged", function(data) {
             if (self._dead || data.entityId !== self.entity.id) return;
             self._health -= data.amount || 10;
@@ -32,7 +28,7 @@ class EnemyAIBehavior extends GameScript {
     }
 
     onUpdate(dt) {
-        if (!this._active || this._dead) return;
+        if (this._dead) return;
         var player = this.scene.findEntityByName("Player");
         if (!player) return;
 

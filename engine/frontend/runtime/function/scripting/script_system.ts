@@ -123,9 +123,9 @@ export class ScriptSystem {
             if (this.inputSystem) inst.script.input = this.inputSystem;
         }
 
-        // Phase 1: start unstarted scripts
+        // Phase 1: start unstarted scripts (only if entity is active)
         for (const inst of this.instances) {
-            if (!inst.started) {
+            if (!inst.started && inst.script.entity?.active !== false) {
                 inst.started = true;
                 this.currentExecutingEntityId = inst.entityId;
                 if (typeof inst.script.onStart === 'function') {
@@ -133,13 +133,26 @@ export class ScriptSystem {
                         console.error(`Error in onStart for entity ${inst.entityId}:`, e);
                     }
                 }
+                // Auto-register active_behaviors listener for behavior scripts
+                const behaviorName = (inst.script as any)._behaviorName;
+                if (behaviorName && inst.script.scene?.events?.game) {
+                    const script = inst.script as any;
+                    if (script._behaviorActive === undefined) {
+                        script._behaviorActive = false;
+                        inst.script.scene.events.game.on('active_behaviors', (d: any) => {
+                            script._behaviorActive = d.behaviors && d.behaviors.indexOf(behaviorName) >= 0;
+                        });
+                    }
+                }
                 this.currentExecutingEntityId = -1;
             }
         }
 
-        // Phase 2: update all started scripts
+        // Phase 2: update all started scripts (skip inactive entities and inactive behaviors)
         for (const inst of this.instances) {
             if (!inst.started) continue;
+            if (inst.script.entity?.active === false) continue;
+            if ((inst.script as any)._behaviorActive === false) continue;
             this.currentExecutingEntityId = inst.entityId;
             if (typeof inst.script.onUpdate === 'function') {
                 try { inst.script.onUpdate(this.timeInfo.deltaTime); } catch (e) {
@@ -156,6 +169,8 @@ export class ScriptSystem {
     tickFixedUpdate(fixedDt: number): void {
         for (const inst of this.instances) {
             if (!inst.started) continue;
+            if (inst.script.entity?.active === false) continue;
+            if ((inst.script as any)._behaviorActive === false) continue;
             if (typeof inst.script.onFixedUpdate === 'function') {
                 try { inst.script.onFixedUpdate(fixedDt); } catch (e) {
                     console.error(`Error in onFixedUpdate for entity ${inst.entityId}:`, e);
@@ -170,6 +185,8 @@ export class ScriptSystem {
     tickLateUpdate(): void {
         for (const inst of this.instances) {
             if (!inst.started) continue;
+            if (inst.script.entity?.active === false) continue;
+            if ((inst.script as any)._behaviorActive === false) continue;
             if (typeof inst.script.onLateUpdate === 'function') {
                 try { inst.script.onLateUpdate(this.timeInfo.deltaTime); } catch (e) {
                     console.error(`Error in onLateUpdate for entity ${inst.entityId}:`, e);

@@ -1,7 +1,6 @@
 // FPS combat — shoot with left click, raycast to detect hits
 class FPSCombatBehavior extends GameScript {
     _behaviorName = "fps_combat";
-    _active = false;
     _ammo = 30;
     _maxAmmo = 30;
     _reserve = 90;
@@ -14,15 +13,7 @@ class FPSCombatBehavior extends GameScript {
     _weaponName = "Rifle";
     _shootSound = "";
 
-    onStart() {
-        var self = this;
-        this.scene.events.game.on("active_behaviors", function(d) {
-            self._active = d.behaviors && d.behaviors.indexOf(self._behaviorName) >= 0;
-        });
-    }
-
     onUpdate(dt) {
-        if (!this._active) return;
         this._fireCooldown -= dt;
 
         // Reload
