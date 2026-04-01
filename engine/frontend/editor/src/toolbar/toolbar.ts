@@ -849,9 +849,30 @@ export class Toolbar {
         } catch { return ''; }
     }
 
+    private isHosted(): boolean {
+        const h = window.location.hostname;
+        return h === 'parallaxpro.ai' || h === 'www.parallaxpro.ai';
+    }
+
     private async showPublishModal(): Promise<void> {
         const projectId = this.ctx.state.projectId;
         if (!projectId) return;
+
+        if (!this.isHosted()) {
+            const body = document.createElement('div');
+            body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+            const msg = document.createElement('div');
+            msg.style.cssText = 'font-size:13px;line-height:1.6;color:var(--text-primary);';
+            msg.innerHTML = `Publishing is currently only available on the hosted version at <a href="https://parallaxpro.ai/editor" target="_blank" style="color:var(--accent);">parallaxpro.ai</a>.<br><br>We're working on a way to publish directly from self-hosted instances. Stay tuned!`;
+            body.appendChild(msg);
+            const { close } = showModal({
+                title: 'Publish',
+                body,
+                width: '400px',
+                buttons: [{ label: 'OK', primary: true, action: () => close() }],
+            });
+            return;
+        }
 
         if (this.ctx.state.projectDirty) {
             await this.ctx.saveProject();
@@ -875,7 +896,7 @@ export class Toolbar {
         const projectName = this.ctx.state.projectData?.name ?? 'Untitled Project';
         const autoSlug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
         const owner = this.getUsername();
-        const urlPrefix = owner ? `${window.location.host}/play/${owner}/` : `${window.location.host}/play/.../`;
+        const urlPrefix = owner ? `${window.location.host}/games/${owner}/` : `${window.location.host}/games/.../`;
 
         const body = document.createElement('div');
         body.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
@@ -999,7 +1020,7 @@ export class Toolbar {
     }
 
     private showPublishSuccessModal(result: any): void {
-        const url = result.url || `${window.location.origin}/play/${result.owner}/${result.slug}`;
+        const url = result.url || `${window.location.origin}/games/${result.owner}/${result.slug}`;
         const successBody = document.createElement('div');
         successBody.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
         const msg = document.createElement('div');

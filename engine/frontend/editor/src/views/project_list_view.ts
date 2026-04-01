@@ -367,14 +367,14 @@ export class ProjectListView {
 
         if (isPublished) {
             const linkRow = document.createElement('a');
-            const playUrl = `${window.location.origin}/play/${project.publishedOwner}/${project.publishedSlug}`;
+            const playUrl = `${window.location.origin}/games/${project.publishedOwner}/${project.publishedSlug}`;
             linkRow.href = playUrl;
             linkRow.target = '_blank';
             linkRow.className = 'project-published-link';
             linkRow.addEventListener('click', (e) => e.stopPropagation());
             linkRow.appendChild(icon(ExternalLink, 12));
             const linkText = document.createElement('span');
-            linkText.textContent = `/play/${project.publishedOwner}/${project.publishedSlug}`;
+            linkText.textContent = `/games/${project.publishedOwner}/${project.publishedSlug}`;
             linkRow.appendChild(linkText);
             info.appendChild(linkRow);
         }
@@ -536,7 +536,7 @@ export class ProjectListView {
                 items.push({
                     label: 'View Published Game',
                     action: () => {
-                        window.open(`${window.location.origin}/play/${project.publishedOwner}/${project.publishedSlug}`, '_blank');
+                        window.open(`${window.location.origin}/games/${project.publishedOwner}/${project.publishedSlug}`, '_blank');
                     },
                 });
                 items.push({ label: 'Unpublish', action: () => this.unpublishProject(project) });
@@ -672,7 +672,29 @@ export class ProjectListView {
         }
     }
 
+    private isHosted(): boolean {
+        const h = window.location.hostname;
+        return h === 'parallaxpro.ai' || h === 'www.parallaxpro.ai';
+    }
+
+    private showSelfHostedPublishMessage(): void {
+        const body = document.createElement('div');
+        body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+        const msg = document.createElement('div');
+        msg.style.cssText = 'font-size:13px;line-height:1.6;color:var(--text-primary);';
+        msg.innerHTML = `Publishing is currently only available on the hosted version at <a href="https://parallaxpro.ai/editor" target="_blank" style="color:var(--accent);">parallaxpro.ai</a>.<br><br>We're working on a way to publish directly from self-hosted instances. Stay tuned!`;
+        body.appendChild(msg);
+        const { close } = showModal({
+            title: 'Publish',
+            body,
+            width: '400px',
+            buttons: [{ label: 'OK', primary: true, action: () => close() }],
+        });
+    }
+
     private async publishProject(project: any): Promise<void> {
+        if (!this.isHosted()) { this.showSelfHostedPublishMessage(); return; }
+
         const body = document.createElement('div');
         body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
 
@@ -702,7 +724,7 @@ export class ProjectListView {
 
         const preview = document.createElement('div');
         preview.style.cssText = 'font-size:12px;color:var(--text-disabled);word-break:break-all;';
-        const updatePreview = () => { preview.textContent = `${window.location.origin}/play/you/${slugInput.value || 'my-game'}`; };
+        const updatePreview = () => { preview.textContent = `${window.location.origin}/games/you/${slugInput.value || 'my-game'}`; };
         updatePreview();
         slugInput.addEventListener('input', updatePreview);
         body.appendChild(preview);
