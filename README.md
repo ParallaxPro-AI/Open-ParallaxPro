@@ -20,11 +20,19 @@
 </p>
 
 ## ParallaxPro
-[ParallaxPro](https://parallaxpro.ai/) is a tool that turns your prompts into video games that run on real game engines—giving you the power of AI on a foundation of graphics, physics, and gameplay.
+
+LLMs can generate games, but without a real game engine behind them, those games hit a wall fast -- no real physics, no efficient rendering, no entity-component system, no shadow maps, no collision detection. The AI ends up writing hundreds of lines of hacky code to approximate what any game engine gives you for free.
+
+[ParallaxPro](https://parallaxpro.ai/) is a browser-based 3D game engine where AI generates games that run on a real engine with real infrastructure -- WebGPU rendering, rigid body physics, skeletal animation, and an ECS architecture. The AI doesn't need to reinvent the wheel. It just places entities, attaches scripts, and the engine handles the rest.
+
+- **Fully open source** -- engine, editor, AI prompts, game templates, everything. No hidden black boxes.
+- **Royalty free** -- games you make are 100% yours. No revenue share, no attribution required, no strings attached.
+- **No vendor lock-in** -- bring your own LLM (Groq, OpenRouter, Ollama, or any OpenAI-compatible API). Host it yourself or use our cloud.
+- **Transparent AI** -- even the system prompts and LLM compiler are open source. See exactly how the AI builds your games.
 
 ### Try It Online
 
-The easiest way to use ParallaxPro is at **[parallaxpro.ai](https://parallaxpro.ai/)** — no setup required. You get the AI assistant, asset library, multiplayer, and everything else out of the box.
+The easiest way to use ParallaxPro is at **[parallaxpro.ai](https://parallaxpro.ai/)** -- no setup required. You get the AI assistant, 5000+ 3D assets, game publishing, and everything else out of the box.
 
 <p align="center">
     <a href="https://parallaxpro.ai/">
@@ -34,7 +42,96 @@ The easiest way to use ParallaxPro is at **[parallaxpro.ai](https://parallaxpro.
 
 ### Run Locally
 
-Coming soon
+**Prerequisites:** Node.js 20+, npm
+
+#### 1. Clone the repo
+
+```bash
+git clone https://github.com/ParallaxPro-AI/Open-ParallaxPro.git
+cd Open-ParallaxPro
+```
+
+#### 2. Set up the backend
+
+```bash
+cd engine/backend
+cp .env.example .env
+```
+
+Edit `.env` and add your LLM API key. Any OpenAI-compatible API works:
+
+| Provider | `AI_BASE_URL` | Example `AI_MODEL` |
+|----------|--------------|-------------------|
+| [Groq](https://console.groq.com/) (free) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| [OpenRouter](https://openrouter.ai/) | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
+| Local (Ollama) | `http://localhost:11434/v1` | `llama3.3` |
+
+The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. It needs a CLI agent installed to work -- without one, everything else still works but the fixer won't be available.
+
+Currently supported:
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) -- `FIXER_CLI=claude`
+
+Coming soon:
+- [Codex](https://github.com/openai/codex) -- `FIXER_CLI=codex`
+- [OpenCode](https://github.com/opencode-ai/opencode) -- `FIXER_CLI=opencode`
+
+To set up Claude Code:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+claude  # Follow auth prompts
+```
+
+Then set `FIXER_CLI=claude` in your `.env`.
+
+Install dependencies and start the backend:
+
+```bash
+npm install
+npx tsx src/server.ts
+```
+
+The backend will start on `http://localhost:3003`.
+
+#### 3. Set up the frontend
+
+In a new terminal:
+
+```bash
+cd engine/frontend/editor
+npm install
+npm run dev
+```
+
+The editor will open at **http://localhost:5174**.
+
+#### 4. Start building games
+
+Open `http://localhost:5174` in your browser (Chrome/Edge recommended for WebGPU). Type a game name like "chess" or "racing game" in the chat and the AI will build it for you.
+
+### How It Works
+
+1. You type a game prompt (e.g. "chess", "platformer", "fps shooter")
+2. The AI selects the best matching template from 10+ game templates
+3. The engine assembles the game: entities, scripts, UI, physics, FSM logic
+4. You can play immediately, then ask the AI to fix bugs or add features
+5. The fixer agent reads your game code, edits scripts, and validates changes
+
+### 3D Assets
+
+The hosted version at [parallaxpro.ai](https://parallaxpro.ai/) includes 5000+ 3D models, textures, and audio files from [Kenney](https://kenney.nl/), [Poly Haven](https://polyhaven.com/), and more.
+
+When running locally, assets are automatically loaded from the ParallaxPro CDN. The asset browser and 3D models work out of the box with no additional downloads.
+
+To use your own local assets, set `ASSETS_DIR` in your `.env` to a directory containing your 3D models (`.glb`), textures (`.png`, `.jpg`), and audio (`.ogg`, `.mp3`).
+
+### Publishing Games
+
+Game publishing is available on the hosted version at [parallaxpro.ai](https://parallaxpro.ai/). Published games appear at `parallaxpro.ai/games`. We are working on direct publishing from self-hosted instances.
+
+### License
+
+Apache License 2.0. See [LICENSE](LICENSE).
 
 <a href="https://www.star-history.com/?repos=ParallaxPro-AI%2FOpen-ParallaxPro&type=date&legend=bottom-right">
  <picture>
