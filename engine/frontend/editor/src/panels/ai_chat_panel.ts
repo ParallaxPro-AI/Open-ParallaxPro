@@ -315,9 +315,14 @@ export class AiChatPanel {
         trySend();
     }
 
-    private sendMessage(): void {
+    private async sendMessage(): Promise<void> {
         const text = this.textarea.value.trim();
         if (!text || this.state === State.STREAMING) return;
+
+        // Auto-save before sending so the AI has the latest scene state
+        if (this.ctx.state.projectDirty) {
+            await this.ctx.saveProject();
+        }
 
         this.hideEmptyState();
 

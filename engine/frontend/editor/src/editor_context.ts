@@ -822,7 +822,8 @@ export class EditorContext extends EventBus {
         for (const scene of allScenes) {
             const sceneData = scene.toJSON();
             const sceneKey = this.getSceneKey(scene);
-            files[sceneKey] = sceneData;
+            const saveKey = sceneKey.startsWith('scenes/') ? sceneKey : `scenes/${sceneKey}`;
+            files[saveKey] = sceneData;
             newScenesMap[sceneKey] = sceneData;
         }
         this.state.projectData.scenes = newScenesMap;
