@@ -118,20 +118,20 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             break;
         }
 
-        case 'BUILD_NEW_GAME': {
+        case 'LOAD_TEMPLATE': {
             if (!node.args.template) {
                 // No template specified — list available templates
                 const catalog = loadTemplateCatalog();
                 if (catalog.length === 0) {
-                    result.toolResults = '[BUILD_NEW_GAME] No game templates found.';
+                    result.toolResults = '[LOAD_TEMPLATE] No game templates found.';
                 } else {
-                    result.toolResults = `[BUILD_NEW_GAME] Available game templates:\n${formatCatalogForLLM(catalog)}\n\nChoose one and call: <<<BUILD_NEW_GAME template="template_id">>><<<END>>>`;
+                    result.toolResults = `[LOAD_TEMPLATE] Available game templates:\n${formatCatalogForLLM(catalog)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match the user's request, use CREATE_GAME instead: <<<CREATE_GAME description="...">>><<<END>>>`;
                 }
             } else {
                 // Template specified — build the game
                 const template = loadTemplate(node.args.template);
                 if (!template || !template._folderPath) {
-                    result.toolResults = `[BUILD_NEW_GAME] Template "${node.args.template}" not found. Call <<<BUILD_NEW_GAME>>><<<END>>> to see available templates.`;
+                    result.toolResults = `[LOAD_TEMPLATE] Template "${node.args.template}" not found. Either call <<<LOAD_TEMPLATE>>><<<END>>> to see available templates, or use <<<CREATE_GAME description="...">>><<<END>>> to create a custom game from scratch.`;
                     break;
                 }
 
@@ -173,9 +173,9 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
 
                     const entityCount = assembled.entities.length;
                     const scriptCount = Object.keys(assembled.scripts).length;
-                    result.toolResults = `[BUILD_NEW_GAME] Successfully built "${template.name}" with ${entityCount} entities. The game is now loaded in the editor.\n\nTell the user: the game was generated from the "${template.name}" template. Ask if they want you to incorporate any customizations, or if they'd prefer to start from an empty template and build from scratch.`;
+                    result.toolResults = `[LOAD_TEMPLATE] Successfully built "${template.name}" with ${entityCount} entities. The game is now loaded in the editor.\n\nTell the user: the game was generated from the "${template.name}" template. Ask if they want you to incorporate any customizations, or if they'd prefer to start from an empty template and build from scratch.`;
                 } catch (e: any) {
-                    result.toolResults = `[BUILD_NEW_GAME] Failed to build "${node.args.template}": ${e.message}`;
+                    result.toolResults = `[LOAD_TEMPLATE] Failed to build "${node.args.template}": ${e.message}`;
                 }
             }
             break;

@@ -31,11 +31,11 @@ To find 3D models, audio, textures:
 Categories: "3D Models", "Characters", "Audio", "Textures", "Animations"
 Must include search or pack — category alone is not enough.
 
-### BUILD_NEW_GAME
+### LOAD_TEMPLATE
 To create a complete new game from a template:
-<<<BUILD_NEW_GAME>>><<<END>>>
+<<<LOAD_TEMPLATE>>><<<END>>>
 This lists all available game templates. Then pick one:
-<<<BUILD_NEW_GAME template="chess">>><<<END>>>
+<<<LOAD_TEMPLATE template="chess">>><<<END>>>
 This builds the full game (entities, scripts, UI) and loads it in the editor.
 
 Use this when the user asks to "create a game", "make chess", "build a racing game", etc.
@@ -54,7 +54,7 @@ Use FIX_GAME for:
 Use EDIT (via GET_EDIT_API) only for simple scene changes: adding/moving/deleting entities, changing colors/materials, adjusting positions. If the request involves scripts, UI, or game logic, use FIX_GAME instead.
 
 ### CREATE_GAME
-When BUILD_NEW_GAME has no matching template, or the user explicitly wants a custom game from scratch:
+When LOAD_TEMPLATE has no matching template, or the user explicitly wants a custom game from scratch:
 <<<CREATE_GAME description="a tower defense game where you place turrets to defend against waves of enemies">>><<<END>>>
 This spawns an agent that creates a complete new game template (scripts, UI, flow, entities, world) from scratch. Takes longer but produces a fully custom game.
 
@@ -65,10 +65,10 @@ This spawns an agent that creates a complete new game template (scripts, UI, flo
 4. To modify the scene, call <<<GET_EDIT_API>>><<<END>>> first.
 5. Only output ONE tool call per response. Wait for the result before continuing.
 6. When the user asks for a real-world object (car, chair, tree, house, etc.), ALWAYS use LIST_ASSETS to find a 3D model first. Do NOT approximate with primitive shapes like cubes. Only use primitives (cube, sphere, etc.) when the user explicitly asks for them.
-7. When the user asks to create/build/make a game, use BUILD_NEW_GAME.
-8. When the user's ENTIRE message is just a game name or genre (e.g. "chess", "fps shooter", "gta", "csgo", "racing game"), treat it as a game request and IMMEDIATELY use BUILD_NEW_GAME. Do NOT ask clarifying questions.
+7. When the user asks to create/build/make a game, use LOAD_TEMPLATE.
+8. When the user's ENTIRE message is just a game name or genre (e.g. "chess", "fps shooter", "gta", "csgo", "racing game"), treat it as a game request and IMMEDIATELY use LOAD_TEMPLATE. Do NOT ask clarifying questions.
 9. When the user reports a bug, requests a complex feature, or asks for anything involving scripts/UI/game logic, use FIX_GAME. Include the user's full request in the description. Only use EDIT for simple scene manipulation (add cube, move entity, change color).
-10. When BUILD_NEW_GAME finds no matching template, or the user says "from scratch" / "custom" / "don't use a template", use CREATE_GAME with a detailed description of the game.
+10. When LOAD_TEMPLATE lists templates and NONE of them match the user's request, OR the user says "from scratch" / "custom" / "don't use a template" / "create a new one", use CREATE_GAME with a detailed description. Do NOT pick the "closest" template — if it's not a match, use CREATE_GAME.
 `;
 
 export const EDIT_API_DOCS = `

@@ -16,13 +16,13 @@ export function analyze(ast: ASTNode[]): CompileError[] {
     for (const node of ast) {
         if (node.kind === 'edit') {
             analyzeEditBlock(node as EditNode, errors);
-        } else if (node.kind === 'tool_call' && node.name === 'BUILD_NEW_GAME') {
+        } else if (node.kind === 'tool_call' && node.name === 'LOAD_TEMPLATE') {
             const validArgs = new Set(['template']);
             for (const key of Object.keys(node.args)) {
                 if (!validArgs.has(key)) {
                     errors.push({
                         phase: 'semantic',
-                        message: `BUILD_NEW_GAME: unknown argument "${key}"`,
+                        message: `LOAD_TEMPLATE: unknown argument "${key}"`,
                         hint: 'Without args: lists templates. With template="name": builds the game.',
                     });
                 }
