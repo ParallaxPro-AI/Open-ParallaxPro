@@ -308,7 +308,7 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
             '-p', prompt,
             '--output-format', 'stream-json',
             '--verbose',
-            '--model', 'sonnet',
+            '--model', 'haiku',
             '--dangerously-skip-permissions',
             '--max-turns', '50',
         ];
