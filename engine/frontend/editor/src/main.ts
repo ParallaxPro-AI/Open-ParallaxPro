@@ -1,6 +1,7 @@
 if ((window as any).__mobileBlocked) throw new Error('Mobile blocked');
 
 import './utils/error_tracker.js';
+import { checkForUpdates } from './utils/version_check.js';
 
 import './styles/theme.css';
 import './styles/editor.css';
@@ -124,6 +125,8 @@ if (document.getElementById('app')) {
     window.addEventListener('popstate', () => {
         window.location.reload();
     });
+
+    checkForUpdates();
 
     const app = new App();
     app.start().catch(e => {
