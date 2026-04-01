@@ -2,9 +2,10 @@
   "definitions": {
     "player": {
       "mesh": {
-        "type": "capsule",
-        "color": [0.2, 0.6, 0.3, 1],
-        "scale": [0.9, 0.9, 0.9]
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
       },
       "physics": {
         "type": "dynamic",
@@ -64,9 +65,10 @@
     },
     "enemy": {
       "mesh": {
-        "type": "capsule",
-        "color": [0.8, 0.2, 0.15, 1],
-        "scale": [0.9, 0.9, 0.9]
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
       },
       "physics": {
         "type": "dynamic",
@@ -94,24 +96,43 @@
     "wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.5, 0.5, 0.55, 1],
+        "color": [0.45, 0.42, 0.4, 1],
         "scale": [4, 3, 0.3]
       },
-      "tags": ["wall"]
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
     },
     "wall_long": {
       "mesh": {
         "type": "cube",
-        "color": [0.5, 0.5, 0.55, 1],
+        "color": [0.45, 0.42, 0.4, 1],
         "scale": [10, 3, 0.3]
       },
-      "tags": ["wall"]
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
     },
     "crate": {
       "mesh": {
         "type": "cube",
         "color": [0.6, 0.45, 0.25, 1],
         "scale": [1, 1, 1]
+      },
+      "tags": ["cover"],
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+      }
+    },
+    "barrel": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.35, 0.5, 0.35, 1],
+        "scale": [0.5, 1, 0.5]
       },
       "tags": ["cover"]
     },
@@ -122,7 +143,10 @@
         "scale": [40, 1, 40]
       },
       "tags": ["ground"],
-      "label": false
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
     }
   }
 }

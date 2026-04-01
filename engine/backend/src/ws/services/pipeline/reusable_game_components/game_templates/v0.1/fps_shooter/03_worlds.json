@@ -9,29 +9,36 @@
       "placements": [
         { "ref": "ground", "position": [0, 0, 0] },
         { "ref": "camera", "position": [0, 1.6, 0] },
-        { "ref": "player", "position": [0, 0.9, 0] },
+        { "ref": "player", "position": [0, 0, 0] },
 
-        { "ref": "enemy", "position": [10, 0.9, -8] },
-        { "ref": "enemy", "position": [-8, 0.9, -12] },
-        { "ref": "enemy", "position": [5, 0.9, -18] },
-        { "ref": "enemy", "position": [-12, 0.9, -5] },
-        { "ref": "enemy", "position": [15, 0.9, -15] },
+        { "ref": "enemy", "position": [10, 0, -8] },
+        { "ref": "enemy", "position": [-8, 0, -12] },
+        { "ref": "enemy", "position": [5, 0, -18] },
+        { "ref": "enemy", "position": [-12, 0, -5] },
+        { "ref": "enemy", "position": [15, 0, -15] },
 
-        { "ref": "wall_long", "position": [0, 1.5, -20], "rotation": [0, 0, 0] },
-        { "ref": "wall_long", "position": [0, 1.5, 20], "rotation": [0, 0, 0] },
+        { "ref": "wall_long", "position": [0, 1.5, -20] },
+        { "ref": "wall_long", "position": [0, 1.5, 20] },
         { "ref": "wall_long", "position": [-20, 1.5, 0], "rotation": [0, 90, 0] },
         { "ref": "wall_long", "position": [20, 1.5, 0], "rotation": [0, 90, 0] },
 
         { "ref": "wall", "position": [5, 1.5, -5], "rotation": [0, 45, 0] },
-        { "ref": "wall", "position": [-7, 1.5, -10], "rotation": [0, 0, 0] },
+        { "ref": "wall", "position": [-7, 1.5, -10] },
         { "ref": "wall", "position": [12, 1.5, -12], "rotation": [0, 90, 0] },
+        { "ref": "wall", "position": [-3, 1.5, -15], "rotation": [0, 30, 0] },
 
         { "ref": "crate", "position": [3, 0.5, -3] },
         { "ref": "crate", "position": [3.5, 0.5, -3.5] },
+        { "ref": "crate", "position": [3, 1.5, -3.25] },
         { "ref": "crate", "position": [-5, 0.5, -7] },
         { "ref": "crate", "position": [8, 0.5, -10] },
         { "ref": "crate", "position": [-10, 0.5, -3] },
-        { "ref": "crate", "position": [0, 0.5, -14] }
+        { "ref": "crate", "position": [0, 0.5, -14] },
+
+        { "ref": "barrel", "position": [-2, 0.5, -4] },
+        { "ref": "barrel", "position": [7, 0.5, -6] },
+        { "ref": "barrel", "position": [-9, 0.5, -9] },
+        { "ref": "barrel", "position": [14, 0.5, -10] }
       ]
     }
   ]

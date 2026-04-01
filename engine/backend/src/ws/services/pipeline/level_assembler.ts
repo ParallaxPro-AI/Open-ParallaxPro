@@ -212,6 +212,10 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     if (def.mesh.modelRotationX) meshData.modelRotationX = def.mesh.modelRotationX;
     if (def.mesh.modelRotationY) meshData.modelRotationY = def.mesh.modelRotationY;
     if (def.mesh.modelRotationZ) meshData.modelRotationZ = def.mesh.modelRotationZ;
+    // Texture overrides
+    if (def.mesh_override) {
+      meshData.materialOverrides = { ...def.mesh_override };
+    }
     components.push({ type: 'MeshRendererComponent', data: meshData });
   }
 

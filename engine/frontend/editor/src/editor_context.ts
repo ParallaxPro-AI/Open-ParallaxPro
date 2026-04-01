@@ -1158,6 +1158,13 @@ export class EditorContext extends EventBus {
     }
 
     private async loadTextureBundle(mr: MeshRendererComponent, bundleRef: string, renderSystem: any): Promise<void> {
+        // Direct image URL (e.g. /assets/kenney/textures/prototype_textures/Dark/texture_02.png)
+        if (bundleRef.match(/\.(png|jpg|jpeg|webp)$/i)) {
+            const tex = await this.loadFirstAvailableTexture([bundleRef], `albedo_${bundleRef}`, renderSystem);
+            if (tex) mr.gpuBaseColorTexture = tex;
+            return;
+        }
+
         let texName: string;
         if (bundleRef.startsWith('/assets/')) {
             const parts = bundleRef.split('/');
