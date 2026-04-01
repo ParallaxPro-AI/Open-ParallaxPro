@@ -5,12 +5,16 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { config } from '../config.js';
 import { verifyToken, type AuthUser } from '../middleware/auth.js';
+import type { EnginePlugin } from '../plugin.js';
 import db from '../db/connection.js';
 import { callLLMStream, type LLMMessage } from './services/llm.js';
 import { SYSTEM_PROMPT, getProjectSummary } from './services/chat_protocol.js';
 import { appendToLog } from './services/chat_log.js';
 import { searchAssets } from '../routes/assets.js';
 import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
+
+let _plugins: EnginePlugin[] = [];
+export function setPlugins(plugins: EnginePlugin[]): void { _plugins = plugins; }
 
 interface EditorClient {
     ws: WebSocket;
@@ -51,17 +55,19 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             return;
         }
 
-        // Auth
-        let user: AuthUser;
-        if (config.isDev && !token) {
+        // Auth — plugins can override token verification
+        let user: AuthUser | null = null;
+        const pluginVerify = _plugins.find(p => p.verifyWsToken);
+        if (pluginVerify?.verifyWsToken) {
+            user = pluginVerify.verifyWsToken(token);
+        } else if (config.isDev && !token) {
             user = { id: 1, email: 'dev@local', username: 'dev' };
         } else {
-            const verified = verifyToken(token);
-            if (!verified) {
-                ws.close(4001, 'Invalid token');
-                return;
-            }
-            user = verified;
+            user = verifyToken(token);
+        }
+        if (!user) {
+            ws.close(4001, 'Invalid token');
+            return;
         }
 
         // Load project
@@ -92,6 +98,11 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
 
         clients.set(clientId, client);
 
+        // Plugin connection hooks
+        for (const p of _plugins) {
+            if (p.onWsConnection) p.onWsConnection(client);
+        }
+
         // Send connected confirmation
         send(client, 'connected', {
             projectId,
@@ -120,7 +131,15 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         ws.on('message', (raw) => {
             try {
                 const msg = JSON.parse(raw.toString());
-                handleMessage(client, msg);
+                // Plugin message hooks — return true to prevent default handling
+                let handled = false;
+                for (const p of _plugins) {
+                    if (p.onWsMessage && p.onWsMessage(client, msg.type, msg.data)) {
+                        handled = true;
+                        break;
+                    }
+                }
+                if (!handled) handleMessage(client, msg);
             } catch (e) {
                 console.error('[WS] Failed to parse message:', e);
             }
@@ -379,6 +398,11 @@ const MAX_RETRIES = 3;
 function handleChatMessage(client: EditorClient, data: any): void {
     const content = data?.content;
     if (!content || typeof content !== 'string') return;
+
+    // Plugin chat hooks
+    for (const p of _plugins) {
+        if (p.onChatMessage) p.onChatMessage(client, content);
+    }
 
     // Save user message with current project state as "before" snapshot
     const beforeSnapshot = JSON.stringify(getProjectData(client.projectId));
