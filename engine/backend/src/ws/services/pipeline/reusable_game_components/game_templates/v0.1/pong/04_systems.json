@@ -1,0 +1,15 @@
+{
+  "systems": {
+    "pong_engine": {
+      "description": "Ball physics, paddle collision, AI opponent, scoring, and serve logic",
+      "script": "gameplay/pong_engine.ts",
+      "params": {
+        "winScore": 7,
+        "ballSpeed": 8,
+        "ballSpeedIncrease": 0.4,
+        "aiSpeed": 7,
+        "serveDelay": 90
+      }
+    }
+  }
+}

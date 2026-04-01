@@ -1,0 +1,83 @@
+{
+  "definitions": {
+    "ball": {
+      "mesh": {
+        "type": "sphere",
+        "color": [1, 1, 1, 1],
+        "scale": [0.5, 0.5, 0.5]
+      },
+      "tags": ["ball"]
+    },
+    "paddle_p1": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.55, 1, 1],
+        "scale": [0.4, 0.5, 2]
+      },
+      "tags": ["paddle", "player1"],
+      "behaviors": [
+        {
+          "name": "pong_paddle",
+          "script": "movement/pong_paddle.ts",
+          "params": {
+            "speed": 12,
+            "minZ": -5.5,
+            "maxZ": 5.5
+          }
+        }
+      ]
+    },
+    "paddle_p2": {
+      "mesh": {
+        "type": "cube",
+        "color": [1, 0.35, 0.35, 1],
+        "scale": [0.4, 0.5, 2]
+      },
+      "tags": ["paddle", "player2"]
+    },
+    "wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.3, 0.35, 1],
+        "scale": [22, 0.5, 0.4]
+      },
+      "tags": ["wall"],
+      "label": false
+    },
+    "center_dash": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.25, 0.25, 0.3, 1],
+        "scale": [0.15, 0.05, 0.8]
+      },
+      "tags": ["decoration"],
+      "label": false
+    },
+    "field": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.1, 0.1, 0.14, 1],
+        "scale": [22, 1, 14.8]
+      },
+      "tags": ["ground"],
+      "label": false
+    },
+    "camera": {
+      "camera": { "fov": 60 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "board_camera",
+          "script": "camera/camera_board.ts",
+          "params": {
+            "height": 20,
+            "tilt": 88,
+            "yaw": 0,
+            "centerX": 0,
+            "centerZ": 0
+          }
+        }
+      ]
+    }
+  }
+}

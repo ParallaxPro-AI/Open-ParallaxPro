@@ -1,0 +1,65 @@
+{
+  "id": "pong_flow",
+  "name": "Pong",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "Pong" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "active_systems": ["pong_engine"],
+      "active_behaviors": ["board_camera"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "on_exit": [],
+      "transitions": [
+        { "when": "boot_frames>=2", "goto": "main_menu" }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Pong match",
+      "start": "playing",
+      "on_enter": ["emit:game.game_ready"],
+      "on_exit": [],
+      "substates": {
+        "playing": {
+          "description": "Active pong gameplay",
+          "active_systems": ["pong_engine"],
+          "active_behaviors": ["pong_paddle", "board_camera"],
+          "on_enter": [
+            "show_ui:hud/pong_score",
+            "emit:game.new_round"
+          ],
+          "on_exit": [
+            "hide_ui:hud/pong_score"
+          ],
+          "transitions": [
+            { "when": "game_event:game_over", "goto": "game_over" }
+          ]
+        },
+        "game_over": {
+          "description": "Match ended",
+          "active_behaviors": ["board_camera"],
+          "on_enter": ["show_ui:game_over", "show_cursor"],
+          "on_exit": ["hide_ui:game_over", "hide_cursor"],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "playing" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

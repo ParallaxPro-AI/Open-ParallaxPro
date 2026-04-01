@@ -1,0 +1,25 @@
+<div style="position:fixed;top:20px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:30px;pointer-events:none;font-family:'Inter',system-ui,sans-serif;">
+  <div style="text-align:center;">
+    <div style="font-size:11px;font-weight:600;color:#5a8fff;text-transform:uppercase;letter-spacing:2px;">P1</div>
+    <div id="p1-score" style="font-size:48px;font-weight:800;color:#e0e0e0;font-variant-numeric:tabular-nums;">0</div>
+  </div>
+  <div style="font-size:24px;color:#444;font-weight:300;">:</div>
+  <div style="text-align:center;">
+    <div style="font-size:11px;font-weight:600;color:#ff5a5a;text-transform:uppercase;letter-spacing:2px;">P2</div>
+    <div id="p2-score" style="font-size:48px;font-weight:800;color:#e0e0e0;font-variant-numeric:tabular-nums;">0</div>
+  </div>
+</div>
+<script>
+function update(state) {
+  if (!state) return;
+  if (state.p1Score !== undefined) {
+    var el = document.getElementById('p1-score');
+    if (el) el.textContent = state.p1Score;
+  }
+  if (state.p2Score !== undefined) {
+    var el = document.getElementById('p2-score');
+    if (el) el.textContent = state.p2Score;
+  }
+}
+window.addEventListener('message', function(e) { if (e.data && e.data.type === 'gameState') update(e.data.state); });
+</script>
