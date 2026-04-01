@@ -1,0 +1,17 @@
+{
+  "systems": {
+    "zone_system": {
+      "description": "Shrinking safe zone — damages entities outside the ring",
+      "script": "gameplay/zone_system.ts",
+      "params": {
+        "startRadius": 55,
+        "damageRate": 5,
+        "phases": [[50, 35, 30], [40, 18, 25], [30, 6, 20]]
+      }
+    },
+    "battle_tracker": {
+      "description": "Tracks alive count, kills, and victory condition",
+      "script": "gameplay/battle_tracker.ts"
+    }
+  }
+}

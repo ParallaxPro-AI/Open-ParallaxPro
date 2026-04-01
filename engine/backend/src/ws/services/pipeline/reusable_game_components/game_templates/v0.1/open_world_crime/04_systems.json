@@ -1,0 +1,17 @@
+{
+  "systems": {
+    "crime_world": {
+      "description": "Wanted level, money, vehicle enter/exit and driving, player respawn",
+      "script": "gameplay/crime_world.ts",
+      "params": {
+        "startMoney": 500,
+        "wantedDecayDelay": 15,
+        "carAccel": 35,
+        "carMaxSpeed": 25,
+        "carBrake": 50,
+        "carTurn": 100,
+        "enterDistance": 4
+      }
+    }
+  }
+}

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wasted-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    background: rgba(0, 0, 0, 0);
+    animation: wastedBgFade 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes wastedBgFade {
+    0% { background: rgba(100, 0, 0, 0); }
+    30% { background: rgba(80, 0, 0, 0.6); }
+    100% { background: rgba(30, 0, 0, 0.75); }
+  }
+
+  .wasted-text {
+    font-size: 120px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 18px;
+    color: #dc2626;
+    line-height: 1;
+    opacity: 0;
+    transform: scale(3) rotate(-2deg);
+    animation: wastedTextReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+    text-shadow:
+      0 0 80px rgba(220, 38, 38, 0.8),
+      0 0 40px rgba(220, 38, 38, 0.5),
+      0 4px 30px rgba(0, 0, 0, 0.8);
+    filter: saturate(1.4);
+  }
+
+  @keyframes wastedTextReveal {
+    0% {
+      opacity: 0;
+      transform: scale(3) rotate(-2deg);
+      letter-spacing: 40px;
+      filter: blur(15px) saturate(1.4);
+    }
+    40% {
+      filter: blur(0) saturate(1.4);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+      letter-spacing: 18px;
+      filter: blur(0) saturate(1.4);
+    }
+  }
+
+  .wasted-line {
+    width: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #dc2626, transparent);
+    margin-top: 20px;
+    opacity: 0;
+    animation: wastedLineExpand 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) 0.8s forwards;
+  }
+
+  @keyframes wastedLineExpand {
+    from { width: 0; opacity: 0; }
+    to { width: 200px; opacity: 0.7; }
+  }
+
+  .wasted-sub {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    margin-top: 16px;
+    opacity: 0;
+    animation: wastedSubFade 0.6s ease 1.2s forwards;
+  }
+
+  @keyframes wastedSubFade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 0.5; transform: translateY(0); }
+  }
+
+  /* Ambient red glow */
+  .wasted-glow {
+    position: absolute;
+    width: 500px;
+    height: 300px;
+    border-radius: 50%;
+    background: rgba(220, 38, 38, 0.15);
+    filter: blur(100px);
+    opacity: 0;
+    z-index: -1;
+    animation: wastedGlow 1.5s ease 0.3s forwards;
+  }
+
+  @keyframes wastedGlow {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Noise/grain overlay */
+  .grain {
+    position: fixed;
+    inset: 0;
+    opacity: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    animation: grainFade 1s ease 0.5s forwards;
+    mix-blend-mode: overlay;
+  }
+
+  @keyframes grainFade {
+    from { opacity: 0; }
+    to { opacity: 0.06; }
+  }
+
+  /* Desaturate vignette */
+  .desat-vignette {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 20%, rgba(0, 0, 0, 0.5) 100%);
+    opacity: 0;
+    animation: vigFade 1.2s ease forwards;
+  }
+
+  @keyframes vigFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="desat-vignette"></div>
+<div class="grain"></div>
+
+<div class="wasted-overlay">
+  <div class="wasted-glow"></div>
+  <div class="wasted-text">WASTED</div>
+  <div class="wasted-line"></div>
+  <div class="wasted-sub">You died</div>
+</div>
+
+</body>
+</html>

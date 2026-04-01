@@ -1,0 +1,83 @@
+{
+  "worlds": [
+    {
+      "id": "moba_arena",
+      "name": "Battle Arena",
+      "lighting": {
+        "sun_color": [1.0, 0.95, 0.9]
+      },
+      "placements": [
+        { "ref": "ground", "position": [0, 0, 0] },
+        { "ref": "lane", "position": [0, 0.02, 0] },
+        { "ref": "base_blue", "position": [-55, 0.01, 0] },
+        { "ref": "base_red", "position": [55, 0.01, 0] },
+
+        { "ref": "blue_nexus", "position": [-55, 0, 0] },
+        { "ref": "blue_tower", "position": [-35, 0, 0] },
+        { "ref": "blue_tower", "position": [-15, 0, 0] },
+        { "ref": "red_nexus", "position": [55, 0, 0] },
+        { "ref": "red_tower", "position": [35, 0, 0] },
+        { "ref": "red_tower", "position": [15, 0, 0] },
+
+        { "ref": "ballista", "position": [-58, 0, 8] },
+        { "ref": "ballista", "position": [-58, 0, -8] },
+        { "ref": "ballista", "position": [58, 0, 8] },
+        { "ref": "ballista", "position": [58, 0, -8] },
+
+        { "name": "Hero", "ref": "hero", "position": [-45, 0, 0] },
+        { "ref": "camera", "position": [-45, 20, 14] },
+
+        { "ref": "wall", "position": [0, 1.5, 22], "scale": [160, 3, 1] },
+        { "ref": "wall", "position": [0, 1.5, -22], "scale": [160, 3, 1] },
+        { "ref": "wall", "position": [70, 1.5, 0], "scale": [1, 3, 44] },
+        { "ref": "wall", "position": [-70, 1.5, 0], "scale": [1, 3, 44] },
+
+        { "ref": "tree_common", "position": [-40, 0, 14] },
+        { "ref": "tree_pine", "position": [-22, 0, -14] },
+        { "ref": "tree_common_2", "position": [0, 0, 15] },
+        { "ref": "tree_willow", "position": [22, 0, -15] },
+        { "ref": "tree_common", "position": [42, 0, 14] },
+        { "ref": "tree_pine", "position": [-12, 0, 16] },
+        { "ref": "tree_common_2", "position": [32, 0, -16] },
+        { "ref": "tree_willow", "position": [-52, 0, -14] },
+        { "ref": "tree_pine", "position": [52, 0, 15] },
+        { "ref": "tree_common", "position": [12, 0, -16] },
+        { "ref": "tree_common_2", "position": [-30, 0, -16] },
+        { "ref": "tree_pine", "position": [60, 0, -14] },
+        { "ref": "tree_willow", "position": [-60, 0, 14] },
+
+        { "ref": "bush", "position": [-25, 0, 10] },
+        { "ref": "bush_berries", "position": [8, 0, -10] },
+        { "ref": "bush", "position": [35, 0, 11] },
+        { "ref": "bush_berries", "position": [-45, 0, -11] },
+        { "ref": "bush", "position": [48, 0, -10] },
+        { "ref": "bush", "position": [-8, 0, 11] },
+        { "ref": "bush_berries", "position": [18, 0, 12] },
+        { "ref": "bush", "position": [-35, 0, 12] },
+
+        { "ref": "rock_1", "position": [-32, 0, 12] },
+        { "ref": "rock_moss", "position": [26, 0, -12] },
+        { "ref": "rock_1", "position": [-6, 0, -15] },
+        { "ref": "rock_moss", "position": [46, 0, -14] },
+        { "ref": "rock_1", "position": [-48, 0, 13] },
+        { "ref": "rock_moss", "position": [56, 0, -12] },
+
+        { "ref": "flowers", "position": [-18, 0, 13] },
+        { "ref": "flowers", "position": [14, 0, -13] },
+        { "ref": "flowers", "position": [38, 0, 14] },
+        { "ref": "flowers", "position": [-42, 0, -13] },
+
+        { "ref": "grass_patch", "position": [-28, 0, 15] },
+        { "ref": "grass_patch", "position": [5, 0, -15] },
+        { "ref": "grass_patch", "position": [28, 0, 15] },
+        { "ref": "grass_patch", "position": [-55, 0, -12] },
+        { "ref": "grass_patch", "position": [55, 0, 12] },
+
+        { "ref": "tree_stump", "position": [-15, 0, 15] },
+        { "ref": "wood_log", "position": [20, 0, -15] },
+        { "ref": "tree_stump", "position": [45, 0, 16] },
+        { "ref": "wood_log", "position": [-38, 0, -15] }
+      ]
+    }
+  ]
+}

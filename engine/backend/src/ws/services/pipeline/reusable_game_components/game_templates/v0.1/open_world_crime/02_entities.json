@@ -1,0 +1,436 @@
+{
+  "definitions": {
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "third_person_movement",
+          "script": "movement/third_person_movement.ts",
+          "params": {
+            "speed": 5,
+            "sprintSpeed": 9,
+            "jumpForce": 6
+          }
+        },
+        {
+          "name": "pistol_combat",
+          "script": "combat/pistol_combat.ts",
+          "params": {
+            "ammo": 12,
+            "maxAmmo": 12,
+            "reserve": 48,
+            "damage": 35,
+            "fireRate": 0.35,
+            "reloadTime": 1.5,
+            "range": 50,
+            "shootSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_002.ogg"
+          }
+        },
+        {
+          "name": "player_health",
+          "script": "status/player_health.ts",
+          "params": {
+            "maxHealth": 100,
+            "regenDelay": 8,
+            "regenRate": 10
+          }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 65 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_third_person",
+          "script": "camera/camera_third_person.ts",
+          "params": {
+            "distance": 8,
+            "height": 4,
+            "lookHeight": 1.5,
+            "smoothSpeed": 6,
+            "sensitivity": 0.15
+          }
+        }
+      ]
+    },
+
+    "pedestrian_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Female.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "tags": ["pedestrian", "npc"],
+      "behaviors": [
+        {
+          "name": "pedestrian_ai",
+          "script": "ai/pedestrian_ai.ts",
+          "params": { "walkSpeed": 2, "health": 50 }
+        }
+      ]
+    },
+    "pedestrian_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual2_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "tags": ["pedestrian", "npc"],
+      "behaviors": [
+        {
+          "name": "pedestrian_ai",
+          "script": "ai/pedestrian_ai.ts",
+          "params": { "walkSpeed": 1.8, "health": 50 }
+        }
+      ]
+    },
+    "pedestrian_c": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Suit_Female.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "tags": ["pedestrian", "npc"],
+      "behaviors": [
+        {
+          "name": "pedestrian_ai",
+          "script": "ai/pedestrian_ai.ts",
+          "params": { "walkSpeed": 2.2, "health": 50 }
+        }
+      ]
+    },
+    "pedestrian_d": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/OldClassy_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "tags": ["pedestrian", "npc"],
+      "behaviors": [
+        {
+          "name": "pedestrian_ai",
+          "script": "ai/pedestrian_ai.ts",
+          "params": { "walkSpeed": 1.5, "health": 50 }
+        }
+      ]
+    },
+    "pedestrian_e": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual3_Female.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "tags": ["pedestrian", "npc"],
+      "behaviors": [
+        {
+          "name": "pedestrian_ai",
+          "script": "ai/pedestrian_ai.ts",
+          "params": { "walkSpeed": 2, "health": 50 }
+        }
+      ]
+    },
+
+    "police_officer": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "tags": ["police", "npc"],
+      "behaviors": [
+        {
+          "name": "police_ai",
+          "script": "ai/police_ai.ts",
+          "params": {
+            "speed": 5,
+            "detectionRange": 30,
+            "fireRange": 15,
+            "damage": 12,
+            "fireRate": 1.2,
+            "health": 150
+          }
+        }
+      ]
+    },
+
+    "car_sedan": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/sedan.glb",
+        "scale": [1.3, 1.3, 1.3],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1200,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
+    },
+    "car_sports": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/sedan-sports.glb",
+        "scale": [1.3, 1.3, 1.3],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1100,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
+    },
+    "car_suv": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/suv.glb",
+        "scale": [1.3, 1.3, 1.3],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1500,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
+    },
+    "car_taxi": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/taxi.glb",
+        "scale": [1.3, 1.3, 1.3],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1200,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
+    },
+    "police_car": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/police.glb",
+        "scale": [1.3, 1.3, 1.3],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1400,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle", "police_vehicle"]
+    },
+
+    "building_commercial_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-a.glb",
+        "scale": [3, 3, 3]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "building_commercial_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-d.glb",
+        "scale": [3, 3, 3]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "building_commercial_c": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-g.glb",
+        "scale": [3, 3, 3]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "building_skyscraper_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-skyscraper-a.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "building_skyscraper_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-skyscraper-c.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "building_suburban_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/building-type-a.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "building_suburban_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/building-type-d.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "building_suburban_c": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/building-type-h.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.3, 0.45, 0.25, 1],
+        "scale": [200, 1, 200]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    },
+    "road": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.2, 0.2, 0.22, 1],
+        "scale": [12, 1, 130]
+      },
+      "physics": false,
+      "tags": ["road"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+      }
+    },
+    "sidewalk": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.55, 0.53, 0.5, 1],
+        "scale": [4, 1, 130]
+      },
+      "physics": false,
+      "tags": ["sidewalk"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
+    },
+
+    "traffic_light": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/street_pack/TrafficLight.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["prop"],
+      "label": false
+    },
+    "street_light": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/street_pack/Streetlight_Single.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["prop"],
+      "label": false
+    },
+    "stop_sign": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/street_pack/Sign_Stop.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["prop"],
+      "label": false
+    },
+    "tree": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/tree-large.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["prop"],
+      "label": false
+    },
+    "cone": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/cone.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["prop"],
+      "label": false
+    },
+    "fence": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/fence.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["prop"],
+      "label": false
+    },
+    "barrier": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.7, 0.7, 0.7, 1],
+        "scale": [1.5, 1, 1.5]
+      },
+      "tags": ["barrier"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+      }
+    }
+  }
+}

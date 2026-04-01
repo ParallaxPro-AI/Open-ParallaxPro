@@ -1,0 +1,76 @@
+{
+  "worlds": [
+    {
+      "id": "soccer_stadium",
+      "name": "Stadium",
+      "lighting": {
+        "ambient": [0.45, 0.48, 0.5],
+        "sun_direction": [0.2, -0.8, 0.3],
+        "sun_color": [1.0, 0.98, 0.92]
+      },
+      "placements": [
+        { "ref": "pitch_border", "position": [0, -0.01, 0] },
+        { "ref": "pitch", "position": [0, 0.01, 0] },
+        { "ref": "camera", "position": [0, 32, 42] },
+
+        { "ref": "line_long", "position": [0, 0.03, 0], "scale": [0.3, 1, 60] },
+        { "ref": "line_long", "position": [-50, 0.03, 0], "scale": [0.3, 1, 60] },
+        { "ref": "line_long", "position": [50, 0.03, 0], "scale": [0.3, 1, 60] },
+        { "ref": "line_short", "position": [0, 0.03, 30], "scale": [100, 1, 0.3] },
+        { "ref": "line_short", "position": [0, 0.03, -30], "scale": [100, 1, 0.3] },
+
+        { "ref": "line_short", "position": [-42, 0.03, 0], "scale": [0.3, 1, 32] },
+        { "ref": "line_short", "position": [-42, 0.03, 16], "scale": [16, 1, 0.3] },
+        { "ref": "line_short", "position": [-42, 0.03, -16], "scale": [16, 1, 0.3] },
+
+        { "ref": "line_short", "position": [42, 0.03, 0], "scale": [0.3, 1, 32] },
+        { "ref": "line_short", "position": [42, 0.03, 16], "scale": [16, 1, 0.3] },
+        { "ref": "line_short", "position": [42, 0.03, -16], "scale": [16, 1, 0.3] },
+
+        { "ref": "center_spot", "position": [0, 0.04, 0] },
+        { "ref": "center_circle_segment", "position": [9, 0.03, 0] },
+        { "ref": "center_circle_segment", "position": [-9, 0.03, 0] },
+        { "ref": "center_circle_segment", "position": [0, 0.03, 9] },
+        { "ref": "center_circle_segment", "position": [0, 0.03, -9] },
+        { "ref": "center_circle_segment", "position": [6.4, 0.03, 6.4], "rotation": [0, 45, 0] },
+        { "ref": "center_circle_segment", "position": [-6.4, 0.03, 6.4], "rotation": [0, -45, 0] },
+        { "ref": "center_circle_segment", "position": [6.4, 0.03, -6.4], "rotation": [0, -45, 0] },
+        { "ref": "center_circle_segment", "position": [-6.4, 0.03, -6.4], "rotation": [0, 45, 0] },
+
+        { "ref": "goal_post", "position": [-50, 1.25, -3.6] },
+        { "ref": "goal_post", "position": [-50, 1.25, 3.6] },
+        { "ref": "goal_crossbar", "position": [-50, 2.5, 0] },
+        { "ref": "goal_net", "position": [-52, 1.25, 0], "rotation": [0, 90, 0] },
+
+        { "ref": "goal_post", "position": [50, 1.25, -3.6] },
+        { "ref": "goal_post", "position": [50, 1.25, 3.6] },
+        { "ref": "goal_crossbar", "position": [50, 2.5, 0] },
+        { "ref": "goal_net", "position": [52, 1.25, 0], "rotation": [0, 90, 0] },
+
+        { "ref": "corner_flag", "position": [-50, 0.6, -30] },
+        { "ref": "corner_flag", "position": [-50, 0.6, 30] },
+        { "ref": "corner_flag", "position": [50, 0.6, -30] },
+        { "ref": "corner_flag", "position": [50, 0.6, 30] },
+
+        { "ref": "stand_side", "position": [0, 3, 38] },
+        { "ref": "stand_side", "position": [0, 3, -38] },
+        { "ref": "stand_end", "position": [58, 3, 0] },
+        { "ref": "stand_end", "position": [-58, 3, 0] },
+
+        { "ref": "ball", "position": [0, 0.3, 0] },
+
+        { "name": "Player", "ref": "team_a_player", "position": [-5, 0, 0] },
+        { "name": "A_Forward", "ref": "team_a_forward", "position": [-8, 0, 12] },
+        { "name": "A_Mid_1", "ref": "team_a_mid", "position": [-22, 0, -10] },
+        { "name": "A_Mid_2", "ref": "team_a_mid", "position": [-22, 0, 10] },
+        { "name": "A_GK", "ref": "team_a_gk", "position": [-46, 0, 0] },
+
+        { "name": "B_Forward_1", "ref": "team_b_forward", "position": [8, 0, -5] },
+        { "name": "B_Forward_2", "ref": "team_b_forward", "position": [8, 0, 8] },
+        { "name": "B_Mid_1", "ref": "team_b_mid", "position": [22, 0, -10] },
+        { "name": "B_Mid_2", "ref": "team_b_mid_2", "position": [22, 0, 10] },
+        { "name": "B_GK", "ref": "team_b_gk", "position": [46, 0, 0] }
+      ]
+    }
+  ]
+}

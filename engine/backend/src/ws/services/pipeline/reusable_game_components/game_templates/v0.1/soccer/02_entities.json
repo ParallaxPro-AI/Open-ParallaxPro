@@ -1,0 +1,255 @@
+{
+  "definitions": {
+    "team_a_player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["team_a", "player"],
+      "behaviors": [
+        {
+          "name": "soccer_player",
+          "script": "movement/soccer_player.ts",
+          "params": { "speed": 8, "sprintSpeed": 12 }
+        }
+      ]
+    },
+    "team_a_forward": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Female.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "tags": ["team_a", "soccer_ai", "forward"]
+    },
+    "team_a_mid": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual2_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "tags": ["team_a", "soccer_ai", "midfielder"]
+    },
+    "team_a_gk": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "tags": ["team_a", "soccer_ai", "goalkeeper"]
+    },
+    "team_b_forward": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "tags": ["team_b", "soccer_ai", "forward"]
+    },
+    "team_b_mid": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "tags": ["team_b", "soccer_ai", "midfielder"]
+    },
+    "team_b_mid_2": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Female.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "tags": ["team_b", "soccer_ai", "midfielder"]
+    },
+    "team_b_gk": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Female.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "tags": ["team_b", "soccer_ai", "goalkeeper"]
+    },
+
+    "ball": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/poly_haven/3d_models/football.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["ball"]
+    },
+
+    "camera": {
+      "camera": { "fov": 50 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_soccer",
+          "script": "camera/camera_soccer.ts",
+          "params": {
+            "height": 32,
+            "zOffset": 42,
+            "smoothSpeed": 3
+          }
+        }
+      ]
+    },
+
+    "pitch": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.2, 0.55, 0.18, 1],
+        "scale": [110, 1, 70]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    },
+    "pitch_border": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.15, 0.42, 0.12, 1],
+        "scale": [140, 1, 100]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_01.png"
+      }
+    },
+    "line_long": {
+      "mesh": {
+        "type": "plane",
+        "color": [1, 1, 1, 1],
+        "scale": [0.3, 1, 60]
+      },
+      "physics": false,
+      "tags": ["marking"],
+      "label": false
+    },
+    "line_short": {
+      "mesh": {
+        "type": "plane",
+        "color": [1, 1, 1, 1],
+        "scale": [16, 1, 0.3]
+      },
+      "physics": false,
+      "tags": ["marking"],
+      "label": false
+    },
+    "line_end": {
+      "mesh": {
+        "type": "plane",
+        "color": [1, 1, 1, 1],
+        "scale": [0.3, 1, 0.3]
+      },
+      "physics": false,
+      "tags": ["marking"],
+      "label": false
+    },
+    "center_circle_segment": {
+      "mesh": {
+        "type": "plane",
+        "color": [1, 1, 1, 1],
+        "scale": [0.25, 1, 0.8]
+      },
+      "physics": false,
+      "tags": ["marking"],
+      "label": false
+    },
+    "center_spot": {
+      "mesh": {
+        "type": "sphere",
+        "color": [1, 1, 1, 1],
+        "scale": [0.4, 0.05, 0.4]
+      },
+      "physics": false,
+      "tags": ["marking"],
+      "label": false
+    },
+
+    "goal_post": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [1, 1, 1, 1],
+        "scale": [0.12, 1.25, 0.12]
+      },
+      "tags": ["goal_structure"],
+      "label": false
+    },
+    "goal_crossbar": {
+      "mesh": {
+        "type": "cube",
+        "color": [1, 1, 1, 1],
+        "scale": [0.12, 0.12, 7.4]
+      },
+      "tags": ["goal_structure"],
+      "label": false
+    },
+    "goal_net": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.9, 0.9, 0.9, 0.5],
+        "scale": [2, 2.5, 7.4]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "corner_flag": {
+      "mesh": {
+        "type": "cube",
+        "color": [1, 0.85, 0, 1],
+        "scale": [0.08, 1.2, 0.08]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "stand_side": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.4, 0.38, 0.45, 1],
+        "scale": [100, 6, 3]
+      },
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "stand_end": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.4, 0.38, 0.45, 1],
+        "scale": [3, 6, 60]
+      },
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    }
+  }
+}

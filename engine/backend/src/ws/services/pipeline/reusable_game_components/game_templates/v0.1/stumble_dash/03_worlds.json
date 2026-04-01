@@ -1,0 +1,70 @@
+{
+  "worlds": [
+    {
+      "id": "obstacle_course",
+      "name": "Stumble Course",
+      "lighting": {
+        "sun_color": [1.0, 0.97, 0.92]
+      },
+      "placements": [
+        { "name": "Player Car", "ref": "runner", "position": [0, 1, 2] },
+        { "ref": "camera", "position": [0, 5, 10] },
+
+        { "ref": "start_banner", "position": [0, 0.03, 0] },
+
+        { "ref": "platform_green", "position": [0, -0.5, -5], "scale": [14, 1, 22] },
+        { "ref": "side_rail", "position": [-7, 0.75, -5], "scale": [0.3, 1.5, 22] },
+        { "ref": "side_rail", "position": [7, 0.75, -5], "scale": [0.3, 1.5, 22] },
+
+        { "ref": "platform_green", "position": [0, -0.5, -20], "scale": [8, 1, 5] },
+        { "ref": "platform_green", "position": [0, -0.5, -28], "scale": [7, 1, 4] },
+        { "ref": "platform_green", "position": [0, -0.5, -35], "scale": [6, 1, 4] },
+        { "ref": "platform_green", "position": [0, -0.5, -42], "scale": [8, 1, 5] },
+
+        { "ref": "platform_blue", "position": [0, -0.5, -48], "scale": [10, 1, 5] },
+
+        { "ref": "platform_orange", "position": [0, -0.5, -62], "scale": [14, 1, 28] },
+        { "ref": "side_rail", "position": [-7, 0.75, -62], "scale": [0.3, 1.5, 28] },
+        { "ref": "side_rail", "position": [7, 0.75, -62], "scale": [0.3, 1.5, 28] },
+        { "ref": "spinning_bar", "position": [0, 0.8, -55] },
+        { "ref": "spinning_bar", "position": [0, 0.8, -69], "scale": [12, 0.6, 0.6] },
+
+        { "ref": "platform_blue", "position": [0, -0.5, -78], "scale": [8, 1, 4] },
+
+        { "ref": "platform_moving", "position": [-4, -0.5, -84] },
+        { "ref": "platform_moving", "position": [4, -0.5, -92] },
+        { "ref": "platform_moving", "position": [-4, -0.5, -100] },
+
+        { "ref": "platform_blue", "position": [0, -0.5, -106], "scale": [8, 1, 5] },
+
+        { "ref": "platform_purple", "position": [3, -0.5, -117], "scale": [1.5, 1, 18] },
+        { "ref": "platform_purple", "position": [-3, -0.5, -117], "scale": [1.5, 1, 18] },
+
+        { "ref": "platform_gold", "position": [0, -0.5, -138], "scale": [14, 1, 20] },
+        { "ref": "side_rail", "position": [-7, 0.75, -138], "scale": [0.3, 1.5, 20] },
+        { "ref": "side_rail", "position": [7, 0.75, -138], "scale": [0.3, 1.5, 20] },
+        { "ref": "finish_banner", "position": [0, 0.03, -130] },
+
+        { "ref": "checkpoint_crystal", "position": [6, 0, -15] },
+        { "ref": "checkpoint_crystal", "position": [6, 0, -48] },
+        { "ref": "checkpoint_crystal", "position": [6, 0, -75] },
+        { "ref": "checkpoint_crystal", "position": [6, 0, -105] },
+        { "ref": "checkpoint_crystal", "position": [6, 0, -125] },
+        { "ref": "finish_crystal", "position": [-5, 0, -145] },
+        { "ref": "finish_crystal", "position": [5, 0, -145] },
+
+        { "ref": "tree_detail", "position": [-9, -0.5, -3] },
+        { "ref": "tree_detail", "position": [9, -0.5, -8] },
+        { "ref": "tree_detail", "position": [-9, -0.5, -58] },
+        { "ref": "tree_detail", "position": [9, -0.5, -66] },
+        { "ref": "tree_detail", "position": [-9, -0.5, -135] },
+        { "ref": "tree_detail", "position": [9, -0.5, -140] },
+
+        { "ref": "rocks_detail", "position": [-9, -0.5, -25] },
+        { "ref": "rocks_detail", "position": [9, -0.5, -38] },
+        { "ref": "rocks_detail", "position": [-9, -0.5, -90] },
+        { "ref": "rocks_detail", "position": [9, -0.5, -115] }
+      ]
+    }
+  ]
+}

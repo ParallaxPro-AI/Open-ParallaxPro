@@ -1,0 +1,101 @@
+{
+  "worlds": [
+    {
+      "id": "sky_meadow",
+      "name": "Sky Meadow",
+      "lighting": {
+        "ambient": [0.5, 0.55, 0.65],
+        "sun_direction": [0.3, -0.7, 0.2],
+        "sun_color": [1.0, 0.97, 0.88]
+      },
+      "terrain": {
+        "size": [200, 200],
+        "color": [0.4, 0.7, 0.85, 1]
+      },
+      "placements": [
+        { "ref": "camera", "position": [0, 7, 14] },
+        { "name": "Player", "ref": "player", "position": [0, 2, 0] },
+
+        { "ref": "platform_large", "position": [0, 0, 0] },
+        { "ref": "platform_large", "position": [0, 0, -4] },
+
+        { "ref": "platform_medium", "position": [7, 1.5, 0] },
+        { "ref": "platform_medium", "position": [13, 3, 0] },
+        { "ref": "platform_medium", "position": [19, 4.5, -1] },
+
+        { "ref": "coin", "position": [7, 3, 0] },
+        { "ref": "coin", "position": [13, 4.5, 0] },
+        { "ref": "coin", "position": [19, 6, -1] },
+
+        { "ref": "platform_large", "position": [27, 5, 0] },
+        { "ref": "platform_medium", "position": [27, 5, -4] },
+        { "ref": "enemy_crab", "position": [27, 6.5, 0] },
+        { "ref": "coin", "position": [25, 6.5, 0] },
+        { "ref": "coin", "position": [29, 6.5, 0] },
+
+        { "ref": "platform_rock", "position": [35, 6.5, 0] },
+        { "ref": "platform_medium", "position": [41, 8, 1] },
+        { "ref": "enemy_bee", "position": [41, 10, 1] },
+        { "ref": "coin", "position": [35, 8.5, 0] },
+        { "ref": "gem_blue", "position": [41, 9.5, 1] },
+
+        { "ref": "moving_platform", "position": [49, 9, 0] },
+        { "ref": "coin", "position": [49, 10.5, 0] },
+        { "ref": "coin", "position": [53, 10.5, 0] },
+
+        { "ref": "platform_small", "position": [57, 10, 0] },
+        { "ref": "platform_small", "position": [62, 11.5, -1] },
+        { "ref": "spikes", "position": [59.5, 10.8, 0] },
+        { "ref": "gem_pink", "position": [62, 13, -1] },
+
+        { "ref": "platform_medium", "position": [67, 13, 0] },
+        { "ref": "enemy_crab", "position": [67, 14.5, 0] },
+        { "ref": "coin", "position": [65, 14.5, 0] },
+        { "ref": "coin", "position": [69, 14.5, 0] },
+
+        { "ref": "platform_rock", "position": [73, 14.5, 1] },
+        { "ref": "platform_small", "position": [78, 16, 0] },
+        { "ref": "moving_platform", "position": [83, 17, 0] },
+        { "ref": "gem_blue", "position": [78, 17.5, 0] },
+
+        { "ref": "platform_tall", "position": [90, 18, 0] },
+        { "ref": "platform_large", "position": [90, 18, -4] },
+        { "ref": "heart_pickup", "position": [90, 20.5, -4] },
+        { "ref": "coin", "position": [88, 19.5, 0] },
+        { "ref": "coin", "position": [92, 19.5, 0] },
+        { "ref": "enemy_bee", "position": [90, 21, 0] },
+
+        { "ref": "platform_large", "position": [100, 20, 0] },
+        { "ref": "platform_large", "position": [100, 20, -4] },
+        { "ref": "goal_flag", "position": [100, 21.5, 0] },
+        { "ref": "star_decor", "position": [99, 22, 0] },
+        { "ref": "star_decor", "position": [101, 22.5, 0] },
+        { "ref": "star_decor", "position": [100, 23, -1] },
+
+        { "ref": "tree", "position": [-3, 1.5, -3] },
+        { "ref": "tree_fruit", "position": [3, 1.5, -5] },
+        { "ref": "tree", "position": [-2, 1.5, 3] },
+        { "ref": "bush", "position": [2, 1.2, -2] },
+        { "ref": "bush", "position": [-4, 1.2, 1] },
+        { "ref": "plant", "position": [5, 1.2, -3] },
+        { "ref": "grass_tuft", "position": [1, 1.1, 2] },
+        { "ref": "grass_tuft", "position": [-1, 1.1, -1] },
+        { "ref": "rock", "position": [4, 1.1, 2] },
+        { "ref": "rock", "position": [-3, 1.1, -6] },
+
+        { "ref": "cloud", "position": [15, 18, -8] },
+        { "ref": "cloud_small", "position": [35, 22, 10] },
+        { "ref": "cloud", "position": [55, 25, -12] },
+        { "ref": "cloud_small", "position": [75, 28, 8] },
+        { "ref": "cloud", "position": [95, 30, -10] },
+        { "ref": "cloud_small", "position": [5, 20, 12] },
+        { "ref": "cloud", "position": [45, 15, -15] },
+
+        { "ref": "plant", "position": [27, 6.5, -5] },
+        { "ref": "bush", "position": [90, 19.5, -6] },
+        { "ref": "grass_tuft", "position": [100, 21.5, -5] },
+        { "ref": "grass_tuft", "position": [98, 21.5, 2] }
+      ]
+    }
+  ]
+}

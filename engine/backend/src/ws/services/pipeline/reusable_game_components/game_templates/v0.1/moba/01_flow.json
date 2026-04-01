@@ -1,0 +1,97 @@
+{
+  "id": "moba_flow",
+  "name": "MOBA",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "ARENA CLASH", "gameSubtitle": "Battle Arena" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "duration": -1,
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "playing"
+        }
+      ]
+    },
+    "playing": {
+      "description": "Active gameplay",
+      "active_systems": [
+        "minion_spawner",
+        "gold_system"
+      ],
+      "active_behaviors": [
+        "moba_camera",
+        "moba_movement",
+        "hero_combat",
+        "minion_ai",
+        "tower_ai"
+      ],
+      "on_enter": [
+        "emit:game.game_ready",
+        "show_cursor",
+        "show_ui:hud/ability_bar",
+        "show_ui:hud/moba_stats"
+      ],
+      "transitions": [
+        {
+          "when": "game_event:nexus_destroyed",
+          "goto": "game_over"
+        },
+        {
+          "when": "game_event:player_nexus_destroyed",
+          "goto": "game_over"
+        }
+      ]
+    },
+    "game_over": {
+      "description": "Match ended",
+      "active_behaviors": [],
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_ui:hud/ability_bar",
+        "hide_ui:hud/moba_stats",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "playing"
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
+      ]
+    }
+  }
+}

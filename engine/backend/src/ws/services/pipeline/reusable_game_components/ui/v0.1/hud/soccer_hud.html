@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(10, 10, 18, 0.75);
+    --panel-border: rgba(255, 255, 255, 0.06);
+    --text: #f0f0f0;
+    --text-dim: #888;
+    --home: #3b82f6;
+    --home-bg: rgba(59, 130, 246, 0.15);
+    --away: #ef4444;
+    --away-bg: rgba(239, 68, 68, 0.15);
+    --gold: #fbbf24;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== SCOREBOARD ===== */
+  .scoreboard {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: stretch;
+    border-radius: 14px;
+    overflow: hidden;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .team-panel {
+    padding: 10px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 90px;
+  }
+
+  .team-panel.home {
+    background: var(--home-bg);
+    border-right: 1px solid var(--panel-border);
+  }
+
+  .team-panel.away {
+    background: var(--away-bg);
+    border-left: 1px solid var(--panel-border);
+  }
+
+  .team-label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .team-label.home-label { color: var(--home); }
+  .team-label.away-label { color: var(--away); }
+
+  .team-score {
+    font-size: 36px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score-center {
+    background: var(--panel);
+    padding: 8px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+  }
+
+  .score-sep {
+    font-size: 24px;
+    font-weight: 300;
+    color: var(--text-dim);
+    line-height: 1;
+  }
+
+  .match-time {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+    letter-spacing: 1px;
+  }
+
+  /* ===== CONTROLS HINT ===== */
+  .controls-hint {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    display: flex;
+    gap: 16px;
+  }
+
+  .controls-hint kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 3px;
+  }
+
+  /* ===== GOAL FLASH ===== */
+  .goal-flash {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .goal-flash.active {
+    animation: goalFlashAnim 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes goalFlashAnim {
+    0% { opacity: 0; }
+    10% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  .goal-text {
+    font-size: 140px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 16px;
+    color: #fff;
+    text-shadow:
+      0 0 60px rgba(251, 191, 36, 0.6),
+      0 0 30px rgba(251, 191, 36, 0.4),
+      0 4px 20px rgba(0, 0, 0, 0.6);
+    transform: scale(2);
+    animation: goalTextPop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes goalTextPop {
+    0% { transform: scale(2.5); opacity: 0; filter: blur(10px); }
+    100% { transform: scale(1); opacity: 1; filter: blur(0); }
+  }
+
+  .goal-team {
+    position: absolute;
+    bottom: 38%;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    opacity: 0;
+    animation: goalTeamFade 0.5s ease 0.3s forwards;
+  }
+
+  @keyframes goalTeamFade {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 0.7; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Scoreboard -->
+<div class="scoreboard">
+  <div class="team-panel home">
+    <div class="team-label home-label">HOME</div>
+    <div class="team-score" id="score-a">0</div>
+  </div>
+  <div class="score-center">
+    <div class="score-sep">:</div>
+    <div class="match-time" id="match-time">3:00</div>
+  </div>
+  <div class="team-panel away">
+    <div class="team-label away-label">AWAY</div>
+    <div class="team-score" id="score-b">0</div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls-hint">
+  <span><kbd>WASD</kbd> Move</span>
+  <span><kbd>SPACE</kbd> Shoot</span>
+  <span><kbd>E</kbd> Pass</span>
+  <span><kbd>SHIFT</kbd> Sprint</span>
+</div>
+
+<!-- Goal Flash -->
+<div class="goal-flash" id="goal-flash">
+  <div class="goal-text">GOAL!</div>
+  <div class="goal-team" id="goal-team"></div>
+</div>
+
+<script>
+(function() {
+  var goalTimer = null;
+
+  function update(state) {
+    if (!state) return;
+
+    if (state.scoreA !== undefined) {
+      document.getElementById('score-a').textContent = state.scoreA;
+    }
+    if (state.scoreB !== undefined) {
+      document.getElementById('score-b').textContent = state.scoreB;
+    }
+    if (state.matchTime !== undefined) {
+      document.getElementById('match-time').textContent = state.matchTime;
+    }
+
+    if (state.goalFlash) {
+      var flash = document.getElementById('goal-flash');
+      var teamEl = document.getElementById('goal-team');
+      teamEl.textContent = state.goalTeam || '';
+      flash.classList.remove('active');
+      void flash.offsetWidth;
+      flash.classList.add('active');
+      if (goalTimer) clearTimeout(goalTimer);
+      goalTimer = setTimeout(function() {
+        flash.classList.remove('active');
+      }, 2500);
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

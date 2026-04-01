@@ -1,0 +1,410 @@
+{
+  "definitions": {
+    "hero": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Golden_Male.glb",
+        "scale": [0.45, 0.45, 0.45],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player", "hero", "blue_team"],
+      "behaviors": [
+        {
+          "name": "moba_movement",
+          "script": "movement/moba_movement.ts",
+          "params": {
+            "speed": 8
+          }
+        },
+        {
+          "name": "hero_combat",
+          "script": "combat/hero_combat.ts",
+          "params": {
+            "maxHealth": 500,
+            "maxMana": 200,
+            "manaRegen": 5,
+            "attackDamage": 30,
+            "attackRange": 8,
+            "attackRate": 1.0,
+            "qDamage": 80,
+            "qRange": 6,
+            "qMaxCooldown": 8,
+            "qManaCost": 50,
+            "eHeal": 100,
+            "eMaxCooldown": 12,
+            "eManaCost": 40,
+            "dashSpeed": 30,
+            "dashDuration": 0.2,
+            "spaceMaxCooldown": 6,
+            "spaceManaCost": 30,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_000.ogg"
+          }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 60 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "moba_camera",
+          "script": "camera/camera_moba.ts",
+          "params": {
+            "height": 20,
+            "offsetZ": 14,
+            "smoothSpeed": 6
+          }
+        }
+      ]
+    },
+    "blue_minion": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb",
+        "scale": [0.3, 0.3, 0.3],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 30,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["minion", "blue_team"],
+      "behaviors": [
+        {
+          "name": "minion_ai",
+          "script": "ai/minion_ai.ts",
+          "params": {
+            "health": 200,
+            "maxHealth": 200,
+            "damage": 15,
+            "attackRange": 3,
+            "moveSpeed": 3,
+            "goldValue": 20
+          }
+        }
+      ]
+    },
+    "red_minion": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Male.glb",
+        "scale": [0.35, 0.35, 0.35],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 30,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["minion", "red_team"],
+      "behaviors": [
+        {
+          "name": "minion_ai",
+          "script": "ai/minion_ai.ts",
+          "params": {
+            "health": 200,
+            "maxHealth": 200,
+            "damage": 15,
+            "attackRange": 3,
+            "moveSpeed": 3,
+            "goldValue": 20
+          }
+        }
+      ]
+    },
+    "blue_tower": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/tower-round-top-a.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["tower", "blue_team", "structure"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "tower_ai",
+          "script": "ai/tower_ai.ts",
+          "params": {
+            "health": 2000,
+            "maxHealth": 2000,
+            "damage": 50,
+            "attackRange": 12,
+            "attackRate": 1.0
+          }
+        }
+      ]
+    },
+    "red_tower": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/tower-square-top-a.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["tower", "red_team", "structure"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "tower_ai",
+          "script": "ai/tower_ai.ts",
+          "params": {
+            "health": 2000,
+            "maxHealth": 2000,
+            "damage": 50,
+            "attackRange": 12,
+            "attackRate": 1.0
+          }
+        }
+      ]
+    },
+    "blue_nexus": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
+        "scale": [5, 5, 5]
+      },
+      "tags": ["nexus", "blue_team", "structure"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "tower_ai",
+          "script": "ai/tower_ai.ts",
+          "params": {
+            "health": 3000,
+            "maxHealth": 3000,
+            "damage": 0,
+            "attackRange": 0,
+            "attackRate": 999
+          }
+        }
+      ]
+    },
+    "red_nexus": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
+        "scale": [5, 5, 5]
+      },
+      "tags": ["nexus", "red_team", "structure"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "tower_ai",
+          "script": "ai/tower_ai.ts",
+          "params": {
+            "health": 3000,
+            "maxHealth": 3000,
+            "damage": 0,
+            "attackRange": 0,
+            "attackRate": 999
+          }
+        }
+      ]
+    },
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.25, 0.5, 0.2, 1],
+        "scale": [160, 1, 60]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    },
+    "lane": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.28, 0.26, 0.24, 1],
+        "scale": [130, 1, 14]
+      },
+      "physics": false,
+      "tags": ["lane"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+      }
+    },
+    "base_blue": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.18, 0.25, 0.45, 1],
+        "scale": [24, 1, 30]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "base_red": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.45, 0.18, 0.15, 1],
+        "scale": [24, 1, 30]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.3, 0.35, 1],
+        "scale": [1, 3, 1]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "tree_common": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_common_2": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_3.glb",
+        "scale": [1.8, 1.8, 1.8]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_pine": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_2.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_willow": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Willow_1.glb",
+        "scale": [1.2, 1.2, 1.2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "bush": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Bush_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "bush_berries": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/BushBerries_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "rock_1": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "rock_moss": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_Moss_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "flowers": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Flowers.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "grass_patch": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Grass.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_stump": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/TreeStump_Moss.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "wood_log": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/WoodLog_Moss.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "ballista": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/weapon-ballista.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "move_indicator": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.2, 0.9, 0.4, 0.8],
+        "scale": [1.0, 0.05, 1.0]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    }
+  }
+}

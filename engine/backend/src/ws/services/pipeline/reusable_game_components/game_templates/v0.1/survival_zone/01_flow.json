@@ -1,0 +1,62 @@
+{
+  "id": "survival_zone_flow",
+  "name": "Survival Zone",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "SURVIVAL ZONE", "gameSubtitle": "Last One Standing" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize",
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing" }]
+    },
+    "playing": {
+      "description": "Battle royale",
+      "active_systems": ["zone_system", "battle_tracker"],
+      "active_behaviors": [
+        "fps_camera",
+        "fps_movement",
+        "fps_combat",
+        "player_health",
+        "enemy_ai"
+      ],
+      "on_enter": [
+        "emit:game.game_ready",
+        "show_ui:hud/health",
+        "show_ui:hud/ammo",
+        "show_ui:hud/crosshair",
+        "show_ui:hud/battle_info"
+      ],
+      "transitions": [
+        { "when": "game_event:game_won", "goto": "game_over" },
+        { "when": "game_event:player_died", "goto": "game_over" }
+      ]
+    },
+    "game_over": {
+      "description": "Match ended",
+      "active_behaviors": [],
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_ui:hud/health",
+        "hide_ui:hud/ammo",
+        "hide_ui:hud/crosshair",
+        "hide_ui:hud/battle_info",
+        "hide_cursor"
+      ],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "playing" },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

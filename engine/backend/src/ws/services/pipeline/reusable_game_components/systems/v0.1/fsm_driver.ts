@@ -230,6 +230,7 @@ class FSMInst {
 
         // Tick substates
         if (this._activeSubstates && this._substate) {
+            this._subTimer += dt;
             var sub = this._activeSubstates[this._substate];
             if (sub) {
                 if (sub.on_update) this._runActions(sub.on_update);
@@ -272,7 +273,7 @@ class FSMInst {
                 continue;
             }
             // Condition check
-            if (this._checkCondition(when)) {
+            if (this._checkCondition(when, isSubstate)) {
                 if (t.actions) this._runActions(t.actions);
                 if (t.goto) {
                     var target = typeof t.goto === "string" ? t.goto : t.goto[0];
@@ -305,9 +306,14 @@ class FSMInst {
 
     // ─── Condition checking ─────────────────────────────────────────────
 
-    _checkCondition(cond) {
+    _checkCondition(cond, isSubstate) {
         if (!cond) return false;
         if (cond === "timer_expired") {
+            if (isSubstate && this._activeSubstates && this._substate) {
+                var sub = this._activeSubstates[this._substate];
+                var sd = (sub && typeof sub.duration === "number") ? sub.duration : -1;
+                return sd > 0 && this._subTimer >= sd;
+            }
             var s = this._cfg.states[this._state];
             var d = (s && typeof s.duration === "number") ? s.duration : -1;
             return d > 0 && this._timer >= d;

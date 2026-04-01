@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: #f0f0f0;
+    pointer-events: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .stats-bar {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 8px 20px;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stat-icon {
+    font-size: 14px;
+    width: 20px;
+    text-align: center;
+  }
+
+  .stat-icon.gold { color: #f59e0b; }
+  .stat-icon.kills { color: #ef4444; }
+  .stat-icon.time { color: #888; }
+
+  .stat-value {
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #e0e0e0;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #666;
+  }
+
+  /* Controls hint */
+  .controls {
+    position: fixed;
+    top: 52px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #555;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="stats-bar">
+  <div class="stat">
+    <span class="stat-icon gold">&#9733;</span>
+    <div>
+      <div class="stat-value" id="gold-val">0</div>
+      <div class="stat-label">GOLD</div>
+    </div>
+  </div>
+  <div class="stat">
+    <span class="stat-icon kills">&#10006;</span>
+    <div>
+      <div class="stat-value" id="kills-val">0</div>
+      <div class="stat-label">KILLS</div>
+    </div>
+  </div>
+  <div class="stat">
+    <span class="stat-icon time">&#9201;</span>
+    <div>
+      <div class="stat-value" id="time-val">0:00</div>
+      <div class="stat-label">TIME</div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">Right-Click Move &middot; Q Burst &middot; E Heal &middot; Space Dash</div>
+
+<script>
+(function() {
+  var startTime = Date.now();
+
+  function formatTime(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function update(state) {
+    if (!state) return;
+    if (state.gold !== undefined) {
+      document.getElementById('gold-val').textContent = state.gold;
+    }
+    if (state.kills !== undefined) {
+      document.getElementById('kills-val').textContent = state.kills;
+    }
+  }
+
+  // Update game timer
+  setInterval(function() {
+    var elapsed = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('time-val').textContent = formatTime(elapsed);
+  }, 1000);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

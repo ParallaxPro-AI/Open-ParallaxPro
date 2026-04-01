@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(0, 0, 0, 0.5);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text: #f0f0f0;
+    --text-dim: #888;
+    --text-muted: #555;
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.3);
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.3);
+    --blue: #3b82f6;
+    --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.3);
+    --amber-glow: rgba(245, 158, 11, 0.15);
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== MONEY ===== */
+  .money-panel {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .money-icon {
+    font-size: 20px;
+    color: var(--green);
+    font-weight: 900;
+  }
+
+  .money-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 12px var(--green-dim);
+  }
+
+  /* ===== WANTED STARS ===== */
+  .wanted-panel {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px 16px;
+    display: flex;
+    gap: 4px;
+    transition: border-color 0.3s ease;
+  }
+
+  .wanted-panel.active {
+    border-color: var(--red-dim);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+  }
+
+  .star {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.12);
+    transition: color 0.3s ease, text-shadow 0.3s ease;
+  }
+
+  .star.filled {
+    color: var(--amber);
+    text-shadow: 0 0 10px var(--amber-dim);
+  }
+
+  @keyframes starPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .star.filled.pulse {
+    animation: starPulse 0.8s ease-in-out infinite;
+  }
+
+  /* ===== HEALTH BAR ===== */
+  .health-panel {
+    position: fixed;
+    bottom: 18px;
+    left: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    min-width: 200px;
+  }
+
+  .health-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .health-bar-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .health-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--red), #f97316);
+    transition: width 0.15s ease-out;
+    width: 100%;
+  }
+
+  .health-bar-fill.low {
+    background: var(--red);
+    animation: healthPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes healthPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .health-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== WEAPON ===== */
+  .weapon-panel {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 12px 18px;
+    text-align: right;
+  }
+
+  .weapon-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .ammo-display {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 3px;
+  }
+
+  .ammo-current {
+    font-size: 32px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ammo-sep {
+    font-size: 16px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .ammo-reserve {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== VEHICLE SPEED ===== */
+  .vehicle-panel {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 10px 24px;
+    text-align: center;
+    display: none;
+  }
+
+  .vehicle-panel.visible { display: block; }
+
+  .vehicle-speed-num {
+    font-size: 42px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+  }
+
+  .vehicle-speed-unit {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  /* ===== PROMPT ===== */
+  .interact-prompt {
+    position: fixed;
+    bottom: 85px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    display: none;
+  }
+
+  .interact-prompt.visible { display: block; }
+
+  .interact-prompt kbd {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Money -->
+<div class="money-panel">
+  <span class="money-icon">$</span>
+  <span class="money-value" id="money-val">500</span>
+</div>
+
+<!-- Wanted Stars -->
+<div class="wanted-panel" id="wanted-panel">
+  <span class="star" id="star1">&#9733;</span>
+  <span class="star" id="star2">&#9733;</span>
+  <span class="star" id="star3">&#9733;</span>
+  <span class="star" id="star4">&#9733;</span>
+  <span class="star" id="star5">&#9733;</span>
+</div>
+
+<!-- Health -->
+<div class="health-panel">
+  <div class="health-label">HEALTH</div>
+  <div class="health-bar-track">
+    <div class="health-bar-fill" id="health-bar"></div>
+  </div>
+  <div class="health-text"><span id="health-val">100</span> / 100</div>
+</div>
+
+<!-- Weapon -->
+<div class="weapon-panel" id="weapon-panel">
+  <div class="weapon-name" id="weapon-name">PISTOL</div>
+  <div class="ammo-display">
+    <span class="ammo-current" id="ammo-current">12</span>
+    <span class="ammo-sep">/</span>
+    <span class="ammo-reserve" id="ammo-reserve">48</span>
+  </div>
+</div>
+
+<!-- Vehicle Speed -->
+<div class="vehicle-panel" id="vehicle-panel">
+  <div class="vehicle-speed-num" id="vehicle-speed">0</div>
+  <div class="vehicle-speed-unit">KM/H</div>
+</div>
+
+<!-- Interaction Prompt -->
+<div class="interact-prompt" id="interact-prompt">
+  <kbd>E</kbd> Enter Vehicle
+</div>
+
+<script>
+(function() {
+  function update(state) {
+    if (!state) return;
+
+    if (state.money !== undefined) {
+      document.getElementById('money-val').textContent = state.money.toLocaleString();
+    }
+
+    if (state.wantedLevel !== undefined) {
+      var panel = document.getElementById('wanted-panel');
+      var level = state.wantedLevel;
+      for (var i = 1; i <= 5; i++) {
+        var star = document.getElementById('star' + i);
+        if (i <= level) {
+          star.className = 'star filled' + (level >= 3 ? ' pulse' : '');
+        } else {
+          star.className = 'star';
+        }
+      }
+      panel.className = level > 0 ? 'wanted-panel active' : 'wanted-panel';
+    }
+
+    if (state.health !== undefined) {
+      var pct = Math.max(0, Math.min(100, state.health));
+      var bar = document.getElementById('health-bar');
+      bar.style.width = pct + '%';
+      bar.className = pct <= 25 ? 'health-bar-fill low' : 'health-bar-fill';
+      document.getElementById('health-val').textContent = Math.round(pct);
+    }
+
+    if (state.ammo !== undefined) {
+      document.getElementById('ammo-current').textContent = state.ammo;
+    }
+    if (state.ammoReserve !== undefined) {
+      document.getElementById('ammo-reserve').textContent = state.ammoReserve;
+    }
+    if (state.weaponName !== undefined) {
+      document.getElementById('weapon-name').textContent = state.weaponName.toUpperCase();
+    }
+
+    if (state.inVehicle !== undefined) {
+      var vp = document.getElementById('vehicle-panel');
+      var wp = document.getElementById('weapon-panel');
+      if (state.inVehicle) {
+        vp.classList.add('visible');
+        wp.style.display = 'none';
+      } else {
+        vp.classList.remove('visible');
+        wp.style.display = '';
+      }
+    }
+
+    if (state.vehicleSpeed !== undefined) {
+      document.getElementById('vehicle-speed').textContent = state.vehicleSpeed;
+    }
+
+    if (state.nearVehicle !== undefined) {
+      var prompt = document.getElementById('interact-prompt');
+      if (state.nearVehicle && !state.inVehicle) {
+        prompt.classList.add('visible');
+      } else {
+        prompt.classList.remove('visible');
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

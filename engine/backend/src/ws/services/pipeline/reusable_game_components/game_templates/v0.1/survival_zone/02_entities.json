@@ -1,0 +1,302 @@
+{
+  "definitions": {
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "fps_movement",
+          "script": "movement/fps_movement.ts",
+          "params": { "speed": 6, "sprintSpeed": 10, "jumpForce": 7 }
+        },
+        {
+          "name": "fps_combat",
+          "script": "combat/fps_combat.ts",
+          "params": {
+            "damage": 25,
+            "ammo": 30,
+            "maxAmmo": 30,
+            "reserve": 120,
+            "fireRate": 0.1,
+            "reloadTime": 2.0,
+            "weaponName": "Rifle",
+            "shootSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_000.ogg"
+          }
+        },
+        {
+          "name": "player_health",
+          "script": "status/player_health.ts",
+          "params": { "maxHealth": 100, "regenDelay": 8, "regenRate": 5 }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 75 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "fps_camera",
+          "script": "camera/camera_fps.ts",
+          "params": { "sensitivity": 0.15, "eyeHeight": 1.6 }
+        }
+      ]
+    },
+    "enemy_soldier": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 70,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["enemy"],
+      "behaviors": [
+        {
+          "name": "enemy_ai",
+          "script": "ai/enemy_ai.ts",
+          "params": {
+            "health": 80,
+            "maxHealth": 80,
+            "detectionRange": 25,
+            "fireRange": 18,
+            "damage": 8,
+            "fireRate": 1.2,
+            "moveSpeed": 3
+          }
+        }
+      ]
+    },
+    "enemy_female": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Female.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 0
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 65,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["enemy"],
+      "behaviors": [
+        {
+          "name": "enemy_ai",
+          "script": "ai/enemy_ai.ts",
+          "params": {
+            "health": 70,
+            "maxHealth": 70,
+            "detectionRange": 28,
+            "fireRange": 20,
+            "damage": 10,
+            "fireRate": 1.5,
+            "moveSpeed": 4
+          }
+        }
+      ]
+    },
+    "bunker_large": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.45, 0.42, 0.4, 1],
+        "scale": [10, 4, 8]
+      },
+      "tags": ["building"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "bunker_small": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.48, 0.45, 0.42, 1],
+        "scale": [6, 3, 5]
+      },
+      "tags": ["building"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+      }
+    },
+    "watchtower": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/tower-round-top-a.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "wooden_camp": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/wood-structure-high.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "vehicle_pickup": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/Vehicle_Pickup.glb",
+        "scale": [1, 1, 1]
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+    "vehicle_truck": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/Vehicle_Truck.glb",
+        "scale": [1, 1, 1]
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+    "crate": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.6, 0.45, 0.25, 1],
+        "scale": [1.2, 1.2, 1.2]
+      },
+      "tags": ["cover"],
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+      }
+    },
+    "barrel": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.35, 0.45, 0.35, 1],
+        "scale": [0.5, 1, 0.5]
+      },
+      "tags": ["cover"]
+    },
+    "wall_long": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.4, 0.38, 0.36, 1],
+        "scale": [12, 3, 0.3]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "wall_perimeter": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.35, 0.33, 0.32, 1],
+        "scale": [1, 4, 1]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+      }
+    },
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.3, 0.42, 0.25, 1],
+        "scale": [120, 1, 120]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    },
+    "tree_common": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_pine": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_2.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_common_2": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_3.glb",
+        "scale": [1.8, 1.8, 1.8]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "rock_large": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_Moss_1.glb",
+        "scale": [2, 2, 2]
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+    "rock_small": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "bush": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Bush_1.glb",
+        "scale": [1.8, 1.8, 1.8]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "supply_crate": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.15, 0.55, 0.15, 1],
+        "scale": [1, 0.6, 0.7]
+      },
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_05.png"
+      }
+    }
+  }
+}

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(0, 0, 0, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --hp-green: #22c55e;
+    --hp-yellow: #eab308;
+    --hp-red: #ef4444;
+    --mana-blue: #3b82f6;
+    --text: #f0f0f0;
+    --text-dim: #888;
+    --text-muted: #555;
+    --cd-overlay: rgba(0, 0, 0, 0.7);
+    --ready: #22c55e;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .ability-panel {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 14px 20px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    min-width: 340px;
+  }
+
+  /* Health & Mana bars */
+  .bars { width: 100%; }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+
+  .bar-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    width: 22px;
+    color: var(--text-dim);
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 10px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.15s ease-out;
+  }
+
+  .bar-fill.hp { background: linear-gradient(90deg, var(--hp-green), #4ade80); }
+  .bar-fill.hp.mid { background: linear-gradient(90deg, var(--hp-yellow), #facc15); }
+  .bar-fill.hp.low { background: linear-gradient(90deg, var(--hp-red), #f87171); }
+  .bar-fill.mp { background: linear-gradient(90deg, #2563eb, var(--mana-blue)); }
+
+  .bar-text {
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    width: 70px;
+    text-align: right;
+    color: var(--text-dim);
+  }
+
+  /* Abilities row */
+  .abilities {
+    display: flex;
+    gap: 10px;
+  }
+
+  .ability {
+    width: 56px;
+    text-align: center;
+    position: relative;
+  }
+
+  .ability-key {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ability-key.ready {
+    border-color: rgba(34,197,94,0.4);
+    box-shadow: 0 0 12px rgba(34,197,94,0.15);
+  }
+
+  .ability-key.on-cd {
+    border-color: rgba(255,255,255,0.05);
+    color: var(--text-muted);
+  }
+
+  .cd-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--cd-overlay);
+    transition: height 0.2s linear;
+    height: 0%;
+  }
+
+  .cd-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ccc;
+    z-index: 2;
+  }
+
+  .ability-name {
+    font-size: 8px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* Dead overlay */
+  .dead-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(100, 0, 0, 0.3);
+    z-index: 100;
+  }
+
+  .dead-text {
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--hp-red);
+    text-shadow: 0 0 40px rgba(239,68,68,0.5);
+    letter-spacing: 8px;
+    text-transform: uppercase;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="dead-overlay hidden" id="dead-overlay">
+  <div class="dead-text">RESPAWNING...</div>
+</div>
+
+<div class="ability-panel">
+  <!-- Health & Mana -->
+  <div class="bars">
+    <div class="bar-row">
+      <span class="bar-label">HP</span>
+      <div class="bar-track"><div class="bar-fill hp" id="hp-fill" style="width:100%"></div></div>
+      <span class="bar-text" id="hp-text">500 / 500</span>
+    </div>
+    <div class="bar-row">
+      <span class="bar-label">MP</span>
+      <div class="bar-track"><div class="bar-fill mp" id="mp-fill" style="width:100%"></div></div>
+      <span class="bar-text" id="mp-text">200 / 200</span>
+    </div>
+  </div>
+
+  <!-- Abilities -->
+  <div class="abilities">
+    <div class="ability">
+      <div class="ability-key ready" id="q-key">
+        <div class="cd-overlay" id="q-cd-overlay"></div>
+        <div class="cd-text hidden" id="q-cd-text"></div>
+        <span style="z-index:2;position:relative">Q</span>
+      </div>
+      <div class="ability-name">BURST</div>
+    </div>
+    <div class="ability">
+      <div class="ability-key ready" id="e-key">
+        <div class="cd-overlay" id="e-cd-overlay"></div>
+        <div class="cd-text hidden" id="e-cd-text"></div>
+        <span style="z-index:2;position:relative">E</span>
+      </div>
+      <div class="ability-name">HEAL</div>
+    </div>
+    <div class="ability">
+      <div class="ability-key ready" id="space-key">
+        <div class="cd-overlay" id="space-cd-overlay"></div>
+        <div class="cd-text hidden" id="space-cd-text"></div>
+        <span style="z-index:2;position:relative;font-size:10px">SPC</span>
+      </div>
+      <div class="ability-name">DASH</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  function updateBar(fillId, textId, current, max, type) {
+    var pct = Math.max(0, Math.min(100, (current / max) * 100));
+    var fill = document.getElementById(fillId);
+    if (fill) {
+      fill.style.width = pct + '%';
+      if (type === 'hp') {
+        fill.className = 'bar-fill hp' + (pct <= 25 ? ' low' : pct <= 50 ? ' mid' : '');
+      }
+    }
+    var txt = document.getElementById(textId);
+    if (txt) txt.textContent = Math.round(current) + ' / ' + max;
+  }
+
+  function updateAbility(keyId, overlayId, cdTextId, cooldown, maxCooldown) {
+    var key = document.getElementById(keyId);
+    var overlay = document.getElementById(overlayId);
+    var cdText = document.getElementById(cdTextId);
+    if (cooldown > 0) {
+      if (key) { key.classList.remove('ready'); key.classList.add('on-cd'); }
+      if (overlay) overlay.style.height = Math.min(100, (cooldown / maxCooldown) * 100) + '%';
+      if (cdText) { cdText.classList.remove('hidden'); cdText.textContent = cooldown.toFixed(1); }
+    } else {
+      if (key) { key.classList.add('ready'); key.classList.remove('on-cd'); }
+      if (overlay) overlay.style.height = '0%';
+      if (cdText) cdText.classList.add('hidden');
+    }
+  }
+
+  function update(state) {
+    if (!state) return;
+
+    if (state.health !== undefined && state.maxHealth !== undefined) {
+      updateBar('hp-fill', 'hp-text', state.health, state.maxHealth, 'hp');
+    }
+    if (state.mana !== undefined && state.maxMana !== undefined) {
+      updateBar('mp-fill', 'mp-text', state.mana, state.maxMana, 'mp');
+    }
+
+    if (state.qCooldown !== undefined) {
+      updateAbility('q-key', 'q-cd-overlay', 'q-cd-text', state.qCooldown, state.qMaxCooldown || 8);
+    }
+    if (state.eCooldown !== undefined) {
+      updateAbility('e-key', 'e-cd-overlay', 'e-cd-text', state.eCooldown, state.eMaxCooldown || 12);
+    }
+    if (state.spaceCooldown !== undefined) {
+      updateAbility('space-key', 'space-cd-overlay', 'space-cd-text', state.spaceCooldown, state.spaceMaxCooldown || 6);
+    }
+
+    if (state.heroDead !== undefined) {
+      var overlay = document.getElementById('dead-overlay');
+      if (overlay) {
+        if (state.heroDead) overlay.classList.remove('hidden');
+        else overlay.classList.add('hidden');
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

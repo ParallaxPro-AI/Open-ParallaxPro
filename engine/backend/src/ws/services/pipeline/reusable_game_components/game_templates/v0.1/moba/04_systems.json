@@ -1,0 +1,20 @@
+{
+  "systems": {
+    "minion_spawner": {
+      "description": "Spawns minion waves for both teams periodically",
+      "script": "gameplay/minion_spawner.ts",
+      "params": {
+        "spawnInterval": 25,
+        "firstWaveDelay": 5,
+        "waveSize": 3
+      }
+    },
+    "gold_system": {
+      "description": "Tracks player gold and kill count",
+      "script": "gameplay/gold_system.ts",
+      "params": {
+        "passiveRate": 2
+      }
+    }
+  }
+}

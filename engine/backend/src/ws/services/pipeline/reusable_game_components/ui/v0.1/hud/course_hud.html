@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(0, 0, 0, 0.45);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text: #f0f0f0;
+    --text-dim: #999;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --purple: #a78bfa;
+    --gold: #f59e0b;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== TIMER ===== */
+  .timer-panel {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 10px 28px;
+    text-align: center;
+    min-width: 180px;
+  }
+
+  .timer-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .timer-value {
+    font-size: 42px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: var(--text);
+    transition: color 0.3s;
+  }
+
+  .timer-value.warning { color: var(--yellow); }
+  .timer-value.danger { color: var(--red); text-shadow: 0 0 20px rgba(239,68,68,0.4); }
+
+  /* ===== CHECKPOINT PROGRESS ===== */
+  .progress-panel {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 220px;
+  }
+
+  .progress-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--purple), var(--gold));
+    transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    width: 0%;
+  }
+
+  .progress-text {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  /* ===== CONTROLS HINT ===== */
+  .controls {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 6px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="timer-panel">
+  <div class="timer-label">TIME LEFT</div>
+  <div class="timer-value" id="timer">1:30</div>
+</div>
+
+<div class="progress-panel">
+  <span class="progress-label">PROGRESS</span>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+  <span class="progress-text" id="progress-text">0 / 6</span>
+</div>
+
+<div class="controls">
+  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move
+  &middot; <kbd>Space</kbd> Jump
+  &middot; <kbd>Shift</kbd> Sprint
+</div>
+
+<script>
+(function() {
+  function formatTime(seconds) {
+    if (seconds <= 0) return '0:00';
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function update(state) {
+    if (!state) return;
+
+    if (state.timeRemaining !== undefined) {
+      var t = state.timeRemaining;
+      var el = document.getElementById('timer');
+      if (el) {
+        el.textContent = formatTime(t);
+        el.className = 'timer-value' + (t <= 10 ? ' danger' : t <= 30 ? ' warning' : '');
+      }
+    }
+
+    if (state.checkpoint !== undefined && state.totalCheckpoints !== undefined) {
+      var cp = state.checkpoint;
+      var total = state.totalCheckpoints;
+      var pct = total > 0 ? (cp / total) * 100 : 0;
+
+      var fill = document.getElementById('progress-fill');
+      if (fill) fill.style.width = pct + '%';
+
+      var txt = document.getElementById('progress-text');
+      if (txt) txt.textContent = cp + ' / ' + total;
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

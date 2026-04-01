@@ -1,0 +1,16 @@
+{
+  "systems": {
+    "platformer_level": {
+      "description": "Score, collectibles, lives, stomp detection, goal, moving platforms, hazards",
+      "script": "gameplay/platformer_level.ts",
+      "params": {
+        "startLives": 3,
+        "killPlane": -10,
+        "collectRadius": 1.8,
+        "stompRadius": 1.2,
+        "damageRadius": 1.0,
+        "goalRadius": 2.5
+      }
+    }
+  }
+}

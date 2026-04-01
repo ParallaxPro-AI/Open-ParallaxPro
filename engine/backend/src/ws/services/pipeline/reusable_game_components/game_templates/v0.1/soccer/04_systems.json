@@ -1,0 +1,18 @@
+{
+  "systems": {
+    "soccer_match": {
+      "description": "Ball physics, AI players, scoring, match timer, kickoff management",
+      "script": "gameplay/soccer_match.ts",
+      "params": {
+        "matchDuration": 180,
+        "kickPower": 22,
+        "passPower": 15,
+        "aiSpeed": 6,
+        "gkSpeed": 5,
+        "friction": 0.985,
+        "dribbleRange": 1.8,
+        "kickRange": 2.0
+      }
+    }
+  }
+}

@@ -1,0 +1,300 @@
+{
+  "definitions": {
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/platformer_game_kit/Character.glb",
+        "scale": [0.5, 0.5, 0.5],
+        "modelRotationY": 0
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "platformer_movement",
+          "script": "movement/platformer_movement.ts",
+          "params": {
+            "speed": 7,
+            "jumpForce": 10,
+            "doubleJumpForce": 8
+          }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 60 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_platformer",
+          "script": "camera/camera_platformer.ts",
+          "params": {
+            "distance": 14,
+            "height": 7,
+            "lookHeight": 2,
+            "smoothSpeed": 4,
+            "sensitivity": 0.12
+          }
+        }
+      ]
+    },
+
+    "platform_large": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Cube_Grass_Center.glb",
+        "scale": [4, 1, 4]
+      },
+      "tags": ["platform"],
+      "label": false
+    },
+    "platform_medium": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Cube_Grass_Center.glb",
+        "scale": [2, 1, 2]
+      },
+      "tags": ["platform"],
+      "label": false
+    },
+    "platform_small": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Cube_Grass_Center.glb",
+        "scale": [1.2, 0.8, 1.2]
+      },
+      "tags": ["platform"],
+      "label": false
+    },
+    "platform_rock": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/RockPlatform_Large.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "tags": ["platform"],
+      "label": false
+    },
+    "platform_tall": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Cube_Grass_Tall.glb",
+        "scale": [2, 1.5, 2]
+      },
+      "tags": ["platform"],
+      "label": false
+    },
+    "moving_platform": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_pack/MovingPlatform.glb",
+        "scale": [1.5, 1, 1.5]
+      },
+      "tags": ["platform", "moving_platform"],
+      "label": false
+    },
+
+    "coin": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Coin.glb",
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": false,
+      "tags": ["collectible", "coin"],
+      "label": false
+    },
+    "gem_blue": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Gem_Blue.glb",
+        "scale": [0.7, 0.7, 0.7]
+      },
+      "physics": false,
+      "tags": ["collectible", "gem"],
+      "label": false
+    },
+    "gem_pink": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Gem_Pink.glb",
+        "scale": [0.7, 0.7, 0.7]
+      },
+      "physics": false,
+      "tags": ["collectible", "gem"],
+      "label": false
+    },
+    "heart_pickup": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Heart.glb",
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": false,
+      "tags": ["heart_pickup"],
+      "label": false
+    },
+
+    "enemy_crab": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/platformer_game_kit/Crab.glb",
+        "scale": [0.5, 0.5, 0.5]
+      },
+      "tags": ["enemy"],
+      "behaviors": [
+        {
+          "name": "patrol_enemy",
+          "script": "ai/patrol_enemy.ts",
+          "params": { "speed": 2, "range": 3 }
+        }
+      ]
+    },
+    "enemy_bee": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/platformer_game_kit/Bee.glb",
+        "scale": [0.5, 0.5, 0.5]
+      },
+      "tags": ["enemy"],
+      "behaviors": [
+        {
+          "name": "patrol_enemy",
+          "script": "ai/patrol_enemy.ts",
+          "params": { "speed": 3, "range": 4 }
+        }
+      ]
+    },
+
+    "spikes": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Spikes.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["hazard"],
+      "label": false
+    },
+
+    "goal_flag": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Goal_Flag.glb",
+        "scale": [0.8, 0.8, 0.8]
+      },
+      "physics": false,
+      "tags": ["goal"],
+      "label": false
+    },
+
+    "tree": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Tree.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_fruit": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Tree_Fruit.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "bush": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Bush.glb",
+        "scale": [0.8, 0.8, 0.8]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "rock": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Rock_1.glb",
+        "scale": [0.8, 0.8, 0.8]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "grass_tuft": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Grass_1.glb",
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "plant": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Plant_Small.glb",
+        "scale": [0.7, 0.7, 0.7]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "cloud": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Cloud_1.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "cloud_small": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Cloud_2.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "star_decor": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Star.glb",
+        "scale": [0.5, 0.5, 0.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.35, 0.65, 0.3, 1],
+        "scale": [200, 1, 200]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    }
+  }
+}

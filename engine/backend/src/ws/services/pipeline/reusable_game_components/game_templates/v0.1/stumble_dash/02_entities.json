@@ -1,0 +1,250 @@
+{
+  "definitions": {
+    "runner": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/cute_animated_monsters/Penguin.glb",
+        "scale": [0.8, 0.8, 0.8],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "obstacle_runner",
+          "script": "movement/obstacle_runner.ts",
+          "params": {
+            "speed": 8,
+            "sprintSpeed": 12,
+            "jumpForce": 10,
+            "turnSpeed": 150
+          }
+        },
+        {
+          "name": "course_progress",
+          "script": "gameplay/course_progress.ts",
+          "params": {
+            "checkpoints": [-15, -48, -75, -105, -125, -145],
+            "timeLimit": 90
+          }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 70 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "chase_camera",
+          "script": "camera/camera_chase.ts",
+          "params": {
+            "distance": 8,
+            "height": 5,
+            "lookHeight": 1.5,
+            "smoothSpeed": 5
+          }
+        }
+      ]
+    },
+    "platform_green": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.2, 0.75, 0.35, 1],
+        "scale": [14, 1, 22]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    },
+    "platform_orange": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.95, 0.6, 0.15, 1],
+        "scale": [14, 1, 28]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+      }
+    },
+    "platform_blue": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.25, 0.5, 0.9, 1],
+        "scale": [8, 1, 5]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
+    },
+    "platform_purple": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.6, 0.3, 0.85, 1],
+        "scale": [1.5, 1, 18]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_05.png"
+      }
+    },
+    "platform_gold": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.95, 0.8, 0.15, 1],
+        "scale": [14, 1, 20]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_13.png"
+      }
+    },
+    "platform_moving": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.85, 0.85, 0.9, 1],
+        "scale": [5, 1, 5]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 99999,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["platform"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      },
+      "behaviors": [
+        {
+          "name": "moving_platform",
+          "script": "ai/moving_platform.ts",
+          "params": {
+            "range": 5,
+            "speed": 1.5,
+            "axis": "x"
+          }
+        }
+      ]
+    },
+    "spinning_bar": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.95, 0.2, 0.15, 1],
+        "scale": [12, 0.6, 0.6]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 99999,
+        "freeze_rotation": false,
+        "collider": "box"
+      },
+      "tags": ["obstacle"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png"
+      },
+      "behaviors": [
+        {
+          "name": "spinning_obstacle",
+          "script": "ai/spinning_obstacle.ts",
+          "params": {
+            "rotationSpeed": 60,
+            "axis": "y"
+          }
+        }
+      ]
+    },
+    "side_rail": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.35, 0.35, 0.4, 1],
+        "scale": [0.3, 1.5, 22]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "checkpoint_crystal": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "finish_crystal": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
+        "scale": [4, 4, 4]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_detail": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-tree-large.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "rocks_detail": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-rocks-large.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "start_banner": {
+      "mesh": {
+        "type": "plane",
+        "color": [1, 1, 1, 1],
+        "scale": [14, 1, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_05.png"
+      }
+    },
+    "finish_banner": {
+      "mesh": {
+        "type": "plane",
+        "color": [1, 0.85, 0, 1],
+        "scale": [14, 1, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_13.png"
+      }
+    }
+  }
+}

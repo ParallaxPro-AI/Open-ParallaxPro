@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(0, 0, 0, 0.5);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text: #f0f0f0;
+    --text-dim: #888;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --green: #22c55e;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== ALIVE COUNT (top-right) ===== */
+  .alive-badge {
+    position: fixed;
+    top: 14px;
+    right: 16px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .alive-icon {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+  }
+
+  .alive-num {
+    font-size: 22px;
+    font-weight: 900;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .alive-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ===== KILLS (top-right, below alive) ===== */
+  .kills-badge {
+    position: fixed;
+    top: 68px;
+    right: 16px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .kills-num {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--red);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kills-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  /* ===== ZONE INFO (top-center) ===== */
+  .zone-panel {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 20px;
+    text-align: center;
+    min-width: 200px;
+  }
+
+  .zone-status {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .zone-status.safe { color: var(--blue); }
+  .zone-status.shrinking { color: var(--red); }
+
+  .zone-timer {
+    font-size: 24px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+  }
+
+  .zone-phase {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    margin-top: 2px;
+  }
+
+  /* ===== ZONE WARNING ===== */
+  .zone-warning {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    animation: warningPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes warningPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Alive count -->
+<div class="alive-badge">
+  <div class="alive-icon"></div>
+  <div>
+    <div class="alive-num" id="alive-num">13</div>
+    <div class="alive-label">ALIVE</div>
+  </div>
+</div>
+
+<!-- Kills -->
+<div class="kills-badge">
+  <span class="kills-num" id="kills-num">0</span>
+  <span class="kills-label">KILLS</span>
+</div>
+
+<!-- Zone info -->
+<div class="zone-panel">
+  <div class="zone-status safe" id="zone-status">SAFE ZONE</div>
+  <div class="zone-timer" id="zone-timer">0:50</div>
+  <div class="zone-phase" id="zone-phase">PHASE 1 / 3</div>
+</div>
+
+<!-- Zone damage warning -->
+<div class="zone-warning hidden" id="zone-warning">OUTSIDE ZONE — TAKING DAMAGE</div>
+
+<script>
+(function() {
+  var outsideZone = false;
+
+  function formatTime(seconds) {
+    if (seconds <= 0) return '0:00';
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function update(state) {
+    if (!state) return;
+
+    if (state.alive !== undefined) {
+      document.getElementById('alive-num').textContent = state.alive;
+    }
+
+    if (state.kills !== undefined) {
+      document.getElementById('kills-num').textContent = state.kills;
+    }
+
+    if (state.zoneShrinking !== undefined) {
+      var statusEl = document.getElementById('zone-status');
+      if (state.zoneShrinking) {
+        statusEl.textContent = 'ZONE CLOSING';
+        statusEl.className = 'zone-status shrinking';
+      } else {
+        statusEl.textContent = 'NEXT ZONE IN';
+        statusEl.className = 'zone-status safe';
+      }
+    }
+
+    if (state.zoneShrinkIn !== undefined) {
+      document.getElementById('zone-timer').textContent = formatTime(state.zoneShrinkIn);
+    }
+
+    if (state.zonePhase !== undefined) {
+      var max = state.zoneMaxPhases || 3;
+      var phase = Math.min(state.zonePhase, max);
+      document.getElementById('zone-phase').textContent = 'PHASE ' + phase + ' / ' + max;
+    }
+
+    // Zone warning — check if player health is decreasing from zone damage
+    if (state.health !== undefined && state.zoneRadius !== undefined) {
+      var warn = document.getElementById('zone-warning');
+      if (warn) {
+        // Show warning when zone damage is happening (source tracking not available, use heuristic)
+        // The zone_system sends updates, UI just shows the zone status
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>
