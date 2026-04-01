@@ -1,0 +1,18 @@
+<div style="position:fixed;top:15px;right:20px;text-align:right;pointer-events:none;">
+  <div id="score-val" style="font-size:22px;font-weight:700;color:#e0e0e0;">0</div>
+  <div id="kills-val" style="font-size:11px;color:#888;">0 KILLS</div>
+</div>
+<script>
+function update(state) {
+  if (!state) return;
+  if (state.score !== undefined) {
+    var el = document.getElementById('score-val');
+    if (el) el.textContent = state.score;
+  }
+  if (state.kills !== undefined) {
+    var el = document.getElementById('kills-val');
+    if (el) el.textContent = state.kills + ' KILLS';
+  }
+}
+window.addEventListener('message', function(e) { if (e.data && e.data.type === 'gameState') update(e.data.state); });
+</script>

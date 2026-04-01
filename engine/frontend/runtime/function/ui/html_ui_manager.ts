@@ -135,7 +135,6 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
     sendStatePartial(state: any): void {
         for (const iframe of this.overlays.values()) {
             try {
-                iframe.contentWindow?.dispatchEvent(new CustomEvent('gamestate', { detail: state }));
                 iframe.contentWindow?.postMessage({ type: 'gameState', state }, '*');
             } catch { /* iframe may be unloaded */ }
         }
@@ -148,7 +147,6 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
     sendState(state: any): void {
         for (const [path, iframe] of this.overlays.entries()) {
             try {
-                iframe.contentWindow?.dispatchEvent(new CustomEvent('gamestate', { detail: state }));
                 iframe.contentWindow?.postMessage({ type: 'gameState', state }, '*');
             } catch { /* iframe may be unloaded */ }
 

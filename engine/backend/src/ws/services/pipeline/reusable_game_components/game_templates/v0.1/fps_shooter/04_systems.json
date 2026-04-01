@@ -1,0 +1,8 @@
+{
+  "systems": {
+    "scoring": {
+      "description": "Tracks kills and score",
+      "script": "gameplay/scoring.ts"
+    }
+  }
+}

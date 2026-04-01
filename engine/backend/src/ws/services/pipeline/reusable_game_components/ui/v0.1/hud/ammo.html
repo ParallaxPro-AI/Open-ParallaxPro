@@ -1,0 +1,26 @@
+<div id="ammo-display" style="position:fixed;bottom:20px;right:20px;text-align:right;pointer-events:none;">
+  <div id="weapon-name" style="font-size:11px;color:#aaa;">RIFLE</div>
+  <div style="display:flex;align-items:baseline;gap:4px;justify-content:flex-end;">
+    <span id="ammo-count" style="font-size:28px;font-weight:700;color:#e0e0e0;">30</span>
+    <span style="font-size:14px;color:#666;">/</span>
+    <span id="ammo-reserve" style="font-size:16px;color:#888;">90</span>
+  </div>
+</div>
+<script>
+function update(state) {
+  if (!state) return;
+  if (state.ammo !== undefined) {
+    var el = document.getElementById('ammo-count');
+    if (el) { el.textContent = state.ammo; el.style.color = state.ammo > 5 ? '#e0e0e0' : '#ef4444'; }
+  }
+  if (state.ammoReserve !== undefined) {
+    var el = document.getElementById('ammo-reserve');
+    if (el) el.textContent = state.ammoReserve;
+  }
+  if (state.weaponName) {
+    var el = document.getElementById('weapon-name');
+    if (el) el.textContent = state.weaponName.toUpperCase();
+  }
+}
+window.addEventListener('message', function(e) { if (e.data && e.data.type === 'gameState') update(e.data.state); });
+</script>

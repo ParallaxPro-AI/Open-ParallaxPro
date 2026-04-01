@@ -1,0 +1,107 @@
+{
+  "id": "fps_shooter_flow",
+  "name": "FPS Shooter",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "FPS Shooter" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "duration": -1,
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay"
+        }
+      ]
+    },
+    "gameplay": {
+      "description": "FPS combat",
+      "start": "playing",
+      "on_enter": [
+        "emit:game.game_ready"
+      ],
+      "substates": {
+        "playing": {
+          "description": "Active combat",
+          "active_systems": [
+            "scoring"
+          ],
+          "active_behaviors": [
+            "fps_camera",
+            "fps_movement",
+            "fps_combat",
+            "player_health",
+            "enemy_ai"
+          ],
+          "on_enter": [
+            "show_ui:hud/health",
+            "show_ui:hud/ammo",
+            "show_ui:hud/crosshair",
+            "show_ui:hud/score"
+          ],
+          "on_exit": [
+            "hide_ui:hud/health",
+            "hide_ui:hud/ammo",
+            "hide_ui:hud/crosshair",
+            "hide_ui:hud/score"
+          ],
+          "transitions": [
+            {
+              "when": "game_event:player_died",
+              "goto": "game_over"
+            }
+          ]
+        },
+        "game_over": {
+          "description": "Player died",
+          "active_behaviors": [],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "hide_cursor"
+          ],
+          "transitions": [
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "playing"
+            }
+          ]
+        }
+      },
+      "transitions": [
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
+      ]
+    }
+  }
+}

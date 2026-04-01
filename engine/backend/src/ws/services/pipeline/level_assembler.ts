@@ -37,6 +37,20 @@ const NO_LABEL_TAGS = new Set(['camera']);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+function eulerDegreesToQuat(x: number, y: number, z: number): { x: number; y: number; z: number; w: number } {
+  const deg2rad = Math.PI / 180;
+  const hx = x * deg2rad * 0.5, hy = y * deg2rad * 0.5, hz = z * deg2rad * 0.5;
+  const cx = Math.cos(hx), sx = Math.sin(hx);
+  const cy = Math.cos(hy), sy = Math.sin(hy);
+  const cz = Math.cos(hz), sz = Math.sin(hz);
+  return {
+    x: sx * cy * cz - cx * sy * sz,
+    y: cx * sy * cz + sx * cy * sz,
+    z: cx * cy * sz - sx * sy * cz,
+    w: cx * cy * cz + sx * sy * sz,
+  };
+}
+
 function safeName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]/, '_$&');
 }
@@ -183,7 +197,7 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
   const components: any[] = [
     { type: 'TransformComponent', data: {
       position: { x: position[0], y: position[1], z: position[2] },
-      rotation: { x: rotation[0], y: rotation[1], z: rotation[2] },
+      rotation: eulerDegreesToQuat(rotation[0], rotation[1], rotation[2]),
       scale: { x: meshScale[0], y: meshScale[1], z: meshScale[2] },
     }},
   ];
@@ -217,7 +231,15 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     // Collider shape: explicit override > mesh-based default
     const colShape = p.collider
       || (isCustomMesh ? 'mesh' : (def.mesh?.type === 'sphere' ? 'sphere' : 'box'));
-    const colData: any = { shapeType: colShape, size: { x: 1, y: 1, z: 1 } };
+    const colData: any = { shapeType: colShape };
+    if (colShape === 'capsule') {
+      colData.radius = 0.5;
+      colData.height = 1.0;
+    } else if (colShape === 'sphere') {
+      colData.radius = 0.5;
+    } else {
+      colData.size = { x: 1, y: 1, z: 1 };
+    }
     if (p.is_trigger) colData.isTrigger = true;
     components.push({ type: 'ColliderComponent', data: colData });
   }

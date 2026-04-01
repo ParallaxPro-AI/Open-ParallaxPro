@@ -346,14 +346,8 @@
     }
   }
 
-  window.addEventListener('gamestate', function(e) { if (e.detail) update(e.detail); });
   window.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'gameState') update(e.data.state);
-  });
-  Object.defineProperty(window, 'gameState', {
-    configurable: true,
-    set: function(val) { update(val); },
-    get: function() { return {}; }
   });
 })();
 </script>

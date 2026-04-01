@@ -144,10 +144,15 @@ class FSMInst {
         var states = this._cfg.states;
         if (!states || !states[name]) return;
         var s = states[name];
-        // Exit old state
+        // Exit old state (substate first, then parent)
         if (this._state && this._state !== name) {
             this._stateHistory.push(this._state);
             if (this._stateHistory.length > 50) this._stateHistory.shift();
+            // Exit active substate if any
+            if (this._activeSubstates && this._substate) {
+                var oldSub = this._activeSubstates[this._substate];
+                if (oldSub && oldSub.on_exit) this._runActions(oldSub.on_exit);
+            }
             var oldState = states[this._state];
             if (oldState && oldState.on_exit) this._runActions(oldState.on_exit);
         }
@@ -274,7 +279,6 @@ class FSMInst {
                     if (isSubstate) {
                         this._enterSubstate(target);
                     } else {
-                        if (this._activeSubstates) { this._activeSubstates = null; this._substate = null; }
                         this._enterState(target);
                     }
                 }
