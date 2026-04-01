@@ -108,17 +108,36 @@ export class BackendClient {
         for (const file of images) {
             formData.append('images', file);
         }
-        const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token');
-        const res = await window.fetch(`${this.baseUrl}/projects/${projectId}/feedback`, {
-            method: 'POST',
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-            body: formData,
-        });
-        if (!res.ok) {
-            const text = await res.text().catch(() => '');
-            throw new Error(`API error ${res.status}: ${text}`);
+
+        const hostname = window.location.hostname;
+        const isHosted = hostname === 'parallaxpro.ai' || hostname === 'www.parallaxpro.ai';
+
+        if (isHosted) {
+            const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token');
+            const res = await window.fetch(`${this.baseUrl}/projects/${projectId}/feedback`, {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: formData,
+            });
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(`API error ${res.status}: ${text}`);
+            }
+            return res.json();
+        } else {
+            // Self-hosted: send feedback to parallaxpro.ai
+            formData.append('source', 'self-hosted');
+            formData.append('origin', window.location.origin);
+            const res = await window.fetch('https://parallaxpro.ai/api/engine/feedback', {
+                method: 'POST',
+                body: formData,
+            });
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(`API error ${res.status}: ${text}`);
+            }
+            return res.json();
         }
-        return res.json();
     }
 
     async shareProject(projectId: string, identifier: string, permission: string = 'editor'): Promise<any> {
