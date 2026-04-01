@@ -7,7 +7,7 @@ import { config } from '../config.js';
 import { verifyToken, type AuthUser } from '../middleware/auth.js';
 import db from '../db/connection.js';
 import { callLLMStream, type LLMMessage } from './services/llm.js';
-import { SYSTEM_PROMPT } from './services/chat_protocol.js';
+import { SYSTEM_PROMPT, getProjectSummary } from './services/chat_protocol.js';
 import { appendToLog } from './services/chat_log.js';
 import { searchAssets } from '../routes/assets.js';
 import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
@@ -298,8 +298,12 @@ function handleChatMessage(client: EditorClient, data: any): void {
 function buildMessages(client: EditorClient, retryContext: LLMMessage[]): LLMMessage[] {
     const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
 
+    // Always include fresh project state so AI knows current scene
+    const pd = getProjectData(client.projectId);
+    const summary = getProjectSummary(pd, client.activeSceneKey);
+
     return [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: SYSTEM_PROMPT + summary },
         ...history.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
         ...retryContext,
     ];
