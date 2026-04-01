@@ -125,13 +125,13 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 if (catalog.length === 0) {
                     result.toolResults = '[LOAD_TEMPLATE] No game templates found.';
                 } else {
-                    result.toolResults = `[LOAD_TEMPLATE] Available game templates:\n${formatCatalogForLLM(catalog)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match the user's request, use CREATE_GAME instead: <<<CREATE_GAME description="...">>><<<END>>>`;
+                    result.toolResults = `[LOAD_TEMPLATE] Available game templates:\n${formatCatalogForLLM(catalog)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match, apologize and tell the user that game type is not available yet. Show them the list so they can pick one.`;
                 }
             } else {
                 // Template specified — build the game
                 const template = loadTemplate(node.args.template);
                 if (!template || !template._folderPath) {
-                    result.toolResults = `[LOAD_TEMPLATE] Template "${node.args.template}" not found. Either call <<<LOAD_TEMPLATE>>><<<END>>> to see available templates, or use <<<CREATE_GAME description="...">>><<<END>>> to create a custom game from scratch.`;
+                    result.toolResults = `[LOAD_TEMPLATE] Template "${node.args.template}" not found. Call <<<LOAD_TEMPLATE>>><<<END>>> to see available templates.`;
                     break;
                 }
 
