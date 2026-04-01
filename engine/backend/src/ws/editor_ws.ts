@@ -5,6 +5,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { config } from '../config.js';
 import { verifyToken, type AuthUser } from '../middleware/auth.js';
+import { consumeWsTicket } from './ws_tickets.js';
 import type { EnginePlugin } from '../plugin.js';
 import db from '../db/connection.js';
 import { callLLMStream, type LLMMessage } from './services/llm.js';
@@ -30,6 +31,23 @@ interface EditorClient {
 
 const clients = new Map<string, EditorClient>();
 
+// Per-user LLM rate limiting: max 10 requests per minute
+const llmRateLimit = new Map<number, { count: number; resetAt: number }>();
+const LLM_RATE_LIMIT = 10;
+const LLM_RATE_WINDOW = 60000;
+
+function checkLLMRateLimit(userId: number): boolean {
+    const now = Date.now();
+    const entry = llmRateLimit.get(userId);
+    if (!entry || now > entry.resetAt) {
+        llmRateLimit.set(userId, { count: 1, resetAt: now + LLM_RATE_WINDOW });
+        return true;
+    }
+    if (entry.count >= LLM_RATE_LIMIT) return false;
+    entry.count++;
+    return true;
+}
+
 const stmtGetProject = db.prepare('SELECT * FROM projects WHERE id = ?');
 const stmtUpdateData = db.prepare("UPDATE projects SET project_data = ?, updated_at = datetime('now') WHERE id = ?");
 const stmtInsertMessage = db.prepare("INSERT INTO chat_messages (project_id, chat_session_id, role, content, file_changes, project_data_snapshot, project_data_before) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -49,23 +67,40 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
     wss.on('connection', (ws, req) => {
         const url = new URL(req.url ?? '', 'http://localhost');
         const projectId = url.searchParams.get('project');
-        const token = url.searchParams.get('token') ?? '';
+        const ticket = url.searchParams.get('ticket') ?? '';
+        const token = url.searchParams.get('token') ?? ''; // Legacy fallback
 
         if (!projectId) {
             ws.close(4000, 'Missing project ID');
             return;
         }
 
-        // Auth — plugins can override token verification
+        // Auth — try ticket first (preferred), then legacy token
         let user: AuthUser | null = null;
-        const pluginVerify = _plugins.find(p => p.verifyWsToken);
-        if (pluginVerify?.verifyWsToken) {
-            user = pluginVerify.verifyWsToken(token);
-        } else if (config.isDev && !token) {
-            user = { id: 1, email: 'dev@local', username: 'dev' };
-        } else {
-            user = verifyToken(token);
+        let authToken = '';
+
+        if (ticket) {
+            const ticketData = consumeWsTicket(ticket);
+            if (ticketData) {
+                user = ticketData.user;
+                authToken = ticketData.authToken;
+            }
         }
+
+        if (!user && token) {
+            const pluginVerify = _plugins.find(p => p.verifyWsToken);
+            if (pluginVerify?.verifyWsToken) {
+                user = pluginVerify.verifyWsToken(token);
+            } else {
+                user = verifyToken(token);
+            }
+            authToken = token;
+        }
+
+        if (!user && config.isDev && !ticket && !token) {
+            user = { id: 1, email: 'dev@local', username: 'dev' };
+        }
+
         if (!user) {
             ws.close(4001, 'Invalid token');
             return;
@@ -92,7 +127,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             projectId,
             userId: user.id,
             username: user.username,
-            authToken: token,
+            authToken,
             chatSessionId,
             activeSceneKey: firstSceneKey,
             abortController: null,
@@ -163,6 +198,11 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
 
     switch (type) {
         case 'chat_message':
+            if (!checkLLMRateLimit(client.userId)) {
+                send(client, 'chat_response_end', { fullContent: 'You\'re sending messages too fast. Please wait a moment.' });
+                send(client, 'dialogue_done', {});
+                break;
+            }
             handleChatMessage(client, data);
             break;
 

@@ -76,6 +76,15 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         res.json({ status: 'ok', port: config.port, uptime: process.uptime() });
     });
 
+    // WS ticket exchange — trade a JWT for a short-lived one-time ticket
+    // so the actual token never appears in WebSocket URLs
+    const { createWsTicket } = await import('./ws/ws_tickets.js');
+    const authMiddleware = pluginAuth || requireAuth;
+    app.post('/api/engine/ws-ticket', authMiddleware, (req, res) => {
+        const ticket = createWsTicket(req.user!, req.headers.authorization?.split(' ')[1] ?? '');
+        res.json({ ticket });
+    });
+
     // HTTP server
     const server = http.createServer(app);
 

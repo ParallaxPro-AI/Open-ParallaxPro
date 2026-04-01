@@ -262,10 +262,23 @@ export class BackendClient {
         this._openWebSocket(projectId);
     }
 
-    private _openWebSocket(projectId: string): void {
+    private async _openWebSocket(projectId: string): Promise<void> {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token') ?? '';
-        const url = `${protocol}//${window.location.host}/ws/engine?project=${projectId}&token=${token}`;
+
+        // Get a short-lived ticket instead of putting the JWT in the URL
+        let wsParam = '';
+        try {
+            const res = await this.fetch('/ws-ticket', { method: 'POST' });
+            if (res.ticket) {
+                wsParam = `ticket=${res.ticket}`;
+            }
+        } catch {
+            // Fallback to token in URL (dev mode or if ticket endpoint unavailable)
+            const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token') ?? '';
+            wsParam = `token=${token}`;
+        }
+
+        const url = `${protocol}//${window.location.host}/ws/engine?project=${projectId}&${wsParam}`;
 
         this.ws = new WebSocket(url);
 
