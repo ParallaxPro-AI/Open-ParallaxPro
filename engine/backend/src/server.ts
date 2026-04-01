@@ -48,6 +48,10 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use(express.json({ limit: '10mb' }));
 
     // Static asset serving — local files first, fallback to CDN redirect
+    app.use('/assets', (_req, res, next) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        next();
+    });
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
     if (config.assetsCdn) {
         app.use('/assets', (req, res) => {
