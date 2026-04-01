@@ -1,0 +1,114 @@
+{
+  "id": "racing_flow",
+  "name": "Racing",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "STREET RACER", "gameSubtitle": "Arcade Racing" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "duration": -1,
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "countdown"
+        }
+      ]
+    },
+    "countdown": {
+      "description": "3-2-1 countdown before race",
+      "duration": 4,
+      "active_behaviors": [
+        "chase_camera"
+      ],
+      "on_enter": [
+        "emit:game.game_ready",
+        "emit:game.race_start",
+        "show_ui:hud/speedometer",
+        "show_ui:hud/race_countdown",
+        "play_sound:/assets/kenney/audio/interface_sounds/pepSound1.ogg"
+      ],
+      "transitions": [
+        {
+          "when": "timer_expired",
+          "goto": "racing",
+          "actions": [
+            "emit:game.race_started",
+            "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
+          ]
+        }
+      ]
+    },
+    "racing": {
+      "description": "Active racing",
+      "active_systems": [
+        "race_manager"
+      ],
+      "active_behaviors": [
+        "chase_camera",
+        "car_control",
+        "racing_ai",
+        "checkpoint"
+      ],
+      "on_enter": [
+        "hide_ui:hud/race_countdown"
+      ],
+      "transitions": [
+        {
+          "when": "game_event:race_finished",
+          "goto": "race_over"
+        }
+      ]
+    },
+    "race_over": {
+      "description": "Race finished",
+      "active_behaviors": [
+        "chase_camera"
+      ],
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor",
+        "play_sound:/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
+      ],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_ui:hud/speedometer",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "countdown"
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
+      ]
+    }
+  }
+}

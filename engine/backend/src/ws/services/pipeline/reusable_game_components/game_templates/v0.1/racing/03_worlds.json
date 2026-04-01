@@ -1,0 +1,54 @@
+{
+  "worlds": [
+    {
+      "id": "race_circuit",
+      "name": "City Circuit",
+      "lighting": {
+        "sun_color": [1.0, 0.95, 0.85]
+      },
+      "placements": [
+        { "ref": "ground", "position": [-25, 0, -30] },
+
+        { "ref": "road", "position": [7.5, 0.02, -30], "scale": [15, 1, 92] },
+        { "ref": "road", "position": [-57.5, 0.02, -30], "scale": [15, 1, 92] },
+        { "ref": "road", "position": [-25, 0.02, 6.5], "scale": [80, 1, 17] },
+        { "ref": "road", "position": [-25, 0.02, -66.5], "scale": [80, 1, 17] },
+
+        { "ref": "start_line", "position": [7.5, 0.03, 0] },
+
+        { "ref": "barrier_outer", "position": [-25, 1, 15], "scale": [82, 2, 1] },
+        { "ref": "barrier_outer", "position": [-25, 1, -75], "scale": [82, 2, 1] },
+        { "ref": "barrier_outer", "position": [16, 1, -30], "scale": [1, 2, 92] },
+        { "ref": "barrier_outer", "position": [-66, 1, -30], "scale": [1, 2, 92] },
+
+        { "ref": "barrier_inner", "position": [-25, 0.75, -2], "scale": [46, 1.5, 1] },
+        { "ref": "barrier_inner", "position": [-25, 0.75, -58], "scale": [46, 1.5, 1] },
+        { "ref": "barrier_inner", "position": [0, 0.75, -30], "scale": [1, 1.5, 52] },
+        { "ref": "barrier_inner", "position": [-50, 0.75, -30], "scale": [1, 1.5, 52] },
+
+        { "ref": "cone", "position": [1, 0, -3] },
+        { "ref": "cone", "position": [-1, 0, -1] },
+        { "ref": "cone", "position": [1, 0, -57] },
+        { "ref": "cone", "position": [-1, 0, -59] },
+        { "ref": "cone", "position": [-49, 0, -3] },
+        { "ref": "cone", "position": [-51, 0, -1] },
+        { "ref": "cone", "position": [-49, 0, -57] },
+        { "ref": "cone", "position": [-51, 0, -59] },
+
+        { "ref": "cone", "position": [14, 0, -30] },
+        { "ref": "cone", "position": [14, 0, -45] },
+        { "ref": "cone", "position": [14, 0, -15] },
+        { "ref": "cone", "position": [-64, 0, -30] },
+        { "ref": "cone", "position": [-64, 0, -45] },
+        { "ref": "cone", "position": [-64, 0, -15] },
+
+        { "ref": "camera", "position": [7, 6, 12] },
+
+        { "name": "Player Car", "ref": "player_car", "position": [7, 0, 0] },
+        { "name": "Opponent A", "ref": "opponent_car_a", "position": [10, 0, 4] },
+        { "name": "Opponent B", "ref": "opponent_car_b", "position": [5, 0, 7] },
+        { "name": "Opponent C", "ref": "opponent_car_c", "position": [10, 0, 10] }
+      ]
+    }
+  ]
+}

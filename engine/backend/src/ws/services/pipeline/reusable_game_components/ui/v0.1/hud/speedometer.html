@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --accent: #f97316;
+    --accent-bright: #fb923c;
+    --glass: rgba(0, 0, 0, 0.45);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text: #f0f0f0;
+    --text-dim: #888;
+    --text-muted: #555;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --purple: #a78bfa;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== POSITION BADGE ===== */
+  .position-badge {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 12px 20px;
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    min-width: 100px;
+    justify-content: center;
+  }
+
+  .pos-num {
+    font-size: 48px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(249, 115, 22, 0.5);
+  }
+
+  .pos-suffix {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .pos-total {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-left: 3px;
+  }
+
+  /* ===== LAP COUNTER ===== */
+  .lap-counter {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 12px 20px;
+    text-align: center;
+  }
+
+  .lap-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .lap-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lap-value .lap-max {
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  /* ===== SPEED DISPLAY ===== */
+  .speed-display {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 16px 24px;
+    text-align: right;
+    min-width: 160px;
+  }
+
+  .speed-num {
+    font-size: 56px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -2px;
+  }
+
+  .speed-unit {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    margin-top: 2px;
+  }
+
+  .speed-bar-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+
+  .speed-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
+    transition: width 0.1s ease-out;
+    width: 0%;
+  }
+
+  /* ===== TIMES ===== */
+  .times-panel {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 14px 18px;
+  }
+
+  .time-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .time-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .time-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    width: 65px;
+    flex-shrink: 0;
+  }
+
+  .time-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
+  }
+
+  .time-value.best {
+    color: var(--purple);
+  }
+
+  .time-value.total {
+    color: var(--accent-bright);
+  }
+
+  /* ===== SEPARATOR ===== */
+  .time-sep {
+    width: 100%;
+    height: 1px;
+    background: var(--glass-border);
+    margin: 6px 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- Position badge -->
+<div class="position-badge">
+  <span class="pos-num" id="pos-num">1</span>
+  <span class="pos-suffix" id="pos-suffix">ST</span>
+  <span class="pos-total" id="pos-total">/ 4</span>
+</div>
+
+<!-- Lap counter -->
+<div class="lap-counter">
+  <div class="lap-label">LAP</div>
+  <div class="lap-value"><span id="lap-current">1</span> <span class="lap-max">/ <span id="lap-max">3</span></span></div>
+</div>
+
+<!-- Speed display -->
+<div class="speed-display">
+  <div class="speed-num" id="speed-num">0</div>
+  <div class="speed-unit">KM/H</div>
+  <div class="speed-bar-track">
+    <div class="speed-bar-fill" id="speed-bar"></div>
+  </div>
+</div>
+
+<!-- Times panel -->
+<div class="times-panel">
+  <div class="time-row">
+    <span class="time-label">LAP</span>
+    <span class="time-value" id="lap-time">0:00.00</span>
+  </div>
+  <div class="time-sep"></div>
+  <div class="time-row">
+    <span class="time-label">BEST</span>
+    <span class="time-value best" id="best-lap">--:--.--</span>
+  </div>
+  <div class="time-sep"></div>
+  <div class="time-row">
+    <span class="time-label">TOTAL</span>
+    <span class="time-value total" id="race-time">0:00.00</span>
+  </div>
+</div>
+
+<script>
+(function() {
+  var suffixes = ['TH', 'ST', 'ND', 'RD'];
+
+  function getSuffix(n) {
+    if (n >= 11 && n <= 13) return 'TH';
+    return suffixes[n % 10] || 'TH';
+  }
+
+  function formatTime(seconds) {
+    if (!seconds || seconds <= 0) return '0:00.00';
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2);
+  }
+
+  function update(state) {
+    if (!state) return;
+
+    if (state.speed !== undefined) {
+      document.getElementById('speed-num').textContent = state.speed;
+      var pct = Math.min(100, (state.speed / 180) * 100);
+      document.getElementById('speed-bar').style.width = pct + '%';
+    }
+
+    if (state.position !== undefined) {
+      document.getElementById('pos-num').textContent = state.position;
+      document.getElementById('pos-suffix').textContent = getSuffix(state.position);
+    }
+
+    if (state.totalRacers !== undefined) {
+      document.getElementById('pos-total').textContent = '/ ' + state.totalRacers;
+    }
+
+    if (state.lap !== undefined) {
+      var displayLap = Math.min(state.lap + 1, state.maxLaps || 3);
+      document.getElementById('lap-current').textContent = displayLap;
+    }
+
+    if (state.maxLaps !== undefined) {
+      document.getElementById('lap-max').textContent = state.maxLaps;
+    }
+
+    if (state.lapTime !== undefined) {
+      document.getElementById('lap-time').textContent = formatTime(state.lapTime);
+    }
+
+    if (state.raceTime !== undefined) {
+      document.getElementById('race-time').textContent = formatTime(state.raceTime);
+    }
+
+    if (state.bestLap !== undefined && state.bestLap > 0 && state.bestLap < 999) {
+      document.getElementById('best-lap').textContent = formatTime(state.bestLap);
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>
