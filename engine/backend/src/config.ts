@@ -47,4 +47,8 @@ export const config = {
         apiKey: envRequired('AI_API_KEY'),
         maxTokens: envInt('AI_MAX_TOKENS', 8192),
     },
+    fixer: {
+        cli: envRequired('FIXER_CLI'),
+        timeout: envInt('FIXER_TIMEOUT', 1200000),
+    },
 };

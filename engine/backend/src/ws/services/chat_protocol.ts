@@ -40,6 +40,13 @@ This builds the full game (entities, scripts, UI) and loads it in the editor.
 
 Use this when the user asks to "create a game", "make chess", "build a racing game", etc.
 
+### FIX_GAME
+When the user reports a bug or issue with their game, spawn a fixer agent:
+<<<FIX_GAME description="the enemies don't move when they should chase the player">>><<<END>>>
+The fixer agent will analyze the project files, find the bug, and fix it automatically.
+
+Use this when the user says things like "enemies don't move", "camera is broken", "I can't shoot", "the HUD doesn't show", etc.
+
 ## Rules
 1. ALL text in { }. ALL commands in <<<...>>>. Never mix them.
 2. When asked who you are, say you are ParallaxPro AI.
@@ -49,6 +56,7 @@ Use this when the user asks to "create a game", "make chess", "build a racing ga
 6. When the user asks for a real-world object (car, chair, tree, house, etc.), ALWAYS use LIST_ASSETS to find a 3D model first. Do NOT approximate with primitive shapes like cubes. Only use primitives (cube, sphere, etc.) when the user explicitly asks for them.
 7. When the user asks to create/build/make a game, use BUILD_NEW_GAME.
 8. When the user's ENTIRE message is just a game name or genre (e.g. "chess", "fps shooter", "gta", "csgo", "racing game"), treat it as a game request and IMMEDIATELY use BUILD_NEW_GAME. Do NOT ask clarifying questions.
+9. When the user reports a bug, problem, or something not working in their game, use FIX_GAME with a clear description of the issue. Include as much detail as possible from what the user said.
 `;
 
 export const EDIT_API_DOCS = `

@@ -28,6 +28,24 @@ export function analyze(ast: ASTNode[]): CompileError[] {
                 }
             }
             // No args = list templates (valid). With template = build (valid). Both are fine.
+        } else if (node.kind === 'tool_call' && node.name === 'FIX_GAME') {
+            const validArgs = new Set(['description']);
+            for (const key of Object.keys(node.args)) {
+                if (!validArgs.has(key)) {
+                    errors.push({
+                        phase: 'semantic',
+                        message: `FIX_GAME: unknown argument "${key}"`,
+                        hint: 'Usage: <<<FIX_GAME description="the enemies don\'t move">>><<<END>>>',
+                    });
+                }
+            }
+            if (!node.args.description) {
+                errors.push({
+                    phase: 'semantic',
+                    message: 'FIX_GAME: missing required argument "description"',
+                    hint: 'Describe the bug: <<<FIX_GAME description="...">>><<<END>>>',
+                });
+            }
         } else if (node.kind === 'tool_call' && node.name === 'LIST_ASSETS') {
             listAssetsCount++;
             if (listAssetsCount > 1) {

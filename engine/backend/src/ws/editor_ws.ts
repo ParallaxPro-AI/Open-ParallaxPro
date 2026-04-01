@@ -466,7 +466,7 @@ function runLLMWithRetry(
 
     callLLMStream(messages, {
         onChunk: () => {},
-        onDone: (fullText) => {
+        onDone: async (fullText) => {
             client.abortController = null;
             // Log exact LLM response
             appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: fullText });
@@ -488,7 +488,7 @@ function runLLMWithRetry(
                 return;
             }
 
-            const execResult = execute(compiled.ast, buildExecContext(client));
+            const execResult = await execute(compiled.ast, buildExecContext(client));
 
             const allFileChanges = [...accumulatedFileChanges, ...execResult.fileChanges];
 

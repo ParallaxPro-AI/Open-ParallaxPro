@@ -10,6 +10,7 @@ import { executeSceneScript } from './scene_script_executor.js';
 import { EDIT_API_DOCS, getProjectSummary } from '../services/chat_protocol.js';
 import { loadTemplateCatalog, loadTemplate, formatCatalogForLLM } from '../services/pipeline/template_loader.js';
 import { assembleGame } from '../services/pipeline/level_assembler.js';
+import { runFixer } from '../services/pipeline/cli_fixer.js';
 
 export interface ExecutionContext {
     sendToFrontend: (type: string, data: any) => void;
@@ -30,7 +31,7 @@ export interface ExecutionResult {
     toolResults: string | null;
 }
 
-export function execute(ast: ASTNode[], ctx: ExecutionContext): ExecutionResult {
+export async function execute(ast: ASTNode[], ctx: ExecutionContext): Promise<ExecutionResult> {
     const result: ExecutionResult = {
         userMessages: [],
         errors: [],
@@ -53,7 +54,7 @@ export function execute(ast: ASTNode[], ctx: ExecutionContext): ExecutionResult 
                 break;
 
             case 'tool_call':
-                executeToolCall(node as ToolCallNode, ctx, result);
+                await executeToolCall(node as ToolCallNode, ctx, result);
                 break;
         }
     }
@@ -90,7 +91,7 @@ function executeEditNode(node: EditNode, ctx: ExecutionContext, result: Executio
     }
 }
 
-function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result: ExecutionResult): void {
+async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result: ExecutionResult): Promise<void> {
     switch (node.name) {
         case 'GET_EDIT_API': {
             const pd = ctx.getProjectData();
@@ -175,6 +176,49 @@ function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result: Exec
                 } catch (e: any) {
                     result.toolResults = `[BUILD_NEW_GAME] Failed to build "${node.args.template}": ${e.message}`;
                 }
+            }
+            break;
+        }
+
+        case 'FIX_GAME': {
+            const description = node.args.description;
+            if (!description) {
+                result.toolResults = '[FIX_GAME] Missing description. Usage: <<<FIX_GAME description="the enemies don\'t move">>><<<END>>>';
+                break;
+            }
+
+            ctx.sendToFrontend('chat_status', { status: 'Fixing game...' });
+
+            try {
+                const pd = ctx.getProjectData();
+                const fixResult = await runFixer(ctx.projectId, description, pd, ctx.activeSceneKey);
+
+                if (fixResult.success && fixResult.filesChanged.length > 0) {
+                    ctx.saveProjectData(pd);
+
+                    // Reload frontend with updated data
+                    const sceneKey = ctx.activeSceneKey;
+                    if (pd.scenes?.[sceneKey]) {
+                        ctx.sendToFrontend('project_reload', {
+                            sceneKey,
+                            sceneData: pd.scenes[sceneKey],
+                            scripts: pd.scripts,
+                            uiFiles: pd.uiFiles,
+                        });
+                    }
+
+                    result.madeChanges = true;
+                    for (const f of fixResult.filesChanged) {
+                        result.fileChanges.push({ path: f, type: 'modified' });
+                    }
+                    result.toolResults = `[FIX_GAME] ${fixResult.summary}. Tell the user the fix has been applied and they can press Play to test.`;
+                } else if (fixResult.success) {
+                    result.toolResults = `[FIX_GAME] ${fixResult.summary}`;
+                } else {
+                    result.toolResults = `[FIX_GAME] Fix failed: ${fixResult.summary}`;
+                }
+            } catch (e: any) {
+                result.toolResults = `[FIX_GAME] Error: ${e.message}`;
             }
             break;
         }
