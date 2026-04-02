@@ -2,6 +2,11 @@ import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
+import {
+    initEmbedder, embedText, embedTexts,
+    computeFingerprint, loadCachedEmbeddings, saveCachedEmbeddings,
+    cosineSimilarity
+} from '../embedding_service.js';
 
 const router = Router();
 
@@ -40,6 +45,9 @@ const thumbnailsDir = path.join(assetsDir, 'thumbnails');
 
 let assetCache: ScannedAsset[] = [];
 const attributionCache = new Map<string, string>();
+let assetEmbeddings = new Map<string, number[]>();
+let embeddingsReady = false;
+const cdnThumbnails = new Map<string, string | null>();
 
 function scanAssets(): ScannedAsset[] {
     const results: ScannedAsset[] = [];
@@ -151,20 +159,80 @@ scanAttributions();
 assetCache = scanAssets();
 for (const asset of assetCache) asset.attribution = getAttribution(asset.filePath);
 
+function getAssetText(asset: ScannedAsset): string {
+    const parts = [asset.name.replace(/_/g, ' ')];
+    if (asset.pack) parts.push(asset.pack.replace(/_/g, ' '));
+    parts.push(asset.category);
+    return parts.join(' ');
+}
+
+async function buildAssetEmbeddings(): Promise<void> {
+    if (assetCache.length === 0) return;
+
+    const assetTexts = assetCache.map(a => ({ key: a.filePath, text: getAssetText(a) }));
+    const fingerprint = computeFingerprint(assetTexts);
+
+    const cached = loadCachedEmbeddings(fingerprint);
+    if (cached) {
+        assetEmbeddings = new Map(Object.entries(cached));
+        embeddingsReady = true;
+        console.log(`[Assets] Loaded ${assetEmbeddings.size} cached embeddings`);
+        return;
+    }
+
+    console.log('[Assets] Initializing embedding model...');
+    await initEmbedder();
+
+    console.log(`[Assets] Embedding ${assetCache.length} assets...`);
+    const texts = assetTexts.map(a => a.text);
+    const vectors = await embedTexts(texts);
+
+    const embeddingsMap: Record<string, number[]> = {};
+    for (let i = 0; i < assetTexts.length; i++) {
+        embeddingsMap[assetTexts[i].key] = vectors[i];
+    }
+
+    assetEmbeddings = new Map(Object.entries(embeddingsMap));
+    saveCachedEmbeddings(fingerprint, embeddingsMap);
+    embeddingsReady = true;
+    console.log(`[Assets] Embedded ${assetEmbeddings.size} assets (cached to disk)`);
+}
+
 /**
  * Search assets programmatically (used by AI tool calls).
- * Returns compact results to avoid blowing up LLM context.
+ * Uses semantic embedding search when available, falls back to substring matching.
  */
-export function searchAssets(opts: { category?: string; search?: string; source?: string; pack?: string; limit?: number }): { name: string; path: string; category: string; pack: string }[] {
+export async function searchAssets(opts: { category?: string; search?: string; source?: string; pack?: string; limit?: number }): Promise<{ name: string; path: string; category: string; pack: string }[]> {
     let filtered = assetCache;
     if (opts.category) filtered = filtered.filter(a => a.category === opts.category);
     if (opts.source) filtered = filtered.filter(a => a.source === opts.source);
     if (opts.pack) filtered = filtered.filter(a => a.pack === opts.pack);
+
+    const max = Math.min(opts.limit ?? 20, 50);
+
+    if (opts.search && embeddingsReady) {
+        const queryVec = await embedText(opts.search);
+        const scored = filtered
+            .map(a => ({
+                asset: a,
+                score: cosineSimilarity(queryVec, assetEmbeddings.get(a.filePath) ?? []),
+            }))
+            .filter(s => s.score > 0.15)
+            .sort((a, b) => b.score - a.score);
+
+        return scored.slice(0, max).map(s => ({
+            name: s.asset.name,
+            path: `/assets/${s.asset.filePath}`,
+            category: s.asset.category,
+            pack: s.asset.pack,
+        }));
+    }
+
+    // Fallback: substring matching
     if (opts.search) {
         const s = opts.search.toLowerCase();
         filtered = filtered.filter(a => a.name.toLowerCase().includes(s) || a.pack.toLowerCase().includes(s));
     }
-    const max = Math.min(opts.limit ?? 20, 50);
     return filtered.slice(0, max).map(a => ({
         name: a.name,
         path: `/assets/${a.filePath}`,
@@ -173,6 +241,45 @@ export function searchAssets(opts: { category?: string; search?: string; source?
     }));
 }
 console.log(`[Assets] ${assetCache.length} assets scanned`);
+
+async function fetchCdnCatalog(cdnBase: string): Promise<void> {
+    console.log(`[Assets] Fetching asset catalog from CDN...`);
+    let page = 1;
+    const limit = 200;
+    let totalPages = 1;
+
+    while (page <= totalPages) {
+        const resp = await fetch(`${cdnBase}/api/engine/assets?page=${page}&limit=${limit}`);
+        const data = await resp.json() as { assets: any[]; totalPages: number };
+        totalPages = data.totalPages;
+
+        for (const a of data.assets) {
+            const filePath = (a.fileUrl as string).replace(/^\/assets\//, '');
+            assetCache.push({
+                name: a.name,
+                category: a.category,
+                source: a.source,
+                pack: a.pack,
+                filePath,
+                extension: a.extension,
+                attribution: a.attribution ?? undefined,
+            });
+            cdnThumbnails.set(filePath, a.thumbnailUrl ?? null);
+        }
+        page++;
+    }
+    console.log(`[Assets] Fetched ${assetCache.length} assets from CDN`);
+}
+
+// Build embeddings in background (non-blocking)
+(async () => {
+    if (assetCache.length === 0 && config.assetsCdn) {
+        await fetchCdnCatalog(config.assetsCdn.replace(/\/$/, ''));
+    }
+    await buildAssetEmbeddings();
+})().catch(err => {
+    console.error('[Assets] Failed to initialize embeddings:', err);
+});
 
 // -- Routes --
 
@@ -194,11 +301,21 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     if (category) filtered = filtered.filter(a => a.category === category);
     if (source) filtered = filtered.filter(a => a.source === source);
     if (pack) filtered = filtered.filter(a => a.pack === pack);
-    if (search) filtered = filtered.filter(a =>
-        a.name.toLowerCase().includes(search) ||
-        a.pack.toLowerCase().includes(search) ||
-        a.source.toLowerCase().includes(search)
-    );
+
+    if (search && embeddingsReady) {
+        const queryVec = await embedText(search);
+        const scored = filtered
+            .map(a => ({ asset: a, score: cosineSimilarity(queryVec, assetEmbeddings.get(a.filePath) ?? []) }))
+            .filter(s => s.score > 0.15)
+            .sort((a, b) => b.score - a.score);
+        filtered = scored.map(s => s.asset);
+    } else if (search) {
+        filtered = filtered.filter(a =>
+            a.name.toLowerCase().includes(search) ||
+            a.pack.toLowerCase().includes(search) ||
+            a.source.toLowerCase().includes(search)
+        );
+    }
 
     const total = filtered.length;
     const offset = (page - 1) * limit;
@@ -211,7 +328,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
             source: a.source,
             pack: a.pack,
             fileUrl: `/assets/${a.filePath}`,
-            thumbnailUrl: getThumbnailUrl(a.filePath),
+            thumbnailUrl: cdnThumbnails.get(a.filePath) ?? getThumbnailUrl(a.filePath),
             extension: a.extension,
             attribution: a.attribution || null,
         })),

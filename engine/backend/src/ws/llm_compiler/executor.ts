@@ -18,7 +18,7 @@ export interface ExecutionContext {
     getProjectData: () => any;
     saveProjectData: (data: any) => void;
     reloadScene: (sceneKey: string, sceneData: any) => void;
-    searchAssets: (opts: { category?: string; search?: string; source?: string; pack?: string }) => { name: string; path: string; category: string; pack: string }[];
+    searchAssets: (opts: { category?: string; search?: string; source?: string; pack?: string }) => Promise<{ name: string; path: string; category: string; pack: string }[]>;
     onFixerCost?: (costUsd: number) => void;
     abortSignal?: AbortSignal;
     projectId: string;
@@ -104,7 +104,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
         }
 
         case 'LIST_ASSETS': {
-            const assets = ctx.searchAssets({
+            const assets = await ctx.searchAssets({
                 category: node.args.category,
                 search: node.args.search,
                 source: node.args.source,

@@ -36,5 +36,9 @@ engine/backend/feedbacks/
 # Logs
 *.log
 
+# Embedding model + cache
+engine/backend/.models_cache/
+engine/backend/.embeddings_cache.json
+
 # Misc
 reusable_assets/
