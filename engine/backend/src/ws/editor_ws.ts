@@ -575,7 +575,8 @@ async function runLLMWithRetry(
             }
 
             if (!compiled.success) {
-                finishChat(client, 'Sorry, I was unable to complete that request. Please try rephrasing.');
+                const errorSummary = formatErrors(compiled.errors).split('\n').slice(0, 3).join('\n');
+                finishChat(client, `Sorry, I wasn't able to complete that after ${attempt + 1} attempt(s). The AI response had compile errors:\n\n\`\`\`\n${errorSummary}\n\`\`\`\n\nTry rephrasing your request or simplifying what you're asking for.`);
                 return;
             }
 
@@ -607,7 +608,8 @@ async function runLLMWithRetry(
             }
 
             if (execResult.errors.length > 0) {
-                finishChat(client, 'Sorry, I was unable to complete that request. Please try rephrasing.');
+                const errorSummary = execResult.errors.slice(0, 3).join('\n');
+                finishChat(client, `Sorry, I ran into runtime errors after ${attempt + 1} attempt(s):\n\n\`\`\`\n${errorSummary}\n\`\`\`\n\nTry rephrasing your request or simplifying what you're asking for.`);
                 return;
             }
 
