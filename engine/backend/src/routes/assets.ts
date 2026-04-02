@@ -172,6 +172,9 @@ async function buildAssetEmbeddings(): Promise<void> {
     const assetTexts = assetCache.map(a => ({ key: a.filePath, text: getAssetText(a) }));
     const fingerprint = computeFingerprint(assetTexts);
 
+    console.log('[Assets] Initializing embedding model...');
+    await initEmbedder();
+
     const cached = loadCachedEmbeddings(fingerprint);
     if (cached) {
         assetEmbeddings = new Map(Object.entries(cached));
@@ -179,9 +182,6 @@ async function buildAssetEmbeddings(): Promise<void> {
         console.log(`[Assets] Loaded ${assetEmbeddings.size} cached embeddings`);
         return;
     }
-
-    console.log('[Assets] Initializing embedding model...');
-    await initEmbedder();
 
     console.log(`[Assets] Embedding ${assetCache.length} assets...`);
     const texts = assetTexts.map(a => a.text);
