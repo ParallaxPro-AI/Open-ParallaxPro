@@ -52,12 +52,13 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     }
 
     // Dynamic imports (after schema is ready, since routes prepare statements)
-    const { default: projectRoutes } = await import('./routes/projects.js');
+    const { default: projectRoutes, setProjectPlugins } = await import('./routes/projects.js');
     const { default: assetRoutes } = await import('./routes/assets.js');
     const { setupEditorWebSocket, setPlugins } = await import('./ws/editor_ws.js');
 
-    // Pass plugins to WebSocket handler
+    // Pass plugins to WebSocket handler and project routes
     setPlugins(plugins);
+    setProjectPlugins(plugins);
 
     // Express app
     const app = express();

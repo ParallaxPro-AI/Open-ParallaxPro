@@ -6,6 +6,10 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import db from '../db/connection.js';
+import type { EnginePlugin } from '../plugin.js';
+
+let _plugins: EnginePlugin[] = [];
+export function setProjectPlugins(plugins: EnginePlugin[]) { _plugins = plugins; }
 
 const __dirname_proj = path.dirname(fileURLToPath(import.meta.url));
 const FEEDBACKS_DIR = path.resolve(__dirname_proj, '../../feedbacks');
@@ -231,6 +235,7 @@ router.put('/:id/files', (req, res) => {
 router.delete('/:id', (req, res) => {
     const result = stmtDelete.run(req.params.id, req.user!.id);
     if (result.changes === 0) { res.status(404).json({ error: 'Project not found' }); return; }
+    for (const p of _plugins) { if (p.onProjectDelete) p.onProjectDelete(req.params.id, req.user!.id); }
     res.json({ success: true });
 });
 

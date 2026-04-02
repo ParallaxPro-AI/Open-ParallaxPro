@@ -53,6 +53,9 @@ export interface EnginePlugin {
     /** Hook: called after server starts listening */
     onStartup?: () => void;
 
+    /** Hook: called when a project is deleted */
+    onProjectDelete?: (projectId: string, userId: number) => void;
+
     /** Hook: called on server shutdown */
     onShutdown?: () => void;
 }
