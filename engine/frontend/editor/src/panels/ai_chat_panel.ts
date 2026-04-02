@@ -207,6 +207,18 @@ export class AiChatPanel {
             this.hideTypingIndicator();
         });
 
+        ws.onWsMessage('__ws_disconnected', () => {
+            if (this.state === State.STREAMING) {
+                this.transitionTo(State.IDLE);
+                this.hideTypingIndicator();
+                this.isTodoDriving = false;
+                const msg: ChatMessage = { role: 'assistant', content: '*Server restarted — please try your message again in a few seconds.*' };
+                this.messages.push(msg);
+                this.renderMessageEl(msg);
+                this.scrollToBottom();
+            }
+        });
+
         ws.onWsMessage('ask_continue', (data: any) => {
             this.showContinuePrompt(data);
         });
