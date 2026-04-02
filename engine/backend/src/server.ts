@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import http from 'http';
 import { WebSocketServer } from 'ws';
@@ -6,6 +7,28 @@ import { config } from './config.js';
 import db from './db/connection.js';
 import { createSchema } from './db/schema.js';
 import type { EnginePlugin } from './plugin.js';
+
+// Per-IP rate limiter for HTTP API routes
+const ipHits = new Map<string, { count: number; resetAt: number }>();
+const HTTP_RATE_LIMIT = 120;  // requests per window
+const HTTP_RATE_WINDOW = 60_000; // 1 minute
+setInterval(() => { const now = Date.now(); for (const [k, v] of ipHits) { if (now > v.resetAt) ipHits.delete(k); } }, 60_000);
+
+function httpRateLimit(req: Request, res: Response, next: NextFunction): void {
+    const ip = (req.headers['x-real-ip'] as string) || req.ip || 'unknown';
+    const now = Date.now();
+    const entry = ipHits.get(ip);
+    if (!entry || now > entry.resetAt) {
+        ipHits.set(ip, { count: 1, resetAt: now + HTTP_RATE_WINDOW });
+        next(); return;
+    }
+    if (entry.count >= HTTP_RATE_LIMIT) {
+        res.status(429).json({ error: 'Too many requests. Try again later.' });
+        return;
+    }
+    entry.count++;
+    next();
+}
 
 export { type EnginePlugin } from './plugin.js';
 
@@ -46,6 +69,7 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
 
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
     app.use(express.json({ limit: '10mb' }));
+    app.use('/api/engine', httpRateLimit);
 
     // Static asset serving — local files first, fallback to CDN redirect for self-hosted
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
@@ -73,7 +97,7 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use('/api/engine/assets', assetRoutes);
 
     app.get('/api/engine/health', (_req, res) => {
-        res.json({ status: 'ok', port: config.port, uptime: process.uptime() });
+        res.json({ status: 'ok' });
     });
 
     // WS ticket exchange — trade a JWT for a short-lived one-time ticket
@@ -89,7 +113,7 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     const server = http.createServer(app);
 
     // WebSocket servers
-    const editorWSS = new WebSocketServer({ noServer: true, perMessageDeflate: false });
+    const editorWSS = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 1 * 1024 * 1024 });
     setupEditorWebSocket(editorWSS);
 
     // Additional WS paths from plugins
