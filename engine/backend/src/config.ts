@@ -50,7 +50,7 @@ export const config = {
         maxTokens: envInt('AI_MAX_TOKENS', 8192),
     },
     fixer: {
-        cli: envRequired('FIXER_CLI'),
+        cli: envString('FIXER_CLI', ''),
         timeout: envInt('FIXER_TIMEOUT', 1200000),
     },
 };

@@ -57,6 +57,9 @@ export async function runFixer(
     sendStatus?: (msg: string) => void,
     abortSignal?: AbortSignal,
 ): Promise<FixerResult> {
+    if (!config.fixer.cli) {
+        return { success: false, summary: 'Game fixer is not configured. Set FIXER_CLI in your .env file (e.g. FIXER_CLI=claude).', filesChanged: [] };
+    }
     await acquireSlot(sendStatus);
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
 
@@ -453,10 +456,11 @@ function readChanges(sandboxDir: string, originalData: any): Changes {
     const scriptsDir = path.join(projectDir, 'scripts');
     if (fs.existsSync(scriptsDir)) {
         walkFiles(scriptsDir, '', (relPath, content) => {
-            const key = `scripts/${relPath}`;
+            // Keys in projectData.scripts have no "scripts/" prefix (e.g. "player.ts")
+            const key = relPath;
             newScripts[key] = content;
             if (!originalData.scripts?.[key] || originalData.scripts[key] !== content) {
-                filesChanged.push(key);
+                filesChanged.push(`scripts/${relPath}`);
             }
         });
     }
@@ -480,10 +484,11 @@ function readChanges(sandboxDir: string, originalData: any): Changes {
     const uiDir = path.join(projectDir, 'ui');
     if (fs.existsSync(uiDir)) {
         walkFiles(uiDir, '', (relPath, content) => {
-            const key = `ui/${relPath}`;
+            // Keys in projectData.uiFiles have no "uiFiles/" prefix (e.g. "overlay.html")
+            const key = relPath;
             newUiFiles[key] = content;
             if (!originalData.uiFiles?.[key] || originalData.uiFiles[key] !== content) {
-                filesChanged.push(key);
+                filesChanged.push(`uiFiles/${relPath}`);
             }
         });
     }
