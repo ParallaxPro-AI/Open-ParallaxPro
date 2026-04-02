@@ -9,6 +9,13 @@
  * 5. Read changed files from sandbox
  * 6. Validate changes (syntax check)
  * 7. Apply to project data + reload frontend
+ *
+ * Pre-warm flow (claude only):
+ * - On startup, a session is pre-warmed: a claude process reads CONTEXT.md and
+ *   reference docs so the context is already in its conversation history.
+ * - When a fix is requested, the pre-warmed session is resumed with --resume so
+ *   the agent can jump straight to fixing without re-reading all the docs.
+ * - After consuming a session a new one is started in the background.
  */
 
 import fs from 'fs';
@@ -20,6 +27,144 @@ import { config } from '../../../config.js';
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
 const FIXER_CONTEXT_PATH = path.join(__dirname_fixer, 'FIXER_CONTEXT.md');
+
+// ─── Pre-warm state ────────────────────────────────────────────────────────
+
+interface PrewarmState {
+    sessionId: string;
+    sandboxDir: string;
+}
+
+let prewarmSession: PrewarmState | null = null;
+let prewarmPromise: Promise<PrewarmState | null> | null = null;
+
+/** Call once at server startup to begin pre-warming a claude session. */
+export function initPrewarm(): void {
+    if (config.fixer.cli !== 'claude') return;
+    startPrewarm();
+}
+
+function startPrewarm(): void {
+    if (prewarmPromise) return; // already warming
+    console.log('[CLIFixer] Starting pre-warm session...');
+    prewarmPromise = doPrewarm()
+        .then(session => {
+            prewarmSession = session;
+            prewarmPromise = null;
+            console.log(`[CLIFixer] Pre-warm ready (session ${session.sessionId.slice(0, 8)}...)`);
+            return session;
+        })
+        .catch(err => {
+            console.error('[CLIFixer] Pre-warm failed:', err.message);
+            prewarmPromise = null;
+            return null;
+        });
+}
+
+async function doPrewarm(): Promise<PrewarmState> {
+    const sandboxDir = `/tmp/parallaxpro-prewarm-${Date.now()}`;
+    fs.mkdirSync(sandboxDir, { recursive: true });
+    createPrewarmSandbox(sandboxDir);
+    const sessionId = await runPrewarmCLI(sandboxDir);
+    return { sessionId, sandboxDir };
+}
+
+function createPrewarmSandbox(sandboxDir: string): void {
+    const refDir = path.join(sandboxDir, 'reference');
+    fs.mkdirSync(refDir, { recursive: true });
+
+    const behaviorsDir = path.join(RGC_DIR, 'behaviors', 'v0.1');
+    if (fs.existsSync(behaviorsDir)) {
+        copyDirRecursive(behaviorsDir, path.join(refDir, 'behaviors'));
+    }
+
+    const systemsDir = path.join(RGC_DIR, 'systems', 'v0.1');
+    if (fs.existsSync(systemsDir)) {
+        copyDirRecursive(systemsDir, path.join(refDir, 'systems'));
+    }
+
+    if (fs.existsSync(FIXER_CONTEXT_PATH)) {
+        fs.copyFileSync(FIXER_CONTEXT_PATH, path.join(sandboxDir, 'CONTEXT.md'));
+    }
+}
+
+function runPrewarmCLI(sandboxDir: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const prompt = `Read CONTEXT.md and all files in the reference/ directory to familiarize yourself with the ParallaxPro game engine. This context will help you fix bugs faster when asked. Do not make any changes to any files.`;
+
+        const proc = spawn('claude', [
+            '-p', prompt,
+            '--output-format', 'stream-json',
+            '--verbose',
+            '--model', 'sonnet',
+            '--dangerously-skip-permissions',
+            '--max-turns', '5',
+        ], {
+            cwd: sandboxDir,
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: { ...process.env, HOME: process.env.HOME || '/tmp' },
+        });
+
+        let sessionId = '';
+        let buffer = '';
+        let stderr = '';
+
+        proc.stdout.on('data', (chunk: Buffer) => {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                try {
+                    const event = JSON.parse(line);
+                    if (event.type === 'system' && event.subtype === 'init' && event.session_id) {
+                        sessionId = event.session_id;
+                    }
+                } catch {}
+            }
+        });
+
+        proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+        proc.on('close', (code) => {
+            if (code === 0 || code === null) {
+                if (sessionId) {
+                    resolve(sessionId);
+                } else {
+                    reject(new Error('Pre-warm completed but no session ID found in output'));
+                }
+            } else {
+                reject(new Error(`Pre-warm CLI exited with code ${code}. stderr: ${stderr.slice(0, 300)}`));
+            }
+        });
+
+        proc.on('error', (err: Error) => {
+            reject(new Error(`Failed to spawn pre-warm CLI: ${err.message}`));
+        });
+    });
+}
+
+/** Consume the ready pre-warm session (or wait for one in flight), then kick off a new warm. */
+async function acquirePrewarmSession(sendStatus?: (msg: string) => void): Promise<string | null> {
+    if (prewarmSession) {
+        const session = prewarmSession;
+        prewarmSession = null;
+        try { fs.rmSync(session.sandboxDir, { recursive: true, force: true }); } catch {}
+        startPrewarm();
+        return session.sessionId;
+    }
+    if (prewarmPromise) {
+        sendStatus?.('Gathering context...');
+        const session = await prewarmPromise;
+        if (session) {
+            prewarmSession = null;
+            try { fs.rmSync(session.sandboxDir, { recursive: true, force: true }); } catch {}
+            startPrewarm();
+            return session.sessionId;
+        }
+    }
+    return null;
+}
 
 export interface FixerResult {
     success: boolean;
@@ -61,19 +206,26 @@ export async function runFixer(
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
 
     try {
-        // 1. Create sandbox
+        // 1. Acquire pre-warmed session (claude only), before setting up sandbox
+        //    so any "Gathering context..." status shows before "Setting up sandbox..."
+        let resumeSessionId: string | null = null;
+        if (config.fixer.cli === 'claude') {
+            resumeSessionId = await acquirePrewarmSession(sendStatus);
+        }
+
+        // 2. Create sandbox
         sendStatus?.('Setting up sandbox...');
         createSandbox(sandboxDir, projectData);
 
-        // 2. Write task file
+        // 3. Write task file
         const projectSummary = buildProjectSummary(projectData, activeSceneKey);
         fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), `# Bug Report\n\n${description}\n\n# Current Project State\n\n${projectSummary}`);
 
-        // 3. Spawn CLI
+        // 4. Spawn CLI (resume pre-warmed session when available)
         sendStatus?.('Fixer agent is analyzing and fixing...');
-        const cliResult = await spawnCLI(sandboxDir, description, sendStatus, abortSignal);
+        const cliResult = await spawnCLI(sandboxDir, description, sendStatus, abortSignal, resumeSessionId ?? undefined);
 
-        // 4. Read changes
+        // 5. Read changes
         sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectData);
 
@@ -81,13 +233,13 @@ export async function runFixer(
             return { success: true, summary: cliResult.text || 'No changes were needed.', filesChanged: [], costUsd: cliResult.costUsd };
         }
 
-        // 5. Validate
+        // 6. Validate
         const validationErrors = validateChanges(changes.newScripts);
         if (validationErrors.length > 0) {
             return { success: false, summary: `Fix had syntax errors:\n${validationErrors.join('\n')}`, filesChanged: [], costUsd: cliResult.costUsd };
         }
 
-        // 6. Apply changes to project data
+        // 7. Apply changes to project data
         applyChanges(projectData, changes);
 
         return {
@@ -331,12 +483,14 @@ function copyDirRecursive(src: string, dest: string): void {
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
-function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal): Promise<{ text: string; costUsd: number }> {
+function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, resumeSessionId?: string): Promise<{ text: string; costUsd: number }> {
     return new Promise((resolve, reject) => {
         const cli = config.fixer.cli;
         const timeout = config.fixer.timeout;
 
-        const prompt = `Read TASK.md for the bug report and project state. Read CONTEXT.md for engine docs and rules. Fix the bug by editing files in the project/ directory. After fixing, run "bash validate.sh" to check for syntax errors. Be concise — just fix the bug, don't refactor unrelated code.`;
+        const prompt = resumeSessionId
+            ? `Read TASK.md for the bug report and current project state. Fix the bug by editing files in the project/ directory. After fixing, run "bash validate.sh" to check for syntax errors. Be concise — just fix the bug, don't refactor unrelated code.`
+            : `Read TASK.md for the bug report and project state. Read CONTEXT.md for engine docs and rules. Fix the bug by editing files in the project/ directory. After fixing, run "bash validate.sh" to check for syntax errors. Be concise — just fix the bug, don't refactor unrelated code.`;
 
         let args: string[];
         if (cli === 'claude') {
@@ -348,6 +502,9 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
                 '--dangerously-skip-permissions',
                 '--max-turns', '30',
             ];
+            if (resumeSessionId) {
+                args.push('--resume', resumeSessionId);
+            }
         } else {
             throw new Error(`Fixer CLI "${cli}" is not supported yet. Currently only "claude" is supported. Set FIXER_CLI=claude in .env`);
         }

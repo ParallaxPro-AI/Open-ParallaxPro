@@ -190,6 +190,11 @@ export async function startEngine(server: http.Server, plugins: EnginePlugin[] =
                 generateLODs(config.assetsDir).catch(e => console.error('[LOD] Failed:', e));
             });
 
+            // Pre-warm the fixer CLI session so the first fix request is fast
+            import('./ws/services/pipeline/cli_fixer.js').then(({ initPrewarm }) => {
+                initPrewarm();
+            }).catch(e => console.error('[CLIFixer] Failed to init pre-warm:', e));
+
             // Plugin startup hooks
             for (const p of plugins) {
                 if (p.onStartup) p.onStartup();
