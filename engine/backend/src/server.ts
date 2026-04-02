@@ -101,7 +101,18 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use('/api/engine/assets', assetRoutes);
 
     app.get('/api/engine/health', (_req, res) => {
-        res.json({ status: 'ok' });
+        const memUsage = process.memoryUsage();
+        res.json({
+            status: 'ok',
+            uptime: Math.floor(process.uptime()),
+            memory: {
+                rss: Math.round(memUsage.rss / 1024 / 1024),
+                heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+                heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
+            },
+            node: process.version,
+            env: config.nodeEnv,
+        });
     });
 
     // WS ticket exchange — trade a JWT for a short-lived one-time ticket
