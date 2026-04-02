@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; pointer-events: none; overflow: hidden; }
+  .diplo-wrap { position: fixed; bottom: 14px; right: 80px; pointer-events: none; }
+  .diplo-info {
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;
+    padding: 6px 12px; text-align: center;
+  }
+  .diplo-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 1px; }
+  .diplo-val { font-size: 12px; font-weight: 800; }
+  .diplo-peace { color: #22c55e; }
+  .diplo-war { color: #ef4444; }
+  .diplo-mil { font-size: 10px; color: #888; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="diplo-wrap">
+  <div class="diplo-info">
+    <div class="diplo-label">DIPLOMACY</div>
+    <div class="diplo-val" id="diploState"><span class="diplo-peace">Peace</span></div>
+    <div class="diplo-mil">Enemy army: <span id="aiMil">0</span></div>
+  </div>
+</div>
+<script>
+(function(){
+  function update(s){if(!s)return;
+    if(s.aiState!==undefined){
+      var el=document.getElementById('diploState');
+      if(el){
+        if(s.aiState==='war')el.innerHTML='<span class="diplo-war">&#9876; AT WAR</span>';
+        else el.innerHTML='<span class="diplo-peace">&#9774; Peace</span>';
+      }
+    }
+    if(s.aiMilitary!==undefined)document.getElementById('aiMil').textContent=s.aiMilitary;
+  }
+  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+})();
+</script>
+</body>
+</html>

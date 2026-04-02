@@ -1,0 +1,13 @@
+{
+  "systems": {
+    "td_engine": {
+      "description": "Tower defense engine — wave spawning, tower placement and targeting, economy, lives",
+      "script": "gameplay/td_engine.ts",
+      "params": {
+        "startGold": 500,
+        "startLives": 20,
+        "totalWaves": 10
+      }
+    }
+  }
+}

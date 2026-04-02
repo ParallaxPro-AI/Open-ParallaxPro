@@ -1,0 +1,21 @@
+{
+  "systems": {
+    "surf_spawner": {
+      "description": "Procedural track, obstacle, coin, and power-up spawning for endless runner gameplay",
+      "script": "gameplay/surf_spawner.ts",
+      "params": {
+        "trackSegLen": 40,
+        "spawnAhead": 140,
+        "despawnBehind": 50,
+        "obMinGap": 22,
+        "obMaxGap": 38,
+        "coinSpacing": 2.2,
+        "powerupChance": 0.09,
+        "buildingSpacing": 28,
+        "laneWidth": 2.5,
+        "collectRadius": 2.0,
+        "obstacleRadius": 1.3
+      }
+    }
+  }
+}

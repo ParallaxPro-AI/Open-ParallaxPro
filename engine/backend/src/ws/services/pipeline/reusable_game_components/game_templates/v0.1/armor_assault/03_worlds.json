@@ -1,0 +1,63 @@
+{
+  "worlds": [
+    {
+      "id": "battlefield",
+      "name": "Battlefield",
+      "lighting": {
+        "ambient": [0.4, 0.42, 0.38],
+        "sun_direction": [0.4, -0.7, 0.3],
+        "sun_color": [1.0, 0.92, 0.82]
+      },
+      "placements": [
+        { "ref": "camera", "position": [0, 8, 14] },
+        { "name": "PlayerTank", "ref": "player_tank", "position": [0, 1, 45] },
+
+        { "ref": "ground", "position": [0, -0.1, 0] },
+
+        { "ref": "rock_large", "position": [-15, 0, 20] },
+        { "ref": "rock_large", "position": [22, 0, -10] },
+        { "ref": "rock_large", "position": [-30, 0, -25] },
+        { "ref": "rock_large", "position": [35, 0, 15] },
+        { "ref": "rock_medium", "position": [10, 0, 5] },
+        { "ref": "rock_medium", "position": [-20, 0, -5] },
+        { "ref": "rock_medium", "position": [5, 0, -30] },
+        { "ref": "rock_medium", "position": [-40, 0, 10] },
+        { "ref": "rock_small", "position": [28, 0, -35] },
+        { "ref": "rock_small", "position": [-18, 0, 35] },
+        { "ref": "rock_small", "position": [42, 0, -20] },
+
+        { "ref": "barrier", "position": [-8, 0, 15] },
+        { "ref": "barrier", "position": [15, 0, -20] },
+        { "ref": "barrier", "position": [-25, 0, -35] },
+        { "ref": "barrier", "position": [30, 0, 30] },
+
+        { "ref": "crate", "position": [0, 0, -15] },
+        { "ref": "crate", "position": [-35, 0, 20] },
+        { "ref": "crate", "position": [40, 0, -5] },
+
+        { "ref": "tree_a", "position": [-45, 0, 40] },
+        { "ref": "tree_a", "position": [48, 0, 38] },
+        { "ref": "tree_a", "position": [-50, 0, -10] },
+        { "ref": "tree_a", "position": [45, 0, -40] },
+        { "ref": "tree_a", "position": [-10, 0, -48] },
+        { "ref": "tree_a", "position": [20, 0, 48] },
+        { "ref": "tree_b", "position": [-48, 0, 25] },
+        { "ref": "tree_b", "position": [50, 0, 20] },
+        { "ref": "tree_b", "position": [-42, 0, -38] },
+        { "ref": "tree_b", "position": [35, 0, -45] },
+        { "ref": "tree_b", "position": [0, 0, 50] },
+        { "ref": "tree_b", "position": [-30, 0, -48] },
+
+        { "ref": "bush", "position": [-12, 0, 30] },
+        { "ref": "bush", "position": [25, 0, 25] },
+        { "ref": "bush", "position": [-38, 0, -15] },
+        { "ref": "bush", "position": [18, 0, -42] },
+        { "ref": "bush", "position": [-5, 0, -38] },
+        { "ref": "bush", "position": [38, 0, 8] },
+
+        { "ref": "turret_static", "position": [-45, 0, -45] },
+        { "ref": "turret_static", "position": [45, 0, 45] }
+      ]
+    }
+  ]
+}

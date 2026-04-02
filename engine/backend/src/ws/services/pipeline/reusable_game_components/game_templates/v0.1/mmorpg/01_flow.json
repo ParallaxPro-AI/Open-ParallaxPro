@@ -1,0 +1,115 @@
+{
+  "id": "mmorpg_flow",
+  "name": "MMORPG",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "REALM OF LEGENDS", "gameSubtitle": "Heroes of Etheria" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize world and quest systems",
+      "active_systems": ["quest_system", "loot_xp"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Open-world RPG gameplay",
+      "start": "adventuring",
+      "on_enter": ["emit:game.game_ready"],
+      "on_exit": [],
+      "substates": {
+        "adventuring": {
+          "description": "Explore the world — complete quests, fight monsters, loot treasure, level up",
+          "active_systems": [
+            "quest_system",
+            "combat_rpg",
+            "loot_xp",
+            "world_spawner"
+          ],
+          "active_behaviors": [
+            "rpg_movement",
+            "camera_rpg",
+            "hero_abilities",
+            "player_stats",
+            "hostile_mob",
+            "caster_mob",
+            "elite_mob",
+            "boss_ai",
+            "npc_quest",
+            "merchant_ai",
+            "patrol_guard"
+          ],
+          "on_enter": [
+            "show_ui:hud/health_mana",
+            "show_ui:hud/action_bar",
+            "show_ui:hud/minimap",
+            "show_ui:hud/quest_tracker",
+            "show_ui:hud/xp_bar",
+            "show_ui:hud/target_frame",
+            "show_ui:hud/chat_log",
+            "emit:game.player_respawned",
+            "play_sound:/assets/kenney/audio/rpg_audio/doorOpen_1.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:hud/health_mana",
+            "hide_ui:hud/action_bar",
+            "hide_ui:hud/minimap",
+            "hide_ui:hud/quest_tracker",
+            "hide_ui:hud/xp_bar",
+            "hide_ui:hud/target_frame",
+            "hide_ui:hud/chat_log"
+          ],
+          "transitions": [
+            { "when": "game_event:player_died", "goto": "death_respawn" },
+            { "when": "game_event:final_boss_defeated", "goto": "victory" }
+          ]
+        },
+        "death_respawn": {
+          "description": "Player defeated — respawn at village after delay",
+          "active_systems": ["quest_system", "world_spawner"],
+          "active_behaviors": ["camera_rpg"],
+          "duration": -1,
+          "on_enter": [
+            "show_ui:hud/death_screen",
+            "set:respawn_timer=0",
+            "play_sound:/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_000.ogg"
+          ],
+          "on_update": ["increment:respawn_timer"],
+          "on_exit": ["hide_ui:hud/death_screen"],
+          "transitions": [
+            { "when": "respawn_timer>=240", "goto": "adventuring" }
+          ]
+        },
+        "victory": {
+          "description": "All quests complete — realm saved",
+          "active_behaviors": ["camera_rpg"],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/digital_audio/powerUp12.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "emit:game.game_ready"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "adventuring" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

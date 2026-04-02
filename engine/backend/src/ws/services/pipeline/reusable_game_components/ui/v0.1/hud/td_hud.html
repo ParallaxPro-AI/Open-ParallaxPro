@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(0, 0, 0, 0.5);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text: #f0f0f0;
+    --text-dim: #999;
+    --text-muted: #555;
+    --gold: #f59e0b;
+    --gold-dim: rgba(245, 158, 11, 0.3);
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.3);
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.3);
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34, 211, 238, 0.3);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59, 130, 246, 0.3);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167, 139, 250, 0.3);
+    --amber: #f59e0b;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== TOP BAR ===== */
+  .top-bar {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .stat-panel {
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+  }
+
+  .stat-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .stat-body { display: flex; flex-direction: column; }
+
+  .stat-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .gold-value { color: var(--gold); text-shadow: 0 0 10px var(--gold-dim); }
+  .lives-value { color: var(--red); text-shadow: 0 0 10px var(--red-dim); }
+
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .lives-value.low { animation: livePulse 0.8s ease-in-out infinite; }
+
+  .wave-panel {
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 22px;
+    text-align: center;
+    min-width: 140px;
+  }
+
+  .wave-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .wave-value {
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: 0 0 10px var(--cyan-dim);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .wave-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }
+
+  /* ===== TOWER SHOP (RIGHT SIDE) ===== */
+  .shop-panel {
+    position: fixed;
+    top: 80px;
+    right: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 12px;
+    width: 160px;
+  }
+
+  .shop-title {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .tower-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 7px 10px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tower-card:last-child { margin-bottom: 0; }
+
+  .tower-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tower-dot.arrow { background: var(--green); box-shadow: 0 0 6px var(--green-dim); }
+  .tower-dot.cannon { background: var(--amber); box-shadow: 0 0 6px var(--gold-dim); }
+  .tower-dot.ice { background: var(--cyan); box-shadow: 0 0 6px var(--cyan-dim); }
+  .tower-dot.lightning { background: var(--purple); box-shadow: 0 0 6px var(--purple-dim); }
+
+  .tower-info { flex: 1; }
+
+  .tower-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.1;
+  }
+
+  .tower-cost {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--gold);
+  }
+
+  .tower-key {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  .tower-card.disabled { opacity: 0.35; }
+
+  /* ===== SELECTED SPOT INFO (BOTTOM) ===== */
+  .spot-panel {
+    position: fixed;
+    bottom: 55px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 280px;
+  }
+
+  .spot-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .spot-tower-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    text-transform: capitalize;
+  }
+
+  .spot-tower-level {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--cyan);
+    margin-left: 4px;
+  }
+
+  .spot-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .spot-action {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .spot-action kbd {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  .spot-action .upg-cost { color: var(--gold); }
+  .spot-action .sell-val { color: var(--green); }
+
+  .spot-empty {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  /* ===== WAVE START PROMPT ===== */
+  .wave-prompt {
+    position: fixed;
+    bottom: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, rgba(34,211,238,0.15), rgba(59,130,246,0.1));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(34,211,238,0.2);
+    border-radius: 10px;
+    padding: 8px 22px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cyan);
+    letter-spacing: 0.5px;
+    display: none;
+  }
+
+  .wave-prompt.visible { display: block; }
+
+  @keyframes promptPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .wave-prompt.visible { animation: promptPulse 1.8s ease-in-out infinite; }
+
+  .wave-prompt kbd {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #fff;
+    margin-right: 4px;
+  }
+
+  /* ===== CONTROLS ===== */
+  .controls {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 5px 16px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.3px;
+  }
+
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 1px;
+  }
+
+  /* ===== ENEMY COUNT ===== */
+  .enemy-panel {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--red);
+    display: none;
+  }
+
+  .enemy-panel.visible { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Top Stats Bar -->
+<div class="top-bar">
+  <div class="stat-panel">
+    <span class="stat-icon" style="color:var(--gold);">&#9733;</span>
+    <div class="stat-body">
+      <span class="stat-label">GOLD</span>
+      <span class="stat-value gold-value" id="gold-val">500</span>
+    </div>
+  </div>
+
+  <div class="wave-panel">
+    <div class="wave-label">WAVE</div>
+    <div class="wave-value" id="wave-val">0 / 10</div>
+    <div class="wave-sub" id="wave-sub">Build towers to begin</div>
+  </div>
+
+  <div class="stat-panel">
+    <span class="stat-icon" style="color:var(--red);">&#9829;</span>
+    <div class="stat-body">
+      <span class="stat-label">LIVES</span>
+      <span class="stat-value lives-value" id="lives-val">20</span>
+    </div>
+  </div>
+</div>
+
+<!-- Enemy Count (during wave) -->
+<div class="enemy-panel" id="enemy-panel">
+  Enemies: <span id="enemy-count">0</span>
+</div>
+
+<!-- Tower Shop -->
+<div class="shop-panel">
+  <div class="shop-title">TOWERS</div>
+  <div class="tower-card" id="card-arrow">
+    <div class="tower-dot arrow"></div>
+    <div class="tower-info">
+      <div class="tower-name">Arrow</div>
+      <div class="tower-cost" id="cost-arrow">100g</div>
+    </div>
+    <span class="tower-key">1</span>
+  </div>
+  <div class="tower-card" id="card-cannon">
+    <div class="tower-dot cannon"></div>
+    <div class="tower-info">
+      <div class="tower-name">Cannon</div>
+      <div class="tower-cost" id="cost-cannon">200g</div>
+    </div>
+    <span class="tower-key">2</span>
+  </div>
+  <div class="tower-card" id="card-ice">
+    <div class="tower-dot ice"></div>
+    <div class="tower-info">
+      <div class="tower-name">Ice</div>
+      <div class="tower-cost" id="cost-ice">150g</div>
+    </div>
+    <span class="tower-key">3</span>
+  </div>
+  <div class="tower-card" id="card-lightning">
+    <div class="tower-dot lightning"></div>
+    <div class="tower-info">
+      <div class="tower-name">Lightning</div>
+      <div class="tower-cost" id="cost-lightning">300g</div>
+    </div>
+    <span class="tower-key">4</span>
+  </div>
+</div>
+
+<!-- Selected Spot Info -->
+<div class="spot-panel" id="spot-panel">
+  <div>
+    <div class="spot-label">SPOT <span id="spot-num">1</span></div>
+    <div id="spot-content">
+      <span class="spot-empty">Empty — press 1-4 to build</span>
+    </div>
+  </div>
+  <div class="spot-actions" id="spot-actions" style="display:none;">
+    <div class="spot-action"><kbd>U</kbd> Upgrade <span class="upg-cost" id="upg-cost"></span></div>
+    <div class="spot-action"><kbd>X</kbd> Sell <span class="sell-val" id="sell-val"></span></div>
+  </div>
+</div>
+
+<!-- Wave Start Prompt -->
+<div class="wave-prompt" id="wave-prompt">
+  <kbd>Space</kbd> Start Next Wave
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <kbd>Q</kbd><kbd>E</kbd> Select Spot
+  &middot; <kbd>1</kbd>-<kbd>4</kbd> Build
+  &middot; <kbd>U</kbd> Upgrade
+  &middot; <kbd>X</kbd> Sell
+  &middot; <kbd>Space</kbd> Wave
+  &middot; <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Pan
+</div>
+
+<script>
+(function() {
+  var lastGold = 500;
+
+  function update(state) {
+    if (!state) return;
+
+    // Gold
+    if (state.gold !== undefined) {
+      var gel = document.getElementById('gold-val');
+      if (gel) gel.textContent = state.gold;
+      lastGold = state.gold;
+      // Disable tower cards player can't afford
+      setCardState('card-arrow', state.arrowCost, state.gold, state.spotOccupied);
+      setCardState('card-cannon', state.cannonCost, state.gold, state.spotOccupied);
+      setCardState('card-ice', state.iceCost, state.gold, state.spotOccupied);
+      setCardState('card-lightning', state.lightningCost, state.gold, state.spotOccupied);
+    }
+
+    // Lives
+    if (state.lives !== undefined) {
+      var lel = document.getElementById('lives-val');
+      if (lel) {
+        lel.textContent = state.lives;
+        lel.className = 'stat-value lives-value' + (state.lives <= 5 ? ' low' : '');
+      }
+    }
+
+    // Wave
+    if (state.wave !== undefined && state.totalWaves !== undefined) {
+      var wel = document.getElementById('wave-val');
+      if (wel) wel.textContent = state.wave + ' / ' + state.totalWaves;
+      var wsub = document.getElementById('wave-sub');
+      if (wsub) {
+        if (state.waveActive) {
+          var remaining = (state.enemyCount || 0) + (state.spawnRemaining || 0);
+          wsub.textContent = remaining + ' enemies remaining';
+        } else if (state.wave === 0) {
+          wsub.textContent = 'Build towers to begin';
+        } else if (state.wave >= state.totalWaves) {
+          wsub.textContent = 'All waves cleared!';
+        } else {
+          wsub.textContent = 'Prepare for next wave';
+        }
+      }
+    }
+
+    // Wave prompt
+    if (state.waveActive !== undefined) {
+      var wp = document.getElementById('wave-prompt');
+      if (wp) {
+        if (!state.waveActive && state.wave < state.totalWaves) {
+          wp.classList.add('visible');
+        } else {
+          wp.classList.remove('visible');
+        }
+      }
+    }
+
+    // Enemy panel
+    if (state.waveActive !== undefined) {
+      var ep = document.getElementById('enemy-panel');
+      if (ep) {
+        if (state.waveActive) {
+          ep.classList.add('visible');
+          var ec = document.getElementById('enemy-count');
+          if (ec) ec.textContent = (state.enemyCount || 0) + (state.spawnRemaining || 0);
+        } else {
+          ep.classList.remove('visible');
+        }
+      }
+    }
+
+    // Selected spot
+    if (state.selectedSpot !== undefined) {
+      var sn = document.getElementById('spot-num');
+      if (sn) sn.textContent = state.selectedSpot;
+    }
+
+    var sc = document.getElementById('spot-content');
+    var sa = document.getElementById('spot-actions');
+
+    if (state.towerInfo && state.spotOccupied) {
+      var ti = state.towerInfo;
+      if (sc) {
+        sc.innerHTML = '<span class="spot-tower-name">' + ti.type + '</span>' +
+                       '<span class="spot-tower-level"> Lv.' + ti.level + '</span>';
+      }
+      if (sa) {
+        sa.style.display = ti.canUpgrade ? 'flex' : 'none';
+        var uc = document.getElementById('upg-cost');
+        if (uc) uc.textContent = ti.canUpgrade ? ti.upgradeCost + 'g' : '';
+        var sv = document.getElementById('sell-val');
+        if (sv) sv.textContent = '+' + ti.sellValue + 'g';
+        // Show sell even when fully upgraded
+        if (!ti.canUpgrade && sa) {
+          sa.style.display = 'flex';
+          sa.innerHTML = '<div class="spot-action"><kbd>X</kbd> Sell <span class="sell-val">+' + ti.sellValue + 'g</span></div>';
+        }
+      }
+    } else {
+      if (sc) sc.innerHTML = '<span class="spot-empty">Empty \u2014 press 1-4 to build</span>';
+      if (sa) sa.style.display = 'none';
+    }
+  }
+
+  function setCardState(cardId, cost, gold, occupied) {
+    var card = document.getElementById(cardId);
+    if (!card) return;
+    if (cost > gold || occupied) {
+      card.classList.add('disabled');
+    } else {
+      card.classList.remove('disabled');
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

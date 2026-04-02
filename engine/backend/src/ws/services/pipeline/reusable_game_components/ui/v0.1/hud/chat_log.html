@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
+.chat{position:fixed;bottom:60px;left:14px;background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.04);border-radius:8px;padding:6px 10px;width:220px;max-height:100px;overflow:hidden;}
+.cl{font-size:9px;font-weight:600;color:#555;letter-spacing:1px;margin-bottom:2px;}
+.cm{font-size:10px;color:#888;line-height:1.4;}
+.cm .sys{color:#f59e0b;}.cm .kill{color:#ef4444;}
+</style></head><body>
+<div class="chat"><div class="cl">COMBAT LOG</div><div class="cm" id="log"><span class="sys">Welcome to the realm!</span></div></div>
+<script>(function(){var msgs=["Welcome to the realm!"];function u(s){if(!s)return;
+if(s.kills!==undefined&&s.kills>msgs.length-1){msgs.push('<span class="kill">Enemy slain! ('+s.kills+' total)</span>');
+var el=document.getElementById('log');if(el)el.innerHTML=msgs.slice(-4).join('<br>');}
+}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

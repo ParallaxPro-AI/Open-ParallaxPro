@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(0, 0, 0, 0.45);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text: #f0f0f0;
+    --text-dim: #999;
+    --text-muted: #555;
+    --gold: #f59e0b;
+    --gold-dim: rgba(245, 158, 11, 0.3);
+    --gold-glow: rgba(245, 158, 11, 0.15);
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34, 211, 238, 0.3);
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.3);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167, 139, 250, 0.3);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59, 130, 246, 0.3);
+    --red: #ef4444;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== SCORE ===== */
+  .score-panel {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 8px 32px;
+    text-align: center;
+    min-width: 200px;
+  }
+
+  .score-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 1px;
+  }
+
+  .score-value {
+    font-size: 44px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255,255,255,0.15);
+    transition: transform 0.1s ease;
+  }
+
+  @keyframes scorePop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+
+  .score-value.pop { animation: scorePop 0.15s ease; }
+
+  /* ===== COINS ===== */
+  .coins-panel {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .coin-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), #fbbf24);
+    box-shadow: 0 0 10px var(--gold-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 900;
+    color: #92400e;
+    flex-shrink: 0;
+  }
+
+  .coin-count {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 12px var(--gold-dim);
+    transition: transform 0.15s ease;
+  }
+
+  @keyframes coinPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  .coin-count.pop { animation: coinPop 0.2s ease; }
+
+  /* ===== DISTANCE ===== */
+  .distance-panel {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px 16px;
+    text-align: right;
+  }
+
+  .distance-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .distance-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--cyan);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 10px var(--cyan-dim);
+  }
+
+  .distance-unit {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-left: 2px;
+  }
+
+  /* ===== MULTIPLIER ===== */
+  .multiplier-panel {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, rgba(167,139,250,0.25), rgba(139,92,246,0.15));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 10px;
+    padding: 5px 16px;
+    text-align: center;
+    display: none;
+  }
+
+  .multiplier-panel.visible { display: block; }
+
+  .multiplier-text {
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--purple);
+    text-shadow: 0 0 12px var(--purple-dim);
+    letter-spacing: 1px;
+  }
+
+  .multiplier-timer {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-left: 6px;
+  }
+
+  /* ===== POWER-UP INDICATORS ===== */
+  .powerups-bar {
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+  }
+
+  .powerup-badge {
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 6px 14px;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--glass-border);
+  }
+
+  .powerup-badge.active { display: flex; }
+
+  .powerup-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .powerup-dot.magnet { background: var(--blue); box-shadow: 0 0 8px var(--blue-dim); }
+  .powerup-dot.shield { background: var(--green); box-shadow: 0 0 8px var(--green-dim); }
+
+  .powerup-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .powerup-time {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @keyframes shieldPulse {
+    0%, 100% { border-color: rgba(34,197,94,0.2); }
+    50% { border-color: rgba(34,197,94,0.5); }
+  }
+
+  .powerup-badge.shield-active {
+    animation: shieldPulse 1.5s ease-in-out infinite;
+  }
+
+  /* ===== CONTROLS ===== */
+  .controls {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 6px 18px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Score -->
+<div class="score-panel">
+  <div class="score-label">SCORE</div>
+  <div class="score-value" id="score-val">0</div>
+</div>
+
+<!-- Coins -->
+<div class="coins-panel">
+  <div class="coin-icon">$</div>
+  <span class="coin-count" id="coin-val">0</span>
+</div>
+
+<!-- Distance -->
+<div class="distance-panel">
+  <div class="distance-label">DISTANCE</div>
+  <div>
+    <span class="distance-value" id="dist-val">0</span>
+    <span class="distance-unit">M</span>
+  </div>
+</div>
+
+<!-- Multiplier -->
+<div class="multiplier-panel" id="multi-panel">
+  <span class="multiplier-text" id="multi-text">x2</span>
+  <span class="multiplier-timer" id="multi-timer">10s</span>
+</div>
+
+<!-- Power-up badges -->
+<div class="powerups-bar">
+  <div class="powerup-badge" id="badge-magnet">
+    <div class="powerup-dot magnet"></div>
+    <span class="powerup-name">Magnet</span>
+    <span class="powerup-time" id="magnet-time">8s</span>
+  </div>
+  <div class="powerup-badge" id="badge-shield">
+    <div class="powerup-dot shield"></div>
+    <span class="powerup-name">Shield</span>
+    <span class="powerup-time" id="shield-time">12s</span>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <kbd>A</kbd><kbd>D</kbd> Switch Lane
+  &middot; <kbd>Space</kbd> Jump
+  &middot; <kbd>S</kbd> Slide
+</div>
+
+<script>
+(function() {
+  var lastCoins = 0;
+  var lastScore = 0;
+
+  function formatNum(n) {
+    if (n >= 1000) return n.toLocaleString();
+    return '' + n;
+  }
+
+  function update(state) {
+    if (!state) return;
+
+    if (state.score !== undefined) {
+      var el = document.getElementById('score-val');
+      if (el) {
+        el.textContent = formatNum(state.score);
+        if (state.score !== lastScore) {
+          el.classList.remove('pop');
+          void el.offsetWidth;
+          el.classList.add('pop');
+          lastScore = state.score;
+        }
+      }
+    }
+
+    if (state.coins !== undefined) {
+      var cel = document.getElementById('coin-val');
+      if (cel) {
+        cel.textContent = state.coins;
+        if (state.coins !== lastCoins) {
+          cel.classList.remove('pop');
+          void cel.offsetWidth;
+          cel.classList.add('pop');
+          lastCoins = state.coins;
+        }
+      }
+    }
+
+    if (state.distance !== undefined) {
+      var del = document.getElementById('dist-val');
+      if (del) del.textContent = formatNum(state.distance);
+    }
+
+    // Multiplier
+    if (state.multiplier !== undefined) {
+      var mp = document.getElementById('multi-panel');
+      var mt = document.getElementById('multi-text');
+      var mti = document.getElementById('multi-timer');
+      if (mp) {
+        if (state.multiplier > 1) {
+          mp.classList.add('visible');
+          if (mt) mt.textContent = 'x' + state.multiplier;
+          if (mti && state.multiplierTime !== undefined) mti.textContent = state.multiplierTime + 's';
+        } else {
+          mp.classList.remove('visible');
+        }
+      }
+    }
+
+    // Magnet badge
+    if (state.magnetActive !== undefined) {
+      var mb = document.getElementById('badge-magnet');
+      if (mb) {
+        if (state.magnetActive) {
+          mb.classList.add('active');
+          var mtime = document.getElementById('magnet-time');
+          if (mtime && state.magnetTime !== undefined) mtime.textContent = state.magnetTime + 's';
+        } else {
+          mb.classList.remove('active');
+        }
+      }
+    }
+
+    // Shield badge
+    if (state.shieldActive !== undefined) {
+      var sb = document.getElementById('badge-shield');
+      if (sb) {
+        if (state.shieldActive) {
+          sb.classList.add('active');
+          sb.classList.add('shield-active');
+          var stime = document.getElementById('shield-time');
+          if (stime && state.shieldTime !== undefined) stime.textContent = state.shieldTime + 's';
+        } else {
+          sb.classList.remove('active');
+          sb.classList.remove('shield-active');
+        }
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

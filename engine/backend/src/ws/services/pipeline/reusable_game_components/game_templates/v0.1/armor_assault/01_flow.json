@@ -1,0 +1,48 @@
+{
+  "id": "armor_assault_flow",
+  "name": "Armor Assault",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "ARMOR ASSAULT", "gameSubtitle": "Tank Combat" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize",
+      "duration": -1,
+      "active_systems": ["armor_battle"],
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing" }]
+    },
+    "playing": {
+      "description": "Tank combat — destroy enemy armor across 3 waves",
+      "active_systems": ["armor_battle"],
+      "active_behaviors": ["tank_control", "camera_tank"],
+      "on_enter": [
+        "emit:game.game_ready",
+        "show_ui:hud/armor_hud",
+        "play_sound:/assets/kenney/audio/sci_fi_sounds/spaceEngineLarge_000.ogg"
+      ],
+      "transitions": [
+        { "when": "game_event:game_over", "goto": "game_over" },
+        { "when": "game_event:game_won", "goto": "game_over" }
+      ]
+    },
+    "game_over": {
+      "description": "Victory or destruction",
+      "active_behaviors": ["camera_tank"],
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit": ["hide_ui:game_over", "hide_ui:hud/armor_hud", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "playing", "actions": ["emit:game.restart_game"] },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

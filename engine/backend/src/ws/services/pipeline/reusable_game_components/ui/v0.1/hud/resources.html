@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
+.res-bar{position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;gap:20px;padding:5px 20px;height:34px;}
+.ri{display:flex;align-items:center;gap:4px;}.rl{font-size:8px;font-weight:700;color:#555;letter-spacing:1px;}.rv{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;}
+.min{color:#22d3ee;}.gas{color:#a78bfa;}.sup{color:#f59e0b;}.wave{color:#ef4444;}
+</style></head><body>
+<div class="res-bar">
+  <div class="ri"><span class="rl">MIN</span><span class="rv min" id="min">500</span></div>
+  <div class="ri"><span class="rl">GAS</span><span class="rv gas" id="gas">200</span></div>
+  <div class="ri"><span class="rl">SUPPLY</span><span class="rv sup" id="sup">0/100</span></div>
+  <div class="ri"><span class="rl">WAVE</span><span class="rv wave" id="wave">0</span></div>
+</div>
+<script>(function(){function u(s){if(!s)return;if(s.minerals!==undefined)document.getElementById('min').textContent=s.minerals;if(s.gas!==undefined)document.getElementById('gas').textContent=s.gas;if(s.supply!==undefined)document.getElementById('sup').textContent=s.supply+'/'+(s.supplyMax||100);if(s.wave!==undefined)document.getElementById('wave').textContent=s.wave+'/'+(s.maxWaves||5);}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

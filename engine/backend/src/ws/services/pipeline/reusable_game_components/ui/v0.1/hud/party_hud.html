@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(0, 0, 0, 0.5);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text: #f0f0f0;
+    --text-dim: #999;
+    --text-muted: #555;
+    --gold: #f59e0b;
+    --gold-dim: rgba(245, 158, 11, 0.3);
+    --cyan: #22d3ee;
+    --red: #ef4444;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --purple: #a78bfa;
+    --pink: #ec4899;
+    --p1: #38bdf8;
+    --p2: #4ade80;
+    --p3: #f87171;
+    --p4: #fbbf24;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== ROUND BADGE ===== */
+  .round-badge {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 6px 24px;
+    text-align: center;
+  }
+
+  .round-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .round-value {
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--cyan);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mg-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-top: 1px;
+  }
+
+  /* ===== TIMER ===== */
+  .timer-panel {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 4px 18px;
+    display: none;
+  }
+
+  .timer-panel.visible { display: block; }
+
+  .timer-val {
+    font-size: 32px;
+    font-weight: 900;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    transition: color 0.3s;
+  }
+
+  .timer-val.danger { color: var(--red); text-shadow: 0 0 15px rgba(239,68,68,0.4); }
+
+  /* ===== SCOREBOARD (LEFT) ===== */
+  .scoreboard {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 10px 14px;
+    min-width: 150px;
+  }
+
+  .sb-title {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+
+  .sb-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .sb-row:last-child { border-bottom: none; }
+
+  .sb-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .sb-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .sb-name.you { color: var(--p1); }
+
+  .sb-score {
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    min-width: 24px;
+    text-align: right;
+  }
+
+  .sb-round {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    min-width: 24px;
+    text-align: right;
+  }
+
+  /* ===== CENTER ANNOUNCEMENT ===== */
+  .announce-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .announce-overlay.visible { opacity: 1; }
+
+  .announce-text {
+    font-size: 64px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.5), 0 0 60px rgba(255,255,255,0.15);
+    letter-spacing: 2px;
+    line-height: 1;
+  }
+
+  .announce-sub {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    text-shadow: 0 2px 15px rgba(0,0,0,0.5);
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .announce-overlay.visible .announce-text {
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* ===== ROUND DATA (RIGHT) ===== */
+  .data-panel {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 14px;
+    min-width: 100px;
+    display: none;
+  }
+
+  .data-panel.visible { display: block; }
+
+  .data-title {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .data-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+  }
+
+  .data-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .data-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    flex: 1;
+  }
+
+  .data-val {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-elim {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--red);
+    opacity: 0.7;
+  }
+
+  /* ===== CONTROLS ===== */
+  .controls {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 5px 16px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.3px;
+  }
+
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Round Badge -->
+<div class="round-badge">
+  <div class="round-label">ROUND</div>
+  <div class="round-value" id="round-val">0 / 5</div>
+  <div class="mg-name" id="mg-name"></div>
+</div>
+
+<!-- Timer -->
+<div class="timer-panel" id="timer-panel">
+  <div class="timer-val" id="timer-val">30</div>
+</div>
+
+<!-- Scoreboard -->
+<div class="scoreboard">
+  <div class="sb-title">SCORES</div>
+  <div class="sb-row">
+    <div class="sb-dot" style="background:var(--p1);box-shadow:0 0 6px var(--p1);"></div>
+    <span class="sb-name you" id="sn0">Penguin</span>
+    <span class="sb-score" id="ss0">0</span>
+  </div>
+  <div class="sb-row">
+    <div class="sb-dot" style="background:var(--p2);box-shadow:0 0 6px var(--p2);"></div>
+    <span class="sb-name" id="sn1">Panda</span>
+    <span class="sb-score" id="ss1">0</span>
+  </div>
+  <div class="sb-row">
+    <div class="sb-dot" style="background:var(--p3);box-shadow:0 0 6px var(--p3);"></div>
+    <span class="sb-name" id="sn2">Mushroom</span>
+    <span class="sb-score" id="ss2">0</span>
+  </div>
+  <div class="sb-row">
+    <div class="sb-dot" style="background:var(--p4);box-shadow:0 0 6px var(--p4);"></div>
+    <span class="sb-name" id="sn3">Chicken</span>
+    <span class="sb-score" id="ss3">0</span>
+  </div>
+</div>
+
+<!-- Round Data (right side) -->
+<div class="data-panel" id="data-panel">
+  <div class="data-title" id="data-title">CROWNS</div>
+  <div class="data-row"><div class="data-dot" style="background:var(--p1);"></div><span class="data-name" id="dn0">Penguin</span><span class="data-val" id="dv0">0</span></div>
+  <div class="data-row"><div class="data-dot" style="background:var(--p2);"></div><span class="data-name" id="dn1">Panda</span><span class="data-val" id="dv1">0</span></div>
+  <div class="data-row"><div class="data-dot" style="background:var(--p3);"></div><span class="data-name" id="dn2">Mushroom</span><span class="data-val" id="dv2">0</span></div>
+  <div class="data-row"><div class="data-dot" style="background:var(--p4);"></div><span class="data-name" id="dn3">Chicken</span><span class="data-val" id="dv3">0</span></div>
+</div>
+
+<!-- Center Announcement -->
+<div class="announce-overlay" id="announce">
+  <div class="announce-text" id="announce-text"></div>
+  <div class="announce-sub" id="announce-sub"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move
+  &middot; <kbd>Space</kbd> Jump
+</div>
+
+<script>
+(function() {
+  var lastAnnounce = '';
+  var pColors = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)'];
+  var dataTitles = ['CROWNS', 'ALIVE', 'COINS'];
+
+  function update(state) {
+    if (!state) return;
+
+    // Round
+    if (state.round !== undefined && state.totalRounds !== undefined) {
+      var rv = document.getElementById('round-val');
+      if (rv) rv.textContent = state.round + ' / ' + state.totalRounds;
+    }
+
+    // Minigame name
+    if (state.minigameName !== undefined) {
+      var mn = document.getElementById('mg-name');
+      if (mn) mn.textContent = state.minigameName;
+    }
+
+    // Timer
+    if (state.timer !== undefined) {
+      var tp = document.getElementById('timer-panel');
+      var tv = document.getElementById('timer-val');
+      if (state.timer >= 0 && state.phase === 'minigame') {
+        if (tp) tp.classList.add('visible');
+        if (tv) {
+          tv.textContent = state.timer;
+          tv.className = 'timer-val' + (state.timer <= 10 ? ' danger' : '');
+        }
+      } else {
+        if (tp) tp.classList.remove('visible');
+      }
+    }
+
+    // Scores
+    if (state.scores) {
+      for (var i = 0; i < 4; i++) {
+        var ss = document.getElementById('ss' + i);
+        if (ss) ss.textContent = state.scores[i];
+      }
+    }
+
+    // Player names
+    if (state.playerNames) {
+      for (var i = 0; i < 4; i++) {
+        var sn = document.getElementById('sn' + i);
+        if (sn) sn.textContent = state.playerNames[i];
+        var dn = document.getElementById('dn' + i);
+        if (dn) dn.textContent = state.playerNames[i];
+      }
+    }
+
+    // Round data panel
+    if (state.phase === 'minigame' && state.currentMG !== undefined && state.currentMG >= 0) {
+      var dp = document.getElementById('data-panel');
+      if (dp) dp.classList.add('visible');
+      var dt = document.getElementById('data-title');
+      if (dt) dt.textContent = dataTitles[state.currentMG] || '';
+
+      if (state.roundData) {
+        for (var i = 0; i < 4; i++) {
+          var dv = document.getElementById('dv' + i);
+          if (dv) {
+            if (state.currentMG === 1 && state.alive) {
+              dv.textContent = state.alive[i] ? 'OK' : 'OUT';
+              dv.className = state.alive[i] ? 'data-val' : 'data-elim';
+            } else {
+              dv.textContent = state.roundData[i];
+              dv.className = 'data-val';
+            }
+          }
+        }
+      }
+    } else {
+      var dp = document.getElementById('data-panel');
+      if (dp) dp.classList.remove('visible');
+    }
+
+    // Announcement
+    if (state.announce !== undefined) {
+      var ao = document.getElementById('announce');
+      var at = document.getElementById('announce-text');
+      var as = document.getElementById('announce-sub');
+
+      if (state.announce && state.announce.length > 0) {
+        if (at) at.textContent = state.announce;
+        if (as) as.textContent = state.subtext || '';
+        if (ao && state.announce !== lastAnnounce) {
+          ao.classList.remove('visible');
+          void ao.offsetWidth;
+          ao.classList.add('visible');
+          lastAnnounce = state.announce;
+        }
+      } else {
+        if (ao) ao.classList.remove('visible');
+        lastAnnounce = '';
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

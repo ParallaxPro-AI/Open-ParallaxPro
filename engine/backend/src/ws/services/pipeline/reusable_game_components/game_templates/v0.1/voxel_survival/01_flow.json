@@ -1,0 +1,92 @@
+{
+  "id": "voxel_survival_flow",
+  "name": "Voxel Survival",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "CUBE KINGDOMS", "gameSubtitle": "Build & Survive" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize world and biome systems",
+      "active_systems": ["voxel_world", "biome_weather"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "First-person voxel survival gameplay",
+      "start": "exploring",
+      "on_enter": ["emit:game.game_ready"],
+      "on_exit": [],
+      "substates": {
+        "exploring": {
+          "description": "Active first-person exploration — mine, build, craft, farm, trade, fight",
+          "active_systems": [
+            "voxel_world",
+            "biome_weather",
+            "farming_village",
+            "combat_survival"
+          ],
+          "active_behaviors": [
+            "fps_movement",
+            "camera_fps",
+            "fps_block_interact",
+            "fps_melee_bow",
+            "player_vitals",
+            "hostile_ai",
+            "farm_animal_ai",
+            "villager_ai",
+            "patrol_ai"
+          ],
+          "on_enter": [
+            "show_ui:hud/vitals",
+            "show_ui:hud/hotbar",
+            "show_ui:hud/crosshair",
+            "show_ui:hud/compass",
+            "show_ui:hud/armor_bar",
+            "emit:game.player_respawned",
+            "play_sound:/assets/kenney/audio/rpg_audio/doorOpen_1.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:hud/vitals",
+            "hide_ui:hud/hotbar",
+            "hide_ui:hud/crosshair",
+            "hide_ui:hud/compass",
+            "hide_ui:hud/armor_bar"
+          ],
+          "transitions": [
+            { "when": "game_event:player_died", "goto": "death_pause" }
+          ]
+        },
+        "death_pause": {
+          "description": "Player died — items drop, respawn at village after delay",
+          "active_systems": ["voxel_world", "biome_weather"],
+          "active_behaviors": ["camera_fps"],
+          "duration": -1,
+          "on_enter": [
+            "show_ui:hud/death_screen",
+            "set:respawn_timer=0",
+            "play_sound:/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_000.ogg"
+          ],
+          "on_update": ["increment:respawn_timer"],
+          "on_exit": ["hide_ui:hud/death_screen"],
+          "transitions": [
+            { "when": "respawn_timer>=180", "goto": "exploring" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

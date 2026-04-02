@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; }
+  .vitals { position: fixed; bottom: 50px; left: 14px; display: flex; flex-direction: column; gap: 4px; }
+  .bar-wrap { width: 180px; }
+  .bar-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 1px; text-transform: uppercase; display: flex; justify-content: space-between; }
+  .bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.2s; }
+  .bar-hp { background: linear-gradient(90deg, #ef4444, #f97316); }
+  .bar-hunger { background: linear-gradient(90deg, #f59e0b, #eab308); }
+  .bar-hp.low { animation: pulse 0.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+</style>
+</head>
+<body>
+<div class="vitals">
+  <div class="bar-wrap">
+    <div class="bar-label"><span>HEALTH</span><span id="hp-text">100</span></div>
+    <div class="bar-track"><div class="bar-fill bar-hp" id="hp-bar" style="width:100%"></div></div>
+  </div>
+  <div class="bar-wrap">
+    <div class="bar-label"><span>HUNGER</span><span id="hunger-text">100</span></div>
+    <div class="bar-track"><div class="bar-fill bar-hunger" id="hunger-bar" style="width:100%"></div></div>
+  </div>
+</div>
+<script>
+(function(){
+  function update(s){if(!s)return;
+    if(s.health!==undefined&&s.maxHealth){
+      var pct=Math.max(0,(s.health/s.maxHealth)*100);
+      var bar=document.getElementById('hp-bar');
+      if(bar){bar.style.width=pct+'%';bar.className='bar-fill bar-hp'+(pct<=25?' low':'');}
+      document.getElementById('hp-text').textContent=Math.round(s.health);
+    }
+    if(s.hunger!==undefined&&s.maxHunger){
+      var pct=Math.max(0,(s.hunger/s.maxHunger)*100);
+      document.getElementById('hunger-bar').style.width=pct+'%';
+      document.getElementById('hunger-text').textContent=Math.round(s.hunger);
+    }
+  }
+  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+})();
+</script>
+</body>
+</html>

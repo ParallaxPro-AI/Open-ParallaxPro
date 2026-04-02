@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; }
+  .turn-panel {
+    position: fixed; top: 46px; left: 14px;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;
+    padding: 6px 16px; text-align: center;
+  }
+  .turn-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 2px; text-transform: uppercase; }
+  .turn-val { font-size: 20px; font-weight: 900; color: #22d3ee; text-shadow: 0 0 8px rgba(34,211,238,0.3); font-variant-numeric: tabular-nums; }
+  .unit-info { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.06); }
+  .unit-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 1px; }
+  .unit-counts { font-size: 11px; font-weight: 700; color: #999; margin-top: 2px; }
+  .pcol { color: #22c55e; }
+  .acol { color: #ef4444; }
+</style>
+</head>
+<body>
+<div class="turn-panel">
+  <div class="turn-label">TURN</div>
+  <div class="turn-val"><span id="turn">0</span> / <span id="maxTurn">150</span></div>
+  <div class="unit-info">
+    <div class="unit-label">FORCES</div>
+    <div class="unit-counts">
+      <span class="pcol" id="pUnits">0</span> units &middot; <span class="pcol" id="pCities">0</span> cities
+      <br><span class="acol" id="aUnits">0</span> enemy &middot; <span class="acol" id="aCities">0</span> cities
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  function update(s){if(!s)return;
+    if(s.turn!==undefined)document.getElementById('turn').textContent=s.turn;
+    if(s.maxTurns!==undefined)document.getElementById('maxTurn').textContent=s.maxTurns;
+    if(s.playerUnits!==undefined)document.getElementById('pUnits').textContent=s.playerUnits;
+    if(s.playerCities!==undefined)document.getElementById('pCities').textContent=s.playerCities;
+    if(s.aiUnits!==undefined)document.getElementById('aUnits').textContent=s.aiUnits;
+    if(s.aiCities!==undefined)document.getElementById('aCities').textContent=s.aiCities;
+  }
+  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+})();
+</script>
+</body>
+</html>

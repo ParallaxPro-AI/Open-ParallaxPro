@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
+.sel{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:4px 14px;font-size:10px;font-weight:600;color:#888;display:none;}
+.sel.visible{display:block;}
+.sn{color:#22d3ee;font-weight:700;}
+</style></head><body>
+<div class="sel" id="sel">Selected: <span class="sn" id="sname">—</span></div>
+<script>(function(){function u(s){if(!s)return;var el=document.getElementById('sel');if(s.selectedUnit){el.style.display='block';document.getElementById('sname').textContent=s.selectedUnit;}else{el.style.display='none';}}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

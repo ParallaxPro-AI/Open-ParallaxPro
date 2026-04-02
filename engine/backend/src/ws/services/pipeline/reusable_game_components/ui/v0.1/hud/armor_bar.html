@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><head><style>
+* { margin:0;padding:0;box-sizing:border-box; }
+body { font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden; }
+.armor { position:fixed;bottom:42px;left:14px;width:170px; }
+.bar-l { font-size:7px;font-weight:700;color:#555;letter-spacing:1px;display:flex;justify-content:space-between; }
+.bar-t { height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden; }
+.bar-f { height:100%;border-radius:3px;background:linear-gradient(90deg,#3b82f6,#6366f1);transition:width 0.2s; }
+</style></head><body>
+<div class="armor">
+  <div class="bar-l"><span>ARMOR</span><span id="av">0</span></div>
+  <div class="bar-t"><div class="bar-f" id="ab" style="width:0%"></div></div>
+</div>
+<script>
+(function(){function u(s){if(!s)return;
+if(s.armor!==undefined){document.getElementById('ab').style.width=Math.min(100,s.armor)+'%';document.getElementById('av').textContent=s.armor;}
+}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

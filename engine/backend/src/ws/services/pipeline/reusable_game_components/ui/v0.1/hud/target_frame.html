@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
+.tf{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);border:1px solid rgba(239,68,68,0.15);border-radius:10px;padding:6px 16px;text-align:center;display:none;min-width:140px;}
+.tf.visible{display:block;}.tf-name{font-size:12px;font-weight:800;color:#ef4444;}.tf-hp{font-size:10px;color:#888;margin-top:2px;}
+.tf-bar{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:3px;}.tf-fill{height:100%;background:#ef4444;border-radius:2px;transition:width 0.2s;}
+</style></head><body>
+<div class="tf" id="tf"><div class="tf-name" id="tname">Boss</div><div class="tf-bar"><div class="tf-fill" id="tbf" style="width:100%"></div></div><div class="tf-hp" id="thp">500/500</div></div>
+<script>(function(){function u(s){if(!s)return;var el=document.getElementById('tf');
+if(s.bossHealth!==undefined&&s.bossMaxHealth){el.style.display='block';document.getElementById('tbf').style.width=Math.max(0,s.bossHealth/s.bossMaxHealth*100)+'%';document.getElementById('thp').textContent=Math.round(s.bossHealth)+'/'+s.bossMaxHealth;}
+else{el.style.display='none';}
+}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

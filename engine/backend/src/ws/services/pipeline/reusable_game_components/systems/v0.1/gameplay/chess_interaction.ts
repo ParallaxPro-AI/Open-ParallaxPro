@@ -226,7 +226,7 @@ class ChessInteractionSystem extends GameScript {
                     var sp = this._selectedPiece.transform.position;
                     var fromX = Math.round(sp.x), fromZ = Math.round(sp.z);
                     this.scene.setPosition(this._selectedPiece.id, gx, sp.y, gz);
-                    if (clickedPiece && !clickedIsMine) { this.scene.destroyEntity(clickedPiece.id); }
+                    if (clickedPiece && !clickedIsMine) { this.scene.destroyEntity(clickedPiece.id); this.scene._chessCheckKings = true; }
                     // Emit move for multiplayer sync
                     var moveData = {};
                     moveData.from = { x: fromX, z: fromZ };

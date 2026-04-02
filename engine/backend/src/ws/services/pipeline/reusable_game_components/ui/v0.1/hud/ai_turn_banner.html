@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; pointer-events: none; overflow: hidden; }
+  .banner {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(14px);
+    border: 1px solid rgba(239,68,68,0.15); border-radius: 16px;
+    padding: 16px 48px; text-align: center;
+  }
+  .banner-text {
+    font-size: 28px; font-weight: 900; color: #ef4444;
+    text-shadow: 0 0 20px rgba(239,68,68,0.3);
+    letter-spacing: 3px; text-transform: uppercase;
+  }
+  .banner-sub {
+    font-size: 12px; font-weight: 600; color: #888; margin-top: 4px;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+  .banner-text { animation: pulse 1.2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div class="banner">
+  <div class="banner-text">Enemy Turn</div>
+  <div class="banner-sub">The AI civilization is making decisions...</div>
+</div>
+</body>
+</html>

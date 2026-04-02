@@ -1,0 +1,69 @@
+{
+  "systems": {
+    "sandbox_world": {
+      "description": "Core sandbox mechanics — block mining and placement, inventory management, resource tracking, tool durability, item drops and pickup",
+      "script": "gameplay/sandbox_world.ts",
+      "params": {
+        "inventorySlots": 9,
+        "pickupRadius": 2.5,
+        "blockMineTime": 1.2,
+        "oreMineTime": 2.0,
+        "treeMineTime": 1.8,
+        "dropLifetime": 60,
+        "startTools": ["wood_pickaxe", "wood_sword"],
+        "pickupSound": "/assets/kenney/audio/digital_audio/phaserUp1.ogg"
+      }
+    },
+    "day_night_cycle": {
+      "description": "Manages day/night transitions — adjusts ambient lighting, triggers night events, sun/moon progression, and nightfall mob spawning signals",
+      "script": "gameplay/day_night_cycle.ts",
+      "params": {
+        "dayDuration": 180,
+        "nightDuration": 120,
+        "dawnDuration": 15,
+        "duskDuration": 15,
+        "dayAmbient": [0.55, 0.58, 0.65],
+        "nightAmbient": [0.08, 0.08, 0.15],
+        "daySunColor": [1.0, 0.97, 0.88],
+        "nightSunColor": [0.2, 0.22, 0.4],
+        "nightWarningSound": "/assets/kenney/audio/interface_sounds/error_006.ogg"
+      }
+    },
+    "mob_spawner": {
+      "description": "Spawns hostile mobs at night and in dark underground areas — manages mob population cap, spawn zones, and despawn logic at dawn",
+      "script": "gameplay/mob_spawner.ts",
+      "params": {
+        "maxSurfaceMobs": 8,
+        "maxCaveMobs": 6,
+        "nightSpawnRate": 10,
+        "caveSpawnRate": 25,
+        "spawnDistance": 25,
+        "despawnDistance": 50,
+        "nightMobs": ["zombie", "skeleton"],
+        "caveMobs": ["skeleton", "goblin", "skeleton_armored"]
+      }
+    },
+    "crafting_system": {
+      "description": "Recipe-based crafting — processes resource combinations into tools, weapons, blocks, and structures near crafting stations",
+      "script": "gameplay/crafting_system.ts",
+      "params": {
+        "craftRange": 4,
+        "recipes": {
+          "wood_pickaxe": { "wood": 3 },
+          "stone_pickaxe": { "wood": 2, "stone": 3 },
+          "diamond_pickaxe": { "wood": 2, "diamond": 3 },
+          "wood_sword": { "wood": 2 },
+          "stone_sword": { "wood": 1, "stone": 2 },
+          "diamond_sword": { "wood": 1, "diamond": 2 },
+          "torch": { "wood": 1, "coal": 1 },
+          "campfire": { "wood": 5, "stone": 3 },
+          "chest": { "wood": 8 },
+          "fence": { "wood": 4 },
+          "brick_block": { "stone": 4 },
+          "wood_plank": { "wood": 2 }
+        },
+        "craftSound": "/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
+      }
+    }
+  }
+}

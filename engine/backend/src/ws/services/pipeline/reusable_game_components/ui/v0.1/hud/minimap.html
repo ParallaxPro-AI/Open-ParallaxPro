@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; }
+  .minimap-panel {
+    position: fixed; bottom: 14px; left: 14px;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+    padding: 8px; width: 130px;
+  }
+  .minimap-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 2px; text-transform: uppercase; text-align: center; margin-bottom: 4px; }
+  .minimap-box {
+    width: 114px; height: 114px;
+    background: linear-gradient(135deg, #1a2e1a, #2a3a20);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 4px;
+    position: relative; overflow: hidden;
+  }
+  .dot { position: absolute; width: 6px; height: 6px; border-radius: 50%; }
+  .dot.player { background: #22c55e; box-shadow: 0 0 4px rgba(34,197,94,0.5); }
+  .dot.enemy { background: #ef4444; box-shadow: 0 0 4px rgba(239,68,68,0.5); }
+  .dot.city { width: 8px; height: 8px; border-radius: 2px; }
+  .ai-state { text-align: center; margin-top: 4px; font-size: 10px; font-weight: 700; }
+  .peace { color: #22c55e; }
+  .war { color: #ef4444; }
+</style>
+</head>
+<body>
+<div class="minimap-panel">
+  <div class="minimap-label">MAP</div>
+  <div class="minimap-box" id="minimap">
+    <div class="dot player city" style="left:25%;top:35%"></div>
+    <div class="dot player" style="left:28%;top:32%"></div>
+    <div class="dot enemy city" style="left:70%;top:60%"></div>
+    <div class="dot enemy" style="left:68%;top:58%"></div>
+  </div>
+  <div class="ai-state" id="aiState">
+    <span class="peace">&#9774; Peace</span>
+  </div>
+</div>
+<script>
+(function(){
+  function update(s){if(!s)return;
+    if(s.aiState!==undefined){
+      var el=document.getElementById('aiState');
+      if(el){
+        if(s.aiState==='war')el.innerHTML='<span class="war">&#9876; War</span>';
+        else el.innerHTML='<span class="peace">&#9774; Peace</span>';
+      }
+    }
+  }
+  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+})();
+</script>
+</body>
+</html>

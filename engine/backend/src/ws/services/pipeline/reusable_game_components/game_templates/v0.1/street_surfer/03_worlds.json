@@ -1,0 +1,63 @@
+{
+  "worlds": [
+    {
+      "id": "street_surfer_city",
+      "name": "City Streets",
+      "lighting": {
+        "ambient": [0.45, 0.5, 0.6],
+        "sun_direction": [0.3, -0.7, -0.3],
+        "sun_color": [1.0, 0.95, 0.85]
+      },
+      "placements": [
+        { "name": "Runner", "ref": "runner", "position": [0, 1, 2] },
+        { "ref": "camera", "position": [0, 6, 12] },
+        { "name": "Guard", "ref": "guard", "position": [0, 1, 10] },
+
+        { "ref": "track_road", "position": [0, -0.25, 20] },
+        { "ref": "track_road", "position": [0, -0.25, -20] },
+        { "ref": "track_road", "position": [0, -0.25, -60] },
+        { "ref": "track_road", "position": [0, -0.25, -100] },
+
+        { "ref": "track_wall", "position": [-5.5, 0.75, 20] },
+        { "ref": "track_wall", "position": [5.5, 0.75, 20] },
+        { "ref": "track_wall", "position": [-5.5, 0.75, -20] },
+        { "ref": "track_wall", "position": [5.5, 0.75, -20] },
+        { "ref": "track_wall", "position": [-5.5, 0.75, -60] },
+        { "ref": "track_wall", "position": [5.5, 0.75, -60] },
+        { "ref": "track_wall", "position": [-5.5, 0.75, -100] },
+        { "ref": "track_wall", "position": [5.5, 0.75, -100] },
+
+        { "ref": "building_a", "position": [-16, 0, 10] },
+        { "ref": "building_b", "position": [16, 0, 5] },
+        { "ref": "building_c", "position": [-15, 0, -20] },
+        { "ref": "building_d", "position": [17, 0, -30] },
+        { "ref": "building_e", "position": [-18, 0, -55] },
+        { "ref": "building_a", "position": [15, 0, -65] },
+        { "ref": "building_b", "position": [-16, 0, -85] },
+        { "ref": "building_c", "position": [16, 0, -95] },
+
+        { "ref": "tree_scenery", "position": [-7.5, 0, 15] },
+        { "ref": "tree_scenery", "position": [7.5, 0, 8] },
+        { "ref": "tree_scenery", "position": [-7.5, 0, -15] },
+        { "ref": "tree_scenery", "position": [7.5, 0, -35] },
+        { "ref": "tree_scenery", "position": [-7.5, 0, -50] },
+        { "ref": "tree_scenery", "position": [7.5, 0, -70] },
+        { "ref": "tree_scenery", "position": [-7.5, 0, -90] },
+        { "ref": "tree_scenery", "position": [7.5, 0, -105] },
+
+        { "ref": "fence_scenery", "position": [-6.5, 0, 10] },
+        { "ref": "fence_scenery", "position": [6.5, 0, 10] },
+        { "ref": "fence_scenery", "position": [-6.5, 0, -18] },
+        { "ref": "fence_scenery", "position": [6.5, 0, -18] },
+        { "ref": "fence_scenery", "position": [-6.5, 0, -46] },
+        { "ref": "fence_scenery", "position": [6.5, 0, -46] },
+        { "ref": "fence_scenery", "position": [-6.5, 0, -74] },
+        { "ref": "fence_scenery", "position": [6.5, 0, -74] },
+
+        { "ref": "fire_hydrant", "position": [-6.2, 0, 0] },
+        { "ref": "fire_hydrant", "position": [6.2, 0, -40] },
+        { "ref": "fire_hydrant", "position": [-6.2, 0, -80] }
+      ]
+    }
+  ]
+}

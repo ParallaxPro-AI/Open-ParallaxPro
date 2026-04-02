@@ -37,10 +37,15 @@ export class BackendClient {
         return this.fetch(`/projects/${projectId}`);
     }
 
-    async createProject(name?: string, prompt?: string): Promise<any> {
+    async listTemplates(search?: string): Promise<any> {
+        const params = search ? `?search=${encodeURIComponent(search)}` : '';
+        return this.fetch(`/projects/templates${params}`);
+    }
+
+    async createProject(name?: string, prompt?: string, templateId?: string): Promise<any> {
         return this.fetch('/projects', {
             method: 'POST',
-            body: JSON.stringify({ name, prompt }),
+            body: JSON.stringify({ name, prompt, templateId }),
         });
     }
 

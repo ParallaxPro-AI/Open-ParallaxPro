@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html><head><style>
+* { margin:0;padding:0;box-sizing:border-box; }
+body { font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden; }
+.vitals { position:fixed;bottom:50px;left:14px;display:flex;flex-direction:column;gap:3px; }
+.bar-w { width:170px; }
+.bar-l { font-size:7px;font-weight:700;color:#555;letter-spacing:1px;display:flex;justify-content:space-between; }
+.bar-t { height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden; }
+.bar-f { height:100%;border-radius:3px;transition:width 0.2s; }
+.hp { background:linear-gradient(90deg,#ef4444,#f97316); }
+.hun { background:linear-gradient(90deg,#f59e0b,#eab308); }
+.sta { background:linear-gradient(90deg,#22c55e,#16a34a); }
+</style></head><body>
+<div class="vitals">
+  <div class="bar-w"><div class="bar-l"><span>HP</span><span id="hp">100</span></div><div class="bar-t"><div class="bar-f hp" id="hpb" style="width:100%"></div></div></div>
+  <div class="bar-w"><div class="bar-l"><span>HUNGER</span><span id="hu">100</span></div><div class="bar-t"><div class="bar-f hun" id="hub" style="width:100%"></div></div></div>
+  <div class="bar-w"><div class="bar-l"><span>STAMINA</span><span id="st">100</span></div><div class="bar-t"><div class="bar-f sta" id="stb" style="width:100%"></div></div></div>
+</div>
+<script>
+(function(){function u(s){if(!s)return;
+if(s.health!==undefined&&s.maxHealth){document.getElementById('hpb').style.width=Math.max(0,s.health/s.maxHealth*100)+'%';document.getElementById('hp').textContent=Math.round(s.health);}
+if(s.hunger!==undefined&&s.maxHunger){document.getElementById('hub').style.width=Math.max(0,s.hunger/s.maxHunger*100)+'%';document.getElementById('hu').textContent=Math.round(s.hunger);}
+if(s.stamina!==undefined&&s.maxStamina){document.getElementById('stb').style.width=Math.max(0,s.stamina/s.maxStamina*100)+'%';document.getElementById('st').textContent=Math.round(s.stamina);}
+}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

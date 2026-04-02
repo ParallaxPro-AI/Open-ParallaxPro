@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; }
+  .era-panel {
+    position: fixed; top: 46px; right: 14px;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;
+    padding: 6px 16px; text-align: center;
+  }
+  .era-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 2px; text-transform: uppercase; }
+  .era-val { font-size: 14px; font-weight: 800; color: #f59e0b; text-transform: capitalize; text-shadow: 0 0 8px rgba(245,158,11,0.2); }
+  .tech-info { margin-top: 4px; font-size: 10px; color: #888; }
+  .tech-name { color: #3b82f6; font-weight: 700; }
+  .tech-bar { margin-top: 4px; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  .tech-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 2px; transition: width 0.3s; width: 0%; }
+</style>
+</head>
+<body>
+<div class="era-panel">
+  <div class="era-label">ERA</div>
+  <div class="era-val" id="era">Ancient</div>
+  <div class="tech-info">Researching: <span class="tech-name" id="techName">—</span></div>
+  <div class="tech-bar"><div class="tech-fill" id="techFill"></div></div>
+  <div class="tech-info"><span id="techCount">0</span> / <span id="techTotal">14</span> techs</div>
+</div>
+<script>
+(function(){
+  function update(s){if(!s)return;
+    if(s.era!==undefined)document.getElementById('era').textContent=s.era;
+    if(s.currentTech!==undefined){
+      var name=s.currentTech?s.currentTech.replace(/_/g,' '):'—';
+      document.getElementById('techName').textContent=name;
+    }
+    if(s.techProgress!==undefined&&s.techCost){
+      var pct=s.techCost>0?Math.min(100,(s.techProgress/s.techCost)*100):0;
+      document.getElementById('techFill').style.width=pct+'%';
+    }
+    if(s.techsResearched!==undefined)document.getElementById('techCount').textContent=s.techsResearched;
+    if(s.totalTechs!==undefined)document.getElementById('techTotal').textContent=s.totalTechs;
+  }
+  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+})();
+</script>
+</body>
+</html>

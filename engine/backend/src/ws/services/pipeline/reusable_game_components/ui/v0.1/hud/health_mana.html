@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
+.hm{position:fixed;bottom:14px;left:14px;display:flex;flex-direction:column;gap:3px;width:200px;}
+.bar-w{}.bl{font-size:7px;font-weight:700;color:#555;letter-spacing:1px;display:flex;justify-content:space-between;}.bt{height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;}.bf{height:100%;border-radius:3px;transition:width 0.2s;}
+.hp{background:linear-gradient(90deg,#ef4444,#f97316);}.mp{background:linear-gradient(90deg,#3b82f6,#6366f1);}
+.xp-w{margin-top:2px;}.xf{background:linear-gradient(90deg,#a78bfa,#8b5cf6);}
+.lvl{font-size:10px;font-weight:800;color:#f59e0b;text-align:center;margin-top:2px;}
+</style></head><body>
+<div class="hm">
+  <div class="bar-w"><div class="bl"><span>HP</span><span id="hp">200/200</span></div><div class="bt"><div class="bf hp" id="hpb" style="width:100%"></div></div></div>
+  <div class="bar-w"><div class="bl"><span>MANA</span><span id="mp">100/100</span></div><div class="bt"><div class="bf mp" id="mpb" style="width:100%"></div></div></div>
+  <div class="bar-w xp-w"><div class="bl"><span>XP</span><span id="xp">0/100</span></div><div class="bt"><div class="bf xf" id="xpb" style="width:0%"></div></div></div>
+  <div class="lvl">Lv.<span id="lv">1</span></div>
+</div>
+<script>(function(){function u(s){if(!s)return;
+if(s.health!==undefined&&s.maxHealth){document.getElementById('hpb').style.width=Math.max(0,s.health/s.maxHealth*100)+'%';document.getElementById('hp').textContent=Math.round(s.health)+'/'+s.maxHealth;}
+if(s.mana!==undefined&&s.maxMana){document.getElementById('mpb').style.width=Math.max(0,s.mana/s.maxMana*100)+'%';document.getElementById('mp').textContent=Math.round(s.mana)+'/'+s.maxMana;}
+if(s.xp!==undefined&&s.xpToLevel){document.getElementById('xpb').style.width=Math.max(0,s.xp/s.xpToLevel*100)+'%';document.getElementById('xp').textContent=s.xp+'/'+s.xpToLevel;}
+if(s.level!==undefined)document.getElementById('lv').textContent=s.level;
+}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

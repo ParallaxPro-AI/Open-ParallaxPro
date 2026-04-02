@@ -1,0 +1,203 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 55 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_deadly",
+          "script": "camera/camera_deadly.ts",
+          "params": { "smoothSpeed": 4 }
+        }
+      ]
+    },
+
+    "player_contestant": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
+        "scale": [0.85, 0.85, 0.85],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player", "human"],
+      "behaviors": [
+        {
+          "name": "deadly_player",
+          "script": "movement/deadly_player.ts",
+          "params": { "speed": 7, "jumpForce": 8 }
+        }
+      ]
+    },
+
+    "contestant_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Female.glb",
+        "scale": [0.85, 0.85, 0.85]
+      },
+      "physics": false,
+      "tags": ["contestant", "ai"],
+      "label": false
+    },
+
+    "contestant_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Male.glb",
+        "scale": [0.85, 0.85, 0.85]
+      },
+      "physics": false,
+      "tags": ["contestant", "ai"],
+      "label": false
+    },
+
+    "contestant_c": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual2_Male.glb",
+        "scale": [0.85, 0.85, 0.85]
+      },
+      "physics": false,
+      "tags": ["contestant", "ai"],
+      "label": false
+    },
+
+    "contestant_d": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual3_Female.glb",
+        "scale": [0.85, 0.85, 0.85]
+      },
+      "physics": false,
+      "tags": ["contestant", "ai"],
+      "label": false
+    },
+
+    "contestant_e": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Bald.glb",
+        "scale": [0.85, 0.85, 0.85]
+      },
+      "physics": false,
+      "tags": ["contestant", "ai"],
+      "label": false
+    },
+
+    "sentinel": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Golden_Male.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": false,
+      "tags": ["sentinel"],
+      "label": false
+    },
+
+    "arena_ground": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.25, 0.28, 0.25, 1],
+        "scale": [20, 0.2, 100]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+
+    "corridor_wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.35, 0.3, 0.3, 1],
+        "scale": [0.5, 4, 20]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+      }
+    },
+
+    "finish_marker": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.9, 0.1, 0.1, 1],
+        "scale": [16, 0.08, 1]
+      },
+      "physics": false,
+      "tags": ["finish"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png"
+      }
+    },
+
+    "glass_panel": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.6, 0.85, 0.95, 0.7],
+        "scale": [3, 0.2, 3.5]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["glass"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
+    },
+
+    "bridge_platform": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.4, 0.4, 0.45, 1],
+        "scale": [10, 0.3, 6]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["platform"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+
+    "floor_tile": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.5, 0.55, 0.6, 1],
+        "scale": [3.5, 0.3, 3.5]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["tile"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
+    }
+  }
+}

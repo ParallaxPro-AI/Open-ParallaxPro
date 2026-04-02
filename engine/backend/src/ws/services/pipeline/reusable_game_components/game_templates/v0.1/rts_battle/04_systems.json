@@ -1,0 +1,98 @@
+{
+  "systems": {
+    "resource_system": {
+      "description": "Manages crystal mining, energy harvesting, supply tracking, and resource income — workers deliver gathered resources to the nearest command center or refinery",
+      "script": "gameplay/resource_system.ts",
+      "params": {
+        "startCrystals": 50,
+        "startEnergy": 0,
+        "startSupply": 6,
+        "maxSupply": 200,
+        "supplyPerDepot": 8,
+        "crystalPerTrip": 8,
+        "energyPerTick": 2,
+        "mineTickRate": 1.2,
+        "crystalNodeAmount": 1500,
+        "richCrystalMultiplier": 1.5,
+        "workerReturnRange": 3,
+        "resourceSound": "/assets/kenney/audio/digital_audio/pepSound2.ogg"
+      }
+    },
+    "production_system": {
+      "description": "Handles building construction, unit training queues, tech tree requirements, and upgrade research — enforces build order and resource costs",
+      "script": "gameplay/production_system.ts",
+      "params": {
+        "buildings": {
+          "command_center": { "cost": { "crystals": 400 }, "buildTime": 60, "supply": 0 },
+          "barracks": { "cost": { "crystals": 150 }, "buildTime": 30, "supply": 0, "requires": [] },
+          "factory": { "cost": { "crystals": 200, "energy": 100 }, "buildTime": 40, "requires": ["barracks"] },
+          "mech_bay": { "cost": { "crystals": 300, "energy": 200 }, "buildTime": 50, "requires": ["factory"] },
+          "starport": { "cost": { "crystals": 250, "energy": 150 }, "buildTime": 45, "requires": ["factory"] },
+          "supply_depot": { "cost": { "crystals": 100 }, "buildTime": 20, "supply": 8 },
+          "refinery": { "cost": { "crystals": 75 }, "buildTime": 20 },
+          "engineering_bay": { "cost": { "crystals": 125 }, "buildTime": 25, "requires": ["barracks"] },
+          "turret_cannon": { "cost": { "crystals": 125 }, "buildTime": 15, "requires": ["engineering_bay"] },
+          "turret_laser": { "cost": { "crystals": 175, "energy": 50 }, "buildTime": 20, "requires": ["engineering_bay"] }
+        },
+        "units": {
+          "worker": { "cost": { "crystals": 50 }, "trainTime": 12, "supply": 1, "producedAt": "command_center" },
+          "marine": { "cost": { "crystals": 50 }, "trainTime": 15, "supply": 1, "producedAt": "barracks" },
+          "medic": { "cost": { "crystals": 50, "energy": 25 }, "trainTime": 18, "supply": 1, "producedAt": "barracks" },
+          "ghost": { "cost": { "crystals": 150, "energy": 125 }, "trainTime": 25, "supply": 2, "producedAt": "barracks", "requires": ["engineering_bay"] },
+          "tank": { "cost": { "crystals": 150, "energy": 50 }, "trainTime": 22, "supply": 3, "producedAt": "factory" },
+          "siege_tank": { "cost": { "crystals": 200, "energy": 100 }, "trainTime": 30, "supply": 4, "producedAt": "factory" },
+          "mech_walker": { "cost": { "crystals": 250, "energy": 150 }, "trainTime": 35, "supply": 4, "producedAt": "mech_bay" },
+          "battle_mech": { "cost": { "crystals": 400, "energy": 300 }, "trainTime": 50, "supply": 6, "producedAt": "mech_bay" },
+          "scout_mech": { "cost": { "crystals": 150, "energy": 75 }, "trainTime": 20, "supply": 2, "producedAt": "mech_bay" },
+          "fighter": { "cost": { "crystals": 150, "energy": 100 }, "trainTime": 25, "supply": 2, "producedAt": "starport" },
+          "bomber": { "cost": { "crystals": 250, "energy": 175 }, "trainTime": 35, "supply": 3, "producedAt": "starport" }
+        },
+        "buildSound": "/assets/kenney/audio/sci_fi_sounds/doorOpen_001.ogg",
+        "trainCompleteSound": "/assets/kenney/audio/digital_audio/powerUp1.ogg",
+        "cannotBuildSound": "/assets/kenney/audio/interface_sounds/error_006.ogg"
+      }
+    },
+    "combat_system": {
+      "description": "Handles unit selection, move commands, attack-move, targeting priority, damage calculation, armor, splash damage, health bars, unit death, and fog of war",
+      "script": "gameplay/combat_system.ts",
+      "params": {
+        "selectionMode": "box",
+        "maxSelection": 24,
+        "rightClickMove": true,
+        "attackMoveKey": "KeyA",
+        "patrolKey": "KeyP",
+        "stopKey": "KeyS",
+        "holdPositionKey": "KeyH",
+        "controlGroupKeys": ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9", "Digit0"],
+        "fogOfWar": true,
+        "visionRange": 12,
+        "deathSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_001.ogg",
+        "selectSound": "/assets/kenney/audio/interface_sounds/confirmation_001.ogg",
+        "commandSound": "/assets/kenney/audio/interface_sounds/confirmation_004.ogg",
+        "cannotSound": "/assets/kenney/audio/interface_sounds/error_006.ogg"
+      }
+    },
+    "enemy_commander": {
+      "description": "AI opponent that manages the Xarn Collective — builds base, trains army, researches upgrades, scouts, expands to new bases, and launches coordinated attack waves with increasing intensity",
+      "script": "gameplay/enemy_commander.ts",
+      "params": {
+        "difficulty": "normal",
+        "startDelay": 60,
+        "firstAttackTime": 180,
+        "attackInterval": 120,
+        "attackEscalation": 1.2,
+        "maxWaveSize": 20,
+        "expandAfterWave": 3,
+        "scoutInterval": 45,
+        "buildOrder": ["spawning_pool", "evolution_chamber", "spire"],
+        "armyComposition": {
+          "early": { "swarmling": 6 },
+          "mid": { "swarmling": 8, "ravager": 3, "viper": 2 },
+          "late": { "swarmling": 10, "ravager": 5, "viper": 4, "ufo_assault": 2, "ufo_heavy": 1 }
+        },
+        "droneTarget": 16,
+        "attackSound": "/assets/kenney/audio/sci_fi_sounds/forceField_001.ogg"
+      }
+    }
+  }
+}

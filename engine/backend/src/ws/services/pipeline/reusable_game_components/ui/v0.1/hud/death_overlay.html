@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; pointer-events: none; overflow: hidden; }
+  .death-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(80, 0, 0, 0.5);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    animation: fadeIn 0.8s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+  .death-text {
+    font-size: 56px; font-weight: 900; color: #ef4444;
+    text-shadow: 0 0 30px rgba(239,68,68,0.5), 0 4px 20px rgba(0,0,0,0.6);
+    letter-spacing: 6px; text-transform: uppercase;
+  }
+  .death-sub {
+    font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.5);
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="death-overlay">
+  <div class="death-text">You Died</div>
+  <div class="death-sub">Respawning...</div>
+</div>
+</body>
+</html>

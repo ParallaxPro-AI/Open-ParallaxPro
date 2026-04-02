@@ -71,6 +71,9 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     add_currency:       { fields: { amount: { type: 'number' } } },
     spend_currency:     { fields: { amount: { type: 'number' } } },
     buy_item:           { fields: { item: { type: 'string', optional: true } } },
+    spend_resources:    { fields: { minerals: { type: 'number', optional: true }, gas: { type: 'number', optional: true } } },
+    train_unit:         { fields: { unitType: { type: 'string', optional: true }, x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    accept_quest:       { fields: { questId: { type: 'string', optional: true } } },
 
     // ── Vehicle ──
     vehicle_entered:    { fields: { vehicleId: { type: 'number', optional: true } } },
@@ -85,12 +88,20 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     apply_remote_move:  { fields: { from: { type: 'any' }, to: { type: 'any' }, color: { type: 'string', optional: true } } },
     move_made:          { fields: {} },
 
-    // ── Racing ──
+    // ── Racing / Endless Runner ──
     race_start:         { fields: {} },
     race_started:       { fields: {} },
     race_finished:      { fields: {} },
     boost_active:       { fields: {} },
     speed_boost:        { fields: {} },
+    runner_crash:       { fields: {} },
+    restart_game:       { fields: {} },
+    tank_fired:         { fields: { x: { type: 'number', optional: true }, z: { type: 'number', optional: true }, yaw: { type: 'number', optional: true }, damage: { type: 'number', optional: true }, range: { type: 'number', optional: true }, source: { type: 'string', optional: true } } },
+    player_repair:      { fields: { amount: { type: 'number', optional: true } } },
+    battle_start:       { fields: {} },
+    dash_start:         { fields: {} },
+    dash_die:           { fields: {} },
+    dash_reset:         { fields: {} },
 
     // ── MOBA ──
     champion_died:      { fields: {} },
@@ -149,15 +160,36 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     resource_gathered:  { fields: { resource: { type: 'string', optional: true }, amount: { type: 'number', optional: true } } },
     building_placed:    { fields: { building: { type: 'string', optional: true } } },
     building_destroyed: { fields: { buildingId: { type: 'number', optional: true } } },
+    block_mined:        { fields: { entityId: { type: 'number', optional: true }, x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    nightfall:          { fields: {} },
+    daybreak:           { fields: {} },
+    eat_food:           { fields: { amount: { type: 'number', optional: true } } },
+    craft_item:         { fields: { recipe: { type: 'string', optional: true } } },
 
-    // ── RPG / Turn-based ──
+    // ── RPG / Turn-based / Strategy ──
     turn_started:       { fields: { turn: { type: 'number', optional: true } } },
     turn_ended:         { fields: {} },
+    turn_start:         { fields: {} },
+    turn_end:           { fields: {} },
+    ai_turn_start:      { fields: {} },
+    victory:            { fields: {} },
+    defeat:             { fields: {} },
     xp_gained:          { fields: { amount: { type: 'number' } } },
     level_up:           { fields: { level: { type: 'number' } } },
     quest_started:      { fields: { quest: { type: 'string', optional: true } } },
     quest_completed:    { fields: { quest: { type: 'string', optional: true } } },
     loot_dropped:       { fields: { item: { type: 'string', optional: true } } },
+    final_boss_defeated: { fields: {} },
+    select_unit:        { fields: { entityId: { type: 'number', optional: true } } },
+    move_unit:          { fields: { x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    ai_move_unit:       { fields: { entityId: { type: 'number', optional: true }, x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    attack_unit:        { fields: { attackerId: { type: 'number', optional: true }, defenderId: { type: 'number', optional: true } } },
+    research_tech:      { fields: { tech: { type: 'string', optional: true } } },
+    adopt_policy:       { fields: { policy: { type: 'string', optional: true } } },
+
+    // ── Climbing / Platformer Extended ──
+    climb_start:        { fields: {} },
+    summit_reached:     { fields: {} },
 
     // ── Sports / Ball ──
     goal_scored:        { fields: { team: { type: 'string', optional: true }, score: { type: 'number', optional: true } } },
@@ -172,6 +204,19 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     piece_removed:      { fields: { piece: { type: 'string', optional: true } } },
     match_found:        { fields: { count: { type: 'number', optional: true } } },
     grid_cleared:       { fields: {} },
+
+    // ── Party / Minigame ──
+    minigame_start:     { fields: { minigame: { type: 'string', optional: true } } },
+    minigame_end:       { fields: {} },
+    round_complete:     { fields: { round: { type: 'number', optional: true } } },
+    player_eliminated:  { fields: { playerId: { type: 'number', optional: true } } },
+    crown_collected:    { fields: { playerId: { type: 'number', optional: true } } },
+
+    // ── Elimination / Survival ──
+    contestant_eliminated: { fields: { name: { type: 'string', optional: true } } },
+    light_changed:      { fields: { state: { type: 'string', optional: true } } },
+    panel_broken:       { fields: { panel: { type: 'number', optional: true } } },
+    tile_collapsed:     { fields: { x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
 
     // ── Generic / Reusable ──
     objective_complete: { fields: { objective: { type: 'string', optional: true } } },

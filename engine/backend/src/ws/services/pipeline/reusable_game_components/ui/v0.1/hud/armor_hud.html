@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(5, 10, 8, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.07);
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --text-muted: #555;
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.3);
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.3);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.3);
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34, 211, 238, 0.3);
+    --mil-green: #4d7c0f;
+    --mil-green-dim: rgba(77, 124, 15, 0.3);
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== HULL INTEGRITY (BOTTOM LEFT) ===== */
+  .hp-panel {
+    position: fixed;
+    bottom: 18px;
+    left: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px 16px;
+    min-width: 200px;
+  }
+
+  .hp-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .hp-bar-track {
+    width: 100%;
+    height: 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .hp-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--green), var(--mil-green));
+    transition: width 0.2s ease-out;
+    width: 100%;
+  }
+
+  .hp-bar-fill.mid { background: linear-gradient(90deg, var(--amber), #ca8a04); }
+  .hp-bar-fill.low { background: var(--red); animation: hpPulse 0.8s infinite; }
+
+  @keyframes hpPulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+
+  .hp-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-top: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== AMMO (BOTTOM RIGHT) ===== */
+  .ammo-panel {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px 18px;
+    text-align: right;
+    min-width: 120px;
+  }
+
+  .ammo-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .ammo-display {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 3px;
+  }
+
+  .ammo-current {
+    font-size: 34px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ammo-current.empty { color: var(--red); }
+
+  .ammo-sep { font-size: 16px; color: var(--text-muted); font-weight: 600; }
+  .ammo-max { font-size: 16px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+  .reload-bar {
+    margin-top: 5px;
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .reload-bar.visible { display: block; }
+
+  .reload-fill {
+    height: 100%;
+    background: var(--amber);
+    border-radius: 2px;
+    transition: width 0.15s;
+    width: 0%;
+  }
+
+  .reload-text {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--amber);
+    text-align: center;
+    margin-top: 2px;
+    display: none;
+  }
+
+  .reload-text.visible { display: block; }
+
+  /* ===== WAVE / KILLS (TOP CENTER) ===== */
+  .wave-panel {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 6px 24px;
+    text-align: center;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .wave-block, .kill-block { text-align: center; }
+
+  .stat-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .wave-value {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: 0 0 10px var(--cyan-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kill-value {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--red);
+    text-shadow: 0 0 10px var(--red-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wave-divider {
+    width: 1px;
+    height: 28px;
+    background: rgba(255,255,255,0.1);
+  }
+
+  /* ===== ENEMY COUNT (TOP RIGHT) ===== */
+  .enemy-panel {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--amber);
+    display: none;
+  }
+
+  .enemy-panel.visible { display: block; }
+
+  /* ===== SPEED (BOTTOM CENTER) ===== */
+  .speed-panel {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 6px 20px;
+    text-align: center;
+  }
+
+  .speed-num {
+    font-size: 28px;
+    font-weight: 900;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .speed-unit {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ===== REPAIR BADGE ===== */
+  .repair-badge {
+    position: fixed;
+    bottom: 80px;
+    left: 18px;
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .repair-badge kbd {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  .repair-ready { color: var(--green); }
+  .repair-cooldown { color: var(--text-muted); }
+
+  /* ===== ANNOUNCEMENT ===== */
+  .announce-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .announce-overlay.visible { opacity: 1; }
+
+  .announce-text {
+    font-size: 60px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.5), 0 0 40px var(--mil-green-dim);
+    letter-spacing: 3px;
+  }
+
+  .announce-sub {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--amber);
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    margin-top: 8px;
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .announce-overlay.visible .announce-text {
+    animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+
+  /* ===== CONTROLS ===== */
+  .controls {
+    position: fixed;
+    bottom: 14px;
+    right: 50%;
+    transform: translateX(50%);
+    bottom: 75px;
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 4px 14px;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Wave / Kills -->
+<div class="wave-panel">
+  <div class="wave-block">
+    <div class="stat-label">WAVE</div>
+    <div class="wave-value" id="wave-val">0 / 3</div>
+  </div>
+  <div class="wave-divider"></div>
+  <div class="kill-block">
+    <div class="stat-label">KILLS</div>
+    <div class="kill-value" id="kill-val">0</div>
+  </div>
+</div>
+
+<!-- Enemy Count -->
+<div class="enemy-panel" id="enemy-panel">
+  Hostiles: <span id="enemy-count">0</span>
+</div>
+
+<!-- Hull Integrity -->
+<div class="hp-panel">
+  <div class="hp-label">HULL INTEGRITY</div>
+  <div class="hp-bar-track">
+    <div class="hp-bar-fill" id="hp-bar"></div>
+  </div>
+  <div class="hp-text"><span id="hp-val">250</span> / <span id="hp-max">250</span></div>
+</div>
+
+<!-- Repair Badge -->
+<div class="repair-badge" id="repair-badge">
+  <kbd>R</kbd> <span id="repair-status" class="repair-ready">Repair Ready</span>
+</div>
+
+<!-- Ammo -->
+<div class="ammo-panel">
+  <div class="ammo-label">CANNON</div>
+  <div class="ammo-display">
+    <span class="ammo-current" id="ammo-val">5</span>
+    <span class="ammo-sep">/</span>
+    <span class="ammo-max" id="ammo-max">5</span>
+  </div>
+  <div class="reload-bar" id="reload-bar">
+    <div class="reload-fill" id="reload-fill"></div>
+  </div>
+  <div class="reload-text" id="reload-text">RELOADING</div>
+</div>
+
+<!-- Speed -->
+<div class="speed-panel">
+  <div class="speed-num" id="speed-val">0</div>
+  <div class="speed-unit">KM/H</div>
+</div>
+
+<!-- Announcement -->
+<div class="announce-overlay" id="announce">
+  <div class="announce-text" id="announce-text"></div>
+  <div class="announce-sub" id="announce-sub"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Drive
+  &middot; <kbd>Space</kbd> Fire
+  &middot; <kbd>R</kbd> Repair
+</div>
+
+<script>
+(function() {
+  var lastAnnounce = '';
+
+  function update(state) {
+    if (!state) return;
+
+    // HP
+    if (state.playerHP !== undefined && state.playerMaxHP !== undefined) {
+      var pct = Math.max(0, (state.playerHP / state.playerMaxHP) * 100);
+      var bar = document.getElementById('hp-bar');
+      if (bar) {
+        bar.style.width = pct + '%';
+        bar.className = 'hp-bar-fill' + (pct <= 25 ? ' low' : pct <= 50 ? ' mid' : '');
+      }
+      var hv = document.getElementById('hp-val');
+      if (hv) hv.textContent = Math.round(state.playerHP);
+      var hm = document.getElementById('hp-max');
+      if (hm) hm.textContent = state.playerMaxHP;
+    }
+
+    // Ammo
+    if (state.ammo !== undefined) {
+      var av = document.getElementById('ammo-val');
+      if (av) {
+        av.textContent = state.ammo;
+        av.className = 'ammo-current' + (state.ammo === 0 ? ' empty' : '');
+      }
+    }
+    if (state.maxAmmo !== undefined) {
+      var am = document.getElementById('ammo-max');
+      if (am) am.textContent = state.maxAmmo;
+    }
+
+    // Reload
+    if (state.reloading !== undefined) {
+      var rb = document.getElementById('reload-bar');
+      var rt = document.getElementById('reload-text');
+      if (state.reloading) {
+        if (rb) rb.classList.add('visible');
+        if (rt) rt.classList.add('visible');
+        var rf = document.getElementById('reload-fill');
+        if (rf && state.reloadPct !== undefined) rf.style.width = state.reloadPct + '%';
+      } else {
+        if (rb) rb.classList.remove('visible');
+        if (rt) rt.classList.remove('visible');
+      }
+    }
+
+    // Speed
+    if (state.speed !== undefined) {
+      var sv = document.getElementById('speed-val');
+      if (sv) sv.textContent = state.speed;
+    }
+
+    // Wave / Kills
+    if (state.wave !== undefined) {
+      var wv = document.getElementById('wave-val');
+      if (wv) wv.textContent = state.wave + ' / ' + (state.totalWaves || 3);
+    }
+    if (state.kills !== undefined) {
+      var kv = document.getElementById('kill-val');
+      if (kv) kv.textContent = state.kills;
+    }
+
+    // Enemies alive
+    if (state.enemiesAlive !== undefined) {
+      var ep = document.getElementById('enemy-panel');
+      var ec = document.getElementById('enemy-count');
+      if (state.phase === 'battle' && state.enemiesAlive > 0) {
+        if (ep) ep.classList.add('visible');
+        if (ec) ec.textContent = state.enemiesAlive;
+      } else {
+        if (ep) ep.classList.remove('visible');
+      }
+    }
+
+    // Repair
+    if (state.repairReady !== undefined) {
+      var rs = document.getElementById('repair-status');
+      if (rs) {
+        rs.textContent = state.repairReady ? 'Repair Ready' : 'Cooldown';
+        rs.className = state.repairReady ? 'repair-ready' : 'repair-cooldown';
+      }
+    }
+
+    // Announcement
+    if (state.announce !== undefined) {
+      var ao = document.getElementById('announce');
+      var at = document.getElementById('announce-text');
+      var as = document.getElementById('announce-sub');
+      if (state.announce && state.announce.length > 0) {
+        if (at) at.textContent = state.announce;
+        if (as) as.textContent = state.subtext || '';
+        if (ao && state.announce !== lastAnnounce) {
+          ao.classList.remove('visible');
+          void ao.offsetWidth;
+          ao.classList.add('visible');
+          lastAnnounce = state.announce;
+        }
+      } else {
+        if (ao) ao.classList.remove('visible');
+        lastAnnounce = '';
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

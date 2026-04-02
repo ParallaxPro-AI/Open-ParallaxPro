@@ -1,0 +1,1005 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 55 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "rts_camera",
+          "script": "camera/camera_rts.ts",
+          "params": {
+            "height": 35,
+            "angle": 60,
+            "panSpeed": 30,
+            "zoomSpeed": 8,
+            "minZoom": 15,
+            "maxZoom": 55,
+            "edgeScrollSpeed": 20,
+            "edgeScrollMargin": 30,
+            "smoothSpeed": 8,
+            "boundsX": [-70, 70],
+            "boundsZ": [-70, 70]
+          }
+        }
+      ]
+    },
+
+    "command_center": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Base_Large.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building", "player_building", "production", "command_center"],
+      "label": false
+    },
+    "barracks": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/House_Single.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building", "player_building", "production", "barracks"],
+      "label": false
+    },
+    "factory": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/House_Long.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building", "player_building", "production", "factory"],
+      "label": false
+    },
+    "mech_bay": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/GeodesicDome.glb",
+        "scale": [3, 3, 3]
+      },
+      "tags": ["building", "player_building", "production", "mech_bay"],
+      "label": false
+    },
+    "starport": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/House_Open.glb",
+        "scale": [3, 3, 3]
+      },
+      "tags": ["building", "player_building", "production", "starport"],
+      "label": false
+    },
+    "supply_depot": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/House_Cylinder.glb",
+        "scale": [2, 2, 2]
+      },
+      "tags": ["building", "player_building", "supply"],
+      "label": false
+    },
+    "refinery": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/SolarPanel_Structure.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building", "player_building", "refinery"],
+      "label": false
+    },
+    "engineering_bay": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Building_L.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building", "player_building", "tech"],
+      "label": false
+    },
+    "turret_cannon": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/turret_pack/Cannon_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "tags": ["building", "player_building", "defense"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "turret_defense",
+          "script": "ai/turret_defense.ts",
+          "params": {
+            "health": 400,
+            "maxHealth": 400,
+            "damage": 15,
+            "attackRange": 14,
+            "attackRate": 1.0,
+            "targetPriority": ["enemy_unit", "enemy_building"],
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_000.ogg"
+          }
+        }
+      ]
+    },
+    "turret_laser": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/turret_pack/Laser_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "tags": ["building", "player_building", "defense"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "turret_defense",
+          "script": "ai/turret_defense.ts",
+          "params": {
+            "health": 350,
+            "maxHealth": 350,
+            "damage": 25,
+            "attackRange": 16,
+            "attackRate": 1.5,
+            "targetPriority": ["enemy_unit", "enemy_air"],
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserRetro_002.ogg"
+          }
+        }
+      ]
+    },
+
+    "worker": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Male.glb",
+        "scale": [0.35, 0.35, 0.35],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "player_unit", "worker"],
+      "behaviors": [
+        {
+          "name": "worker_ai",
+          "script": "ai/worker_ai.ts",
+          "params": {
+            "health": 40,
+            "maxHealth": 40,
+            "moveSpeed": 4,
+            "mineRate": 1.2,
+            "carryCapacity": 8,
+            "buildSpeed": 1.0,
+            "damage": 5,
+            "attackRange": 1.5,
+            "mineSound": "/assets/kenney/audio/impact_sounds/impactPlate_medium_004.ogg"
+          }
+        }
+      ]
+    },
+    "marine": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [0.35, 0.35, 0.35],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 55,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "player_unit", "infantry"],
+      "behaviors": [
+        {
+          "name": "ranged_combat",
+          "script": "combat/ranged_combat.ts",
+          "params": {
+            "health": 60,
+            "maxHealth": 60,
+            "damage": 8,
+            "attackRange": 10,
+            "attackRate": 0.6,
+            "moveSpeed": 4.5,
+            "canAttackAir": true,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_000.ogg"
+          }
+        }
+      ]
+    },
+    "marine_female": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Female.glb",
+        "scale": [0.35, 0.35, 0.35],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 55,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "player_unit", "infantry"],
+      "behaviors": [
+        {
+          "name": "ranged_combat",
+          "script": "combat/ranged_combat.ts",
+          "params": {
+            "health": 60,
+            "maxHealth": 60,
+            "damage": 8,
+            "attackRange": 10,
+            "attackRate": 0.6,
+            "moveSpeed": 4.5,
+            "canAttackAir": true,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_001.ogg"
+          }
+        }
+      ]
+    },
+    "medic": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Doctor_Female_Young.glb",
+        "scale": [0.35, 0.35, 0.35],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "player_unit", "support"],
+      "behaviors": [
+        {
+          "name": "medic_ai",
+          "script": "ai/medic_ai.ts",
+          "params": {
+            "health": 50,
+            "maxHealth": 50,
+            "healRate": 10,
+            "healRange": 5,
+            "moveSpeed": 4.5,
+            "healSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg"
+          }
+        }
+      ]
+    },
+    "ghost": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Ninja_Male.glb",
+        "scale": [0.35, 0.35, 0.35],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "player_unit", "stealth"],
+      "behaviors": [
+        {
+          "name": "ranged_combat",
+          "script": "combat/ranged_combat.ts",
+          "params": {
+            "health": 45,
+            "maxHealth": 45,
+            "damage": 20,
+            "attackRange": 14,
+            "attackRate": 1.5,
+            "moveSpeed": 5,
+            "canAttackAir": false,
+            "canCloak": true,
+            "cloakDuration": 8,
+            "cloakCooldown": 15,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_004.ogg"
+          }
+        }
+      ]
+    },
+    "tank": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/tank_pack/Tank.glb",
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 800,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["unit", "player_unit", "armored"],
+      "behaviors": [
+        {
+          "name": "unit_combat",
+          "script": "combat/unit_combat.ts",
+          "params": {
+            "health": 200,
+            "maxHealth": 200,
+            "damage": 20,
+            "attackRange": 12,
+            "attackRate": 1.5,
+            "moveSpeed": 3,
+            "splashRadius": 2,
+            "armor": 3,
+            "canAttackAir": false,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_000.ogg"
+          }
+        }
+      ]
+    },
+    "siege_tank": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/tank_pack/Tank2.glb",
+        "scale": [0.7, 0.7, 0.7]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1100,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["unit", "player_unit", "armored", "siege"],
+      "behaviors": [
+        {
+          "name": "unit_combat",
+          "script": "combat/unit_combat.ts",
+          "params": {
+            "health": 250,
+            "maxHealth": 250,
+            "damage": 40,
+            "attackRange": 18,
+            "attackRate": 2.5,
+            "moveSpeed": 2,
+            "splashRadius": 3.5,
+            "armor": 4,
+            "canAttackAir": false,
+            "siegeMode": true,
+            "siegeSetupTime": 2.0,
+            "siegeBonusDamage": 20,
+            "siegeBonusRange": 6,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_002.ogg"
+          }
+        }
+      ]
+    },
+    "mech_walker": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/animated_mech_pack/George.glb",
+        "scale": [0.5, 0.5, 0.5]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 600,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "player_unit", "mech"],
+      "behaviors": [
+        {
+          "name": "unit_combat",
+          "script": "combat/unit_combat.ts",
+          "params": {
+            "health": 300,
+            "maxHealth": 300,
+            "damage": 25,
+            "attackRange": 8,
+            "attackRate": 1.2,
+            "moveSpeed": 3.5,
+            "armor": 3,
+            "canAttackAir": true,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_002.ogg"
+          }
+        }
+      ]
+    },
+    "battle_mech": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/animated_mech_pack/Stan.glb",
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 900,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "player_unit", "mech", "elite"],
+      "behaviors": [
+        {
+          "name": "unit_combat",
+          "script": "combat/unit_combat.ts",
+          "params": {
+            "health": 500,
+            "maxHealth": 500,
+            "damage": 35,
+            "attackRange": 10,
+            "attackRate": 1.5,
+            "moveSpeed": 2.5,
+            "splashRadius": 2,
+            "armor": 5,
+            "canAttackAir": true,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_004.ogg"
+          }
+        }
+      ]
+    },
+    "scout_mech": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/animated_mech_pack/Leela.glb",
+        "scale": [0.45, 0.45, 0.45]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 400,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "player_unit", "mech", "scout"],
+      "behaviors": [
+        {
+          "name": "unit_combat",
+          "script": "combat/unit_combat.ts",
+          "params": {
+            "health": 150,
+            "maxHealth": 150,
+            "damage": 12,
+            "attackRange": 10,
+            "attackRate": 0.8,
+            "moveSpeed": 6,
+            "armor": 1,
+            "canAttackAir": true,
+            "visionRange": 18,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_003.ogg"
+          }
+        }
+      ]
+    },
+    "fighter": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Spaceship_FinnTheFrog.glb",
+        "scale": [0.8, 0.8, 0.8]
+      },
+      "physics": false,
+      "tags": ["unit", "player_unit", "air"],
+      "behaviors": [
+        {
+          "name": "ranged_combat",
+          "script": "combat/ranged_combat.ts",
+          "params": {
+            "health": 150,
+            "maxHealth": 150,
+            "damage": 15,
+            "attackRange": 12,
+            "attackRate": 0.8,
+            "moveSpeed": 8,
+            "canAttackAir": true,
+            "isFlying": true,
+            "flyHeight": 6,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserRetro_000.ogg"
+          }
+        }
+      ]
+    },
+    "bomber": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Spaceship_BarbaraTheBee.glb",
+        "scale": [0.9, 0.9, 0.9]
+      },
+      "physics": false,
+      "tags": ["unit", "player_unit", "air"],
+      "behaviors": [
+        {
+          "name": "ranged_combat",
+          "script": "combat/ranged_combat.ts",
+          "params": {
+            "health": 200,
+            "maxHealth": 200,
+            "damage": 30,
+            "attackRange": 8,
+            "attackRate": 2.0,
+            "moveSpeed": 5,
+            "splashRadius": 3,
+            "canAttackAir": false,
+            "isFlying": true,
+            "flyHeight": 7,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_004.ogg"
+          }
+        }
+      ]
+    },
+
+    "hive": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/spawn-round.glb",
+        "scale": [4, 4, 4]
+      },
+      "tags": ["building", "enemy_building", "production", "hive"],
+      "label": false
+    },
+    "spawning_pool": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/tile-crystal.glb",
+        "scale": [3.5, 3.5, 3.5]
+      },
+      "tags": ["building", "enemy_building", "production"],
+      "label": false
+    },
+    "spire": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/tower-square-top-a.glb",
+        "scale": [3, 3, 3]
+      },
+      "tags": ["building", "enemy_building", "production"],
+      "label": false
+    },
+    "evolution_chamber": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/tile-rock.glb",
+        "scale": [3.5, 3.5, 3.5]
+      },
+      "tags": ["building", "enemy_building", "tech"],
+      "label": false
+    },
+    "alien_turret": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/enemy-ufo-a-weapon.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "tags": ["building", "enemy_building", "defense"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "turret_defense",
+          "script": "ai/turret_defense.ts",
+          "params": {
+            "health": 300,
+            "maxHealth": 300,
+            "damage": 20,
+            "attackRange": 14,
+            "attackRate": 1.2,
+            "targetPriority": ["player_unit", "player_building"],
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserRetro_004.ogg"
+          }
+        }
+      ]
+    },
+
+    "drone_alien": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/animated_robot/Robot.glb",
+        "scale": [0.4, 0.4, 0.4]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 35,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "enemy_unit", "worker"],
+      "behaviors": [
+        {
+          "name": "enemy_worker_ai",
+          "script": "ai/enemy_worker_ai.ts",
+          "params": {
+            "health": 30,
+            "maxHealth": 30,
+            "moveSpeed": 3.5,
+            "mineRate": 1.0,
+            "carryCapacity": 6
+          }
+        }
+      ]
+    },
+    "swarmling": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Enemy_Small.glb",
+        "scale": [1.2, 1.2, 1.2]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 25,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "enemy_unit", "light"],
+      "behaviors": [
+        {
+          "name": "enemy_swarm_ai",
+          "script": "ai/enemy_swarm_ai.ts",
+          "params": {
+            "health": 40,
+            "maxHealth": 40,
+            "damage": 6,
+            "attackRange": 2,
+            "attackRate": 0.5,
+            "moveSpeed": 6,
+            "swarmRadius": 3,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/impactMetal_001.ogg"
+          }
+        }
+      ]
+    },
+    "ravager": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Enemy_Large.glb",
+        "scale": [1.2, 1.2, 1.2]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 120,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["unit", "enemy_unit", "heavy"],
+      "behaviors": [
+        {
+          "name": "enemy_assault_ai",
+          "script": "ai/enemy_assault_ai.ts",
+          "params": {
+            "health": 180,
+            "maxHealth": 180,
+            "damage": 18,
+            "attackRange": 8,
+            "attackRate": 1.2,
+            "moveSpeed": 3,
+            "armor": 2,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_001.ogg"
+          }
+        }
+      ]
+    },
+    "viper": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Enemy_Flying.glb",
+        "scale": [1.2, 1.2, 1.2]
+      },
+      "physics": false,
+      "tags": ["unit", "enemy_unit", "air"],
+      "behaviors": [
+        {
+          "name": "enemy_air_ai",
+          "script": "ai/enemy_air_ai.ts",
+          "params": {
+            "health": 100,
+            "maxHealth": 100,
+            "damage": 12,
+            "attackRange": 10,
+            "attackRate": 0.8,
+            "moveSpeed": 7,
+            "isFlying": true,
+            "flyHeight": 5,
+            "canAttackAir": true,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserRetro_001.ogg"
+          }
+        }
+      ]
+    },
+    "ufo_assault": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/enemy-ufo-a.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["unit", "enemy_unit", "air", "heavy"],
+      "behaviors": [
+        {
+          "name": "enemy_assault_ai",
+          "script": "ai/enemy_assault_ai.ts",
+          "params": {
+            "health": 250,
+            "maxHealth": 250,
+            "damage": 25,
+            "attackRange": 12,
+            "attackRate": 1.5,
+            "moveSpeed": 4,
+            "splashRadius": 2,
+            "isFlying": true,
+            "flyHeight": 6,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_003.ogg"
+          }
+        }
+      ]
+    },
+    "ufo_heavy": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/enemy-ufo-c.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["unit", "enemy_unit", "air", "elite"],
+      "behaviors": [
+        {
+          "name": "enemy_assault_ai",
+          "script": "ai/enemy_assault_ai.ts",
+          "params": {
+            "health": 400,
+            "maxHealth": 400,
+            "damage": 35,
+            "attackRange": 14,
+            "attackRate": 2.0,
+            "moveSpeed": 3,
+            "splashRadius": 3,
+            "armor": 3,
+            "isFlying": true,
+            "flyHeight": 7,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_003.ogg"
+          }
+        }
+      ]
+    },
+
+    "crystal_node": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["resource", "mineral"],
+      "label": false
+    },
+    "crystal_large": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["resource", "mineral", "rich"],
+      "label": false
+    },
+    "energy_geyser": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/turret_pack/Teleporter1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["resource", "gas"],
+      "label": false
+    },
+
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.25, 0.4, 0.35, 1],
+        "scale": [160, 1, 160]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    },
+    "terrain_cliff": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.45, 0.42, 0.38, 1],
+        "scale": [1, 4, 1]
+      },
+      "tags": ["terrain", "impassable"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "base_platform_blue": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.15, 0.2, 0.35, 1],
+        "scale": [30, 1, 30]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "base_platform_red": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.35, 0.15, 0.12, 1],
+        "scale": [30, 1, 30]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "path_road": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.3, 0.28, 0.25, 1],
+        "scale": [8, 1, 30]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+      }
+    },
+    "ramp_structure": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Ramp.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "alien_tree_1": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Tree_Blob_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "alien_tree_2": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Tree_Spiral_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "alien_tree_3": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Tree_Spikes_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "alien_tree_4": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Tree_Light_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "alien_bush": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Bush_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "alien_rock": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Rock_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "alien_rock_large": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Rock_Large_1.glb",
+        "scale": [2, 2, 2]
+      },
+      "tags": ["decoration", "obstacle"],
+      "label": false
+    },
+    "alien_grass": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Grass_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "alien_plant": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Plant_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "solar_panel": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/SolarPanel_Ground.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "radar_tower": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Roof_Radar.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration", "sensor"],
+      "label": false
+    },
+    "debris_crate": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_modular_scifi/Props_Crate.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "connector_pipe": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Connector.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "metal_support": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/MetalSupport.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "rover": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Rover_1.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    }
+  }
+}

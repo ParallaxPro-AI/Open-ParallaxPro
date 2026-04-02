@@ -58,7 +58,7 @@ class PlatformerMovementBehavior extends GameScript {
         // Face movement direction
         var moving = Math.abs(vx) > 0.1 || Math.abs(vz) > 0.1;
         if (moving) {
-            var moveAngle = Math.atan2(vx, -vz) * 180 / Math.PI;
+            var moveAngle = Math.atan2(vx, vz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, moveAngle, 0);
         }
 

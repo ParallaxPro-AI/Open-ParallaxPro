@@ -576,18 +576,31 @@ export class ProjectListView {
         const body = document.createElement('div');
         body.style.display = 'flex';
         body.style.flexDirection = 'column';
-        body.style.gap = '12px';
+        body.style.gap = '16px';
+
+        // ── Section 1: Generate from prompt ──
+        const promptSection = document.createElement('div');
+        promptSection.style.display = 'flex';
+        promptSection.style.flexDirection = 'column';
+        promptSection.style.gap = '8px';
 
         const label = document.createElement('label');
-        label.textContent = 'What is your video game idea?';
+        label.textContent = 'Generate from prompt';
         label.style.fontSize = '13px';
         label.style.fontWeight = '600';
         label.style.color = 'var(--text-secondary)';
-        body.appendChild(label);
+        promptSection.appendChild(label);
+
+        const promptHint = document.createElement('div');
+        promptHint.textContent = 'Describe your game idea and AI will build it for you.';
+        promptHint.style.fontSize = '11px';
+        promptHint.style.color = 'var(--text-tertiary, #888)';
+        promptSection.appendChild(promptHint);
 
         const textarea = document.createElement('textarea');
+        textarea.placeholder = 'e.g. A 3D platformer with double-jump and coin collection...';
         textarea.style.width = '100%';
-        textarea.style.height = '120px';
+        textarea.style.height = '100px';
         textarea.style.resize = 'vertical';
         textarea.style.fontSize = '13px';
         textarea.style.lineHeight = '1.5';
@@ -597,9 +610,199 @@ export class ProjectListView {
         textarea.style.borderRadius = 'var(--radius-sm)';
         textarea.style.color = 'var(--text-primary)';
         textarea.style.fontFamily = 'var(--font-family)';
-        body.appendChild(textarea);
+        promptSection.appendChild(textarea);
 
-        const submit = async (prompt: string) => {
+        body.appendChild(promptSection);
+
+        // ── Divider with "or" ──
+        const divider = document.createElement('div');
+        divider.style.display = 'flex';
+        divider.style.alignItems = 'center';
+        divider.style.gap = '12px';
+        const divLine1 = document.createElement('div');
+        divLine1.style.flex = '1';
+        divLine1.style.height = '1px';
+        divLine1.style.background = 'var(--border)';
+        const divText = document.createElement('span');
+        divText.textContent = 'or';
+        divText.style.fontSize = '12px';
+        divText.style.color = 'var(--text-tertiary, #888)';
+        divText.style.flexShrink = '0';
+        const divLine2 = document.createElement('div');
+        divLine2.style.flex = '1';
+        divLine2.style.height = '1px';
+        divLine2.style.background = 'var(--border)';
+        divider.appendChild(divLine1);
+        divider.appendChild(divText);
+        divider.appendChild(divLine2);
+        body.appendChild(divider);
+
+        // ── Section 2: Build from template ──
+        const templateSection = document.createElement('div');
+        templateSection.style.display = 'flex';
+        templateSection.style.flexDirection = 'column';
+        templateSection.style.gap = '8px';
+
+        const templateLabel = document.createElement('label');
+        templateLabel.textContent = 'Build from template';
+        templateLabel.style.fontSize = '13px';
+        templateLabel.style.fontWeight = '600';
+        templateLabel.style.color = 'var(--text-secondary)';
+        templateSection.appendChild(templateLabel);
+
+        const templateHint = document.createElement('div');
+        templateHint.textContent = 'Start with a ready-made game template you can customize.';
+        templateHint.style.fontSize = '11px';
+        templateHint.style.color = 'var(--text-tertiary, #888)';
+        templateSection.appendChild(templateHint);
+
+        // Search input
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search templates...';
+        searchInput.style.width = '100%';
+        searchInput.style.fontSize = '13px';
+        searchInput.style.padding = '7px 10px';
+        searchInput.style.background = 'var(--bg-input)';
+        searchInput.style.border = '1px solid var(--border)';
+        searchInput.style.borderRadius = 'var(--radius-sm)';
+        searchInput.style.color = 'var(--text-primary)';
+        searchInput.style.fontFamily = 'var(--font-family)';
+        templateSection.appendChild(searchInput);
+
+        // Template list container
+        const templateList = document.createElement('div');
+        templateList.style.maxHeight = '180px';
+        templateList.style.overflowY = 'auto';
+        templateList.style.display = 'flex';
+        templateList.style.flexDirection = 'column';
+        templateList.style.gap = '4px';
+        templateList.style.border = '1px solid var(--border)';
+        templateList.style.borderRadius = 'var(--radius-sm)';
+        templateList.style.padding = '4px';
+        templateList.style.background = 'var(--bg-input)';
+        templateSection.appendChild(templateList);
+
+        let allTemplates: any[] = [];
+        let selectedTemplateId = '';
+
+        const renderTemplateList = (filter: string) => {
+            templateList.innerHTML = '';
+            const query = filter.toLowerCase();
+            const filtered = allTemplates.filter(t =>
+                !query || t.name.toLowerCase().includes(query) || t.id.toLowerCase().includes(query) || (t.description || '').toLowerCase().includes(query)
+            );
+            if (filtered.length === 0) {
+                const empty = document.createElement('div');
+                empty.textContent = query ? 'No templates match your search' : 'Loading...';
+                empty.style.fontSize = '12px';
+                empty.style.color = 'var(--text-tertiary, #888)';
+                empty.style.padding = '8px';
+                empty.style.textAlign = 'center';
+                templateList.appendChild(empty);
+                return;
+            }
+            for (const t of filtered) {
+                const item = document.createElement('div');
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.justifyContent = 'space-between';
+                item.style.padding = '6px 8px';
+                item.style.borderRadius = '4px';
+                item.style.cursor = 'pointer';
+                item.style.fontSize = '12px';
+                item.style.transition = 'background 0.1s';
+                item.style.background = t.id === selectedTemplateId ? 'var(--accent-bg, rgba(59,130,246,0.15))' : 'transparent';
+                item.style.border = t.id === selectedTemplateId ? '1px solid var(--accent, #3b82f6)' : '1px solid transparent';
+
+                const info = document.createElement('div');
+                const nameEl = document.createElement('div');
+                nameEl.style.fontWeight = '600';
+                nameEl.style.color = 'var(--text-primary)';
+                nameEl.textContent = t.name;
+                const descEl = document.createElement('div');
+                descEl.style.fontSize = '11px';
+                descEl.style.color = 'var(--text-tertiary, #888)';
+                descEl.style.marginTop = '1px';
+                descEl.textContent = `${t.description} · ${t.entityCount} entities`;
+                info.appendChild(nameEl);
+                info.appendChild(descEl);
+                item.appendChild(info);
+
+                item.addEventListener('mouseenter', () => { if (t.id !== selectedTemplateId) item.style.background = 'var(--bg-hover, rgba(255,255,255,0.04))'; });
+                item.addEventListener('mouseleave', () => { if (t.id !== selectedTemplateId) item.style.background = 'transparent'; });
+                item.addEventListener('click', () => {
+                    selectedTemplateId = selectedTemplateId === t.id ? '' : t.id;
+                    renderTemplateList(searchInput.value);
+                    // Mutual exclusion
+                    textarea.disabled = !!selectedTemplateId;
+                    textarea.style.opacity = selectedTemplateId ? '0.4' : '1';
+                });
+                templateList.appendChild(item);
+            }
+        };
+
+        // Load templates from backend
+        this.ctx.backend.listTemplates().then((data: any) => {
+            allTemplates = data?.templates || [];
+            renderTemplateList('');
+        }).catch(() => {});
+
+        // Search: instant client-side filter + debounced semantic search
+        let searchTimer: any = null;
+        searchInput.addEventListener('input', () => {
+            // Instant client-side filter
+            renderTemplateList(searchInput.value);
+
+            // Debounced semantic search from backend
+            if (searchTimer) clearTimeout(searchTimer);
+            const query = searchInput.value.trim();
+            if (query.length >= 2) {
+                searchTimer = setTimeout(() => {
+                    this.ctx.backend.listTemplates(query).then((data: any) => {
+                        if (searchInput.value.trim() === query) {
+                            allTemplates = data?.templates || allTemplates;
+                            renderTemplateList(query);
+                        }
+                    }).catch(() => {});
+                }, 300);
+            }
+        });
+
+        // Build button
+        const buildBtn = document.createElement('button');
+        buildBtn.textContent = 'Build from Template';
+        buildBtn.style.width = '100%';
+        buildBtn.style.padding = '8px 16px';
+        buildBtn.style.fontSize = '13px';
+        buildBtn.style.fontWeight = '600';
+        buildBtn.style.background = 'var(--accent, #3b82f6)';
+        buildBtn.style.color = '#fff';
+        buildBtn.style.border = 'none';
+        buildBtn.style.borderRadius = 'var(--radius-sm)';
+        buildBtn.style.cursor = 'pointer';
+        buildBtn.style.marginTop = '4px';
+        templateSection.appendChild(buildBtn);
+
+        body.appendChild(templateSection);
+
+        // ── Mutual exclusion ──
+        textarea.addEventListener('input', () => {
+            const hasPrompt = textarea.value.trim().length > 0;
+            if (hasPrompt) {
+                selectedTemplateId = '';
+                renderTemplateList(searchInput.value);
+            }
+            searchInput.disabled = hasPrompt;
+            searchInput.style.opacity = hasPrompt ? '0.4' : '1';
+            templateList.style.opacity = hasPrompt ? '0.4' : '1';
+            templateList.style.pointerEvents = hasPrompt ? 'none' : 'auto';
+            buildBtn.style.opacity = hasPrompt ? '0.4' : '1';
+            buildBtn.style.pointerEvents = hasPrompt ? 'none' : 'auto';
+        });
+
+        // ── Submit handlers ──
+        const submitPrompt = async (prompt: string) => {
             const name = this.getNextProjectName();
             try {
                 const project = await this.ctx.backend.createProject(undefined, prompt);
@@ -612,10 +815,29 @@ export class ProjectListView {
             }
         };
 
+        const submitTemplate = async (templateId: string) => {
+            const name = this.getNextProjectName();
+            try {
+                const project = await this.ctx.backend.createProject(undefined, undefined, templateId);
+                const pid = project.projectId ?? project.id;
+                this.projects.unshift({ id: pid, name: project.name ?? name, ...project });
+                this.render();
+                this.onOpenProject?.(pid);
+            } catch (e) {
+                console.error('Failed to create project from template:', e);
+            }
+        };
+
+        buildBtn.addEventListener('click', async () => {
+            if (!selectedTemplateId) return;
+            close();
+            await submitTemplate(selectedTemplateId);
+        });
+
         const { close } = showModal({
             title: 'New Project',
             body,
-            width: '480px',
+            width: '520px',
             buttons: [
                 { label: 'Cancel', action: () => close() },
                 {
@@ -625,7 +847,7 @@ export class ProjectListView {
                         const prompt = textarea.value.trim();
                         if (!prompt) return;
                         close();
-                        await submit(prompt);
+                        await submitPrompt(prompt);
                     },
                 },
             ],
@@ -638,7 +860,7 @@ export class ProjectListView {
                 const prompt = textarea.value.trim();
                 if (!prompt) return;
                 close();
-                submit(prompt);
+                submitPrompt(prompt);
             }
         });
     }

@@ -10,7 +10,7 @@ import type { EnginePlugin } from './plugin.js';
 
 // Per-IP rate limiter for HTTP API routes
 const ipHits = new Map<string, { count: number; resetAt: number }>();
-const HTTP_RATE_LIMIT = 120;  // requests per window
+const HTTP_RATE_LIMIT = 480;  // requests per window
 const HTTP_RATE_WINDOW = 60_000; // 1 minute
 setInterval(() => { const now = Date.now(); for (const [k, v] of ipHits) { if (now > v.resetAt) ipHits.delete(k); } }, 60_000);
 
@@ -69,7 +69,7 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
 
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
     app.use(express.json({ limit: '10mb' }));
-    app.use('/api/engine', httpRateLimit);
+    if (config.isHosted) app.use('/api/engine', httpRateLimit);
 
     // Static asset serving — local files first, fallback to CDN redirect for self-hosted
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
@@ -81,7 +81,7 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
             if (CDN_EXTENSIONS.test(req.url)) {
                 res.removeHeader('Access-Control-Allow-Origin');
                 res.removeHeader('Access-Control-Allow-Credentials');
-                res.redirect(301, `${config.assetsCdn}/assets${req.url}`);
+                res.redirect(302, `${config.assetsCdn}/assets${req.url}`);
             } else {
                 next();
             }

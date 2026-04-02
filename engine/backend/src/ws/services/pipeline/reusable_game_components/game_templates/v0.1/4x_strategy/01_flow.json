@@ -1,0 +1,129 @@
+{
+  "id": "4x_strategy_flow",
+  "name": "4X Strategy",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "EMPIRE ASCENDANT", "gameSubtitle": "Rise of Civilizations" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize civilization systems",
+      "active_systems": ["civilization_core", "tech_culture"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Turn-based 4X strategy gameplay",
+      "start": "player_turn",
+      "on_enter": ["emit:game.game_ready"],
+      "on_exit": [],
+      "substates": {
+        "player_turn": {
+          "description": "Player's turn — move units, manage cities, research, build, diplomacy",
+          "active_systems": [
+            "civilization_core",
+            "tech_culture",
+            "military_system",
+            "diplomacy_ai"
+          ],
+          "active_behaviors": [
+            "strategy_camera",
+            "city_manager",
+            "unit_control",
+            "ai_city",
+            "ai_unit_idle"
+          ],
+          "on_enter": [
+            "show_ui:hud/resource_bar",
+            "show_ui:hud/turn_counter",
+            "show_ui:hud/minimap",
+            "show_ui:hud/end_turn_btn",
+            "show_ui:hud/tech_btn",
+            "show_ui:hud/diplomacy_btn",
+            "show_ui:hud/era_indicator",
+            "emit:game.turn_start",
+            "play_sound:/assets/kenney/audio/rpg_audio/bookFlip1.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:hud/resource_bar",
+            "hide_ui:hud/turn_counter",
+            "hide_ui:hud/minimap",
+            "hide_ui:hud/end_turn_btn",
+            "hide_ui:hud/tech_btn",
+            "hide_ui:hud/diplomacy_btn",
+            "hide_ui:hud/era_indicator"
+          ],
+          "transitions": [
+            { "when": "ui_event:hud/end_turn_btn:end_turn", "goto": "ai_turn" },
+            { "when": "game_event:victory", "goto": "victory" },
+            { "when": "game_event:defeat", "goto": "defeat" }
+          ]
+        },
+        "ai_turn": {
+          "description": "AI civilization processes its turn",
+          "active_systems": ["civilization_core", "tech_culture", "military_system", "diplomacy_ai"],
+          "active_behaviors": ["strategy_camera", "ai_city", "ai_unit_control"],
+          "duration": -1,
+          "on_enter": [
+            "show_ui:hud/ai_turn_banner",
+            "set:ai_timer=0",
+            "emit:game.ai_turn_start"
+          ],
+          "on_update": ["increment:ai_timer"],
+          "on_exit": [
+            "hide_ui:hud/ai_turn_banner",
+            "emit:game.turn_end"
+          ],
+          "transitions": [
+            { "when": "ai_timer>=90", "goto": "player_turn" }
+          ]
+        },
+        "victory": {
+          "description": "Player achieved a victory condition",
+          "active_behaviors": ["strategy_camera"],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/digital_audio/powerUp12.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "emit:game.game_ready"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "player_turn" }
+          ]
+        },
+        "defeat": {
+          "description": "AI civilization achieved victory or conquered player",
+          "active_behaviors": ["strategy_camera"],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_001.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "emit:game.game_ready"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "player_turn" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

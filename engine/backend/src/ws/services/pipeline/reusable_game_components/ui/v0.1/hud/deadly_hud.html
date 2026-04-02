@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --glass: rgba(10, 5, 8, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --text: #f0f0f0;
+    --text-dim: #888;
+    --text-muted: #555;
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.3);
+    --red-glow: rgba(239, 68, 68, 0.15);
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.3);
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34, 211, 238, 0.3);
+    --gold: #f59e0b;
+    --pink: #ec4899;
+    --pink-dim: rgba(236, 72, 153, 0.3);
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== ROUND BADGE ===== */
+  .round-badge {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 6px 24px;
+    text-align: center;
+  }
+
+  .round-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .round-value {
+    font-size: 16px;
+    font-weight: 900;
+    color: var(--pink);
+    text-shadow: 0 0 10px var(--pink-dim);
+  }
+
+  .round-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-top: 1px;
+  }
+
+  /* ===== ALIVE COUNTER ===== */
+  .alive-panel {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 16px;
+    text-align: center;
+  }
+
+  .alive-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .alive-value {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: 0 0 12px var(--cyan-dim);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .alive-total {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+
+  /* ===== TIMER ===== */
+  .timer-panel {
+    position: fixed;
+    top: 85px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 4px 20px;
+    display: none;
+  }
+
+  .timer-panel.visible { display: block; }
+
+  .timer-val {
+    font-size: 36px;
+    font-weight: 900;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    transition: color 0.3s;
+  }
+
+  .timer-val.danger { color: var(--red); text-shadow: 0 0 15px var(--red-dim); }
+
+  /* ===== LIGHT INDICATOR ===== */
+  .light-indicator {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 10px 24px;
+    text-align: center;
+    display: none;
+    min-width: 130px;
+  }
+
+  .light-indicator.visible { display: block; }
+
+  .light-text {
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color 0.15s;
+  }
+
+  .light-text.green {
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green-dim);
+  }
+
+  .light-text.red {
+    color: var(--red);
+    text-shadow: 0 0 20px var(--red-dim);
+  }
+
+  @keyframes redPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .light-indicator.red-active {
+    border-color: var(--red-dim);
+    animation: redPulse 0.6s ease-in-out infinite;
+  }
+
+  .light-sub {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* ===== BRIDGE INFO ===== */
+  .bridge-panel {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 18px;
+    text-align: center;
+    display: none;
+  }
+
+  .bridge-panel.visible { display: block; }
+
+  .bridge-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .bridge-value {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--cyan);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .bridge-hint {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--gold);
+    margin-top: 2px;
+  }
+
+  /* ===== WARNING BADGE ===== */
+  .warning-badge {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(239,68,68,0.08));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--red-dim);
+    border-radius: 10px;
+    padding: 6px 16px;
+    display: none;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--red);
+  }
+
+  .warning-badge.visible { display: block; animation: redPulse 0.8s ease-in-out infinite; }
+
+  /* ===== ANNOUNCEMENT ===== */
+  .announce-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .announce-overlay.visible { opacity: 1; }
+
+  .announce-text {
+    font-size: 68px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.6), 0 0 60px var(--pink-dim);
+    letter-spacing: 3px;
+    line-height: 1;
+  }
+
+  .announce-sub {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gold);
+    text-shadow: 0 2px 15px rgba(0,0,0,0.5);
+    margin-top: 10px;
+    letter-spacing: 1px;
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .announce-overlay.visible .announce-text {
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* ===== CONTROLS ===== */
+  .controls {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 5px 16px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Round Badge -->
+<div class="round-badge">
+  <div class="round-label">ROUND</div>
+  <div class="round-value" id="round-val">0 / 3</div>
+  <div class="round-name" id="round-name"></div>
+</div>
+
+<!-- Alive Counter -->
+<div class="alive-panel">
+  <div class="alive-label">CONTESTANTS</div>
+  <div class="alive-value" id="alive-val">16</div>
+  <div class="alive-total">/ <span id="alive-total">16</span></div>
+</div>
+
+<!-- Timer -->
+<div class="timer-panel" id="timer-panel">
+  <div class="timer-val" id="timer-val">60</div>
+</div>
+
+<!-- Light Indicator (RLGL) -->
+<div class="light-indicator" id="light-panel">
+  <div class="light-text" id="light-text">GREEN</div>
+  <div class="light-sub" id="light-sub">MOVE!</div>
+</div>
+
+<!-- Bridge Info -->
+<div class="bridge-panel" id="bridge-panel">
+  <div class="bridge-label">PANEL</div>
+  <div class="bridge-value" id="bridge-val">1 / 8</div>
+  <div class="bridge-hint">Choose LEFT or RIGHT</div>
+</div>
+
+<!-- Warning Badge (Floor Collapse) -->
+<div class="warning-badge" id="warning-badge">TILES COLLAPSING!</div>
+
+<!-- Center Announcement -->
+<div class="announce-overlay" id="announce">
+  <div class="announce-text" id="announce-text"></div>
+  <div class="announce-sub" id="announce-sub"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move
+  &middot; <kbd>Space</kbd> Jump
+  &middot; Stop on RED LIGHT!
+</div>
+
+<script>
+(function() {
+  var lastAnnounce = '';
+
+  function update(state) {
+    if (!state) return;
+
+    // Round
+    if (state.round !== undefined) {
+      var rv = document.getElementById('round-val');
+      if (rv) rv.textContent = state.round + ' / ' + (state.totalRounds || 3);
+    }
+    if (state.roundName !== undefined) {
+      var rn = document.getElementById('round-name');
+      if (rn) rn.textContent = state.roundName;
+    }
+
+    // Alive
+    if (state.alive !== undefined) {
+      var av = document.getElementById('alive-val');
+      if (av) av.textContent = state.alive;
+    }
+    if (state.total !== undefined) {
+      var at = document.getElementById('alive-total');
+      if (at) at.textContent = state.total;
+    }
+
+    // Timer
+    if (state.timer !== undefined) {
+      var tp = document.getElementById('timer-panel');
+      var tv = document.getElementById('timer-val');
+      if (state.timer >= 0 && state.phase === 'round_active') {
+        if (tp) tp.classList.add('visible');
+        if (tv) {
+          tv.textContent = state.timer;
+          tv.className = 'timer-val' + (state.timer <= 10 ? ' danger' : '');
+        }
+      } else {
+        if (tp) tp.classList.remove('visible');
+      }
+    }
+
+    // Light indicator (RLGL)
+    var lp = document.getElementById('light-panel');
+    var bp = document.getElementById('bridge-panel');
+    var wb = document.getElementById('warning-badge');
+
+    if (lp) lp.classList.remove('visible');
+    if (lp) lp.classList.remove('red-active');
+    if (bp) bp.classList.remove('visible');
+    if (wb) wb.classList.remove('visible');
+
+    if (state.phase === 'round_active' && state.round === 1 && state.lightState) {
+      if (lp) {
+        lp.classList.add('visible');
+        if (state.lightState === 'red') lp.classList.add('red-active');
+      }
+      var lt = document.getElementById('light-text');
+      var ls = document.getElementById('light-sub');
+      if (lt) {
+        lt.textContent = state.lightState === 'green' ? 'GREEN' : 'RED';
+        lt.className = 'light-text ' + state.lightState;
+      }
+      if (ls) ls.textContent = state.lightState === 'green' ? 'MOVE!' : 'FREEZE!';
+    }
+
+    // Bridge info
+    if (state.phase === 'round_active' && state.round === 2) {
+      if (bp) bp.classList.add('visible');
+      var bv = document.getElementById('bridge-val');
+      if (bv) bv.textContent = state.currentPanel + ' / ' + state.totalPanels;
+    }
+
+    // Warning badge (Floor Collapse)
+    if (state.phase === 'round_active' && state.round === 3 && state.warningTiles > 0) {
+      if (wb) wb.classList.add('visible');
+    }
+
+    // Announcement
+    if (state.announce !== undefined) {
+      var ao = document.getElementById('announce');
+      var at2 = document.getElementById('announce-text');
+      var as = document.getElementById('announce-sub');
+
+      if (state.announce && state.announce.length > 0) {
+        if (at2) at2.textContent = state.announce;
+        if (as) as.textContent = state.subtext || '';
+        if (ao && state.announce !== lastAnnounce) {
+          ao.classList.remove('visible');
+          void ao.offsetWidth;
+          ao.classList.add('visible');
+          lastAnnounce = state.announce;
+        }
+      } else {
+        if (ao) ao.classList.remove('visible');
+        lastAnnounce = '';
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

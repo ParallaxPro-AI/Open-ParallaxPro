@@ -1,0 +1,11 @@
+{
+  "systems": {
+    "deadly_games": {
+      "description": "Three-round elimination survival — Red Light Green Light, Glass Bridge, Floor Collapse",
+      "script": "gameplay/deadly_games.ts",
+      "params": {
+        "totalRounds": 3
+      }
+    }
+  }
+}

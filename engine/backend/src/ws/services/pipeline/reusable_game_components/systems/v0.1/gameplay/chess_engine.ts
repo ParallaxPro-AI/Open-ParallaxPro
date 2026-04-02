@@ -144,7 +144,39 @@ class ChessEngineSystem extends GameScript {
             }
         }
 
-        if (allMoves.length === 0) return;
+        if (allMoves.length === 0) {
+            // No legal moves — check if it's stalemate or checkmate
+            // Simplified: if the black king is under attack, it's checkmate (white wins)
+            // otherwise it's stalemate (draw)
+            var blackKing = null;
+            for (var bk = 0; bk < blacks.length; bk++) {
+                if (blacks[bk].name.toLowerCase().indexOf("king") >= 0) { blackKing = blacks[bk]; break; }
+            }
+            if (blackKing) {
+                var kPos = blackKing.transform.position;
+                var kx = Math.round(kPos.x), kz = Math.round(kPos.z);
+                // Check if any white piece can attack the king's square
+                var whites = this.scene.findEntitiesByTag("white") || [];
+                var inCheck = false;
+                for (var wc = 0; wc < whites.length; wc++) {
+                    var wPos = whites[wc].transform.position;
+                    var wName = whites[wc].name.toLowerCase();
+                    // Simple proximity check for attack
+                    var wdx = Math.abs(Math.round(wPos.x) - kx);
+                    var wdz = Math.abs(Math.round(wPos.z) - kz);
+                    if (wdx <= 2 && wdz <= 2) { inCheck = true; break; }
+                }
+                if (inCheck) {
+                    this.scene.events.game.emit("checkmate", {});
+                } else {
+                    this.scene.events.game.emit("stalemate", {});
+                }
+            } else {
+                // No king found — checkmate
+                this.scene.events.game.emit("checkmate", {});
+            }
+            return;
+        }
 
         // Prefer captures, otherwise random
         var captures = allMoves.filter(function(m) { return m.capture; });
@@ -169,7 +201,46 @@ class ChessEngineSystem extends GameScript {
 
         var py = piece.transform.position.y;
         this.scene.setPosition(piece.id, target.x, py, target.z);
+
+        // After AI move, check if white king was captured
+        this._checkKingAlive();
+
+        // Emit move_made for FSM turn transition
+        this.scene.events.game.emit("move_made", {});
     }
 
-    onUpdate(dt) {}
+    _checkKingAlive() {
+        // Check white king
+        var whites = this.scene.findEntitiesByTag("white") || [];
+        var whiteKingAlive = false;
+        for (var w = 0; w < whites.length; w++) {
+            if (!whites[w].active) continue;
+            if (whites[w].name.toLowerCase().indexOf("king") >= 0) { whiteKingAlive = true; break; }
+        }
+        if (!whiteKingAlive && whites.length > 0) {
+            // Player's king captured — AI wins
+            this.scene.events.game.emit("checkmate", {});
+            return;
+        }
+
+        // Check black king
+        var blacks = this.scene.findEntitiesByTag("black") || [];
+        var blackKingAlive = false;
+        for (var b = 0; b < blacks.length; b++) {
+            if (!blacks[b].active) continue;
+            if (blacks[b].name.toLowerCase().indexOf("king") >= 0) { blackKingAlive = true; break; }
+        }
+        if (!blackKingAlive && blacks.length > 0) {
+            // AI's king captured — player wins
+            this.scene.events.game.emit("checkmate", {});
+        }
+    }
+
+    onUpdate(dt) {
+        // Also check kings each frame (in case chess_interaction captures a king)
+        if (this.scene._chessCheckKings) {
+            this.scene._chessCheckKings = false;
+            this._checkKingAlive();
+        }
+    }
 }

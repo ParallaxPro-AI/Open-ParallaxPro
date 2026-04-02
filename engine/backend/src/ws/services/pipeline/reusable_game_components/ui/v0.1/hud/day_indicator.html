@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; }
+  .day-panel {
+    position: fixed; top: 14px; right: 14px;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;
+    padding: 6px 14px; text-align: center; min-width: 80px;
+  }
+  .day-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 1px; }
+  .day-val { font-size: 18px; font-weight: 900; color: #f59e0b; font-variant-numeric: tabular-nums; }
+  .day-phase { font-size: 10px; font-weight: 700; margin-top: 1px; }
+  .phase-day { color: #22c55e; }
+  .phase-night { color: #6366f1; }
+  .phase-dawn { color: #f97316; }
+  .phase-dusk { color: #f59e0b; }
+</style>
+</head>
+<body>
+<div class="day-panel">
+  <div class="day-label">DAY</div>
+  <div class="day-val" id="day-val">1</div>
+  <div class="day-phase" id="day-phase"><span class="phase-day">Day</span></div>
+</div>
+<script>
+(function(){
+  function update(s){if(!s)return;
+    if(s.dayCount!==undefined)document.getElementById('day-val').textContent=s.dayCount;
+    if(s.timePhase!==undefined){
+      var el=document.getElementById('day-phase');
+      var cls='phase-'+s.timePhase.toLowerCase();
+      el.innerHTML='<span class="'+cls+'">'+s.timePhase+'</span>';
+    }
+  }
+  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
+.supply{position:fixed;top:42px;right:14px;background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:4px 12px;font-size:10px;font-weight:600;color:#888;}
+.sv{color:#f59e0b;font-weight:800;}
+</style></head><body>
+<div class="supply">Supply: <span class="sv" id="sv">0 / 100</span></div>
+<script>(function(){function u(s){if(!s)return;if(s.supply!==undefined)document.getElementById('sv').textContent=s.supply+' / '+(s.supplyMax||100);}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

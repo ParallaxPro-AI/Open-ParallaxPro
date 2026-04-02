@@ -1,0 +1,148 @@
+{
+  "systems": {
+    "civilization_core": {
+      "description": "Turn-based civilization management — turn counter, city population growth, food/production/gold yields per turn, housing limits, territory borders, era progression triggers, building construction queues, settler founding new cities, and victory condition evaluation each turn",
+      "script": "gameplay/civilization_core.ts",
+      "params": {
+        "maxTurns": 150,
+        "startGold": 50,
+        "startFood": 10,
+        "startProduction": 5,
+        "startScience": 3,
+        "startCulture": 1,
+        "eras": ["ancient", "classical", "medieval", "renaissance"],
+        "eraThresholds": [0, 4, 8, 12],
+        "cityGrowthFood": 20,
+        "cityBaseYields": { "food": 2, "production": 1, "gold": 3 },
+        "districtYields": {
+          "housing": { "food": 1, "housing": 4 },
+          "campus": { "science": 4 },
+          "commercial_hub": { "gold": 5 },
+          "encampment": { "production": 2, "militaryXP": 1 },
+          "harbor": { "gold": 3, "food": 2 },
+          "granary": { "food": 4 },
+          "wonder_building": { "culture": 6, "tourism": 3 }
+        },
+        "buildCosts": {
+          "housing": { "production": 30 },
+          "campus": { "production": 50 },
+          "commercial_hub": { "production": 50 },
+          "encampment": { "production": 40 },
+          "harbor": { "production": 60 },
+          "granary": { "production": 25 },
+          "city_walls": { "production": 45 },
+          "wonder_building": { "production": 150 }
+        },
+        "victoryConditions": {
+          "domination": "Capture all enemy capitals",
+          "science": "Research all 14 technologies",
+          "wonder": "Build the Great Wonder",
+          "score": "Highest score after 150 turns"
+        },
+        "turnSound": "/assets/kenney/audio/rpg_audio/bookFlip1.ogg",
+        "buildCompleteSound": "/assets/kenney/audio/interface_sounds/confirmation_004.ogg",
+        "eraAdvanceSound": "/assets/kenney/audio/digital_audio/powerUp12.ogg",
+        "cityGrowthSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg"
+      }
+    },
+    "tech_culture": {
+      "description": "Technology research tree with era-gated prerequisites — each technology costs science points accumulated per turn, unlocks new buildings, units, and abilities, culture policies provide empire-wide bonuses, and researching all techs triggers science victory",
+      "script": "gameplay/tech_culture.ts",
+      "params": {
+        "technologies": {
+          "animal_husbandry": { "era": "ancient", "cost": 25, "unlocks": ["scout"], "prereqs": [] },
+          "mining": { "era": "ancient", "cost": 25, "unlocks": ["mine_improvement", "stone_quarry"], "prereqs": [] },
+          "pottery": { "era": "ancient", "cost": 25, "unlocks": ["granary"], "prereqs": [] },
+          "archery": { "era": "ancient", "cost": 35, "unlocks": ["archer"], "prereqs": ["animal_husbandry"] },
+          "iron_working": { "era": "classical", "cost": 60, "unlocks": ["swordsman"], "prereqs": ["mining"] },
+          "mathematics": { "era": "classical", "cost": 60, "unlocks": ["campus"], "prereqs": ["pottery"] },
+          "currency": { "era": "classical", "cost": 60, "unlocks": ["commercial_hub"], "prereqs": ["pottery"] },
+          "construction": { "era": "classical", "cost": 75, "unlocks": ["city_walls", "watchtower"], "prereqs": ["mining"] },
+          "stirrups": { "era": "medieval", "cost": 120, "unlocks": ["knight_unit"], "prereqs": ["iron_working"] },
+          "education": { "era": "medieval", "cost": 120, "unlocks": ["campus_upgrade"], "prereqs": ["mathematics"] },
+          "theology": { "era": "medieval", "cost": 120, "unlocks": ["temple_upgrade"], "prereqs": ["construction"] },
+          "gunpowder": { "era": "renaissance", "cost": 200, "unlocks": ["musketeer", "cannon_defense"], "prereqs": ["stirrups"] },
+          "navigation": { "era": "renaissance", "cost": 200, "unlocks": ["harbor"], "prereqs": ["currency"] },
+          "architecture": { "era": "renaissance", "cost": 250, "unlocks": ["wonder_building"], "prereqs": ["education", "theology"] }
+        },
+        "culturePolicies": {
+          "tradition": { "cost": 30, "effect": "capital_yield_bonus", "magnitude": 0.2 },
+          "liberty": { "cost": 30, "effect": "settler_production_bonus", "magnitude": 0.5 },
+          "honor": { "cost": 40, "effect": "combat_bonus", "magnitude": 0.15 },
+          "commerce": { "cost": 50, "effect": "gold_bonus", "magnitude": 0.25 },
+          "rationalism": { "cost": 60, "effect": "science_bonus", "magnitude": 0.3 },
+          "aesthetics": { "cost": 70, "effect": "culture_bonus", "magnitude": 0.3 }
+        },
+        "researchSound": "/assets/kenney/audio/rpg_audio/bookOpen.ogg",
+        "techCompleteSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg",
+        "policySound": "/assets/kenney/audio/rpg_audio/metalClick.ogg"
+      }
+    },
+    "military_system": {
+      "description": "Grid-based unit movement with movement points per turn, terrain movement costs, combat resolution using attack/defense/health values, terrain defense bonuses, unit experience and promotions, fog of war with vision radius, zone of control, siege mechanics for cities, and unit maintenance gold costs",
+      "script": "gameplay/military_system.ts",
+      "params": {
+        "gridSize": 12,
+        "terrainMoveCost": {
+          "plains": 1,
+          "forest": 2,
+          "hills": 2,
+          "desert": 1,
+          "tundra": 1,
+          "mountain": 999
+        },
+        "terrainDefenseBonus": {
+          "plains": 0,
+          "forest": 0.25,
+          "hills": 0.3,
+          "city": 0.5,
+          "walls": 0.75
+        },
+        "unitStats": {
+          "warrior": { "attack": 20, "defense": 15, "health": 100, "movement": 2, "vision": 2, "cost": 40, "maintenance": 1, "era": "ancient" },
+          "archer": { "attack": 25, "defense": 10, "health": 80, "movement": 2, "vision": 3, "range": 2, "cost": 50, "maintenance": 1, "era": "ancient" },
+          "scout": { "attack": 8, "defense": 8, "health": 60, "movement": 4, "vision": 4, "cost": 30, "maintenance": 0, "era": "ancient" },
+          "settler": { "attack": 0, "defense": 5, "health": 50, "movement": 2, "vision": 2, "cost": 80, "maintenance": 0, "era": "ancient" },
+          "swordsman": { "attack": 35, "defense": 20, "health": 120, "movement": 2, "vision": 2, "cost": 70, "maintenance": 2, "era": "classical" },
+          "knight_unit": { "attack": 45, "defense": 25, "health": 140, "movement": 4, "vision": 3, "cost": 100, "maintenance": 3, "era": "medieval" },
+          "musketeer": { "attack": 50, "defense": 30, "health": 130, "movement": 2, "vision": 2, "range": 1, "cost": 120, "maintenance": 4, "era": "renaissance" },
+          "siege_unit": { "attack": 60, "defense": 10, "health": 100, "movement": 1, "vision": 2, "range": 3, "siegeBonus": 2.0, "cost": 150, "maintenance": 5, "era": "renaissance" }
+        },
+        "promotions": {
+          "veteran": { "xpRequired": 15, "bonus": "attack", "magnitude": 0.1 },
+          "hardened": { "xpRequired": 30, "bonus": "defense", "magnitude": 0.15 },
+          "elite": { "xpRequired": 50, "bonus": "health", "magnitude": 0.2 }
+        },
+        "combatXPGain": 5,
+        "attackSound": "/assets/kenney/audio/rpg_audio/knifeSlice.ogg",
+        "moveSound": "/assets/kenney/audio/rpg_audio/footstep00.ogg",
+        "deathSound": "/assets/kenney/audio/impact_sounds/impactPunch_heavy_000.ogg",
+        "siegeSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_000.ogg",
+        "selectSound": "/assets/kenney/audio/interface_sounds/confirmation_001.ogg",
+        "promotionSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg"
+      }
+    },
+    "diplomacy_ai": {
+      "description": "AI opponent civilization that builds cities, researches technology, trains military, manages economy, and wages war — evaluates military strength ratio for aggression, expands with settlers, prioritizes tech research, launches attacks when army is strong enough, and checks its own victory conditions each turn",
+      "script": "gameplay/diplomacy_ai.ts",
+      "params": {
+        "aiPersonality": "balanced",
+        "aggressionThreshold": 1.5,
+        "expansionPriority": 0.6,
+        "sciencePriority": 0.7,
+        "militaryPriority": 0.8,
+        "peaceTurnsCooldown": 15,
+        "warDeclarationMinTurns": 20,
+        "buildPriority": ["granary", "encampment", "campus", "commercial_hub", "city_walls"],
+        "trainPriority": ["warrior", "archer", "swordsman", "settler", "knight_unit"],
+        "attackWaveMinSize": 3,
+        "scoutFrequency": 10,
+        "tradeRouteValue": 5,
+        "diplomacyStates": ["peace", "unfriendly", "war"],
+        "warDeclareSound": "/assets/kenney/audio/sci_fi_sounds/forceField_001.ogg",
+        "peaceDeclareSound": "/assets/kenney/audio/interface_sounds/confirmation_004.ogg",
+        "tradeSound": "/assets/kenney/audio/rpg_audio/handleCoins.ogg"
+      }
+    }
+  }
+}

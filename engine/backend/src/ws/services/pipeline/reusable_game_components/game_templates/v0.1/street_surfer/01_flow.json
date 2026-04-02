@@ -1,0 +1,89 @@
+{
+  "id": "street_surfer_flow",
+  "name": "Street Surfer",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "STREET SURFER", "gameSubtitle": "Endless Runner" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize",
+      "duration": -1,
+      "active_systems": ["surf_spawner"],
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "countdown" }]
+    },
+    "countdown": {
+      "description": "3-2-1 countdown before run",
+      "duration": 4,
+      "active_systems": ["surf_spawner"],
+      "active_behaviors": ["camera_surf"],
+      "on_enter": [
+        "emit:game.game_ready",
+        "emit:game.race_start",
+        "show_ui:hud/surf_hud",
+        "show_ui:hud/race_countdown",
+        "play_sound:/assets/kenney/audio/interface_sounds/pepSound1.ogg"
+      ],
+      "transitions": [{
+        "when": "timer_expired",
+        "goto": "playing",
+        "actions": [
+          "emit:game.race_started",
+          "play_sound:/assets/kenney/audio/voiceover_pack/go.ogg"
+        ]
+      }]
+    },
+    "playing": {
+      "description": "Active endless running",
+      "active_systems": ["surf_spawner"],
+      "active_behaviors": [
+        "camera_surf",
+        "surf_runner",
+        "guard_chase"
+      ],
+      "on_enter": ["hide_ui:hud/race_countdown"],
+      "transitions": [{
+        "when": "game_event:game_over",
+        "goto": "game_over",
+        "actions": [
+          "play_sound:/assets/kenney/audio/voiceover_pack/game_over.ogg"
+        ]
+      }]
+    },
+    "game_over": {
+      "description": "Busted by the guard",
+      "active_behaviors": ["camera_surf"],
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor",
+        "play_sound:/assets/kenney/audio/impact_sounds/impactPlate_heavy_004.ogg"
+      ],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_ui:hud/surf_hud",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "countdown",
+          "actions": [
+            "emit:game.restart_game",
+            "set:score=0",
+            "set:coins=0",
+            "set:distance=0"
+          ]
+        },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

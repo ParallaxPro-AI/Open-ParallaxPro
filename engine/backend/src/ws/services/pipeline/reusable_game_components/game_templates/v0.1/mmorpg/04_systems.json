@@ -1,0 +1,187 @@
+{
+  "systems": {
+    "quest_system": {
+      "description": "Manages quest log, NPC dialogue trees, quest objectives (kill, collect, deliver, explore), quest markers on minimap, quest rewards (XP, gold, items), and quest chain progression through the main storyline",
+      "script": "gameplay/quest_system.ts",
+      "params": {
+        "maxActiveQuests": 5,
+        "questInteractRange": 4,
+        "questMarkerHeight": 3,
+        "quests": {
+          "welcome_hero": {
+            "title": "Welcome, Hero",
+            "giver": "quest_elder",
+            "description": "Speak with the village elder to learn about the darkness threatening Etheria",
+            "type": "talk",
+            "target": "quest_elder",
+            "rewards": { "xp": 50, "gold": 10 },
+            "next": "goblin_menace"
+          },
+          "goblin_menace": {
+            "title": "The Goblin Menace",
+            "giver": "quest_elder",
+            "description": "Defeat 5 goblin scouts in Darkwood Forest",
+            "type": "kill",
+            "target": "goblin_scout",
+            "count": 5,
+            "rewards": { "xp": 150, "gold": 30, "item": "health_potion" },
+            "next": "shaman_threat"
+          },
+          "shaman_threat": {
+            "title": "The Shaman's Threat",
+            "giver": "quest_knight",
+            "description": "Defeat 3 goblin shamans in the deep forest",
+            "type": "kill",
+            "target": "goblin_shaman",
+            "count": 3,
+            "rewards": { "xp": 200, "gold": 50 },
+            "next": "undead_rising"
+          },
+          "undead_rising": {
+            "title": "Undead Rising",
+            "giver": "quest_knight",
+            "description": "Investigate the Deadmire Swamp — defeat 4 undead warriors",
+            "type": "kill",
+            "target": "undead_warrior",
+            "count": 4,
+            "rewards": { "xp": 300, "gold": 75, "item": "mana_potion" },
+            "next": "breach_fortress"
+          },
+          "breach_fortress": {
+            "title": "Breach the Iron Stronghold",
+            "giver": "quest_knight",
+            "description": "Fight through the Iron Stronghold and defeat the War Chief",
+            "type": "kill",
+            "target": "war_chief",
+            "count": 1,
+            "rewards": { "xp": 500, "gold": 150 },
+            "next": "shadow_dungeon"
+          },
+          "shadow_dungeon": {
+            "title": "Into the Shadow Dungeon",
+            "giver": "quest_elder",
+            "description": "Enter the Shadow Dungeon and defeat the Dungeon Lord to save Etheria",
+            "type": "kill",
+            "target": "dungeon_lord",
+            "count": 1,
+            "rewards": { "xp": 1000, "gold": 500 },
+            "isFinal": true
+          }
+        },
+        "questAcceptSound": "/assets/kenney/audio/rpg_audio/bookOpen.ogg",
+        "questCompleteSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg",
+        "questUpdateSound": "/assets/kenney/audio/rpg_audio/metalClick.ogg"
+      }
+    },
+    "combat_rpg": {
+      "description": "Ability-based RPG combat — auto-attack on target, 4 hotkey abilities (Q/E/R/F) with cooldowns and mana costs, click-to-target, aggro and threat system, damage types (physical, magical), critical strikes, and combat log",
+      "script": "gameplay/combat_rpg.ts",
+      "params": {
+        "autoAttackRange": 3,
+        "autoAttackRate": 1.0,
+        "autoAttackDamage": 25,
+        "targetRange": 30,
+        "aggroLeashRange": 35,
+        "threatDecayRate": 2,
+        "critChance": 0.1,
+        "critMultiplier": 2.0,
+        "abilities": {
+          "Q": {
+            "name": "Heroic Strike",
+            "type": "melee_aoe",
+            "damage": 40,
+            "radius": 4,
+            "cooldown": 4,
+            "manaCost": 20,
+            "sound": "/assets/kenney/audio/rpg_audio/knifeSlice.ogg"
+          },
+          "E": {
+            "name": "Shield Bash",
+            "type": "stun",
+            "damage": 15,
+            "stunDuration": 1.5,
+            "range": 3,
+            "cooldown": 8,
+            "manaCost": 30,
+            "sound": "/assets/kenney/audio/impact_sounds/impactMetal_heavy_000.ogg"
+          },
+          "R": {
+            "name": "Battle Shout",
+            "type": "buff",
+            "effect": "damage_boost",
+            "magnitude": 0.25,
+            "duration": 10,
+            "cooldown": 20,
+            "manaCost": 40,
+            "sound": "/assets/kenney/audio/rpg_audio/cloth1.ogg"
+          },
+          "F": {
+            "name": "Holy Light",
+            "type": "heal",
+            "healAmount": 80,
+            "cooldown": 12,
+            "manaCost": 50,
+            "sound": "/assets/kenney/audio/digital_audio/powerUp4.ogg"
+          }
+        },
+        "hitSound": "/assets/kenney/audio/rpg_audio/knifeSlice2.ogg",
+        "missSound": "/assets/kenney/audio/rpg_audio/drawKnife1.ogg",
+        "critSound": "/assets/kenney/audio/impact_sounds/impactMetal_heavy_004.ogg",
+        "deathSound": "/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_000.ogg"
+      }
+    },
+    "loot_xp": {
+      "description": "Experience points, leveling with stat gains, gold currency, loot drops from enemies, equipment slots (weapon, armor, trinket), inventory management, merchant buy/sell, and potion usage from hotbar",
+      "script": "gameplay/loot_xp.ts",
+      "params": {
+        "startLevel": 1,
+        "maxLevel": 10,
+        "startGold": 25,
+        "startXP": 0,
+        "xpPerLevel": [0, 100, 250, 500, 800, 1200, 1700, 2400, 3200, 4500],
+        "statsPerLevel": {
+          "healthBonus": 50,
+          "manaBonus": 20,
+          "attackBonus": 5,
+          "defenseBonus": 3
+        },
+        "inventorySlots": 20,
+        "equipSlots": ["weapon", "armor", "trinket"],
+        "lootTables": {
+          "goblin_scout": { "gold": [5, 15], "items": ["health_potion"], "dropChance": 0.3, "xp": 25 },
+          "goblin_shaman": { "gold": [10, 25], "items": ["mana_potion", "health_potion"], "dropChance": 0.4, "xp": 40 },
+          "undead_warrior": { "gold": [15, 30], "items": ["health_potion"], "dropChance": 0.35, "xp": 50 },
+          "undead_mage": { "gold": [20, 40], "items": ["mana_potion"], "dropChance": 0.4, "xp": 60 },
+          "shadow_assassin": { "gold": [25, 50], "items": ["health_potion", "mana_potion"], "dropChance": 0.5, "xp": 75 },
+          "dark_knight": { "gold": [30, 60], "items": ["health_potion"], "dropChance": 0.45, "xp": 90 },
+          "war_chief": { "gold": [100, 200], "items": ["health_potion", "mana_potion", "health_potion"], "dropChance": 1.0, "xp": 300 },
+          "dungeon_lord": { "gold": [300, 500], "items": ["health_potion", "mana_potion", "health_potion", "mana_potion"], "dropChance": 1.0, "xp": 1000 }
+        },
+        "lootPickupRadius": 3,
+        "levelUpSound": "/assets/kenney/audio/digital_audio/powerUp12.ogg",
+        "lootSound": "/assets/kenney/audio/rpg_audio/handleCoins.ogg",
+        "equipSound": "/assets/kenney/audio/rpg_audio/clothBelt.ogg",
+        "potionSound": "/assets/kenney/audio/rpg_audio/metalPot1.ogg"
+      }
+    },
+    "world_spawner": {
+      "description": "Manages enemy spawn zones per region, respawn timers after kills, mob population caps per zone, patrol route assignments, elite and boss spawn management, and zone difficulty scaling based on player level",
+      "script": "gameplay/world_spawner.ts",
+      "params": {
+        "zones": {
+          "darkwood_forest": { "maxMobs": 8, "respawnTime": 30, "mobs": ["goblin_scout", "goblin_shaman"], "weights": [0.7, 0.3], "levelRange": [1, 3] },
+          "deadmire_swamp": { "maxMobs": 8, "respawnTime": 35, "mobs": ["undead_warrior", "undead_mage"], "weights": [0.6, 0.4], "levelRange": [3, 5] },
+          "iron_stronghold": { "maxMobs": 6, "respawnTime": 40, "mobs": ["dark_knight", "shadow_assassin"], "weights": [0.5, 0.5], "levelRange": [5, 7] },
+          "shadow_dungeon": { "maxMobs": 5, "respawnTime": 45, "mobs": ["shadow_assassin", "dark_knight"], "weights": [0.6, 0.4], "levelRange": [7, 10] }
+        },
+        "eliteSpawns": {
+          "war_chief": { "zone": "iron_stronghold", "respawnTime": 120, "count": 1 },
+          "dungeon_lord": { "zone": "shadow_dungeon", "respawnTime": 180, "count": 1 }
+        },
+        "patrolRadius": 12,
+        "spawnRadius": 3,
+        "mobDeathSound": "/assets/kenney/audio/impact_sounds/impactPunch_heavy_000.ogg"
+      }
+    }
+  }
+}

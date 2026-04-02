@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; pointer-events: none; overflow: hidden; }
+  .tech-wrap { position: fixed; bottom: 14px; right: 180px; pointer-events: none; }
+  .tech-info {
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;
+    padding: 6px 12px; text-align: center;
+  }
+  .tech-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 1px; }
+  .tech-val { font-size: 12px; font-weight: 800; color: #3b82f6; }
+  .cult-val { font-size: 11px; font-weight: 700; color: #a78bfa; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="tech-wrap">
+  <div class="tech-info">
+    <div class="tech-label">RESEARCH</div>
+    <div class="tech-val" id="techProg">0 / 25</div>
+    <div class="cult-val">Culture: <span id="cultPool">0</span></div>
+  </div>
+</div>
+<script>
+(function(){
+  function update(s){if(!s)return;
+    if(s.techProgress!==undefined&&s.techCost!==undefined){
+      document.getElementById('techProg').textContent=s.techProgress+' / '+s.techCost;
+    }
+    if(s.culturePool!==undefined)document.getElementById('cultPool').textContent=s.culturePool;
+  }
+  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+})();
+</script>
+</body>
+</html>

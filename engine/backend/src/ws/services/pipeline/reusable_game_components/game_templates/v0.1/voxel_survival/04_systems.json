@@ -1,0 +1,156 @@
+{
+  "systems": {
+    "voxel_world": {
+      "description": "Core first-person voxel mechanics — block mining, placement, 36-slot inventory with 9-slot hotbar, tool durability, furnace smelting, ore processing, food cooking, and crafting recipes for tools, weapons, armor, and structures",
+      "script": "gameplay/voxel_world.ts",
+      "params": {
+        "inventorySlots": 36,
+        "hotbarSlots": 9,
+        "stackSize": 64,
+        "blockMineTime": 1.0,
+        "oreMineTime": 2.5,
+        "treeMineTime": 2.0,
+        "placeRange": 5,
+        "mineRange": 4.5,
+        "pickupRadius": 2.5,
+        "dropLifetime": 300,
+        "smeltTime": 8,
+        "smeltRecipes": {
+          "iron_ingot": { "input": "metal_block", "fuel": 1 },
+          "gold_bar": { "input": "crystal", "fuel": 2 },
+          "cooked_meat": { "input": "raw_meat", "fuel": 1 },
+          "brick": { "input": "dirt_block", "fuel": 1 },
+          "glass": { "input": "sand_block", "fuel": 1 }
+        },
+        "craftingRecipes": {
+          "wood_pickaxe": { "wood": 3 },
+          "stone_pickaxe": { "wood": 2, "stone": 3 },
+          "diamond_pickaxe": { "wood": 2, "diamond": 3 },
+          "wood_sword": { "wood": 2 },
+          "stone_sword": { "wood": 1, "stone": 2 },
+          "diamond_sword": { "wood": 1, "diamond": 2 },
+          "wood_axe": { "wood": 3 },
+          "bow": { "wood": 3, "string": 3 },
+          "arrow_bundle": { "wood": 1, "stone": 1 },
+          "shield": { "wood": 6, "iron_ingot": 1 },
+          "torch": { "wood": 1, "coal": 1 },
+          "chest": { "wood": 8 },
+          "furnace": { "stone": 8 },
+          "crafting_table": { "wood": 4 },
+          "fence": { "wood": 4 },
+          "door": { "wood": 6 },
+          "lever": { "wood": 1, "stone": 1 },
+          "wood_plank": { "wood": 1 },
+          "brick_block": { "brick": 4 },
+          "leather_armor": { "leather": 5 },
+          "iron_armor": { "iron_ingot": 8 },
+          "diamond_armor": { "diamond": 8 },
+          "bed": { "wood": 3, "wool": 3 }
+        },
+        "startItems": ["wood_pickaxe", "wood_sword", "torch"],
+        "pickupSound": "/assets/kenney/audio/digital_audio/phaserUp1.ogg",
+        "mineSound": "/assets/kenney/audio/impact_sounds/impactPlate_medium_004.ogg",
+        "placeSound": "/assets/kenney/audio/impact_sounds/impactPlate_light_004.ogg",
+        "craftSound": "/assets/kenney/audio/interface_sounds/confirmation_004.ogg",
+        "smeltSound": "/assets/kenney/audio/rpg_audio/metalPot1.ogg"
+      }
+    },
+    "biome_weather": {
+      "description": "Manages multi-biome world with day/night cycle, biome-specific ambient lighting, weather effects, mob density per biome, and seasonal transitions across plains, forest, snow, desert, and swamp regions",
+      "script": "gameplay/biome_weather.ts",
+      "params": {
+        "dayDuration": 240,
+        "nightDuration": 150,
+        "dawnDuration": 20,
+        "duskDuration": 20,
+        "biomes": {
+          "plains": { "ambient": [0.55, 0.58, 0.65], "sunColor": [1.0, 0.97, 0.88], "mobDensity": 0.8 },
+          "forest": { "ambient": [0.4, 0.45, 0.5], "sunColor": [0.9, 0.92, 0.85], "mobDensity": 1.2 },
+          "snow": { "ambient": [0.6, 0.62, 0.7], "sunColor": [0.9, 0.93, 1.0], "mobDensity": 0.6 },
+          "desert": { "ambient": [0.65, 0.6, 0.5], "sunColor": [1.0, 0.9, 0.75], "mobDensity": 0.4 },
+          "swamp": { "ambient": [0.3, 0.35, 0.3], "sunColor": [0.7, 0.75, 0.65], "mobDensity": 1.5 }
+        },
+        "nightAmbient": [0.08, 0.08, 0.15],
+        "nightSunColor": [0.2, 0.22, 0.4],
+        "nightWarningSound": "/assets/kenney/audio/interface_sounds/error_006.ogg",
+        "dawnSound": "/assets/kenney/audio/digital_audio/powerUp1.ogg"
+      }
+    },
+    "farming_village": {
+      "description": "Crop planting and multi-stage growth, animal breeding and feeding, NPC villager wandering and trade dialogue, village reputation system, and market economy with buy/sell prices",
+      "script": "gameplay/farming_village.ts",
+      "params": {
+        "cropGrowTime": 60,
+        "cropGrowStages": 4,
+        "harvestRadius": 2,
+        "plantRadius": 2,
+        "breedCooldown": 120,
+        "breedRange": 3,
+        "feedRange": 2,
+        "animalProducts": {
+          "sheep": "wool",
+          "cow": "leather",
+          "chicken": "egg",
+          "pig": "raw_meat"
+        },
+        "villagerTradeRange": 3,
+        "villagerWanderRadius": 15,
+        "startReputation": 0,
+        "trades": {
+          "wheat": { "buy": 3, "sell": 1 },
+          "diamond": { "buy": 0, "sell": 10 },
+          "cooked_meat": { "buy": 5, "sell": 3 },
+          "iron_armor": { "buy": 0, "sell": 15 },
+          "bow": { "buy": 0, "sell": 8 },
+          "apple": { "buy": 2, "sell": 1 }
+        },
+        "harvestSound": "/assets/kenney/audio/rpg_audio/cloth1.ogg",
+        "tradeSound": "/assets/kenney/audio/rpg_audio/handleCoins.ogg",
+        "breedSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg",
+        "plantSound": "/assets/kenney/audio/rpg_audio/bookPlace1.ogg"
+      }
+    },
+    "combat_survival": {
+      "description": "Health, hunger, and armor management — night mob spawning, biome-specific hostile spawns, melee and bow combat, armor damage reduction, food healing, boss encounter triggers, and loot drops on kill",
+      "script": "gameplay/combat_survival.ts",
+      "params": {
+        "maxHealth": 100,
+        "maxHunger": 100,
+        "maxArmor": 100,
+        "hungerDecayRate": 0.2,
+        "starveDamageRate": 2,
+        "armorReduction": {
+          "leather": 0.2,
+          "iron": 0.4,
+          "diamond": 0.6
+        },
+        "foodHeal": {
+          "raw_meat": 3,
+          "cooked_meat": 8,
+          "bread": 5,
+          "apple": 4,
+          "egg": 2
+        },
+        "maxNightMobs": 10,
+        "maxBiomeMobs": 6,
+        "nightSpawnRate": 8,
+        "spawnDistance": 30,
+        "despawnDistance": 55,
+        "nightMobs": ["zombie", "skeleton", "skeleton_armor"],
+        "forestMobs": ["skeleton", "goblin"],
+        "snowMobs": ["yeti", "skeleton"],
+        "swampMobs": ["zombie", "goblin", "skeleton"],
+        "bossRoom": { "mob": "giant", "triggerRange": 12 },
+        "meleeDamage": { "wood": 5, "stone": 7, "diamond": 10 },
+        "bowDamage": 8,
+        "bowRange": 25,
+        "bowFireRate": 1.5,
+        "deathDrops": true,
+        "respawnAtVillage": true,
+        "hitSound": "/assets/kenney/audio/impact_sounds/impactPlate_medium_000.ogg",
+        "bowSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_002.ogg",
+        "armorBreakSound": "/assets/kenney/audio/impact_sounds/impactBell_heavy_000.ogg"
+      }
+    }
+  }
+}

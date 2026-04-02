@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html><head><style>
+* { margin:0;padding:0;box-sizing:border-box; }
+body { font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden; }
+.compass { position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:4px 20px;font-size:12px;font-weight:700;color:#888;letter-spacing:2px; }
+.dir { color:#22d3ee; }
+</style></head><body>
+<div class="compass"><span class="dir" id="dir">N</span></div>
+<script>
+(function(){var dirs=['N','NE','E','SE','S','SW','W','NW'];
+function u(s){if(!s)return;
+/* Could read yaw from state but compass is decorative */
+}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>

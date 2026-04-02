@@ -1,0 +1,295 @@
+{
+  "definitions": {
+    "runner": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
+        "scale": [0.9, 0.9, 0.9],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "surf_runner",
+          "script": "movement/surf_runner.ts",
+          "params": {
+            "baseSpeed": 14,
+            "maxSpeed": 32,
+            "speedIncrease": 0.18,
+            "laneWidth": 2.5,
+            "laneSwitchSpeed": 12,
+            "jumpForce": 12,
+            "slideDuration": 0.7,
+            "gravity": 35
+          }
+        }
+      ]
+    },
+
+    "camera": {
+      "camera": { "fov": 65 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_surf",
+          "script": "camera/camera_surf.ts",
+          "params": {
+            "distance": 10,
+            "height": 6,
+            "lookAhead": 8,
+            "smoothSpeed": 6,
+            "fovBase": 65,
+            "fovMax": 80
+          }
+        }
+      ]
+    },
+
+    "guard": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [1.1, 1.1, 1.1],
+        "modelRotationY": 180
+      },
+      "physics": false,
+      "tags": ["guard"],
+      "behaviors": [
+        {
+          "name": "guard_chase",
+          "script": "ai/guard_chase.ts",
+          "params": {
+            "followDistance": 8,
+            "laneWidth": 2.5,
+            "catchUpDelay": 1.5,
+            "catchUpSpeed": 4
+          }
+        }
+      ]
+    },
+
+    "track_road": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.3, 0.35, 1],
+        "scale": [10, 0.5, 40]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+
+    "track_wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.45, 0.45, 0.5, 1],
+        "scale": [0.4, 1.8, 40]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
+    },
+
+    "obstacle_van": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/van.glb",
+        "scale": [1.4, 1.4, 1.4],
+        "modelRotationY": 90
+      },
+      "physics": false,
+      "tags": ["obstacle"],
+      "label": false
+    },
+
+    "obstacle_truck": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/truck.glb",
+        "scale": [1.5, 1.5, 1.5],
+        "modelRotationY": 90
+      },
+      "physics": false,
+      "tags": ["obstacle"],
+      "label": false
+    },
+
+    "obstacle_barrier_low": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/poly_haven/3d_models/concrete_road_barrier.glb",
+        "scale": [1.3, 0.9, 1.3]
+      },
+      "physics": false,
+      "tags": ["obstacle", "barrier_low"],
+      "label": false
+    },
+
+    "obstacle_barrier_high": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.9, 0.55, 0.05, 1],
+        "scale": [2.4, 0.5, 0.4]
+      },
+      "physics": false,
+      "tags": ["obstacle", "barrier_high"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+      }
+    },
+
+    "obstacle_cone": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/cone.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": false,
+      "tags": ["obstacle", "barrier_low"],
+      "label": false
+    },
+
+    "coin": {
+      "mesh": {
+        "type": "cylinder",
+        "scale": [0.4, 0.08, 0.4],
+        "color": [1.0, 0.85, 0.0, 1]
+      },
+      "physics": false,
+      "tags": ["coin"],
+      "label": false
+    },
+
+    "powerup_magnet": {
+      "mesh": {
+        "type": "cube",
+        "scale": [0.55, 0.55, 0.55],
+        "color": [0.2, 0.5, 1.0, 1]
+      },
+      "physics": false,
+      "tags": ["powerup", "magnet"],
+      "label": false
+    },
+
+    "powerup_shield": {
+      "mesh": {
+        "type": "sphere",
+        "scale": [0.55, 0.55, 0.55],
+        "color": [0.15, 0.85, 0.4, 1]
+      },
+      "physics": false,
+      "tags": ["powerup", "shield"],
+      "label": false
+    },
+
+    "powerup_multiplier": {
+      "mesh": {
+        "type": "cube",
+        "scale": [0.55, 0.55, 0.55],
+        "color": [0.75, 0.3, 0.9, 1]
+      },
+      "physics": false,
+      "tags": ["powerup", "score_multi"],
+      "label": false
+    },
+
+    "building_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-a.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["scenery"],
+      "label": false
+    },
+
+    "building_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-b.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["scenery"],
+      "label": false
+    },
+
+    "building_c": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-c.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["scenery"],
+      "label": false
+    },
+
+    "building_d": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-skyscraper-a.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["scenery"],
+      "label": false
+    },
+
+    "building_e": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/building-skyscraper-b.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["scenery"],
+      "label": false
+    },
+
+    "tree_scenery": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/tree-large.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["scenery"],
+      "label": false
+    },
+
+    "fence_scenery": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/fence-1x4.glb",
+        "scale": [1.5, 1.2, 1.5]
+      },
+      "physics": false,
+      "tags": ["scenery"],
+      "label": false
+    },
+
+    "fire_hydrant": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/poly_haven/3d_models/fire_hydrant.glb",
+        "scale": [1.2, 1.2, 1.2]
+      },
+      "physics": false,
+      "tags": ["scenery"],
+      "label": false
+    }
+  }
+}

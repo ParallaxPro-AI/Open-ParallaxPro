@@ -1,0 +1,213 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 60 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_tank",
+          "script": "camera/camera_tank.ts",
+          "params": {
+            "distance": 14,
+            "height": 8,
+            "lookHeight": 2,
+            "smoothSpeed": 4
+          }
+        }
+      ]
+    },
+
+    "player_tank": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/tank_pack/Tank.glb",
+        "scale": [1.2, 1.2, 1.2],
+        "modelRotationY": 90
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1200,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["player", "tank"],
+      "behaviors": [
+        {
+          "name": "tank_control",
+          "script": "movement/tank_control.ts",
+          "params": {
+            "acceleration": 25,
+            "maxSpeed": 12,
+            "reverseMax": 5,
+            "brakeForce": 40,
+            "turnSpeed": 80,
+            "friction": 8,
+            "fireRate": 2.0,
+            "range": 50,
+            "damage": 35,
+            "maxAmmo": 5,
+            "repairAmount": 50,
+            "repairCooldown": 15
+          }
+        }
+      ]
+    },
+
+    "enemy_tank_light": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/tank_pack/Tank2.glb",
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "physics": false,
+      "tags": ["enemy", "tank_light"],
+      "label": false
+    },
+
+    "enemy_tank_medium": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/tank_pack/Tank3.glb",
+        "scale": [1.1, 1.1, 1.1]
+      },
+      "physics": false,
+      "tags": ["enemy", "tank_medium"],
+      "label": false
+    },
+
+    "enemy_tank_heavy": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/tank_pack/Tank4.glb",
+        "scale": [1.4, 1.4, 1.4]
+      },
+      "physics": false,
+      "tags": ["enemy", "tank_heavy"],
+      "label": false
+    },
+
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.35, 0.45, 0.28, 1],
+        "scale": [120, 1, 120]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    },
+
+    "rock_large": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Rock1.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+
+    "rock_medium": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Rock2.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+
+    "rock_small": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Rock3.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "tree_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree1.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "tree_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree2.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "bush": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Bush1.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "barrier": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/poly_haven/3d_models/concrete_road_barrier.glb",
+        "scale": [1.5, 1.5, 1.5]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+
+    "crate": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_modular_scifi/Props_Crate.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+
+    "turret_static": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/turret_pack/Cannon_5.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    }
+  }
+}

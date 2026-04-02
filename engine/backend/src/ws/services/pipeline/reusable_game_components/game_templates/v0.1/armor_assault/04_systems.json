@@ -1,0 +1,13 @@
+{
+  "systems": {
+    "armor_battle": {
+      "description": "Wave-based tank combat — enemy AI, damage system, repair mechanics",
+      "script": "gameplay/armor_battle.ts",
+      "params": {
+        "totalWaves": 3,
+        "mapHalf": 55,
+        "hitConeThreshold": 0.82
+      }
+    }
+  }
+}

@@ -1,0 +1,255 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 55 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_party",
+          "script": "camera/camera_party.ts",
+          "params": {
+            "height": 25,
+            "offsetZ": 16,
+            "lookX": 0,
+            "lookZ": 0
+          }
+        }
+      ]
+    },
+
+    "player_penguin": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/cute_animated_monsters/Penguin.glb",
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player", "human"],
+      "behaviors": [
+        {
+          "name": "party_player",
+          "script": "movement/party_player.ts",
+          "params": {
+            "speed": 7,
+            "jumpForce": 9
+          }
+        }
+      ]
+    },
+
+    "player_panda": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/cute_animated_monsters/Panda.glb",
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "physics": false,
+      "tags": ["player", "ai"],
+      "label": false
+    },
+
+    "player_mushroom": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/cute_animated_monsters/Mushroom.glb",
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "physics": false,
+      "tags": ["player", "ai"],
+      "label": false
+    },
+
+    "player_chicken": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/cute_animated_monsters/Chicken.glb",
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "physics": false,
+      "tags": ["player", "ai"],
+      "label": false
+    },
+
+    "arena_floor": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.7, 0.45, 1],
+        "scale": [22, 0.5, 22]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
+    },
+
+    "arena_border": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.85, 0.75, 0.3, 1],
+        "scale": [1, 0.3, 1]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+      }
+    },
+
+    "crown": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["crown"],
+      "label": false
+    },
+
+    "coin_party": {
+      "mesh": {
+        "type": "sphere",
+        "scale": [0.5, 0.5, 0.5],
+        "color": [1.0, 0.85, 0.0, 1]
+      },
+      "physics": false,
+      "tags": ["coin"],
+      "label": false
+    },
+
+    "hazard_bar": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.95, 0.15, 0.1, 1],
+        "scale": [18, 0.7, 0.7]
+      },
+      "physics": false,
+      "tags": ["hazard"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png"
+      }
+    },
+
+    "flag_blue": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/minigolf_kit/flag-large-blue.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "flag_green": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/minigolf_kit/flag-large-green.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "flag_red": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/minigolf_kit/flag-large-red.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "food_donut": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/junk_food_pack/Donut.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "food_cupcake": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/junk_food_pack/Cupcake.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "food_icecream": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/junk_food_pack/Icecream.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "food_burger": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/junk_food_pack/Burger.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "food_pizza": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/junk_food_pack/Pizza.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "food_cake": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/junk_food_pack/Cake.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "windmill_deco": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/minigolf_kit/structure-windmill.glb",
+        "scale": [3, 3, 3]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    }
+  }
+}

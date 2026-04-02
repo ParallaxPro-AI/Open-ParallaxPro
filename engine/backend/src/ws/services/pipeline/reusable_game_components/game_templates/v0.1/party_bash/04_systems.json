@@ -1,0 +1,12 @@
+{
+  "systems": {
+    "party_engine": {
+      "description": "Party game engine — minigame rotation, AI opponents, scoring, round management",
+      "script": "gameplay/party_engine.ts",
+      "params": {
+        "totalRounds": 5,
+        "arenaHalf": 10
+      }
+    }
+  }
+}

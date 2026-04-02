@@ -91,16 +91,83 @@ router.get('/', (req, res) => {
     res.json({ projects });
 });
 
+// List available game templates (with optional semantic search)
+router.get('/templates', async (req, res) => {
+    try {
+        const { loadTemplateCatalog } = await import('../ws/services/pipeline/template_loader.js');
+        const catalog = loadTemplateCatalog();
+        const search = (req.query.search as string || '').trim();
+
+        if (!search) {
+            res.json({ templates: catalog });
+            return;
+        }
+
+        // Semantic search using embedding model
+        try {
+            const { embedText, cosineSimilarity } = await import('../embedding_service.js');
+            const queryVec = await embedText(search);
+            const scored: { template: any; score: number }[] = [];
+            for (const t of catalog) {
+                const text = `${t.name} ${t.description} ${t.id.replace(/_/g, ' ')}`;
+                const tVec = await embedText(text);
+                scored.push({ template: t, score: cosineSimilarity(queryVec, tVec) });
+            }
+            scored.sort((a, b) => b.score - a.score);
+            res.json({ templates: scored.map(s => s.template) });
+        } catch {
+            // Fallback to substring match
+            const q = search.toLowerCase();
+            const filtered = catalog.filter(t =>
+                t.name.toLowerCase().includes(q) || t.id.includes(q) || t.description.toLowerCase().includes(q)
+            );
+            res.json({ templates: filtered.length > 0 ? filtered : catalog });
+        }
+    } catch (e: any) {
+        res.json({ templates: [] });
+    }
+});
+
 // Create project
 const stmtCountProjects = db.prepare('SELECT COUNT(*) as count FROM projects WHERE user_id = ?');
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     const id = randomUUID();
     const count = (stmtCountProjects.get(req.user!.id) as any).count;
     const name = `project-${count + 1}`;
+    const { templateId } = req.body || {};
 
-    const projectData = JSON.parse(DEFAULT_PROJECT_DATA);
+    let projectData = JSON.parse(DEFAULT_PROJECT_DATA);
     projectData.projectConfig.name = name;
+
+    // If a template was selected, assemble it into the project
+    if (templateId) {
+        try {
+            const { loadTemplate } = await import('../ws/services/pipeline/template_loader.js');
+            const { assembleGame } = await import('../ws/services/pipeline/level_assembler.js');
+            const template = loadTemplate(templateId);
+            if (template?._folderPath) {
+                const assembled = assembleGame(template._folderPath);
+                const sceneKey = 'main.json';
+                projectData.scenes[sceneKey] = {
+                    name: template.name,
+                    entities: assembled.entities,
+                    environment: {
+                        ambientColor: [1, 1, 1],
+                        ambientIntensity: 0.3,
+                        fog: { enabled: false, color: [0.8, 0.8, 0.8], near: 10, far: 100 },
+                        gravity: [0, -9.81, 0],
+                        timeOfDay: 12,
+                        dayNightCycleSpeed: 0,
+                    },
+                };
+                projectData.scripts = { ...(projectData.scripts || {}), ...assembled.scripts };
+                projectData.uiFiles = { ...(projectData.uiFiles || {}), ...assembled.uiFiles };
+            }
+        } catch (e: any) {
+            console.error(`[Projects] Failed to assemble template "${templateId}":`, e.message);
+        }
+    }
 
     stmtInsert.run(id, req.user!.id, name, JSON.stringify(projectData));
 

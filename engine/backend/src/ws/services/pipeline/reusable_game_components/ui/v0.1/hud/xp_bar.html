@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
+.xp-panel{position:fixed;bottom:0;left:0;right:0;height:4px;background:rgba(0,0,0,0.3);}
+.xp-fill{height:100%;background:linear-gradient(90deg,#a78bfa,#8b5cf6);transition:width 0.3s;width:0%;}
+</style></head><body>
+<div class="xp-panel"><div class="xp-fill" id="xpf"></div></div>
+<script>(function(){function u(s){if(!s)return;
+if(s.xp!==undefined&&s.xpToLevel)document.getElementById('xpf').style.width=Math.min(100,s.xp/s.xpToLevel*100)+'%';
+}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
+</script></body></html>
