@@ -239,6 +239,30 @@ router.delete('/:id', (req, res) => {
     res.json({ success: true });
 });
 
+// Export project as downloadable JSON
+router.get('/:id/export', (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+
+    const projectData = row.project_data ? JSON.parse(row.project_data) : {};
+    const exportData = {
+        name: row.name,
+        exportedAt: new Date().toISOString(),
+        engine: 'ParallaxPro',
+        version: 1,
+        projectConfig: projectData.projectConfig || {},
+        scenes: projectData.scenes || {},
+        scripts: projectData.scripts || {},
+        uiFiles: projectData.uiFiles || {},
+    };
+
+    const safeName = row.name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.parallaxpro.json"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(exportData, null, 2));
+});
+
 // Duplicate project
 router.post('/:id/duplicate', (req, res) => {
     const row = stmtGet.get(req.params.id) as any;
