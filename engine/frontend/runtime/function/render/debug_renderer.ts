@@ -201,7 +201,7 @@ export class DebugRenderer {
         // Flush solid triangles first (behind lines)
         if (this.triVertices.length > 0 && this.triPipeline && this.triVertexBuffer) {
             const triData = this.packVertices(this.triVertices);
-            this.device.queue.writeBuffer(this.triVertexBuffer, 0, triData);
+            this.device.queue.writeBuffer(this.triVertexBuffer, 0, triData as unknown as ArrayBuffer);
 
             const triPass = commandEncoder.beginRenderPass({
                 label: 'debug_tri_pass',
@@ -218,7 +218,7 @@ export class DebugRenderer {
         // Then flush lines on top
         if (this.lineVertices.length > 0) {
             const lineData = this.packVertices(this.lineVertices);
-            this.device.queue.writeBuffer(this.lineVertexBuffer, 0, lineData);
+            this.device.queue.writeBuffer(this.lineVertexBuffer, 0, lineData as unknown as ArrayBuffer);
 
             const linePass = commandEncoder.beginRenderPass({
                 label: 'debug_line_pass',

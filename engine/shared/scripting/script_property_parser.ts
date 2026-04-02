@@ -22,7 +22,7 @@
 
 export interface ScriptPropertyDef {
   name: string;
-  type: 'number' | 'string' | 'boolean' | 'color';
+  type: 'number' | 'string' | 'boolean' | 'color' | 'asset' | 'entity';
   default: any;
 }
 

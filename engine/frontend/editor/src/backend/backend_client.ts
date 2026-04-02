@@ -37,7 +37,7 @@ export class BackendClient {
         return this.fetch(`/projects/${projectId}`);
     }
 
-    async createProject(name: string, prompt?: string): Promise<any> {
+    async createProject(name?: string, prompt?: string): Promise<any> {
         return this.fetch('/projects', {
             method: 'POST',
             body: JSON.stringify({ name, prompt }),

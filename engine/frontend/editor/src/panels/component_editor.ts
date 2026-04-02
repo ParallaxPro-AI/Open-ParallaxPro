@@ -11,11 +11,12 @@ import { StringField } from '../widgets/fields/string_field.js';
 import { EnumField } from '../widgets/fields/enum_field.js';
 import { ColorField } from '../widgets/fields/color_field.js';
 import { AssetField } from '../widgets/fields/asset_field.js';
+import { Quat } from '../../../../shared/math/quat.js';
 
 interface FieldDef {
     name: string;
     label: string;
-    type: 'number' | 'vec3' | 'euler' | 'boolean' | 'string' | 'enum' | 'color' | 'asset';
+    type: 'number' | 'vec3' | 'euler' | 'boolean' | 'string' | 'enum' | 'color' | 'asset' | 'entity';
     min?: number;
     max?: number;
     step?: number;
