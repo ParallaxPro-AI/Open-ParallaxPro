@@ -75,9 +75,12 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
     if (config.assetsCdn && !config.isHosted) {
         // Redirect asset files to CDN (includes LOD and collision sidecar .bin files)
+        // Remove CORS headers before redirect to avoid duplicate headers (CDN adds its own)
         const CDN_EXTENSIONS = /\.(glb|gltf|obj|fbx|png|jpg|jpeg|webp|ogg|mp3|wav|json|bin)$/i;
         app.use('/assets', (req, res, next) => {
             if (CDN_EXTENSIONS.test(req.url)) {
+                res.removeHeader('Access-Control-Allow-Origin');
+                res.removeHeader('Access-Control-Allow-Credentials');
                 res.redirect(301, `${config.assetsCdn}/assets${req.url}`);
             } else {
                 next();
