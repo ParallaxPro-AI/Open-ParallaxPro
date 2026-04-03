@@ -71,12 +71,14 @@
             "board_camera"
           ],
           "on_enter": [
-            "show_ui:hud",
+            "show_ui:hud/turn_counter",
+            "show_ui:hud/score",
             "show_cursor",
             "sound:/assets/kenney/audio/interface_sounds/pepSound1.ogg"
           ],
           "on_exit": [
-            "hide_ui:hud"
+            "hide_ui:hud/turn_counter",
+            "hide_ui:hud/score"
           ],
           "transitions": [
             {
