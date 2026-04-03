@@ -1,0 +1,103 @@
+{
+  "id": "arena_brawler_flow",
+  "name": "Arena Brawler",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "GLADIATOR ARENA", "gameSubtitle": "Fight or Fall" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "duration": -1,
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "playing"
+        }
+      ]
+    },
+    "playing": {
+      "description": "Active arena combat",
+      "active_systems": [
+        "combat_system",
+        "scoring"
+      ],
+      "active_behaviors": [
+        "third_person_camera",
+        "third_person_movement",
+        "melee_combat",
+        "hero_abilities",
+        "player_health",
+        "hostile_ai",
+        "enemy_ai"
+      ],
+      "on_enter": [
+        "emit:game.game_ready",
+        "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg",
+        "show_ui:hud/health",
+        "show_ui:hud/score",
+        "show_ui:hud/ability_bar"
+      ],
+      "transitions": [
+        {
+          "when": "game_event:player_died",
+          "goto": "game_over",
+          "sound": "/assets/kenney/audio/impact_sounds/impactPunch_heavy_004.ogg"
+        },
+        {
+          "when": "game_event:victory",
+          "goto": "game_over",
+          "sound": "/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
+        }
+      ]
+    },
+    "game_over": {
+      "description": "Match ended",
+      "active_behaviors": [],
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_ui:hud/health",
+        "hide_ui:hud/score",
+        "hide_ui:hud/ability_bar",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "playing"
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
+      ]
+    }
+  }
+}

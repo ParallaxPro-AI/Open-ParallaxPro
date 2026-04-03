@@ -1,0 +1,241 @@
+{
+  "definitions": {
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Male.glb",
+        "scale": [0.45, 0.45, 0.45],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 80,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "third_person_movement",
+          "script": "movement/third_person_movement.ts",
+          "params": {
+            "speed": 6,
+            "sprintSpeed": 10,
+            "jumpForce": 7
+          }
+        },
+        {
+          "name": "melee_combat",
+          "script": "combat/melee_combat.ts",
+          "params": {
+            "damage": 25,
+            "attackRange": 3.5,
+            "attackRate": 0.4,
+            "knockback": 8
+          }
+        },
+        {
+          "name": "hero_abilities",
+          "script": "combat/hero_abilities.ts",
+          "params": {
+            "q_damage": 40,
+            "q_range": 6,
+            "q_cooldown": 4,
+            "e_heal": 35,
+            "e_cooldown": 10,
+            "r_damage": 80,
+            "r_range": 10,
+            "r_cooldown": 20
+          }
+        },
+        {
+          "name": "player_health",
+          "script": "status/player_health.ts",
+          "params": {
+            "health": 150,
+            "maxHealth": 150,
+            "regenDelay": 4,
+            "regenRate": 10
+          }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 60 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "third_person_camera",
+          "script": "camera/camera_third_person.ts",
+          "params": {
+            "distance": 10,
+            "height": 5,
+            "lookHeight": 1.5,
+            "smoothSpeed": 8,
+            "sensitivity": 0.15
+          }
+        }
+      ]
+    },
+    "gladiator": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Barbarian_Male.glb",
+        "scale": [0.45, 0.45, 0.45],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["hostile", "enemy"],
+      "behaviors": [
+        {
+          "name": "hostile_ai",
+          "script": "ai/hostile_ai.ts",
+          "params": {
+            "health": 60,
+            "damage": 12,
+            "speed": 3.5,
+            "detectRange": 20,
+            "attackRange": 2.5,
+            "attackRate": 1.0,
+            "wanderRadius": 8
+          }
+        }
+      ]
+    },
+    "champion": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [0.5, 0.5, 0.5],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 70,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["hostile", "enemy"],
+      "behaviors": [
+        {
+          "name": "hostile_ai",
+          "script": "ai/hostile_ai.ts",
+          "params": {
+            "health": 100,
+            "damage": 15,
+            "speed": 2.5,
+            "detectRange": 22,
+            "attackRange": 3,
+            "attackRate": 1.5,
+            "wanderRadius": 10
+          }
+        }
+      ]
+    },
+    "archer": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Rogue_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["hostile", "enemy"],
+      "behaviors": [
+        {
+          "name": "enemy_ai",
+          "script": "ai/enemy_ai.ts",
+          "params": {
+            "health": 50,
+            "maxHealth": 50,
+            "detectionRange": 25,
+            "fireRange": 12,
+            "damage": 8,
+            "fireRate": 1.5,
+            "moveSpeed": 2.5
+          }
+        }
+      ]
+    },
+    "arena_ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.85, 0.7, 0.45, 1],
+        "scale": [70, 1, 70]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_01.png"
+      }
+    },
+    "arena_wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.55, 0.45, 0.35, 1],
+        "scale": [1, 5, 1]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_08.png"
+      }
+    },
+    "pillar": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.6, 0.5, 0.4, 1],
+        "scale": [2, 6, 2]
+      },
+      "tags": ["wall", "cover"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_02.png"
+      }
+    },
+    "platform": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.5, 0.42, 0.32, 1],
+        "scale": [6, 1.5, 6]
+      },
+      "tags": ["ground", "platform"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_04.png"
+      }
+    },
+    "hazard_zone": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.9, 0.2, 0.1, 0.6],
+        "scale": [6, 1, 6]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "pillar_small": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.55, 0.45, 0.35, 1],
+        "scale": [1.2, 3, 1.2]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_02.png"
+      }
+    }
+  }
+}

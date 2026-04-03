@@ -1,0 +1,14 @@
+{
+  "systems": {
+    "combat_system": {
+      "description": "Manages damage tracking and victory conditions",
+      "script": "gameplay/combat_system.ts",
+      "params": {}
+    },
+    "scoring": {
+      "description": "Tracks kills and score for the HUD",
+      "script": "gameplay/scoring.ts",
+      "params": {}
+    }
+  }
+}

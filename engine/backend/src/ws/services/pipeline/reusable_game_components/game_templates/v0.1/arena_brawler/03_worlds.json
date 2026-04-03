@@ -1,0 +1,59 @@
+{
+  "worlds": [
+    {
+      "id": "arena_brawler_world",
+      "name": "The Colosseum",
+      "lighting": {
+        "sun_color": [1.0, 0.9, 0.75]
+      },
+      "placements": [
+        { "ref": "arena_ground", "position": [0, 0, 0] },
+
+        { "ref": "arena_wall", "position": [0, 2.5, 30], "scale": [60, 5, 1] },
+        { "ref": "arena_wall", "position": [0, 2.5, -30], "scale": [60, 5, 1] },
+        { "ref": "arena_wall", "position": [30, 2.5, 0], "scale": [1, 5, 60] },
+        { "ref": "arena_wall", "position": [-30, 2.5, 0], "scale": [1, 5, 60] },
+
+        { "ref": "arena_wall", "position": [28, 2.5, 28], "scale": [5, 5, 1], "rotation": [0, 45, 0] },
+        { "ref": "arena_wall", "position": [-28, 2.5, 28], "scale": [5, 5, 1], "rotation": [0, -45, 0] },
+        { "ref": "arena_wall", "position": [28, 2.5, -28], "scale": [5, 5, 1], "rotation": [0, -45, 0] },
+        { "ref": "arena_wall", "position": [-28, 2.5, -28], "scale": [5, 5, 1], "rotation": [0, 45, 0] },
+
+        { "ref": "pillar", "position": [10, 3, 10] },
+        { "ref": "pillar", "position": [-10, 3, 10] },
+        { "ref": "pillar", "position": [10, 3, -10] },
+        { "ref": "pillar", "position": [-10, 3, -10] },
+        { "ref": "pillar", "position": [18, 3, 0] },
+        { "ref": "pillar", "position": [-18, 3, 0] },
+
+        { "ref": "pillar_small", "position": [0, 1.5, 18] },
+        { "ref": "pillar_small", "position": [0, 1.5, -18] },
+        { "ref": "pillar_small", "position": [22, 1.5, 12] },
+        { "ref": "pillar_small", "position": [-22, 1.5, -12] },
+
+        { "ref": "platform", "position": [20, 0.75, 20] },
+        { "ref": "platform", "position": [-20, 0.75, -20] },
+        { "ref": "platform", "position": [-20, 0.75, 20] },
+
+        { "ref": "hazard_zone", "position": [0, 0.03, 0] },
+        { "ref": "hazard_zone", "position": [20, 0.03, -20] },
+
+        { "name": "Player", "ref": "player", "position": [0, 0, -20] },
+        { "ref": "camera", "position": [0, 5, -12] },
+
+        { "ref": "gladiator", "position": [12, 0, 8] },
+        { "ref": "gladiator", "position": [-14, 0, 5] },
+        { "ref": "gladiator", "position": [6, 0, 18] },
+        { "ref": "gladiator", "position": [-8, 0, -15] },
+        { "ref": "gladiator", "position": [20, 0, -8] },
+
+        { "ref": "champion", "position": [0, 0, 15] },
+        { "ref": "champion", "position": [-18, 0, 12] },
+
+        { "ref": "archer", "position": [20, 1.5, 20] },
+        { "ref": "archer", "position": [-20, 1.5, -20] },
+        { "ref": "archer", "position": [-20, 1.5, 20] }
+      ]
+    }
+  ]
+}
