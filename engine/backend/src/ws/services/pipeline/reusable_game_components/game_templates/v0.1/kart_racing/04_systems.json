@@ -1,0 +1,11 @@
+{
+  "systems": {
+    "race_manager": {
+      "description": "Tracks kart race positions based on track progress",
+      "script": "gameplay/race_manager.ts",
+      "params": {
+        "waypoints": [[20, -20], [20, -70], [-5, -100], [-45, -100], [-70, -70], [-70, -20], [-45, 15], [-5, 15]]
+      }
+    }
+  }
+}

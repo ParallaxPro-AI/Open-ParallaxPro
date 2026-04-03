@@ -1,0 +1,94 @@
+{
+  "worlds": [
+    {
+      "id": "kart_circuit",
+      "name": "Kart Grand Prix",
+      "lighting": {
+        "sun_color": [1.0, 0.98, 0.9]
+      },
+      "placements": [
+        { "ref": "ground", "position": [-25, 0, -42] },
+
+        { "ref": "road", "position": [20, 0.02, -42], "scale": [20, 1, 115] },
+        { "ref": "road", "position": [-70, 0.02, -42], "scale": [20, 1, 115] },
+        { "ref": "road", "position": [-25, 0.02, 15], "scale": [110, 1, 22] },
+        { "ref": "road", "position": [-25, 0.02, -100], "scale": [110, 1, 22] },
+
+        { "ref": "start_line", "position": [20, 0.03, 5] },
+
+        { "ref": "barrier_outer", "position": [-25, 1, 27], "scale": [112, 2.5, 1] },
+        { "ref": "barrier_outer", "position": [-25, 1, -112], "scale": [112, 2.5, 1] },
+        { "ref": "barrier_outer", "position": [31, 1, -42], "scale": [1, 2.5, 115] },
+        { "ref": "barrier_outer", "position": [-81, 1, -42], "scale": [1, 2.5, 115] },
+
+        { "ref": "barrier_inner", "position": [-25, 0.75, 4], "scale": [60, 1.8, 1] },
+        { "ref": "barrier_inner", "position": [-25, 0.75, -89], "scale": [60, 1.8, 1] },
+        { "ref": "barrier_inner", "position": [9, 0.75, -42], "scale": [1, 1.8, 70] },
+        { "ref": "barrier_inner", "position": [-59, 0.75, -42], "scale": [1, 1.8, 70] },
+
+        { "ref": "ramp", "position": [20, 0.25, -30], "rotation": [-8, 0, 0], "scale": [10, 0.5, 7] },
+        { "ref": "ramp", "position": [-70, 0.25, -55], "rotation": [8, 0, 0], "scale": [10, 0.5, 7] },
+        { "ref": "ramp", "position": [-25, 0.25, 15], "rotation": [0, 0, -8], "scale": [7, 0.5, 10] },
+        { "ref": "ramp", "position": [-40, 0.25, -100], "rotation": [0, 0, 8], "scale": [7, 0.5, 10] },
+
+        { "ref": "cone", "position": [10, 0, 3] },
+        { "ref": "cone", "position": [8, 0, 5] },
+        { "ref": "cone", "position": [10, 0, -88] },
+        { "ref": "cone", "position": [8, 0, -90] },
+        { "ref": "cone", "position": [-58, 0, 3] },
+        { "ref": "cone", "position": [-60, 0, 5] },
+        { "ref": "cone", "position": [-58, 0, -88] },
+        { "ref": "cone", "position": [-60, 0, -90] },
+        { "ref": "cone", "position": [29, 0, -42] },
+        { "ref": "cone", "position": [29, 0, -55] },
+        { "ref": "cone", "position": [29, 0, -28] },
+        { "ref": "cone", "position": [-79, 0, -42] },
+        { "ref": "cone", "position": [-79, 0, -55] },
+        { "ref": "cone", "position": [-79, 0, -28] },
+        { "ref": "cone", "position": [-10, 0, 25] },
+        { "ref": "cone", "position": [-40, 0, 25] },
+        { "ref": "cone", "position": [-10, 0, -110] },
+        { "ref": "cone", "position": [-40, 0, -110] },
+
+        { "ref": "tree", "position": [36, 0, 32] },
+        { "ref": "tree", "position": [36, 0, -10] },
+        { "ref": "tree", "position": [36, 0, -50] },
+        { "ref": "tree", "position": [36, 0, -90] },
+        { "ref": "tree", "position": [-86, 0, 32] },
+        { "ref": "tree", "position": [-86, 0, -10] },
+        { "ref": "tree", "position": [-86, 0, -50] },
+        { "ref": "tree", "position": [-86, 0, -90] },
+
+        { "ref": "pine_tree", "position": [40, 0, 10] },
+        { "ref": "pine_tree", "position": [40, 0, -30] },
+        { "ref": "pine_tree", "position": [40, 0, -70] },
+        { "ref": "pine_tree", "position": [40, 0, -115] },
+        { "ref": "pine_tree", "position": [-90, 0, 10] },
+        { "ref": "pine_tree", "position": [-90, 0, -30] },
+        { "ref": "pine_tree", "position": [-90, 0, -70] },
+        { "ref": "pine_tree", "position": [-90, 0, -115] },
+
+        { "ref": "bush", "position": [-5, 0, -5] },
+        { "ref": "bush", "position": [-15, 0, -5] },
+        { "ref": "bush", "position": [-35, 0, -5] },
+        { "ref": "bush", "position": [-45, 0, -5] },
+        { "ref": "bush", "position": [-5, 0, -80] },
+        { "ref": "bush", "position": [-15, 0, -80] },
+        { "ref": "bush", "position": [-35, 0, -80] },
+        { "ref": "bush", "position": [-45, 0, -80] },
+
+        { "ref": "rock", "position": [0, 0, -42] },
+        { "ref": "rock", "position": [-50, 0, -42] },
+        { "ref": "rock", "position": [-25, 0, -20] },
+        { "ref": "rock", "position": [-25, 0, -65] },
+
+        { "ref": "camera", "position": [20, 7, 18] },
+
+        { "name": "Player Car", "ref": "player_kart", "position": [20, 0, 5] },
+        { "name": "Opponent A", "ref": "opponent_kart_a", "position": [24, 0, 9] },
+        { "name": "Opponent B", "ref": "opponent_kart_b", "position": [16, 0, 12] },
+        { "name": "Opponent C", "ref": "opponent_kart_c", "position": [24, 0, 15] }
+      ]
+    }
+  ]
+}
