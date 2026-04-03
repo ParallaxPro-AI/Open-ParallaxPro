@@ -1,0 +1,23 @@
+{
+  "systems": {
+    "scoring": {
+      "description": "Tracks zombie kills and score",
+      "script": "gameplay/scoring.ts"
+    },
+    "combat_survival": {
+      "description": "Manages player death and game over",
+      "script": "gameplay/combat_survival.ts"
+    },
+    "mob_spawner": {
+      "description": "Spawns zombie waves in increasing numbers",
+      "script": "gameplay/mob_spawner.ts",
+      "params": {
+        "maxSurfaceMobs": 12,
+        "nightSpawnRate": 6,
+        "spawnDistance": 22,
+        "despawnDistance": 60,
+        "nightMobs": ["zombie_swarm", "zombie_swarm", "zombie_swarm", "zombie_brute"]
+      }
+    }
+  }
+}

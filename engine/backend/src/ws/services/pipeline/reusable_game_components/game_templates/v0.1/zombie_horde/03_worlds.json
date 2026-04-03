@@ -1,0 +1,55 @@
+{
+  "worlds": [
+    {
+      "id": "zombie_compound",
+      "name": "Fortified Compound",
+      "lighting": {
+        "sun_color": [0.4, 0.35, 0.3]
+      },
+      "placements": [
+        { "ref": "ground", "position": [0, 0, 0] },
+        { "ref": "camera", "position": [0, 1.6, 0] },
+        { "ref": "player", "position": [0, 0, 0] },
+
+        { "ref": "compound_wall", "position": [0, 2, -18] },
+        { "ref": "compound_wall", "position": [12, 2, -18] },
+        { "ref": "compound_wall", "position": [-12, 2, -18] },
+        { "ref": "compound_wall", "position": [0, 2, 18] },
+        { "ref": "compound_wall_short", "position": [-10, 2, 18] },
+        { "ref": "compound_wall_short", "position": [12, 2, 18] },
+        { "ref": "compound_wall", "position": [-18, 2, -6], "rotation": [0, 90, 0] },
+        { "ref": "compound_wall", "position": [-18, 2, 6], "rotation": [0, 90, 0] },
+        { "ref": "compound_wall", "position": [18, 2, -6], "rotation": [0, 90, 0] },
+        { "ref": "compound_wall_short", "position": [18, 2, 10], "rotation": [0, 90, 0] },
+
+        { "ref": "barricade", "position": [5, 0.75, -5] },
+        { "ref": "barricade", "position": [-6, 0.75, -3], "rotation": [0, 30, 0] },
+        { "ref": "barricade", "position": [0, 0.75, 5], "rotation": [0, 90, 0] },
+        { "ref": "barricade", "position": [-8, 0.75, 8], "rotation": [0, 45, 0] },
+        { "ref": "barricade", "position": [10, 0.75, 3], "rotation": [0, -20, 0] },
+
+        { "ref": "sandbag", "position": [3, 0.4, -10] },
+        { "ref": "sandbag", "position": [-4, 0.4, -12], "rotation": [0, 45, 0] },
+        { "ref": "sandbag", "position": [8, 0.4, -8], "rotation": [0, 90, 0] },
+        { "ref": "sandbag", "position": [-10, 0.4, 2], "rotation": [0, -30, 0] },
+        { "ref": "sandbag", "position": [0, 0.4, 10], "rotation": [0, 60, 0] },
+        { "ref": "sandbag", "position": [12, 0.4, -2] },
+
+        { "ref": "ammo_crate", "position": [4, 0.3, 2] },
+        { "ref": "ammo_crate", "position": [-7, 0.3, -8] },
+        { "ref": "ammo_crate", "position": [10, 0.3, 10] },
+        { "ref": "ammo_crate", "position": [-12, 0.3, 5] },
+        { "ref": "ammo_crate", "position": [0, 0.3, -14] },
+
+        { "ref": "zombie_swarm", "position": [15, 0, -15] },
+        { "ref": "zombie_swarm", "position": [-14, 0, -16] },
+        { "ref": "zombie_swarm", "position": [16, 0, 10] },
+        { "ref": "zombie_swarm", "position": [-16, 0, 12] },
+        { "ref": "zombie_swarm", "position": [10, 0, 16] },
+        { "ref": "zombie_swarm", "position": [-10, 0, -14] },
+        { "ref": "zombie_brute", "position": [14, 0, 0] },
+        { "ref": "zombie_brute", "position": [-15, 0, -10] }
+      ]
+    }
+  ]
+}
