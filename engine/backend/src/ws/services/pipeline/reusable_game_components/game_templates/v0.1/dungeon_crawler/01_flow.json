@@ -1,0 +1,93 @@
+{
+  "id": "dungeon_crawler_flow",
+  "name": "Dungeon Crawler",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "DEPTHS OF SHADOW", "gameSubtitle": "A Dungeon Crawler" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize dungeon systems",
+      "active_systems": ["combat_rpg", "loot_xp"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Dungeon crawling gameplay",
+      "start": "exploring",
+      "on_enter": ["emit:game.game_ready"],
+      "on_exit": [],
+      "substates": {
+        "exploring": {
+          "description": "Explore dungeon rooms, fight enemies, collect loot, defeat the boss",
+          "active_systems": ["combat_rpg", "loot_xp", "mob_spawner"],
+          "active_behaviors": [
+            "rpg_movement", "camera_rpg", "melee_combat", "player_stats",
+            "hostile_mob", "elite_mob", "boss_ai"
+          ],
+          "on_enter": [
+            "show_ui:hud/health_mana",
+            "show_ui:hud/xp_bar",
+            "show_ui:hud/target_frame",
+            "emit:game.player_respawned",
+            "play_sound:/assets/kenney/audio/rpg_audio/doorOpen_1.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:hud/health_mana",
+            "hide_ui:hud/xp_bar",
+            "hide_ui:hud/target_frame"
+          ],
+          "transitions": [
+            { "when": "game_event:player_died", "goto": "death" },
+            { "when": "game_event:final_boss_defeated", "goto": "victory" }
+          ]
+        },
+        "death": {
+          "description": "Player died — respawn after delay",
+          "active_systems": ["combat_rpg"],
+          "active_behaviors": ["camera_rpg"],
+          "duration": -1,
+          "on_enter": [
+            "show_ui:hud/death_screen",
+            "set:respawn_timer=0",
+            "play_sound:/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_000.ogg"
+          ],
+          "on_update": ["increment:respawn_timer"],
+          "on_exit": ["hide_ui:hud/death_screen"],
+          "transitions": [
+            { "when": "respawn_timer>=240", "goto": "exploring" }
+          ]
+        },
+        "victory": {
+          "description": "Boss defeated — dungeon cleared",
+          "active_behaviors": ["camera_rpg"],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/digital_audio/powerUp12.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "emit:game.game_ready"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "exploring" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

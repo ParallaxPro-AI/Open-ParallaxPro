@@ -1,0 +1,123 @@
+{
+  "definitions": {
+    "player_hero": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Adventurer_Male.glb",
+        "scale": [0.45, 0.45, 0.45],
+        "modelRotationY": 180
+      },
+      "physics": { "type": "dynamic", "mass": 80, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["player", "hero"],
+      "behaviors": [
+        {
+          "name": "rpg_movement",
+          "script": "movement/rpg_movement.ts",
+          "params": { "speed": 5, "sprintSpeed": 8, "jumpForce": 6 }
+        },
+        {
+          "name": "melee_combat",
+          "script": "combat/melee_combat.ts",
+          "params": { "damage": 20, "attackRange": 3.5, "attackRate": 0.6, "knockback": 5 }
+        },
+        {
+          "name": "player_stats",
+          "script": "status/player_stats.ts",
+          "params": { "maxHealth": 250, "maxMana": 80, "health": 250, "mana": 80, "manaRegen": 2, "healthRegen": 2, "xpToLevel": 80 }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 60 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_rpg",
+          "script": "camera/camera_rpg.ts",
+          "params": { "distance": 12, "height": 8, "lookHeight": 1.5, "smoothSpeed": 6, "sensitivity": 0.15 }
+        }
+      ]
+    },
+
+    "dungeon_wall": {
+      "mesh": { "type": "cube", "color": [0.18, 0.16, 0.2, 1], "scale": [1, 4, 1] },
+      "tags": ["terrain", "dungeon"], "label": false,
+      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png" }
+    },
+    "dungeon_ground": {
+      "mesh": { "type": "plane", "color": [0.15, 0.14, 0.17, 1], "scale": [120, 1, 120] },
+      "tags": ["ground"], "label": false,
+      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png" }
+    },
+
+    "dungeon_column": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Column.glb", "scale": [2, 2, 2] },
+      "tags": ["dungeon", "prop"], "label": false
+    },
+    "dungeon_torch": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Torch_wall.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["dungeon", "light"], "label": false
+    },
+    "dungeon_chest": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Chest.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["dungeon", "interactive", "loot"], "label": false
+    },
+    "treasure_chest": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Chest_gold.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["dungeon", "interactive", "loot"], "label": false
+    },
+    "barrel": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Barrel.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["prop"], "label": false
+    },
+    "crate_stack": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Crate_Stack2.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["prop"], "label": false
+    },
+    "bones": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Bones.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["dungeon", "decoration"], "label": false
+    },
+    "candelabrum": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Candelabrum_tall.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["dungeon", "light"], "label": false
+    },
+    "health_potion": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_rpg_items_pack/Potion1_Filled.glb", "scale": [2, 2, 2] },
+      "physics": false, "tags": ["loot", "collectible"], "label": false
+    },
+    "mana_potion": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_rpg_items_pack/Potion3_Filled.glb", "scale": [2, 2, 2] },
+      "physics": false, "tags": ["loot", "collectible"], "label": false
+    },
+    "gold_pile": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Gold_1.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["resource", "collectible"], "label": false
+    },
+
+    "skeleton_warrior": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Zombie_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
+      "physics": { "type": "dynamic", "mass": 60, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["hostile", "enemy", "undead"],
+      "behaviors": [{ "name": "hostile_mob", "script": "ai/hostile_mob.ts", "params": { "health": 80, "damage": 12, "attackRange": 2.5, "attackRate": 1.2, "detectRange": 12, "speed": 3, "xpReward": 25 } }]
+    },
+    "dark_crawler": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Male.glb", "scale": [0.35, 0.35, 0.35], "modelRotationY": 180 },
+      "physics": { "type": "dynamic", "mass": 40, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["hostile", "enemy", "crawler"],
+      "behaviors": [{ "name": "hostile_mob", "script": "ai/hostile_mob.ts", "params": { "health": 50, "damage": 8, "attackRange": 2, "attackRate": 0.8, "detectRange": 14, "speed": 4.5, "xpReward": 18 } }]
+    },
+    "dungeon_guardian": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb", "scale": [0.5, 0.5, 0.5], "modelRotationY": 180 },
+      "physics": { "type": "dynamic", "mass": 90, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["hostile", "enemy", "elite"],
+      "behaviors": [{ "name": "elite_mob", "script": "ai/elite_mob.ts", "params": { "health": 250, "damage": 28, "attackRange": 3, "attackRate": 1.5, "detectRange": 16, "speed": 3, "xpReward": 90 } }]
+    },
+    "crypt_lord": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Barbarian_Male.glb", "scale": [0.6, 0.6, 0.6], "modelRotationY": 180 },
+      "physics": { "type": "dynamic", "mass": 120, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["hostile", "enemy", "boss"],
+      "behaviors": [{ "name": "boss_ai", "script": "ai/boss_ai.ts", "params": { "health": 600, "maxHealth": 600, "damage": 40, "attackRange": 4, "attackRate": 2, "detectRange": 20, "speed": 2.5, "xpReward": 300 } }]
+    }
+  }
+}

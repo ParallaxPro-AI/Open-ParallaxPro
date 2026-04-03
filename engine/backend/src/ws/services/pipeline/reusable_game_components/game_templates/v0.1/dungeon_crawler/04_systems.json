@@ -1,0 +1,29 @@
+{
+  "systems": {
+    "combat_rpg": {
+      "description": "Manages combat interactions, damage tracking, and kill counting in the dungeon",
+      "script": "gameplay/combat_rpg.ts",
+      "params": {
+        "damageMultiplier": 1,
+        "healMultiplier": 1
+      }
+    },
+    "loot_xp": {
+      "description": "Experience points, leveling, and gold drops from defeated dungeon creatures",
+      "script": "gameplay/loot_xp.ts",
+      "params": {
+        "goldPerKill": 15
+      }
+    },
+    "mob_spawner": {
+      "description": "Manages mob respawning in dungeon rooms after enemies are cleared",
+      "script": "gameplay/mob_spawner.ts",
+      "params": {
+        "maxSurfaceMobs": 4,
+        "nightSpawnRate": 30,
+        "spawnDistance": 20,
+        "despawnDistance": 60
+      }
+    }
+  }
+}
