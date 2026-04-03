@@ -1,0 +1,34 @@
+{
+  "systems": {
+    "resource_system": {
+      "description": "Tracks settlement resources — gold, wood, food, stone — gathered by workers from resource nodes, spent on buildings and upgrades",
+      "script": "gameplay/resource_system.ts",
+      "params": {
+        "startMinerals": 300,
+        "startGas": 100,
+        "maxSupply": 50
+      }
+    },
+    "production_system": {
+      "description": "Handles building construction and worker training — queues units, spends resources, spawns completed entities at rally points",
+      "script": "gameplay/production_system.ts",
+      "params": {
+        "buildTime": 8
+      }
+    },
+    "gold_system": {
+      "description": "Passive gold income and gold tracking — market buildings boost income rate, gold used for trade and upgrades",
+      "script": "gameplay/gold_system.ts",
+      "params": {
+        "passiveRate": 3
+      }
+    },
+    "farming_village": {
+      "description": "Manages village life — crop growth cycles, villager population tracking, seasonal food production from farms and wheat fields",
+      "script": "gameplay/farming_village.ts",
+      "params": {
+        "cropGrowthTime": 45
+      }
+    }
+  }
+}

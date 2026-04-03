@@ -1,0 +1,100 @@
+{
+  "id": "tycoon_empire_flow",
+  "name": "Tycoon Empire",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "TYCOON EMPIRE", "gameSubtitle": "Build Your Settlement" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize tycoon systems",
+      "active_systems": ["resource_system", "production_system", "gold_system", "farming_village"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Real-time settlement management",
+      "start": "managing",
+      "on_enter": ["emit:game.game_ready"],
+      "on_exit": [],
+      "substates": {
+        "managing": {
+          "description": "Player manages settlement — place buildings, assign workers, grow economy",
+          "active_systems": [
+            "resource_system",
+            "production_system",
+            "gold_system",
+            "farming_village"
+          ],
+          "active_behaviors": [
+            "strategy_camera",
+            "city_manager",
+            "worker_ai",
+            "villager_ai"
+          ],
+          "on_enter": [
+            "show_ui:hud/resources",
+            "show_ui:hud/minimap",
+            "show_ui:hud/day_indicator",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:hud/resources",
+            "hide_ui:hud/minimap",
+            "hide_ui:hud/day_indicator"
+          ],
+          "transitions": [
+            { "when": "game_event:victory", "goto": "victory" },
+            { "when": "game_event:defeat", "goto": "defeat" }
+          ]
+        },
+        "victory": {
+          "description": "Settlement thrived — player wins",
+          "active_behaviors": ["strategy_camera"],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/digital_audio/powerUp12.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "emit:game.game_ready"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "managing" }
+          ]
+        },
+        "defeat": {
+          "description": "Settlement collapsed — resources depleted",
+          "active_behaviors": ["strategy_camera"],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_001.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "emit:game.game_ready"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "managing" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

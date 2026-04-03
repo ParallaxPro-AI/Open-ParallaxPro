@@ -1,0 +1,120 @@
+{
+  "worlds": [
+    {
+      "id": "green_valley",
+      "name": "Green Valley",
+      "lighting": {
+        "ambient": [0.55, 0.58, 0.52],
+        "sun_direction": [0.3, -0.7, 0.25],
+        "sun_color": [1.0, 0.97, 0.88]
+      },
+      "terrain": {
+        "size": [130, 130],
+        "color": [0.35, 0.55, 0.3, 1]
+      },
+      "placements": [
+        { "ref": "ground", "position": [0, 0, 0] },
+        { "ref": "camera", "position": [0, 35, 30] },
+
+        { "ref": "boundary_wall", "position": [0, 2.5, -62], "scale": [128, 6, 2] },
+        { "ref": "boundary_wall", "position": [0, 2.5, 62], "scale": [128, 6, 2] },
+        { "ref": "boundary_wall", "position": [-62, 2.5, 0], "scale": [2, 6, 128] },
+        { "ref": "boundary_wall", "position": [62, 2.5, 0], "scale": [2, 6, 128] },
+
+        { "ref": "town_hall", "position": [0, 0, 0] },
+        { "ref": "house", "position": [8, 0, 3] },
+        { "ref": "house_2", "position": [-8, 0, 3] },
+        { "ref": "house", "position": [8, 0, -5] },
+        { "ref": "market", "position": [-7, 0, -6] },
+        { "ref": "storehouse", "position": [5, 0, -10] },
+        { "ref": "barracks", "position": [-12, 0, -3] },
+
+        { "ref": "farm", "position": [-15, 0, 8] },
+        { "ref": "farm_field", "position": [-18, 0, 12] },
+        { "ref": "farm_field", "position": [-12, 0, 12] },
+        { "ref": "windmill", "position": [-20, 0, 6] },
+
+        { "ref": "lumber_mill", "position": [18, 0, 10] },
+        { "ref": "quarry", "position": [15, 0, -14] },
+        { "ref": "watchtower", "position": [-5, 0, -14] },
+
+        { "ref": "crate_stack", "position": [3, 0, -8] },
+        { "ref": "barrel", "position": [-4, 0, -4] },
+        { "ref": "barrel", "position": [6, 0, 6] },
+        { "ref": "logs", "position": [12, 0, 8] },
+
+        { "ref": "worker", "position": [4, 0, 5] },
+        { "ref": "worker", "position": [-3, 0, 7] },
+        { "ref": "worker_female", "position": [10, 0, 6] },
+        { "ref": "worker_female", "position": [-10, 0, 10] },
+        { "ref": "worker", "position": [14, 0, -10] },
+
+        { "ref": "villager", "position": [2, 0, -3] },
+        { "ref": "villager_female", "position": [-5, 0, 2] },
+        { "ref": "villager", "position": [7, 0, -2] },
+
+        { "ref": "tree_grove", "position": [30, 0, 15] },
+        { "ref": "tree_grove", "position": [35, 0, 20] },
+        { "ref": "tree_grove", "position": [-35, 0, 18] },
+        { "ref": "rock_deposit", "position": [25, 0, -20] },
+        { "ref": "rock_deposit", "position": [-30, 0, -25] },
+        { "ref": "rock_deposit", "position": [40, 0, -10] },
+        { "ref": "gold_vein", "position": [-40, 0, -15] },
+        { "ref": "gold_vein", "position": [45, 0, 5] },
+        { "ref": "wheat_field", "position": [-22, 0, 16] },
+        { "ref": "wheat_field", "position": [-25, 0, 20] },
+        { "ref": "wheat_field", "position": [-18, 0, 20] },
+
+        { "ref": "common_tree", "position": [25, 0, 25] },
+        { "ref": "common_tree", "position": [28, 0, 30] },
+        { "ref": "common_tree", "position": [32, 0, 28] },
+        { "ref": "common_tree_2", "position": [38, 0, 25] },
+        { "ref": "common_tree_2", "position": [35, 0, 32] },
+        { "ref": "birch_tree", "position": [-30, 0, 25] },
+        { "ref": "birch_tree", "position": [-35, 0, 30] },
+        { "ref": "birch_tree", "position": [-28, 0, 32] },
+        { "ref": "pine_tree", "position": [45, 0, 30] },
+        { "ref": "pine_tree", "position": [42, 0, 35] },
+        { "ref": "pine_tree", "position": [-45, 0, 28] },
+        { "ref": "willow_tree", "position": [-40, 0, 35] },
+        { "ref": "willow_tree", "position": [40, 0, 40] },
+
+        { "ref": "common_tree", "position": [-50, 0, 40] },
+        { "ref": "common_tree_2", "position": [-48, 0, 45] },
+        { "ref": "pine_tree", "position": [50, 0, 42] },
+        { "ref": "birch_tree", "position": [48, 0, -35] },
+        { "ref": "common_tree", "position": [-45, 0, -40] },
+        { "ref": "pine_tree", "position": [45, 0, -38] },
+
+        { "ref": "bush", "position": [20, 0, 18] },
+        { "ref": "bush", "position": [-25, 0, 15] },
+        { "ref": "bush", "position": [15, 0, -18] },
+        { "ref": "bush", "position": [-20, 0, -20] },
+        { "ref": "bush", "position": [35, 0, -15] },
+        { "ref": "flowers", "position": [10, 0, 15] },
+        { "ref": "flowers", "position": [-12, 0, 18] },
+        { "ref": "flowers", "position": [5, 0, -16] },
+        { "ref": "flowers", "position": [-8, 0, -18] },
+        { "ref": "flowers", "position": [30, 0, 10] },
+        { "ref": "grass_patch", "position": [18, 0, 22] },
+        { "ref": "grass_patch", "position": [-18, 0, 25] },
+        { "ref": "grass_patch", "position": [22, 0, -15] },
+        { "ref": "grass_patch", "position": [-15, 0, -22] },
+        { "ref": "grass_patch", "position": [40, 0, 15] },
+
+        { "ref": "rock_large", "position": [50, 0, -25] },
+        { "ref": "rock_large", "position": [-50, 0, -30] },
+        { "ref": "rock_small", "position": [30, 0, -25] },
+        { "ref": "rock_small", "position": [-35, 0, -30] },
+        { "ref": "rock_small", "position": [48, 0, 20] },
+        { "ref": "rock_small", "position": [-48, 0, 22] },
+
+        { "ref": "tree_grove", "position": [50, 0, -40] },
+        { "ref": "rock_deposit", "position": [-50, 0, -45] },
+        { "ref": "gold_vein", "position": [55, 0, -30] },
+        { "ref": "wheat_field", "position": [-30, 0, 40] },
+        { "ref": "wheat_field", "position": [-25, 0, 42] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 50 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "strategy_camera",
+          "script": "camera/camera_strategy.ts",
+          "params": { "height": 35, "angle": 55, "panSpeed": 30, "zoomSpeed": 10, "minZoom": 15, "maxZoom": 55, "edgeScrollSpeed": 20, "edgeScrollMargin": 25, "smoothSpeed": 8, "boundsX": [-60, 60], "boundsZ": [-60, 60], "rotateSpeed": 60 }
+        }
+      ]
+    },
+
+    "town_hall": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_SecondAge_Level3.glb", "scale": [2.2, 2.2, 2.2] },
+      "tags": ["building", "player", "city", "capital"],
+      "label": false,
+      "behaviors": [{ "name": "city_manager", "script": "gameplay/city_manager.ts", "params": { "population": 5, "housing": 10, "isCapital": true } }]
+    },
+    "house": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_SecondAge_1_Level2.glb", "scale": [1.4, 1.4, 1.4] },
+      "tags": ["building", "player", "housing"],
+      "label": false,
+      "behaviors": [{ "name": "city_manager", "script": "gameplay/city_manager.ts", "params": { "population": 0, "housing": 4, "isCapital": false } }]
+    },
+    "house_2": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_FirstAge_2_Level2.glb", "scale": [1.4, 1.4, 1.4] },
+      "tags": ["building", "player", "housing"],
+      "label": false,
+      "behaviors": [{ "name": "city_manager", "script": "gameplay/city_manager.ts", "params": { "population": 0, "housing": 3, "isCapital": false } }]
+    },
+    "lumber_mill": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Tree_Group_Cut.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["building", "player", "production", "wood"],
+      "label": false
+    },
+    "quarry": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mine.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["building", "player", "production", "stone"],
+      "label": false
+    },
+    "farm": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_SecondAge_Level2_Wheat.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["building", "player", "production", "food"],
+      "label": false
+    },
+    "farm_field": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_Dirt_Level2.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false,
+      "tags": ["building", "player", "food"],
+      "label": false
+    },
+    "market": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Market_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["building", "player", "commerce"],
+      "label": false
+    },
+    "storehouse": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Storage_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["building", "player", "storage"],
+      "label": false
+    },
+    "windmill": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Windmill_SecondAge.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["building", "player", "production"],
+      "label": false
+    },
+    "watchtower": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WatchTower_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["building", "player", "defense"],
+      "label": false
+    },
+    "barracks": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barracks_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
+      "tags": ["building", "player", "military"],
+      "label": false
+    },
+
+    "worker": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
+      "physics": { "type": "dynamic", "mass": 60, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["unit", "player", "worker"],
+      "behaviors": [{ "name": "worker_ai", "script": "ai/worker_ai.ts", "params": { "speed": 3, "gatherRange": 14, "health": 40 } }]
+    },
+    "worker_female": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Female.glb", "scale": [0.38, 0.38, 0.38], "modelRotationY": 180 },
+      "physics": { "type": "dynamic", "mass": 55, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["unit", "player", "worker"],
+      "behaviors": [{ "name": "worker_ai", "script": "ai/worker_ai.ts", "params": { "speed": 3.5, "gatherRange": 12, "health": 35 } }]
+    },
+    "villager": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Adventurer_Male.glb", "scale": [0.38, 0.38, 0.38], "modelRotationY": 180 },
+      "physics": { "type": "dynamic", "mass": 60, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["unit", "player", "villager"],
+      "behaviors": [{ "name": "villager_ai", "script": "ai/villager_ai.ts", "params": { "speed": 1.5, "wanderRadius": 10 } }]
+    },
+    "villager_female": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Elf.glb", "scale": [0.38, 0.38, 0.38], "modelRotationY": 180 },
+      "physics": { "type": "dynamic", "mass": 55, "freeze_rotation": true, "collider": "capsule" },
+      "tags": ["unit", "player", "villager"],
+      "behaviors": [{ "name": "villager_ai", "script": "ai/villager_ai.ts", "params": { "speed": 1.8, "wanderRadius": 8 } }]
+    },
+
+    "tree_grove": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Tree_Group.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["resource", "wood"], "label": false
+    },
+    "rock_deposit": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Rock_1.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["resource", "stone"], "label": false
+    },
+    "gold_vein": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Gold_1.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["resource", "gold"], "label": false
+    },
+    "wheat_field": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Wheat.glb", "scale": [3, 3, 3] },
+      "physics": false, "tags": ["resource", "food"], "label": false
+    },
+
+    "common_tree": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_1.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["decoration", "forest"], "label": false
+    },
+    "common_tree_2": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_3.glb", "scale": [1.8, 1.8, 1.8] },
+      "physics": false, "tags": ["decoration", "forest"], "label": false
+    },
+    "birch_tree": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/BirchTree_1.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["decoration", "forest"], "label": false
+    },
+    "pine_tree": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_2.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["decoration", "forest"], "label": false
+    },
+    "willow_tree": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Willow_1.glb", "scale": [1.2, 1.2, 1.2] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+    "bush": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Bush_1.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+    "flowers": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Flowers.glb", "scale": [2, 2, 2] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+    "grass_patch": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Grass.glb", "scale": [2, 2, 2] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+    "rock_large": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_Moss_1.glb", "scale": [2, 2, 2] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+    "rock_small": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_1.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+    "crate_stack": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Crate_Stack2.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+    "barrel": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barrel.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+    "logs": {
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Logs.glb", "scale": [1.5, 1.5, 1.5] },
+      "physics": false, "tags": ["decoration"], "label": false
+    },
+
+    "ground": {
+      "mesh": { "type": "plane", "color": [0.35, 0.55, 0.3, 1], "scale": [130, 1, 130] },
+      "tags": ["ground"], "label": false,
+      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png" }
+    },
+    "boundary_wall": {
+      "mesh": { "type": "cube", "color": [0.45, 0.42, 0.38, 1], "scale": [1, 5, 1] },
+      "tags": ["terrain", "boundary"], "label": false,
+      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png" }
+    }
+  }
+}
