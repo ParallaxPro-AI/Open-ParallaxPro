@@ -1,0 +1,29 @@
+{
+  "systems": {
+    "chess_engine": {
+      "description": "AI opponent logic — moves enemy units on the board with chess-like rules",
+      "script": "gameplay/chess_engine.ts",
+      "params": {}
+    },
+    "piece_interaction": {
+      "description": "Board click handling — select and move player units via cursor",
+      "script": "gameplay/chess_interaction.ts",
+      "params": {}
+    },
+    "combat": {
+      "description": "Battle resolution — tracks kills and checks victory/defeat conditions",
+      "script": "gameplay/combat_system.ts",
+      "params": {}
+    },
+    "gold": {
+      "description": "Economy system — passive gold income and kill rewards",
+      "script": "gameplay/gold_system.ts",
+      "params": {}
+    },
+    "scoring": {
+      "description": "Score tracking — kills and total score for the HUD",
+      "script": "gameplay/scoring.ts",
+      "params": {}
+    }
+  }
+}

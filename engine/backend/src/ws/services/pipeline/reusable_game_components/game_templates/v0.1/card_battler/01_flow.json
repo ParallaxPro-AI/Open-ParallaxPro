@@ -1,0 +1,213 @@
+{
+  "id": "card_battler_flow",
+  "name": "Card Battler Flow",
+  "start": "boot",
+  "states": {
+    "boot": {
+      "description": "Initialize all systems",
+      "active_systems": [
+        "chess_engine",
+        "piece_interaction",
+        "combat",
+        "gold",
+        "scoring"
+      ],
+      "active_behaviors": [
+        "board_camera"
+      ],
+      "duration": -1,
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "on_exit": [],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "active_systems": [],
+      "active_behaviors": [],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay"
+        }
+      ]
+    },
+    "gameplay": {
+      "description": "Card battler match — place units, then battle",
+      "start": "player_turn",
+      "on_enter": [
+        "emit:game.game_ready",
+        "sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
+      ],
+      "on_exit": [],
+      "substates": {
+        "player_turn": {
+          "description": "Player selects and places units on the board",
+          "active_systems": [
+            "chess_engine",
+            "piece_interaction",
+            "combat",
+            "gold",
+            "scoring"
+          ],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "on_enter": [
+            "show_ui:hud",
+            "show_cursor",
+            "sound:/assets/kenney/audio/interface_sounds/pepSound1.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:hud"
+          ],
+          "transitions": [
+            {
+              "when": "game_event:move_made",
+              "goto": "enemy_turn"
+            },
+            {
+              "when": "game_event:victory",
+              "goto": "victory"
+            },
+            {
+              "when": "game_event:checkmate",
+              "goto": "victory"
+            }
+          ]
+        },
+        "enemy_turn": {
+          "description": "Enemy AI moves units",
+          "active_systems": [
+            "chess_engine",
+            "combat",
+            "gold",
+            "scoring"
+          ],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "duration": -1,
+          "on_enter": [
+            "set:ai_timer=0"
+          ],
+          "on_update": [
+            "increment:ai_timer"
+          ],
+          "on_exit": [],
+          "transitions": [
+            {
+              "when": "ai_timer>=60",
+              "goto": "ai_move"
+            }
+          ]
+        },
+        "ai_move": {
+          "description": "AI executes its move",
+          "active_systems": [
+            "chess_engine",
+            "combat",
+            "gold",
+            "scoring"
+          ],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "duration": -1,
+          "on_enter": [
+            "emit:game.ai_turn",
+            "set:ai_done_timer=0",
+            "sound:/assets/kenney/audio/sci_fi_sounds/impactMetal_003.ogg"
+          ],
+          "on_update": [
+            "increment:ai_done_timer"
+          ],
+          "on_exit": [],
+          "transitions": [
+            {
+              "when": "ai_done_timer>=30",
+              "goto": "player_turn"
+            },
+            {
+              "when": "game_event:defeat",
+              "goto": "defeat"
+            },
+            {
+              "when": "game_event:checkmate",
+              "goto": "defeat"
+            }
+          ]
+        },
+        "victory": {
+          "description": "Player wins the battle",
+          "active_systems": [
+            "scoring"
+          ],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "sound:/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over"
+          ],
+          "transitions": [
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "player_turn"
+            }
+          ]
+        },
+        "defeat": {
+          "description": "Enemy wins the battle",
+          "active_systems": [
+            "scoring"
+          ],
+          "active_behaviors": [
+            "board_camera"
+          ],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "sound:/assets/kenney/audio/sci_fi_sounds/explosionCrunch_000.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over"
+          ],
+          "transitions": [
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "player_turn"
+            }
+          ]
+        }
+      },
+      "transitions": []
+    }
+  },
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "Card Battler"
+    }
+  }
+}

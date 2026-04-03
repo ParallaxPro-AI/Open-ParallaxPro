@@ -1,0 +1,140 @@
+{
+  "worlds": [
+    {
+      "id": "battle_board",
+      "name": "Battle Board",
+      "lighting": {
+        "ambient": [0.45, 0.42, 0.4],
+        "sun_direction": [0.3, -0.8, 0.3],
+        "sun_color": [1, 0.95, 0.85]
+      },
+      "terrain": {
+        "size": [24, 24],
+        "color": [0.18, 0.15, 0.12, 1]
+      },
+      "placements": [
+        { "ref": "camera", "position": [3.5, 12, 3.5] },
+        { "ref": "table_surface", "position": [3.5, -0.05, 3.5] },
+        { "ref": "board_frame", "position": [3.5, 0.01, 3.5] },
+
+        { "ref": "tile_green", "position": [0, 0.08, 0] },
+        { "ref": "tile_green", "position": [1, 0.08, 0] },
+        { "ref": "tile_green", "position": [2, 0.08, 0] },
+        { "ref": "tile_green", "position": [3, 0.08, 0] },
+        { "ref": "tile_green", "position": [4, 0.08, 0] },
+        { "ref": "tile_green", "position": [5, 0.08, 0] },
+        { "ref": "tile_green", "position": [6, 0.08, 0] },
+        { "ref": "tile_green", "position": [7, 0.08, 0] },
+
+        { "ref": "tile_green", "position": [0, 0.08, 1] },
+        { "ref": "tile_green", "position": [1, 0.08, 1] },
+        { "ref": "tile_green", "position": [2, 0.08, 1] },
+        { "ref": "tile_green", "position": [3, 0.08, 1] },
+        { "ref": "tile_green", "position": [4, 0.08, 1] },
+        { "ref": "tile_green", "position": [5, 0.08, 1] },
+        { "ref": "tile_green", "position": [6, 0.08, 1] },
+        { "ref": "tile_green", "position": [7, 0.08, 1] },
+
+        { "ref": "tile_green", "position": [0, 0.08, 2] },
+        { "ref": "tile_green", "position": [1, 0.08, 2] },
+        { "ref": "tile_green", "position": [2, 0.08, 2] },
+        { "ref": "tile_green", "position": [3, 0.08, 2] },
+        { "ref": "tile_green", "position": [4, 0.08, 2] },
+        { "ref": "tile_green", "position": [5, 0.08, 2] },
+        { "ref": "tile_green", "position": [6, 0.08, 2] },
+        { "ref": "tile_green", "position": [7, 0.08, 2] },
+
+        { "ref": "tile_light", "position": [0, 0.08, 3] },
+        { "ref": "tile_light", "position": [1, 0.08, 3] },
+        { "ref": "tile_light", "position": [2, 0.08, 3] },
+        { "ref": "tile_light", "position": [3, 0.08, 3] },
+        { "ref": "tile_light", "position": [4, 0.08, 3] },
+        { "ref": "tile_light", "position": [5, 0.08, 3] },
+        { "ref": "tile_light", "position": [6, 0.08, 3] },
+        { "ref": "tile_light", "position": [7, 0.08, 3] },
+
+        { "ref": "tile_light", "position": [0, 0.08, 4] },
+        { "ref": "tile_light", "position": [1, 0.08, 4] },
+        { "ref": "tile_light", "position": [2, 0.08, 4] },
+        { "ref": "tile_light", "position": [3, 0.08, 4] },
+        { "ref": "tile_light", "position": [4, 0.08, 4] },
+        { "ref": "tile_light", "position": [5, 0.08, 4] },
+        { "ref": "tile_light", "position": [6, 0.08, 4] },
+        { "ref": "tile_light", "position": [7, 0.08, 4] },
+
+        { "ref": "tile_red", "position": [0, 0.08, 5] },
+        { "ref": "tile_red", "position": [1, 0.08, 5] },
+        { "ref": "tile_red", "position": [2, 0.08, 5] },
+        { "ref": "tile_red", "position": [3, 0.08, 5] },
+        { "ref": "tile_red", "position": [4, 0.08, 5] },
+        { "ref": "tile_red", "position": [5, 0.08, 5] },
+        { "ref": "tile_red", "position": [6, 0.08, 5] },
+        { "ref": "tile_red", "position": [7, 0.08, 5] },
+
+        { "ref": "tile_red", "position": [0, 0.08, 6] },
+        { "ref": "tile_red", "position": [1, 0.08, 6] },
+        { "ref": "tile_red", "position": [2, 0.08, 6] },
+        { "ref": "tile_red", "position": [3, 0.08, 6] },
+        { "ref": "tile_red", "position": [4, 0.08, 6] },
+        { "ref": "tile_red", "position": [5, 0.08, 6] },
+        { "ref": "tile_red", "position": [6, 0.08, 6] },
+        { "ref": "tile_red", "position": [7, 0.08, 6] },
+
+        { "ref": "tile_red", "position": [0, 0.08, 7] },
+        { "ref": "tile_red", "position": [1, 0.08, 7] },
+        { "ref": "tile_red", "position": [2, 0.08, 7] },
+        { "ref": "tile_red", "position": [3, 0.08, 7] },
+        { "ref": "tile_red", "position": [4, 0.08, 7] },
+        { "ref": "tile_red", "position": [5, 0.08, 7] },
+        { "ref": "tile_red", "position": [6, 0.08, 7] },
+        { "ref": "tile_red", "position": [7, 0.08, 7] },
+
+        { "ref": "player_rook", "position": [0, 0.12, 0] },
+        { "ref": "player_knight", "position": [1, 0.12, 0] },
+        { "ref": "player_bishop", "position": [2, 0.12, 0] },
+        { "ref": "player_queen", "position": [3, 0.12, 0] },
+        { "ref": "player_king", "position": [4, 0.12, 0] },
+        { "ref": "player_bishop", "position": [5, 0.12, 0] },
+        { "ref": "player_knight", "position": [6, 0.12, 0] },
+        { "ref": "player_rook", "position": [7, 0.12, 0] },
+
+        { "ref": "player_pawn", "position": [0, 0.12, 1] },
+        { "ref": "player_pawn", "position": [1, 0.12, 1] },
+        { "ref": "player_pawn", "position": [2, 0.12, 1] },
+        { "ref": "player_pawn", "position": [3, 0.12, 1] },
+        { "ref": "player_pawn", "position": [4, 0.12, 1] },
+        { "ref": "player_pawn", "position": [5, 0.12, 1] },
+        { "ref": "player_pawn", "position": [6, 0.12, 1] },
+        { "ref": "player_pawn", "position": [7, 0.12, 1] },
+
+        { "ref": "enemy_pawn", "position": [0, 0.12, 6] },
+        { "ref": "enemy_pawn", "position": [1, 0.12, 6] },
+        { "ref": "enemy_pawn", "position": [2, 0.12, 6] },
+        { "ref": "enemy_pawn", "position": [3, 0.12, 6] },
+        { "ref": "enemy_pawn", "position": [4, 0.12, 6] },
+        { "ref": "enemy_pawn", "position": [5, 0.12, 6] },
+        { "ref": "enemy_pawn", "position": [6, 0.12, 6] },
+        { "ref": "enemy_pawn", "position": [7, 0.12, 6] },
+
+        { "ref": "enemy_rook", "position": [0, 0.12, 7] },
+        { "ref": "enemy_knight", "position": [1, 0.12, 7] },
+        { "ref": "enemy_bishop", "position": [2, 0.12, 7] },
+        { "ref": "enemy_queen", "position": [3, 0.12, 7] },
+        { "ref": "enemy_king", "position": [4, 0.12, 7] },
+        { "ref": "enemy_bishop", "position": [5, 0.12, 7] },
+        { "ref": "enemy_knight", "position": [6, 0.12, 7] },
+        { "ref": "enemy_rook", "position": [7, 0.12, 7] },
+
+        { "ref": "corner_pillar", "position": [-1, 0.75, -1] },
+        { "ref": "corner_pillar", "position": [8, 0.75, -1] },
+        { "ref": "corner_pillar", "position": [-1, 0.75, 8] },
+        { "ref": "corner_pillar", "position": [8, 0.75, 8] },
+
+        { "ref": "side_torch", "position": [-1.5, 0, 2] },
+        { "ref": "side_torch", "position": [-1.5, 0, 5] },
+        { "ref": "side_torch", "position": [8.5, 0, 2] },
+        { "ref": "side_torch", "position": [8.5, 0, 5] }
+      ]
+    }
+  ]
+}

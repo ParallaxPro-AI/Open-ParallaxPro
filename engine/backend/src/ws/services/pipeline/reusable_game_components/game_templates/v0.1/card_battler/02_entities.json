@@ -1,0 +1,185 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 50 },
+      "tags": ["camera"],
+      "transform": {
+        "position": [3.5, 10, 3.5]
+      },
+      "behaviors": [
+        {
+          "name": "board_camera",
+          "script": "camera/camera_board.ts",
+          "params": {
+            "height": 12,
+            "tilt": 60,
+            "yaw": 180
+          }
+        }
+      ]
+    },
+
+    "tile_green": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.7, 0.35, 1],
+        "scale": [0.95, 0.05, 0.95]
+      },
+      "tags": ["square", "player_zone"]
+    },
+    "tile_red": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [0.75, 0.28, 0.25, 1],
+        "scale": [0.95, 0.05, 0.95]
+      },
+      "tags": ["square", "enemy_zone"]
+    },
+    "tile_light": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [0.85, 0.82, 0.75, 1],
+        "scale": [0.95, 0.05, 0.95]
+      },
+      "tags": ["square", "neutral"]
+    },
+    "board_frame": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [0.2, 0.15, 0.1, 1],
+        "scale": [9.5, 0.08, 9.5]
+      },
+      "tags": ["frame"]
+    },
+    "table_surface": {
+      "label": false,
+      "mesh": {
+        "type": "cube",
+        "color": [0.25, 0.2, 0.15, 1],
+        "scale": [14, 0.12, 14]
+      },
+      "tags": ["decoration"]
+    },
+
+    "player_pawn": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [0.35, 0.35, 0.35]
+      },
+      "tags": ["piece", "white", "player", "military"]
+    },
+    "player_knight": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Male.glb",
+        "scale": [0.4, 0.4, 0.4]
+      },
+      "tags": ["piece", "white", "player", "military"]
+    },
+    "player_bishop": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Mage_Male.glb",
+        "scale": [0.38, 0.38, 0.38]
+      },
+      "tags": ["piece", "white", "player", "military"]
+    },
+    "player_rook": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Barbarian_Male.glb",
+        "scale": [0.42, 0.42, 0.42]
+      },
+      "tags": ["piece", "white", "player", "military"]
+    },
+    "player_queen": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Adventurer_Male.glb",
+        "scale": [0.42, 0.42, 0.42]
+      },
+      "tags": ["piece", "white", "player", "military"]
+    },
+    "player_king": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Golden_Male.glb",
+        "scale": [0.45, 0.45, 0.45]
+      },
+      "tags": ["piece", "white", "player", "military"]
+    },
+
+    "enemy_pawn": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Male.glb",
+        "scale": [0.35, 0.35, 0.35]
+      },
+      "tags": ["piece", "black", "enemy"]
+    },
+    "enemy_knight": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Rogue_Male.glb",
+        "scale": [0.4, 0.4, 0.4]
+      },
+      "tags": ["piece", "black", "enemy"]
+    },
+    "enemy_bishop": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Mage_Male.glb",
+        "scale": [0.38, 0.38, 0.38]
+      },
+      "tags": ["piece", "black", "enemy"]
+    },
+    "enemy_rook": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Barbarian_Male.glb",
+        "scale": [0.42, 0.42, 0.42]
+      },
+      "tags": ["piece", "black", "enemy"]
+    },
+    "enemy_queen": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Adventurer_Male.glb",
+        "scale": [0.42, 0.42, 0.42]
+      },
+      "tags": ["piece", "black", "enemy"]
+    },
+    "enemy_king": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Barbarian_Male.glb",
+        "scale": [0.48, 0.48, 0.48]
+      },
+      "tags": ["piece", "black", "enemy"]
+    },
+
+    "corner_pillar": {
+      "label": false,
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.35, 0.25, 0.18, 1],
+        "scale": [0.3, 1.5, 0.3]
+      },
+      "tags": ["decoration"]
+    },
+    "side_torch": {
+      "label": false,
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/nature_kit/tree_pine.glb",
+        "scale": [0.3, 0.3, 0.3]
+      },
+      "tags": ["decoration"]
+    }
+  }
+}
