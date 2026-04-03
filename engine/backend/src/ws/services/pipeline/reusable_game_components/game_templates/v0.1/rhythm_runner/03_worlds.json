@@ -1,0 +1,110 @@
+{
+  "worlds": [
+    {
+      "id": "rhythm_runner_neon",
+      "name": "Neon Beat Track",
+      "lighting": {
+        "ambient": [0.25, 0.2, 0.35],
+        "sun_direction": [0.2, -0.8, -0.3],
+        "sun_color": [0.7, 0.6, 0.9]
+      },
+      "placements": [
+        { "name": "Runner", "ref": "runner", "position": [0, 1, 2] },
+        { "ref": "camera", "position": [0, 6, 12] },
+
+        { "ref": "track_neon", "position": [0, -0.25, 10] },
+        { "ref": "track_neon", "position": [0, -0.25, -15] },
+        { "ref": "track_neon", "position": [0, -0.25, -40] },
+        { "ref": "track_neon", "position": [0, -0.25, -65] },
+        { "ref": "track_neon", "position": [0, -0.25, -90] },
+        { "ref": "track_neon", "position": [0, -0.25, -115] },
+        { "ref": "track_neon", "position": [0, -0.25, -140] },
+
+        { "ref": "track_wall_left", "position": [-5.5, 0.75, 10] },
+        { "ref": "track_wall_right", "position": [5.5, 0.75, 10] },
+        { "ref": "track_wall_left", "position": [-5.5, 0.75, -15] },
+        { "ref": "track_wall_right", "position": [5.5, 0.75, -15] },
+        { "ref": "track_wall_left", "position": [-5.5, 0.75, -40] },
+        { "ref": "track_wall_right", "position": [5.5, 0.75, -40] },
+        { "ref": "track_wall_left", "position": [-5.5, 0.75, -65] },
+        { "ref": "track_wall_right", "position": [5.5, 0.75, -65] },
+        { "ref": "track_wall_left", "position": [-5.5, 0.75, -90] },
+        { "ref": "track_wall_right", "position": [5.5, 0.75, -90] },
+        { "ref": "track_wall_left", "position": [-5.5, 0.75, -115] },
+        { "ref": "track_wall_right", "position": [5.5, 0.75, -115] },
+        { "ref": "track_wall_left", "position": [-5.5, 0.75, -140] },
+        { "ref": "track_wall_right", "position": [5.5, 0.75, -140] },
+
+        { "ref": "checkpoint_gate", "position": [0, 4, -50] },
+        { "ref": "checkpoint_gate", "position": [0, 4, -100] },
+        { "ref": "checkpoint_gate", "position": [0, 4, -150] },
+
+        { "ref": "spinner_block", "position": [0, 0.6, -7] },
+        { "ref": "barrier_low", "position": [-2.5, 0.3, -14] },
+        { "ref": "barrier_low", "position": [2.5, 0.3, -14] },
+        { "ref": "platform_lateral", "position": [0, 0.5, -21] },
+
+        { "ref": "spinner_fast", "position": [-2.5, 0.6, -28] },
+        { "ref": "barrier_tall", "position": [2.5, 0, -28] },
+        { "ref": "spinner_block", "position": [0, 0.6, -35] },
+
+        { "ref": "platform_vertical", "position": [-2.5, 1.5, -42] },
+        { "ref": "spinner_vertical", "position": [2.5, 1.2, -42] },
+        { "ref": "barrier_low", "position": [0, 0.3, -49] },
+
+        { "ref": "spinner_fast", "position": [0, 0.6, -56] },
+        { "ref": "platform_lateral", "position": [-2.5, 0.5, -56] },
+        { "ref": "barrier_tall", "position": [0, 0, -63] },
+        { "ref": "spinner_block", "position": [-2.5, 0.6, -63] },
+
+        { "ref": "platform_vertical", "position": [2.5, 1.5, -70] },
+        { "ref": "spinner_vertical", "position": [-2.5, 1.2, -70] },
+        { "ref": "spinner_fast", "position": [0, 0.6, -77] },
+
+        { "ref": "barrier_low", "position": [-2.5, 0.3, -84] },
+        { "ref": "barrier_low", "position": [0, 0.3, -84] },
+        { "ref": "platform_lateral", "position": [2.5, 0.5, -91] },
+        { "ref": "spinner_block", "position": [-2.5, 0.6, -91] },
+
+        { "ref": "spinner_fast", "position": [2.5, 0.6, -98] },
+        { "ref": "barrier_tall", "position": [-2.5, 0, -98] },
+        { "ref": "platform_vertical", "position": [0, 1.5, -105] },
+
+        { "ref": "spinner_vertical", "position": [-2.5, 1.2, -112] },
+        { "ref": "spinner_vertical", "position": [2.5, 1.2, -112] },
+        { "ref": "spinner_fast", "position": [0, 0.6, -119] },
+        { "ref": "barrier_low", "position": [-2.5, 0.3, -119] },
+
+        { "ref": "platform_lateral", "position": [0, 0.5, -126] },
+        { "ref": "spinner_block", "position": [2.5, 0.6, -126] },
+        { "ref": "barrier_tall", "position": [-2.5, 0, -133] },
+        { "ref": "spinner_fast", "position": [2.5, 0.6, -133] },
+        { "ref": "platform_vertical", "position": [0, 1.5, -140] },
+        { "ref": "spinner_block", "position": [-2.5, 0.6, -147] },
+        { "ref": "spinner_fast", "position": [2.5, 0.6, -147] },
+
+        { "ref": "neon_pillar", "position": [-7, 0, 5] },
+        { "ref": "neon_pillar", "position": [7, 0, 5] },
+        { "ref": "neon_arch", "position": [0, 5, 5] },
+        { "ref": "neon_pillar", "position": [-7, 0, -20] },
+        { "ref": "neon_pillar", "position": [7, 0, -20] },
+        { "ref": "neon_arch", "position": [0, 5, -20] },
+        { "ref": "neon_pillar", "position": [-7, 0, -45] },
+        { "ref": "neon_pillar", "position": [7, 0, -45] },
+        { "ref": "neon_arch", "position": [0, 5, -45] },
+        { "ref": "neon_pillar", "position": [-7, 0, -70] },
+        { "ref": "neon_pillar", "position": [7, 0, -70] },
+        { "ref": "neon_arch", "position": [0, 5, -70] },
+        { "ref": "neon_pillar", "position": [-7, 0, -95] },
+        { "ref": "neon_pillar", "position": [7, 0, -95] },
+        { "ref": "neon_arch", "position": [0, 5, -95] },
+        { "ref": "neon_pillar", "position": [-7, 0, -120] },
+        { "ref": "neon_pillar", "position": [7, 0, -120] },
+        { "ref": "neon_arch", "position": [0, 5, -120] },
+        { "ref": "neon_pillar", "position": [-7, 0, -145] },
+        { "ref": "neon_pillar", "position": [7, 0, -145] },
+        { "ref": "neon_arch", "position": [0, 5, -145] }
+      ]
+    }
+  ]
+}

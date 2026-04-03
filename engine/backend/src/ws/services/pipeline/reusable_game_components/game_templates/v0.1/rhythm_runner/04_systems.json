@@ -1,0 +1,9 @@
+{
+  "systems": {
+    "scoring": {
+      "description": "Tracks score based on obstacle hits avoided and distance traveled",
+      "script": "gameplay/scoring.ts",
+      "params": {}
+    }
+  }
+}
