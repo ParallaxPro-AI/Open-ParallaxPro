@@ -1,0 +1,113 @@
+{
+  "id": "physics_puzzle_flow",
+  "name": "Physics Puzzle",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "MOMENTUM LAB", "gameSubtitle": "Physics Puzzle" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "active_systems": ["platformer_level", "scoring"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [
+        { "when": "boot_frames>=2", "goto": "main_menu" }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Physics puzzle gameplay",
+      "start": "playing",
+      "on_enter": ["emit:game.game_ready"],
+      "on_exit": [],
+      "substates": {
+        "playing": {
+          "description": "Active puzzle solving",
+          "active_systems": ["platformer_level", "scoring"],
+          "active_behaviors": [
+            "platformer_movement",
+            "camera_platformer",
+            "moving_platform",
+            "spinning_obstacle",
+            "checkpoint"
+          ],
+          "on_enter": [
+            "show_ui:hud/platformer_hud",
+            "emit:game.player_respawned",
+            "emit:game.race_start",
+            "emit:game.race_started"
+          ],
+          "on_exit": [
+            "hide_ui:hud/platformer_hud"
+          ],
+          "transitions": [
+            { "when": "game_event:player_died", "goto": "death_pause" },
+            { "when": "game_event:game_won", "goto": "complete" },
+            { "when": "game_event:game_over", "goto": "failed" }
+          ]
+        },
+        "death_pause": {
+          "description": "Brief pause after failing a puzzle",
+          "active_systems": ["platformer_level", "scoring"],
+          "active_behaviors": ["camera_platformer"],
+          "duration": -1,
+          "on_enter": [
+            "set:death_timer=0",
+            "play_sound:/assets/kenney/audio/digital_audio/phaserDown3.ogg"
+          ],
+          "on_update": ["increment:death_timer"],
+          "on_exit": [],
+          "transitions": [
+            { "when": "death_timer>=120", "goto": "playing" }
+          ]
+        },
+        "complete": {
+          "description": "All puzzle sections completed",
+          "active_behaviors": ["camera_platformer"],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "hide_cursor",
+            "emit:game.game_ready"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "playing" }
+          ]
+        },
+        "failed": {
+          "description": "No lives remaining",
+          "active_behaviors": ["camera_platformer"],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/interface_sounds/error_006.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "hide_cursor",
+            "emit:game.game_ready"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "playing" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

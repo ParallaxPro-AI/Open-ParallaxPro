@@ -1,0 +1,135 @@
+{
+  "worlds": [
+    {
+      "id": "momentum_lab",
+      "name": "Momentum Lab",
+      "lighting": {
+        "ambient": [0.6, 0.62, 0.7],
+        "sun_direction": [0.2, -0.8, 0.1],
+        "sun_color": [1.0, 0.98, 0.95]
+      },
+      "terrain": {
+        "size": [250, 250],
+        "color": [0.75, 0.78, 0.85, 1]
+      },
+      "placements": [
+        { "ref": "camera", "position": [0, 8, 16] },
+        { "name": "Player", "ref": "player", "position": [0, 2, 0] },
+
+        { "ref": "lab_floor", "position": [0, -0.5, 0] },
+
+        { "ref": "platform_lab_wide", "position": [0, 0, 0] },
+        { "ref": "platform_lab", "position": [0, 0, -4] },
+
+        { "ref": "data_orb", "position": [3, 2, 0] },
+        { "ref": "data_orb", "position": [5, 2.5, 0] },
+
+        { "ref": "platform_lab", "position": [8, 1, 0] },
+        { "ref": "moving_platform_x", "position": [14, 1.5, 0] },
+        { "ref": "data_orb", "position": [14, 3, 0] },
+
+        { "ref": "platform_lab_narrow", "position": [20, 2, 0] },
+        { "ref": "moving_platform_y", "position": [24, 3, 0] },
+        { "ref": "data_orb", "position": [24, 5.5, 0] },
+        { "ref": "energy_core", "position": [20, 3.5, 0] },
+
+        { "ref": "platform_lab", "position": [28, 4, 0] },
+        { "ref": "moving_platform_x", "position": [28, 4, -4] },
+        { "ref": "data_orb", "position": [26, 5.5, 0] },
+        { "ref": "data_orb", "position": [30, 5.5, 0] },
+
+        { "ref": "checkpoint_gate", "position": [31, 5.5, -2] },
+        { "ref": "checkpoint_gate", "position": [33, 5.5, -2] },
+        { "ref": "caution_stripe", "position": [32, 4.5, -2] },
+
+        { "ref": "lab_wall_segment", "position": [-3, 2, 0] },
+        { "ref": "lab_wall_segment", "position": [-3, 2, -6] },
+        { "ref": "lab_pillar", "position": [8, 3.5, -3] },
+        { "ref": "lab_pillar", "position": [20, 4.5, -3] },
+        { "ref": "lab_light_panel", "position": [5, 7, 0] },
+        { "ref": "lab_light_panel", "position": [15, 7, 0] },
+        { "ref": "lab_light_panel", "position": [25, 8, 0] },
+
+        { "ref": "platform_lab_wide", "position": [37, 5, 0] },
+        { "ref": "spinner_y", "position": [37, 6, 0] },
+        { "ref": "data_orb", "position": [35, 6.5, 0] },
+        { "ref": "data_orb", "position": [39, 6.5, 0] },
+
+        { "ref": "platform_lab", "position": [43, 5.5, 0] },
+        { "ref": "moving_platform_z", "position": [47, 6, 0] },
+        { "ref": "spinner_y", "position": [47, 7, 0] },
+        { "ref": "data_orb", "position": [47, 8, 0] },
+
+        { "ref": "platform_lab_narrow", "position": [52, 6.5, 0] },
+        { "ref": "platform_lab_narrow", "position": [55, 7, 0] },
+        { "ref": "spinner_x", "position": [53.5, 8, 0] },
+        { "ref": "energy_core", "position": [55, 8.5, 0] },
+
+        { "ref": "platform_lab_tall", "position": [59, 7, 0] },
+        { "ref": "moving_platform_fast", "position": [59, 9, -3] },
+        { "ref": "spinner_z", "position": [62, 8.5, 0] },
+        { "ref": "data_orb", "position": [59, 10, -3] },
+        { "ref": "data_orb", "position": [61, 8.5, 0] },
+        { "ref": "repair_kit", "position": [59, 10, 0] },
+
+        { "ref": "platform_lab", "position": [65, 8, 0] },
+        { "ref": "hazard_beam", "position": [65, 8.3, 2] },
+
+        { "ref": "checkpoint_gate", "position": [66, 9.5, -2] },
+        { "ref": "checkpoint_gate", "position": [68, 9.5, -2] },
+        { "ref": "caution_stripe", "position": [67, 8.5, -2] },
+
+        { "ref": "lab_pillar", "position": [37, 7.5, -3] },
+        { "ref": "lab_pillar", "position": [52, 8.5, -3] },
+        { "ref": "lab_wall_segment", "position": [43, 7, -5] },
+        { "ref": "lab_light_panel", "position": [40, 11, 0] },
+        { "ref": "lab_light_panel", "position": [50, 11, 0] },
+        { "ref": "lab_light_panel", "position": [60, 12, 0] },
+
+        { "ref": "platform_lab_wide", "position": [72, 9, 0] },
+        { "ref": "spinner_fast", "position": [72, 10, 0] },
+        { "ref": "moving_platform_y", "position": [76, 10, 0] },
+        { "ref": "data_orb", "position": [76, 12, 0] },
+
+        { "ref": "platform_lab_narrow", "position": [80, 11, 0] },
+        { "ref": "moving_platform_fast", "position": [84, 11.5, 0] },
+        { "ref": "spinner_y", "position": [84, 12.5, 0] },
+        { "ref": "data_orb", "position": [82, 12.5, 0] },
+        { "ref": "energy_core", "position": [84, 13.5, 0] },
+
+        { "ref": "platform_lab", "position": [89, 12, 0] },
+        { "ref": "moving_platform_z", "position": [89, 12, -4] },
+        { "ref": "spinner_x", "position": [91, 13, -2] },
+        { "ref": "data_orb", "position": [89, 13.5, -4] },
+
+        { "ref": "platform_lab", "position": [94, 13, 0] },
+        { "ref": "moving_platform_x", "position": [98, 13.5, 0] },
+        { "ref": "spinner_fast", "position": [98, 14.5, 0] },
+        { "ref": "moving_platform_y", "position": [102, 14, 0] },
+        { "ref": "data_orb", "position": [96, 14.5, 0] },
+        { "ref": "data_orb", "position": [100, 15, 0] },
+        { "ref": "energy_core", "position": [102, 16.5, 0] },
+        { "ref": "repair_kit", "position": [94, 14.5, 0] },
+
+        { "ref": "platform_lab_wide", "position": [107, 15, 0] },
+        { "ref": "platform_lab_wide", "position": [107, 15, -4] },
+        { "ref": "goal_portal", "position": [107, 17, 0] },
+
+        { "ref": "lab_pillar", "position": [72, 11.5, -3] },
+        { "ref": "lab_pillar", "position": [89, 14, -3] },
+        { "ref": "lab_pillar", "position": [107, 17.5, -3] },
+        { "ref": "lab_wall_segment", "position": [80, 13, -5] },
+        { "ref": "lab_wall_segment", "position": [100, 16, -5] },
+        { "ref": "lab_light_panel", "position": [75, 15, 0] },
+        { "ref": "lab_light_panel", "position": [85, 16, 0] },
+        { "ref": "lab_light_panel", "position": [95, 17, 0] },
+        { "ref": "lab_light_panel", "position": [105, 19, 0] },
+
+        { "ref": "caution_stripe", "position": [8, 1.5, 2] },
+        { "ref": "caution_stripe", "position": [43, 6, 2] },
+        { "ref": "caution_stripe", "position": [72, 9.5, 2] },
+        { "ref": "caution_stripe", "position": [94, 13.5, 2] }
+      ]
+    }
+  ]
+}

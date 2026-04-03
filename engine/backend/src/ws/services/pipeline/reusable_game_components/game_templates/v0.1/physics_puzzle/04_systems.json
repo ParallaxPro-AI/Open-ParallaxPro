@@ -1,0 +1,21 @@
+{
+  "systems": {
+    "platformer_level": {
+      "description": "Score, collectibles, lives, hazard detection, goal, moving platforms",
+      "script": "gameplay/platformer_level.ts",
+      "params": {
+        "startLives": 3,
+        "killPlane": -15,
+        "collectRadius": 1.8,
+        "stompRadius": 1.2,
+        "damageRadius": 1.0,
+        "goalRadius": 3.0
+      }
+    },
+    "scoring": {
+      "description": "Track puzzle completion score",
+      "script": "gameplay/scoring.ts",
+      "params": {}
+    }
+  }
+}
