@@ -1,0 +1,25 @@
+{
+  "systems": {
+    "zone_system": {
+      "description": "Shrinking safe zone — damages entities outside the ring",
+      "script": "gameplay/zone_system.ts",
+      "params": {
+        "startRadius": 50,
+        "damageRate": 5,
+        "phases": [[45, 30, 30], [35, 15, 25], [25, 5, 20]]
+      }
+    },
+    "combat_survival": {
+      "description": "Tracks kills, manages combat flow, handles player death",
+      "script": "gameplay/combat_survival.ts"
+    },
+    "scoring": {
+      "description": "Tracks kills and score",
+      "script": "gameplay/scoring.ts"
+    },
+    "battle_tracker": {
+      "description": "Tracks alive count, kills, and victory condition",
+      "script": "gameplay/battle_tracker.ts"
+    }
+  }
+}

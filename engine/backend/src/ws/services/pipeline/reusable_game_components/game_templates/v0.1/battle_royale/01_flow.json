@@ -1,0 +1,95 @@
+{
+  "id": "battle_royale_flow",
+  "name": "Battle Royale",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "BATTLE ROYALE", "gameSubtitle": "Last One Standing" }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize",
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "gameplay" }]
+    },
+    "gameplay": {
+      "description": "Battle royale match",
+      "start": "playing",
+      "on_enter": ["emit:game.game_ready"],
+      "substates": {
+        "playing": {
+          "description": "Active combat with shrinking zone",
+          "active_systems": ["zone_system", "combat_survival", "scoring", "battle_tracker"],
+          "active_behaviors": [
+            "fps_camera",
+            "fps_movement",
+            "fps_combat",
+            "player_health",
+            "enemy_ai"
+          ],
+          "on_enter": [
+            "show_ui:hud/health",
+            "show_ui:hud/ammo",
+            "show_ui:hud/crosshair",
+            "show_ui:hud/score",
+            "show_ui:hud/battle_info",
+            "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:hud/health",
+            "hide_ui:hud/ammo",
+            "hide_ui:hud/crosshair",
+            "hide_ui:hud/score",
+            "hide_ui:hud/battle_info"
+          ],
+          "transitions": [
+            { "when": "game_event:game_won", "goto": "victory" },
+            { "when": "game_event:player_died", "goto": "game_over" }
+          ]
+        },
+        "victory": {
+          "description": "Player won the match",
+          "active_behaviors": [],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "hide_cursor"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "playing" }
+          ]
+        },
+        "game_over": {
+          "description": "Player eliminated",
+          "active_behaviors": [],
+          "on_enter": [
+            "show_ui:game_over",
+            "show_cursor",
+            "play_sound:/assets/kenney/audio/interface_sounds/pepSound1.ogg"
+          ],
+          "on_exit": [
+            "hide_ui:game_over",
+            "hide_cursor"
+          ],
+          "transitions": [
+            { "when": "ui_event:game_over:play_again", "goto": "playing" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}
