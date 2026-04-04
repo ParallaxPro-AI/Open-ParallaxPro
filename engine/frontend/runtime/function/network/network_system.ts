@@ -26,6 +26,8 @@ export class NetworkSystem {
     }
 
     async connect(url: string): Promise<void> {
+        this.wsClient.clearMessageHandlers();
+        this.wsClient.clearLifecycleCallbacks();
         await this.wsClient.connect(url);
         this.connected = true;
 
@@ -70,6 +72,8 @@ export class NetworkSystem {
 
     disconnect(): void {
         this.wsClient.disconnect();
+        this.wsClient.clearMessageHandlers();
+        this.wsClient.clearLifecycleCallbacks();
         this.connected = false;
         this.interpolator.clear();
     }

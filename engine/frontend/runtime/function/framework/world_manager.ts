@@ -20,6 +20,8 @@ export class WorldManager {
 
     /** Callback invoked after a scene is loaded (e.g. to reinitialize scripts). */
     onSceneLoaded: ((scene: Scene) => void) | null = null;
+    /** Callback invoked whenever the active scene changes. */
+    onActiveSceneChanged: ((scene: Scene | null) => void) | null = null;
 
     async initialize(projectManager: any, assetManager: any): Promise<void> {
         this.projectManager = projectManager;
@@ -66,6 +68,7 @@ export class WorldManager {
 
         if (this.activeScene && this.activeScene.id === sceneId) {
             this.activeScene = null;
+            this.onActiveSceneChanged?.(null);
         }
     }
 
@@ -110,6 +113,7 @@ export class WorldManager {
         const scene = this.scenes.get(sceneId);
         if (scene) {
             this.activeScene = scene;
+            this.onActiveSceneChanged?.(scene);
         }
     }
 
@@ -177,6 +181,7 @@ export class WorldManager {
 
         const newScene = await this.loadSceneFromData(sceneData);
         this.activeScene = newScene;
+        this.onActiveSceneChanged?.(newScene);
 
         if (this.onSceneLoaded) {
             this.onSceneLoaded(newScene);

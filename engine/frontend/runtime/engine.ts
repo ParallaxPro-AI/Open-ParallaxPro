@@ -11,6 +11,7 @@ export class ParallaxEngine {
     private fps: number = 0;
     private frameCount: number = 0;
     private fpsAccumulator: number = 0;
+    private fpsFrameCounter: number = 0;
     private postRenderCallbacks: Array<() => void> = [];
     private postAnimationCallbacks: Array<(dt: number) => void> = [];
     private animFrameId: number = 0;
@@ -34,12 +35,19 @@ export class ParallaxEngine {
     }
 
     async initialize(): Promise<void> {
+        (this.globalContext as any).engineRef = this;
+        this.globalContext.worldManager.onActiveSceneChanged = (scene) => {
+            if (this.activeScene !== scene) {
+                this.activeScene = scene;
+            }
+        };
         this.isQuit = false;
         this.isRunning = false;
         this.lastTimestamp = 0;
         this.fps = 0;
         this.frameCount = 0;
         this.fpsAccumulator = 0;
+        this.fpsFrameCounter = 0;
         this.totalTime = 0;
     }
 
@@ -62,6 +70,7 @@ export class ParallaxEngine {
 
             this.totalTime += deltaTime;
             this.frameCount++;
+            this.fpsFrameCounter++;
 
             try {
                 this.tickOneFrame(deltaTime);
@@ -98,6 +107,9 @@ export class ParallaxEngine {
 
     setActiveScene(scene: Scene | null): void {
         this.activeScene = scene;
+        if (scene) {
+            this.globalContext.worldManager.setActiveScene(scene.id);
+        }
     }
 
     shutdown(): void {
@@ -241,14 +253,16 @@ export class ParallaxEngine {
     private calculateFPS(deltaTime: number): void {
         this.fpsAccumulator += deltaTime;
         if (this.fpsAccumulator >= 1.0) {
-            this.fps = Math.round(1.0 / deltaTime);
+            this.fps = Math.round(this.fpsFrameCounter / this.fpsAccumulator);
             this.fpsAccumulator = 0;
+            this.fpsFrameCounter = 0;
         }
     }
 
     getFPS(): number { return this.fps; }
     getTotalTime(): number { return this.totalTime; }
     getFrameCount(): number { return this.frameCount; }
+    getActiveScene(): Scene | null { return this.activeScene; }
 
     onPostRender(callback: () => void): void {
         this.postRenderCallbacks.push(callback);

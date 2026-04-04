@@ -66,6 +66,15 @@ export class RuntimeGlobalContext {
         this.networkSystem.initialize(interpolationDelay, tickRate);
 
         await this.worldManager.initialize(null, null);
+        this.worldManager.onActiveSceneChanged = (scene) => {
+            const engineRef = (this as any).engineRef;
+            if (engineRef && typeof engineRef.setActiveScene === 'function') {
+                const currentScene = engineRef.getActiveScene?.() ?? null;
+                if (currentScene !== scene) {
+                    engineRef.setActiveScene(scene);
+                }
+            }
+        };
 
         const dbName = projectConfig?.name ? `parallaxpro_${projectConfig.name}` : 'parallaxpro_cache';
         await this.localCache.initialize(dbName);

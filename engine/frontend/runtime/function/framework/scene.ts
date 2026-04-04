@@ -488,8 +488,8 @@ export class Scene {
             ? document.querySelector('.viewport-canvas-container canvas') as HTMLCanvasElement | null
             : null;
         const aspectRatio = canvas
-            ? canvas.clientWidth / canvas.clientHeight
-            : (typeof window !== 'undefined' ? window.innerWidth / window.innerHeight : 16 / 9);
+            ? (canvas.clientHeight > 0 ? canvas.clientWidth / canvas.clientHeight : 16 / 9)
+            : (typeof window !== 'undefined' && window.innerHeight > 0 ? window.innerWidth / window.innerHeight : 16 / 9);
 
         return {
             viewMatrix: bestCam.getViewMatrix(),

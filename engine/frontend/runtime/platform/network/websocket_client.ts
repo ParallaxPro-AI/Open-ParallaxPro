@@ -3,6 +3,7 @@ export class WebSocketClient {
     private handlers: Map<string, Set<(data: any) => void>> = new Map();
     private connectCallbacks: Set<() => void> = new Set();
     private disconnectCallbacks: Set<() => void> = new Set();
+    private connectionAttemptId: number = 0;
 
     connect(url: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
@@ -11,25 +12,44 @@ export class WebSocketClient {
                 this.ws = null;
             }
 
+            const attemptId = ++this.connectionAttemptId;
+            let settled = false;
+            const fail = (message: string) => {
+                if (!settled) {
+                    settled = true;
+                    reject(new Error(message));
+                }
+            };
+            const succeed = () => {
+                if (!settled) {
+                    settled = true;
+                    resolve();
+                }
+            };
+
             const ws = new WebSocket(url);
             this.ws = ws;
 
             ws.onopen = () => {
+                if (attemptId !== this.connectionAttemptId) return;
                 for (const cb of this.connectCallbacks) {
                     cb();
                 }
-                resolve();
+                succeed();
             };
 
             ws.onerror = () => {
-                reject(new Error('WebSocket connection error'));
+                if (attemptId !== this.connectionAttemptId) return;
+                fail('WebSocket connection error');
             };
 
             ws.onclose = () => {
+                if (attemptId !== this.connectionAttemptId) return;
                 for (const cb of this.disconnectCallbacks) {
                     cb();
                 }
                 this.ws = null;
+                fail('WebSocket connection closed before opening');
             };
 
             ws.onmessage = (event) => {
@@ -54,6 +74,7 @@ export class WebSocketClient {
     }
 
     disconnect(): void {
+        this.connectionAttemptId++;
         if (this.ws) {
             this.ws.close();
             this.ws = null;
@@ -92,6 +113,15 @@ export class WebSocketClient {
 
     onDisconnect(callback: () => void): void {
         this.disconnectCallbacks.add(callback);
+    }
+
+    clearMessageHandlers(): void {
+        this.handlers.clear();
+    }
+
+    clearLifecycleCallbacks(): void {
+        this.connectCallbacks.clear();
+        this.disconnectCallbacks.clear();
     }
 
     isConnected(): boolean {
