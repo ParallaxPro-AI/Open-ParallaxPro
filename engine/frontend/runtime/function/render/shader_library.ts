@@ -52,8 +52,8 @@ export class ShaderLibrary {
 // Uniform buffer sizes (bytes)
 // ============================================================
 
-/** viewMatrix(64) + projMatrix(64) + cameraPosition+pad(16) + lightSpaceMatrix(64) = 208 */
-export const CAMERA_UNIFORM_SIZE = 208;
+/** viewMatrix(64) + projMatrix(64) + cameraPosition+pad(16) + cascadeMatrices(4*64=256) + cascadeSplits(16) = 416 */
+export const CAMERA_UNIFORM_SIZE = 416;
 /** modelMatrix(64) + normalMatrix(64) = 128 */
 export const MODEL_UNIFORM_SIZE = 128;
 /** Material uniform buffer size */
@@ -71,7 +71,8 @@ struct CameraUniforms {
     projMatrix: mat4x4<f32>,
     cameraPosition: vec3<f32>,
     _pad0: f32,
-    lightSpaceMatrix: mat4x4<f32>,
+    cascadeMatrices: array<mat4x4<f32>, 4>,
+    cascadeSplits: vec4<f32>,
 };
 `;
 
@@ -258,7 +259,7 @@ struct LightUniforms {
 @group(2) @binding(2) var baseColorSampler: sampler;
 @group(2) @binding(3) var normalMapTexture: texture_2d<f32>;
 @group(3) @binding(0) var<uniform> lights: LightUniforms;
-@group(3) @binding(1) var shadowMap: texture_depth_2d;
+@group(3) @binding(1) var shadowMap: texture_depth_2d_array;
 @group(3) @binding(2) var shadowSampler: sampler_comparison;
 
 struct FragmentInput {
@@ -326,28 +327,29 @@ fn computeDirectLighting(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, F0: vec3<f32>
     return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
-fn sampleShadow(worldPos: vec3<f32>, normal: vec3<f32>, lightSpaceMatrix: mat4x4<f32>) -> f32 {
-    // Normal offset bias
-    let shadowNormalOffset = normalize(normal) * 0.005;
-    let biasedPos = vec4<f32>(worldPos + shadowNormalOffset, 1.0);
+fn sampleShadowCascade(worldPos: vec3<f32>, normal: vec3<f32>, cascade: i32) -> f32 {
+    let lightSpaceMatrix = camera.cascadeMatrices[cascade];
+    // Normal offset scales with cascade — further cascades cover bigger
+    // extents, so their texels cover more world distance and need more
+    // normal bias to avoid self-shadow stippling.
+    let normalBias = 0.005 * f32(cascade + 1);
+    let biasedPos = vec4<f32>(worldPos + normalize(normal) * normalBias, 1.0);
     let lightSpacePos = lightSpaceMatrix * biasedPos;
 
     let projCoords = lightSpacePos.xyz / lightSpacePos.w;
     let shadowUV = vec2<f32>(projCoords.x * 0.5 + 0.5, 1.0 - (projCoords.y * 0.5 + 0.5));
     let currentDepth = projCoords.z;
 
-    // Slope-scaled bias
     let lightDir = normalize(lights.directionalLights[0].direction);
     let NdotL = max(dot(normal, -lightDir), 0.0);
     let bias = max(lights.shadowBias * (1.0 - NdotL), 0.0001);
 
-    // PCF 4-sample filtering
     let texelSize = 1.0 / lights.shadowMapSize;
     var shadow = 0.0;
-    shadow += textureSampleCompare(shadowMap, shadowSampler, shadowUV + vec2(-texelSize, -texelSize), currentDepth - bias);
-    shadow += textureSampleCompare(shadowMap, shadowSampler, shadowUV + vec2(texelSize, -texelSize), currentDepth - bias);
-    shadow += textureSampleCompare(shadowMap, shadowSampler, shadowUV + vec2(-texelSize, texelSize), currentDepth - bias);
-    shadow += textureSampleCompare(shadowMap, shadowSampler, shadowUV + vec2(texelSize, texelSize), currentDepth - bias);
+    shadow += textureSampleCompareLevel(shadowMap, shadowSampler, shadowUV + vec2(-texelSize, -texelSize), cascade, currentDepth - bias);
+    shadow += textureSampleCompareLevel(shadowMap, shadowSampler, shadowUV + vec2( texelSize, -texelSize), cascade, currentDepth - bias);
+    shadow += textureSampleCompareLevel(shadowMap, shadowSampler, shadowUV + vec2(-texelSize,  texelSize), cascade, currentDepth - bias);
+    shadow += textureSampleCompareLevel(shadowMap, shadowSampler, shadowUV + vec2( texelSize,  texelSize), cascade, currentDepth - bias);
     shadow = shadow * 0.25;
 
     let outOfBounds = currentDepth < 0.0 || currentDepth > 1.0 ||
@@ -358,7 +360,29 @@ fn sampleShadow(worldPos: vec3<f32>, normal: vec3<f32>, lightSpaceMatrix: mat4x4
 
 fn computeShadow(worldPos: vec3<f32>, normal: vec3<f32>) -> f32 {
     if (lights.shadowEnabled == 0u) { return 1.0; }
-    return sampleShadow(worldPos, normal, camera.lightSpaceMatrix);
+
+    // Distance from the eye along the forward axis selects the cascade.
+    let viewPos = camera.viewMatrix * vec4<f32>(worldPos, 1.0);
+    let depth = -viewPos.z;
+
+    var cascade = 0;
+    if (depth > camera.cascadeSplits.x) { cascade = 1; }
+    if (depth > camera.cascadeSplits.y) { cascade = 2; }
+    if (depth > camera.cascadeSplits.z) { cascade = 3; }
+    if (depth > camera.cascadeSplits.w) { return 1.0; }
+
+    let shadow = sampleShadowCascade(worldPos, normal, cascade);
+
+    // Smooth transition at cascade boundaries to avoid visible seams.
+    let cascadeFar = camera.cascadeSplits[cascade];
+    let cascadeNear = select(camera.cascadeSplits[cascade - 1], 0.0, cascade == 0);
+    let blendZone = (cascadeFar - cascadeNear) * 0.1;
+    let distToEdge = cascadeFar - depth;
+    if (distToEdge < blendZone && cascade < 3) {
+        let nextShadow = sampleShadowCascade(worldPos, normal, cascade + 1);
+        return mix(nextShadow, shadow, distToEdge / blendZone);
+    }
+    return shadow;
 }
 
 fn pointLightAttenuation(distance: f32, range: f32) -> f32 {

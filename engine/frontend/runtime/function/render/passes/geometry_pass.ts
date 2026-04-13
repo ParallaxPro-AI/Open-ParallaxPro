@@ -73,12 +73,13 @@ export class GeometryPass {
     private dummyShadowTextureView: GPUTextureView | null = null;
     private shadowComparisonSampler: GPUSampler | null = null;
     private shadowMapView: GPUTextureView | null = null;
+    private cascadeMatrices: Mat4[] = [new Mat4(), new Mat4(), new Mat4(), new Mat4()];
+    private cascadeSplits: number[] = [0, 0, 0, 0];
 
     // State
     private canvasWidth = 0;
     private canvasHeight = 0;
     private quality: GraphicsQuality = 'low';
-    private lightSpaceMatrix: Mat4 = new Mat4();
     private shadowEnabled = false;
     private shadowMapSize = 2048;
 
@@ -125,9 +126,17 @@ export class GeometryPass {
         this.recreateRenderTargets();
     }
 
-    setShadowMap(textureView: GPUTextureView | null, lightSpaceMatrix: Mat4, shadowMapSize: number): void {
+    setShadowMap(
+        textureView: GPUTextureView | null,
+        cascadeMatrices: Mat4[],
+        cascadeSplits: number[],
+        shadowMapSize: number,
+    ): void {
         this.shadowMapView = textureView;
-        this.lightSpaceMatrix = lightSpaceMatrix;
+        for (let i = 0; i < 4; i++) {
+            this.cascadeMatrices[i] = cascadeMatrices[i] ?? new Mat4();
+            this.cascadeSplits[i] = cascadeSplits[i] ?? 0;
+        }
         this.shadowEnabled = textureView !== null;
         this.shadowMapSize = shadowMapSize;
         this.rebuildLightBindGroup();
@@ -230,7 +239,7 @@ export class GeometryPass {
 
         this.lightBindGroupLayout = resources.createBindGroupLayout([
             { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
-            { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth', viewDimension: '2d' } },
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth', viewDimension: '2d-array' } },
             { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'comparison' } },
         ], 'light_bgl');
     }
@@ -284,14 +293,16 @@ export class GeometryPass {
             addressModeV: 'repeat',
         });
 
-        // Dummy shadow depth texture (single 2D, 1x1, for when shadows are disabled)
+        // Dummy shadow depth texture (1x1 × 4-layer array, for when shadows
+        // are disabled or before the first shadow pass runs). Must be a 2d-array
+        // because the lit shader's `shadowMap` binding is texture_depth_2d_array.
         this.dummyShadowTexture = device.createTexture({
-            label: 'dummy_shadow_1x1',
-            size: [1, 1],
+            label: 'dummy_shadow_array_1x1x4',
+            size: [1, 1, 4],
             format: 'depth32float',
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
         });
-        this.dummyShadowTextureView = this.dummyShadowTexture.createView();
+        this.dummyShadowTextureView = this.dummyShadowTexture.createView({ dimension: '2d-array' });
 
         this.shadowComparisonSampler = device.createSampler({
             label: 'shadow_comparison_sampler',
@@ -815,16 +826,23 @@ export class GeometryPass {
 
     private uploadCameraUniforms(camera: RenderCamera): void {
         if (!this.device || !this.cameraUniformBuffer) return;
-        // Layout: viewMatrix[0-15], projMatrix[16-31], cameraPos+pad[32-35], lightSpaceMatrix[36-51]
-        // Total: 52 floats = 208 bytes
-        const data = new Float32Array(52);
+        // Layout: viewMatrix[0..15], projMatrix[16..31], cameraPos+pad[32..35],
+        //         cascadeMatrices[36..99] (4 x mat4), cascadeSplits[100..103]
+        // Total: 104 floats = 416 bytes
+        const data = new Float32Array(104);
         data.set(camera.viewMatrix.data, 0);
         data.set(camera.projectionMatrix.data, 16);
         data[32] = camera.position.x;
         data[33] = camera.position.y;
         data[34] = camera.position.z;
         // data[35] = padding (0)
-        data.set(this.lightSpaceMatrix.data, 36);
+        for (let i = 0; i < 4; i++) {
+            data.set(this.cascadeMatrices[i].data, 36 + i * 16);
+        }
+        data[100] = this.cascadeSplits[0];
+        data[101] = this.cascadeSplits[1];
+        data[102] = this.cascadeSplits[2];
+        data[103] = this.cascadeSplits[3];
         this.device.queue.writeBuffer(this.cameraUniformBuffer, 0, data);
     }
 
