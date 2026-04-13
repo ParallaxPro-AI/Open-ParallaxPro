@@ -24,6 +24,13 @@ export interface ConvertedScene {
    * template doesn't opt in; the assembler never inspects its shape.
    */
   heightmapTerrain?: Record<string, any>;
+  /**
+   * Opaque passthrough of `worlds[0].streamedBuildings` from the template.
+   * The editor reads it off the scene and hands it to its StreamedBuildings
+   * runtime to populate the world with plain-color extruded footprints
+   * around the active camera. `undefined` when the template doesn't opt in.
+   */
+  streamedBuildings?: Record<string, any>;
 }
 
 interface SystemDef {
@@ -699,8 +706,9 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   }
 
   const heightmapTerrain = worlds?.worlds?.[0]?.heightmapTerrain;
+  const streamedBuildings = worlds?.worlds?.[0]?.streamedBuildings;
 
-  return { entities, scripts, uiFiles, multiplayerConfig, heightmapTerrain };
+  return { entities, scripts, uiFiles, multiplayerConfig, heightmapTerrain, streamedBuildings };
 }
 
 // ─── File loading helpers ──────────────────────────────────────────────────

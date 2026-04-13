@@ -166,6 +166,7 @@ router.post('/', async (req, res) => {
                     },
                 };
                 if (assembled.heightmapTerrain) sceneData.heightmapTerrain = assembled.heightmapTerrain;
+                if (assembled.streamedBuildings) sceneData.streamedBuildings = assembled.streamedBuildings;
                 projectData.scenes[sceneKey] = sceneData;
                 projectData.scripts = { ...(projectData.scripts || {}), ...assembled.scripts };
                 projectData.uiFiles = { ...(projectData.uiFiles || {}), ...assembled.uiFiles };

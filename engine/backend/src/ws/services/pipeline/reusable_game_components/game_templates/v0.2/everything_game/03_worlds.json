@@ -14,6 +14,12 @@
         "preserveContourLevel": 0.5,
         "waterLevel": 0.5
       },
+      "streamedBuildings": {
+        "assetBasePath": "/assets/official/everything_game/chunks/",
+        "loadRadius": 3,
+        "unloadRadius": 5,
+        "baseColor": [0.74, 0.71, 0.66, 1.0]
+      },
       "placements": [
         { "name": "Player", "ref": "player", "position": [27976, 25, 17301] },
         { "ref": "camera", "position": [27984, 29, 17301] }
