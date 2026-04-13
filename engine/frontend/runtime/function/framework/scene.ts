@@ -386,6 +386,9 @@ export class Scene {
                 boundCenter: entity.getWorldPosition(),
                 boundRadius: Math.max(terrain.width, terrain.depth) * 0.75,
                 waterLevel: terrain.waterLevel,
+                gpuTerrainTextures: terrain.gpuTerrainTextures,
+                roadAtlasNear: terrain.gpuRoadAtlasNear,
+                roadAtlasFar: terrain.gpuRoadAtlasFar,
             });
         }
 

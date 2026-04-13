@@ -10,8 +10,6 @@
       },
       "heightmapTerrain": {
         "metaUrl": "/assets/official/everything_game/terrain/heightmap_meta.json",
-        "baseColor": [0.33, 0.42, 0.30, 1],
-        "preserveContourLevel": 0.5,
         "waterLevel": 0.5
       },
       "streamedBuildings": {

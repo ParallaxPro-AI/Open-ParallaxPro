@@ -1,3 +1,5 @@
+import { TERRAIN_FRAGMENT_SHADER, TERRAIN_FRAGMENT_SHADER_MRT } from './shaders/terrain_shaders.js';
+
 /**
  * Stores and compiles WGSL shader modules.
  * Contains built-in PBR, post-processing, and debug shaders.
@@ -15,6 +17,8 @@ export class ShaderLibrary {
         this.compileModule('building_vertex', BUILDING_VERTEX_SHADER);
         this.compileModule('building_fragment', BUILDING_FRAGMENT_SHADER);
         this.compileModule('building_fragment_mrt', BUILDING_FRAGMENT_SHADER_MRT);
+        this.compileModule('terrain_fragment', TERRAIN_FRAGMENT_SHADER);
+        this.compileModule('terrain_fragment_mrt', TERRAIN_FRAGMENT_SHADER_MRT);
         this.compileModule('shadow_vertex', SHADOW_VERTEX_SHADER);
         this.compileModule('fullscreen_vertex', FULLSCREEN_VERTEX_SHADER);
         this.compileModule('fxaa_fragment', FXAA_FRAGMENT_SHADER);
