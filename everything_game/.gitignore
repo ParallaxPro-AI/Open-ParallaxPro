@@ -1,0 +1,7 @@
+# OSM raw data and extracted layers
+001_map_gen/data/
+
+# World gen intermediate and output data
+002_world_gen/preprocessed/
+002_world_gen/chunks/
+002_world_gen/node_modules/

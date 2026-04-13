@@ -8,6 +8,7 @@ import { MeshData } from '../../../runtime/resource/types/mesh_data.js';
 import { CreateEntityCommand } from '../history/commands.js';
 import { buildComponentsForAsset, prettifyAssetName } from '../utils/asset_drop.js';
 import { icon, Maximize2, Minimize2 } from '../widgets/icons.js';
+import { HeightmapTerrain } from '../../../runtime/function/streaming/heightmap_terrain.js';
 
 /**
  * Viewport panel: contains the WebGPU canvas and overlay canvas for gizmos.
@@ -31,6 +32,7 @@ export class ViewportPanel {
 
     private lastFrameTime: number = 0;
     private collisionGpuMeshCache: Map<number, any> = new Map();
+    private heightmapTerrain: HeightmapTerrain | null = null;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -201,6 +203,7 @@ export class ViewportPanel {
                     this.ctx.setCameraMode('fly');
                 }
             }
+            this.initHeightmapTerrain();
         });
 
         // Resize handling
@@ -385,6 +388,43 @@ export class ViewportPanel {
         return md;
     }
 
+    /**
+     * Scan the loaded project for a scene that opts into heightmap-backed
+     * terrain (via `scene.heightmapTerrain: { metaUrl, ... }`) and
+     * initialize one. Safe to call multiple times — tears down the
+     * previous instance first. Silently does nothing when no scene
+     * declares the config.
+     */
+    private initHeightmapTerrain(): void {
+        if (this.heightmapTerrain) {
+            this.heightmapTerrain.destroy();
+            this.heightmapTerrain = null;
+        }
+        const scene = this.ctx.getActiveScene();
+        if (!scene) return;
+
+        // Clean up any stale heightmap-terrain entities restored from a
+        // previous scene snapshot (the runtime re-spawns its own on init).
+        for (const entity of [...scene.entities.values()]) {
+            if (entity.hasTag('heightmap_terrain_root')) {
+                scene.destroyEntity(entity.id);
+            }
+        }
+
+        const pd = this.ctx.state.projectData;
+        const scenes = pd?.scenes || {};
+        for (const sceneData of Object.values(scenes) as any[]) {
+            const cfg = sceneData?.heightmapTerrain;
+            if (!cfg?.metaUrl) continue;
+            this.heightmapTerrain = new HeightmapTerrain(scene, {
+                metaUrl: cfg.metaUrl,
+                baseColor: cfg.baseColor,
+                preserveContourLevel: cfg.preserveContourLevel,
+            });
+            break;
+        }
+    }
+
     private startRenderLoop(): void {
         const loop = () => {
             const now = performance.now() / 1000;
@@ -403,9 +443,10 @@ export class ViewportPanel {
 
                 const useGameCam = this.ctx.state.isPlaying && this.activeTab === 'game';
                 const sceneCam = useGameCam ? this.findSceneCamera() : null;
+                let camPos: Vec3;
                 if (sceneCam) {
                     const aspect = this.canvas.clientWidth / Math.max(this.canvas.clientHeight, 1);
-                    const camPos = sceneCam.entity.getWorldPosition();
+                    camPos = sceneCam.entity.getWorldPosition();
                     renderSystem.setActiveCamera({
                         viewMatrix: sceneCam.getViewMatrix(),
                         projectionMatrix: sceneCam.getProjectionMatrix(aspect),
@@ -415,14 +456,19 @@ export class ViewportPanel {
                         fovY: sceneCam.fov * (Math.PI / 180),
                     });
                 } else {
+                    camPos = this.camera.getPosition();
                     renderSystem.setActiveCamera({
                         viewMatrix: this.camera.getViewMatrix(),
                         projectionMatrix: this.camera.getProjectionMatrix(),
-                        position: this.camera.getPosition(),
+                        position: camPos,
                         near: this.camera.near,
                         far: this.camera.far,
                         fovY: this.camera.fov,
                     });
+                }
+
+                if (this.heightmapTerrain) {
+                    this.heightmapTerrain.update(camPos);
                 }
 
                 this.fpsEl.textContent = `${this.ctx.engine.getFPS()} FPS`;
