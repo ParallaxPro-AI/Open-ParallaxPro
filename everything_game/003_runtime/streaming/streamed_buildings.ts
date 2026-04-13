@@ -1,24 +1,27 @@
 /**
- * streamed_buildings.ts — Camera-driven streaming of plain-color
- * extruded OSM buildings from pre-generated chunk JSON.
+ * streamed_buildings.ts — Camera-driven streaming of extruded OSM
+ * buildings from the pre-generated chunk JSON under
+ * `everything_game/002_world_gen/chunks/`.
  *
  * Fetches `<assetBasePath>/world_index.json` once, then fetches
  * per-chunk JSON (`chunk_<cx>_<cz>.json`) lazily as the active camera
- * enters each chunk's load radius. Each building placement in the
- * chunk is extruded into a simple walls-plus-flat-roof mesh; all
- * buildings in a chunk are merged into one draw call and rendered
- * through the standard PBR path via a MeshRendererComponent whose
- * `gpuMesh` is assigned directly — no new shader is required.
+ * enters each chunk's load radius. Each building placement with
+ * `type === 'building'` is extruded into a walls-plus-flat-roof mesh;
+ * all buildings in a chunk are merged into one draw call. Meshes are
+ * rendered through the engine's building pipeline (36-byte vertex
+ * stride with a per-vertex u32 wallWidth) which paints a procedural
+ * window grid — see engine's BUILDING_FRAGMENT_SHADER. Subtypes not
+ * in HAS_WINDOWS_SUBTYPES pack `wallWidth = 0` so the shader falls
+ * through to plain PBR.
  *
- * Scope: plain-color only. No facade/window shader, no roof shape
- * variation, no LOD. Chunk JSON is the format emitted by
- * `everything_game/002_world_gen/002_generate_chunks.ts`; placements
- * with `type === 'building'` are consumed, everything else is ignored.
+ * This file is game-specific: it knows the OSM placement schema and
+ * the subtype whitelist. The mesh upload path (`uploadBuildingMesh`),
+ * render pipeline, and shaders are generic and live under engine/.
  */
-import { Scene } from '../framework/scene.js';
-import { MeshRendererComponent } from '../framework/components/mesh_renderer_component.js';
-import { RenderSystem } from '../render/render_system.js';
-import { GPUMeshHandle } from '../render/render_scene.js';
+import { Scene } from '../../../engine/frontend/runtime/function/framework/scene.js';
+import { MeshRendererComponent } from '../../../engine/frontend/runtime/function/framework/components/mesh_renderer_component.js';
+import { RenderSystem } from '../../../engine/frontend/runtime/function/render/render_system.js';
+import { GPUMeshHandle } from '../../../engine/frontend/runtime/function/render/render_scene.js';
 
 export interface StreamedBuildingsConfig {
     /** Base URL for the generator's output, must end in '/'. */
@@ -180,10 +183,11 @@ export class StreamedBuildings {
         for (const p of placements) {
             if (p.type !== 'building') continue;
             const b = p as BuildingPlacement;
+            const windows = hasWindows(b.subtype);
             if (b.polygon && b.polygon.length >= 3 && typeof b.height === 'number') {
                 const baseY = b.position[1];
                 const buildingHeight = b.height + 0.5;
-                extrudePolygon(b.polygon, baseY - 0.5, buildingHeight,
+                extrudePolygon(b.polygon, baseY - 0.5, buildingHeight, windows,
                     positions, normals, uvs, indices, meta);
             } else if (b.size) {
                 const [px, py, pz] = b.position;
@@ -192,6 +196,7 @@ export class StreamedBuildings {
                 extrudeAxisAlignedBox(
                     px - hx, pz - hz, sw, sd,
                     py - 0.5, py - 0.5 + sh,
+                    windows,
                     positions, normals, uvs, indices, meta,
                 );
             }
@@ -260,6 +265,7 @@ function extrudePolygon(
     polygon: [number, number][],
     baseY: number,
     height: number,
+    windows: boolean,
     pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
 ): void {
     const n = polygon.length;
@@ -278,7 +284,7 @@ function extrudePolygon(
         const nz = -dx / len;
 
         const base = pos.length / 3;
-        const segMeta = packMeta(len);
+        const segMeta = windows ? packMeta(len) : 0;
         // v0: bottom-left, v1: bottom-right, v2: top-right, v3: top-left
         pos.push(x0, baseY, z0,  x1, baseY, z1,  x1, topY, z1,  x0, topY, z0);
         for (let k = 0; k < 4; k++) norm.push(nx, 0, nz);
@@ -317,14 +323,15 @@ function extrudePolygon(
 function extrudeAxisAlignedBox(
     x: number, z: number, sx: number, sz: number,
     y0: number, y1: number,
+    windows: boolean,
     pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
 ): void {
     const x1 = x + sx;
     const z1 = z + sz;
     const height = y1 - y0;
     // Walls use UV in meters so the shader's window grid matches real size.
-    const metaX = packMeta(sz); // +X / -X walls are sz wide
-    const metaZ = packMeta(sx); // +Z / -Z walls are sx wide
+    const metaX = windows ? packMeta(sz) : 0; // +X / -X walls are sz wide
+    const metaZ = windows ? packMeta(sx) : 0; // +Z / -Z walls are sx wide
 
     // +X — spans Z (0..sz) × Y (0..height)
     addQuadMeta(pos, norm, uv, idx, meta,
@@ -375,4 +382,43 @@ function addQuadMeta(
  */
 function packMeta(wallWidth: number): number {
     return Math.min(255, Math.round(wallWidth / 0.25)) & 0xFF;
+}
+
+/**
+ * OSM `building=*` subtypes that should render with the procedural
+ * window facade. Anything outside this set renders as a plain tinted
+ * wall — this is an *inclusion* list, not an exclusion list, so new/weird
+ * subtypes default to "no windows" and we never accidentally paint
+ * windows on sheds, silos, bridge towers, stadium bowls, etc.
+ *
+ * `yes` is included deliberately: it's OSM's generic fallback (~79 % of
+ * buildings with no explicit subtype) and in practice is overwhelmingly
+ * real houses/offices that should have windows.
+ */
+const HAS_WINDOWS_SUBTYPES = new Set<string>([
+    // Default generic
+    'yes',
+    // Residential
+    'residential', 'house', 'detached', 'semidetached_house', 'terrace',
+    'bungalow', 'apartments', 'dormitory', 'duplex', 'condominium',
+    'cottage', 'cabin', 'allotment_house',
+    // Commercial
+    'commercial', 'office', 'retail', 'supermarket', 'mixed_use',
+    'hotel', 'motel', 'hostel', 'restaurant', 'cafe', 'bar', 'pub',
+    'fast_food', 'bank', 'kiosk', 'clinic',
+    // Civic / public
+    'school', 'university', 'college', 'kindergarten', 'library',
+    'hospital', 'museum', 'theatre', 'theater', 'cinema',
+    'arena', 'stadium', 'sports_centre', 'sports_hall', 'gymnasium', 'gym',
+    'government', 'civic', 'public', 'townhall', 'courthouse',
+    'community_centre', 'community_center', 'hall',
+    'fire_station', 'police_station', 'train_station', 'terminal',
+    // Religious
+    'church', 'cathedral', 'chapel', 'temple', 'synagogue', 'mosque',
+    'monastery', 'convent', 'shrine', 'religious', 'kingdom_hall',
+    'place_of_worship',
+]);
+
+function hasWindows(subtype: string | undefined): boolean {
+    return HAS_WINDOWS_SUBTYPES.has(subtype ?? 'yes');
 }
