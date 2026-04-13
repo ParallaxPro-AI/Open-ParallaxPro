@@ -72,7 +72,7 @@ export class StreamedRoads {
 
     readonly atlas: RoadAtlas;
     private worldIndex: Map<string, WorldIndexChunk> | null = null;
-    private chunkSize = 250;
+    private chunkSize = 500;
     private gridX = 0;
     private gridZ = 0;
     private loaded = new Map<string, LoadedChunk>();
@@ -84,13 +84,13 @@ export class StreamedRoads {
 
     constructor(device: GPUDevice, config: StreamedRoadsConfig) {
         this.assetBasePath = config.assetBasePath.endsWith('/') ? config.assetBasePath : config.assetBasePath + '/';
-        // Default radii chosen to keep initial fetches bounded:
-        //   near 2 → 25 chunks (~500 m, high-res tiles)
-        //   far  6 → 169 chunks (~1.5 km, low-res tiles)
-        // The atlas grid itself can hold 16× (near) / 64× (far) tiles, so
+        // Default radii chosen to keep initial fetches bounded (500 m chunks):
+        //   near 1 →  9 chunks (~1 km, high-res tiles)
+        //   far  3 → 49 chunks (~1.5 km, low-res tiles)
+        // The atlas grid itself can hold 8× (near) / 32× (far) tiles, so
         // callers can safely raise these.
-        this.nearRadius = config.nearRadius ?? 2;
-        this.farRadius = config.farRadius ?? 6;
+        this.nearRadius = config.nearRadius ?? 1;
+        this.farRadius = config.farRadius ?? 3;
         this.unloadRadius = config.unloadRadius ?? this.farRadius + 2;
         this.atlas = new RoadAtlas(device, SIDEWALK_WIDTHS);
         this.fetchWorldIndex();
@@ -168,7 +168,7 @@ export class StreamedRoads {
         try {
             const resp = await fetch(this.assetBasePath + 'world_index.json');
             const data = await resp.json() as WorldIndex;
-            this.chunkSize = data.chunkSize ?? 250;
+            this.chunkSize = data.chunkSize ?? 500;
             this.gridX = data.chunksX ?? 0;
             this.gridZ = data.chunksZ ?? 0;
             const map = new Map<string, WorldIndexChunk>();
