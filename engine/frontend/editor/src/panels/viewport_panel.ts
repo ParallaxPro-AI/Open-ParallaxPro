@@ -592,6 +592,8 @@ export class ViewportPanel {
                 }
                 if (this.streamedRoads) {
                     this.streamedRoads.update(camPos);
+                    const renderSystem = this.ctx.engine.globalContext.renderSystem;
+                    renderSystem.setDecals(this.streamedRoads.collectDecals());
                 }
 
                 this.fpsEl.textContent = `${this.ctx.engine.getFPS()} FPS`;

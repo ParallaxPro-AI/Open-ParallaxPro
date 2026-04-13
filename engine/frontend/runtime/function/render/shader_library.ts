@@ -1,4 +1,5 @@
 import { TERRAIN_FRAGMENT_SHADER, TERRAIN_FRAGMENT_SHADER_MRT } from './shaders/terrain_shaders.js';
+import { DECAL_VERTEX_SHADER, DECAL_FRAGMENT_SHADER } from './shaders/decal_shaders.js';
 
 /**
  * Stores and compiles WGSL shader modules.
@@ -30,6 +31,8 @@ export class ShaderLibrary {
         this.compileModule('bloom_extract_fragment', BLOOM_EXTRACT_FRAGMENT_SHADER);
         this.compileModule('bloom_blur_fragment', BLOOM_BLUR_FRAGMENT_SHADER);
         this.compileModule('bloom_composite_fragment', BLOOM_COMPOSITE_FRAGMENT_SHADER);
+        this.compileModule('decal_vertex', DECAL_VERTEX_SHADER);
+        this.compileModule('decal_fragment', DECAL_FRAGMENT_SHADER);
     }
 
     compileModule(name: string, wgslSource: string): GPUShaderModule {

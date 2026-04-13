@@ -5,7 +5,7 @@ import { CanvasManager } from '../../platform/canvas/canvas_manager.js';
 import { ShaderLibrary } from './shader_library.js';
 import { GPUResourceManager } from './gpu_resource_manager.js';
 import { RenderPipeline } from './render_pipeline.js';
-import { RenderScene, MeshData, GPUMeshHandle, RenderCamera, RenderMeshInstance, RenderDirectionalLight, RenderPointLight, RenderSpotLight, RenderFogData } from './render_scene.js';
+import { RenderScene, MeshData, GPUMeshHandle, RenderCamera, RenderMeshInstance, RenderDirectionalLight, RenderPointLight, RenderSpotLight, RenderFogData, DecalInstance } from './render_scene.js';
 import { DebugRenderer } from './debug_renderer.js';
 import { GraphicsQuality } from './passes/geometry_pass.js';
 import { ParticleRenderer, ParticleRenderData } from './particle_renderer.js';
@@ -144,6 +144,11 @@ export class RenderSystem {
         }
 
         this.renderPipeline.render(this.renderScene, this.particleRenderer, particleData);
+    }
+
+    /** Replace the decal list rendered this frame. Call before tick() returns. */
+    setDecals(decals: DecalInstance[]): void {
+        this.renderScene.setDecals(decals);
     }
 
     uploadMesh(meshData: MeshData): GPUMeshHandle {
