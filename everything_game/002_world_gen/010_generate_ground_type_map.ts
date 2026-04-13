@@ -21,9 +21,9 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PREPROCESSED = path.join(__dirname, "preprocessed");
-const CHUNKS_DIR = path.resolve(
+const TERRAIN_DIR = path.resolve(
   __dirname,
-  "../../reusable_assets/official/everything_game/chunks"
+  "../../reusable_assets/official/everything_game/terrain"
 );
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
@@ -177,20 +177,24 @@ function main() {
     }
   }
 
-  // Write output
-  const outDir = path.join(CHUNKS_DIR, "terrain");
-  fs.mkdirSync(outDir, { recursive: true });
+  // Write output alongside the runtime heightmap bundle.
+  fs.mkdirSync(TERRAIN_DIR, { recursive: true });
 
-  const outPath = path.join(outDir, "ground_type_map.bin");
+  const outPath = path.join(TERRAIN_DIR, "ground_type_map.bin");
   fs.writeFileSync(outPath, Buffer.from(smoothed.buffer));
 
-  const outMeta = path.join(outDir, "ground_type_map_meta.json");
+  const outMeta = path.join(TERRAIN_DIR, "ground_type_map_meta.json");
+  // Pass through the world-space placement from the NAIP meta so the
+  // runtime can map splatmap UV → world XZ without re-reading the NAIP.
   fs.writeFileSync(outMeta, JSON.stringify({
     width: W,
     height: H,
     channels: 4,
     layers: ["sand", "grass", "grass_rock", "rock_impervious"],
-  }));
+    worldWidth: meta.worldWidth,
+    worldDepth: meta.worldDepth,
+    origin: meta.origin,
+  }, null, 2));
 
   const totalPixels = W * H;
   console.log("");
