@@ -9,6 +9,7 @@ import { CreateEntityCommand } from '../history/commands.js';
 import { buildComponentsForAsset, prettifyAssetName } from '../utils/asset_drop.js';
 import { icon, Maximize2, Minimize2 } from '../widgets/icons.js';
 import { HeightmapTerrain } from '../../../runtime/function/streaming/heightmap_terrain.js';
+import { StreamedBuildings } from '../../../runtime/function/streaming/streamed_buildings.js';
 
 /**
  * Viewport panel: contains the WebGPU canvas and overlay canvas for gizmos.
@@ -33,6 +34,7 @@ export class ViewportPanel {
     private lastFrameTime: number = 0;
     private collisionGpuMeshCache: Map<number, any> = new Map();
     private heightmapTerrain: HeightmapTerrain | null = null;
+    private streamedBuildings: StreamedBuildings | null = null;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -224,6 +226,7 @@ export class ViewportPanel {
                 }
             }
             this.initHeightmapTerrain();
+            this.initStreamedBuildings();
         });
 
         // Resize handling
@@ -452,6 +455,44 @@ export class ViewportPanel {
         }
     }
 
+    /**
+     * Scan the loaded project for a scene that opts into streamed plain-color
+     * buildings (via `scene.streamedBuildings: { ... }`) and initialize one.
+     * Safe to call multiple times — tears down the previous instance first.
+     * Silently does nothing when no scene declares the config.
+     */
+    private initStreamedBuildings(): void {
+        if (this.streamedBuildings) {
+            this.streamedBuildings.destroy();
+            this.streamedBuildings = null;
+        }
+        const scene = this.ctx.getActiveScene();
+        if (!scene || !this.ctx.engine) return;
+
+        // Clean up any stale streamed-buildings entities restored from a
+        // previous scene snapshot — the runtime re-spawns its own on init.
+        for (const entity of [...scene.entities.values()]) {
+            if (entity.hasTag('streamed_buildings_root') || entity.hasTag('streamed_buildings_chunk')) {
+                scene.destroyEntity(entity.id);
+            }
+        }
+
+        const pd = this.ctx.state.projectData;
+        const scenes = pd?.scenes || {};
+        for (const sceneData of Object.values(scenes) as any[]) {
+            const cfg = sceneData?.streamedBuildings;
+            if (!cfg?.assetBasePath) continue;
+            const renderSystem = this.ctx.engine.globalContext.renderSystem;
+            this.streamedBuildings = new StreamedBuildings(scene, renderSystem, {
+                assetBasePath: cfg.assetBasePath,
+                loadRadius: cfg.loadRadius,
+                unloadRadius: cfg.unloadRadius,
+                baseColor: cfg.baseColor,
+            });
+            break;
+        }
+    }
+
     private startRenderLoop(): void {
         const loop = () => {
             const now = performance.now() / 1000;
@@ -496,6 +537,9 @@ export class ViewportPanel {
 
                 if (this.heightmapTerrain) {
                     this.heightmapTerrain.update(camPos);
+                }
+                if (this.streamedBuildings) {
+                    this.streamedBuildings.update(camPos);
                 }
 
                 this.fpsEl.textContent = `${this.ctx.engine.getFPS()} FPS`;
