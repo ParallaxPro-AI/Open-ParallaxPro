@@ -1,4 +1,3 @@
-import { Mat4 } from '../../core/math/mat4.js';
 import { GPUResourceManager } from './gpu_resource_manager.js';
 import { ShaderLibrary } from './shader_library.js';
 import { RenderScene } from './render_scene.js';
@@ -152,7 +151,7 @@ export class RenderPipeline {
 
     private renderLow(commandEncoder: GPUCommandEncoder, textureView: GPUTextureView, scene: RenderScene): void {
         // No shadows on low quality
-        this.geometryPass.setShadowMap(null, new Mat4(), 1);
+        this.geometryPass.setShadowMap(null, [], [], 1);
         this.geometryPass.execute(commandEncoder, textureView, scene);
 
         const offscreenView = this.geometryPass.getOffscreenColorTextureView();
@@ -169,12 +168,13 @@ export class RenderPipeline {
     }
 
     private renderMedium(commandEncoder: GPUCommandEncoder, textureView: GPUTextureView, scene: RenderScene): void {
-        // 1. Shadow pass
+        // 1. Shadow pass (cascaded)
         this.shadowPass.execute(commandEncoder, scene);
-        const shadowView = this.shadowPass.getDepthTextureView();
-        const shadowMatrix = this.shadowPass.getLightSpaceMatrix();
+        const shadowView = this.shadowPass.getDepthArrayTextureView();
+        const cascadeMatrices = this.shadowPass.getLightSpaceMatrices();
+        const cascadeSplits = this.shadowPass.getCascadeSplits();
         const shadowMapSize = this.shadowPass.getShadowMapSize();
-        this.geometryPass.setShadowMap(shadowView, shadowMatrix, shadowMapSize);
+        this.geometryPass.setShadowMap(shadowView, cascadeMatrices, cascadeSplits, shadowMapSize);
 
         // 2. Geometry (MRT: color + normal/depth)
         this.geometryPass.execute(commandEncoder, textureView, scene);
@@ -202,12 +202,13 @@ export class RenderPipeline {
     }
 
     private renderHigh(commandEncoder: GPUCommandEncoder, textureView: GPUTextureView, scene: RenderScene): void {
-        // 1. Shadow pass
+        // 1. Shadow pass (cascaded)
         this.shadowPass.execute(commandEncoder, scene);
-        const shadowView = this.shadowPass.getDepthTextureView();
-        const shadowMatrix = this.shadowPass.getLightSpaceMatrix();
+        const shadowView = this.shadowPass.getDepthArrayTextureView();
+        const cascadeMatrices = this.shadowPass.getLightSpaceMatrices();
+        const cascadeSplits = this.shadowPass.getCascadeSplits();
         const shadowMapSize = this.shadowPass.getShadowMapSize();
-        this.geometryPass.setShadowMap(shadowView, shadowMatrix, shadowMapSize);
+        this.geometryPass.setShadowMap(shadowView, cascadeMatrices, cascadeSplits, shadowMapSize);
 
         // 2. Geometry pass (MSAA + MRT)
         this.geometryPass.execute(commandEncoder, textureView, scene);
