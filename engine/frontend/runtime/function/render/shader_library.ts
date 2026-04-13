@@ -194,7 +194,13 @@ struct MaterialUniforms {
     waterEffect: u32,
     uvScaleX: f32,
     uvScaleY: f32,
-    _matPad2: f32,
+    /**
+     * World-space Y threshold: pixels with worldPosition.y <= waterLevel
+     * render as water (Fresnel, waves, sun glints) using the same code
+     * path as waterEffect. Set to a large negative value (e.g. -1e20) to
+     * disable — any mesh not opting in stays non-water.
+     */
+    waterLevel: f32,
 };
 
 struct DirectionalLight {
@@ -390,8 +396,13 @@ fn computePBR(input: FragmentInput) -> PBRResult {
         N = perturbNormal(N, input.worldPosition, input.uv, mapN);
     }
 
+    // Water: opt-in via the waterEffect flag (whole mesh is water) or
+    // per-pixel when worldPosition.y drops below waterLevel (for meshes
+    // like terrain where only some pixels are underwater).
+    let isWater = material.waterEffect > 0u || input.worldPosition.y <= material.waterLevel;
+
     // Water effect: multi-octave directional waves, depth color, subsurface scattering
-    if (material.waterEffect > 0u) {
+    if (isWater) {
         let t = lights.time;
         let wp = input.worldPosition;
         let camDist = distance(camera.cameraPosition, wp);
@@ -501,7 +512,7 @@ fn computePBR(input: FragmentInput) -> PBRResult {
     var color = ambient + Lo + material.emissive;
 
     // Water: Schlick Fresnel with water IOR + sun specular glints + sky reflection
-    if (material.waterEffect > 0u) {
+    if (isWater) {
         // Schlick Fresnel with IOR 1.33 (water) -> F0 ~ 0.02
         let NdotV = max(dot(N, V), 0.0);
         let F0_water = vec3<f32>(0.02);

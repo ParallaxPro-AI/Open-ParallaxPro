@@ -202,6 +202,26 @@ export class ViewportPanel {
                 if (camData.flyMode) {
                     this.ctx.setCameraMode('fly');
                 }
+            } else {
+                // First-time open of the project: orbit around a "Player"
+                // entity if present. Keeps brand-new projects viewable
+                // without the user having to hunt down where the content
+                // lives — especially important for world-scale scenes.
+                const scene = this.ctx.getActiveScene();
+                if (scene) {
+                    for (const entity of scene.entities.values()) {
+                        if (entity.name !== 'Player' && entity.name !== 'player') continue;
+                        const pos = entity.getWorldPosition();
+                        this.camera.fromJSON({
+                            target: { x: pos.x, y: pos.y, z: pos.z },
+                            distance: 50,
+                            yaw: 0.4,
+                            pitch: 0.5,
+                            flyMode: false,
+                        });
+                        break;
+                    }
+                }
             }
             this.initHeightmapTerrain();
         });
@@ -416,11 +436,18 @@ export class ViewportPanel {
         for (const sceneData of Object.values(scenes) as any[]) {
             const cfg = sceneData?.heightmapTerrain;
             if (!cfg?.metaUrl) continue;
-            this.heightmapTerrain = new HeightmapTerrain(scene, {
+            const terrain = new HeightmapTerrain(scene, {
                 metaUrl: cfg.metaUrl,
                 baseColor: cfg.baseColor,
                 preserveContourLevel: cfg.preserveContourLevel,
+                waterLevel: cfg.waterLevel,
             });
+            // The terrain entity materializes via Entity.addComponent in the
+            // runtime, which doesn't emit the editor's `componentAdded`
+            // event — nudge the primitive-mesh uploader once the data
+            // lands so the terrain actually uploads to the GPU.
+            terrain.onReady = () => this.ctx.ensurePrimitiveMeshes();
+            this.heightmapTerrain = terrain;
             break;
         }
     }

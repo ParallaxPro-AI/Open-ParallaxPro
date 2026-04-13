@@ -17,6 +17,13 @@ export interface ConvertedScene {
   scripts: Record<string, string>;
   uiFiles: Record<string, string>;
   multiplayerConfig?: { maxPlayers?: number; minPlayers?: number };
+  /**
+   * Opaque passthrough of `worlds[0].heightmapTerrain` from the template.
+   * The editor reads it off the scene and hands it to its HeightmapTerrain
+   * runtime to build the world-scale terrain. `undefined` when the
+   * template doesn't opt in; the assembler never inspects its shape.
+   */
+  heightmapTerrain?: Record<string, any>;
 }
 
 interface SystemDef {
@@ -221,7 +228,11 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
 
   // Camera
   if (def.camera) {
-    components.push({ type: 'CameraComponent', data: { fov: def.camera.fov || 60 } });
+    components.push({ type: 'CameraComponent', data: {
+      fov: def.camera.fov ?? 60,
+      nearClip: def.camera.near ?? 0.1,
+      farClip: def.camera.far ?? 1000,
+    } });
   }
 
   // Physics — auto-assigned for all mesh entities (skip cameras)
@@ -687,7 +698,9 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     }
   }
 
-  return { entities, scripts, uiFiles, multiplayerConfig };
+  const heightmapTerrain = worlds?.worlds?.[0]?.heightmapTerrain;
+
+  return { entities, scripts, uiFiles, multiplayerConfig, heightmapTerrain };
 }
 
 // ─── File loading helpers ──────────────────────────────────────────────────

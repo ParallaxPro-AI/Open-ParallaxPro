@@ -361,6 +361,7 @@ export class Scene {
                     baseColorTexture: mr.gpuBaseColorTexture ?? undefined,
                     normalMapTexture: mr.gpuNormalMapTexture ?? undefined,
                     waterEffect: overrides.waterEffect ?? false,
+                    waterLevel: overrides.waterLevel,
                     uvScaleX: overrides.uvScaleX ?? 1.0,
                     uvScaleY: overrides.uvScaleY ?? 1.0,
                     jointMatricesBuffer,
@@ -384,6 +385,7 @@ export class Scene {
                 emissive: [0, 0, 0] as [number, number, number],
                 boundCenter: entity.getWorldPosition(),
                 boundRadius: Math.max(terrain.width, terrain.depth) * 0.75,
+                waterLevel: terrain.waterLevel,
             });
         }
 

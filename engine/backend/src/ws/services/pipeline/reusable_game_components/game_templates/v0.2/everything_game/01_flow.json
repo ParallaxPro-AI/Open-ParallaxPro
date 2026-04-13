@@ -1,0 +1,16 @@
+{
+  "id": "everything_game_flow",
+  "name": "Everything Game",
+  "start": "gameplay",
+  "states": {
+    "gameplay": {
+      "description": "Fly over the heightmap-backed world.",
+      "active_systems": [],
+      "active_behaviors": [],
+      "duration": -1,
+      "on_enter": [],
+      "on_exit": [],
+      "transitions": []
+    }
+  }
+}

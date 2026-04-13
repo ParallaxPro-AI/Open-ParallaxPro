@@ -27,6 +27,12 @@ export interface HeightmapTerrainConfig {
      * this world-space height value. Handy for keeping a water shoreline
      * crisp — set to your water level. Off by default. */
     preserveContourLevel?: number;
+
+    /** Optional: world-space Y threshold. Terrain pixels at or below
+     * this elevation render as water (waves, Fresnel, sun glints) via
+     * the PBR shader's built-in per-pixel water path. Leave unset to
+     * disable. */
+    waterLevel?: number;
 }
 
 /**
@@ -199,6 +205,7 @@ export class HeightmapTerrain {
             roughness: 0.9,
             metallic: 0.0,
             preserveContourLevel: this.config.preserveContourLevel,
+            waterLevel: this.config.waterLevel,
         });
 
         const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;

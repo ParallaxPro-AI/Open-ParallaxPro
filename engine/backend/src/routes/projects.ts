@@ -153,7 +153,7 @@ router.post('/', async (req, res) => {
             if (template?._folderPath) {
                 const assembled = assembleGame(template._folderPath);
                 const sceneKey = 'main.json';
-                projectData.scenes[sceneKey] = {
+                const sceneData: any = {
                     name: template.name,
                     entities: assembled.entities,
                     environment: {
@@ -165,6 +165,8 @@ router.post('/', async (req, res) => {
                         dayNightCycleSpeed: 0,
                     },
                 };
+                if (assembled.heightmapTerrain) sceneData.heightmapTerrain = assembled.heightmapTerrain;
+                projectData.scenes[sceneKey] = sceneData;
                 projectData.scripts = { ...(projectData.scripts || {}), ...assembled.scripts };
                 projectData.uiFiles = { ...(projectData.uiFiles || {}), ...assembled.uiFiles };
             }

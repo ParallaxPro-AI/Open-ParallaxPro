@@ -1,0 +1,23 @@
+{
+  "worlds": [
+    {
+      "id": "bay_area",
+      "name": "Bay Area",
+      "lighting": {
+        "ambient": [0.45, 0.48, 0.55],
+        "sun_direction": [0.3, -0.8, 0.2],
+        "sun_color": [1.0, 0.96, 0.88]
+      },
+      "heightmapTerrain": {
+        "metaUrl": "/assets/official/everything_game/terrain/heightmap_meta.json",
+        "baseColor": [0.33, 0.42, 0.30, 1],
+        "preserveContourLevel": 0.5,
+        "waterLevel": 0.5
+      },
+      "placements": [
+        { "name": "Player", "ref": "player", "position": [27976, 25, 17301] },
+        { "ref": "camera", "position": [27984, 29, 17301] }
+      ]
+    }
+  ]
+}

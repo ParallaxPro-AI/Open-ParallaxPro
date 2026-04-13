@@ -42,6 +42,12 @@ export class TerrainComponent extends Component {
     baseColor: number[] = [0.3, 0.55, 0.2, 1.0];
     metallic: number = 0.0;
     roughness: number = 0.85;
+    /**
+     * Optional world-space Y threshold: pixels with worldPosition.y at
+     * or below this value render as water via the PBR shader's built-in
+     * waterLevel path. `undefined` disables the feature (no water).
+     */
+    waterLevel: number | undefined = undefined;
 
     // LOD state
     lodEnabled: boolean = false;
@@ -77,6 +83,9 @@ export class TerrainComponent extends Component {
         this.preserveContourPadding = typeof data.preserveContourPadding === 'number'
             ? data.preserveContourPadding
             : 3;
+        this.waterLevel = typeof data.waterLevel === 'number'
+            ? data.waterLevel
+            : undefined;
 
         if (data.heightData instanceof Float32Array) {
             this.heightData = data.heightData;

@@ -1,9 +1,10 @@
 /**
- * Template Loader — discovers and loads 4-file game templates.
+ * Template Loader — discovers and loads game templates.
  *
- * Scans game_templates/v0.1/ for folders containing the 4-file format
- * (01_flow.json, 02_entities.json, 03_worlds.json, 04_systems.json)
- * and provides catalog + loading.
+ * Scans game_templates/v0.1/ and v0.2/ for folders containing the
+ * 4-file format (01_flow.json, 02_entities.json, 03_worlds.json,
+ * 04_systems.json). v0.2 allows extra files (streaming, regions, etc.)
+ * alongside the core four, but the loader only requires the core four.
  */
 
 import fs from 'fs';
@@ -11,7 +12,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname_tl = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATE_DIR = path.join(__dirname_tl, 'reusable_game_components', 'game_templates', 'v0.1');
+const TEMPLATE_DIRS = [
+    { dir: path.join(__dirname_tl, 'reusable_game_components', 'game_templates', 'v0.1'), version: '0.1' as const },
+    { dir: path.join(__dirname_tl, 'reusable_game_components', 'game_templates', 'v0.2'), version: '0.2' as const },
+];
 
 export interface TemplateSummary {
     id: string;
@@ -64,16 +68,17 @@ function readFolderMeta(folderPath: string, dirName: string): TemplateSummary | 
 
 /** Load catalog of all available templates for LLM selection. */
 export function loadTemplateCatalog(): TemplateSummary[] {
-    if (!fs.existsSync(TEMPLATE_DIR)) return [];
-
     const catalog: TemplateSummary[] = [];
-    for (const entry of fs.readdirSync(TEMPLATE_DIR, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        try {
-            const meta = readFolderMeta(path.join(TEMPLATE_DIR, entry.name), entry.name);
-            if (meta) catalog.push(meta);
-        } catch (err) {
-            console.warn(`[template_loader] Failed to parse ${entry.name}:`, err);
+    for (const { dir } of TEMPLATE_DIRS) {
+        if (!fs.existsSync(dir)) continue;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue;
+            try {
+                const meta = readFolderMeta(path.join(dir, entry.name), entry.name);
+                if (meta) catalog.push(meta);
+            } catch (err) {
+                console.warn(`[template_loader] Failed to parse ${entry.name}:`, err);
+            }
         }
     }
 
@@ -81,10 +86,17 @@ export function loadTemplateCatalog(): TemplateSummary[] {
     return catalog;
 }
 
-/** Load a single template by ID. */
+/** Load a single template by ID. Searches all version directories. */
 export function loadTemplate(templateId: string): FullTemplate | null {
-    const folderPath = path.join(TEMPLATE_DIR, templateId);
-    if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) return null;
+    let folderPath: string | null = null;
+    for (const { dir } of TEMPLATE_DIRS) {
+        const candidate = path.join(dir, templateId);
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+            folderPath = candidate;
+            break;
+        }
+    }
+    if (!folderPath) return null;
 
     const meta = readFolderMeta(folderPath, templateId);
     if (!meta) return null;

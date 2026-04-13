@@ -33,6 +33,10 @@ export interface RenderMeshInstance {
     normalMapTexture?: GPUTexture;
     normalScale?: number;
     waterEffect?: boolean;
+    /** Optional world-space Y threshold for per-pixel water rendering. See
+     * MaterialUniforms.waterLevel in the PBR shader. Omit or set below all
+     * terrain to disable. */
+    waterLevel?: number;
     uvScaleX?: number;
     uvScaleY?: number;
     firstIndex?: number;
