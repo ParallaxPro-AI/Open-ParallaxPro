@@ -121,6 +121,14 @@ export class RenderPipeline {
         return this.geometryPass.getCameraBindGroupLayout();
     }
 
+    setBuildingTextures(
+        diffuseArray: GPUTexture | null,
+        normalArray: GPUTexture | null,
+        layerProps: Float32Array | null,
+    ): void {
+        this.geometryPass.setBuildingTextures(diffuseArray, normalArray, layerProps);
+    }
+
     shutdown(): void {
         this.geometryPass.shutdown();
         this.shadowPass.shutdown();

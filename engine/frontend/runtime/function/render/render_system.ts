@@ -49,6 +49,10 @@ export class RenderSystem {
         return this.canvasManager?.getCanvas() ?? null;
     }
 
+    getDevice(): GPUDevice | null {
+        return this.gpuDevice?.getDevice() ?? null;
+    }
+
     async initialize(gpuDevice: GPUDeviceManager, canvasManager: CanvasManager): Promise<void> {
         this.gpuDevice = gpuDevice;
         this.canvasManager = canvasManager;
@@ -289,6 +293,14 @@ export class RenderSystem {
 
     getDebugRenderer(): DebugRenderer {
         return this.debugRenderer;
+    }
+
+    setBuildingTextures(
+        diffuseArray: GPUTexture | null,
+        normalArray: GPUTexture | null,
+        layerProps: Float32Array | null,
+    ): void {
+        this.renderPipeline.setBuildingTextures(diffuseArray, normalArray, layerProps);
     }
 
     shutdown(): void {

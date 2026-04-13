@@ -8,11 +8,9 @@
  * enters each chunk's load radius. Each building placement with
  * `type === 'building'` is extruded into a walls-plus-flat-roof mesh;
  * all buildings in a chunk are merged into one draw call. Meshes are
- * rendered through the engine's building pipeline (36-byte vertex
- * stride with a per-vertex u32 wallWidth) which paints a procedural
- * window grid — see engine's BUILDING_FRAGMENT_SHADER. Subtypes not
- * in HAS_WINDOWS_SUBTYPES pack `wallWidth = 0` so the shader falls
- * through to plain PBR.
+ * rendered through the engine's building pipeline with per-vertex
+ * metadata that includes texture layer index (from Poly Haven texture
+ * arrays) and window grid configuration.
  *
  * This file is game-specific: it knows the OSM placement schema and
  * the subtype whitelist. The mesh upload path (`uploadBuildingMesh`),
@@ -22,10 +20,22 @@ import { Scene } from '../../../engine/frontend/runtime/function/framework/scene
 import { MeshRendererComponent } from '../../../engine/frontend/runtime/function/framework/components/mesh_renderer_component.js';
 import { RenderSystem } from '../../../engine/frontend/runtime/function/render/render_system.js';
 import { GPUMeshHandle } from '../../../engine/frontend/runtime/function/render/render_scene.js';
+import {
+	loadBuildingTextureArrays,
+	BUILDING_LAYER_RANGES,
+	BUILDING_TEXTURES,
+} from './osm_texture_cache.js';
 
 export interface StreamedBuildingsConfig {
     /** Base URL for the generator's output, must end in '/'. */
     assetBasePath: string;
+    /**
+     * Base URL for Poly Haven textures, must end in '/'.
+     * Textures are expected at `<polyHavenBasePath>poly_haven/textures/<name>/`.
+     * Defaults to two directories above assetBasePath (i.e. strips the
+     * `everything_game/chunks/` suffix that chunk data lives under).
+     */
+    polyHavenBasePath?: string;
     /** Chebyshev radius (in chunks) of chunks kept loaded around the camera. */
     loadRadius?: number;
     /** Chebyshev radius at which loaded chunks get freed. Must be ≥ loadRadius. */
@@ -81,6 +91,10 @@ export class StreamedBuildings {
     private lastCamCX = Number.NaN;
     private lastCamCZ = Number.NaN;
 
+    // Texture arrays from Poly Haven
+    private textureArrays: Awaited<ReturnType<typeof loadBuildingTextureArrays>> | null = null;
+    private polyHavenBasePath: string;
+
     constructor(scene: Scene, renderSystem: RenderSystem, config: StreamedBuildingsConfig) {
         this.scene = scene;
         this.renderSystem = renderSystem;
@@ -89,11 +103,20 @@ export class StreamedBuildings {
         this.unloadRadius = config.unloadRadius ?? this.loadRadius + 1;
         this.baseColor = config.baseColor ?? [0.74, 0.71, 0.66, 1.0];
 
+        if (config.polyHavenBasePath) {
+            this.polyHavenBasePath = config.polyHavenBasePath.endsWith('/')
+                ? config.polyHavenBasePath : config.polyHavenBasePath + '/';
+        } else {
+            // Poly Haven textures are served from reusable_assets/ at /assets/
+            this.polyHavenBasePath = '/assets/';
+        }
+
         const parent = scene.createEntity('StreamedBuildings');
         parent.addTag('streamed_buildings_root');
         this.parentId = parent.id;
 
         this.fetchWorldIndex();
+        this.loadTextures();
     }
 
     /** Call each frame with the active camera's world position. */
@@ -156,6 +179,30 @@ export class StreamedBuildings {
         }
     }
 
+    private async loadTextures(): Promise<void> {
+        try {
+            const device = this.renderSystem.getDevice();
+            if (!device) {
+                console.warn('[StreamedBuildings] GPU device not yet available; textures will load on next check');
+                // Try again in a moment when device is ready
+                setTimeout(() => this.loadTextures(), 100);
+                return;
+            }
+            this.textureArrays = await loadBuildingTextureArrays(device, this.polyHavenBasePath);
+            if (this.textureArrays) {
+                console.log('[StreamedBuildings] Loaded Poly Haven building textures');
+                // Pass textures to render system for building pipeline
+                this.renderSystem.setBuildingTextures(
+                    this.textureArrays.diffuseArray,
+                    this.textureArrays.normalArray,
+                    this.textureArrays.layerProps,
+                );
+            }
+        } catch (e) {
+            console.warn('[StreamedBuildings] Failed to load building textures:', e);
+        }
+    }
+
     private async fetchChunk(cx: number, cz: number, key: string): Promise<void> {
         this.pending.add(key);
         try {
@@ -184,10 +231,16 @@ export class StreamedBuildings {
             if (p.type !== 'building') continue;
             const b = p as BuildingPlacement;
             const windows = hasWindows(b.subtype);
+
+            // Classify building and pick texture layer
+            const category = classifyBuilding(b.subtype ?? 'yes');
+            const seed = hashPos(Math.floor(b.position[0]), Math.floor(b.position[2]));
+            const layerIndex = pickLayer(category, seed);
+
             if (b.polygon && b.polygon.length >= 3 && typeof b.height === 'number') {
                 const baseY = b.position[1];
                 const buildingHeight = b.height + 0.5;
-                extrudePolygon(b.polygon, baseY - 0.5, buildingHeight, windows,
+                extrudePolygon(b.polygon, baseY - 0.5, buildingHeight, windows, layerIndex,
                     positions, normals, uvs, indices, meta);
             } else if (b.size) {
                 const [px, py, pz] = b.position;
@@ -196,7 +249,7 @@ export class StreamedBuildings {
                 extrudeAxisAlignedBox(
                     px - hx, pz - hz, sw, sd,
                     py - 0.5, py - 0.5 + sh,
-                    windows,
+                    windows, layerIndex,
                     positions, normals, uvs, indices, meta,
                 );
             }
@@ -266,6 +319,7 @@ function extrudePolygon(
     baseY: number,
     height: number,
     windows: boolean,
+    layerIndex: number,
     pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
 ): void {
     const n = polygon.length;
@@ -284,7 +338,7 @@ function extrudePolygon(
         const nz = -dx / len;
 
         const base = pos.length / 3;
-        const segMeta = windows ? packMeta(len) : 0;
+        const segMeta = packBuildingMeta(layerIndex, windows ? len : 0);
         // v0: bottom-left, v1: bottom-right, v2: top-right, v3: top-left
         pos.push(x0, baseY, z0,  x1, baseY, z1,  x1, topY, z1,  x0, topY, z0);
         for (let k = 0; k < 4; k++) norm.push(nx, 0, nz);
@@ -324,14 +378,15 @@ function extrudeAxisAlignedBox(
     x: number, z: number, sx: number, sz: number,
     y0: number, y1: number,
     windows: boolean,
+    layerIndex: number,
     pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
 ): void {
     const x1 = x + sx;
     const z1 = z + sz;
     const height = y1 - y0;
     // Walls use UV in meters so the shader's window grid matches real size.
-    const metaX = windows ? packMeta(sz) : 0; // +X / -X walls are sz wide
-    const metaZ = windows ? packMeta(sx) : 0; // +Z / -Z walls are sx wide
+    const metaX = packBuildingMeta(layerIndex, windows ? sz : 0); // +X / -X walls are sz wide
+    const metaZ = packBuildingMeta(layerIndex, windows ? sx : 0); // +Z / -Z walls are sx wide
 
     // +X — spans Z (0..sz) × Y (0..height)
     addQuadMeta(pos, norm, uv, idx, meta,
@@ -421,4 +476,76 @@ const HAS_WINDOWS_SUBTYPES = new Set<string>([
 
 function hasWindows(subtype: string | undefined): boolean {
     return HAS_WINDOWS_SUBTYPES.has(subtype ?? 'yes');
+}
+
+/**
+ * Pack per-vertex building meta as a u32:
+ * - Bits [0:3]: texture layer index (0-13)
+ * - Bits [4:11]: wall width in 0.25 m units (0-255, max 63.75 m)
+ * - Bits [12:31]: reserved for future use
+ */
+function packBuildingMeta(layerIndex: number, wallWidth: number): number {
+    const layerIdx = (layerIndex & 0xF) << 0; // bits 0-3
+    const wallWidthQ = (Math.min(255, Math.round(wallWidth / 0.25)) & 0xFF) << 4; // bits 4-11
+    return layerIdx | wallWidthQ;
+}
+
+/**
+ * Classify an OSM building subtype into a material category
+ * for texture selection.
+ */
+function classifyBuilding(subtype: string): string {
+    switch (subtype) {
+        case 'residential':
+        case 'house':
+        case 'detached':
+        case 'semidetached_house':
+        case 'terrace':
+        case 'bungalow':
+        case 'apartments':
+        case 'dormitory':
+            return 'residential';
+        case 'commercial':
+        case 'office':
+        case 'retail':
+        case 'hotel':
+        case 'supermarket':
+            return 'commercial';
+        case 'church':
+        case 'cathedral':
+        case 'chapel':
+            return 'brick';
+        case 'industrial':
+        case 'factory':
+            return 'industrial';
+        case 'warehouse':
+        case 'garage':
+        case 'garages':
+        case 'parking':
+        case 'hangar':
+            return 'industrial';
+        default:
+            return 'concrete';
+    }
+}
+
+/**
+ * Pick a texture layer index from the appropriate category range
+ * using the building seed for deterministic variation.
+ */
+function pickLayer(category: string, seed: number): number {
+    const range = BUILDING_LAYER_RANGES[category];
+    if (!range) return 10; // fallback to beige_wall_001
+    const [lo, hi] = range;
+    return lo + (seed % (hi - lo + 1));
+}
+
+/**
+ * Hash building position to a deterministic seed (0-63).
+ */
+function hashPos(x: number, z: number): number {
+    let h = (x * 73856093) ^ (z * 19349669);
+    h = ((h >>> 16) ^ h) * 0x45d9f3b | 0;
+    h = ((h >>> 16) ^ h) * 0x45d9f3b | 0;
+    return (h >>> 0) & 0x3F;
 }
