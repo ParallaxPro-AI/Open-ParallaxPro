@@ -769,7 +769,8 @@ export class GeometryPass {
     private getMaterialBindGroup(mesh: RenderMeshInstance): GPUBindGroup {
         const texId = mesh.baseColorTexture ? this.getTextureId(mesh.baseColorTexture) : 'none';
         const nrmId = mesh.normalMapTexture ? this.getTextureId(mesh.normalMapTexture) : 'none';
-        const key = `${texId}|${nrmId}|${mesh.baseColor}|${mesh.metallic}|${mesh.roughness}|${mesh.emissive}|${mesh.waterEffect ? 1 : 0}`;
+        const waterLevel = mesh.waterLevel ?? -1e20;
+        const key = `${texId}|${nrmId}|${mesh.baseColor}|${mesh.metallic}|${mesh.roughness}|${mesh.emissive}|${mesh.waterEffect ? 1 : 0}|${waterLevel}`;
 
         let bg = this.materialBindGroupCache.get(key);
         if (bg) return bg;
@@ -791,6 +792,7 @@ export class GeometryPass {
         matU32[12] = mesh.waterEffect ? 1 : 0;
         matData[13] = mesh.uvScaleX ?? 1.0;
         matData[14] = mesh.uvScaleY ?? 1.0;
+        matData[15] = waterLevel;
 
         const matBuffer = this.resources!.createUniformBuffer(MATERIAL_UNIFORM_SIZE, 'material_cached');
         this.device!.queue.writeBuffer(matBuffer, 0, matData);

@@ -30,7 +30,7 @@ export class EditorCamera {
     /** Camera properties. */
     fov: number = 60 * (Math.PI / 180);
     near: number = 0.1;
-    far: number = 1000;
+    far: number = 50000;
     aspect: number = 1;
 
     /** Fly mode state. */
@@ -216,7 +216,10 @@ export class EditorCamera {
 
     private updateFlyMode(deltaTime: number): void {
         const sprint = this.keysDown.has('shift') ? 2 : 1;
-        const speed = this.flySpeed * deltaTime * sprint;
+        // Scale speed by altitude so flying across large worlds doesn't feel
+        // glacial. At y=10 this is a no-op; doubles every 10 m above that.
+        const heightScale = Math.max(1, this.flyPosition.y / 10);
+        const speed = this.flySpeed * deltaTime * sprint * heightScale;
 
         const forward = new Vec3(
             Math.cos(this.flyPitch) * Math.sin(this.flyYaw),
@@ -326,10 +329,10 @@ export class EditorCamera {
         if (this.disabled) { e.preventDefault(); return; }
         e.preventDefault();
         if (this.flyMode) {
-            this.flySpeed = Math.max(1, Math.min(100, this.flySpeed - e.deltaY * 0.01));
+            this.flySpeed = Math.max(1, Math.min(5000, this.flySpeed - e.deltaY * 0.1));
         } else {
             const zoomFactor = 1 + e.deltaY * 0.001;
-            this.distance = Math.max(0.5, Math.min(500, this.distance * zoomFactor));
+            this.distance = Math.max(0.5, Math.min(50000, this.distance * zoomFactor));
         }
     };
 
