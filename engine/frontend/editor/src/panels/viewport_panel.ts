@@ -11,6 +11,7 @@ import { icon, Maximize2, Minimize2 } from '../widgets/icons.js';
 import { HeightmapTerrain } from '../../../runtime/function/streaming/heightmap_terrain.js';
 import { StreamedBuildings } from '../../../../../everything_game/003_runtime/streaming/streamed_buildings.js';
 import { StreamedRoads } from '../../../../../everything_game/003_runtime/streaming/streamed_roads.js';
+import { StreamedProps } from '../../../../../everything_game/003_runtime/streaming/streamed_props.js';
 import { loadTerrainTextureArrays } from '../../../../../everything_game/003_runtime/streaming/terrain_texture_cache.js';
 
 /**
@@ -38,6 +39,7 @@ export class ViewportPanel {
     private heightmapTerrain: HeightmapTerrain | null = null;
     private streamedBuildings: StreamedBuildings | null = null;
     private streamedRoads: StreamedRoads | null = null;
+    private streamedProps: StreamedProps | null = null;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -231,6 +233,7 @@ export class ViewportPanel {
             this.initHeightmapTerrain();
             this.initStreamedBuildings();
             this.initStreamedRoads();
+            this.initStreamedProps();
         });
 
         // Resize handling
@@ -542,6 +545,44 @@ export class ViewportPanel {
         }
     }
 
+    /**
+     * Create a streamer that spawns street props from the same chunk JSONs:
+     * pre-baked OSM-driven signs (`type: "furniture"`, written by
+     * 002_bake_traffic_controls.py) plus runtime procedural scatter (lamp
+     * posts, guardrails, construction cones, building-side hydrants/trash
+     * cans/benches/mailboxes, picket fences). Shares the
+     * `streamedBuildings.assetBasePath` config.
+     */
+    private initStreamedProps(): void {
+        if (this.streamedProps) {
+            this.streamedProps.destroy();
+            this.streamedProps = null;
+        }
+        const scene = this.ctx.getActiveScene();
+        if (!scene || !this.ctx.engine) return;
+
+        // Clean up any stale prop entities restored from a scene snapshot.
+        for (const entity of [...scene.entities.values()]) {
+            if (entity.hasTag('streamed_props_root') || entity.hasTag('streamed_props_chunk')) {
+                scene.destroyEntity(entity.id);
+            }
+        }
+
+        const pd = this.ctx.state.projectData;
+        const scenes = pd?.scenes || {};
+        for (const sceneData of Object.values(scenes) as any[]) {
+            const cfg = sceneData?.streamedBuildings;
+            if (!cfg?.assetBasePath) continue;
+            const renderSystem = this.ctx.engine.globalContext.renderSystem;
+            this.streamedProps = new StreamedProps(scene, renderSystem, {
+                assetBasePath: cfg.assetBasePath,
+                loadRadius: cfg.loadRadius,
+                unloadRadius: cfg.unloadRadius,
+            });
+            break;
+        }
+    }
+
     private startRenderLoop(): void {
         const loop = () => {
             const now = performance.now() / 1000;
@@ -594,6 +635,9 @@ export class ViewportPanel {
                     this.streamedRoads.update(camPos);
                     const renderSystem = this.ctx.engine.globalContext.renderSystem;
                     renderSystem.setDecals(this.streamedRoads.collectDecals());
+                }
+                if (this.streamedProps) {
+                    this.streamedProps.update(camPos);
                 }
 
                 this.fpsEl.textContent = `${this.ctx.engine.getFPS()} FPS`;

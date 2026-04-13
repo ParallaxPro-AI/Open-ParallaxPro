@@ -40,5 +40,9 @@ engine/backend/feedbacks/
 engine/backend/.models_cache/
 engine/backend/.embeddings_cache.json
 
+# Python
+__pycache__/
+*.pyc
+
 # Misc
 reusable_assets/
