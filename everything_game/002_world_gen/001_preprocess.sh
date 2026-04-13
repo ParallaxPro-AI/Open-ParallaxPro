@@ -37,26 +37,39 @@ echo "=== Preprocessing extended elevation for world terrain ==="
 EXT_TIF="$MAP_DATA/elevation/bay_area_elevation_extended.tif"
 EXT_RAW="$OUT/elevation_extended.raw"
 
+# Downsampled runtime grid size. The client resamples to min(W, H, 1024)²
+# for its LOD mesh anyway, so shipping the native ~17280×13500 float32
+# source is ~900 MB wasted transfer. 3200×2500 is ~3× the LOD cap (plenty
+# of bilinear headroom), preserves the source aspect ratio, and lands the
+# raw float32 at ~32 MB — compresses further over the wire.
+RUNTIME_W=3200
+RUNTIME_H=2500
+
 if [ ! -f "$EXT_TIF" ]; then
   echo "Error: Extended elevation GeoTIFF not found at $EXT_TIF"
   echo "       Run 001_map_gen/003_download_elevation.sh first."
   exit 1
 fi
 
-if [ -f "$EXT_RAW" ]; then
-  echo "[elevation] Raw already present, skipping GDAL convert."
-else
-  echo "[elevation] Converting GeoTIFF to raw float32..."
-  gdal_translate -of ENVI -ot Float32 "$EXT_TIF" "$EXT_RAW" -q
-  ls -lh "$EXT_RAW"
-fi
+# Always regenerate the raw: an older run may have left a full-size
+# float32 (~900 MB) at this path from before the downsample step existed,
+# and we don't want to ship that.
+echo "[elevation] Converting GeoTIFF to downsampled (${RUNTIME_W}x${RUNTIME_H}) raw float32..."
+rm -f "$EXT_RAW"
+gdal_translate -of ENVI -ot Float32 \
+  -outsize "$RUNTIME_W" "$RUNTIME_H" \
+  -r bilinear \
+  "$EXT_TIF" "$EXT_RAW" -q
+ls -lh "$EXT_RAW"
 
 # Extract geotransform so we can compute world extents + origin.
 # gdalinfo emits two paren groups per corner — decimal first, then DMS:
 #   "Upper Left  (-122.9000000,  38.1500000) (122d54' 0.00\"W, 38d 9' 0.00\"N)"
-# We take the first group only.
-EXT_WIDTH=$(gdalinfo "$EXT_TIF" | grep "Size is" | sed 's/Size is //' | cut -d',' -f1 | tr -d ' ')
-EXT_HEIGHT=$(gdalinfo "$EXT_TIF" | grep "Size is" | sed 's/Size is //' | cut -d',' -f2 | tr -d ' ')
+# We take the first group only. (Note: we query the original TIF here;
+# the geographic extents and corner coords are invariant under raster
+# resizing, so they stay correct for the downsampled raw.)
+EXT_WIDTH="$RUNTIME_W"
+EXT_HEIGHT="$RUNTIME_H"
 EXT_UL=$(gdalinfo "$EXT_TIF" | grep "Upper Left"  | grep -oE '\([^)]*\)' | head -1 | tr -d '() ')
 EXT_LR=$(gdalinfo "$EXT_TIF" | grep "Lower Right" | grep -oE '\([^)]*\)' | head -1 | tr -d '() ')
 EXT_WEST=$(echo "$EXT_UL"  | cut -d',' -f1 | tr -d ' ')
