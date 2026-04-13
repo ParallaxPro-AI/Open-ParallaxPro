@@ -230,26 +230,33 @@ export class StreamedBuildings {
         for (const p of placements) {
             if (p.type !== 'building') continue;
             const b = p as BuildingPlacement;
-            const windows = hasWindows(b.subtype);
 
             // Classify building and pick texture layer
             const category = classifyBuilding(b.subtype ?? 'yes');
             const seed = hashPos(Math.floor(b.position[0]), Math.floor(b.position[2]));
             const layerIndex = pickLayer(category, seed);
+            const seed6 = seed & 0x3F;
 
             if (b.polygon && b.polygon.length >= 3 && typeof b.height === 'number') {
                 const baseY = b.position[1];
                 const buildingHeight = b.height + 0.5;
-                extrudePolygon(b.polygon, baseY - 0.5, buildingHeight, windows, layerIndex,
+                // floorCount=0 disables the window grid for non-window building types
+                const floorCount = hasWindows(b.subtype)
+                    ? Math.max(1, Math.min(63, Math.round(buildingHeight / 3.5)))
+                    : 0;
+                extrudePolygon(b.polygon, baseY - 0.5, buildingHeight, seed6, floorCount, layerIndex,
                     positions, normals, uvs, indices, meta);
             } else if (b.size) {
                 const [px, py, pz] = b.position;
                 const [sw, sh, sd] = b.size;
                 const hx = sw * 0.5, hz = sd * 0.5;
+                const floorCount = hasWindows(b.subtype)
+                    ? Math.max(1, Math.min(63, Math.round(sh / 3.5)))
+                    : 0;
                 extrudeAxisAlignedBox(
                     px - hx, pz - hz, sw, sd,
                     py - 0.5, py - 0.5 + sh,
-                    windows, layerIndex,
+                    sh, seed6, floorCount, layerIndex,
                     positions, normals, uvs, indices, meta,
                 );
             }
@@ -318,7 +325,8 @@ function extrudePolygon(
     polygon: [number, number][],
     baseY: number,
     height: number,
-    windows: boolean,
+    seed6: number,
+    floorCount: number,
     layerIndex: number,
     pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
 ): void {
@@ -338,7 +346,7 @@ function extrudePolygon(
         const nz = -dx / len;
 
         const base = pos.length / 3;
-        const segMeta = packBuildingMeta(layerIndex, windows ? len : 0);
+        const segMeta = packBuildingMeta(layerIndex, seed6, floorCount, len, height);
         // v0: bottom-left, v1: bottom-right, v2: top-right, v3: top-left
         pos.push(x0, baseY, z0,  x1, baseY, z1,  x1, topY, z1,  x0, topY, z0);
         for (let k = 0; k < 4; k++) norm.push(nx, 0, nz);
@@ -377,7 +385,9 @@ function extrudePolygon(
 function extrudeAxisAlignedBox(
     x: number, z: number, sx: number, sz: number,
     y0: number, y1: number,
-    windows: boolean,
+    buildingHeight: number,
+    seed6: number,
+    floorCount: number,
     layerIndex: number,
     pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
 ): void {
@@ -385,8 +395,8 @@ function extrudeAxisAlignedBox(
     const z1 = z + sz;
     const height = y1 - y0;
     // Walls use UV in meters so the shader's window grid matches real size.
-    const metaX = packBuildingMeta(layerIndex, windows ? sz : 0); // +X / -X walls are sz wide
-    const metaZ = packBuildingMeta(layerIndex, windows ? sx : 0); // +Z / -Z walls are sx wide
+    const metaX = packBuildingMeta(layerIndex, seed6, floorCount, sz, buildingHeight); // +X / -X walls are sz wide
+    const metaZ = packBuildingMeta(layerIndex, seed6, floorCount, sx, buildingHeight); // +Z / -Z walls are sx wide
 
     // +X — spans Z (0..sz) × Y (0..height)
     addQuadMeta(pos, norm, uv, idx, meta,
@@ -426,17 +436,6 @@ function addQuadMeta(
     uv.push(0, 0,  uMax, 0,  uMax, vMax,  0, vMax);
     for (let k = 0; k < 4; k++) meta.push(metaValue);
     idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-}
-
-/**
- * Pack per-vertex building meta as a u32 holding the wall segment width
- * in 0.25 m units (bits [0:7], max 63.75 m). `0` is the "no window grid"
- * sentinel — used on roof fan vertices so the shader renders plain PBR
- * there. The remaining bits are reserved for future per-building data
- * (facade style, texture layer, per-pane jitter seed, …).
- */
-function packMeta(wallWidth: number): number {
-    return Math.min(255, Math.round(wallWidth / 0.25)) & 0xFF;
 }
 
 /**
@@ -480,14 +479,25 @@ function hasWindows(subtype: string | undefined): boolean {
 
 /**
  * Pack per-vertex building meta as a u32:
- * - Bits [0:3]: texture layer index (0-13)
- * - Bits [4:11]: wall width in 0.25 m units (0-255, max 63.75 m)
- * - Bits [12:31]: reserved for future use
+ * - Bits  [0:3]:  texture layer index (0-13)
+ * - Bits  [4:9]:  building seed (0-63, drives style + color variation)
+ * - Bits [10:15]: floor count (0-63; 0 disables window grid)
+ * - Bits [16:23]: wall segment width in 0.25 m units (0-255, max 63.75 m)
+ * - Bits [24:31]: building height in 0.5 m units (0-255, max 127.5 m)
  */
-function packBuildingMeta(layerIndex: number, wallWidth: number): number {
-    const layerIdx = (layerIndex & 0xF) << 0; // bits 0-3
-    const wallWidthQ = (Math.min(255, Math.round(wallWidth / 0.25)) & 0xFF) << 4; // bits 4-11
-    return layerIdx | wallWidthQ;
+function packBuildingMeta(
+    layerIndex: number,
+    seed6: number,
+    floorCount: number,
+    wallWidth: number,
+    buildingHeight: number,
+): number {
+    const layerBits = (layerIndex & 0xF);
+    const seedBits  = (seed6 & 0x3F) << 4;
+    const floorBits = (Math.min(63, floorCount) & 0x3F) << 10;
+    const wallBits  = (Math.min(255, Math.round(wallWidth / 0.25)) & 0xFF) << 16;
+    const heightBits = (Math.min(255, Math.round(buildingHeight / 0.5)) & 0xFF) << 24;
+    return (layerBits | seedBits | floorBits | wallBits | heightBits) >>> 0;
 }
 
 /**
