@@ -1,5 +1,6 @@
 import { Vec3 } from '../../core/math/vec3.js';
 import { Mat4 } from '../../core/math/mat4.js';
+import { TerrainGpuTextures } from '../framework/components/terrain_component.js';
 
 export interface MeshData {
     positions: Float32Array;
@@ -50,6 +51,14 @@ export interface RenderMeshInstance {
     drawIndexCount?: number;
     alphaMode?: string;
     jointMatricesBuffer?: GPUBuffer;
+
+    // ── Terrain-pipeline routing ──────────────────────────────
+    /** When set, routes this mesh through the terrain shader pipeline. */
+    gpuTerrainTextures?: TerrainGpuTextures;
+    /** Road atlas near-tile texture (terrain pipeline only). */
+    roadAtlasNear?: GPUTexture;
+    /** Road atlas far-tile texture (terrain pipeline only). */
+    roadAtlasFar?: GPUTexture;
 }
 
 export interface RenderCamera {

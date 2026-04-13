@@ -1,18 +1,34 @@
 import { Component } from '../component.js';
 import { Vec3 } from '../../../core/math/vec3.js';
 
-export interface TerrainLayer {
-    name: string;
-    color: number[];
-    roughness: number;
-    tilingScale: number;
+/**
+ * GPU textures for the dedicated terrain shader pipeline.
+ * Set by game-specific code after textures are loaded; when present
+ * the terrain renders via the terrain pipeline instead of generic PBR.
+ */
+export interface TerrainGpuTextures {
+    /** 2D-array texture with one layer per ground type (sand, grass, …). */
+    diffuseArray: GPUTexture;
+    /** 2D-array normal map matching diffuseArray layers. */
+    normalArray: GPUTexture;
+    /** Per-layer properties: vec4 per layer, [0].x = UV scale. layerProps.data[5].xy = world dims. */
+    layerProps: Float32Array;
+    /** Optional sidewalk concrete diffuse (2D). Falls back to white. */
+    sidewalkDiffuse?: GPUTexture;
+    /** Optional sidewalk concrete normal map (2D). Falls back to flat normal. */
+    sidewalkNormal?: GPUTexture;
+    /** Optional RGBA weight map (2D): channels = layer blend weights. Falls back to height-based. */
+    groundTypeMap?: GPUTexture;
 }
 
 /**
- * TerrainComponent generates a heightmap-based terrain mesh.
+ * TerrainComponent generates a heightmap-based terrain mesh with
+ * distance-based LOD simplification and bilinear height queries.
  *
- * Supports procedural generation, brush-based sculpting, terrain layers
- * for splatmap texturing, and bilinear height/normal queries.
+ * When `gpuTerrainTextures` is attached (typically by a game-specific
+ * loader) the mesh renders through the dedicated terrain shader with
+ * layered PBR ground textures. Otherwise it uses the generic PBR path
+ * with `baseColor`.
  */
 /** LOD ring configuration: distance ranges (in world units) and grid step sizes. */
 const LOD_RINGS = [
@@ -28,8 +44,6 @@ export class TerrainComponent extends Component {
     resolution: number = 64;
     heightScale: number = 10;
     heightData: Float32Array = new Float32Array(0);
-    layers: TerrainLayer[] = [];
-    splatmapData: Float32Array[] = [];
 
     // Runtime mesh data
     positions: Float32Array = new Float32Array(0);
@@ -42,12 +56,31 @@ export class TerrainComponent extends Component {
     baseColor: number[] = [0.3, 0.55, 0.2, 1.0];
     metallic: number = 0.0;
     roughness: number = 0.85;
+
     /**
-     * Optional world-space Y threshold: pixels with worldPosition.y at
-     * or below this value render as water via the PBR shader's built-in
-     * waterLevel path. `undefined` disables the feature (no water).
+     * World-space Y threshold below which pixels render as water.
+     * When `gpuTerrainTextures` is set the terrain shader handles this
+     * at 0.5 m. When using the generic PBR path this value is passed
+     * through the material uniform. Leave undefined to disable water.
      */
     waterLevel: number | undefined = undefined;
+
+    /**
+     * When set, LOD simplification is suppressed in a padded band of cells
+     * that straddle this height — keeps coastlines or other iso-contours
+     * crisp as the mesh coarsens with distance. Defaults to `waterLevel`
+     * when not explicitly provided.
+     */
+    preserveContourLevel: number | undefined = undefined;
+    preserveContourPadding: number = 3;
+
+    // ── GPU terrain textures (set by game code after load) ────
+    /** When set, mesh uses the dedicated terrain shader pipeline. */
+    gpuTerrainTextures: TerrainGpuTextures | undefined = undefined;
+    /** Road atlas near tile (reuses baseColorTexture slot in render_scene). */
+    gpuRoadAtlasNear: GPUTexture | undefined = undefined;
+    /** Road atlas far tile (reuses normalMapTexture slot in render_scene). */
+    gpuRoadAtlasFar: GPUTexture | undefined = undefined;
 
     // LOD state
     lodEnabled: boolean = false;
@@ -57,18 +90,6 @@ export class TerrainComponent extends Component {
     lodActiveVertexCount: number = 0;
     lodActiveIndexCount: number = 0;
 
-    /**
-     * Optional: world-space height value at which LOD simplification is
-     * suppressed in a padded band. When set, any cell whose corners
-     * straddle this height is forced to the finest (step=1) LOD ring, and
-     * so are all cells within `preserveContourPadding` cells around it.
-     * Useful for keeping coastlines (or any sharp iso-contour) crisp as
-     * the mesh coarsens with distance. Leave unset to LOD-simplify
-     * uniformly.
-     */
-    preserveContourLevel: number | undefined = undefined;
-    preserveContourPadding: number = 3;
-
     initialize(data: Record<string, any>): void {
         this.width = data.width ?? 100;
         this.depth = data.depth ?? 100;
@@ -77,15 +98,13 @@ export class TerrainComponent extends Component {
         this.baseColor = data.baseColor ?? [0.3, 0.55, 0.2, 1.0];
         this.metallic = data.metallic ?? 0.0;
         this.roughness = data.roughness ?? 0.85;
+        this.waterLevel = typeof data.waterLevel === 'number' ? data.waterLevel : undefined;
         this.preserveContourLevel = typeof data.preserveContourLevel === 'number'
             ? data.preserveContourLevel
-            : undefined;
+            : this.waterLevel;
         this.preserveContourPadding = typeof data.preserveContourPadding === 'number'
             ? data.preserveContourPadding
             : 3;
-        this.waterLevel = typeof data.waterLevel === 'number'
-            ? data.waterLevel
-            : undefined;
 
         if (data.heightData instanceof Float32Array) {
             this.heightData = data.heightData;
@@ -95,21 +114,6 @@ export class TerrainComponent extends Component {
             this.heightData = new Float32Array((data.heightData as Float32Array).buffer.slice(0));
         } else {
             this.heightData = new Float32Array(this.resolution * this.resolution);
-        }
-
-        if (Array.isArray(data.layers)) {
-            this.layers = data.layers.map((l: any) => ({
-                name: l.name ?? 'Layer',
-                color: l.color ?? [0.3, 0.55, 0.2, 1.0],
-                roughness: l.roughness ?? 0.85,
-                tilingScale: l.tilingScale ?? 1.0,
-            }));
-        }
-
-        if (Array.isArray(data.splatmapData)) {
-            this.splatmapData = data.splatmapData.map((arr: any) =>
-                new Float32Array(Array.isArray(arr) ? arr : [])
-            );
         }
 
         this.meshDirty = true;
@@ -676,7 +680,7 @@ export class TerrainComponent extends Component {
             baseColor: this.baseColor,
             metallic: this.metallic,
             roughness: this.roughness,
-            layers: this.layers,
+            waterLevel: this.waterLevel,
         };
     }
 

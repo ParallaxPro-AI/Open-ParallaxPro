@@ -35,12 +35,18 @@ export class GeometryPass {
     private buildingPipelineMRT: GPURenderPipeline | null = null;
     private buildingPipelineMSAA: GPURenderPipeline | null = null;
 
+    // Terrain pipelines (standard vertex + dedicated terrain fragment)
+    private terrainPipelineStandard: GPURenderPipeline | null = null;
+    private terrainPipelineMRT: GPURenderPipeline | null = null;
+    private terrainPipelineMSAA: GPURenderPipeline | null = null;
+
     // Bind group layouts
     private cameraBindGroupLayout: GPUBindGroupLayout | null = null;
     private modelBindGroupLayout: GPUBindGroupLayout | null = null;
     private skinnedModelBindGroupLayout: GPUBindGroupLayout | null = null;
     private materialBindGroupLayout: GPUBindGroupLayout | null = null;
     private buildingMaterialBindGroupLayout: GPUBindGroupLayout | null = null;
+    private terrainMaterialBindGroupLayout: GPUBindGroupLayout | null = null;
     private lightBindGroupLayout: GPUBindGroupLayout | null = null;
 
     // Uniform buffers and bind groups
@@ -86,6 +92,12 @@ export class GeometryPass {
     private buildingNormalArrayView: GPUTextureView | null = null;
     private buildingLayerPropsBuffer: GPUBuffer | null = null;
     private buildingMaterialBindGroup: GPUBindGroup | null = null;
+
+    // Terrain material bind group cache (keyed by texture IDs)
+    private terrainMaterialBindGroupCache = new Map<string, GPUBindGroup>();
+    private terrainLayerPropsBuffer: GPUBuffer | null = null;
+    private defaultBlackTexture: GPUTexture | null = null;
+    private defaultBlackTextureView: GPUTextureView | null = null;
 
     // Shadow map bindings
     private dummyShadowTexture: GPUTexture | null = null;
@@ -250,6 +262,7 @@ export class GeometryPass {
         this.modelBindGroupPool.length = 0;
         this.materialBindGroupCache.clear();
         this.skinnedModelBindGroupCache.clear();
+        this.terrainMaterialBindGroupCache.clear();
 
         this.depthTexture?.destroy();
         this.defaultWhiteTexture?.destroy();
@@ -259,6 +272,8 @@ export class GeometryPass {
         this.buildingDiffuseArray?.destroy();
         this.buildingNormalArray?.destroy();
         this.buildingLayerPropsBuffer?.destroy();
+        this.defaultBlackTexture?.destroy();
+        this.terrainLayerPropsBuffer?.destroy();
         this.dummyShadowTexture?.destroy();
         this.offscreenColorTexture?.destroy();
         this.msaaColorTexture?.destroy();
@@ -271,6 +286,8 @@ export class GeometryPass {
         this.depthTexture = null;
         this.defaultWhiteTexture = null;
         this.defaultNormalTexture = null;
+        this.defaultBlackTexture = null;
+        this.terrainLayerPropsBuffer = null;
         this.dummyShadowTexture = null;
         this.offscreenColorTexture = null;
         this.msaaColorTexture = null;
@@ -319,6 +336,21 @@ export class GeometryPass {
             { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d-array' } },
             { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         ], 'building_material_bgl');
+
+        // Terrain material: material uniform + road atlas pair (2D) +
+        // ground texture arrays (2D-array) + layer props + sidewalk pair + weight map
+        this.terrainMaterialBindGroupLayout = resources.createBindGroupLayout([
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },                                  // material
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },        // road atlas near
+            { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+            { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },        // road atlas far
+            { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d-array' } },  // ground diffuse
+            { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d-array' } },  // ground normal
+            { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },                                  // layer props
+            { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },        // sidewalk diffuse
+            { binding: 8, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },        // sidewalk normal
+            { binding: 9, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },        // ground type weight map
+        ], 'terrain_material_bgl');
 
         this.lightBindGroupLayout = resources.createBindGroupLayout([
             { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
@@ -404,6 +436,22 @@ export class GeometryPass {
             [1, 1, 1],
         );
         this.defaultNormalArrayTextureView = this.defaultNormalArrayTexture.createView({ dimension: '2d-array' });
+
+        // 1×1 black texture — fallback for the terrain weight map when no
+        // ground-type map is provided (forces height-based layer weights).
+        this.defaultBlackTexture = device.createTexture({
+            label: 'default_black_1x1',
+            size: [1, 1, 1],
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+        device.queue.writeTexture(
+            { texture: this.defaultBlackTexture },
+            new Uint8Array([0, 0, 0, 0]),
+            { bytesPerRow: 4 },
+            [1, 1, 1],
+        );
+        this.defaultBlackTextureView = this.defaultBlackTexture.createView();
 
         // Dummy shadow depth texture (1x1 × 4-layer array, for when shadows
         // are disabled or before the first shadow pass runs). Must be a 2d-array
@@ -645,6 +693,57 @@ export class GeometryPass {
             multisample: { count: 4 },
         });
 
+        // ── Terrain pipeline variants ──
+        // Reuses the standard PBR vertex shader (same 32-byte vertex layout)
+        // with the dedicated terrain fragment shader that handles ground layer
+        // blending, road atlas overlay, and per-pixel water.
+        const terrainFragmentModule = shaderLib.getModule('terrain_fragment');
+        const terrainFragmentMRTModule = shaderLib.getModule('terrain_fragment_mrt');
+        const terrainPipelineLayout = resources.createPipelineLayout([
+            this.cameraBindGroupLayout!,
+            this.modelBindGroupLayout!,
+            this.terrainMaterialBindGroupLayout!,
+            this.lightBindGroupLayout!,
+        ], 'terrain_pipeline_layout');
+
+        this.terrainPipelineStandard = device.createRenderPipeline({
+            label: 'terrain_pipeline_standard',
+            layout: terrainPipelineLayout,
+            vertex: vertexState,
+            fragment: { module: terrainFragmentModule, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 1 },
+        });
+
+        this.terrainPipelineMRT = device.createRenderPipeline({
+            label: 'terrain_pipeline_mrt',
+            layout: terrainPipelineLayout,
+            vertex: vertexState,
+            fragment: {
+                module: terrainFragmentMRTModule,
+                entryPoint: 'fs_main',
+                targets: [{ format: canvasFormat }, { format: 'rgba16float' }],
+            },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 1 },
+        });
+
+        this.terrainPipelineMSAA = device.createRenderPipeline({
+            label: 'terrain_pipeline_msaa',
+            layout: terrainPipelineLayout,
+            vertex: vertexState,
+            fragment: {
+                module: terrainFragmentMRTModule,
+                entryPoint: 'fs_main',
+                targets: [{ format: canvasFormat }, { format: 'rgba16float' }],
+            },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 4 },
+        });
+
         // Transparent pipeline variants
         const blendState: GPUBlendState = {
             color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
@@ -844,18 +943,21 @@ export class GeometryPass {
         let lastVertexBuffer: GPUBuffer | null = null;
         let lastModelMatrix: Mat4 | null = null;
         let lastModelBindGroup: GPUBindGroup | null = null;
-        let currentKind: 'skinned' | 'building' | 'standard' | null = null;
+        let currentKind: 'skinned' | 'building' | 'terrain' | 'standard' | null = null;
 
         for (const mesh of meshes) {
             const isSkinned = !!(mesh.meshHandle.skinBuffer && mesh.jointMatricesBuffer);
             const isBuilding = !!mesh.meshHandle.hasBuildingMeta && !isSkinned;
-            const kind: 'skinned' | 'building' | 'standard' =
-                isSkinned ? 'skinned' : (isBuilding ? 'building' : 'standard');
+            const isTerrain = !!mesh.gpuTerrainTextures && !isSkinned && !isBuilding;
+            const kind: 'skinned' | 'building' | 'terrain' | 'standard' =
+                isSkinned ? 'skinned' : (isBuilding ? 'building' : (isTerrain ? 'terrain' : 'standard'));
 
             if (kind !== currentKind) {
                 const pipeline = kind === 'skinned'
                     ? this.getSkinnedPipeline()
-                    : (kind === 'building' ? this.getBuildingPipeline() : this.getActivePipeline());
+                    : (kind === 'building' ? this.getBuildingPipeline()
+                    : (kind === 'terrain' ? this.getTerrainPipeline()
+                    : this.getActivePipeline()));
                 renderPass.setPipeline(pipeline);
                 currentKind = kind;
                 lastVertexBuffer = null;
@@ -880,9 +982,11 @@ export class GeometryPass {
             lastModelMatrix = mesh.modelMatrix;
 
             renderPass.setBindGroup(1, modelBindGroup);
-            const materialBindGroup = isBuilding
-                ? (this.buildingMaterialBindGroup || this.getMaterialBindGroup(mesh))
-                : this.getMaterialBindGroup(mesh);
+            const materialBindGroup = isTerrain
+                ? this.getTerrainMaterialBindGroup(mesh)
+                : (isBuilding
+                    ? (this.buildingMaterialBindGroup || this.getMaterialBindGroup(mesh))
+                    : this.getMaterialBindGroup(mesh));
             renderPass.setBindGroup(2, materialBindGroup);
             renderPass.drawIndexed(mesh.drawIndexCount ?? mesh.meshHandle.indexCount, 1, mesh.firstIndex ?? 0, 0, 0);
         }
@@ -904,6 +1008,82 @@ export class GeometryPass {
         if (this.quality === 'high') return this.buildingPipelineMSAA!;
         if (this.quality === 'medium') return this.buildingPipelineMRT!;
         return this.buildingPipelineStandard!;
+    }
+
+    private getTerrainPipeline(): GPURenderPipeline {
+        if (this.quality === 'high') return this.terrainPipelineMSAA!;
+        if (this.quality === 'medium') return this.terrainPipelineMRT!;
+        return this.terrainPipelineStandard!;
+    }
+
+    private getTerrainMaterialBindGroup(mesh: RenderMeshInstance): GPUBindGroup {
+        const arrays = mesh.gpuTerrainTextures!;
+        const texId = (t: GPUTexture | undefined) => t ? this.getTextureId(t) : 0;
+        // Key must cover every texture in the bind group — textures load
+        // asynchronously, and a stale cache entry would keep the bind group
+        // pointing at earlier defaults (e.g. black weight map).
+        const key = [
+            'terrain',
+            texId(arrays.diffuseArray),
+            texId(arrays.normalArray),
+            texId(mesh.roadAtlasNear),
+            texId(mesh.roadAtlasFar),
+            texId(arrays.sidewalkDiffuse),
+            texId(arrays.sidewalkNormal),
+            texId(arrays.groundTypeMap),
+        ].join('|');
+
+        let bg = this.terrainMaterialBindGroupCache.get(key);
+        if (bg) return bg;
+
+        // Terrain shader reads only `hasBaseColorTexture`/`hasNormalMap`
+        // (as road-atlas presence flags) and `emissive` (left zero) from the
+        // MaterialUniforms struct. The rest of the PBR layout stays zeroed
+        // to keep the struct binary-compatible with the generic shader.
+        const matData = new Float32Array(16);
+        const matU32 = new Uint32Array(matData.buffer);
+        matU32[6] = mesh.roadAtlasNear ? 1 : 0;
+        matU32[7] = mesh.roadAtlasFar  ? 1 : 0;
+
+        const matBuffer = this.resources!.createUniformBuffer(MATERIAL_UNIFORM_SIZE, 'terrain_material');
+        this.device!.queue.writeBuffer(matBuffer, 0, matData);
+
+        // Layer props buffer — min 256 bytes for uniform alignment
+        const layerProps = arrays.layerProps;
+        const alignedSize = Math.max(Math.ceil(layerProps.byteLength / 16) * 16, 256);
+        if (!this.terrainLayerPropsBuffer || this.terrainLayerPropsBuffer.size < alignedSize) {
+            this.terrainLayerPropsBuffer?.destroy();
+            this.terrainLayerPropsBuffer = this.device!.createBuffer({
+                label: 'terrain_layer_props',
+                size: alignedSize,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            });
+        }
+        this.device!.queue.writeBuffer(this.terrainLayerPropsBuffer, 0, layerProps.buffer, layerProps.byteOffset, layerProps.byteLength);
+
+        const roadNearView = mesh.roadAtlasNear ? this.getTextureView(mesh.roadAtlasNear) : this.defaultWhiteTextureView!;
+        const roadFarView  = mesh.roadAtlasFar  ? this.getTextureView(mesh.roadAtlasFar)  : this.defaultWhiteTextureView!;
+        const diffView     = arrays.diffuseArray.createView({ dimension: '2d-array' });
+        const normView     = arrays.normalArray.createView({ dimension: '2d-array' });
+        const swDiffView   = arrays.sidewalkDiffuse?.createView() ?? this.defaultWhiteTextureView!;
+        const swNormView   = arrays.sidewalkNormal?.createView()  ?? this.defaultNormalTextureView!;
+        const weightView   = arrays.groundTypeMap?.createView()   ?? this.defaultBlackTextureView!;
+
+        bg = this.resources!.createBindGroup(this.terrainMaterialBindGroupLayout!, [
+            { binding: 0, resource: { buffer: matBuffer } },
+            { binding: 1, resource: roadNearView },
+            { binding: 2, resource: this.defaultSampler! },
+            { binding: 3, resource: roadFarView },
+            { binding: 4, resource: diffView },
+            { binding: 5, resource: normView },
+            { binding: 6, resource: { buffer: this.terrainLayerPropsBuffer } },
+            { binding: 7, resource: swDiffView },
+            { binding: 8, resource: swNormView },
+            { binding: 9, resource: weightView },
+        ], 'terrain_material_bg');
+
+        this.terrainMaterialBindGroupCache.set(key, bg);
+        return bg;
     }
 
     private writeModelData(mesh: RenderMeshInstance, bufferIndex: number): void {

@@ -10,6 +10,7 @@ import { buildComponentsForAsset, prettifyAssetName } from '../utils/asset_drop.
 import { icon, Maximize2, Minimize2 } from '../widgets/icons.js';
 import { HeightmapTerrain } from '../../../runtime/function/streaming/heightmap_terrain.js';
 import { StreamedBuildings } from '../../../../../everything_game/003_runtime/streaming/streamed_buildings.js';
+import { loadTerrainTextureArrays } from '../../../../../everything_game/003_runtime/streaming/terrain_texture_cache.js';
 
 /**
  * Viewport panel: contains the WebGPU canvas and overlay canvas for gizmos.
@@ -434,22 +435,33 @@ export class ViewportPanel {
             }
         }
 
+        interface HeightmapTerrainSceneCfg {
+            metaUrl: string;
+            baseColor?: [number, number, number, number];
+            waterLevel?: number;
+        }
         const pd = this.ctx.state.projectData;
         const scenes = pd?.scenes || {};
         for (const sceneData of Object.values(scenes) as any[]) {
-            const cfg = sceneData?.heightmapTerrain;
+            const cfg = sceneData?.heightmapTerrain as HeightmapTerrainSceneCfg | undefined;
             if (!cfg?.metaUrl) continue;
             const terrain = new HeightmapTerrain(scene, {
                 metaUrl: cfg.metaUrl,
                 baseColor: cfg.baseColor,
-                preserveContourLevel: cfg.preserveContourLevel,
                 waterLevel: cfg.waterLevel,
             });
-            // The terrain entity materializes via Entity.addComponent in the
-            // runtime, which doesn't emit the editor's `componentAdded`
-            // event — nudge the primitive-mesh uploader once the data
-            // lands so the terrain actually uploads to the GPU.
-            terrain.onReady = () => this.ctx.ensurePrimitiveMeshes();
+            // After the heightmap geometry lands, upload it to GPU and then
+            // asynchronously load the PBR ground textures to activate the
+            // dedicated terrain shader pipeline. Content dims come from the
+            // heightmap meta, not the scene config, so the two don't drift.
+            terrain.onReady = () => {
+                this.ctx.ensurePrimitiveMeshes();
+                const device = this.ctx.engine?.globalContext.renderSystem.getDevice();
+                if (!device) return;
+                loadTerrainTextureArrays(device, terrain.contentWidth, terrain.contentDepth)
+                    .then(arrays => terrain.applyTerrainTextures(arrays))
+                    .catch(err => console.warn('[Terrain] Failed to load ground textures:', err));
+            };
             this.heightmapTerrain = terrain;
             break;
         }

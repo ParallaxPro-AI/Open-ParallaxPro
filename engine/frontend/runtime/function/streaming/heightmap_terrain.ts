@@ -6,32 +6,28 @@
  * a TerrainComponent entity covering the full world. Call
  * `update(camPos)` each frame to drive ring-based LOD simplification.
  *
- * Generic: knows nothing about the data source. Games bake a heightmap
- * into `{ width, height, worldWidth, worldDepth, heightmapFile, origin }`
- * and point this class at the meta URL; placement, coordinate system,
- * and any offsets are the game's concern, encoded in `origin`.
+ * Games bake a heightmap into
+ * `{ width, height, worldWidth, worldDepth, heightmapFile, origin }`
+ * and point this class at the meta URL. After ground textures load, call
+ * `applyTerrainTextures()` to switch from generic PBR to the dedicated
+ * terrain shader pipeline.
  */
 
 import { Scene } from '../framework/scene.js';
-import { TerrainComponent } from '../framework/components/terrain_component.js';
+import { TerrainComponent, TerrainGpuTextures } from '../framework/components/terrain_component.js';
 
 export interface HeightmapTerrainConfig {
     /** URL of the heightmap meta JSON. The binary is resolved relative
      * to this URL via `meta.heightmapFile`. */
     metaUrl: string;
 
-    /** Optional terrain base color (RGBA 0..1). Defaults to neutral grey. */
+    /** Optional terrain base color (RGBA 0..1). Used before textures load. */
     baseColor?: [number, number, number, number];
-
-    /** Optional: suppress LOD simplification around cells that straddle
-     * this world-space height value. Handy for keeping a water shoreline
-     * crisp — set to your water level. Off by default. */
-    preserveContourLevel?: number;
 
     /** Optional: world-space Y threshold. Terrain pixels at or below
      * this elevation render as water (waves, Fresnel, sun glints) via
-     * the PBR shader's built-in per-pixel water path. Leave unset to
-     * disable. */
+     * the terrain shader's built-in per-pixel water path. Also used as
+     * the LOD contour-lock level to keep the shoreline crisp. */
     waterLevel?: number;
 }
 
@@ -44,13 +40,19 @@ interface HeightmapMeta {
     /** Heightmap grid dimensions (samples). */
     width: number;
     height: number;
-    /** World-space extent in meters. */
+    /** World-space extent in meters (full heightmap including any padding). */
     worldWidth: number;
     worldDepth: number;
     /** Path to the raw float32 heightmap, relative to the meta URL. */
     heightmapFile: string;
     /** World-space position of the heightmap's NW corner. Defaults to (0, 0). */
     origin?: { x: number; z: number };
+    /** Optional: when the heightmap has real content only within a sub-region
+     * (e.g. an OSM bounding box surrounded by extrapolated padding), these
+     * give that sub-region's extent. Used for weight-map / decal UVs that
+     * only cover the real content. Defaults to worldWidth/worldDepth. */
+    contentWidth?: number;
+    contentDepth?: number;
 }
 
 /** Cap the LOD grid at this many samples per axis. Keeps the working
@@ -73,6 +75,13 @@ export class HeightmapTerrain {
     private centerX = 0;
     private centerZ = 0;
 
+    /** Width of the "real content" sub-region in meters (OSM bounds etc.).
+     * Callers can use this to size weight-map / splat UVs that only cover the
+     * non-padded region. Defaults to the full heightmap width. */
+    contentWidth = 0;
+    /** Depth of the "real content" sub-region in meters. See `contentWidth`. */
+    contentDepth = 0;
+
     onReady: (() => void) | null = null;
 
     get ready(): boolean { return this._ready; }
@@ -94,6 +103,25 @@ export class HeightmapTerrain {
         const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
         if (!terrain || !terrain.lodEnabled) return;
         terrain.updateLOD(camPos.x - this.centerX, camPos.z - this.centerZ);
+    }
+
+    /**
+     * Attach GPU terrain textures to activate the dedicated terrain shader pipeline.
+     * Call this once ground texture arrays, road atlases, and the weight map are loaded.
+     */
+    applyTerrainTextures(
+        textures: TerrainGpuTextures,
+        roadAtlasNear?: GPUTexture,
+        roadAtlasFar?: GPUTexture,
+    ): void {
+        if (this.terrainEntityId < 0) return;
+        const entity = this.scene.entities.get(this.terrainEntityId);
+        if (!entity) return;
+        const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
+        if (!terrain) return;
+        terrain.gpuTerrainTextures = textures;
+        terrain.gpuRoadAtlasNear = roadAtlasNear;
+        terrain.gpuRoadAtlasFar = roadAtlasFar;
     }
 
     /** Bilinear height lookup in world coords. Returns 0 outside the heightmap. */
@@ -204,8 +232,8 @@ export class HeightmapTerrain {
             baseColor: this.config.baseColor ?? [0.55, 0.55, 0.55, 1],
             roughness: 0.9,
             metallic: 0.0,
-            preserveContourLevel: this.config.preserveContourLevel,
             waterLevel: this.config.waterLevel,
+            // preserveContourLevel defaults to waterLevel in TerrainComponent.initialize()
         });
 
         const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
@@ -217,5 +245,7 @@ export class HeightmapTerrain {
         this.worldD = worldD;
         this.centerX = centerX;
         this.centerZ = centerZ;
+        this.contentWidth = meta.contentWidth ?? worldW;
+        this.contentDepth = meta.contentDepth ?? worldD;
     }
 }
