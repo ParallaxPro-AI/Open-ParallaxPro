@@ -80,4 +80,6 @@ export const SIDEWALK_WIDTHS: Record<string, number> = {
 
 // Paths
 export const MAP_GEN_DATA = "../001_map_gen/data";
-export const OUTPUT_DIR = "./chunks";
+// Write chunks + world_index directly to the runtime asset directory so
+// the dev backend serves freshly generated data without a manual copy.
+export const OUTPUT_DIR = "../../reusable_assets/official/everything_game/chunks";
