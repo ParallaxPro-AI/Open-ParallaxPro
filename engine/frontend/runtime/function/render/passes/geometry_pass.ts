@@ -1069,6 +1069,7 @@ export class GeometryPass {
         data[11] = scene.fog.near;
         data[12] = scene.fog.far;
         data[13] = performance.now() / 1000.0;
+        data[14] = scene.timeOfDay; // drives day/night lit-window threshold
 
         // Fog color
         data[16] = scene.fog.color.x;
