@@ -175,25 +175,24 @@ export class StreamedBuildings {
         const normals: number[] = [];
         const uvs: number[] = [];
         const indices: number[] = [];
+        const meta: number[] = [];
 
         for (const p of placements) {
             if (p.type !== 'building') continue;
             const b = p as BuildingPlacement;
             if (b.polygon && b.polygon.length >= 3 && typeof b.height === 'number') {
                 const baseY = b.position[1];
-                // Sink slightly so the wall base vanishes into the terrain
-                // rather than floating above small elevation variation.
-                extrudePolygon(b.polygon, baseY - 0.5, b.height + 0.5,
-                    positions, normals, uvs, indices);
+                const buildingHeight = b.height + 0.5;
+                extrudePolygon(b.polygon, baseY - 0.5, buildingHeight,
+                    positions, normals, uvs, indices, meta);
             } else if (b.size) {
-                // Point building fallback: axis-aligned box centered on position.
                 const [px, py, pz] = b.position;
                 const [sw, sh, sd] = b.size;
                 const hx = sw * 0.5, hz = sd * 0.5;
                 extrudeAxisAlignedBox(
                     px - hx, pz - hz, sw, sd,
                     py - 0.5, py - 0.5 + sh,
-                    positions, normals, uvs, indices,
+                    positions, normals, uvs, indices, meta,
                 );
             }
         }
@@ -204,11 +203,12 @@ export class StreamedBuildings {
             return;
         }
 
-        const gpuMesh = this.renderSystem.uploadMesh({
+        const gpuMesh = this.renderSystem.uploadBuildingMesh({
             positions: new Float32Array(positions),
             normals: new Float32Array(normals),
             uvs: new Float32Array(uvs),
             indices: new Uint32Array(indices),
+            meta: new Uint32Array(meta),
         });
 
         const entity = this.scene.createEntity(`BuildingsChunk_${cx}_${cz}`, this.parentId);
@@ -260,7 +260,7 @@ function extrudePolygon(
     polygon: [number, number][],
     baseY: number,
     height: number,
-    pos: number[], norm: number[], uv: number[], idx: number[],
+    pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
 ): void {
     const n = polygon.length;
     const topY = baseY + height;
@@ -278,10 +278,12 @@ function extrudePolygon(
         const nz = -dx / len;
 
         const base = pos.length / 3;
+        const segMeta = packMeta(len);
         // v0: bottom-left, v1: bottom-right, v2: top-right, v3: top-left
         pos.push(x0, baseY, z0,  x1, baseY, z1,  x1, topY, z1,  x0, topY, z0);
         for (let k = 0; k < 4; k++) norm.push(nx, 0, nz);
         uv.push(0, 0, len, 0, len, height, 0, height);
+        for (let k = 0; k < 4; k++) meta.push(segMeta);
         idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }
 
@@ -294,11 +296,13 @@ function extrudePolygon(
     pos.push(cx, topY, cz);
     norm.push(0, 1, 0);
     uv.push(0, 0);
+    meta.push(0);
     for (let i = 0; i < n; i++) {
         const [x, z] = polygon[i];
         pos.push(x, topY, z);
         norm.push(0, 1, 0);
         uv.push(x - cx, z - cz);
+        meta.push(0);
     }
     for (let i = 0; i < n; i++) {
         const j = (i + 1) % n;
@@ -313,44 +317,62 @@ function extrudePolygon(
 function extrudeAxisAlignedBox(
     x: number, z: number, sx: number, sz: number,
     y0: number, y1: number,
-    pos: number[], norm: number[], uv: number[], idx: number[],
+    pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
 ): void {
     const x1 = x + sx;
     const z1 = z + sz;
+    const height = y1 - y0;
+    // Walls use UV in meters so the shader's window grid matches real size.
+    const metaX = packMeta(sz); // +X / -X walls are sz wide
+    const metaZ = packMeta(sx); // +Z / -Z walls are sx wide
 
-    // +X
-    addQuad(pos, norm, uv, idx,
+    // +X — spans Z (0..sz) × Y (0..height)
+    addQuadMeta(pos, norm, uv, idx, meta,
         x1, y0, z1,  x1, y0, z,   x1, y1, z,   x1, y1, z1,
-        1, 0, 0);
+        1, 0, 0, sz, height, metaX);
     // -X
-    addQuad(pos, norm, uv, idx,
+    addQuadMeta(pos, norm, uv, idx, meta,
         x,  y0, z,   x,  y0, z1,  x,  y1, z1,  x,  y1, z,
-        -1, 0, 0);
-    // +Z
-    addQuad(pos, norm, uv, idx,
+        -1, 0, 0, sz, height, metaX);
+    // +Z — spans X (0..sx) × Y
+    addQuadMeta(pos, norm, uv, idx, meta,
         x,  y0, z1,  x1, y0, z1,  x1, y1, z1,  x,  y1, z1,
-        0, 0, 1);
+        0, 0, 1, sx, height, metaZ);
     // -Z
-    addQuad(pos, norm, uv, idx,
+    addQuadMeta(pos, norm, uv, idx, meta,
         x1, y0, z,   x,  y0, z,   x,  y1, z,   x1, y1, z,
-        0, 0, -1);
-    // +Y (roof)
-    addQuad(pos, norm, uv, idx,
+        0, 0, -1, sx, height, metaZ);
+    // +Y roof — meta = 0 disables the window grid on the roof
+    addQuadMeta(pos, norm, uv, idx, meta,
         x,  y1, z1,  x1, y1, z1,  x1, y1, z,   x,  y1, z,
-        0, 1, 0);
+        0, 1, 0, 1, 1, 0);
 }
 
-function addQuad(
-    pos: number[], norm: number[], uv: number[], idx: number[],
+function addQuadMeta(
+    pos: number[], norm: number[], uv: number[], idx: number[], meta: number[],
     ax: number, ay: number, az: number,
     bx: number, by: number, bz: number,
     cx: number, cy: number, cz: number,
     dx: number, dy: number, dz: number,
     nx: number, ny: number, nz: number,
+    uMax: number, vMax: number, metaValue: number,
 ): void {
     const base = pos.length / 3;
     pos.push(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz);
     for (let k = 0; k < 4; k++) norm.push(nx, ny, nz);
-    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    // UVs in meters so fragment shader can lay out a window grid at real scale.
+    uv.push(0, 0,  uMax, 0,  uMax, vMax,  0, vMax);
+    for (let k = 0; k < 4; k++) meta.push(metaValue);
     idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+}
+
+/**
+ * Pack per-vertex building meta as a u32 holding the wall segment width
+ * in 0.25 m units (bits [0:7], max 63.75 m). `0` is the "no window grid"
+ * sentinel — used on roof fan vertices so the shader renders plain PBR
+ * there. The remaining bits are reserved for future per-building data
+ * (facade style, texture layer, per-pane jitter seed, …).
+ */
+function packMeta(wallWidth: number): number {
+    return Math.min(255, Math.round(wallWidth / 0.25)) & 0xFF;
 }

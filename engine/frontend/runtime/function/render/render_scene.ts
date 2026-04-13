@@ -18,6 +18,13 @@ export interface GPUMeshHandle {
     boundMax?: Vec3;
     /** Second vertex buffer with joints (vec4<u32>) + weights (vec4<f32>) for skinned meshes */
     skinBuffer?: GPUBuffer;
+    /**
+     * True when this mesh was uploaded with an extra per-vertex u32 meta
+     * (via `uploadBuildingMesh`). Vertex stride is 36 bytes and the
+     * geometry/shadow passes route it through the building pipeline that
+     * procedurally paints window grids on the walls.
+     */
+    hasBuildingMeta?: boolean;
 }
 
 export interface RenderMeshInstance {

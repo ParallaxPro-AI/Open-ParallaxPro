@@ -12,6 +12,9 @@ export class ShaderLibrary {
         this.compileModule('pbr_vertex_skinned', PBR_VERTEX_SHADER_SKINNED);
         this.compileModule('pbr_fragment', PBR_FRAGMENT_SHADER);
         this.compileModule('pbr_fragment_mrt', PBR_FRAGMENT_SHADER_MRT);
+        this.compileModule('building_vertex', BUILDING_VERTEX_SHADER);
+        this.compileModule('building_fragment', BUILDING_FRAGMENT_SHADER);
+        this.compileModule('building_fragment_mrt', BUILDING_FRAGMENT_SHADER_MRT);
         this.compileModule('shadow_vertex', SHADOW_VERTEX_SHADER);
         this.compileModule('fullscreen_vertex', FULLSCREEN_VERTEX_SHADER);
         this.compileModule('fxaa_fragment', FXAA_FRAGMENT_SHADER);
@@ -606,6 +609,151 @@ fn fs_main(input: FragmentInput) -> MRTOutput {
     let viewPos = camera.viewMatrix * vec4<f32>(input.worldPosition, 1.0);
     let linearDepth = -viewPos.z;
     output.normalDepth = vec4<f32>(pbr.normal, linearDepth);
+    return output;
+}
+`;
+
+// ============================================================
+// Building Vertex Shader — adds per-vertex buildingMeta (u32)
+// ============================================================
+
+export const BUILDING_VERTEX_SHADER = /* wgsl */ `
+${CAMERA_STRUCT}
+${MODEL_STRUCT}
+
+@group(0) @binding(0) var<uniform> camera: CameraUniforms;
+@group(1) @binding(0) var<uniform> model: ModelUniforms;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+    @location(3) buildingMeta: u32,
+};
+
+struct VertexOutput {
+    @builtin(position) clipPosition: vec4<f32>,
+    @location(0) worldPosition: vec3<f32>,
+    @location(1) worldNormal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+    @location(3) @interpolate(flat) buildingMeta: u32,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    let worldPos = model.modelMatrix * vec4<f32>(input.position, 1.0);
+    output.worldPosition = worldPos.xyz;
+    output.clipPosition = camera.projMatrix * camera.viewMatrix * worldPos;
+    let wn = (model.normalMatrix * vec4<f32>(input.normal, 0.0)).xyz;
+    output.worldNormal = normalize(wn);
+    output.uv = input.uv;
+    output.buildingMeta = input.buildingMeta;
+    return output;
+}
+`;
+
+// ============================================================
+// Building Fragment Shader — plain PBR with procedural window grid
+// ============================================================
+//
+// buildingMeta u32: bits [0:7] hold the wall segment width in 0.25 m
+// units (0..63.75 m). `0` is the "no window grid" sentinel — used on
+// roof vertices so the shader falls through to plain PBR there.
+//
+// UVs are in meters: uv.x ∈ [0, wallWidth], uv.y ∈ [0, buildingHeight].
+// Window grid: 0.5 m edge margins, ~2.5 m column spacing snapped to fit
+// the segment, 3.5 m floor height, ~60% pane coverage per cell,
+// skipped below 1.7 m to clear the ground floor (the extrusion sinks
+// walls 0.5 m into the terrain, so 1.7 m of uv.y ≈ 1.2 m of real wall).
+
+const BUILDING_COMMON = /* wgsl */ `
+${PBR_COMMON}
+
+fn buildingWindowMask(uv: vec2<f32>, metaBits: u32) -> f32 {
+    let wallWidth = f32(metaBits & 0xFFu) * 0.25;
+    if (wallWidth < 0.1) { return 0.0; }
+    if (uv.y < 1.7) { return 0.0; }
+
+    let edgeMargin = 0.5;
+    let usable = max(wallWidth - edgeMargin * 2.0, 0.0);
+    if (usable < 1.5) { return 0.0; }
+
+    let facadeU = uv.x - edgeMargin;
+    if (facadeU < 0.0 || facadeU > usable) { return 0.0; }
+
+    let numCols = max(round(usable / 2.5), 1.0);
+    let colSpacing = usable / numCols;
+
+    let winU = fract(facadeU / colSpacing);
+    let winV = fract((uv.y - 0.5) / 3.5);
+
+    // Centered pane, ~60% of the cell in both axes with softened edges.
+    let dU = abs(winU - 0.5);
+    let dV = abs(winV - 0.5);
+    let mU = 1.0 - smoothstep(0.28, 0.32, dU);
+    let mV = 1.0 - smoothstep(0.32, 0.36, dV);
+    return mU * mV;
+}
+`;
+
+// Dark glass with a small emissive lift so windows still read at dusk
+// without turning cartoonish at noon. Inlined at the call site below.
+const BUILDING_WINDOW_COLOR = 'vec3<f32>(0.08, 0.12, 0.19)';
+
+export const BUILDING_FRAGMENT_SHADER = /* wgsl */ `
+${BUILDING_COMMON}
+
+struct BuildingFragmentInput {
+    @location(0) worldPosition: vec3<f32>,
+    @location(1) worldNormal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+    @location(3) @interpolate(flat) buildingMeta: u32,
+};
+
+@fragment
+fn fs_main(input: BuildingFragmentInput) -> @location(0) vec4<f32> {
+    var pbrInput: FragmentInput;
+    pbrInput.worldPosition = input.worldPosition;
+    pbrInput.worldNormal = input.worldNormal;
+    pbrInput.uv = input.uv;
+    let pbr = computePBR(pbrInput);
+    if (pbr.color.a < 0.01) { discard; }
+    let mask = buildingWindowMask(input.uv, input.buildingMeta);
+    let rgb = mix(pbr.color.rgb, ${BUILDING_WINDOW_COLOR}, mask);
+    return vec4<f32>(rgb, pbr.color.a);
+}
+`;
+
+export const BUILDING_FRAGMENT_SHADER_MRT = /* wgsl */ `
+${BUILDING_COMMON}
+
+struct BuildingFragmentInput {
+    @location(0) worldPosition: vec3<f32>,
+    @location(1) worldNormal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+    @location(3) @interpolate(flat) buildingMeta: u32,
+};
+
+struct MRTOutput {
+    @location(0) color: vec4<f32>,
+    @location(1) normalDepth: vec4<f32>,
+};
+
+@fragment
+fn fs_main(input: BuildingFragmentInput) -> MRTOutput {
+    var pbrInput: FragmentInput;
+    pbrInput.worldPosition = input.worldPosition;
+    pbrInput.worldNormal = input.worldNormal;
+    pbrInput.uv = input.uv;
+    let pbr = computePBR(pbrInput);
+    if (pbr.color.a < 0.01) { discard; }
+    let mask = buildingWindowMask(input.uv, input.buildingMeta);
+    let rgb = mix(pbr.color.rgb, ${BUILDING_WINDOW_COLOR}, mask);
+    let viewPos = camera.viewMatrix * vec4<f32>(input.worldPosition, 1.0);
+    var output: MRTOutput;
+    output.color = vec4<f32>(rgb, pbr.color.a);
+    output.normalDepth = vec4<f32>(pbr.normal, -viewPos.z);
     return output;
 }
 `;
