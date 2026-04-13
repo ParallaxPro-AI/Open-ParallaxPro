@@ -61,6 +61,12 @@ export interface RenderMeshInstance {
     roadAtlasFar?: GPUTexture;
 }
 
+export interface DecalInstance {
+    modelMatrix: Mat4;
+    invModelMatrix: Mat4;
+    color: [number, number, number, number];
+}
+
 export interface RenderCamera {
     viewMatrix: Mat4;
     projectionMatrix: Mat4;
@@ -114,6 +120,7 @@ export class RenderScene {
     ambientIntensity = 0.3;
     fog: RenderFogData = { enabled: false, color: new Vec3(0.8, 0.8, 0.8), near: 10, far: 100 };
     timeOfDay = 12.0;
+    decals: DecalInstance[] = [];
 
     clear(): void {
         this.meshes.length = 0;
@@ -141,6 +148,10 @@ export class RenderScene {
 
     addSpotLight(light: RenderSpotLight): void {
         this.spotLights.push(light);
+    }
+
+    setDecals(decals: DecalInstance[]): void {
+        this.decals = decals;
     }
 
     setAmbient(color: Vec3, intensity: number): void {

@@ -8,6 +8,7 @@ import { HBAOPass } from './passes/hbao_pass.js';
 import { SSRPass } from './passes/ssr_pass.js';
 import { SkyboxPass } from './passes/skybox_pass.js';
 import { BloomPass } from './passes/bloom_pass.js';
+import { DecalPass } from './passes/decal_pass.js';
 import { DebugRenderer } from './debug_renderer.js';
 import { ParticleRenderer, ParticleRenderData } from './particle_renderer.js';
 
@@ -28,9 +29,12 @@ export class RenderPipeline {
     private ssrPass = new SSRPass();
     private skyboxPass = new SkyboxPass();
     private bloomPass = new BloomPass();
+    private decalPass = new DecalPass();
     private debugRenderer = new DebugRenderer();
     private canvasFormat: GPUTextureFormat = 'bgra8unorm';
     private quality: GraphicsQuality = 'low';
+    private canvasWidth = 0;
+    private canvasHeight = 0;
 
     private ssrOutputTexture: GPUTexture | null = null;
     private ssrOutputTextureView: GPUTextureView | null = null;
@@ -47,6 +51,8 @@ export class RenderPipeline {
         this.device = device;
         this.context = context;
         this.canvasFormat = canvasFormat;
+        this.canvasWidth = width;
+        this.canvasHeight = height;
 
         this.geometryPass.initialize(device, resources, shaderLib, canvasFormat, width, height);
 
@@ -62,8 +68,13 @@ export class RenderPipeline {
         this.bloomPass.initialize(device, resources, shaderLib, canvasFormat, width, height);
 
         const cameraBGL = this.geometryPass.getCameraBindGroupLayout();
+        const cameraBuffer = this.geometryPass.getCameraUniformBuffer();
         if (cameraBGL) {
             this.debugRenderer.initialize(device, resources, shaderLib, canvasFormat, cameraBGL);
+        }
+        if (cameraBGL && cameraBuffer) {
+            this.decalPass.initialize(device, resources, shaderLib, canvasFormat, cameraBGL, cameraBuffer);
+            this.decalPass.setViewportSize(width, height);
         }
 
         this.recreateSSROutputTexture(width, height);
@@ -104,12 +115,16 @@ export class RenderPipeline {
     }
 
     onResize(width: number, height: number): void {
+        this.canvasWidth = width;
+        this.canvasHeight = height;
         this.geometryPass.onResize(width, height);
         this.fxaaPass.onResize(width, height);
         this.hbaoPass.onResize(width, height);
         this.ssrPass.onResize(width, height);
         this.skyboxPass.onResize(width, height);
         this.bloomPass.onResize(width, height);
+        this.decalPass.onResize();
+        this.decalPass.setViewportSize(width, height);
         this.recreateSSROutputTexture(width, height);
     }
 
@@ -137,6 +152,7 @@ export class RenderPipeline {
         this.ssrPass.shutdown();
         this.skyboxPass.shutdown();
         this.bloomPass.shutdown();
+        this.decalPass.shutdown();
         this.debugRenderer.shutdown();
         this.ssrOutputTexture?.destroy();
         this.ssrOutputTexture = null;
@@ -164,6 +180,12 @@ export class RenderPipeline {
 
         const offscreenView = this.geometryPass.getOffscreenColorTextureView();
         const normalDepthView = this.geometryPass.getNormalDepthTextureView();
+
+        // Decals (after geometry, before skybox)
+        if (offscreenView && normalDepthView && scene.camera && scene.decals.length > 0) {
+            this.decalPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera, scene.decals);
+        }
+
         if (offscreenView && normalDepthView && scene.camera) {
             this.skyboxPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera, scene.timeOfDay);
         }
@@ -187,9 +209,15 @@ export class RenderPipeline {
         // 2. Geometry (MRT: color + normal/depth)
         this.geometryPass.execute(commandEncoder, textureView, scene);
 
-        // 3. HBAO
         const offscreenView = this.geometryPass.getOffscreenColorTextureView();
         const normalDepthView = this.geometryPass.getNormalDepthTextureView();
+
+        // 2.5. Decals (after geometry, before post-processing)
+        if (offscreenView && normalDepthView && scene.camera && scene.decals.length > 0) {
+            this.decalPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera, scene.decals);
+        }
+
+        // 3. HBAO
         if (offscreenView && normalDepthView && scene.camera) {
             this.hbaoPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera);
         }
@@ -221,9 +249,15 @@ export class RenderPipeline {
         // 2. Geometry pass (MSAA + MRT)
         this.geometryPass.execute(commandEncoder, textureView, scene);
 
-        // 3. HBAO
         const offscreenView = this.geometryPass.getOffscreenColorTextureView();
         const normalDepthView = this.geometryPass.getNormalDepthTextureView();
+
+        // 2.5. Decals (after MSAA resolve, before post-processing)
+        if (offscreenView && normalDepthView && scene.camera && scene.decals.length > 0) {
+            this.decalPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera, scene.decals);
+        }
+
+        // 3. HBAO
         if (offscreenView && normalDepthView && scene.camera) {
             this.hbaoPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera);
         }

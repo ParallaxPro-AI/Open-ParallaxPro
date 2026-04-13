@@ -250,6 +250,7 @@ export class GeometryPass {
     }
 
     getCameraBindGroupLayout(): GPUBindGroupLayout | null { return this.cameraBindGroupLayout; }
+    getCameraUniformBuffer(): GPUBuffer | null { return this.cameraUniformBuffer; }
     getModelBindGroupLayout(): GPUBindGroupLayout | null { return this.modelBindGroupLayout; }
     getCameraBindGroup(): GPUBindGroup | null { return this.cameraBindGroup; }
     getDepthTextureView(): GPUTextureView | null { return this.depthTextureView; }

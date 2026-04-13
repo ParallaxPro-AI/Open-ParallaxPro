@@ -11,6 +11,8 @@
  * meshes required.
  */
 import { RoadAtlas } from '../../../engine/frontend/runtime/function/streaming/road_atlas.js';
+import { type DecalInstance } from '../../../engine/frontend/runtime/function/render/render_scene.js';
+import { generateLaneMarkingDecals } from './lane_markings.js';
 
 /** SF-calibrated sidewalk widths per road subtype, in meters. */
 export const SIDEWALK_WIDTHS: Record<string, number> = {
@@ -58,6 +60,8 @@ interface LoadedChunk {
     cx: number;
     cz: number;
     isNear: boolean;
+    /** Pre-generated lane marking decals; only populated for near chunks. */
+    decals?: DecalInstance[];
 }
 
 export class StreamedRoads {
@@ -118,12 +122,20 @@ export class StreamedRoads {
             const shouldBeNear = d <= this.nearRadius;
             if (shouldBeNear !== ch.isNear) {
                 if (!shouldBeNear) {
-                    // Was near, no longer — clear just the near atlas tile
+                    // Was near, no longer — clear near atlas tile + free decals
                     this.atlas.clearTile(ch.cx, ch.cz, true);
+                    ch.decals = undefined;
                 }
                 ch.isNear = shouldBeNear;
                 const placements = this.placementsCache.get(`${ch.cx}_${ch.cz}`);
-                if (placements) this.atlas.updateTile(ch.cx, ch.cz, placements, this.chunkSize, shouldBeNear);
+                if (placements) {
+                    this.atlas.updateTile(ch.cx, ch.cz, placements, this.chunkSize, shouldBeNear);
+                    if (shouldBeNear && !ch.decals) {
+                        ch.decals = generateLaneMarkingDecals(
+                            placements, null, this.getNeighborPlacements(ch.cx, ch.cz),
+                        );
+                    }
+                }
             }
         }
 
@@ -186,9 +198,48 @@ export class StreamedRoads {
 
             const isNear = d <= this.nearRadius;
             this.atlas.updateTile(cx, cz, roadsOnly, this.chunkSize, isNear);
-            this.loaded.set(key, { cx, cz, isNear });
+            const ch: LoadedChunk = { cx, cz, isNear };
+            if (isNear) {
+                ch.decals = generateLaneMarkingDecals(
+                    roadsOnly, null, this.getNeighborPlacements(cx, cz),
+                );
+            }
+            this.loaded.set(key, ch);
         } catch (e) {
             this.pending.delete(key);
         }
+    }
+
+    /**
+     * Collect lane marking decals from all loaded near chunks within
+     * DECAL_CHUNK_RADIUS of the camera's last known chunk position.
+     */
+    collectDecals(): DecalInstance[] {
+        const DECAL_CHUNK_RADIUS = 2;
+        const result: DecalInstance[] = [];
+        const cx = this.lastCamCX;
+        const cz = this.lastCamCZ;
+        if (!isFinite(cx) || !isFinite(cz)) return result;
+
+        for (const ch of this.loaded.values()) {
+            if (!ch.isNear || !ch.decals) continue;
+            const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
+            if (d > DECAL_CHUNK_RADIUS) continue;
+            for (const decal of ch.decals) result.push(decal);
+        }
+        return result;
+    }
+
+    /** Get road placements from all loaded neighbors of a chunk. */
+    private getNeighborPlacements(cx: number, cz: number): any[] {
+        const result: any[] = [];
+        for (let dz = -1; dz <= 1; dz++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dz === 0) continue;
+                const placements = this.placementsCache.get(`${cx + dx}_${cz + dz}`);
+                if (placements) result.push(...placements);
+            }
+        }
+        return result;
     }
 }
