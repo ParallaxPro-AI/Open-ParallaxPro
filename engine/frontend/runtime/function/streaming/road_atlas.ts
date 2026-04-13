@@ -97,87 +97,122 @@ export class RoadAtlas {
         // Track how many distinct roads touch each pixel to detect intersections
         const hitCount = new Uint8Array(numPixels);
 
+        // ── Pass 1: rasterize road pavement (R + G) for every segment.
+        // Must happen for ALL roads before any sidewalk write, so pass 2 can
+        // see full pavement coverage and avoid bleeding a sidewalk band from
+        // road A across road B's pavement at an intersection.
         for (const p of placements) {
             if (p.type !== 'road' && p.type !== 'railway') continue;
             const pts = p.points;
             if (!pts || pts.length < 2) continue;
             const halfW = (p.width || 6) / 2;
             const sidewalkW = this.sidewalkWidths[p.subtype ?? ''] ?? 0;
+            const expandPx = (halfW + sidewalkW) / pixelSize + 1;
 
             for (let i = 0; i < pts.length - 1; i++) {
                 const x0 = pts[i][0], z0 = pts[i][2];
                 const x1 = pts[i + 1][0], z1 = pts[i + 1][2];
-
                 const ldx = x1 - x0, ldz = z1 - z0;
                 const segLenSq = ldx * ldx + ldz * ldz;
                 if (segLenSq < 0.01) continue;
 
-                const outerEdge = halfW + sidewalkW;
-                const expand = outerEdge / pixelSize + 1;
-                const fpx0 = (x0 - chunkMinX) / pixelSize;
-                const fpy0 = (z0 - chunkMinZ) / pixelSize;
-                const fpx1 = (x1 - chunkMinX) / pixelSize;
-                const fpy1 = (z1 - chunkMinZ) / pixelSize;
-                const minPx = Math.max(0, Math.floor(Math.min(fpx0, fpx1) - expand));
-                const maxPx = Math.min(tileSize - 1, Math.ceil(Math.max(fpx0, fpx1) + expand));
-                const minPy = Math.max(0, Math.floor(Math.min(fpy0, fpy1) - expand));
-                const maxPy = Math.min(tileSize - 1, Math.ceil(Math.max(fpy0, fpy1) + expand));
+                const { minPx, maxPx, minPy, maxPy } = this.segmentTileBounds(
+                    x0, z0, x1, z1, chunkMinX, chunkMinZ, pixelSize, tileSize, expandPx);
 
                 for (let py = minPy; py <= maxPy; py++) {
                     const wz = chunkMinZ + (py + 0.5) * pixelSize;
                     for (let px = minPx; px <= maxPx; px++) {
                         const wx = chunkMinX + (px + 0.5) * pixelSize;
-
                         const dx = wx - x0, dz = wz - z0;
                         const tRaw = (dx * ldx + dz * ldz) / segLenSq;
-                        const t = Math.max(0, Math.min(1, tRaw));
+                        const t = tRaw < 0 ? 0 : (tRaw > 1 ? 1 : tRaw);
                         const closestX = x0 + t * ldx, closestZ = z0 + t * ldz;
                         const dist = Math.sqrt((wx - closestX) ** 2 + (wz - closestZ) ** 2);
 
-                        const pIdx = py * tileSize + px;
-                        const idx = pIdx * 4;
-
-                        // Road coverage (R) — antialiased at the edge
                         const edgeDist = dist - halfW;
                         const cov = 1.0 - Math.max(0, Math.min(1, (edgeDist + pixelSize * 0.5) / pixelSize));
+                        if (cov <= 0) continue;
 
-                        if (cov > 0) {
-                            const covU8 = Math.min(255, Math.round(cov * 255));
-                            if (covU8 > buf[idx]) {
-                                buf[idx]     = covU8;
-                                buf[idx + 1] = Math.min(255, Math.round((dist / halfW) * 255));
-                            }
-                            if (cov > 0.5) hitCount[pIdx] = Math.min(255, hitCount[pIdx] + 1);
+                        const pIdx = py * tileSize + px;
+                        const idx = pIdx * 4;
+                        const covU8 = Math.min(255, Math.round(cov * 255));
+                        if (covU8 > buf[idx]) {
+                            buf[idx]     = covU8;
+                            buf[idx + 1] = Math.min(255, Math.round((dist / halfW) * 255));
                         }
-
-                        // Sidewalk (B + A). Only apply within the segment body
-                        // so the donut band doesn't leave circles at vertices.
-                        if (sidewalkW > 0 && tRaw >= -0.01 && tRaw <= 1.01) {
-                            const perpDist = dist;
-                            const swEdgeDist = perpDist - halfW;
-                            const swOuterDist = perpDist - outerEdge;
-                            const swCov = 1.0 - Math.max(0, Math.min(1, (swOuterDist + pixelSize * 0.5) / pixelSize));
-                            const roadMask = Math.max(0, Math.min(1, (swEdgeDist - pixelSize * 0.5) / pixelSize));
-                            const finalSwCov = swCov * roadMask;
-
-                            if (finalSwCov > 0) {
-                                const swCovU8 = Math.min(255, Math.round(finalSwCov * 255));
-                                if (swCovU8 > buf[idx + 2]) {
-                                    buf[idx + 2] = swCovU8;
-                                    const innerDist = Math.max(0, Math.min(1, (outerEdge - perpDist) / sidewalkW));
-                                    buf[idx + 3] = Math.min(255, Math.round(innerDist * 255));
-                                }
-                            }
-                        }
+                        if (cov > 0.5) hitCount[pIdx] = Math.min(255, hitCount[pIdx] + 1);
                     }
                 }
             }
         }
 
-        // Where multiple roads overlap (intersections), suppress lane-marking
-        // triggers by setting center distance to 128 (mid-road).
+        // Intersection suppression: center-distance → mid-road at any pixel
+        // touched by more than one road. Prevents lane-marking artifacts
+        // through intersections.
         for (let i = 0; i < numPixels; i++) {
             if (hitCount[i] > 1) buf[i * 4 + 1] = 128;
+        }
+
+        // ── Pass 2: rasterize sidewalks (B + A). Writes are skipped where
+        // pavement from any road already covers the pixel — this is what
+        // eliminates the sidewalk-over-asphalt overlap at intersections.
+        // PAVEMENT_MASK is chosen high enough to let anti-aliased asphalt
+        // edges still show a thin sidewalk strip along the curb.
+        const PAVEMENT_MASK = 128; // ~0.5 coverage
+        for (const p of placements) {
+            if (p.type !== 'road' && p.type !== 'railway') continue;
+            const sidewalkW = this.sidewalkWidths[p.subtype ?? ''] ?? 0;
+            if (sidewalkW <= 0) continue;
+            const pts = p.points;
+            if (!pts || pts.length < 2) continue;
+            const halfW = (p.width || 6) / 2;
+            const outerEdge = halfW + sidewalkW;
+            const expandPx = outerEdge / pixelSize + 1;
+
+            for (let i = 0; i < pts.length - 1; i++) {
+                const x0 = pts[i][0], z0 = pts[i][2];
+                const x1 = pts[i + 1][0], z1 = pts[i + 1][2];
+                const ldx = x1 - x0, ldz = z1 - z0;
+                const segLenSq = ldx * ldx + ldz * ldz;
+                if (segLenSq < 0.01) continue;
+
+                const { minPx, maxPx, minPy, maxPy } = this.segmentTileBounds(
+                    x0, z0, x1, z1, chunkMinX, chunkMinZ, pixelSize, tileSize, expandPx);
+
+                for (let py = minPy; py <= maxPy; py++) {
+                    const wz = chunkMinZ + (py + 0.5) * pixelSize;
+                    for (let px = minPx; px <= maxPx; px++) {
+                        const wx = chunkMinX + (px + 0.5) * pixelSize;
+                        const dx = wx - x0, dz = wz - z0;
+                        const tRaw = (dx * ldx + dz * ldz) / segLenSq;
+                        // Body-only: skip the rounded donut bands that would
+                        // otherwise leave sidewalk circles at segment vertices.
+                        if (tRaw < -0.01 || tRaw > 1.01) continue;
+
+                        const t = tRaw < 0 ? 0 : (tRaw > 1 ? 1 : tRaw);
+                        const closestX = x0 + t * ldx, closestZ = z0 + t * ldz;
+                        const perpDist = Math.sqrt((wx - closestX) ** 2 + (wz - closestZ) ** 2);
+
+                        const swOuterDist = perpDist - outerEdge;
+                        const swCov = 1.0 - Math.max(0, Math.min(1, (swOuterDist + pixelSize * 0.5) / pixelSize));
+                        const roadMask = Math.max(0, Math.min(1, (perpDist - halfW - pixelSize * 0.5) / pixelSize));
+                        const finalSwCov = swCov * roadMask;
+                        if (finalSwCov <= 0) continue;
+
+                        const idx = (py * tileSize + px) * 4;
+                        // Any road's pavement here → no sidewalk. This is the
+                        // cross-road intersection fix.
+                        if (buf[idx] >= PAVEMENT_MASK) continue;
+
+                        const swCovU8 = Math.min(255, Math.round(finalSwCov * 255));
+                        if (swCovU8 > buf[idx + 2]) {
+                            buf[idx + 2] = swCovU8;
+                            const innerDist = Math.max(0, Math.min(1, (outerEdge - perpDist) / sidewalkW));
+                            buf[idx + 3] = Math.min(255, Math.round(innerDist * 255));
+                        }
+                    }
+                }
+            }
         }
 
         const tileX = ((cx % gridDim) + gridDim) % gridDim;
@@ -188,6 +223,25 @@ export class RoadAtlas {
             { bytesPerRow: tileSize * 4 },
             { width: tileSize, height: tileSize },
         );
+    }
+
+    /** Pixel-space AABB of a segment expanded by `expandPx` (in pixels),
+     * clamped to the tile. Used to bound the inner rasterization loop. */
+    private segmentTileBounds(
+        x0: number, z0: number, x1: number, z1: number,
+        chunkMinX: number, chunkMinZ: number,
+        pixelSize: number, tileSize: number, expandPx: number,
+    ): { minPx: number; maxPx: number; minPy: number; maxPy: number } {
+        const fpx0 = (x0 - chunkMinX) / pixelSize;
+        const fpy0 = (z0 - chunkMinZ) / pixelSize;
+        const fpx1 = (x1 - chunkMinX) / pixelSize;
+        const fpy1 = (z1 - chunkMinZ) / pixelSize;
+        return {
+            minPx: Math.max(0, Math.floor(Math.min(fpx0, fpx1) - expandPx)),
+            maxPx: Math.min(tileSize - 1, Math.ceil(Math.max(fpx0, fpx1) + expandPx)),
+            minPy: Math.max(0, Math.floor(Math.min(fpy0, fpy1) - expandPx)),
+            maxPy: Math.min(tileSize - 1, Math.ceil(Math.max(fpy0, fpy1) + expandPx)),
+        };
     }
 
     private clearAtlasTile(texture: GPUTexture, tileSize: number, gridDim: number, cx: number, cz: number): void {
