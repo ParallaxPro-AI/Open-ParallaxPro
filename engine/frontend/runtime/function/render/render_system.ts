@@ -146,46 +146,66 @@ export class RenderSystem {
         const vertexCount = meshData.positions.length / 3;
         const interleaved = new Float32Array(vertexCount * 8);
 
-        let maxDistSq = 0;
-        let minX = Infinity, minY = Infinity, minZ = Infinity;
-        let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-
         for (let i = 0; i < vertexCount; i++) {
             const si = i * 3;
             const ui = i * 2;
             const di = i * 8;
-            const px = meshData.positions[si];
-            const py = meshData.positions[si + 1];
-            const pz = meshData.positions[si + 2];
-
-            interleaved[di] = px;
-            interleaved[di + 1] = py;
-            interleaved[di + 2] = pz;
+            interleaved[di]     = meshData.positions[si];
+            interleaved[di + 1] = meshData.positions[si + 1];
+            interleaved[di + 2] = meshData.positions[si + 2];
             interleaved[di + 3] = meshData.normals[si];
             interleaved[di + 4] = meshData.normals[si + 1];
             interleaved[di + 5] = meshData.normals[si + 2];
             interleaved[di + 6] = meshData.uvs[ui];
             interleaved[di + 7] = meshData.uvs[ui + 1];
-
-            const distSq = px * px + py * py + pz * pz;
-            if (distSq > maxDistSq) maxDistSq = distSq;
-            if (px < minX) minX = px; if (px > maxX) maxX = px;
-            if (py < minY) minY = py; if (py > maxY) maxY = py;
-            if (pz < minZ) minZ = pz; if (pz > maxZ) maxZ = pz;
         }
 
-        const vertexBuffer = this.gpuResources.createVertexBuffer(interleaved, 'mesh_vb');
-        const indexBuffer = this.gpuResources.createIndexBuffer(meshData.indices, 'mesh_ib');
         const indexFormat: GPUIndexFormat = meshData.indices instanceof Uint16Array ? 'uint16' : 'uint32';
-
         return {
-            vertexBuffer,
-            indexBuffer,
+            vertexBuffer: this.gpuResources.createVertexBuffer(interleaved, 'mesh_vb'),
+            indexBuffer: this.gpuResources.createIndexBuffer(meshData.indices, 'mesh_ib'),
             indexCount: meshData.indices.length,
             indexFormat,
-            boundRadius: Math.sqrt(maxDistSq),
-            boundMin: new Vec3(minX, minY, minZ),
-            boundMax: new Vec3(maxX, maxY, maxZ),
+            ...computeBounds(meshData.positions),
+        };
+    }
+
+    /**
+     * Upload a building mesh with an extra per-vertex u32 meta attribute.
+     * Stride is 36 bytes: position(12) + normal(12) + uv(8) + meta(4). The
+     * returned handle is flagged with `hasBuildingMeta` so the geometry
+     * and shadow passes route it through the building pipeline.
+     */
+    uploadBuildingMesh(meshData: MeshData & { meta: Uint32Array }): GPUMeshHandle {
+        const vertexCount = meshData.positions.length / 3;
+        // Interleave as 36 bytes per vertex: 8 floats + 1 u32 (9 words).
+        const buf = new ArrayBuffer(vertexCount * 36);
+        const f32 = new Float32Array(buf);
+        const u32 = new Uint32Array(buf);
+
+        for (let i = 0; i < vertexCount; i++) {
+            const si = i * 3;
+            const ui = i * 2;
+            const di = i * 9;
+            f32[di]     = meshData.positions[si];
+            f32[di + 1] = meshData.positions[si + 1];
+            f32[di + 2] = meshData.positions[si + 2];
+            f32[di + 3] = meshData.normals[si];
+            f32[di + 4] = meshData.normals[si + 1];
+            f32[di + 5] = meshData.normals[si + 2];
+            f32[di + 6] = meshData.uvs[ui];
+            f32[di + 7] = meshData.uvs[ui + 1];
+            u32[di + 8] = meshData.meta[i];
+        }
+
+        const indexFormat: GPUIndexFormat = meshData.indices instanceof Uint16Array ? 'uint16' : 'uint32';
+        return {
+            vertexBuffer: this.gpuResources.createVertexBuffer(new Float32Array(buf), 'building_mesh_vb'),
+            indexBuffer: this.gpuResources.createIndexBuffer(meshData.indices, 'building_mesh_ib'),
+            indexCount: meshData.indices.length,
+            indexFormat,
+            ...computeBounds(meshData.positions),
+            hasBuildingMeta: true,
         };
     }
 
@@ -280,4 +300,24 @@ export class RenderSystem {
         this.cameraOverrideProj = null;
         this.activeCamera = null;
     }
+}
+
+/** Compute bounding radius (from origin) + axis-aligned bounds in one pass. */
+function computeBounds(positions: Float32Array): { boundRadius: number; boundMin: Vec3; boundMax: Vec3 } {
+    let maxDistSq = 0;
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (let i = 0; i < positions.length; i += 3) {
+        const px = positions[i], py = positions[i + 1], pz = positions[i + 2];
+        const d2 = px * px + py * py + pz * pz;
+        if (d2 > maxDistSq) maxDistSq = d2;
+        if (px < minX) minX = px; if (px > maxX) maxX = px;
+        if (py < minY) minY = py; if (py > maxY) maxY = py;
+        if (pz < minZ) minZ = pz; if (pz > maxZ) maxZ = pz;
+    }
+    return {
+        boundRadius: Math.sqrt(maxDistSq),
+        boundMin: new Vec3(minX, minY, minZ),
+        boundMax: new Vec3(maxX, maxY, maxZ),
+    };
 }

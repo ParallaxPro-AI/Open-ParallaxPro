@@ -30,6 +30,11 @@ export class GeometryPass {
     private skinnedPipelineMRT: GPURenderPipeline | null = null;
     private skinnedPipelineMSAA: GPURenderPipeline | null = null;
 
+    // Building pipelines (36-byte vertex stride with extra u32 buildingMeta)
+    private buildingPipelineStandard: GPURenderPipeline | null = null;
+    private buildingPipelineMRT: GPURenderPipeline | null = null;
+    private buildingPipelineMSAA: GPURenderPipeline | null = null;
+
     // Bind group layouts
     private cameraBindGroupLayout: GPUBindGroupLayout | null = null;
     private modelBindGroupLayout: GPUBindGroupLayout | null = null;
@@ -464,6 +469,67 @@ export class GeometryPass {
             multisample: { count: 4 },
         });
 
+        // ── Building pipeline variants ──
+        // Same bind group layouts as regular PBR — only the vertex layout
+        // differs (36-byte stride with an extra u32 meta at offset 32) and
+        // the fragment shader paints a procedural window grid on top of
+        // the standard PBR result.
+        const buildingVertexModule = shaderLib.getModule('building_vertex');
+        const buildingFragmentModule = shaderLib.getModule('building_fragment');
+        const buildingFragmentMRTModule = shaderLib.getModule('building_fragment_mrt');
+        const buildingVertexState: GPUVertexState = {
+            module: buildingVertexModule,
+            entryPoint: 'vs_main',
+            buffers: [{
+                arrayStride: 36,
+                stepMode: 'vertex',
+                attributes: [
+                    { shaderLocation: 0, offset: 0,  format: 'float32x3' as GPUVertexFormat },
+                    { shaderLocation: 1, offset: 12, format: 'float32x3' as GPUVertexFormat },
+                    { shaderLocation: 2, offset: 24, format: 'float32x2' as GPUVertexFormat },
+                    { shaderLocation: 3, offset: 32, format: 'uint32'    as GPUVertexFormat },
+                ],
+            }],
+        };
+
+        this.buildingPipelineStandard = device.createRenderPipeline({
+            label: 'building_pipeline_standard',
+            layout: pipelineLayout,
+            vertex: buildingVertexState,
+            fragment: { module: buildingFragmentModule, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 1 },
+        });
+
+        this.buildingPipelineMRT = device.createRenderPipeline({
+            label: 'building_pipeline_mrt',
+            layout: pipelineLayout,
+            vertex: buildingVertexState,
+            fragment: {
+                module: buildingFragmentMRTModule,
+                entryPoint: 'fs_main',
+                targets: [{ format: canvasFormat }, { format: 'rgba16float' }],
+            },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 1 },
+        });
+
+        this.buildingPipelineMSAA = device.createRenderPipeline({
+            label: 'building_pipeline_msaa',
+            layout: mrtPipelineLayout,
+            vertex: buildingVertexState,
+            fragment: {
+                module: buildingFragmentMRTModule,
+                entryPoint: 'fs_main',
+                targets: [{ format: canvasFormat }, { format: 'rgba16float' }],
+            },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 4 },
+        });
+
         // Transparent pipeline variants
         const blendState: GPUBlendState = {
             color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
@@ -663,14 +729,20 @@ export class GeometryPass {
         let lastVertexBuffer: GPUBuffer | null = null;
         let lastModelMatrix: Mat4 | null = null;
         let lastModelBindGroup: GPUBindGroup | null = null;
-        let currentSkinned = false;
+        let currentKind: 'skinned' | 'building' | 'standard' | null = null;
 
         for (const mesh of meshes) {
             const isSkinned = !!(mesh.meshHandle.skinBuffer && mesh.jointMatricesBuffer);
+            const isBuilding = !!mesh.meshHandle.hasBuildingMeta && !isSkinned;
+            const kind: 'skinned' | 'building' | 'standard' =
+                isSkinned ? 'skinned' : (isBuilding ? 'building' : 'standard');
 
-            if (isSkinned !== currentSkinned) {
-                renderPass.setPipeline(isSkinned ? this.getSkinnedPipeline() : this.getActivePipeline());
-                currentSkinned = isSkinned;
+            if (kind !== currentKind) {
+                const pipeline = kind === 'skinned'
+                    ? this.getSkinnedPipeline()
+                    : (kind === 'building' ? this.getBuildingPipeline() : this.getActivePipeline());
+                renderPass.setPipeline(pipeline);
+                currentKind = kind;
                 lastVertexBuffer = null;
             }
 
@@ -708,6 +780,12 @@ export class GeometryPass {
         if (this.quality === 'high') return this.pipelineMSAA!;
         if (this.quality === 'medium') return this.pipelineMRT!;
         return this.pipelineStandard!;
+    }
+
+    private getBuildingPipeline(): GPURenderPipeline {
+        if (this.quality === 'high') return this.buildingPipelineMSAA!;
+        if (this.quality === 'medium') return this.buildingPipelineMRT!;
+        return this.buildingPipelineStandard!;
     }
 
     private writeModelData(mesh: RenderMeshInstance, bufferIndex: number): void {

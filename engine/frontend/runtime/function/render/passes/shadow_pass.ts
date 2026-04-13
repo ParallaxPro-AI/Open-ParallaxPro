@@ -25,6 +25,8 @@ export class ShadowPass {
     private device: GPUDevice | null = null;
     private resources: GPUResourceManager | null = null;
     private pipeline: GPURenderPipeline | null = null;
+    /** Second pipeline variant for building meshes (36-byte vertex stride). */
+    private pipeline36: GPURenderPipeline | null = null;
     private modelBGL: GPUBindGroupLayout | null = null;
 
     private depthArrayTexture: GPUTexture | null = null;
@@ -121,6 +123,28 @@ export class ShadowPass {
                 depthBias: 4, depthBiasSlopeScale: 3.0, depthBiasClamp: 0.002,
             },
         });
+
+        // Building meshes use a 36-byte stride (extra u32 meta at offset 32).
+        // The shadow vertex shader only reads position, so the same shader
+        // module is reused — only the arrayStride changes.
+        this.pipeline36 = device.createRenderPipeline({
+            label: 'shadow_pipeline_36',
+            layout: pipelineLayout,
+            vertex: {
+                module: shadowModule,
+                entryPoint: 'vs_main',
+                buffers: [{
+                    arrayStride: 36,
+                    stepMode: 'vertex',
+                    attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' as GPUVertexFormat }],
+                }],
+            },
+            primitive: { topology: 'triangle-list', cullMode: 'none' },
+            depthStencil: {
+                format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less',
+                depthBias: 4, depthBiasSlopeScale: 3.0, depthBiasClamp: 0.002,
+            },
+        });
     }
 
     execute(commandEncoder: GPUCommandEncoder, scene: RenderScene): void {
@@ -190,10 +214,18 @@ export class ShadowPass {
             renderPass.setBindGroup(0, this.lightCameraBindGroups[cascade]);
 
             let lastVB: GPUBuffer | null = null;
+            let currentStride36 = false;
 
             for (let i = 0; i < visibleMeshes.length; i++) {
                 const mesh = visibleMeshes[i];
                 if (mesh.alphaMode === 'BLEND' || !meshBindGroups[i]) continue;
+
+                const needsStride36 = !!mesh.meshHandle.hasBuildingMeta;
+                if (needsStride36 !== currentStride36) {
+                    renderPass.setPipeline(needsStride36 ? this.pipeline36! : this.pipeline);
+                    currentStride36 = needsStride36;
+                    lastVB = null;
+                }
 
                 if (mesh.meshHandle.vertexBuffer !== lastVB) {
                     renderPass.setVertexBuffer(0, mesh.meshHandle.vertexBuffer);
@@ -233,6 +265,7 @@ export class ShadowPass {
         this.matrixSlotMap.clear();
         this.slotCachedMatrix.length = 0;
         this.pipeline = null;
+        this.pipeline36 = null;
         this.device = null;
         this.resources = null;
     }
