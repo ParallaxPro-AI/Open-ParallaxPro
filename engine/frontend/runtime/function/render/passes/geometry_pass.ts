@@ -40,6 +40,7 @@ export class GeometryPass {
     private modelBindGroupLayout: GPUBindGroupLayout | null = null;
     private skinnedModelBindGroupLayout: GPUBindGroupLayout | null = null;
     private materialBindGroupLayout: GPUBindGroupLayout | null = null;
+    private buildingMaterialBindGroupLayout: GPUBindGroupLayout | null = null;
     private lightBindGroupLayout: GPUBindGroupLayout | null = null;
 
     // Uniform buffers and bind groups
@@ -72,6 +73,19 @@ export class GeometryPass {
     private defaultNormalTexture: GPUTexture | null = null;
     private defaultNormalTextureView: GPUTextureView | null = null;
     private defaultSampler: GPUSampler | null = null;
+    // 1-layer 2d-array fallbacks for building bind group before real textures load
+    private defaultWhiteArrayTexture: GPUTexture | null = null;
+    private defaultWhiteArrayTextureView: GPUTextureView | null = null;
+    private defaultNormalArrayTexture: GPUTexture | null = null;
+    private defaultNormalArrayTextureView: GPUTextureView | null = null;
+
+    // Building texture arrays (from Poly Haven)
+    private buildingDiffuseArray: GPUTexture | null = null;
+    private buildingDiffuseArrayView: GPUTextureView | null = null;
+    private buildingNormalArray: GPUTexture | null = null;
+    private buildingNormalArrayView: GPUTextureView | null = null;
+    private buildingLayerPropsBuffer: GPUBuffer | null = null;
+    private buildingMaterialBindGroup: GPUBindGroup | null = null;
 
     // Shadow map bindings
     private dummyShadowTexture: GPUTexture | null = null;
@@ -123,6 +137,7 @@ export class GeometryPass {
         this.createDepthTexture(width, height);
         this.rebuildPipelines(device, resources, shaderLib, canvasFormat);
         this.rebuildLightBindGroup();
+        this.rebuildBuildingMaterialBindGroup();
     }
 
     setGraphicsQuality(quality: GraphicsQuality): void {
@@ -145,6 +160,57 @@ export class GeometryPass {
         this.shadowEnabled = textureView !== null;
         this.shadowMapSize = shadowMapSize;
         this.rebuildLightBindGroup();
+    }
+
+    setBuildingTextures(
+        diffuseArray: GPUTexture | null,
+        normalArray: GPUTexture | null,
+        layerProps: Float32Array | null,
+    ): void {
+        this.buildingDiffuseArray = diffuseArray;
+        this.buildingNormalArray = normalArray;
+
+        if (diffuseArray) {
+            this.buildingDiffuseArrayView = diffuseArray.createView({
+                dimension: '2d-array',
+                format: 'rgba8unorm',
+            });
+        }
+        if (normalArray) {
+            this.buildingNormalArrayView = normalArray.createView({
+                dimension: '2d-array',
+                format: 'rgba8unorm',
+            });
+        }
+
+        // Create layer properties buffer if we have properties
+        if (layerProps && this.resources) {
+            this.buildingLayerPropsBuffer = this.resources.createUniformBuffer(layerProps.byteLength, 'building_layer_props');
+            this.device?.queue.writeBuffer(this.buildingLayerPropsBuffer, 0, layerProps);
+        }
+
+        this.rebuildBuildingMaterialBindGroup();
+    }
+
+    private rebuildBuildingMaterialBindGroup(): void {
+        if (!this.device || !this.resources || !this.buildingMaterialBindGroupLayout) return;
+
+        // layerProps uniform must be 256-byte aligned; 16 layers × 4 floats × 4 bytes = 256 bytes
+        const LAYER_PROPS_SIZE = 256;
+
+        const layerPropsBuffer = this.buildingLayerPropsBuffer
+            ?? this.resources.createUniformBuffer(LAYER_PROPS_SIZE, 'building_layer_props_dummy');
+
+        this.buildingMaterialBindGroup = this.resources.createBindGroup(
+            this.buildingMaterialBindGroupLayout,
+            [
+                { binding: 0, resource: this.buildingDiffuseArrayView ?? this.defaultWhiteArrayTextureView! },
+                { binding: 1, resource: this.defaultSampler! },
+                { binding: 2, resource: this.buildingNormalArrayView ?? this.defaultNormalArrayTextureView! },
+                { binding: 3, resource: { buffer: layerPropsBuffer } },
+            ],
+            'building_material_bg',
+        );
     }
 
     execute(commandEncoder: GPUCommandEncoder, swapchainView: GPUTextureView, scene: RenderScene): void {
@@ -188,6 +254,11 @@ export class GeometryPass {
         this.depthTexture?.destroy();
         this.defaultWhiteTexture?.destroy();
         this.defaultNormalTexture?.destroy();
+        this.defaultWhiteArrayTexture?.destroy();
+        this.defaultNormalArrayTexture?.destroy();
+        this.buildingDiffuseArray?.destroy();
+        this.buildingNormalArray?.destroy();
+        this.buildingLayerPropsBuffer?.destroy();
         this.dummyShadowTexture?.destroy();
         this.offscreenColorTexture?.destroy();
         this.msaaColorTexture?.destroy();
@@ -241,6 +312,13 @@ export class GeometryPass {
             { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
             { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
         ], 'material_bgl');
+
+        this.buildingMaterialBindGroupLayout = resources.createBindGroupLayout([
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d-array' } },
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+            { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d-array' } },
+            { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        ], 'building_material_bgl');
 
         this.lightBindGroupLayout = resources.createBindGroupLayout([
             { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
@@ -298,6 +376,35 @@ export class GeometryPass {
             addressModeV: 'repeat',
         });
 
+        // 1×1×1 2d-array fallbacks used by building bind group before real textures load
+        this.defaultWhiteArrayTexture = device.createTexture({
+            label: 'default_white_array_1x1x1',
+            size: [1, 1, 1],
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+        device.queue.writeTexture(
+            { texture: this.defaultWhiteArrayTexture },
+            new Uint8Array([255, 255, 255, 255]),
+            { bytesPerRow: 4 },
+            [1, 1, 1],
+        );
+        this.defaultWhiteArrayTextureView = this.defaultWhiteArrayTexture.createView({ dimension: '2d-array' });
+
+        this.defaultNormalArrayTexture = device.createTexture({
+            label: 'default_normal_array_1x1x1',
+            size: [1, 1, 1],
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+        device.queue.writeTexture(
+            { texture: this.defaultNormalArrayTexture },
+            new Uint8Array([128, 128, 255, 255]),
+            { bytesPerRow: 4 },
+            [1, 1, 1],
+        );
+        this.defaultNormalArrayTextureView = this.defaultNormalArrayTexture.createView({ dimension: '2d-array' });
+
         // Dummy shadow depth texture (1x1 × 4-layer array, for when shadows
         // are disabled or before the first shadow pass runs). Must be a 2d-array
         // because the lit shader's `shadowMap` binding is texture_depth_2d_array.
@@ -340,6 +447,14 @@ export class GeometryPass {
             this.materialBindGroupLayout!,
             this.lightBindGroupLayout!,
         ], 'pbr_pipeline_layout');
+
+        // Building pipeline layout uses texture arrays for materials
+        const buildingPipelineLayout = resources.createPipelineLayout([
+            this.cameraBindGroupLayout!,
+            this.modelBindGroupLayout!,
+            this.buildingMaterialBindGroupLayout!,
+            this.lightBindGroupLayout!,
+        ], 'building_pipeline_layout');
 
         const vertexState: GPUVertexState = {
             module: vertexModule,
@@ -494,7 +609,7 @@ export class GeometryPass {
 
         this.buildingPipelineStandard = device.createRenderPipeline({
             label: 'building_pipeline_standard',
-            layout: pipelineLayout,
+            layout: buildingPipelineLayout,
             vertex: buildingVertexState,
             fragment: { module: buildingFragmentModule, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
             primitive: opaquePrimitive,
@@ -504,7 +619,7 @@ export class GeometryPass {
 
         this.buildingPipelineMRT = device.createRenderPipeline({
             label: 'building_pipeline_mrt',
-            layout: pipelineLayout,
+            layout: buildingPipelineLayout,
             vertex: buildingVertexState,
             fragment: {
                 module: buildingFragmentMRTModule,
@@ -518,7 +633,7 @@ export class GeometryPass {
 
         this.buildingPipelineMSAA = device.createRenderPipeline({
             label: 'building_pipeline_msaa',
-            layout: mrtPipelineLayout,
+            layout: buildingPipelineLayout,
             vertex: buildingVertexState,
             fragment: {
                 module: buildingFragmentMRTModule,
@@ -765,7 +880,10 @@ export class GeometryPass {
             lastModelMatrix = mesh.modelMatrix;
 
             renderPass.setBindGroup(1, modelBindGroup);
-            renderPass.setBindGroup(2, this.getMaterialBindGroup(mesh));
+            const materialBindGroup = isBuilding
+                ? (this.buildingMaterialBindGroup || this.getMaterialBindGroup(mesh))
+                : this.getMaterialBindGroup(mesh);
+            renderPass.setBindGroup(2, materialBindGroup);
             renderPass.drawIndexed(mesh.drawIndexCount ?? mesh.meshHandle.indexCount, 1, mesh.firstIndex ?? 0, 0, 0);
         }
     }

@@ -654,24 +654,28 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 `;
 
 // ============================================================
-// Building Fragment Shader — plain PBR with procedural window grid
+// Building Fragment Shader — Poly Haven textures + procedural windows
 // ============================================================
 //
-// buildingMeta u32: bits [0:7] hold the wall segment width in 0.25 m
-// units (0..63.75 m). `0` is the "no window grid" sentinel — used on
-// roof vertices so the shader falls through to plain PBR there.
+// buildingMeta u32:
+//   bits [0:3]   — texture layer index (0-13, selects Poly Haven texture)
+//   bits [4:11]  — wall segment width in 0.25 m units (0..255 = 0..63.75 m)
 //
-// UVs are in meters: uv.x ∈ [0, wallWidth], uv.y ∈ [0, buildingHeight].
-// Window grid: 0.5 m edge margins, ~2.5 m column spacing snapped to fit
-// the segment, 3.5 m floor height, ~60% pane coverage per cell,
-// skipped below 1.7 m to clear the ground floor (the extrusion sinks
-// walls 0.5 m into the terrain, so 1.7 m of uv.y ≈ 1.2 m of real wall).
+// Samples diffuse + normal from texture_2d_array using the layer index,
+// applies Poly Haven material PBR properties, then blends procedural
+// window grid on top.
 
-const BUILDING_COMMON = /* wgsl */ `
-${PBR_COMMON}
+const BUILDING_COMMON_HEADER = /* wgsl */ `
+const PI: f32 = 3.14159265359;
+
+${CAMERA_STRUCT}
+
+struct LayerProps {
+    data: array<vec4<f32>, 16>,
+};
 
 fn buildingWindowMask(uv: vec2<f32>, metaBits: u32) -> f32 {
-    let wallWidth = f32(metaBits & 0xFFu) * 0.25;
+    let wallWidth = f32((metaBits >> 4u) & 0xFFu) * 0.25;
     if (wallWidth < 0.1) { return 0.0; }
     if (uv.y < 1.7) { return 0.0; }
 
@@ -697,12 +701,17 @@ fn buildingWindowMask(uv: vec2<f32>, metaBits: u32) -> f32 {
 }
 `;
 
-// Dark glass with a small emissive lift so windows still read at dusk
-// without turning cartoonish at noon. Inlined at the call site below.
+// Dark glass with emissive lift for dusk visibility
 const BUILDING_WINDOW_COLOR = 'vec3<f32>(0.08, 0.12, 0.19)';
 
 export const BUILDING_FRAGMENT_SHADER = /* wgsl */ `
-${BUILDING_COMMON}
+${BUILDING_COMMON_HEADER}
+
+@group(0) @binding(0) var<uniform> camera: CameraUniforms;
+@group(2) @binding(0) var baseColorTexture: texture_2d_array<f32>;
+@group(2) @binding(1) var baseColorSampler: sampler;
+@group(2) @binding(2) var normalMapTexture: texture_2d_array<f32>;
+@group(2) @binding(3) var<uniform> layerProps: LayerProps;
 
 struct BuildingFragmentInput {
     @location(0) worldPosition: vec3<f32>,
@@ -713,20 +722,33 @@ struct BuildingFragmentInput {
 
 @fragment
 fn fs_main(input: BuildingFragmentInput) -> @location(0) vec4<f32> {
-    var pbrInput: FragmentInput;
-    pbrInput.worldPosition = input.worldPosition;
-    pbrInput.worldNormal = input.worldNormal;
-    pbrInput.uv = input.uv;
-    let pbr = computePBR(pbrInput);
-    if (pbr.color.a < 0.01) { discard; }
-    let mask = buildingWindowMask(input.uv, input.buildingMeta);
-    let rgb = mix(pbr.color.rgb, ${BUILDING_WINDOW_COLOR}, mask);
-    return vec4<f32>(rgb, pbr.color.a);
+    let layerIdx = i32(input.buildingMeta & 0xFu);
+    let props = layerProps.data[layerIdx];
+    let uvScale = props.x;
+
+    // Scale UVs by layer's meter-per-tile ratio
+    let scaledUV = input.uv * uvScale;
+
+    // Sample diffuse from texture array
+    let diffuseSample = textureSample(baseColorTexture, baseColorSampler, scaledUV, layerIdx);
+    if (diffuseSample.a < 0.01) { discard; }
+
+    // Blend procedural windows over the texture
+    let windowMask = buildingWindowMask(input.uv, input.buildingMeta);
+    let blended = mix(diffuseSample.rgb, ${BUILDING_WINDOW_COLOR}, windowMask);
+
+    return vec4<f32>(blended, 1.0);
 }
 `;
 
 export const BUILDING_FRAGMENT_SHADER_MRT = /* wgsl */ `
-${BUILDING_COMMON}
+${BUILDING_COMMON_HEADER}
+
+@group(0) @binding(0) var<uniform> camera: CameraUniforms;
+@group(2) @binding(0) var baseColorTexture: texture_2d_array<f32>;
+@group(2) @binding(1) var baseColorSampler: sampler;
+@group(2) @binding(2) var normalMapTexture: texture_2d_array<f32>;
+@group(2) @binding(3) var<uniform> layerProps: LayerProps;
 
 struct BuildingFragmentInput {
     @location(0) worldPosition: vec3<f32>,
@@ -742,18 +764,29 @@ struct MRTOutput {
 
 @fragment
 fn fs_main(input: BuildingFragmentInput) -> MRTOutput {
-    var pbrInput: FragmentInput;
-    pbrInput.worldPosition = input.worldPosition;
-    pbrInput.worldNormal = input.worldNormal;
-    pbrInput.uv = input.uv;
-    let pbr = computePBR(pbrInput);
-    if (pbr.color.a < 0.01) { discard; }
-    let mask = buildingWindowMask(input.uv, input.buildingMeta);
-    let rgb = mix(pbr.color.rgb, ${BUILDING_WINDOW_COLOR}, mask);
+    let layerIdx = i32(input.buildingMeta & 0xFu);
+    let props = layerProps.data[layerIdx];
+    let uvScale = props.x;
+
+    // Scale UVs by layer's meter-per-tile ratio
+    let scaledUV = input.uv * uvScale;
+
+    // Sample diffuse from texture array
+    let diffuseSample = textureSample(baseColorTexture, baseColorSampler, scaledUV, layerIdx);
+    if (diffuseSample.a < 0.01) { discard; }
+
+    // Sample normal from texture array
+    let normalSample = textureSample(normalMapTexture, baseColorSampler, scaledUV, layerIdx);
+    let tangentNormal = normalize(normalSample.rgb * 2.0 - 1.0);
+
+    // Blend procedural windows over the texture
+    let windowMask = buildingWindowMask(input.uv, input.buildingMeta);
+    let blended = mix(diffuseSample.rgb, ${BUILDING_WINDOW_COLOR}, windowMask);
+
     let viewPos = camera.viewMatrix * vec4<f32>(input.worldPosition, 1.0);
     var output: MRTOutput;
-    output.color = vec4<f32>(rgb, pbr.color.a);
-    output.normalDepth = vec4<f32>(pbr.normal, -viewPos.z);
+    output.color = vec4<f32>(blended, 1.0);
+    output.normalDepth = vec4<f32>(input.worldNormal, -viewPos.z);
     return output;
 }
 `;
