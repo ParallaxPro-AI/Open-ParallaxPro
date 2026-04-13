@@ -23,11 +23,12 @@ import {
   WORLD_DEPTH,
   ROAD_WIDTHS,
   SIDEWALK_WIDTHS,
+  OUTPUT_DIR,
 } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PREPROCESSED = path.join(__dirname, "preprocessed");
-const OUTPUT = path.join(__dirname, "chunks");
+const OUTPUT = path.resolve(__dirname, OUTPUT_DIR);
 
 // -------------------------------------------------------------------
 // Types
