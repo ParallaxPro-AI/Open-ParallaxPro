@@ -1,0 +1,12 @@
+{
+  "name": "everything-game-world-gen",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "ground-type": "tsx 010_generate_ground_type_map.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

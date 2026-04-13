@@ -419,18 +419,29 @@ fn computeTerrainPBR(input: FragmentInput) -> PBRResult {
     swNrm.y *= 1.5;
     let swNormal = perturbNormalFromMap(vec3<f32>(0.0, 1.0, 0.0), input.worldPosition, swUV, swNrm);
 
-    // Weight map UV — clamped to the OSM world extent so the weight map
-    // doesn't tile into the wilderness terrain padding beyond it.
+    // Splatmap UV — the ground-type splatmap is aligned 1:1 with the full
+    // extended heightmap. layerProps[5].xy is the extent in metres, .zw is
+    // the heightmap NW-corner origin in world coords (typically negative,
+    // since OSM content is pinned at world (0,0)).
     let worldDim = vec2<f32>(layerProps.data[5].x, layerProps.data[5].y);
-    let weightUV = worldXZ / worldDim;
+    let worldOrigin = vec2<f32>(layerProps.data[5].z, layerProps.data[5].w);
+    let weightUV = (worldXZ - worldOrigin) / worldDim;
+    // Clamp keeps the texture access in-range under uniform control flow;
+    // any fragment actually rendered should already be in [0,1] because the
+    // terrain mesh matches the heightmap extent.
     let weightUVClamped = clamp(weightUV, vec2<f32>(0.0), vec2<f32>(1.0));
     let weightSample = textureSample(groundTypeMap, terrainSampler, weightUVClamped);
-    let inBounds = weightUV.x >= 0.0 && weightUV.x <= 1.0
-                && weightUV.y >= 0.0 && weightUV.y <= 1.0;
 
-    // Zero road atlas outside the weight-map extent (no phantom roads)
+    // Road atlas mask — atlas only covers the OSM content sub-region, which
+    // sits at world (0,0)→(contentDim). Outside that, the atlas would tile
+    // wilderness with phantom roads, so zero its contribution.
+    let contentDim = vec2<f32>(layerProps.data[6].x, layerProps.data[6].y);
+    // contentDim == 0 → mask disabled (no OSM region configured).
+    let inOsm = contentDim.x <= 0.0 || contentDim.y <= 0.0
+             || (worldXZ.x >= 0.0 && worldXZ.x <= contentDim.x
+              && worldXZ.y >= 0.0 && worldXZ.y <= contentDim.y);
     var roadMasked = road;
-    if (!inBounds) {
+    if (!inOsm) {
         roadMasked.coverage = 0.0;
         roadMasked.sidewalkCov = 0.0;
     }

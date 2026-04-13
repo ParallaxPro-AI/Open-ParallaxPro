@@ -98,17 +98,34 @@ function generateMipmaps(
 const ASSET_BASE = '/assets/';
 
 /**
+ * Geometry describing where the splatmap and the road atlas live in world
+ * space. The splatmap covers the full extended terrain; the road atlas only
+ * covers the OSM content sub-region (so we mask its sampling outside that).
+ */
+export interface TerrainGeometry {
+    /** Full heightmap extent in meters (extended bbox). */
+    worldWidth: number;
+    worldDepth: number;
+    /** World-space NW corner of the heightmap (typically negative when the
+     *  OSM content sits at world origin). */
+    originX: number;
+    originZ: number;
+    /** Extent of the OSM content sub-region in meters. The road atlas / OSM
+     *  decals are masked to this region in the shader. */
+    contentWidth: number;
+    contentDepth: number;
+}
+
+/**
  * Load all terrain ground textures and pack them into GPU texture arrays.
  *
- * @param device     The WebGPU device.
- * @param worldWidth World width in meters — written into layerProps[5].x
- *                   so the terrain shader can compute weight-map UVs.
- * @param worldDepth World depth in meters — written into layerProps[5].y.
+ * `geometry` is written into layerProps so the terrain shader can map a
+ * world XZ position to splatmap UV (full extended bbox) and detect when a
+ * fragment is outside the OSM content (mask the road atlas there).
  */
 export async function loadTerrainTextureArrays(
     device: GPUDevice,
-    worldWidth = 0,
-    worldDepth = 0,
+    geometry?: TerrainGeometry,
 ): Promise<TerrainGpuTextures> {
     const count = GROUND_LAYERS.length;
     const TEX_SIZE = 1024;
@@ -151,13 +168,22 @@ export async function loadTerrainTextureArrays(
 
     // layerProps layout (vec4 per entry, 8 entries = 128 bytes, padded to 256):
     //   [0..3].x = UV scale (= 1 / uvMetersPerTile) for ground layers 0-3
-    //   [5].xy   = world (width, depth) in metres for weight-map UV clamping
+    //   [5].xy   = full heightmap extent in metres (splatmap UV denominator)
+    //   [5].zw   = heightmap NW-corner origin in world coords (UV offset)
+    //   [6].xy   = OSM content extent in metres (road-atlas mask denominator)
+    //              .zw is reserved (OSM content is pinned at world origin).
     const layerProps = new Float32Array(8 * 4);
     for (let i = 0; i < count; i++) {
         layerProps[i * 4] = 1.0 / GROUND_LAYERS[i].uvMetersPerTile;
     }
-    layerProps[5 * 4]     = worldWidth;
-    layerProps[5 * 4 + 1] = worldDepth;
+    if (geometry) {
+        layerProps[5 * 4]     = geometry.worldWidth;
+        layerProps[5 * 4 + 1] = geometry.worldDepth;
+        layerProps[5 * 4 + 2] = geometry.originX;
+        layerProps[5 * 4 + 3] = geometry.originZ;
+        layerProps[6 * 4]     = geometry.contentWidth;
+        layerProps[6 * 4 + 1] = geometry.contentDepth;
+    }
 
     // Sidewalk concrete (optional, falls back to white/flat in shader)
     const [swDiffBmp, swNormBmp] = await Promise.all([
@@ -184,10 +210,10 @@ export async function loadTerrainTextureArrays(
     // Falls back to height-based weights in shader when absent.
     let groundTypeMap: GPUTexture | undefined;
     try {
-        const metaResp = await fetch(`${ASSET_BASE}official/everything_game/chunks/terrain/ground_type_map_meta.json`);
+        const metaResp = await fetch(`${ASSET_BASE}official/everything_game/terrain/ground_type_map_meta.json`);
         if (metaResp.ok) {
             const meta = await metaResp.json() as { width: number; height: number };
-            const binResp = await fetch(`${ASSET_BASE}official/everything_game/chunks/terrain/ground_type_map.bin`);
+            const binResp = await fetch(`${ASSET_BASE}official/everything_game/terrain/ground_type_map.bin`);
             if (binResp.ok) {
                 const raw = new Uint8Array(await binResp.arrayBuffer());
                 const canvas = new OffscreenCanvas(meta.width, meta.height);

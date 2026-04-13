@@ -70,13 +70,18 @@ export class HeightmapTerrain {
     // entity each call.
     private heightData: Float32Array | null = null;
     private res = 0;
-    private worldW = 0;
-    private worldD = 0;
     private centerX = 0;
     private centerZ = 0;
 
+    /** Full heightmap extent in meters (= world size including any padding). */
+    worldWidth = 0;
+    worldDepth = 0;
+    /** World-space NW corner of the heightmap. The OSM content is pinned at
+     * (0, 0) by convention, so this is typically negative. */
+    originX = 0;
+    originZ = 0;
     /** Width of the "real content" sub-region in meters (OSM bounds etc.).
-     * Callers can use this to size weight-map / splat UVs that only cover the
+     * Callers can use this to size masks / decals that only cover the
      * non-padded region. Defaults to the full heightmap width. */
     contentWidth = 0;
     /** Depth of the "real content" sub-region in meters. See `contentWidth`. */
@@ -128,10 +133,10 @@ export class HeightmapTerrain {
     getWorldHeight(wx: number, wz: number): number {
         const data = this.heightData;
         if (!data) return 0;
-        const localX = wx - this.centerX + this.worldW / 2;
-        const localZ = wz - this.centerZ + this.worldD / 2;
-        const fx = localX / this.worldW;
-        const fz = localZ / this.worldD;
+        const localX = wx - this.centerX + this.worldWidth / 2;
+        const localZ = wz - this.centerZ + this.worldDepth / 2;
+        const fx = localX / this.worldWidth;
+        const fz = localZ / this.worldDepth;
         if (fx < 0 || fx > 1 || fz < 0 || fz > 1) return 0;
         const res = this.res;
         const gx = fx * (res - 1);
@@ -241,10 +246,12 @@ export class HeightmapTerrain {
 
         this.heightData = heightData;
         this.res = res;
-        this.worldW = worldW;
-        this.worldD = worldD;
+        this.worldWidth = worldW;
+        this.worldDepth = worldD;
         this.centerX = centerX;
         this.centerZ = centerZ;
+        this.originX = originX;
+        this.originZ = originZ;
         this.contentWidth = meta.contentWidth ?? worldW;
         this.contentDepth = meta.contentDepth ?? worldD;
     }
