@@ -99,6 +99,12 @@ OSM_OFFSET_Z_M="$(python3 -c "print(($EXT_NORTH - $OSM_NORTH) * $M_PER_DEG_LAT)"
 EXT_WORLD_W_M="$(python3 -c "print(($EXT_EAST - ($EXT_WEST)) * $M_PER_DEG_LNG)")"
 EXT_WORLD_D_M="$(python3 -c "print(($EXT_NORTH - $EXT_SOUTH) * $M_PER_DEG_LAT)")"
 
+# OSM content extent in meters — the runtime uses these to mask the road
+# atlas / OSM-only decals to the gameplay region (roads don't tile into the
+# wilderness padding).
+OSM_WORLD_W_M="$(python3 -c "print(($OSM_EAST - ($OSM_WEST)) * $M_PER_DEG_LNG)")"
+OSM_WORLD_D_M="$(python3 -c "print(($OSM_NORTH - $OSM_SOUTH) * $M_PER_DEG_LAT)")"
+
 # Install into the runtime asset directory:
 #   heightmap.bin        — symlinked to the raw float32 (not copied to
 #                          avoid duplicating ~400 MB of data)
@@ -121,10 +127,51 @@ cat > "$ASSET_TERRAIN_DIR/heightmap_meta.json" <<EOF
   "height": $EXT_HEIGHT,
   "worldWidth": $EXT_WORLD_W_M,
   "worldDepth": $EXT_WORLD_D_M,
+  "contentWidth": $OSM_WORLD_W_M,
+  "contentDepth": $OSM_WORLD_D_M,
   "heightmapFile": "heightmap.bin",
   "origin": { "x": $ORIGIN_X, "z": $ORIGIN_Z }
 }
 EOF
+
+# --- NAIP imagery → raw RGB for the ground-type classifier -----------------
+#
+# Consumes the extended-bbox PNG produced by 001_map_gen/005_download_naip.sh
+# (NAIP imagery aligned 1:1 with the extended elevation bbox above) and
+# emits a raw RGB byte stream + meta that 010_generate_ground_type_map.ts
+# can read without pulling a PNG decoder into Node.
+
+NAIP_PNG="$MAP_DATA/naip/bay_area_naip.png"
+NAIP_RAW="$OUT/naip_rgb.raw"
+NAIP_META="$OUT/naip_meta.json"
+
+if [ ! -f "$NAIP_PNG" ]; then
+  echo ""
+  echo "[naip] $NAIP_PNG not found — skipping NAIP preprocess."
+  echo "       Run 001_map_gen/005_download_naip.sh to enable the ground-type splatmap."
+else
+  echo ""
+  echo "[naip] Converting NAIP PNG to raw RGB (BIP)..."
+  rm -f "$NAIP_RAW" "$NAIP_RAW.aux.xml" "${NAIP_RAW%.raw}.hdr"
+  # ENVI BIP = byte-interleaved-by-pixel: R,G,B,R,G,B,... matches what the
+  # classifier expects. We force 3 bands; some NAIP exports include alpha.
+  gdal_translate -of ENVI -ot Byte -b 1 -b 2 -b 3 -co INTERLEAVE=PIXEL \
+    "$NAIP_PNG" "$NAIP_RAW" -q
+
+  NAIP_W=$(gdalinfo "$NAIP_PNG" | grep "Size is" | sed -E 's/.*Size is ([0-9]+), ([0-9]+).*/\1/')
+  NAIP_H=$(gdalinfo "$NAIP_PNG" | grep "Size is" | sed -E 's/.*Size is ([0-9]+), ([0-9]+).*/\2/')
+  cat > "$NAIP_META" <<EOF
+{
+  "width": $NAIP_W,
+  "height": $NAIP_H,
+  "bands": 3,
+  "worldWidth": $EXT_WORLD_W_M,
+  "worldDepth": $EXT_WORLD_D_M,
+  "origin": { "x": $ORIGIN_X, "z": $ORIGIN_Z }
+}
+EOF
+  echo "  ${NAIP_W}x${NAIP_H} RGB → $(ls -lh "$NAIP_RAW" | awk '{print $5}')"
+fi
 
 echo ""
 echo "=== Preprocessing complete ==="

@@ -464,7 +464,14 @@ export class ViewportPanel {
                 this.ctx.ensurePrimitiveMeshes();
                 const device = this.ctx.engine?.globalContext.renderSystem.getDevice();
                 if (!device) return;
-                loadTerrainTextureArrays(device, terrain.contentWidth, terrain.contentDepth)
+                loadTerrainTextureArrays(device, {
+                    worldWidth:   terrain.worldWidth,
+                    worldDepth:   terrain.worldDepth,
+                    originX:      terrain.originX,
+                    originZ:      terrain.originZ,
+                    contentWidth: terrain.contentWidth,
+                    contentDepth: terrain.contentDepth,
+                })
                     .then(arrays => terrain.applyTerrainTextures(
                         arrays,
                         this.streamedRoads?.atlas.nearTexture,
