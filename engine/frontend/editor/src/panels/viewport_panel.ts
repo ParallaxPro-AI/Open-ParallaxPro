@@ -10,6 +10,7 @@ import { buildComponentsForAsset, prettifyAssetName } from '../utils/asset_drop.
 import { icon, Maximize2, Minimize2 } from '../widgets/icons.js';
 import { HeightmapTerrain } from '../../../runtime/function/streaming/heightmap_terrain.js';
 import { StreamedBuildings } from '../../../../../everything_game/003_runtime/streaming/streamed_buildings.js';
+import { StreamedRoads } from '../../../../../everything_game/003_runtime/streaming/streamed_roads.js';
 import { loadTerrainTextureArrays } from '../../../../../everything_game/003_runtime/streaming/terrain_texture_cache.js';
 
 /**
@@ -36,6 +37,7 @@ export class ViewportPanel {
     private collisionGpuMeshCache: Map<number, any> = new Map();
     private heightmapTerrain: HeightmapTerrain | null = null;
     private streamedBuildings: StreamedBuildings | null = null;
+    private streamedRoads: StreamedRoads | null = null;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -228,6 +230,7 @@ export class ViewportPanel {
             }
             this.initHeightmapTerrain();
             this.initStreamedBuildings();
+            this.initStreamedRoads();
         });
 
         // Resize handling
@@ -459,7 +462,11 @@ export class ViewportPanel {
                 const device = this.ctx.engine?.globalContext.renderSystem.getDevice();
                 if (!device) return;
                 loadTerrainTextureArrays(device, terrain.contentWidth, terrain.contentDepth)
-                    .then(arrays => terrain.applyTerrainTextures(arrays))
+                    .then(arrays => terrain.applyTerrainTextures(
+                        arrays,
+                        this.streamedRoads?.atlas.nearTexture,
+                        this.streamedRoads?.atlas.farTexture,
+                    ))
                     .catch(err => console.warn('[Terrain] Failed to load ground textures:', err));
             };
             this.heightmapTerrain = terrain;
@@ -501,6 +508,36 @@ export class ViewportPanel {
                 unloadRadius: cfg.unloadRadius,
                 baseColor: cfg.baseColor,
             });
+            break;
+        }
+    }
+
+    /**
+     * Create a road atlas streamer that rasterizes road + railway placements
+     * from the same chunk JSONs used by streamed buildings. The atlas textures
+     * feed the terrain shader's road/sidewalk overlay.
+     *
+     * Runs synchronously alongside initStreamedBuildings so that by the time
+     * the heightmap terrain's onReady callback fires, `this.streamedRoads`
+     * already exists and its GPU atlas textures can be passed into
+     * `applyTerrainTextures()`.
+     */
+    private initStreamedRoads(): void {
+        if (this.streamedRoads) {
+            this.streamedRoads.destroy();
+            this.streamedRoads = null;
+        }
+        if (!this.ctx.engine) return;
+        const device = this.ctx.engine.globalContext.renderSystem.getDevice();
+        if (!device) return;
+
+        // Reuse the streamed-buildings asset base: roads live in the same chunk JSONs.
+        const pd = this.ctx.state.projectData;
+        const scenes = pd?.scenes || {};
+        for (const sceneData of Object.values(scenes) as any[]) {
+            const cfg = sceneData?.streamedBuildings;
+            if (!cfg?.assetBasePath) continue;
+            this.streamedRoads = new StreamedRoads(device, { assetBasePath: cfg.assetBasePath });
             break;
         }
     }
@@ -552,6 +589,9 @@ export class ViewportPanel {
                 }
                 if (this.streamedBuildings) {
                     this.streamedBuildings.update(camPos);
+                }
+                if (this.streamedRoads) {
+                    this.streamedRoads.update(camPos);
                 }
 
                 this.fpsEl.textContent = `${this.ctx.engine.getFPS()} FPS`;
