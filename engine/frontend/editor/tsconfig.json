@@ -10,7 +10,7 @@
     "resolveJsonModule": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "../..",
+    "rootDir": "../../..",
     "baseUrl": ".",
     "paths": {
       "@dimforge/rapier3d-compat": ["./node_modules/@dimforge/rapier3d-compat"]
@@ -18,6 +18,11 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["@webgpu/types", "vite/client"]
   },
-  "include": ["src/**/*.ts", "../runtime/**/*.ts", "../../shared/**/*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "../runtime/**/*.ts",
+    "../../shared/**/*.ts",
+    "../../../everything_game/003_runtime/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

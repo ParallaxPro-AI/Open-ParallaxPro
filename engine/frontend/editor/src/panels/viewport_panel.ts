@@ -9,7 +9,7 @@ import { CreateEntityCommand } from '../history/commands.js';
 import { buildComponentsForAsset, prettifyAssetName } from '../utils/asset_drop.js';
 import { icon, Maximize2, Minimize2 } from '../widgets/icons.js';
 import { HeightmapTerrain } from '../../../runtime/function/streaming/heightmap_terrain.js';
-import { StreamedBuildings } from '../../../runtime/function/streaming/streamed_buildings.js';
+import { StreamedBuildings } from '../../../../../everything_game/003_runtime/streaming/streamed_buildings.js';
 
 /**
  * Viewport panel: contains the WebGPU canvas and overlay canvas for gizmos.
