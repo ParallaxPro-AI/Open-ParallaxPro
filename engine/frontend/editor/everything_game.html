@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>The Everything Game - ParallaxPro</title>
+    <link rel="icon" href="/public/icons/favicon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #111; }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #game-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            display: block;
+        }
+
+        /* ── Splash screen (Unity-style logo flash) ── */
+        #splash-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #111;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        #splash-screen .splash-logo {
+            max-width: 340px;
+            width: 60%;
+            opacity: 0;
+            animation: splashFade 2.4s ease-in-out forwards;
+        }
+        @keyframes splashFade {
+            0%   { opacity: 0; transform: scale(0.92); }
+            30%  { opacity: 1; transform: scale(1); }
+            70%  { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.02); }
+        }
+
+        /* ── Loading screen ── */
+        #loading-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #111;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 24px;
+            z-index: 1000;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #loading-screen .loading-logo {
+            max-width: 200px;
+            width: 40%;
+            margin-bottom: 8px;
+        }
+        #loading-screen .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(134, 72, 230, 0.3);
+            border-top-color: #8648e6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-screen .loading-text {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        #loading-screen .loading-progress-bar {
+            width: 220px;
+            height: 4px;
+            background: rgba(134, 72, 230, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        #loading-screen .loading-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: #8648e6;
+            border-radius: 2px;
+            transition: width 0.2s ease;
+        }
+
+        /* ── FPS counter ── */
+        #fps-counter {
+            position: fixed;
+            top: 12px;
+            left: 14px;
+            z-index: 600;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 4px 10px;
+            border-radius: 6px;
+            pointer-events: none;
+            display: none;
+        }
+
+        /* ── Click-to-play overlay ── */
+        #click-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 150000;
+            background: rgba(0, 0, 0, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+        }
+        #click-overlay .click-hint {
+            padding: 14px 26px;
+            background: rgba(20, 20, 28, 0.75);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+            backdrop-filter: blur(6px);
+        }
+
+        /* ── Error screen ── */
+        #error-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #111;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 1000;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #error-screen .error-icon { font-size: 48px; }
+        #error-screen .error-title { font-size: 20px; font-weight: 600; }
+        #error-screen .error-msg { font-size: 14px; color: #999; }
+    </style>
+</head>
+<body>
+    <div id="splash-screen">
+        <img class="splash-logo" src="/logos/main_logo.png" alt="ParallaxPro">
+    </div>
+    <div id="loading-screen">
+        <img class="loading-logo" src="/logos/main_logo.png" alt="ParallaxPro">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading world…</div>
+        <div class="loading-progress-bar"><div class="loading-progress-fill" id="loading-progress-fill"></div></div>
+    </div>
+    <div id="error-screen">
+        <div class="error-icon">&#x26A0;</div>
+        <div class="error-title">Failed to Load</div>
+        <div class="error-msg" id="error-detail">Something went wrong loading the Everything Game.</div>
+        <a href="/" style="margin-top:20px;display:inline-block;padding:10px 28px;background:#8648e6;color:white;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Back to ParallaxPro</a>
+    </div>
+    <div id="fps-counter">-- FPS</div>
+    <div id="click-overlay"><div class="click-hint">Click to play — WASD to move, mouse to look</div></div>
+    <div id="game-container"></div>
+    <script type="module" src="/src/everything_game.ts"></script>
+</body>
+</html>

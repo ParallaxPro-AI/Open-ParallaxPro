@@ -43,6 +43,7 @@ export default defineConfig(({ command }) => ({
             input: {
                 main: path.resolve(__dirname, 'index.html'),
                 play: path.resolve(__dirname, 'play.html'),
+                everything_game: path.resolve(__dirname, 'everything_game.html'),
             },
         },
     },
@@ -53,6 +54,8 @@ export default defineConfig(({ command }) => ({
                 server.middlewares.use((req, _res, next) => {
                     if (req.url && /^\/play\//.test(req.url)) {
                         req.url = '/play.html';
+                    } else if (req.url && /^\/everything-game(\/|$|\?)/.test(req.url)) {
+                        req.url = '/everything_game.html';
                     }
                     next();
                 });
