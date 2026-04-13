@@ -61,7 +61,7 @@ export class StreamedProps {
 
     private parentId = -1;
     private worldIndex: Map<string, WorldIndexChunk> | null = null;
-    private chunkSize = 250;
+    private chunkSize = 500;
     private gridX = 0;
     private gridZ = 0;
     private loaded = new Map<string, LoadedChunk>();
@@ -73,7 +73,7 @@ export class StreamedProps {
         this.scene         = scene;
         this.renderSystem  = renderSystem;
         this.assetBasePath = config.assetBasePath.endsWith('/') ? config.assetBasePath : config.assetBasePath + '/';
-        this.loadRadius    = config.loadRadius   ?? 3;
+        this.loadRadius    = config.loadRadius   ?? 2;
         this.unloadRadius  = config.unloadRadius ?? this.loadRadius + 1;
 
         const parent = scene.createEntity('StreamedProps');
@@ -126,7 +126,7 @@ export class StreamedProps {
         try {
             const resp = await fetch(this.assetBasePath + 'world_index.json');
             const data = await resp.json() as WorldIndex;
-            this.chunkSize = data.chunkSize ?? 250;
+            this.chunkSize = data.chunkSize ?? 500;
             this.gridX     = data.chunksX   ?? 0;
             this.gridZ     = data.chunksZ   ?? 0;
             const map = new Map<string, WorldIndexChunk>();

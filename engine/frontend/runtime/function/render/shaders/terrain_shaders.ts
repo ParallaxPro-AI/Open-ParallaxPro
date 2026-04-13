@@ -312,18 +312,18 @@ struct RoadInfo {
 
 fn sampleRoadAtlas(worldPos: vec3<f32>) -> RoadInfo {
     var ri: RoadInfo;
-    let chunkSize = 250.0;
+    let chunkSize = 500.0;
     let chunkX = floor(worldPos.x / chunkSize);
     let chunkZ = floor(worldPos.z / chunkSize);
     let localU = fract(worldPos.x / chunkSize);
     let localV = fract(worldPos.z / chunkSize);
 
-    let nearGrid = 16.0;
+    let nearGrid = 8.0;
     let ntX = ((chunkX % nearGrid) + nearGrid) % nearGrid;
     let ntZ = ((chunkZ % nearGrid) + nearGrid) % nearGrid;
     let nearUV = vec2<f32>((ntX + localU) / nearGrid, (ntZ + localV) / nearGrid);
 
-    let farGrid = 64.0;
+    let farGrid = 32.0;
     let ftX = ((chunkX % farGrid) + farGrid) % farGrid;
     let ftZ = ((chunkZ % farGrid) + farGrid) % farGrid;
     let farUV = vec2<f32>((ftX + localU) / farGrid, (ftZ + localV) / farGrid);

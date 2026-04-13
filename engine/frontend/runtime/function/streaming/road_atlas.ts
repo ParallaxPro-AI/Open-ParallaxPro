@@ -9,9 +9,9 @@
  *   B = sidewalk coverage     (0 outside, 1 on sidewalk)
  *   A = sidewalk edge distance (for curb / gutter detail)
  *
- *   - Near: 8192² atlas, 512² tiles, 16×16 grid (~0.5 m / pixel).
+ *   - Near: 8192² atlas, 1024² tiles, 8×8 grid (~0.5 m / pixel @ 500m chunks).
  *           Populated only for chunks within the "near" ring.
- *   - Far:  8192² atlas, 128² tiles, 64×64 grid (~2 m / pixel).
+ *   - Far:  8192² atlas, 256² tiles, 32×32 grid (~2 m / pixel @ 500m chunks).
  *           Populated for every loaded chunk.
  *
  * Generic: takes placements `{ type, points, width, subtype }` and a
@@ -20,12 +20,12 @@
  */
 
 const NEAR_ATLAS_SIZE = 8192;
-const NEAR_TILE_SIZE = 512;
-const NEAR_GRID = NEAR_ATLAS_SIZE / NEAR_TILE_SIZE; // 16
+const NEAR_TILE_SIZE = 1024;
+const NEAR_GRID = NEAR_ATLAS_SIZE / NEAR_TILE_SIZE; // 8
 
 const FAR_ATLAS_SIZE = 8192;
-const FAR_TILE_SIZE = 128;
-const FAR_GRID = FAR_ATLAS_SIZE / FAR_TILE_SIZE; // 64
+const FAR_TILE_SIZE = 256;
+const FAR_GRID = FAR_ATLAS_SIZE / FAR_TILE_SIZE; // 32
 
 export const NEAR_GRID_DIM = NEAR_GRID;
 export const FAR_GRID_DIM = FAR_GRID;
