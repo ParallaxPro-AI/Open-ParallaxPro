@@ -68,9 +68,9 @@ The **game fixer** is a powerful feature that uses a CLI coding agent to read, a
 
 Currently supported:
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-- [Codex](https://github.com/openai/codex)
 
 Coming soon:
+- [Codex](https://github.com/openai/codex) — integration lands behind a disabled probe; uncomment the codex entry in `engine/backend/src/ws/services/pipeline/cli_availability.ts` to enable. Reasoning latency on a ChatGPT account currently makes it unpleasantly slow for in-editor fixes.
 - [OpenCode](https://github.com/opencode-ai/opencode)
 
 To set up Claude Code:
@@ -80,14 +80,7 @@ npm install -g @anthropic-ai/claude-code
 claude  # Follow auth prompts
 ```
 
-To set up Codex:
-
-```bash
-npm install -g @openai/codex
-codex login  # Follow auth prompts
-```
-
-The backend auto-detects whichever CLIs are on your `PATH` at startup. If both are installed, Claude is the default; you can switch per-project from the editor's Project Settings.
+The backend auto-detects `claude` on your `PATH` at startup.
 
 Install dependencies and start the backend:
 
