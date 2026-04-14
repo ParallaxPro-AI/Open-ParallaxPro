@@ -22,9 +22,18 @@ RUN npm install -g --no-fund --no-audit \
     @anthropic-ai/claude-code \
     @openai/codex
 
-# OpenCode ships its own installer that writes to /root/.opencode/bin.
+# OpenCode ships its own installer that writes to /root/.opencode/bin. Move
+# it to /opt so uid 1001 (the host user we spawn as) can traverse + execute
+# it — /root is 0700 and unreadable to non-root users inside the container.
 RUN curl -fsSL https://opencode.ai/install | bash \
-    && ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode
+    && mv /root/.opencode /opt/opencode \
+    && chmod -R a+rX /opt/opencode \
+    && ln -sf /opt/opencode/bin/opencode /usr/local/bin/opencode
+
+# Reset node base image's entrypoint — docker-entrypoint.sh wraps anything
+# `command -v` can't resolve in `node`, which silently turns our agent
+# invocation into `node opencode ...` → MODULE_NOT_FOUND.
+ENTRYPOINT []
 
 # Container exec runs in the mounted sandbox dir; HOME is set via `-e` at
 # runtime to match the host path so auth mounts resolve correctly.
