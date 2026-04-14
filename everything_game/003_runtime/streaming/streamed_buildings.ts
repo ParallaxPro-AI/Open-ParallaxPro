@@ -72,6 +72,18 @@ interface LoadedChunk {
     gpuMesh: GPUMeshHandle;
 }
 
+interface PendingBuild {
+    cx: number;
+    cz: number;
+    placements: any[];
+}
+
+/** Max chunks built per frame. Building is the expensive half of the
+ *  stream pipeline (geometry extrusion + GPU upload). Even one chunk
+ *  can cost 10–20 ms in a dense city block, so we cap at 1 — trades a
+ *  few frames of "pop-in" latency for smoother motion. */
+const BUILD_BUDGET_PER_FRAME = 1;
+
 export class StreamedBuildings {
     private scene: Scene;
     private renderSystem: RenderSystem;
@@ -88,6 +100,9 @@ export class StreamedBuildings {
     private loaded = new Map<string, LoadedChunk>();
     /** Keys currently being fetched — avoids duplicate in-flight requests. */
     private pending = new Set<string>();
+    /** Fetched chunks awaiting geometry build. Drained at BUILD_BUDGET_PER_FRAME
+     *  per update(), sorted by distance so nearest chunks pop in first. */
+    private pendingBuilds = new Map<string, PendingBuild>();
     private lastCamCX = Number.NaN;
     private lastCamCZ = Number.NaN;
 
@@ -124,35 +139,76 @@ export class StreamedBuildings {
         if (!this.worldIndex) return;
         const cx = Math.floor(camPos.x / this.chunkSize);
         const cz = Math.floor(camPos.z / this.chunkSize);
-        if (cx === this.lastCamCX && cz === this.lastCamCZ) return;
-        this.lastCamCX = cx;
-        this.lastCamCZ = cz;
 
-        // Unload far chunks.
-        const UR = this.unloadRadius;
-        for (const [key, ch] of this.loaded) {
-            const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
-            if (d > UR) this.unloadChunk(key);
+        // Camera-chunk didn't change: skip fetch scheduling, but still drain
+        // the pending-build queue so chunks that finished fetching on earlier
+        // frames continue to materialize.
+        const chunkChanged = cx !== this.lastCamCX || cz !== this.lastCamCZ;
+        if (chunkChanged) {
+            this.lastCamCX = cx;
+            this.lastCamCZ = cz;
+
+            // Unload far chunks.
+            const UR = this.unloadRadius;
+            for (const [key, ch] of this.loaded) {
+                const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
+                if (d > UR) this.unloadChunk(key);
+            }
+            // Drop pending builds that drifted outside unload radius —
+            // avoids a wasted geometry+GPU path for chunks the player
+            // is no longer close to.
+            for (const [key, pb] of this.pendingBuilds) {
+                const d = Math.max(Math.abs(pb.cx - cx), Math.abs(pb.cz - cz));
+                if (d > UR) this.pendingBuilds.delete(key);
+            }
+
+            // Load missing chunks within loadRadius.
+            const R = this.loadRadius;
+            for (let dz = -R; dz <= R; dz++) {
+                for (let dx = -R; dx <= R; dx++) {
+                    const tcx = cx + dx;
+                    const tcz = cz + dz;
+                    if (tcx < 0 || tcz < 0 || tcx >= this.gridX || tcz >= this.gridZ) continue;
+                    const key = `${tcx}_${tcz}`;
+                    if (this.loaded.has(key) || this.pending.has(key) || this.pendingBuilds.has(key)) continue;
+                    if (!this.worldIndex.has(key)) continue;
+                    this.fetchChunk(tcx, tcz, key);
+                }
+            }
         }
 
-        // Load missing chunks within loadRadius.
-        const R = this.loadRadius;
-        for (let dz = -R; dz <= R; dz++) {
-            for (let dx = -R; dx <= R; dx++) {
-                const tcx = cx + dx;
-                const tcz = cz + dz;
-                if (tcx < 0 || tcz < 0 || tcx >= this.gridX || tcz >= this.gridZ) continue;
-                const key = `${tcx}_${tcz}`;
-                if (this.loaded.has(key) || this.pending.has(key)) continue;
-                if (!this.worldIndex.has(key)) continue;
-                this.fetchChunk(tcx, tcz, key);
-            }
+        // Drain up to BUILD_BUDGET_PER_FRAME builds, nearest-first, so the
+        // player always sees the closest geometry pop in before distant
+        // chunks and we never stall the frame with a batch build.
+        this.drainPendingBuilds(cx, cz);
+    }
+
+    private drainPendingBuilds(cx: number, cz: number): void {
+        if (this.pendingBuilds.size === 0) return;
+
+        // Pick the nearest N keys. For small queues a full sort is fine;
+        // for larger ones a partial selection would be cheaper but the
+        // constant factor here is tiny.
+        const entries = Array.from(this.pendingBuilds.entries());
+        entries.sort((a, b) => {
+            const da = Math.max(Math.abs(a[1].cx - cx), Math.abs(a[1].cz - cz));
+            const db = Math.max(Math.abs(b[1].cx - cx), Math.abs(b[1].cz - cz));
+            return da - db;
+        });
+
+        const n = Math.min(BUILD_BUDGET_PER_FRAME, entries.length);
+        for (let i = 0; i < n; i++) {
+            const [key, pb] = entries[i];
+            this.pendingBuilds.delete(key);
+            if (this.loaded.has(key)) continue;
+            this.buildChunk(pb.cx, pb.cz, key, pb.placements);
         }
     }
 
     destroy(): void {
         for (const key of [...this.loaded.keys()]) this.unloadChunk(key);
         this.pending.clear();
+        this.pendingBuilds.clear();
         this.worldIndex = null;
         if (this.parentId >= 0) {
             this.scene.destroyEntity(this.parentId);
@@ -214,7 +270,10 @@ export class StreamedBuildings {
             const d = Math.max(Math.abs(cx - this.lastCamCX), Math.abs(cz - this.lastCamCZ));
             if (d > this.unloadRadius) return;
             if (this.loaded.has(key)) return;
-            this.buildChunk(cx, cz, key, data.placements || []);
+            // Park the parsed placements for the next drain slot instead
+            // of building inline — stops N concurrent fetches from
+            // producing N synchronous builds in the same frame.
+            this.pendingBuilds.set(key, { cx, cz, placements: data.placements || [] });
         } catch (e) {
             this.pending.delete(key);
         }

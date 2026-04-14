@@ -79,8 +79,14 @@ export class StreamedRoads {
     /** Cached raw placements so near↔far transitions don't re-fetch. */
     private placementsCache = new Map<string, any[]>();
     private pending = new Set<string>();
+    /** Chunks whose data has landed but whose atlas tile + decals haven't
+     *  been generated yet. Drained at BUILD_BUDGET_PER_FRAME per update(). */
+    private pendingBuilds = new Map<string, { cx: number; cz: number }>();
     private lastCamCX = Number.NaN;
     private lastCamCZ = Number.NaN;
+
+    /** Budget for atlas rasterization + decal generation per frame. */
+    private static readonly BUILD_BUDGET_PER_FRAME = 1;
 
     constructor(device: GPUDevice, config: StreamedRoadsConfig) {
         this.assetBasePath = config.assetBasePath.endsWith('/') ? config.assetBasePath : config.assetBasePath + '/';
@@ -101,56 +107,98 @@ export class StreamedRoads {
         if (!this.worldIndex) return;
         const cx = Math.floor(camPos.x / this.chunkSize);
         const cz = Math.floor(camPos.z / this.chunkSize);
-        if (cx === this.lastCamCX && cz === this.lastCamCZ) return;
-        this.lastCamCX = cx;
-        this.lastCamCZ = cz;
 
-        // Unload chunks beyond unloadRadius
-        for (const [key, ch] of this.loaded) {
-            const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
-            if (d > this.unloadRadius) {
-                this.atlas.clearTile(ch.cx, ch.cz, ch.isNear);
-                this.loaded.delete(key);
-                this.placementsCache.delete(key);
-            }
-        }
+        const chunkChanged = cx !== this.lastCamCX || cz !== this.lastCamCZ;
+        if (chunkChanged) {
+            this.lastCamCX = cx;
+            this.lastCamCZ = cz;
 
-        // Near/far transitions for chunks still loaded: re-rasterize if
-        // a chunk crossed the near boundary.
-        for (const ch of this.loaded.values()) {
-            const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
-            const shouldBeNear = d <= this.nearRadius;
-            if (shouldBeNear !== ch.isNear) {
-                if (!shouldBeNear) {
-                    // Was near, no longer — clear near atlas tile + free decals
-                    this.atlas.clearTile(ch.cx, ch.cz, true);
-                    ch.decals = undefined;
+            // Unload chunks beyond unloadRadius
+            for (const [key, ch] of this.loaded) {
+                const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
+                if (d > this.unloadRadius) {
+                    this.atlas.clearTile(ch.cx, ch.cz, ch.isNear);
+                    this.loaded.delete(key);
+                    this.placementsCache.delete(key);
                 }
-                ch.isNear = shouldBeNear;
-                const placements = this.placementsCache.get(`${ch.cx}_${ch.cz}`);
-                if (placements) {
-                    this.atlas.updateTile(ch.cx, ch.cz, placements, this.chunkSize, shouldBeNear);
-                    if (shouldBeNear && !ch.decals) {
-                        ch.decals = generateLaneMarkingDecals(
-                            placements, null, this.getNeighborPlacements(ch.cx, ch.cz),
-                        );
+            }
+            // Drop pending builds that drifted outside unload radius.
+            for (const [key, pb] of this.pendingBuilds) {
+                const d = Math.max(Math.abs(pb.cx - cx), Math.abs(pb.cz - cz));
+                if (d > this.unloadRadius) {
+                    this.pendingBuilds.delete(key);
+                    this.placementsCache.delete(key);
+                }
+            }
+
+            // Near/far transitions for chunks still loaded: re-rasterize if
+            // a chunk crossed the near boundary.
+            for (const ch of this.loaded.values()) {
+                const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
+                const shouldBeNear = d <= this.nearRadius;
+                if (shouldBeNear !== ch.isNear) {
+                    if (!shouldBeNear) {
+                        // Was near, no longer — clear near atlas tile + free decals
+                        this.atlas.clearTile(ch.cx, ch.cz, true);
+                        ch.decals = undefined;
+                    }
+                    ch.isNear = shouldBeNear;
+                    const placements = this.placementsCache.get(`${ch.cx}_${ch.cz}`);
+                    if (placements) {
+                        this.atlas.updateTile(ch.cx, ch.cz, placements, this.chunkSize, shouldBeNear);
+                        if (shouldBeNear && !ch.decals) {
+                            ch.decals = generateLaneMarkingDecals(
+                                placements, null, this.getNeighborPlacements(ch.cx, ch.cz),
+                            );
+                        }
                     }
                 }
             }
+
+            // Load missing chunks within farRadius
+            const R = this.farRadius;
+            for (let dz = -R; dz <= R; dz++) {
+                for (let dx = -R; dx <= R; dx++) {
+                    const tcx = cx + dx;
+                    const tcz = cz + dz;
+                    if (tcx < 0 || tcz < 0 || tcx >= this.gridX || tcz >= this.gridZ) continue;
+                    const key = `${tcx}_${tcz}`;
+                    if (this.loaded.has(key) || this.pending.has(key) || this.pendingBuilds.has(key)) continue;
+                    if (!this.worldIndex.has(key)) continue;
+                    this.fetchChunk(tcx, tcz, key);
+                }
+            }
         }
 
-        // Load missing chunks within farRadius
-        const R = this.farRadius;
-        for (let dz = -R; dz <= R; dz++) {
-            for (let dx = -R; dx <= R; dx++) {
-                const tcx = cx + dx;
-                const tcz = cz + dz;
-                if (tcx < 0 || tcz < 0 || tcx >= this.gridX || tcz >= this.gridZ) continue;
-                const key = `${tcx}_${tcz}`;
-                if (this.loaded.has(key) || this.pending.has(key)) continue;
-                if (!this.worldIndex.has(key)) continue;
-                this.fetchChunk(tcx, tcz, key);
+        this.drainPendingBuilds(cx, cz);
+    }
+
+    private drainPendingBuilds(cx: number, cz: number): void {
+        if (this.pendingBuilds.size === 0) return;
+        const entries = Array.from(this.pendingBuilds.entries());
+        entries.sort((a, b) => {
+            const da = Math.max(Math.abs(a[1].cx - cx), Math.abs(a[1].cz - cz));
+            const db = Math.max(Math.abs(b[1].cx - cx), Math.abs(b[1].cz - cz));
+            return da - db;
+        });
+        const n = Math.min(StreamedRoads.BUILD_BUDGET_PER_FRAME, entries.length);
+        for (let i = 0; i < n; i++) {
+            const [key, pb] = entries[i];
+            this.pendingBuilds.delete(key);
+            if (this.loaded.has(key)) continue;
+            const placements = this.placementsCache.get(key);
+            if (!placements) continue;
+
+            const d = Math.max(Math.abs(pb.cx - cx), Math.abs(pb.cz - cz));
+            const isNear = d <= this.nearRadius;
+            this.atlas.updateTile(pb.cx, pb.cz, placements, this.chunkSize, isNear);
+            const ch: LoadedChunk = { cx: pb.cx, cz: pb.cz, isNear };
+            if (isNear) {
+                ch.decals = generateLaneMarkingDecals(
+                    placements, null, this.getNeighborPlacements(pb.cx, pb.cz),
+                );
             }
+            this.loaded.set(key, ch);
         }
     }
 
@@ -158,6 +206,7 @@ export class StreamedRoads {
         this.loaded.clear();
         this.placementsCache.clear();
         this.pending.clear();
+        this.pendingBuilds.clear();
         this.worldIndex = null;
         this.atlas.destroy();
     }
@@ -191,20 +240,14 @@ export class StreamedRoads {
             if (d > this.unloadRadius) return;
             if (this.loaded.has(key)) return;
 
-            // Keep only road + railway placements to bound cache memory
+            // Keep only road + railway placements to bound cache memory.
+            // Filter is cheap enough to run here so near/far transitions
+            // have placementsCache available while the heavy atlas rasterization
+            // waits its turn in the drain queue.
             const all = data.placements || [];
             const roadsOnly = all.filter((p: any) => p.type === 'road' || p.type === 'railway');
             this.placementsCache.set(key, roadsOnly);
-
-            const isNear = d <= this.nearRadius;
-            this.atlas.updateTile(cx, cz, roadsOnly, this.chunkSize, isNear);
-            const ch: LoadedChunk = { cx, cz, isNear };
-            if (isNear) {
-                ch.decals = generateLaneMarkingDecals(
-                    roadsOnly, null, this.getNeighborPlacements(cx, cz),
-                );
-            }
-            this.loaded.set(key, ch);
+            this.pendingBuilds.set(key, { cx, cz });
         } catch (e) {
             this.pending.delete(key);
         }
