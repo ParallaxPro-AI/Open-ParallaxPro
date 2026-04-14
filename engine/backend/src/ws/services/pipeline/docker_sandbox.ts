@@ -55,12 +55,16 @@ const AUTH_DIRS: Record<AgentId, string[]> = {
         path.join(HOME, '.config', 'claude'),
     ],
     codex: [path.join(HOME, '.codex')],
-    // opencode splits state across ~/.opencode (install + plugins) and
-    // ~/.local/share/opencode (auth.json + SQLite DB). Both must be
-    // writable inside the container for `opencode run` to work.
+    // opencode splits state across three dirs:
+    //   ~/.opencode                    — install + plugins
+    //   ~/.local/share/opencode        — auth.json + SQLite DB
+    //   ~/.local/state/opencode        — selected/recent model (model.json)
+    // All three must be visible inside the container so `opencode run`
+    // authenticates, writes sessions, and picks the user's chosen model.
     opencode: [
         path.join(HOME, '.opencode'),
         path.join(HOME, '.local', 'share', 'opencode'),
+        path.join(HOME, '.local', 'state', 'opencode'),
     ],
 };
 
