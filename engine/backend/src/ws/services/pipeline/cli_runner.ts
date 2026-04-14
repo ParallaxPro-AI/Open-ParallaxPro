@@ -14,6 +14,7 @@
 
 import { spawn } from 'child_process';
 import { config } from '../../../config.js';
+import { getAvailableAgents } from './cli_availability.js';
 
 export interface CLIRunResult {
     /** Final agent message — shown to the user as the summary. */
@@ -42,18 +43,31 @@ export interface SpawnOptions {
     sendStatus?: (msg: string) => void;
     abortSignal?: AbortSignal;
     /**
-     * Override which CLI to use for this one call. Defaults to `config.fixer.cli`.
-     * Accepts 'claude' | 'codex'. Used when the editor picks a specific agent
-     * for a message instead of the configured default.
+     * Override which CLI to use for this one call. Accepts 'claude' | 'codex'.
+     * When unset, falls back to the first CLI detected at startup
+     * (claude preferred, codex second).
      */
     cliOverride?: string;
 }
 
+/**
+ * Pick the CLI for this call. Preference order:
+ *   1. Explicit `cliOverride` if set (per-message pick / per-project setting).
+ *   2. First agent detected at startup — `PROBES` orders claude before codex,
+ *      so claude wins whenever it's installed.
+ * Throws if nothing is installed.
+ */
+function resolveCLI(cliOverride?: string): 'claude' | 'codex' {
+    if (cliOverride === 'claude' || cliOverride === 'codex') return cliOverride;
+    const first = getAvailableAgents()[0];
+    if (!first) throw new Error('No editing agent CLI is installed. Install claude-code or codex and restart the backend.');
+    return first.id;
+}
+
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
-    const cli = opts.cliOverride || config.fixer.cli;
+    const cli = resolveCLI(opts.cliOverride);
     if (cli === 'claude') return spawnClaude(opts);
-    if (cli === 'codex') return spawnCodex(opts);
-    throw new Error(`Fixer CLI "${cli}" is not supported. Set FIXER_CLI=claude or FIXER_CLI=codex in .env`);
+    return spawnCodex(opts);
 }
 
 // ─── Claude ─────────────────────────────────────────────────────────────────

@@ -23,9 +23,8 @@ export interface ProjectData {
         /**
          * Which CLI fixer agent runs when the AI decides to escalate a request
          * (via the LLM's FIX_GAME tool call). 'claude' | 'codex'. Optional —
-         * missing means "use server default" (`config.fixer.cli`). Only one
-         * value is ever set at a time; the picker in the editor surfaces only
-         * the installed CLIs.
+         * missing means "use the first installed CLI" (claude preferred). The
+         * picker in the editor surfaces only the installed CLIs.
          */
         editingAgent?: string;
     };
