@@ -297,12 +297,12 @@ const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Read CO
 
 function fixerStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {
-        case 'read': return 'Analyzing game code...';
-        case 'edit': return 'Applying fix...';
-        case 'write': return 'Creating new file...';
+        case 'read': return 'Reading project files...';
+        case 'edit': return 'Editing files...';
+        case 'write': return 'Creating new files...';
         case 'bash': return 'Running validation...';
-        case 'search': return 'Searching for relevant code...';
-        case 'other': return 'Working...';
+        case 'search': return 'Searching project...';
+        case 'other': return 'Thinking...';
     }
 }
 
