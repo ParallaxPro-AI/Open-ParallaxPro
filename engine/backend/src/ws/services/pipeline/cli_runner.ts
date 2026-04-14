@@ -15,6 +15,7 @@
 import { spawn } from 'child_process';
 import { config } from '../../../config.js';
 import { getAvailableAgents } from './cli_availability.js';
+import { wrapSpawn } from './docker_sandbox.js';
 
 export interface CLIRunResult {
     /** Final agent message — shown to the user as the summary. */
@@ -86,7 +87,8 @@ function spawnClaude(opts: SpawnOptions): Promise<CLIRunResult> {
             '--max-turns', String(opts.maxTurns),
         ];
 
-        const proc = spawn('claude', args, {
+        const { command, args: spawnArgs } = wrapSpawn('claude', 'claude', args, opts.sandboxDir);
+        const proc = spawn(command, spawnArgs, {
             cwd: opts.sandboxDir,
             timeout: config.fixer.timeout,
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -166,7 +168,8 @@ function spawnCodex(opts: SpawnOptions): Promise<CLIRunResult> {
             opts.prompt,
         ];
 
-        const proc = spawn('codex', args, {
+        const { command, args: spawnArgs } = wrapSpawn('codex', 'codex', args, opts.sandboxDir);
+        const proc = spawn(command, spawnArgs, {
             cwd: opts.sandboxDir,
             timeout: config.fixer.timeout,
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -280,7 +283,8 @@ function spawnOpenCode(opts: SpawnOptions): Promise<CLIRunResult> {
             opts.prompt,
         ];
 
-        const proc = spawn('opencode', args, {
+        const { command, args: spawnArgs } = wrapSpawn('opencode', 'opencode', args, opts.sandboxDir);
+        const proc = spawn(command, spawnArgs, {
             cwd: opts.sandboxDir,
             timeout: config.fixer.timeout,
             stdio: ['ignore', 'pipe', 'pipe'],

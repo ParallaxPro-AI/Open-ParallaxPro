@@ -165,6 +165,16 @@ export async function startEngine(server: http.Server, plugins: EnginePlugin[] =
                 detectAgents();
             });
 
+            // If DOCKER_SANDBOX=1, confirm docker + the sandbox image are
+            // available and log the outcome so misconfigurations don't go
+            // unnoticed (the fixer still runs unsandboxed if probe fails).
+            import('./ws/services/pipeline/docker_sandbox.js').then(({ isDockerSandboxEnabled, probeDockerSandbox }) => {
+                if (!isDockerSandboxEnabled()) return;
+                const r = probeDockerSandbox();
+                if (r.ok) console.log(`[Sandbox] ${r.reason}`);
+                else console.warn(`[Sandbox] DOCKER_SANDBOX=1 but sandbox unavailable: ${r.reason}. Falling back to unsandboxed spawns.`);
+            });
+
             // Validate all game templates at startup
             import('./ws/services/pipeline/template_loader.js').then(({ loadTemplateCatalog, loadTemplate }) => {
                 import('./ws/services/pipeline/level_assembler.js').then(({ assembleGame }) => {

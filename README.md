@@ -82,6 +82,14 @@ Install one or more of them and the backend will auto-detect them at startup. If
 > This means the agent has the **same filesystem and network permissions as the backend process** — it can read anything the user running the backend can read (`~/.ssh`, `~/.env`, other projects, etc.) and write anywhere that user can write.
 >
 > **Do not run the backend on a host with secrets you don't want an LLM to see.** Treat running the editor like running `curl | bash` from the internet — you're trusting the agent's code actions and its model provider.
+>
+> **Docker sandbox (opt-in):** set `DOCKER_SANDBOX=1` to run every CLI invocation inside an ephemeral Docker container so the agent only sees its per-fix sandbox dir and its own auth dir — nothing else on your filesystem. Requires Docker on the host plus a one-time image build:
+>
+> ```bash
+> docker build -t parallaxpro/agent-sandbox engine/backend/docker/agent-sandbox
+> ```
+>
+> Recommended for any host where you care about file isolation from the agent (personal laptop with other projects and secrets, shared workstations, multi-tenant deployments, etc.). It's off by default so the engine works out of the box without a Docker dependency.
 
 To set up Claude Code:
 
