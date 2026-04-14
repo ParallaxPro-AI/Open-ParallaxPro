@@ -27,7 +27,7 @@
     "gameplay": {
       "description": "Explore the heightmap-backed world on foot.",
       "active_systems": [],
-      "active_behaviors": ["third_person_movement", "camera_third_person"],
+      "active_behaviors": ["superman_movement", "camera_third_person"],
       "duration": -1,
       "on_enter": ["emit:game.game_ready"],
       "on_exit": [],

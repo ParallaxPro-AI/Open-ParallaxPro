@@ -29,21 +29,16 @@
         "scale": [0.4, 0.4, 0.4],
         "modelRotationY": 180
       },
-      "physics": {
-        "type": "dynamic",
-        "mass": 75,
-        "freeze_rotation": true,
-        "collider": "capsule"
-      },
+      "physics": false,
       "tags": ["player"],
       "behaviors": [
         {
-          "name": "third_person_movement",
-          "script": "movement/third_person_movement.ts",
+          "name": "superman_movement",
+          "script": "movement/superman_movement.ts",
           "params": {
-            "speed": 5,
-            "sprintSpeed": 9,
-            "jumpForce": 6
+            "speed": 20,
+            "sprintSpeed": 60,
+            "verticalSpeed": 15
           }
         }
       ]
