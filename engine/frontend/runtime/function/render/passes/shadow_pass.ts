@@ -3,6 +3,7 @@ import { Mat4 } from '../../../core/math/mat4.js';
 import { GPUResourceManager } from '../gpu_resource_manager.js';
 import { ShaderLibrary } from '../shader_library.js';
 import { RenderScene, RenderMeshInstance, RenderCamera } from '../render_scene.js';
+import { RenderStats } from '../render_stats.js';
 
 const SHADOW_MAP_SIZE = 1024;
 const NUM_CASCADES = 4;
@@ -22,6 +23,9 @@ const CASCADE_SPLIT_LAMBDA = 0.75;
  * ones.
  */
 export class ShadowPass {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private resources: GPUResourceManager | null = null;
     private pipeline: GPURenderPipeline | null = null;
@@ -234,12 +238,9 @@ export class ShadowPass {
                 }
 
                 renderPass.setBindGroup(1, meshBindGroups[i]!);
-                renderPass.drawIndexed(
-                    mesh.drawIndexCount ?? mesh.meshHandle.indexCount,
-                    1,
-                    mesh.firstIndex ?? 0,
-                    0, 0
-                );
+                const idxCount = mesh.drawIndexCount ?? mesh.meshHandle.indexCount;
+                renderPass.drawIndexed(idxCount, 1, mesh.firstIndex ?? 0, 0, 0);
+                this.stats?.addDraw(idxCount / 3);
             }
 
             renderPass.end();

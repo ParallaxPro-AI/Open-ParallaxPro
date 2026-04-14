@@ -1,6 +1,7 @@
 import { Vec3 } from '../../core/math/vec3.js';
 import { GPUResourceManager } from './gpu_resource_manager.js';
 import { ShaderLibrary } from './shader_library.js';
+import { RenderStats } from './render_stats.js';
 
 interface DebugVertex {
     x: number;
@@ -19,6 +20,9 @@ const VERTEX_STRIDE = 7 * 4; // 28 bytes: position(3) + color(4)
  * Lines and triangles are collected during the frame and flushed in a single draw call each.
  */
 export class DebugRenderer {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private linePipeline: GPURenderPipeline | null = null;
     private triPipeline: GPURenderPipeline | null = null;
@@ -213,6 +217,7 @@ export class DebugRenderer {
             triPass.setVertexBuffer(0, this.triVertexBuffer);
             triPass.draw(this.triVertices.length);
             triPass.end();
+            this.stats?.addDraw(this.triVertices.length / 3);
         }
 
         // Then flush lines on top
@@ -230,6 +235,8 @@ export class DebugRenderer {
             linePass.setVertexBuffer(0, this.lineVertexBuffer);
             linePass.draw(this.lineVertices.length);
             linePass.end();
+            // Count lines as "0 triangles" — they aren't triangles but the call matters.
+            this.stats?.addDraw(0);
         }
 
         this.lineVertices.length = 0;

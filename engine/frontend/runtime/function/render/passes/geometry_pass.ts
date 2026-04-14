@@ -2,6 +2,7 @@ import { Mat4 } from '../../../core/math/mat4.js';
 import { GPUResourceManager } from '../gpu_resource_manager.js';
 import { ShaderLibrary, CAMERA_UNIFORM_SIZE, MODEL_UNIFORM_SIZE, MATERIAL_UNIFORM_SIZE, LIGHT_UNIFORM_SIZE } from '../shader_library.js';
 import { RenderScene, RenderMeshInstance, RenderCamera } from '../render_scene.js';
+import { RenderStats } from '../render_stats.js';
 
 export type GraphicsQuality = 'low' | 'medium' | 'high';
 
@@ -11,6 +12,9 @@ export type GraphicsQuality = 'low' | 'medium' | 'high';
  * and alpha-blended transparency.
  */
 export class GeometryPass {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private resources: GPUResourceManager | null = null;
     private canvasFormat: GPUTextureFormat = 'bgra8unorm';
@@ -989,7 +993,10 @@ export class GeometryPass {
                     ? (this.buildingMaterialBindGroup || this.getMaterialBindGroup(mesh))
                     : this.getMaterialBindGroup(mesh));
             renderPass.setBindGroup(2, materialBindGroup);
-            renderPass.drawIndexed(mesh.drawIndexCount ?? mesh.meshHandle.indexCount, 1, mesh.firstIndex ?? 0, 0, 0);
+            const idxCount = mesh.drawIndexCount ?? mesh.meshHandle.indexCount;
+            renderPass.drawIndexed(idxCount, 1, mesh.firstIndex ?? 0, 0, 0);
+            this.stats?.addDraw(idxCount / 3);
+            this.stats?.addMeshRendered();
         }
     }
 

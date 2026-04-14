@@ -11,6 +11,7 @@ import { BloomPass } from './passes/bloom_pass.js';
 import { DecalPass } from './passes/decal_pass.js';
 import { DebugRenderer } from './debug_renderer.js';
 import { ParticleRenderer, ParticleRenderData } from './particle_renderer.js';
+import { RenderStats } from './render_stats.js';
 
 /**
  * Orchestrates render passes based on graphics quality.
@@ -38,6 +39,46 @@ export class RenderPipeline {
 
     private ssrOutputTexture: GPUTexture | null = null;
     private ssrOutputTextureView: GPUTextureView | null = null;
+    private stats = new RenderStats();
+
+    // ── Per-pass rolling CPU submit timings (proxy for GPU cost) ────────
+    // WebGPU's `timestamp-query` feature would give true GPU durations, but
+    // wiring it requires editing every pass's beginRenderPass descriptor.
+    // For V1 we record the CPU time spent assembling + submitting each pass
+    // as a rough proxy, labeled accordingly in the profiler panel.
+    private readonly GPU_RING = 60;
+    private passHistory: Map<string, { samples: Float32Array; index: number; fill: number }> = new Map();
+
+    getStats(): RenderStats { return this.stats; }
+
+    getPassTimings(): Array<{ name: string; avgMs: number; maxMs: number }> {
+        const out: Array<{ name: string; avgMs: number; maxMs: number }> = [];
+        for (const [name, h] of this.passHistory) {
+            if (h.fill === 0) continue;
+            let sum = 0, max = 0;
+            for (let i = 0; i < h.fill; i++) {
+                const v = h.samples[i];
+                sum += v;
+                if (v > max) max = v;
+            }
+            out.push({ name, avgMs: sum / h.fill, maxMs: max });
+        }
+        return out;
+    }
+
+    private timedPass(name: string, fn: () => void): void {
+        const t0 = performance.now();
+        fn();
+        const elapsed = performance.now() - t0;
+        let h = this.passHistory.get(name);
+        if (!h) {
+            h = { samples: new Float32Array(this.GPU_RING), index: 0, fill: 0 };
+            this.passHistory.set(name, h);
+        }
+        h.samples[h.index] = elapsed;
+        h.index = (h.index + 1) % this.GPU_RING;
+        h.fill = Math.min(h.fill + 1, this.GPU_RING);
+    }
 
     initialize(
         device: GPUDevice,
@@ -78,6 +119,18 @@ export class RenderPipeline {
         }
 
         this.recreateSSROutputTexture(width, height);
+
+        // Give every pass a shared counter bag to bump during execute().
+        this.geometryPass.setStats(this.stats);
+        this.shadowPass.setStats(this.stats);
+        this.fxaaPass.setStats(this.stats);
+        this.hbaoPass.setStats(this.stats);
+        this.ssrPass.setStats(this.stats);
+        this.skyboxPass.setStats(this.stats);
+        this.bloomPass.setStats(this.stats);
+        this.decalPass.setStats(this.stats);
+        this.debugRenderer.setStats(this.stats);
+        // Particle renderer is owned by RenderSystem — it's wired separately.
     }
 
     setGraphicsQuality(quality: GraphicsQuality): void {
@@ -87,6 +140,9 @@ export class RenderPipeline {
 
     render(scene: RenderScene, particleRenderer?: ParticleRenderer, particleData?: ParticleRenderData[]): void {
         if (!this.device || !this.context) return;
+
+        this.stats.reset();
+        this.stats.meshesTotal = scene.meshes.length;
 
         const textureView = this.context.getCurrentTexture().createView();
         const commandEncoder = this.device.createCommandEncoder({ label: 'frame_command_encoder' });
@@ -176,117 +232,102 @@ export class RenderPipeline {
     private renderLow(commandEncoder: GPUCommandEncoder, textureView: GPUTextureView, scene: RenderScene): void {
         // No shadows on low quality
         this.geometryPass.setShadowMap(null, [], [], 1);
-        this.geometryPass.execute(commandEncoder, textureView, scene);
+        this.timedPass('geometry', () => this.geometryPass.execute(commandEncoder, textureView, scene));
 
         const offscreenView = this.geometryPass.getOffscreenColorTextureView();
         const normalDepthView = this.geometryPass.getNormalDepthTextureView();
 
-        // Decals (after geometry, before skybox)
         if (offscreenView && normalDepthView && scene.camera && scene.decals.length > 0) {
-            this.decalPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera, scene.decals);
+            this.timedPass('decal', () => this.decalPass.execute(commandEncoder, offscreenView!, normalDepthView!, scene.camera!, scene.decals));
         }
 
         if (offscreenView && normalDepthView && scene.camera) {
-            this.skyboxPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera, scene.timeOfDay);
+            this.timedPass('skybox', () => this.skyboxPass.execute(commandEncoder, offscreenView!, normalDepthView!, scene.camera!, scene.timeOfDay));
         }
 
         const skyboxOutput = this.skyboxPass.getOutputTextureView();
         const blitInput = skyboxOutput ?? offscreenView;
         if (blitInput) {
-            this.fxaaPass.execute(commandEncoder, textureView, blitInput);
+            this.timedPass('fxaa', () => this.fxaaPass.execute(commandEncoder, textureView, blitInput));
         }
     }
 
     private renderMedium(commandEncoder: GPUCommandEncoder, textureView: GPUTextureView, scene: RenderScene): void {
-        // 1. Shadow pass (cascaded)
-        this.shadowPass.execute(commandEncoder, scene);
+        this.timedPass('shadow', () => this.shadowPass.execute(commandEncoder, scene));
         const shadowView = this.shadowPass.getDepthArrayTextureView();
         const cascadeMatrices = this.shadowPass.getLightSpaceMatrices();
         const cascadeSplits = this.shadowPass.getCascadeSplits();
         const shadowMapSize = this.shadowPass.getShadowMapSize();
         this.geometryPass.setShadowMap(shadowView, cascadeMatrices, cascadeSplits, shadowMapSize);
 
-        // 2. Geometry (MRT: color + normal/depth)
-        this.geometryPass.execute(commandEncoder, textureView, scene);
+        this.timedPass('geometry', () => this.geometryPass.execute(commandEncoder, textureView, scene));
 
         const offscreenView = this.geometryPass.getOffscreenColorTextureView();
         const normalDepthView = this.geometryPass.getNormalDepthTextureView();
 
-        // 2.5. Decals (after geometry, before post-processing)
         if (offscreenView && normalDepthView && scene.camera && scene.decals.length > 0) {
-            this.decalPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera, scene.decals);
+            this.timedPass('decal', () => this.decalPass.execute(commandEncoder, offscreenView!, normalDepthView!, scene.camera!, scene.decals));
         }
 
-        // 3. HBAO
         if (offscreenView && normalDepthView && scene.camera) {
-            this.hbaoPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera);
+            this.timedPass('hbao', () => this.hbaoPass.execute(commandEncoder, offscreenView!, normalDepthView!, scene.camera!));
         }
 
-        // 4. Skybox
         const hbaoOutput = this.hbaoPass.getOutputTextureView();
         const skyboxInput = hbaoOutput ?? offscreenView;
         if (skyboxInput && normalDepthView && scene.camera) {
-            this.skyboxPass.execute(commandEncoder, skyboxInput, normalDepthView, scene.camera, scene.timeOfDay);
+            this.timedPass('skybox', () => this.skyboxPass.execute(commandEncoder, skyboxInput!, normalDepthView!, scene.camera!, scene.timeOfDay));
         }
 
-        // 5. FXAA to swapchain
         const skyboxOutput = this.skyboxPass.getOutputTextureView();
         const fxaaInput = skyboxOutput ?? hbaoOutput ?? offscreenView;
         if (fxaaInput) {
-            this.fxaaPass.execute(commandEncoder, textureView, fxaaInput);
+            this.timedPass('fxaa', () => this.fxaaPass.execute(commandEncoder, textureView, fxaaInput));
         }
     }
 
     private renderHigh(commandEncoder: GPUCommandEncoder, textureView: GPUTextureView, scene: RenderScene): void {
-        // 1. Shadow pass (cascaded)
-        this.shadowPass.execute(commandEncoder, scene);
+        this.timedPass('shadow', () => this.shadowPass.execute(commandEncoder, scene));
         const shadowView = this.shadowPass.getDepthArrayTextureView();
         const cascadeMatrices = this.shadowPass.getLightSpaceMatrices();
         const cascadeSplits = this.shadowPass.getCascadeSplits();
         const shadowMapSize = this.shadowPass.getShadowMapSize();
         this.geometryPass.setShadowMap(shadowView, cascadeMatrices, cascadeSplits, shadowMapSize);
 
-        // 2. Geometry pass (MSAA + MRT)
-        this.geometryPass.execute(commandEncoder, textureView, scene);
+        this.timedPass('geometry', () => this.geometryPass.execute(commandEncoder, textureView, scene));
 
         const offscreenView = this.geometryPass.getOffscreenColorTextureView();
         const normalDepthView = this.geometryPass.getNormalDepthTextureView();
 
-        // 2.5. Decals (after MSAA resolve, before post-processing)
         if (offscreenView && normalDepthView && scene.camera && scene.decals.length > 0) {
-            this.decalPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera, scene.decals);
+            this.timedPass('decal', () => this.decalPass.execute(commandEncoder, offscreenView!, normalDepthView!, scene.camera!, scene.decals));
         }
 
-        // 3. HBAO
         if (offscreenView && normalDepthView && scene.camera) {
-            this.hbaoPass.execute(commandEncoder, offscreenView, normalDepthView, scene.camera);
+            this.timedPass('hbao', () => this.hbaoPass.execute(commandEncoder, offscreenView!, normalDepthView!, scene.camera!));
         }
 
-        // 4. Skybox
         const hbaoOutput = this.hbaoPass.getOutputTextureView();
         const skyboxInput = hbaoOutput ?? offscreenView;
         if (skyboxInput && normalDepthView && scene.camera) {
-            this.skyboxPass.execute(commandEncoder, skyboxInput, normalDepthView, scene.camera, scene.timeOfDay);
+            this.timedPass('skybox', () => this.skyboxPass.execute(commandEncoder, skyboxInput!, normalDepthView!, scene.camera!, scene.timeOfDay));
         }
 
-        // 5. SSR
         const skyboxOutput = this.skyboxPass.getOutputTextureView();
         const ssrInput = skyboxOutput ?? hbaoOutput ?? offscreenView;
         if (ssrInput && normalDepthView && scene.camera && this.ssrOutputTextureView) {
-            this.ssrPass.execute(commandEncoder, this.ssrOutputTextureView, ssrInput, normalDepthView, scene.camera);
+            this.timedPass('ssr', () => this.ssrPass.execute(commandEncoder, this.ssrOutputTextureView!, ssrInput!, normalDepthView!, scene.camera!));
         }
 
-        // 6. Bloom
         const bloomInput = this.ssrOutputTextureView ?? ssrInput;
         if (bloomInput) {
-            this.bloomPass.execute(commandEncoder, bloomInput);
+            this.timedPass('bloom', () => this.bloomPass.execute(commandEncoder, bloomInput!));
         }
 
-        // 7. FXAA to swapchain
         const bloomOutput = this.bloomPass.getOutputTextureView();
         const fxaaInput = bloomOutput ?? this.ssrOutputTextureView ?? ssrInput;
         if (fxaaInput) {
-            this.fxaaPass.execute(commandEncoder, textureView, fxaaInput);
+            this.timedPass('fxaa', () => this.fxaaPass.execute(commandEncoder, textureView, fxaaInput));
         }
     }
 }

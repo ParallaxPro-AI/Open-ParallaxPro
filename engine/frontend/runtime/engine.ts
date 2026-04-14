@@ -1,11 +1,33 @@
 import { RuntimeGlobalContext } from './function/global/global_context.js';
 import { Scene } from './function/framework/scene.js';
+import { PerfRecorder, PerfSnapshotCore } from './function/profiling/perf_recorder.js';
+
+export interface PerfSnapshot extends PerfSnapshotCore {
+    fps: number;
+    scripts: Array<{ name: string; totalMs: number; calls: number }>;
+    gpu: {
+        supported: boolean;
+        passes: Array<{ name: string; avgMs: number; maxMs: number }>;
+    };
+    renderer: {
+        drawCalls: number;
+        triangles: number;
+        meshesRendered: number;
+        meshesTotal: number;
+    };
+    counts: {
+        entities: number;
+        scripts: number;
+        meshes: number;
+    };
+}
 
 export class ParallaxEngine {
     globalContext: RuntimeGlobalContext = new RuntimeGlobalContext();
     isQuit: boolean = false;
     isRunning: boolean = false;
     isEditorMode: boolean = false;
+    readonly perf: PerfRecorder = new PerfRecorder();
 
     private lastTimestamp: number = 0;
     private fps: number = 0;
@@ -128,23 +150,29 @@ export class ParallaxEngine {
     tickOneFrame(deltaTime: number): void {
         const ctx = this.globalContext;
         const gameMode = !this.isEditorMode;
+        const perf = this.perf;
 
-        // 1. Input
+        perf.beginFrame();
+
+        perf.beginPhase('input');
         ctx.inputSystem.tick();
+        perf.endPhase();
 
-        // 2. Network
         if (gameMode) {
+            perf.beginPhase('network');
             ctx.networkSystem.tick(deltaTime);
+            perf.endPhase();
         }
 
-        // 3. Scripts update
         if (gameMode) {
+            perf.beginPhase('scripts.update');
             ctx.scriptSystem.setTimeInfo(this.totalTime, deltaTime, this.frameCount);
             ctx.scriptSystem.tickUpdate();
+            perf.endPhase();
         }
 
-        // 4. Physics + fixed update
         if (gameMode) {
+            perf.beginPhase('physics');
             try {
                 const physicsSteps = ctx.physicsSystem.tick(deltaTime, this.activeScene);
 
@@ -162,12 +190,11 @@ export class ParallaxEngine {
             } catch (e) {
                 console.error('[Engine] Physics tick error:', e);
             }
+            perf.endPhase();
         }
 
-        // 5. Animation
+        perf.beginPhase('animation');
         ctx.animationSystem.tick(deltaTime);
-
-        // 5.1 Tick ECS AnimatorComponents and update GPU joint matrices
         if (this.activeScene) {
             for (const entity of this.activeScene.entities.values()) {
                 if (!entity.active) continue;
@@ -181,8 +208,9 @@ export class ParallaxEngine {
                 }
             }
         }
+        perf.endPhase();
 
-        // 5.5 Post-animation callbacks (CPU skinning)
+        perf.beginPhase('post-animation');
         for (const callback of this.postAnimationCallbacks) {
             try {
                 callback(deltaTime);
@@ -190,21 +218,25 @@ export class ParallaxEngine {
                 console.error('[Engine] Post-animation callback error:', e);
             }
         }
+        perf.endPhase();
 
-        // 6. Scripts late update
         if (gameMode) {
+            perf.beginPhase('scripts.lateUpdate');
             ctx.scriptSystem.tickLateUpdate();
+            perf.endPhase();
         }
 
-        // 6.5 Particle systems
+        perf.beginPhase('particles');
         if (this.activeScene) {
             this.activeScene.tickParticles(deltaTime);
         }
+        perf.endPhase();
 
-        // 7. World manager
+        perf.beginPhase('worldManager');
         ctx.worldManager.tick(deltaTime);
+        perf.endPhase();
 
-        // 7.5. Day/Night cycle
+        // Day/Night is trivial (arithmetic only) — fold into worldManager phase.
         if (gameMode && this.activeScene) {
             const env = this.activeScene.environment;
             if (env.dayNightCycleSpeed > 0) {
@@ -214,15 +246,17 @@ export class ParallaxEngine {
             }
         }
 
-        // 8. Audio
         if (gameMode) {
+            perf.beginPhase('audio');
             ctx.audioSystem.tick(deltaTime);
+            perf.endPhase();
         }
 
-        // 9. Render
+        perf.beginPhase('render');
         ctx.renderSystem.tick(deltaTime, this.activeScene);
+        perf.endPhase();
 
-        // 10. Post-render callbacks
+        perf.beginPhase('post-render');
         for (const callback of this.postRenderCallbacks) {
             try {
                 callback();
@@ -230,12 +264,12 @@ export class ParallaxEngine {
                 console.error('[Engine] Post-render callback error:', e);
             }
         }
+        perf.endPhase();
 
-        // 11. FPS calculation
         this.calculateFPS(deltaTime);
-
-        // 12. Input endFrame
         ctx.inputSystem.endFrame();
+
+        perf.endFrame();
     }
 
     private calculateFPS(deltaTime: number): void {
@@ -249,6 +283,44 @@ export class ParallaxEngine {
     getFPS(): number { return this.fps; }
     getTotalTime(): number { return this.totalTime; }
     getFrameCount(): number { return this.frameCount; }
+
+    /**
+     * Produce a rolling-window snapshot of engine performance for the
+     * editor's Performance Profiler panel. Combines PerfRecorder's
+     * per-phase history with subsystem-specific stats (script timings,
+     * renderer draw-call counts, GPU pass timings, object counts).
+     * Cheap to call — aggregation is O(phases × FRAME_BUFFER_SIZE).
+     */
+    getPerfSnapshot(): PerfSnapshot {
+        const core = this.perf.snapshot();
+        const ctx = this.globalContext;
+        const scriptSystem: any = ctx.scriptSystem;
+        const renderSystem: any = ctx.renderSystem;
+
+        const scripts = typeof scriptSystem.getScriptTimings === 'function'
+            ? scriptSystem.getScriptTimings()
+            : [];
+        const gpu = typeof renderSystem.getGpuTimings === 'function'
+            ? renderSystem.getGpuTimings()
+            : { supported: false, passes: [] };
+        const renderer = typeof renderSystem.getRenderStats === 'function'
+            ? renderSystem.getRenderStats()
+            : { drawCalls: 0, triangles: 0, meshesRendered: 0, meshesTotal: 0 };
+        const meshCount = renderSystem.renderScene?.meshes?.length ?? 0;
+
+        return {
+            ...core,
+            fps: this.fps,
+            scripts,
+            gpu,
+            renderer,
+            counts: {
+                entities: this.activeScene?.entities.size ?? 0,
+                scripts: typeof scriptSystem.getInstanceCount === 'function' ? scriptSystem.getInstanceCount() : 0,
+                meshes: meshCount,
+            },
+        };
+    }
 
     onPostRender(callback: () => void): void {
         this.postRenderCallbacks.push(callback);
