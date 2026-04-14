@@ -16,7 +16,7 @@
             "distance": 8,
             "height": 4,
             "lookHeight": 1.5,
-            "smoothSpeed": 6,
+            "smoothSpeed": 60,
             "sensitivity": 0.15
           }
         }

@@ -4,7 +4,8 @@ class SupermanMovementBehavior extends GameScript {
     _behaviorName = "superman_movement";
     _speed = 20;
     _sprintSpeed = 60;
-    _verticalSpeed = 15;
+    _verticalSpeed = 40;
+    _verticalSprintSpeed = 120;
     _currentAnim = "";
 
     onUpdate(dt) {
@@ -23,7 +24,7 @@ class SupermanMovementBehavior extends GameScript {
 
         var dx = (Math.sin(yaw) * forward + Math.cos(yaw) * strafe) * speed * dt;
         var dz = (-Math.cos(yaw) * forward + Math.sin(yaw) * strafe) * speed * dt;
-        var dy = vertical * this._verticalSpeed * dt;
+        var dy = vertical * (sprinting ? this._verticalSprintSpeed : this._verticalSpeed) * dt;
 
         var pos = this.entity.transform.position;
         if (dx !== 0 || dy !== 0 || dz !== 0) {

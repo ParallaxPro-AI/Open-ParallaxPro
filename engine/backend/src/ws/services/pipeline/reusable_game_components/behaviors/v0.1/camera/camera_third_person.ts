@@ -35,8 +35,8 @@ class ThirdPersonCameraBehavior extends GameScript {
     _updateOrbitCamera(dt, delta) {
         this._yawDeg += delta.x * this._sensitivity;
         this._pitchDeg += delta.y * this._sensitivity;
-        if (this._pitchDeg > 60) this._pitchDeg = 60;
-        if (this._pitchDeg < -10) this._pitchDeg = -10;
+        if (this._pitchDeg > 89) this._pitchDeg = 89;
+        if (this._pitchDeg < -89) this._pitchDeg = -89;
 
         this.scene._tpYaw = this._yawDeg;
 
@@ -48,7 +48,7 @@ class ThirdPersonCameraBehavior extends GameScript {
         var pitchRad = this._pitchDeg * Math.PI / 180;
 
         var targetX = tp.x - Math.sin(yawRad) * Math.cos(pitchRad) * this._distance;
-        var targetY = tp.y + this._height + Math.sin(pitchRad) * this._distance * 0.3;
+        var targetY = tp.y + this._height + Math.sin(pitchRad) * this._distance;
         var targetZ = tp.z + Math.cos(yawRad) * Math.cos(pitchRad) * this._distance;
 
         var t = 1 - Math.exp(-this._smoothSpeed * dt);
