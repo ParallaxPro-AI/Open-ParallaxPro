@@ -227,6 +227,13 @@ export class ViewportPanel {
             this.streaming.init();
         });
 
+        // Re-init streamed content (heightmap terrain, OSM buildings, etc.)
+        // after any scene swap — including the play→stop snapshot restore,
+        // which otherwise leaves a stale Terrain entity with no heightData.
+        this.ctx.on('sceneChanged', () => {
+            this.streaming.init();
+        });
+
         // Resize handling
         const resizeObserver = new ResizeObserver(() => {
             const rect = container.getBoundingClientRect();
