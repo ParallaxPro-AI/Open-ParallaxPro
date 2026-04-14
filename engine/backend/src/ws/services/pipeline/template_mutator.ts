@@ -560,6 +560,8 @@ export function applySceneSnapshot(files: ProjectFiles, sceneJson: any): Snapsho
         const mr = (entity.components || []).find((c: any) => c.type === 'MeshRendererComponent')?.data;
         if (mr?.materialOverrides && updateMaterial(p, def, mr.materialOverrides)) touched = true;
 
+        if (updateExtraComponents(p, entity.components || [])) touched = true;
+
         if (entity.active === false && p.active !== false) { p.active = false; touched = true; }
         else if (entity.active !== false && p.active === false) { delete p.active; touched = true; }
 
@@ -648,6 +650,36 @@ function updateMaterial(p: any, def: any, mo: any): boolean {
     const after = JSON.stringify(merged);
     if (before === after) return false;
     p.material_overrides = merged;
+    return true;
+}
+
+/**
+ * Components the assembler derives from def fields (mesh / physics / camera /
+ * behaviors) — these must NOT be re-persisted as `extra_components` or they'd
+ * shadow the def and overrides would compound on every save.
+ */
+const DERIVED_COMPONENT_TYPES = new Set([
+    'TransformComponent',
+    'MeshRendererComponent',
+    'ColliderComponent',
+    'RigidbodyComponent',
+    'CameraComponent',
+    'ScriptComponent',
+    'LightComponent',
+]);
+
+function updateExtraComponents(p: any, entityComponents: any[]): boolean {
+    const extras = entityComponents.filter(c => c?.type && !DERIVED_COMPONENT_TYPES.has(c.type));
+    const stripped = extras.map(c => ({ type: c.type, data: c.data || {} }));
+    const before = JSON.stringify(p.extra_components || []);
+    const after = JSON.stringify(stripped);
+    if (before === after) return false;
+    if (stripped.length === 0) {
+        if (!p.extra_components) return false;
+        delete p.extra_components;
+        return true;
+    }
+    p.extra_components = stripped;
     return true;
 }
 
