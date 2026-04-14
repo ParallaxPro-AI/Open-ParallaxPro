@@ -46,7 +46,7 @@ export async function runCreator(
     sendStatus?: (msg: string) => void,
     cliOverride?: string,
 ): Promise<CreatorResult> {
-    await acquireCLISlot(sendStatus);
+    await acquireCLISlot(cliOverride, sendStatus);
     const templateId = deriveTemplateId(description);
     const sandboxDir = path.join('/tmp', `parallaxpro-create-${projectId}`);
 
@@ -98,7 +98,7 @@ export async function runCreator(
             files,
         };
     } finally {
-        releaseCLISlot();
+        releaseCLISlot(cliOverride);
         try { fs.rmSync(sandboxDir, { recursive: true, force: true }); } catch {}
     }
 }

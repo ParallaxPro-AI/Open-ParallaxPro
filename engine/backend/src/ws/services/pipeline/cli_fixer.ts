@@ -48,7 +48,7 @@ export async function runFixer(
     abortSignal?: AbortSignal,
     cliOverride?: string,
 ): Promise<FixerResult> {
-    await acquireCLISlot(sendStatus);
+    await acquireCLISlot(cliOverride, sendStatus);
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
 
     try {
@@ -99,7 +99,7 @@ export async function runFixer(
             costUsd: cliResult.costUsd,
         };
     } finally {
-        releaseCLISlot();
+        releaseCLISlot(cliOverride);
         try { fs.rmSync(sandboxDir, { recursive: true, force: true }); } catch {}
     }
 }

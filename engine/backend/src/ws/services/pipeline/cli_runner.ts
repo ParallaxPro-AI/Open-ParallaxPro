@@ -19,29 +19,44 @@ import { wrapSpawn } from './docker_sandbox.js';
 
 // ─── Concurrency gate ───────────────────────────────────────────────────────
 //
-// Shared across `runFixer` and `runCreator` so the server never has more
-// than MAX_CONCURRENT_AGENTS CLI invocations in flight at once (each eats
-// noticeable CPU/RAM + LLM tokens). Callers await acquireCLISlot() before
-// spawning and must call releaseCLISlot() in a finally block.
+// Per-CLI in-flight caps, shared across `runFixer` and `runCreator`. Callers
+// await acquireCLISlot(cliOverride) before spawning and must call
+// releaseCLISlot(cliOverride) in a finally block — critically, both calls
+// must use the same cliOverride value so the same bucket is incremented and
+// then decremented.
+//
+// opencode gets a much higher cap because it's usually routed at a
+// hosted-provider API (Groq, Anthropic, etc.) — lots of cheap, fast
+// completions. claude/codex run heavier reasoning-backed CLIs that
+// each consume real CPU/RAM on the host, so 8 concurrent is plenty.
 
-const MAX_CONCURRENT_AGENTS = 10;
-let activeAgentCount = 0;
-const waitQueue: (() => void)[] = [];
+const MAX_PER_CLI: Record<CLIName, number> = {
+    claude: 8,
+    codex: 8,
+    opencode: 64,
+};
 
-export function acquireCLISlot(sendStatus?: (msg: string) => void): Promise<void> {
-    if (activeAgentCount < MAX_CONCURRENT_AGENTS) {
-        activeAgentCount++;
+const activeCountByCLI: Record<CLIName, number> = { claude: 0, codex: 0, opencode: 0 };
+const waitQueueByCLI: Record<CLIName, Array<() => void>> = { claude: [], codex: [], opencode: [] };
+
+export function acquireCLISlot(cliOverride?: string, sendStatus?: (msg: string) => void): Promise<void> {
+    const cli = resolveCLI(cliOverride);
+    const cap = MAX_PER_CLI[cli];
+    if (activeCountByCLI[cli] < cap) {
+        activeCountByCLI[cli]++;
         return Promise.resolve();
     }
-    sendStatus?.(`Queued — ${waitQueue.length + 1} in line, waiting for a slot...`);
+    const queue = waitQueueByCLI[cli];
+    sendStatus?.(`Queued — ${queue.length + 1} in line for ${cli}, waiting for a slot...`);
     return new Promise<void>((resolve) => {
-        waitQueue.push(() => { activeAgentCount++; resolve(); });
+        queue.push(() => { activeCountByCLI[cli]++; resolve(); });
     });
 }
 
-export function releaseCLISlot(): void {
-    activeAgentCount--;
-    const next = waitQueue.shift();
+export function releaseCLISlot(cliOverride?: string): void {
+    const cli = resolveCLI(cliOverride);
+    activeCountByCLI[cli]--;
+    const next = waitQueueByCLI[cli].shift();
     if (next) next();
 }
 
