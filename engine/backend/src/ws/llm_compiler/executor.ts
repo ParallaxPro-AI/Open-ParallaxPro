@@ -174,10 +174,11 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             }
 
             const sendStatus = (msg: string) => ctx.sendToFrontend('fix_progress', { text: msg });
-            sendStatus('Fixing game...');
+            sendStatus('Dispatching Editing Agent...');
 
             try {
                 const view = ctx.getProjectData();
+                const editingAgent = view?.projectConfig?.editingAgent;
                 const fixResult = await runFixer(
                     ctx.projectId,
                     description,
@@ -185,6 +186,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     ctx.activeSceneKey,
                     sendStatus,
                     ctx.abortSignal,
+                    editingAgent,
                 );
 
                 if (fixResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(fixResult.costUsd);

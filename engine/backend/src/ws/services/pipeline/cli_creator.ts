@@ -16,7 +16,6 @@
 
 import fs from 'fs';
 import path from 'path';
-import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { config } from '../../../config.js';
 import { assembleGame } from './level_assembler.js';
@@ -27,6 +26,7 @@ import {
     emptyTemplateFiles,
     ENGINE_MACHINERY,
 } from './project_files.js';
+import { spawnCLIAgent, CLIActivity } from './cli_runner.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -44,6 +44,7 @@ export async function runCreator(
     projectId: string,
     description: string,
     sendStatus?: (msg: string) => void,
+    cliOverride?: string,
 ): Promise<CreatorResult> {
     const templateId = deriveTemplateId(description);
     const sandboxDir = path.join('/tmp', `parallaxpro-create-${projectId}`);
@@ -68,7 +69,7 @@ export async function runCreator(
         );
 
         sendStatus?.('Creator agent is building the game...');
-        const cliOutput = await spawnCLI(sandboxDir, sendStatus);
+        const cliOutput = await spawnCLI(sandboxDir, sendStatus, cliOverride);
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
@@ -291,82 +292,27 @@ if (errors.length === 0) {
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
-function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const cli = config.fixer.cli;
-        const timeout = config.fixer.timeout;
+const CREATOR_PROMPT = `Read TASK.md for the game description AND the list of valid game events — you MUST only use events from that list. Read CONTEXT.md for template format docs. Browse assets/ for available 3D models, audio, textures. Look at reference/game_templates/ for examples. The project lives in project/ — fill in 01-04 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ directly there. After creating, run "bash validate.sh" and fix any errors.`;
 
-        if (cli !== 'claude') {
-            throw new Error(`Creator CLI "${cli}" is not supported yet. Currently only "claude" is supported.`);
-        }
+function creatorStatus(activity: CLIActivity): string | undefined {
+    switch (activity.kind) {
+        case 'read': return 'Reading reference files...';
+        case 'write': return 'Creating game files...';
+        case 'edit': return 'Editing files...';
+        case 'bash': return 'Running validation...';
+        case 'search': return 'Searching assets...';
+        case 'other': return 'Working...';
+    }
+}
 
-        const prompt = `Read TASK.md for the game description AND the list of valid game events — you MUST only use events from that list. Read CONTEXT.md for template format docs. Browse assets/ for available 3D models, audio, textures. Look at reference/game_templates/ for examples. The project lives in project/ — fill in 01-04 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ directly there. After creating, run "bash validate.sh" and fix any errors.`;
-
-        const args = [
-            '-p', prompt,
-            '--output-format', 'stream-json',
-            '--verbose',
-            '--model', 'sonnet',
-            '--dangerously-skip-permissions',
-            '--max-turns', '50',
-        ];
-
-        const proc = spawn(cli, args, {
-            cwd: sandboxDir,
-            timeout,
-            stdio: ['pipe', 'pipe', 'pipe'],
-            env: { ...process.env, HOME: process.env.HOME || '/tmp' },
-        });
-
-        let resultText = '';
-        let stderr = '';
-        let buffer = '';
-
-        proc.stdout.on('data', (chunk: Buffer) => {
-            buffer += chunk.toString();
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                    const event = JSON.parse(line);
-                    if (event.type === 'assistant') {
-                        const content = event.message?.content;
-                        if (Array.isArray(content)) {
-                            for (const block of content) {
-                                if (block.type === 'tool_use') {
-                                    const name = block.name || '';
-                                    if (name === 'Read') sendStatus?.('Reading reference files...');
-                                    else if (name === 'Write') sendStatus?.('Creating game files...');
-                                    else if (name === 'Edit') sendStatus?.('Editing files...');
-                                    else if (name === 'Bash') sendStatus?.('Running validation...');
-                                    else if (name === 'Grep' || name === 'Glob') sendStatus?.('Searching assets...');
-                                    else sendStatus?.('Working...');
-                                }
-                            }
-                        }
-                    }
-                    if (event.type === 'result') resultText = event.result || '';
-                } catch {}
-            }
-        });
-
-        proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
-
-        proc.on('close', (code) => {
-            if (buffer.trim()) {
-                try { const e = JSON.parse(buffer); if (e.type === 'result') resultText = e.result || ''; } catch {}
-            }
-            if (code === 0 || code === null) {
-                resolve(resultText || 'Template created.');
-            } else {
-                console.error(`[CLICreator] exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
-                reject(new Error(`Creator CLI exited with code ${code}`));
-            }
-        });
-
-        proc.on('error', (err) => {
-            reject(new Error(`Failed to spawn creator CLI: ${err.message}`));
-        });
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string): Promise<string> {
+    const { text } = await spawnCLIAgent({
+        sandboxDir,
+        prompt: CREATOR_PROMPT,
+        maxTurns: 50,
+        statusMapper: creatorStatus,
+        sendStatus,
+        cliOverride,
     });
+    return text || 'Template created.';
 }

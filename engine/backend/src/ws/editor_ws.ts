@@ -13,6 +13,8 @@ import { SYSTEM_PROMPT, getProjectSummary } from './services/chat_protocol.js';
 import { appendToLog } from './services/chat_log.js';
 import { searchAssets } from '../routes/assets.js';
 import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
+import { getAvailableAgents, isAgentAvailable } from './services/pipeline/cli_availability.js';
+import { runFixer } from './services/pipeline/cli_fixer.js';
 import {
     parseProjectData,
     serializeProjectData,
@@ -164,6 +166,11 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             chatSessionId,
             isOwner: true,
             permission: 'owner',
+            availableAgents: getAvailableAgents().map(a => ({
+                id: a.id,
+                label: a.label,
+                caption: a.caption,
+            })),
         });
 
         // Send chat history
@@ -361,11 +368,16 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             if (restoredPd && !isLegacyProjectData(restoredPd)) {
                 rebuildAndPush(client, restoredPd, { sceneKey: client.activeSceneKey });
             }
-            // Re-trigger the AI
+            // Re-trigger: agent override routes to CLI fixer, otherwise LLM.
             send(client, 'chat_response_start', {});
             const abortController = new AbortController();
             client.abortController = abortController;
-            runLLMWithRetry(client, abortController, 0, [], []);
+            const agent = typeof data?.agent === 'string' ? data.agent : '';
+            if ((agent === 'claude' || agent === 'codex') && isAgentAvailable(agent)) {
+                runDirectFixer(client, prevUser.content, agent, abortController);
+            } else {
+                runLLMWithRetry(client, abortController, 0, [], []);
+            }
             break;
         }
 
@@ -480,7 +492,89 @@ function handleChatMessage(client: EditorClient, data: any): void {
     const abortController = new AbortController();
     client.abortController = abortController;
 
+    // Agent override: when the user explicitly picks claude/codex in the UI
+    // we skip the small LLM entirely and hand the raw message to the CLI
+    // fixer. This is the "direct" path — best for concrete fix/feature asks.
+    const agent = typeof data?.agent === 'string' ? data.agent : '';
+    if (agent === 'claude' || agent === 'codex') {
+        if (!isAgentAvailable(agent)) {
+            finishChat(client, `*Agent "${agent}" is not installed on this server.*`);
+            return;
+        }
+        runDirectFixer(client, content, agent, abortController);
+        return;
+    }
+
     runLLMWithRetry(client, abortController, 0, [], []);
+}
+
+/**
+ * Bypass the LLM and hand the user's message straight to the CLI fixer.
+ * Fired when the editor picks a specific CLI agent (claude / codex) for the
+ * message. Mirrors the FIX_GAME executor path — runs the fixer, commits any
+ * produced file changes, and closes out the chat turn with a summary.
+ */
+async function runDirectFixer(client: EditorClient, description: string, cliOverride: string, abortController: AbortController): Promise<void> {
+    const sendStatus = (msg: string) => send(client, 'fix_progress', { text: msg });
+    try {
+        const pd = readProjectData(client.projectId);
+        if (!pd || isLegacyProjectData(pd)) {
+            finishChat(client, '*Project files unavailable — cannot run fixer.*');
+            return;
+        }
+
+        const fixResult = await runFixer(
+            client.projectId,
+            description,
+            pd.files,
+            client.activeSceneKey,
+            sendStatus,
+            abortController.signal,
+            cliOverride,
+        );
+
+        client.abortController = null;
+
+        if (fixResult.costUsd) {
+            for (const p of _plugins) {
+                if (p.onFixerCost) p.onFixerCost(client, fixResult.costUsd);
+            }
+        }
+
+        const fileChanges: { path: string; type: string }[] = [];
+        if (fixResult.success && fixResult.filesChanged.length > 0) {
+            const updates: Record<string, string | null> = {};
+            for (const [k, v] of Object.entries(fixResult.changedFiles)) updates[k] = v;
+            for (const k of fixResult.deletedFiles) updates[k] = null;
+            const pd2 = readProjectData(client.projectId);
+            if (pd2) {
+                for (const [filePath, cont] of Object.entries(updates)) {
+                    if (cont === null) delete pd2.files[filePath];
+                    else setFile(pd2, filePath, cont);
+                }
+                stmtUpdateData.run(serializeProjectData(pd2), client.projectId);
+                rebuildAndPush(client, pd2, { sceneKey: client.activeSceneKey });
+            }
+            for (const f of fixResult.filesChanged) {
+                const isDeleted = fixResult.deletedFiles.includes(f);
+                fileChanges.push({ path: f, type: isDeleted ? 'deleted' : 'modified' });
+            }
+        }
+
+        const agentLabel = cliOverride === 'codex' ? 'Codex' : 'Claude Code';
+        const summary = fixResult.success
+            ? (fixResult.summary || `${agentLabel} applied the fix.`)
+            : `*${agentLabel} failed: ${fixResult.summary}*`;
+        finishChat(client, summary, fileChanges);
+    } catch (e: any) {
+        client.abortController = null;
+        if (abortController.signal.aborted) {
+            finishChat(client, '*Generation stopped.*');
+        } else {
+            console.error('[DirectFixer] Error:', e?.message || e);
+            finishChat(client, `*Error: ${e?.message || 'Unknown error'}*`);
+        }
+    }
 }
 
 function buildMessages(client: EditorClient, retryContext: LLMMessage[]): LLMMessage[] {

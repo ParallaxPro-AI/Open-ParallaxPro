@@ -159,6 +159,12 @@ export async function startEngine(server: http.Server, plugins: EnginePlugin[] =
         server.listen(config.port, async () => {
             console.log(`[Server] Running on port ${config.port} (${config.nodeEnv})`);
 
+            // Detect which CLI fixer agents (claude, codex) are installed.
+            // Runs once, cached for the life of the process.
+            import('./ws/services/pipeline/cli_availability.js').then(({ detectAgents }) => {
+                detectAgents();
+            });
+
             // Validate all game templates at startup
             import('./ws/services/pipeline/template_loader.js').then(({ loadTemplateCatalog, loadTemplate }) => {
                 import('./ws/services/pipeline/level_assembler.js').then(({ assembleGame }) => {

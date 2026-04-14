@@ -67,11 +67,11 @@ Edit `.env` and add your LLM API key. Any OpenAI-compatible API works:
 The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. It needs a CLI agent installed to work -- without one, everything else still works but the fixer won't be available.
 
 Currently supported:
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) -- `FIXER_CLI=claude`
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 
 Coming soon:
-- [Codex](https://github.com/openai/codex) -- `FIXER_CLI=codex`
-- [OpenCode](https://github.com/opencode-ai/opencode) -- `FIXER_CLI=opencode`
+- [Codex](https://github.com/openai/codex) — integration lands behind a disabled probe; uncomment the codex entry in `engine/backend/src/ws/services/pipeline/cli_availability.ts` to enable. Reasoning latency on a ChatGPT account currently makes it unpleasantly slow for in-editor fixes.
+- [OpenCode](https://github.com/opencode-ai/opencode)
 
 To set up Claude Code:
 
@@ -80,7 +80,7 @@ npm install -g @anthropic-ai/claude-code
 claude  # Follow auth prompts
 ```
 
-Then set `FIXER_CLI=claude` in your `.env`.
+The backend auto-detects `claude` on your `PATH` at startup.
 
 Install dependencies and start the backend:
 
