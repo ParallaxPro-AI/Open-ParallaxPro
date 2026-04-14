@@ -39,9 +39,17 @@ type AgentId = 'claude' | 'codex' | 'opencode';
 
 const HOME = os.homedir();
 
-/** Per-CLI auth dirs we bind-mount (RW so token refresh works). */
+/**
+ * Per-CLI auth paths we bind-mount (RW so token refresh works).
+ * Entries can be files OR dirs — Docker's `-v src:dst` handles both.
+ * Claude in particular splits its config between `~/.claude.json` (the
+ * main config file, required) and `~/.claude/` (credentials, history),
+ * so both need to be mounted or the CLI exits with "configuration file
+ * not found".
+ */
 const AUTH_DIRS: Record<AgentId, string[]> = {
     claude: [
+        path.join(HOME, '.claude.json'),
         path.join(HOME, '.claude'),
         path.join(HOME, '.claude-code'),
         path.join(HOME, '.config', 'claude'),
