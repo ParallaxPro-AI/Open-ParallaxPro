@@ -55,7 +55,13 @@ const AUTH_DIRS: Record<AgentId, string[]> = {
         path.join(HOME, '.config', 'claude'),
     ],
     codex: [path.join(HOME, '.codex')],
-    opencode: [path.join(HOME, '.opencode')],
+    // opencode splits state across ~/.opencode (install + plugins) and
+    // ~/.local/share/opencode (auth.json + SQLite DB). Both must be
+    // writable inside the container for `opencode run` to work.
+    opencode: [
+        path.join(HOME, '.opencode'),
+        path.join(HOME, '.local', 'share', 'opencode'),
+    ],
 };
 
 let cachedEnabled: boolean | null = null;
@@ -138,6 +144,26 @@ export function wrapSpawn(
         '-v', `${sandboxDir}:${sandboxDir}`,
         '-w', sandboxDir,
     ];
+
+    // The container has no /home/<user> baked in, so docker auto-creates it
+    // (and any intermediate dirs like ~/.local, ~/.config) as root when we
+    // bind-mount auth subpaths. That leaves them unwritable to uid 1001,
+    // and agents explode trying to mkdir ~/.cache, ~/.local/state, etc.
+    // Fix: tmpfs HOME + every intermediate dir leading to an auth mount,
+    // owned by the host user. The bind mounts below then land on writable
+    // tmpfs parents.
+    const tmpfsDirs = new Set<string>([HOME]);
+    for (const dir of AUTH_DIRS[agent]) {
+        if (!fs.existsSync(dir)) continue;
+        let p = path.dirname(dir);
+        while (p.startsWith(HOME) && p !== HOME && p !== '/') {
+            tmpfsDirs.add(p);
+            p = path.dirname(p);
+        }
+    }
+    tmpfsDirs.forEach(d => {
+        dockerArgs.push('--tmpfs', `${d}:uid=${uid},gid=${gid},mode=755`);
+    });
 
     // Auth dirs: same path inside and out so the CLI's default lookup
     // (`$HOME/.claude`, etc.) still works. We also pass HOME through so
