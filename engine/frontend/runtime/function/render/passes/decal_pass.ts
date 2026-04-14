@@ -1,6 +1,7 @@
 import { GPUResourceManager } from '../gpu_resource_manager.js';
 import { ShaderLibrary, CAMERA_UNIFORM_SIZE } from '../shader_library.js';
 import { RenderCamera, DecalInstance } from '../render_scene.js';
+import { RenderStats } from '../render_stats.js';
 
 /** Bytes per decal in the storage buffer: 2 mat4x4 + vec4 = 144 bytes */
 const DECAL_STRIDE = 144;
@@ -15,6 +16,9 @@ const MAX_DECALS = 16384;
  * the decal's local space, and blends the decal color onto the color buffer.
  */
 export class DecalPass {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private pipeline: GPURenderPipeline | null = null;
 
@@ -171,6 +175,7 @@ export class DecalPass {
         renderPass.setVertexBuffer(0, this.cubeVB);
         renderPass.setIndexBuffer(this.cubeIB, 'uint16');
         renderPass.drawIndexed(36, count);
+        this.stats?.addDraw(count * 12);
         renderPass.end();
     }
 

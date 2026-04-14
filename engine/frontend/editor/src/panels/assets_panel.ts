@@ -2,6 +2,7 @@ import { EditorContext } from '../editor_context.js';
 import { TabsWidget } from '../widgets/tabs.js';
 import { MeshRendererComponent } from '../../../runtime/function/framework/components/mesh_renderer_component.js';
 import { AudioSourceComponent } from '../../../runtime/function/framework/components/audio_source_component.js';
+import { ProfilerPanel } from './profiler_panel.js';
 
 const CATEGORY_ICONS: Record<string, string> = {
     '3D Models': '\u25A6',
@@ -125,6 +126,7 @@ export class AssetsPanel {
     readonly el: HTMLElement;
     private ctx: EditorContext;
     private tabs: TabsWidget;
+    private profiler: ProfilerPanel;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -135,15 +137,18 @@ export class AssetsPanel {
         header.className = 'panel-header';
         const title = document.createElement('span');
         title.className = 'panel-title';
-        title.textContent = 'Assets & Finite State Machines';
+        title.textContent = 'Assets & Finite State Machines & Performance';
         header.appendChild(title);
         this.el.appendChild(header);
+
+        this.profiler = new ProfilerPanel();
 
         this.tabs = new TabsWidget();
         this.tabs.setTabs([
             { id: 'files', label: 'Project Files', content: this.buildProjectFilesTab() },
             { id: 'library', label: 'Asset Library', content: this.buildAssetLibraryTab() },
             { id: 'gameflow', label: 'FSM', content: this.buildGameFlowTab() },
+            { id: 'profiler', label: 'Performance', content: this.profiler.el },
         ]);
         this.el.appendChild(this.tabs.el);
     }

@@ -1,5 +1,6 @@
 import { GPUResourceManager } from '../gpu_resource_manager.js';
 import { ShaderLibrary } from '../shader_library.js';
+import { RenderStats } from '../render_stats.js';
 
 /**
  * Multi-step bloom post-processing.
@@ -8,6 +9,9 @@ import { ShaderLibrary } from '../shader_library.js';
  * 3. Additive composite bloom onto scene
  */
 export class BloomPass {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private canvasFormat: GPUTextureFormat = 'bgra8unorm';
     private canvasWidth = 0;
@@ -285,5 +289,6 @@ export class BloomPass {
         pass.setBindGroup(0, bindGroup);
         pass.draw(3);
         pass.end();
+        this.stats?.addDraw(1);
     }
 }

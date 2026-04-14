@@ -1,6 +1,7 @@
 import { GPUResourceManager } from '../gpu_resource_manager.js';
 import { ShaderLibrary } from '../shader_library.js';
 import { RenderCamera } from '../render_scene.js';
+import { RenderStats } from '../render_stats.js';
 
 const SKYBOX_UNIFORM_SIZE = 96;
 
@@ -10,6 +11,9 @@ const SKYBOX_UNIFORM_SIZE = 96;
  * and replaces them with a procedural sky gradient with sun disc and stars.
  */
 export class SkyboxPass {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private pipeline: GPURenderPipeline | null = null;
     private bindGroupLayout: GPUBindGroupLayout | null = null;
@@ -103,6 +107,7 @@ export class SkyboxPass {
         renderPass.setPipeline(this.pipeline);
         renderPass.setBindGroup(0, this.cachedBindGroup!);
         renderPass.draw(3);
+        this.stats?.addDraw(1);
         renderPass.end();
     }
 

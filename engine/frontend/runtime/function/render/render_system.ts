@@ -72,8 +72,27 @@ export class RenderSystem {
         if (cameraBGL) {
             this.particleRenderer.initialize(device, this.gpuResources, this.shaderLibrary, format, cameraBGL);
         }
+        this.particleRenderer.setStats(this.renderPipeline.getStats());
 
         canvasManager.onResize((w, h) => this.onCanvasResize(w, h));
+    }
+
+    /** Per-frame renderer counters (draw calls, triangles, meshes) consumed
+     *  by the editor's Performance Profiler panel. */
+    getRenderStats(): { drawCalls: number; triangles: number; meshesRendered: number; meshesTotal: number } {
+        return this.renderPipeline.getStats().snapshot();
+    }
+
+    /** Per-pass timings for the Performance Profiler panel. Note: these are
+     *  CPU-side submit times, not true GPU durations — WebGPU timestamp-query
+     *  would give real GPU numbers but requires wiring timestampWrites into
+     *  every pass's render pass descriptor. */
+    getGpuTimings(): { supported: boolean; mode: 'cpu-submit' | 'gpu'; passes: Array<{ name: string; avgMs: number; maxMs: number }> } {
+        return {
+            supported: true,
+            mode: 'cpu-submit',
+            passes: this.renderPipeline.getPassTimings(),
+        };
     }
 
     tick(deltaTime: number, scene: RenderSceneSource | null): void {

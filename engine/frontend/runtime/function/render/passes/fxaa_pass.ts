@@ -1,11 +1,15 @@
 import { GPUResourceManager } from '../gpu_resource_manager.js';
 import { ShaderLibrary } from '../shader_library.js';
+import { RenderStats } from '../render_stats.js';
 
 /**
  * Full-screen FXAA anti-aliasing post-processing pass.
  * Reads from an offscreen color texture and writes to the target (swapchain).
  */
 export class FXAAPass {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private pipeline: GPURenderPipeline | null = null;
     private bindGroupLayout: GPUBindGroupLayout | null = null;
@@ -90,6 +94,7 @@ export class FXAAPass {
         renderPass.setPipeline(this.pipeline);
         renderPass.setBindGroup(0, this.cachedBindGroup!);
         renderPass.draw(3);
+        this.stats?.addDraw(1);
         renderPass.end();
     }
 
