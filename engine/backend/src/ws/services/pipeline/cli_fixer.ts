@@ -67,6 +67,7 @@ export async function runFixer(
     activeSceneKey: string,
     sendStatus?: (msg: string) => void,
     abortSignal?: AbortSignal,
+    cliOverride?: string,
 ): Promise<FixerResult> {
     await acquireSlot(sendStatus);
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
@@ -82,7 +83,7 @@ export async function runFixer(
         );
 
         sendStatus?.('Fixer agent is analyzing and fixing...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, abortSignal);
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, abortSignal, cliOverride);
 
         sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectFiles);
@@ -305,7 +306,7 @@ function fixerStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal): Promise<{ text: string; costUsd: number }> {
+function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string): Promise<{ text: string; costUsd: number }> {
     return spawnCLIAgent({
         sandboxDir,
         prompt: FIXER_PROMPT,
@@ -313,6 +314,7 @@ function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortS
         statusMapper: fixerStatus,
         sendStatus,
         abortSignal,
+        cliOverride,
     });
 }
 

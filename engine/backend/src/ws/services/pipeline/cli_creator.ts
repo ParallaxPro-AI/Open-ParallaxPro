@@ -44,6 +44,7 @@ export async function runCreator(
     projectId: string,
     description: string,
     sendStatus?: (msg: string) => void,
+    cliOverride?: string,
 ): Promise<CreatorResult> {
     const templateId = deriveTemplateId(description);
     const sandboxDir = path.join('/tmp', `parallaxpro-create-${projectId}`);
@@ -68,7 +69,7 @@ export async function runCreator(
         );
 
         sendStatus?.('Creator agent is building the game...');
-        const cliOutput = await spawnCLI(sandboxDir, sendStatus);
+        const cliOutput = await spawnCLI(sandboxDir, sendStatus, cliOverride);
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
@@ -304,13 +305,14 @@ function creatorStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void): Promise<string> {
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string): Promise<string> {
     const { text } = await spawnCLIAgent({
         sandboxDir,
         prompt: CREATOR_PROMPT,
         maxTurns: 50,
         statusMapper: creatorStatus,
         sendStatus,
+        cliOverride,
     });
     return text || 'Template created.';
 }

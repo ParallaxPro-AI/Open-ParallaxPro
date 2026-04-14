@@ -41,10 +41,16 @@ export interface SpawnOptions {
     statusMapper: StatusMapper;
     sendStatus?: (msg: string) => void;
     abortSignal?: AbortSignal;
+    /**
+     * Override which CLI to use for this one call. Defaults to `config.fixer.cli`.
+     * Accepts 'claude' | 'codex'. Used when the editor picks a specific agent
+     * for a message instead of the configured default.
+     */
+    cliOverride?: string;
 }
 
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
-    const cli = config.fixer.cli;
+    const cli = opts.cliOverride || config.fixer.cli;
     if (cli === 'claude') return spawnClaude(opts);
     if (cli === 'codex') return spawnCodex(opts);
     throw new Error(`Fixer CLI "${cli}" is not supported. Set FIXER_CLI=claude or FIXER_CLI=codex in .env`);

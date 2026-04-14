@@ -21,6 +21,21 @@ interface ChatSession {
     active: boolean;
 }
 
+/** One option in the agent picker. Backend sends id/label/caption on connect. */
+interface AgentOption {
+    id: string;
+    label: string;
+    caption: string;
+}
+
+/** Options always available regardless of which CLIs the backend host has. */
+const BUILTIN_AGENT_OPTIONS: AgentOption[] = [
+    { id: 'auto', label: 'Auto', caption: '' },
+    { id: 'small_llm', label: 'Small LLM', caption: '' },
+];
+
+const CLI_AGENT_CAPTION = 'Will spawn an agent to edit your project based on your prompt.';
+
 const enum State {
     IDLE,
     STREAMING,
@@ -49,6 +64,15 @@ export class AiChatPanel {
     private rawFilesOverlay: HTMLElement | null = null;
     private rawFilesContainer: HTMLElement | null = null;
     private rawFilesRefreshTimer: number = 0;
+
+    // Agent picker — populated from the `connected` WS event. Starts empty;
+    // once the backend responds with availableAgents we fill in claude/codex
+    // entries in addition to the built-in Auto / Small LLM options.
+    private availableCLIAgents: AgentOption[] = [];
+    private selectedAgent: string = 'auto';
+    private agentSelect: HTMLSelectElement | null = null;
+    private agentCaption: HTMLElement | null = null;
+    private regenMenu: HTMLElement | null = null;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -111,7 +135,23 @@ export class AiChatPanel {
 
         inputWrapper.appendChild(this.textarea);
         inputWrapper.appendChild(this.sendBtn);
+
+        // Agent picker — sits bottom-left of the input, mirroring send button.
+        this.agentSelect = document.createElement('select');
+        this.agentSelect.className = 'chat-agent-select';
+        this.agentSelect.title = 'Which agent handles this message';
+        this.agentSelect.addEventListener('change', () => {
+            this.selectedAgent = this.agentSelect!.value;
+            this.updateAgentCaption();
+        });
+        inputWrapper.appendChild(this.agentSelect);
         inputArea.appendChild(inputWrapper);
+
+        this.agentCaption = document.createElement('div');
+        this.agentCaption.className = 'chat-agent-caption';
+        inputArea.appendChild(this.agentCaption);
+
+        this.rebuildAgentOptions();
 
         this.sessionIdLabel = document.createElement('div');
         this.sessionIdLabel.className = 'chat-session-id';
@@ -149,6 +189,10 @@ export class AiChatPanel {
 
         ws.onWsMessage('connected', (data: any) => {
             this.setSessionId(data.chatSessionId as string);
+            if (Array.isArray(data.availableAgents)) {
+                this.availableCLIAgents = data.availableAgents as AgentOption[];
+                this.rebuildAgentOptions();
+            }
         });
 
         ws.onWsMessage('session_switched', (data: any) => {
@@ -313,6 +357,101 @@ export class AiChatPanel {
         this.sendBtn.disabled = false;
     }
 
+    // ── Agent picker ────────────────────────────────────────────────
+
+    /** Rebuild <option> nodes in the picker. Runs at startup + after the
+     *  connected event gives us the backend's availableAgents list. */
+    private rebuildAgentOptions(): void {
+        if (!this.agentSelect) return;
+        const options = [...BUILTIN_AGENT_OPTIONS, ...this.availableCLIAgents];
+        this.agentSelect.innerHTML = '';
+        for (const opt of options) {
+            const o = document.createElement('option');
+            o.value = opt.id;
+            o.textContent = opt.label;
+            this.agentSelect.appendChild(o);
+        }
+        // Keep the current selection if still valid; otherwise fall back to auto.
+        if (options.some(o => o.id === this.selectedAgent)) {
+            this.agentSelect.value = this.selectedAgent;
+        } else {
+            this.selectedAgent = 'auto';
+            this.agentSelect.value = 'auto';
+        }
+        this.updateAgentCaption();
+    }
+
+    /** Show a caption under the input when a CLI agent is picked so the user
+     *  knows the heavy-weight path bypasses the fast LLM. */
+    private updateAgentCaption(): void {
+        if (!this.agentCaption) return;
+        const picked = this.availableCLIAgents.find(a => a.id === this.selectedAgent);
+        if (picked) {
+            this.agentCaption.textContent = picked.caption || CLI_AGENT_CAPTION;
+            this.agentCaption.classList.add('visible');
+        } else {
+            this.agentCaption.textContent = '';
+            this.agentCaption.classList.remove('visible');
+        }
+    }
+
+    /** Popup near the regenerate button listing which agent should re-handle
+     *  the message. Skip "Auto" — for a regenerate the user is making an
+     *  explicit choice. */
+    private openRegenMenu(anchor: HTMLButtonElement, messageId: number): void {
+        this.closeRegenMenu();
+        const menu = document.createElement('div');
+        menu.className = 'chat-regen-menu';
+
+        const regenOptions: AgentOption[] = [
+            { id: 'small_llm', label: 'Small LLM', caption: '' },
+            ...this.availableCLIAgents,
+        ];
+
+        for (const opt of regenOptions) {
+            const item = document.createElement('button');
+            item.className = 'chat-regen-menu-item';
+            const label = document.createElement('div');
+            label.className = 'chat-regen-menu-label';
+            label.textContent = `Regenerate with ${opt.label}`;
+            item.appendChild(label);
+            if (opt.id !== 'small_llm' && opt.id !== 'auto') {
+                const hint = document.createElement('div');
+                hint.className = 'chat-regen-menu-hint';
+                hint.textContent = opt.caption || CLI_AGENT_CAPTION;
+                item.appendChild(hint);
+            }
+            item.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                this.closeRegenMenu();
+                this.ctx.backend.sendWsMessage('regenerate_response', { messageId, agent: opt.id });
+            });
+            menu.appendChild(item);
+        }
+
+        document.body.appendChild(menu);
+        // Position the menu above-and-to-the-right of the clicked button.
+        const rect = anchor.getBoundingClientRect();
+        menu.style.top = `${rect.top - menu.offsetHeight - 4}px`;
+        menu.style.left = `${Math.max(8, rect.left - menu.offsetWidth + rect.width)}px`;
+        this.regenMenu = menu;
+
+        const onDocClick = (ev: MouseEvent) => {
+            if (!this.regenMenu) return;
+            if (this.regenMenu.contains(ev.target as Node)) return;
+            this.closeRegenMenu();
+            document.removeEventListener('click', onDocClick);
+        };
+        setTimeout(() => document.addEventListener('click', onDocClick), 0);
+    }
+
+    private closeRegenMenu(): void {
+        if (this.regenMenu) {
+            this.regenMenu.remove();
+            this.regenMenu = null;
+        }
+    }
+
     // ── Sending messages ────────────────────────────────────────────
 
     sendInitialMessage(text: string): void {
@@ -348,7 +487,7 @@ export class AiChatPanel {
         this.transitionTo(State.STREAMING);
         this.pendingChunks = '';
         this.showTypingIndicator();
-        this.ctx.backend.sendChatMessage(text);
+        this.ctx.backend.sendChatMessage(text, this.selectedAgent);
         this.scrollToBottom();
     }
 
@@ -602,9 +741,7 @@ export class AiChatPanel {
 
                 regen.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (confirm('Regenerate this response? The current response will be reverted.')) {
-                        this.ctx.backend.sendWsMessage('regenerate_response', { messageId: msg.id });
-                    }
+                    this.openRegenMenu(regen, msg.id!);
                 });
 
                 actions.appendChild(thumbUp);
