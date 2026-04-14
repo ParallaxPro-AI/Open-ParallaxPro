@@ -23,6 +23,42 @@ export class ScriptSystem {
     /** Currently executing entity ID, used by scene.on() to track listener ownership. */
     currentExecutingEntityId: number = -1;
 
+    // ── Per-script timings (consumed by the Performance Profiler panel) ──
+    // Keyed by behavior/class name; values accumulate totalMs + call count
+    // across all entities that share the name. Reset at the start of each
+    // tickUpdate so the Profiler sees one frame's worth of work.
+    private timings: Map<string, { totalMs: number; calls: number }> = new Map();
+
+    private scriptName(script: GameScript): string {
+        return (script as any)._behaviorName || script.constructor?.name || 'UnnamedScript';
+    }
+
+    private timedInvoke(script: GameScript, entityId: number, method: 'onUpdate' | 'onFixedUpdate' | 'onLateUpdate', arg: number): void {
+        const fn = (script as any)[method];
+        if (typeof fn !== 'function') return;
+        const name = this.scriptName(script);
+        const t0 = performance.now();
+        try {
+            fn.call(script, arg);
+        } catch (e) {
+            console.error(`Error in ${method} for entity ${entityId}:`, e);
+        }
+        const elapsed = performance.now() - t0;
+        const entry = this.timings.get(name);
+        if (entry) { entry.totalMs += elapsed; entry.calls++; }
+        else this.timings.set(name, { totalMs: elapsed, calls: 1 });
+    }
+
+    /** Read-only snapshot of per-script timings for this frame, sorted by totalMs desc. */
+    getScriptTimings(): Array<{ name: string; totalMs: number; calls: number }> {
+        const out: Array<{ name: string; totalMs: number; calls: number }> = [];
+        for (const [name, v] of this.timings) {
+            out.push({ name, totalMs: v.totalMs, calls: v.calls });
+        }
+        out.sort((a, b) => b.totalMs - a.totalMs);
+        return out;
+    }
+
     initialize(inputSystem: InputSystem): void {
         this.inputSystem = inputSystem;
     }
@@ -114,6 +150,9 @@ export class ScriptSystem {
      * before any script emits events (in onUpdate).
      */
     tickUpdate(): void {
+        // Reset per-frame timings at the top of the first script phase.
+        this.timings.clear();
+
         // Refresh references for all instances
         for (const inst of this.instances) {
             inst.script.time = this.timeInfo;
@@ -154,11 +193,7 @@ export class ScriptSystem {
             if (inst.script.entity?.active === false) continue;
             if ((inst.script as any)._behaviorActive === false) continue;
             this.currentExecutingEntityId = inst.entityId;
-            if (typeof inst.script.onUpdate === 'function') {
-                try { inst.script.onUpdate(this.timeInfo.deltaTime); } catch (e) {
-                    console.error(`Error in onUpdate for entity ${inst.entityId}:`, e);
-                }
-            }
+            this.timedInvoke(inst.script, inst.entityId, 'onUpdate', this.timeInfo.deltaTime);
             this.currentExecutingEntityId = -1;
         }
     }
@@ -171,11 +206,7 @@ export class ScriptSystem {
             if (!inst.started) continue;
             if (inst.script.entity?.active === false) continue;
             if ((inst.script as any)._behaviorActive === false) continue;
-            if (typeof inst.script.onFixedUpdate === 'function') {
-                try { inst.script.onFixedUpdate(fixedDt); } catch (e) {
-                    console.error(`Error in onFixedUpdate for entity ${inst.entityId}:`, e);
-                }
-            }
+            this.timedInvoke(inst.script, inst.entityId, 'onFixedUpdate', fixedDt);
         }
     }
 
@@ -187,11 +218,7 @@ export class ScriptSystem {
             if (!inst.started) continue;
             if (inst.script.entity?.active === false) continue;
             if ((inst.script as any)._behaviorActive === false) continue;
-            if (typeof inst.script.onLateUpdate === 'function') {
-                try { inst.script.onLateUpdate(this.timeInfo.deltaTime); } catch (e) {
-                    console.error(`Error in onLateUpdate for entity ${inst.entityId}:`, e);
-                }
-            }
+            this.timedInvoke(inst.script, inst.entityId, 'onLateUpdate', this.timeInfo.deltaTime);
         }
     }
 

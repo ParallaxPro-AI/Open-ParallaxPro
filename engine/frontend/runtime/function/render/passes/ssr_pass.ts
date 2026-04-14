@@ -2,6 +2,7 @@ import { Mat4 } from '../../../core/math/mat4.js';
 import { GPUResourceManager } from '../gpu_resource_manager.js';
 import { ShaderLibrary } from '../shader_library.js';
 import { RenderCamera } from '../render_scene.js';
+import { RenderStats } from '../render_stats.js';
 
 const SSR_UNIFORM_SIZE = 224;
 
@@ -10,6 +11,9 @@ const SSR_UNIFORM_SIZE = 224;
  * Reads color + normal/depth textures and ray-marches to produce reflected color.
  */
 export class SSRPass {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private pipeline: GPURenderPipeline | null = null;
     private bindGroupLayout: GPUBindGroupLayout | null = null;
@@ -101,6 +105,7 @@ export class SSRPass {
         renderPass.setPipeline(this.pipeline);
         renderPass.setBindGroup(0, this.cachedBindGroup!);
         renderPass.draw(3);
+        this.stats?.addDraw(1);
         renderPass.end();
     }
 

@@ -1,6 +1,7 @@
 import { GPUResourceManager } from './gpu_resource_manager.js';
 import { ShaderLibrary } from './shader_library.js';
 import { RenderCamera } from './render_scene.js';
+import { RenderStats } from './render_stats.js';
 
 const FLOATS_PER_INSTANCE = 12;
 const BYTES_PER_INSTANCE = FLOATS_PER_INSTANCE * 4;
@@ -17,6 +18,9 @@ export interface ParticleRenderData {
  * (position, size, color, rotation) rendered in one draw call per system.
  */
 export class ParticleRenderer {
+    private stats: RenderStats | null = null;
+    setStats(stats: RenderStats): void { this.stats = stats; }
+
     private device: GPUDevice | null = null;
     private resources: GPUResourceManager | null = null;
     private pipeline: GPURenderPipeline | null = null;
@@ -145,6 +149,7 @@ export class ParticleRenderer {
             );
             renderPass.setVertexBuffer(1, this.instanceBuffer!);
             renderPass.drawIndexed(6, system.activeCount);
+            this.stats?.addDraw(system.activeCount * 2);
         }
 
         renderPass.end();
