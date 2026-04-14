@@ -20,7 +20,7 @@ import { EditorContext } from '../editor_context.js';
  */
 export class EditorCamera {
     /** Camera target (orbit center). */
-    target: Vec3 = new Vec3(0, 0, 0);
+    target: Vec3 = new Vec3(27281, 5, 17557);
 
     /** Spherical coordinates relative to target. */
     private yaw: number = 0.4;
@@ -35,7 +35,7 @@ export class EditorCamera {
 
     /** Fly mode state. */
     private flyMode: boolean = false;
-    private flyPosition: Vec3 = new Vec3(0, 5, 15);
+    private flyPosition: Vec3 = new Vec3(27281, 10, 17572);
     private flyYaw: number = 0;
     private flyPitch: number = 0;
     private flySpeed: number = 10;
