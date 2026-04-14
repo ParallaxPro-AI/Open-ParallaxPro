@@ -7,16 +7,41 @@
         "far": 200000
       },
       "tags": ["camera"],
-      "label": false
+      "label": false,
+      "behaviors": [
+        {
+          "name": "camera_third_person",
+          "script": "camera/camera_third_person.ts",
+          "params": {
+            "distance": 8,
+            "height": 4,
+            "lookHeight": 1.5,
+            "smoothSpeed": 60,
+            "sensitivity": 0.15
+          }
+        }
+      ]
     },
     "player": {
       "mesh": {
-        "type": "cube",
-        "color": [0.9, 0.2, 0.2, 1],
-        "scale": [2, 2, 2]
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
       },
       "physics": false,
-      "tags": ["player"]
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "superman_movement",
+          "script": "movement/superman_movement.ts",
+          "params": {
+            "speed": 20,
+            "sprintSpeed": 60,
+            "verticalSpeed": 15
+          }
+        }
+      ]
     }
   }
 }

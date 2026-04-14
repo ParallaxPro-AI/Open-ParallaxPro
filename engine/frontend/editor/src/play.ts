@@ -2,6 +2,7 @@ import './styles/theme.css';
 
 import { ParallaxEditor } from './editor.js';
 import { EditorContext } from './editor_context.js';
+import { StreamingManager } from './streaming_manager.js';
 
 const splashScreen = document.getElementById('splash-screen')!;
 const loadingScreen = document.getElementById('loading-screen')!;
@@ -155,6 +156,21 @@ async function boot(): Promise<void> {
     ctx.setGraphicsQuality(quality);
 
     ctx.ensurePrimitiveMeshes();
+
+    // Set up streaming (heightmap terrain, OSM buildings/roads/props) from
+    // scene data. Unlike the editor — which mounts ViewportPanel — the play
+    // path has no panel, so we wire the same manager directly here and drive
+    // its per-frame updates off the active scene camera.
+    const streaming = new StreamingManager(ctx);
+    streaming.init();
+    const engine = editor.getEngine();
+    engine.onPostAnimation(() => {
+        const scene = ctx.getActiveScene();
+        if (!scene) return;
+        const cam = scene.getActiveCamera();
+        if (!cam) return;
+        streaming.update(cam.position);
+    });
 
     await splashPromise;
     splashScreen.style.display = 'none';

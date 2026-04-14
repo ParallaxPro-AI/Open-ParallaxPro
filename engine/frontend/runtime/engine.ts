@@ -38,6 +38,13 @@ export class ParallaxEngine {
     private animFrameId: number = 0;
     private totalTime: number = 0;
     private activeScene: Scene | null = null;
+    /**
+     * Completion promise for the PREVIOUS frame's GPU submission. The loop
+     * awaits this before starting the next frame's CPU work, which caps
+     * GPU queue depth at ~2 and keeps input lag tracking GPU frame time
+     * instead of piling up to ~400 ms on slow-GPU machines.
+     */
+    private prevFrameGPUDone: Promise<void> | null = null;
 
     async startEngine(canvasElement: HTMLCanvasElement, projectConfig: any): Promise<void> {
         await this.initialize();
@@ -69,11 +76,25 @@ export class ParallaxEngine {
         this.isRunning = true;
         this.lastTimestamp = performance.now() / 1000;
 
-        const loop = () => {
+        const loop = async () => {
             if (this.isQuit) {
                 this.isRunning = false;
                 return;
             }
+
+            // Frame pacing: block on the previous frame's GPU completion
+            // before starting this one. Without this, rAF keeps submitting
+            // at ~35 Hz while the GPU drains at ~20 Hz, building an 8-deep
+            // queue and ~400 ms of input lag that feels like single-digit
+            // fps even when the canvas technically paints often. After
+            // this, queue depth is ~2 and perceived responsiveness tracks
+            // actual GPU throughput.
+            if (this.prevFrameGPUDone) {
+                try { await this.prevFrameGPUDone; } catch { /* ignore */ }
+                this.prevFrameGPUDone = null;
+            }
+
+            if (this.isQuit) { this.isRunning = false; return; }
 
             const now = performance.now() / 1000;
             let deltaTime = now - this.lastTimestamp;
@@ -90,6 +111,13 @@ export class ParallaxEngine {
             } catch (e) {
                 console.error('[Engine] Error in game loop frame:', e);
             }
+
+            // Capture a completion handle for this frame's just-submitted
+            // GPU work so the next iteration can await it.
+            try {
+                const device = this.globalContext.gpuDevice.getDevice();
+                this.prevFrameGPUDone = device.queue.onSubmittedWorkDone();
+            } catch { this.prevFrameGPUDone = null; }
 
             this.animFrameId = requestAnimationFrame(loop);
         };

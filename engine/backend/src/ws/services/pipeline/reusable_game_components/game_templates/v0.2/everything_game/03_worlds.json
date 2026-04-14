@@ -14,13 +14,13 @@
       },
       "streamedBuildings": {
         "assetBasePath": "/assets/official/everything_game/chunks/",
-        "loadRadius": 3,
-        "unloadRadius": 5,
+        "loadRadius": 2,
+        "unloadRadius": 3,
         "baseColor": [0.74, 0.71, 0.66, 1.0]
       },
       "placements": [
-        { "name": "Player", "ref": "player", "position": [27976, 25, 17301] },
-        { "ref": "camera", "position": [27984, 29, 17301] }
+        { "name": "Player", "ref": "player", "position": [27281, 5, 17557] },
+        { "ref": "camera", "position": [27289, 9, 17557] }
       ]
     }
   ]

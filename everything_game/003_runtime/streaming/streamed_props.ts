@@ -66,8 +66,15 @@ export class StreamedProps {
     private gridZ = 0;
     private loaded = new Map<string, LoadedChunk>();
     private pending = new Set<string>();
+    /** Fetched chunks awaiting geometry build. See StreamedBuildings for rationale. */
+    private pendingBuilds = new Map<string, { cx: number; cz: number; placements: any[] }>();
     private lastCamCX = Number.NaN;
     private lastCamCZ = Number.NaN;
+
+    /** Build budget per frame — prop chunks emit up to 4 meshes (metal,
+     *  wood, signs, signs_green), each with its own GPU upload. Keep
+     *  this at 1 so a single chunk-worth of work never stalls the frame. */
+    private static readonly BUILD_BUDGET_PER_FRAME = 1;
 
     constructor(scene: Scene, renderSystem: RenderSystem, config: StreamedPropsConfig) {
         this.scene         = scene;
@@ -88,31 +95,59 @@ export class StreamedProps {
         if (!this.worldIndex) return;
         const cx = Math.floor(camPos.x / this.chunkSize);
         const cz = Math.floor(camPos.z / this.chunkSize);
-        if (cx === this.lastCamCX && cz === this.lastCamCZ) return;
-        this.lastCamCX = cx;
-        this.lastCamCZ = cz;
 
-        for (const [key, ch] of this.loaded) {
-            const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
-            if (d > this.unloadRadius) this.unloadChunk(key);
+        const chunkChanged = cx !== this.lastCamCX || cz !== this.lastCamCZ;
+        if (chunkChanged) {
+            this.lastCamCX = cx;
+            this.lastCamCZ = cz;
+
+            for (const [key, ch] of this.loaded) {
+                const d = Math.max(Math.abs(ch.cx - cx), Math.abs(ch.cz - cz));
+                if (d > this.unloadRadius) this.unloadChunk(key);
+            }
+            // Prune pending builds that drifted outside unload radius.
+            for (const [key, pb] of this.pendingBuilds) {
+                const d = Math.max(Math.abs(pb.cx - cx), Math.abs(pb.cz - cz));
+                if (d > this.unloadRadius) this.pendingBuilds.delete(key);
+            }
+
+            const R = this.loadRadius;
+            for (let dz = -R; dz <= R; dz++) {
+                for (let dx = -R; dx <= R; dx++) {
+                    const tcx = cx + dx, tcz = cz + dz;
+                    if (tcx < 0 || tcz < 0 || tcx >= this.gridX || tcz >= this.gridZ) continue;
+                    const key = `${tcx}_${tcz}`;
+                    if (this.loaded.has(key) || this.pending.has(key) || this.pendingBuilds.has(key)) continue;
+                    if (!this.worldIndex.has(key)) continue;
+                    this.fetchChunk(tcx, tcz, key);
+                }
+            }
         }
 
-        const R = this.loadRadius;
-        for (let dz = -R; dz <= R; dz++) {
-            for (let dx = -R; dx <= R; dx++) {
-                const tcx = cx + dx, tcz = cz + dz;
-                if (tcx < 0 || tcz < 0 || tcx >= this.gridX || tcz >= this.gridZ) continue;
-                const key = `${tcx}_${tcz}`;
-                if (this.loaded.has(key) || this.pending.has(key)) continue;
-                if (!this.worldIndex.has(key)) continue;
-                this.fetchChunk(tcx, tcz, key);
-            }
+        this.drainPendingBuilds(cx, cz);
+    }
+
+    private drainPendingBuilds(cx: number, cz: number): void {
+        if (this.pendingBuilds.size === 0) return;
+        const entries = Array.from(this.pendingBuilds.entries());
+        entries.sort((a, b) => {
+            const da = Math.max(Math.abs(a[1].cx - cx), Math.abs(a[1].cz - cz));
+            const db = Math.max(Math.abs(b[1].cx - cx), Math.abs(b[1].cz - cz));
+            return da - db;
+        });
+        const n = Math.min(StreamedProps.BUILD_BUDGET_PER_FRAME, entries.length);
+        for (let i = 0; i < n; i++) {
+            const [key, pb] = entries[i];
+            this.pendingBuilds.delete(key);
+            if (this.loaded.has(key)) continue;
+            this.buildChunk(pb.cx, pb.cz, key, pb.placements);
         }
     }
 
     destroy(): void {
         for (const key of [...this.loaded.keys()]) this.unloadChunk(key);
         this.pending.clear();
+        this.pendingBuilds.clear();
         this.worldIndex = null;
         if (this.parentId >= 0) {
             this.scene.destroyEntity(this.parentId);
@@ -147,7 +182,8 @@ export class StreamedProps {
             const d = Math.max(Math.abs(cx - this.lastCamCX), Math.abs(cz - this.lastCamCZ));
             if (d > this.unloadRadius) return;
             if (this.loaded.has(key)) return;
-            this.buildChunk(cx, cz, key, data.placements || []);
+            // Park for throttled build — see drainPendingBuilds.
+            this.pendingBuilds.set(key, { cx, cz, placements: data.placements || [] });
         } catch {
             this.pending.delete(key);
         }

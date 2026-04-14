@@ -8,11 +8,7 @@ import { MeshData } from '../../../runtime/resource/types/mesh_data.js';
 import { CreateEntityCommand } from '../history/commands.js';
 import { buildComponentsForAsset, prettifyAssetName } from '../utils/asset_drop.js';
 import { icon, Maximize2, Minimize2 } from '../widgets/icons.js';
-import { HeightmapTerrain } from '../../../runtime/function/streaming/heightmap_terrain.js';
-import { StreamedBuildings } from '../../../../../everything_game/003_runtime/streaming/streamed_buildings.js';
-import { StreamedRoads } from '../../../../../everything_game/003_runtime/streaming/streamed_roads.js';
-import { StreamedProps } from '../../../../../everything_game/003_runtime/streaming/streamed_props.js';
-import { loadTerrainTextureArrays } from '../../../../../everything_game/003_runtime/streaming/terrain_texture_cache.js';
+import { StreamingManager } from '../streaming_manager.js';
 
 /**
  * Viewport panel: contains the WebGPU canvas and overlay canvas for gizmos.
@@ -36,15 +32,13 @@ export class ViewportPanel {
 
     private lastFrameTime: number = 0;
     private collisionGpuMeshCache: Map<number, any> = new Map();
-    private heightmapTerrain: HeightmapTerrain | null = null;
-    private streamedBuildings: StreamedBuildings | null = null;
-    private streamedRoads: StreamedRoads | null = null;
-    private streamedProps: StreamedProps | null = null;
+    private streaming: StreamingManager;
 
     constructor() {
         this.ctx = EditorContext.instance;
         this.camera = new EditorCamera();
         this.gizmo = new GizmoSystem(this.camera);
+        this.streaming = new StreamingManager(this.ctx);
 
         this.el = document.createElement('div');
         this.el.className = 'viewport-panel';
@@ -230,10 +224,14 @@ export class ViewportPanel {
                     }
                 }
             }
-            this.initHeightmapTerrain();
-            this.initStreamedBuildings();
-            this.initStreamedRoads();
-            this.initStreamedProps();
+            this.streaming.init();
+        });
+
+        // Re-init streamed content (heightmap terrain, OSM buildings, etc.)
+        // after any scene swap — including the play→stop snapshot restore,
+        // which otherwise leaves a stale Terrain entity with no heightData.
+        this.ctx.on('sceneChanged', () => {
+            this.streaming.init();
         });
 
         // Resize handling
@@ -418,178 +416,6 @@ export class ViewportPanel {
         return md;
     }
 
-    /**
-     * Scan the loaded project for a scene that opts into heightmap-backed
-     * terrain (via `scene.heightmapTerrain: { metaUrl, ... }`) and
-     * initialize one. Safe to call multiple times — tears down the
-     * previous instance first. Silently does nothing when no scene
-     * declares the config.
-     */
-    private initHeightmapTerrain(): void {
-        if (this.heightmapTerrain) {
-            this.heightmapTerrain.destroy();
-            this.heightmapTerrain = null;
-        }
-        const scene = this.ctx.getActiveScene();
-        if (!scene) return;
-
-        // Clean up any stale heightmap-terrain entities restored from a
-        // previous scene snapshot (the runtime re-spawns its own on init).
-        for (const entity of [...scene.entities.values()]) {
-            if (entity.hasTag('heightmap_terrain_root')) {
-                scene.destroyEntity(entity.id);
-            }
-        }
-
-        interface HeightmapTerrainSceneCfg {
-            metaUrl: string;
-            baseColor?: [number, number, number, number];
-            waterLevel?: number;
-        }
-        const pd = this.ctx.state.projectData;
-        const scenes = pd?.scenes || {};
-        for (const sceneData of Object.values(scenes) as any[]) {
-            const cfg = sceneData?.heightmapTerrain as HeightmapTerrainSceneCfg | undefined;
-            if (!cfg?.metaUrl) continue;
-            const terrain = new HeightmapTerrain(scene, {
-                metaUrl: cfg.metaUrl,
-                baseColor: cfg.baseColor,
-                waterLevel: cfg.waterLevel,
-            });
-            // After the heightmap geometry lands, upload it to GPU and then
-            // asynchronously load the PBR ground textures to activate the
-            // dedicated terrain shader pipeline. Content dims come from the
-            // heightmap meta, not the scene config, so the two don't drift.
-            terrain.onReady = () => {
-                this.ctx.ensurePrimitiveMeshes();
-                const device = this.ctx.engine?.globalContext.renderSystem.getDevice();
-                if (!device) return;
-                loadTerrainTextureArrays(device, {
-                    worldWidth:   terrain.worldWidth,
-                    worldDepth:   terrain.worldDepth,
-                    originX:      terrain.originX,
-                    originZ:      terrain.originZ,
-                    contentWidth: terrain.contentWidth,
-                    contentDepth: terrain.contentDepth,
-                })
-                    .then(arrays => terrain.applyTerrainTextures(
-                        arrays,
-                        this.streamedRoads?.atlas.nearTexture,
-                        this.streamedRoads?.atlas.farTexture,
-                    ))
-                    .catch(err => console.warn('[Terrain] Failed to load ground textures:', err));
-            };
-            this.heightmapTerrain = terrain;
-            break;
-        }
-    }
-
-    /**
-     * Scan the loaded project for a scene that opts into streamed plain-color
-     * buildings (via `scene.streamedBuildings: { ... }`) and initialize one.
-     * Safe to call multiple times — tears down the previous instance first.
-     * Silently does nothing when no scene declares the config.
-     */
-    private initStreamedBuildings(): void {
-        if (this.streamedBuildings) {
-            this.streamedBuildings.destroy();
-            this.streamedBuildings = null;
-        }
-        const scene = this.ctx.getActiveScene();
-        if (!scene || !this.ctx.engine) return;
-
-        // Clean up any stale streamed-buildings entities restored from a
-        // previous scene snapshot — the runtime re-spawns its own on init.
-        for (const entity of [...scene.entities.values()]) {
-            if (entity.hasTag('streamed_buildings_root') || entity.hasTag('streamed_buildings_chunk')) {
-                scene.destroyEntity(entity.id);
-            }
-        }
-
-        const pd = this.ctx.state.projectData;
-        const scenes = pd?.scenes || {};
-        for (const sceneData of Object.values(scenes) as any[]) {
-            const cfg = sceneData?.streamedBuildings;
-            if (!cfg?.assetBasePath) continue;
-            const renderSystem = this.ctx.engine.globalContext.renderSystem;
-            this.streamedBuildings = new StreamedBuildings(scene, renderSystem, {
-                assetBasePath: cfg.assetBasePath,
-                loadRadius: cfg.loadRadius,
-                unloadRadius: cfg.unloadRadius,
-                baseColor: cfg.baseColor,
-            });
-            break;
-        }
-    }
-
-    /**
-     * Create a road atlas streamer that rasterizes road + railway placements
-     * from the same chunk JSONs used by streamed buildings. The atlas textures
-     * feed the terrain shader's road/sidewalk overlay.
-     *
-     * Runs synchronously alongside initStreamedBuildings so that by the time
-     * the heightmap terrain's onReady callback fires, `this.streamedRoads`
-     * already exists and its GPU atlas textures can be passed into
-     * `applyTerrainTextures()`.
-     */
-    private initStreamedRoads(): void {
-        if (this.streamedRoads) {
-            this.streamedRoads.destroy();
-            this.streamedRoads = null;
-        }
-        if (!this.ctx.engine) return;
-        const device = this.ctx.engine.globalContext.renderSystem.getDevice();
-        if (!device) return;
-
-        // Reuse the streamed-buildings asset base: roads live in the same chunk JSONs.
-        const pd = this.ctx.state.projectData;
-        const scenes = pd?.scenes || {};
-        for (const sceneData of Object.values(scenes) as any[]) {
-            const cfg = sceneData?.streamedBuildings;
-            if (!cfg?.assetBasePath) continue;
-            this.streamedRoads = new StreamedRoads(device, { assetBasePath: cfg.assetBasePath });
-            break;
-        }
-    }
-
-    /**
-     * Create a streamer that spawns street props from the same chunk JSONs:
-     * pre-baked OSM-driven signs (`type: "furniture"`, written by
-     * 002_bake_traffic_controls.py) plus runtime procedural scatter (lamp
-     * posts, guardrails, construction cones, building-side hydrants/trash
-     * cans/benches/mailboxes, picket fences). Shares the
-     * `streamedBuildings.assetBasePath` config.
-     */
-    private initStreamedProps(): void {
-        if (this.streamedProps) {
-            this.streamedProps.destroy();
-            this.streamedProps = null;
-        }
-        const scene = this.ctx.getActiveScene();
-        if (!scene || !this.ctx.engine) return;
-
-        // Clean up any stale prop entities restored from a scene snapshot.
-        for (const entity of [...scene.entities.values()]) {
-            if (entity.hasTag('streamed_props_root') || entity.hasTag('streamed_props_chunk')) {
-                scene.destroyEntity(entity.id);
-            }
-        }
-
-        const pd = this.ctx.state.projectData;
-        const scenes = pd?.scenes || {};
-        for (const sceneData of Object.values(scenes) as any[]) {
-            const cfg = sceneData?.streamedBuildings;
-            if (!cfg?.assetBasePath) continue;
-            const renderSystem = this.ctx.engine.globalContext.renderSystem;
-            this.streamedProps = new StreamedProps(scene, renderSystem, {
-                assetBasePath: cfg.assetBasePath,
-                loadRadius: cfg.loadRadius,
-                unloadRadius: cfg.unloadRadius,
-            });
-            break;
-        }
-    }
-
     private startRenderLoop(): void {
         const loop = () => {
             const now = performance.now() / 1000;
@@ -632,20 +458,7 @@ export class ViewportPanel {
                     });
                 }
 
-                if (this.heightmapTerrain) {
-                    this.heightmapTerrain.update(camPos);
-                }
-                if (this.streamedBuildings) {
-                    this.streamedBuildings.update(camPos);
-                }
-                if (this.streamedRoads) {
-                    this.streamedRoads.update(camPos);
-                    const renderSystem = this.ctx.engine.globalContext.renderSystem;
-                    renderSystem.setDecals(this.streamedRoads.collectDecals());
-                }
-                if (this.streamedProps) {
-                    this.streamedProps.update(camPos);
-                }
+                this.streaming.update(camPos);
 
                 this.fpsEl.textContent = `${this.ctx.engine.getFPS()} FPS`;
             }

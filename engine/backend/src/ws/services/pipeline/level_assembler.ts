@@ -518,9 +518,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
       continue;
     }
 
-    const isCustomMesh = def.mesh?.type === 'custom' && def.mesh?.asset;
-    const rawPos = placement.position || [0, 0, 0];
-    const pos = isCustomMesh ? [rawPos[0], 0, rawPos[2]] : rawPos;
+    const pos = placement.position || [0, 0, 0];
 
     const builtEntities = buildEntity({
       def,
