@@ -118,6 +118,7 @@ export function wrapSpawn(
     if (!probeDockerSandbox().ok) return { command: cmd, args };
 
     const image = dockerSandboxImage();
+    const { uid, gid } = os.userInfo();
     const dockerArgs: string[] = [
         'run',
         '--rm',
@@ -125,6 +126,11 @@ export function wrapSpawn(
         // Default bridge network: outbound yes, but no access to host
         // services. Add `--network=none` later if we add a proxy.
         '--network', 'bridge',
+        // Match the host user so (a) claude-code accepts
+        // --dangerously-skip-permissions (refuses to run as root), and
+        // (b) files the agent writes into the mounted sandbox dir are
+        // owned by the host user, not root.
+        '--user', `${uid}:${gid}`,
         // Sandbox dir mounted read-write as the agent's working dir.
         // We use the same path inside the container so any absolute paths
         // the agent writes back (e.g. in file_change events from codex)
