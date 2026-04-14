@@ -148,11 +148,17 @@ function spawnCodex(opts: SpawnOptions): Promise<CLIRunResult> {
         // /tmp project sandbox and need the agent to freely edit + run node,
         // so bypass. --skip-git-repo-check is required because the sandbox
         // is not a git repo.
+        //
+        // Pin the model to gpt-5-mini and reasoning effort to medium so a
+        // user's global config.toml (often gpt-5.4 + high) doesn't make
+        // every fix take 10+ minutes of hidden thinking time.
         const args = [
             'exec',
             '--json',
             '--skip-git-repo-check',
             '--dangerously-bypass-approvals-and-sandbox',
+            '-c', 'model="gpt-5.4-mini"',
+            '-c', 'model_reasoning_effort="medium"',
             '-C', opts.sandboxDir,
             opts.prompt,
         ];
@@ -170,20 +176,53 @@ function spawnCodex(opts: SpawnOptions): Promise<CLIRunResult> {
         let stderr = '';
 
         streamJSONL(proc.stdout, (event: any) => {
-            // Codex emits item.started / item.completed. Tool-style activity
-            // is `command_execution`; final output comes as `agent_message`.
-            if (event.type === 'item.started' || event.type === 'item.completed') {
-                const item = event.item;
-                if (!item) return;
-                if (item.type === 'command_execution') {
-                    const kind = codexCommandToActivity(item.command || '');
-                    const msg = opts.statusMapper({ kind });
-                    if (msg) opts.sendStatus?.(msg);
-                } else if (item.type === 'agent_message' && event.type === 'item.completed') {
-                    if (typeof item.text === 'string' && item.text.trim()) {
-                        lastMessage = item.text;
-                    }
+            // Codex emits item.started / item.completed with a handful of item
+            // kinds we care about:
+            //   - command_execution: a shell command (cat, sed, bash ...)
+            //   - file_change: an apply_patch edit (this is how codex edits
+            //     files in practice — most of the work shows up here, NOT in
+            //     command_execution)
+            //   - agent_message: natural-language narration; codex emits one
+            //     before each tool call describing what it's about to do, and
+            //     one final summary at the end
+            if (event.type !== 'item.started' && event.type !== 'item.completed') return;
+            const item = event.item;
+            if (!item) return;
+
+            if (item.type === 'command_execution') {
+                const kind = codexCommandToActivity(item.command || '');
+                const msg = opts.statusMapper({ kind });
+                if (msg) opts.sendStatus?.(msg);
+                return;
+            }
+
+            if (item.type === 'file_change') {
+                // Surface the file being edited if we can — otherwise a generic
+                // editing status. `changes` is an array of { path, kind }.
+                const first = Array.isArray(item.changes) ? item.changes[0] : null;
+                const editMsg = opts.statusMapper({ kind: 'edit' }) || 'Editing files...';
+                if (first?.path) {
+                    const base = String(first.path).split('/').pop();
+                    opts.sendStatus?.(`${editMsg.replace(/\.\.\.$/, '')}: ${base}...`);
+                } else {
+                    opts.sendStatus?.(editMsg);
                 }
+                return;
+            }
+
+            if (item.type === 'agent_message' && event.type === 'item.completed' && typeof item.text === 'string') {
+                // Always track the latest message — the final one is the
+                // summary returned to the chat. Additionally, if there are
+                // more messages to come, surface this one as live narration
+                // so the user sees what codex is doing and thinking.
+                const trimmed = item.text.trim();
+                if (trimmed) {
+                    lastMessage = trimmed;
+                    // Show just the first sentence — keeps the spinner text tight.
+                    const firstSentence = trimmed.split(/(?<=[.!?])\s/)[0];
+                    opts.sendStatus?.(firstSentence.length > 120 ? firstSentence.slice(0, 117) + '...' : firstSentence);
+                }
+                return;
             }
         });
 
