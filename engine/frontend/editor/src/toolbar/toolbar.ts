@@ -782,6 +782,36 @@ export class Toolbar {
         nameRow.appendChild(nameInput);
         body.appendChild(nameRow);
 
+        // Editing Agent picker — only when 2+ CLI fixers are installed on the
+        // backend. Persisted in projectConfig.editingAgent and used by the
+        // fixer whenever the LLM escalates via FIX_GAME (Auto / Small LLM).
+        const cliAgents = this.ctx.state.availableAgents ?? [];
+        let agentSelect: HTMLSelectElement | null = null;
+        if (cliAgents.length >= 2) {
+            const agentRow = document.createElement('div');
+            agentRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+            const agentLabel = document.createElement('label');
+            agentLabel.textContent = 'Editing Agent';
+            agentLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
+            agentSelect = document.createElement('select');
+            agentSelect.style.cssText = 'width:100%;height:28px;';
+            const currentAgent = this.ctx.state.projectData?.projectConfig?.editingAgent ?? 'claude';
+            for (const a of cliAgents) {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = a.label;
+                if (a.id === currentAgent) opt.selected = true;
+                agentSelect.appendChild(opt);
+            }
+            const agentHint = document.createElement('span');
+            agentHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
+            agentHint.textContent = 'Agent spawned when the AI edits your project.';
+            agentRow.appendChild(agentLabel);
+            agentRow.appendChild(agentSelect);
+            agentRow.appendChild(agentHint);
+            body.appendChild(agentRow);
+        }
+
         const gfxRow = document.createElement('div');
         gfxRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
         const gfxLabel = document.createElement('label');
@@ -828,6 +858,11 @@ export class Toolbar {
                         if (newName && this.ctx.state.projectData) {
                             this.ctx.state.projectData.name = newName;
                             this.projectNameEl.textContent = newName;
+                        }
+                        if (agentSelect && this.ctx.state.projectData) {
+                            const pd = this.ctx.state.projectData;
+                            if (!pd.projectConfig) pd.projectConfig = {};
+                            pd.projectConfig.editingAgent = agentSelect.value;
                         }
                         const selectedQuality = gfxSelect.value as 'low' | 'medium' | 'high';
                         localStorage.setItem('graphics_quality', selectedQuality);

@@ -19,6 +19,8 @@ export class EditorState {
     collisionMeshHiddenEntities: Set<number> = new Set();
     collisionMeshOriginals: Map<number, { gpuMesh: any; baseColorTexture: any; normalMapTexture: any; gpuSubMeshes: any; materialOverrides: any }> = new Map();
     isMultiplayerGuest: boolean = false;
+    /** CLI fixer agents advertised by the backend in the `connected` event. */
+    availableAgents: { id: string; label: string; caption: string }[] = [];
     terrainSculptActive: boolean = false;
     terrainSculptBrush: {
         radius: number;

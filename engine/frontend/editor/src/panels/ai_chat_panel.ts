@@ -191,6 +191,7 @@ export class AiChatPanel {
             this.setSessionId(data.chatSessionId as string);
             if (Array.isArray(data.availableAgents)) {
                 this.availableCLIAgents = data.availableAgents as AgentOption[];
+                this.ctx.state.availableAgents = data.availableAgents;
                 this.rebuildAgentOptions();
             }
         });

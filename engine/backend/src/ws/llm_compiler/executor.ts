@@ -178,6 +178,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
 
             try {
                 const view = ctx.getProjectData();
+                const editingAgent = view?.projectConfig?.editingAgent;
                 const fixResult = await runFixer(
                     ctx.projectId,
                     description,
@@ -185,6 +186,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     ctx.activeSceneKey,
                     sendStatus,
                     ctx.abortSignal,
+                    editingAgent,
                 );
 
                 if (fixResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(fixResult.costUsd);
