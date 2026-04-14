@@ -82,7 +82,7 @@ export async function runFixer(
             `# Bug Report\n\n${description}\n\n# Current Project State\n\n${projectSummary}`,
         );
 
-        sendStatus?.('Fixer agent is analyzing and fixing...');
+        sendStatus?.('Editing Agent is analyzing and coding...');
         const cliResult = await spawnCLI(sandboxDir, sendStatus, abortSignal, cliOverride);
 
         sendStatus?.('Reading changes...');

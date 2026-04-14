@@ -174,7 +174,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             }
 
             const sendStatus = (msg: string) => ctx.sendToFrontend('fix_progress', { text: msg });
-            sendStatus('Fixing game...');
+            sendStatus('Dispatching Editing Agent...');
 
             try {
                 const view = ctx.getProjectData();
