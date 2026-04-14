@@ -60,7 +60,7 @@ Edit `.env` and add your LLM API key. Any OpenAI-compatible API works:
 
 | Provider | `AI_BASE_URL` | Example `AI_MODEL` |
 |----------|--------------|-------------------|
-| [Groq](https://console.groq.com/) (free) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| [Groq](https://console.groq.com/) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
 | [OpenRouter](https://openrouter.ai/) | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
 | Local (Ollama) | `http://localhost:11434/v1` | `llama3.3` |
 
