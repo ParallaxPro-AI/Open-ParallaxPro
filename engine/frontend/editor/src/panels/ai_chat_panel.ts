@@ -28,13 +28,14 @@ interface AgentOption {
     caption: string;
 }
 
-/** Options always available regardless of which CLIs the backend host has. */
+const AUTO_AGENT_CAPTION = 'For chatting, small scene edits, and tool calls. Auto-dispatches the Editing Agent when a task gets too complex.';
+
+/** Option always available regardless of which CLIs the backend host has. */
 const BUILTIN_AGENT_OPTIONS: AgentOption[] = [
-    { id: 'auto', label: 'Auto', caption: '' },
-    { id: 'small_llm', label: 'Small LLM', caption: '' },
+    { id: 'auto', label: 'Auto', caption: AUTO_AGENT_CAPTION },
 ];
 
-const CLI_AGENT_CAPTION = 'Will spawn an agent to edit your project based on your prompt.';
+const CLI_AGENT_CAPTION = 'Edits your project files based on your prompt. Not for chatting.';
 
 const enum State {
     IDLE,
@@ -382,13 +383,15 @@ export class AiChatPanel {
         this.updateAgentCaption();
     }
 
-    /** Show a caption under the input when a CLI agent is picked so the user
-     *  knows the heavy-weight path bypasses the fast LLM. */
+    /** Show a caption under the input explaining what the picked agent does. */
     private updateAgentCaption(): void {
         if (!this.agentCaption) return;
-        const picked = this.availableCLIAgents.find(a => a.id === this.selectedAgent);
-        if (picked) {
-            this.agentCaption.textContent = picked.caption || CLI_AGENT_CAPTION;
+        const allOptions: AgentOption[] = [...BUILTIN_AGENT_OPTIONS, ...this.availableCLIAgents];
+        const picked = allOptions.find(a => a.id === this.selectedAgent);
+        const isCliAgent = this.availableCLIAgents.some(a => a.id === this.selectedAgent);
+        const caption = picked?.caption || (isCliAgent ? CLI_AGENT_CAPTION : '');
+        if (caption) {
+            this.agentCaption.textContent = caption;
             this.agentCaption.classList.add('visible');
         } else {
             this.agentCaption.textContent = '';
@@ -404,10 +407,7 @@ export class AiChatPanel {
         const menu = document.createElement('div');
         menu.className = 'chat-regen-menu';
 
-        const regenOptions: AgentOption[] = [
-            { id: 'small_llm', label: 'Small LLM', caption: '' },
-            ...this.availableCLIAgents,
-        ];
+        const regenOptions: AgentOption[] = [...BUILTIN_AGENT_OPTIONS, ...this.availableCLIAgents];
 
         for (const opt of regenOptions) {
             const item = document.createElement('button');
@@ -416,10 +416,11 @@ export class AiChatPanel {
             label.className = 'chat-regen-menu-label';
             label.textContent = `Regenerate with ${opt.label}`;
             item.appendChild(label);
-            if (opt.id !== 'small_llm' && opt.id !== 'auto') {
+            const hintText = opt.caption || (this.availableCLIAgents.some(a => a.id === opt.id) ? CLI_AGENT_CAPTION : '');
+            if (hintText) {
                 const hint = document.createElement('div');
                 hint.className = 'chat-regen-menu-hint';
-                hint.textContent = opt.caption || CLI_AGENT_CAPTION;
+                hint.textContent = hintText;
                 item.appendChild(hint);
             }
             item.addEventListener('click', (ev) => {

@@ -21,8 +21,8 @@ export interface AgentInfo {
 }
 
 const PROBES: Array<Omit<AgentInfo, 'installed' | 'path'> & { bin: string }> = [
-    { id: 'claude', bin: 'claude', label: 'Editing Agent: Claude Code', caption: 'Will spawn an agent to edit your project based on your prompt.' },
-    { id: 'codex',  bin: 'codex',  label: 'Editing Agent: Codex',       caption: 'Will spawn an agent to edit your project based on your prompt.' },
+    { id: 'claude', bin: 'claude', label: 'Editing Agent: Claude Code', caption: 'Edits your project files based on your prompt. Not for chatting.' },
+    { id: 'codex',  bin: 'codex',  label: 'Editing Agent: Codex',       caption: 'Edits your project files based on your prompt. Not for chatting.' },
 ];
 
 let cache: AgentInfo[] | null = null;

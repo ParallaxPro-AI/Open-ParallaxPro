@@ -805,7 +805,7 @@ export class Toolbar {
             }
             const agentHint = document.createElement('span');
             agentHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
-            agentHint.textContent = 'Agent spawned when the AI edits your project.';
+            agentHint.textContent = 'Agent spawned when the AI decides to edit your project files.';
             agentRow.appendChild(agentLabel);
             agentRow.appendChild(agentSelect);
             agentRow.appendChild(agentHint);
