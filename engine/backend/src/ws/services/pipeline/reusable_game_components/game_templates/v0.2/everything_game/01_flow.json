@@ -1,14 +1,35 @@
 {
   "id": "everything_game_flow",
   "name": "Everything Game",
-  "start": "gameplay",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": { "gameTitle": "EVERYTHING GAME", "gameSubtitle": "An Open World" }
+  },
   "states": {
-    "gameplay": {
-      "description": "Fly over the heightmap-backed world.",
+    "boot": {
+      "description": "Initialize systems",
       "active_systems": [],
-      "active_behaviors": [],
       "duration": -1,
-      "on_enter": [],
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [
+        { "when": "boot_frames>=2", "goto": "main_menu" }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Explore the heightmap-backed world on foot.",
+      "active_systems": [],
+      "active_behaviors": ["third_person_movement", "camera_third_person"],
+      "duration": -1,
+      "on_enter": ["emit:game.game_ready"],
       "on_exit": [],
       "transitions": []
     }

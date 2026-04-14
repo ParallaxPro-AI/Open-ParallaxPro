@@ -7,16 +7,46 @@
         "far": 200000
       },
       "tags": ["camera"],
-      "label": false
+      "label": false,
+      "behaviors": [
+        {
+          "name": "camera_third_person",
+          "script": "camera/camera_third_person.ts",
+          "params": {
+            "distance": 8,
+            "height": 4,
+            "lookHeight": 1.5,
+            "smoothSpeed": 6,
+            "sensitivity": 0.15
+          }
+        }
+      ]
     },
     "player": {
       "mesh": {
-        "type": "cube",
-        "color": [0.9, 0.2, 0.2, 1],
-        "scale": [2, 2, 2]
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
       },
-      "physics": false,
-      "tags": ["player"]
+      "physics": {
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "third_person_movement",
+          "script": "movement/third_person_movement.ts",
+          "params": {
+            "speed": 5,
+            "sprintSpeed": 9,
+            "jumpForce": 6
+          }
+        }
+      ]
     }
   }
 }
