@@ -22,6 +22,7 @@ import {
     type ProjectFiles,
 } from './services/pipeline/project_files.js';
 import { buildProject, type BuildResult } from './services/pipeline/project_builder.js';
+import { applyIncomingFile } from './services/pipeline/project_save.js';
 
 let _plugins: EnginePlugin[] = [];
 export function setPlugins(plugins: EnginePlugin[]): void { _plugins = plugins; }
@@ -396,21 +397,15 @@ function handleFileSave(client: EditorClient, data: any): void {
     const pd = readProjectData(client.projectId);
     if (!pd || isLegacyProjectData(pd)) return;
 
-    if (filePath === 'projectConfig') {
-        pd.projectConfig = content;
-    } else {
-        const built = buildProject(client.projectId, pd.files);
-        const target = resolveSavePath(filePath, built.sourceMap);
-        if (!target) {
-            send(client, 'file_save_error', { path: filePath, error: 'Path is not editable in the file tree.' });
-            return;
-        }
-        const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
-        setFile(pd, target, text);
+    const result = applyIncomingFile(pd, client.projectId, filePath, content);
+    if (result.error) {
+        send(client, 'file_save_error', { path: filePath, error: result.error });
+        return;
     }
-
     stmtUpdateData.run(serializeProjectData(pd), client.projectId);
-    rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
+    if (result.shouldRebuildAndPush) {
+        rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
+    }
     send(client, 'file_saved', { path: filePath });
 }
 
@@ -421,38 +416,17 @@ function handleProjectSave(client: EditorClient, data: any): void {
     const pd = readProjectData(client.projectId);
     if (!pd || isLegacyProjectData(pd)) return;
 
-    const built = buildProject(client.projectId, pd.files);
+    let shouldRebuildAndPush = false;
     for (const [filePath, content] of Object.entries(files)) {
-        if (filePath === 'projectConfig') {
-            pd.projectConfig = content as { name: string };
-            continue;
-        }
-        const target = resolveSavePath(filePath, built.sourceMap);
-        if (!target) continue;
-        const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
-        setFile(pd, target, text);
+        const result = applyIncomingFile(pd, client.projectId, filePath, content);
+        if (result.shouldRebuildAndPush) shouldRebuildAndPush = true;
     }
 
     stmtUpdateData.run(serializeProjectData(pd), client.projectId);
-    rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
+    if (shouldRebuildAndPush) {
+        rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
+    }
     send(client, 'project_saved', { success: true });
-}
-
-/** Map an incoming file_save path to a template-file path in the project tree. */
-function resolveSavePath(incomingPath: string, sourceMap: Record<string, string>): string | null {
-    if (incomingPath.endsWith('.json') && /^0\d_/.test(incomingPath)) return incomingPath;
-    if (incomingPath.startsWith('behaviors/')) return incomingPath;
-    if (incomingPath.startsWith('systems/')) return incomingPath;
-    if (incomingPath.startsWith('scripts/')) {
-        return sourceMap[incomingPath] || incomingPath;
-    }
-    if (incomingPath.startsWith('ui/')) return incomingPath;
-    if (incomingPath.startsWith('uiFiles/')) {
-        const ui = `ui/${incomingPath.slice('uiFiles/'.length)}`;
-        return sourceMap[ui] ? sourceMap[ui] : ui;
-    }
-    if (incomingPath.startsWith('scenes/')) return null;
-    return null;
 }
 
 /** Read parsed project data from DB. Returns null if project missing. */

@@ -506,3 +506,170 @@ function derivedNameForRef(allPlacements: any[], placement: any): string {
     }
     return count <= 1 ? base : `${base} ${count}`;
 }
+
+/**
+ * Apply an editor-side scene snapshot (the assembled scene the user just edited
+ * and saved) back onto the template files. Walks every entity in the snapshot,
+ * matches it to a placement in `03_worlds.json` by name, and updates that
+ * placement's transform / material / tags / active.
+ *
+ * Returns updated file contents + counts of what changed. Auto-injected entities
+ * that don't correspond to a placement (managers, the directional light, the
+ * event validator) are silently ignored. Entirely new or deleted entities are
+ * not handled here — the editor uses the EDIT block (TemplateMutator) for those.
+ */
+export interface SnapshotApplyResult {
+    updatedFiles: Record<string, string>;
+    placementsUpdated: number;
+    environmentChanged: boolean;
+    warnings: string[];
+}
+
+export function applySceneSnapshot(files: ProjectFiles, sceneJson: any): SnapshotApplyResult {
+    const warnings: string[] = [];
+    const worlds = parseJSON(files['03_worlds.json']);
+    if (!worlds?.worlds?.[0]) {
+        warnings.push('No worlds[0] in 03_worlds.json — cannot apply snapshot.');
+        return { updatedFiles: {}, placementsUpdated: 0, environmentChanged: false, warnings };
+    }
+    const entitiesDef = parseJSON(files['02_entities.json'])?.definitions || {};
+    const world = worlds.worlds[0];
+    const placements: any[] = world.placements || [];
+
+    // Index placements by their assembled name for O(1) lookup.
+    const placementByName = new Map<string, any>();
+    for (const p of placements) placementByName.set(p.name || derivedNameForRef(placements, p), p);
+
+    let placementsUpdated = 0;
+    let dirty = false;
+
+    for (const entity of sceneJson?.entities || []) {
+        const p = placementByName.get(entity.name);
+        if (!p) continue; // auto-injected (manager, light, validator) — skip.
+
+        const def = entitiesDef[p.ref] || {};
+        let touched = false;
+
+        const tc = (entity.components || []).find((c: any) => c.type === 'TransformComponent')?.data;
+        if (tc) {
+            if (tc.position && updatePos(p, tc.position)) touched = true;
+            if (tc.rotation && updateRot(p, tc.rotation)) touched = true;
+            if (tc.scale && updateScale(p, def, tc.scale)) touched = true;
+        }
+
+        const mr = (entity.components || []).find((c: any) => c.type === 'MeshRendererComponent')?.data;
+        if (mr?.materialOverrides && updateMaterial(p, def, mr.materialOverrides)) touched = true;
+
+        if (entity.active === false && p.active !== false) { p.active = false; touched = true; }
+        else if (entity.active !== false && p.active === false) { delete p.active; touched = true; }
+
+        if (touched) { placementsUpdated++; dirty = true; }
+    }
+
+    let environmentChanged = false;
+    if (sceneJson?.environment) {
+        const before = JSON.stringify(world.environment || {});
+        world.environment = mergeEnv(world.environment || {}, sceneJson.environment);
+        if (JSON.stringify(world.environment) !== before) {
+            environmentChanged = true;
+            dirty = true;
+        }
+    }
+
+    if (!dirty) return { updatedFiles: {}, placementsUpdated: 0, environmentChanged: false, warnings };
+
+    return {
+        updatedFiles: { '03_worlds.json': JSON.stringify(worlds, null, 2) },
+        placementsUpdated,
+        environmentChanged,
+        warnings,
+    };
+}
+
+function updatePos(p: any, pos: any): boolean {
+    const next = [round(pos.x ?? 0), round(pos.y ?? 0), round(pos.z ?? 0)];
+    const cur = p.position || [0, 0, 0];
+    if (next[0] === cur[0] && next[1] === cur[1] && next[2] === cur[2]) return false;
+    p.position = next;
+    return true;
+}
+
+function updateScale(p: any, def: any, scale: any): boolean {
+    const next = [round(scale.x ?? 1), round(scale.y ?? 1), round(scale.z ?? 1)];
+    // Effective scale that the assembler would otherwise produce: placement.scale →
+    // def.mesh.scale → identity. If `next` matches that effective value, no override
+    // is needed (avoids cluttering 03_worlds.json with redundant placement scales).
+    const defScale: number[] = def?.mesh?.scale || [1, 1, 1];
+    const effective = p.scale || defScale;
+    if (next[0] === effective[0] && next[1] === effective[1] && next[2] === effective[2]) {
+        return false;
+    }
+    // Match the def's mesh scale? Drop the placement override.
+    if (next[0] === defScale[0] && next[1] === defScale[1] && next[2] === defScale[2]) {
+        if (!p.scale) return false;
+        delete p.scale;
+        return true;
+    }
+    p.scale = next;
+    return true;
+}
+
+function updateRot(p: any, rot: any): boolean {
+    const eul = quatToEulerDegrees(rot.x ?? 0, rot.y ?? 0, rot.z ?? 0, rot.w ?? 1);
+    const next = [round(eul[0]), round(eul[1]), round(eul[2])];
+    const cur = p.rotation;
+    // Treat near-zero rotation as no override.
+    const isZero = Math.abs(next[0]) < 0.01 && Math.abs(next[1]) < 0.01 && Math.abs(next[2]) < 0.01;
+    if (isZero && !cur) return false;
+    if (cur && next[0] === cur[0] && next[1] === cur[1] && next[2] === cur[2]) return false;
+    if (isZero) { delete p.rotation; return true; }
+    p.rotation = next;
+    return true;
+}
+
+function updateMaterial(p: any, def: any, mo: any): boolean {
+    // If the material matches the def's mesh color (the only "default" the assembler
+    // exposes today), drop any placement override rather than write a redundant one.
+    const defColor: number[] | undefined = def?.mesh?.color;
+    const defOverrides = def?.mesh_override || {};
+    const isJustBaseColorMatch =
+        Object.keys(mo).length === 1
+        && mo.baseColor
+        && defColor
+        && Array.isArray(defColor)
+        && JSON.stringify(mo.baseColor) === JSON.stringify(defColor);
+    if (isJustBaseColorMatch) {
+        if (!p.material_overrides) return false;
+        delete p.material_overrides;
+        return true;
+    }
+    const merged = { ...defOverrides, ...mo };
+    const before = JSON.stringify(p.material_overrides || {});
+    const after = JSON.stringify(merged);
+    if (before === after) return false;
+    p.material_overrides = merged;
+    return true;
+}
+
+function mergeEnv(cur: any, next: any): any {
+    const out = { ...cur };
+    for (const [k, v] of Object.entries(next)) {
+        if (v !== undefined) out[k] = v;
+    }
+    return out;
+}
+
+function round(n: number, places: number = 4): number {
+    const m = 10 ** places;
+    return Math.round(n * m) / m;
+}
+
+function quatToEulerDegrees(x: number, y: number, z: number, w: number): [number, number, number] {
+    // Match level_assembler's eulerDegreesToQuat (XYZ intrinsic) so round-trips are stable.
+    const rad2deg = 180 / Math.PI;
+    const sinp = 2 * (w * y - z * x);
+    const ey = Math.abs(sinp) >= 1 ? Math.sign(sinp) * Math.PI / 2 : Math.asin(sinp);
+    const ex = Math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
+    const ez = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+    return [ex * rad2deg, ey * rad2deg, ez * rad2deg];
+}

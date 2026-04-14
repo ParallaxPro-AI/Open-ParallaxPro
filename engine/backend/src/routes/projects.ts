@@ -11,11 +11,10 @@ import {
     parseProjectData,
     serializeProjectData,
     isLegacyProjectData,
-    defaultProjectData,
-    setFile,
 } from '../ws/services/pipeline/project_files.js';
 import { seedFromTemplate, seedEmpty } from '../ws/services/pipeline/project_seeder.js';
 import { buildProject, cleanupBuildDir } from '../ws/services/pipeline/project_builder.js';
+import { applyIncomingFile } from '../ws/services/pipeline/project_save.js';
 
 let _plugins: EnginePlugin[] = [];
 export function setProjectPlugins(plugins: EnginePlugin[]) { _plugins = plugins; }
@@ -165,8 +164,9 @@ router.put('/:id', (req, res) => {
     res.json({ success: true });
 });
 
-// Save project files — accepts template file paths (01_flow.json, behaviors/...,
-// systems/..., ui/..., scripts/...) and routes legacy assembled keys via sourceMap.
+// Save project files — accepts template paths, scene snapshots (translated into
+// placement edits), editor metadata, and assembled-script keys (routed via
+// the build's source map).
 router.put('/:id/files', (req, res) => {
     const row = stmtGet.get(req.params.id) as any;
     if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
@@ -177,44 +177,16 @@ router.put('/:id/files', (req, res) => {
         res.status(409).json({ error: 'Legacy project — please recreate it.' });
         return;
     }
-    const built = buildProject(row.id, data.files);
 
     const incoming = req.body.files || {};
     for (const [filePath, content] of Object.entries(incoming)) {
-        if (filePath === 'projectConfig') {
-            data.projectConfig = content as { name: string };
-            continue;
-        }
-        const target = resolveSavePath(filePath, built.sourceMap);
-        if (!target) {
-            console.warn(`[Projects] Ignored file_save for unmapped path "${filePath}"`);
-            continue;
-        }
-        setFile(data, target, typeof content === 'string' ? content : JSON.stringify(content, null, 2));
+        const result = applyIncomingFile(data, row.id, filePath, content);
+        if (result.error) console.warn(`[Projects] file_save "${filePath}": ${result.error}`);
     }
 
     stmtUpdateData.run(serializeProjectData(data), req.params.id);
     res.json({ success: true });
 });
-
-/** Map an incoming file_save path to a template-file path in the project tree. */
-function resolveSavePath(incomingPath: string, sourceMap: Record<string, string>): string | null {
-    // Already a template path? (01_flow.json, 02_entities.json, behaviors/*, systems/*, scripts/*, ui/*)
-    if (incomingPath.endsWith('.json') && /^0\d_/.test(incomingPath)) return incomingPath;
-    if (incomingPath.startsWith('behaviors/')) return incomingPath;
-    if (incomingPath.startsWith('systems/')) return incomingPath;
-    if (incomingPath.startsWith('scripts/')) {
-        // Assembled script key — look up source. If unmapped, treat as a user script.
-        return sourceMap[incomingPath] || incomingPath;
-    }
-    if (incomingPath.startsWith('ui/')) return incomingPath;
-    if (incomingPath.startsWith('uiFiles/')) {
-        const ui = `ui/${incomingPath.slice('uiFiles/'.length)}`;
-        return sourceMap[ui] ? sourceMap[ui] : ui;
-    }
-    if (incomingPath.startsWith('scenes/')) return null; // assembled, can't round-trip
-    return null;
-}
 
 // Delete project
 router.delete('/:id', (req, res) => {
