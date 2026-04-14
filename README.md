@@ -73,6 +73,16 @@ Currently supported:
 
 Install one or more of them and the backend will auto-detect them at startup. If multiple are installed, pick your default per-project from the editor's Project Settings, or override per-message from the chat input.
 
+> ⚠️ **Security note — the agents run in YOLO mode.** To let the agent edit your project files without interactive approval prompts, the backend spawns each CLI with its "skip permissions" flag:
+>
+> - `claude --dangerously-skip-permissions`
+> - `codex exec --dangerously-bypass-approvals-and-sandbox`
+> - `opencode run` (no sandbox flag exposed)
+>
+> This means the agent has the **same filesystem and network permissions as the backend process** — it can read anything the user running the backend can read (`~/.ssh`, `~/.env`, other projects, etc.) and write anywhere that user can write.
+>
+> **Do not run the backend on a host with secrets you don't want an LLM to see.** Treat running the editor like running `curl | bash` from the internet — you're trusting the agent's code actions and its model provider.
+
 To set up Claude Code:
 
 ```bash
