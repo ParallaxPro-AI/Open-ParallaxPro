@@ -26,7 +26,7 @@ import {
     emptyTemplateFiles,
     ENGINE_MACHINERY,
 } from './project_files.js';
-import { spawnCLIAgent, CLIActivity } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot } from './cli_runner.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -46,6 +46,7 @@ export async function runCreator(
     sendStatus?: (msg: string) => void,
     cliOverride?: string,
 ): Promise<CreatorResult> {
+    await acquireCLISlot(sendStatus);
     const templateId = deriveTemplateId(description);
     const sandboxDir = path.join('/tmp', `parallaxpro-create-${projectId}`);
 
@@ -97,6 +98,7 @@ export async function runCreator(
             files,
         };
     } finally {
+        releaseCLISlot();
         try { fs.rmSync(sandboxDir, { recursive: true, force: true }); } catch {}
     }
 }

@@ -17,6 +17,34 @@ import { config } from '../../../config.js';
 import { getAvailableAgents } from './cli_availability.js';
 import { wrapSpawn } from './docker_sandbox.js';
 
+// ─── Concurrency gate ───────────────────────────────────────────────────────
+//
+// Shared across `runFixer` and `runCreator` so the server never has more
+// than MAX_CONCURRENT_AGENTS CLI invocations in flight at once (each eats
+// noticeable CPU/RAM + LLM tokens). Callers await acquireCLISlot() before
+// spawning and must call releaseCLISlot() in a finally block.
+
+const MAX_CONCURRENT_AGENTS = 10;
+let activeAgentCount = 0;
+const waitQueue: (() => void)[] = [];
+
+export function acquireCLISlot(sendStatus?: (msg: string) => void): Promise<void> {
+    if (activeAgentCount < MAX_CONCURRENT_AGENTS) {
+        activeAgentCount++;
+        return Promise.resolve();
+    }
+    sendStatus?.(`Queued — ${waitQueue.length + 1} in line, waiting for a slot...`);
+    return new Promise<void>((resolve) => {
+        waitQueue.push(() => { activeAgentCount++; resolve(); });
+    });
+}
+
+export function releaseCLISlot(): void {
+    activeAgentCount--;
+    const next = waitQueue.shift();
+    if (next) next();
+}
+
 export interface CLIRunResult {
     /** Final agent message — shown to the user as the summary. */
     text: string;

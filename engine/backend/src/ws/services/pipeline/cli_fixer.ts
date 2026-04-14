@@ -21,7 +21,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { assembleGame } from './level_assembler.js';
-import { spawnCLIAgent, CLIActivity } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot } from './cli_runner.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
@@ -39,27 +39,6 @@ export interface FixerResult {
     costUsd?: number;
 }
 
-const MAX_CONCURRENT_FIXERS = 10;
-let activeFixerCount = 0;
-const waitQueue: (() => void)[] = [];
-
-function acquireSlot(sendStatus?: (msg: string) => void): Promise<void> {
-    if (activeFixerCount < MAX_CONCURRENT_FIXERS) {
-        activeFixerCount++;
-        return Promise.resolve();
-    }
-    sendStatus?.(`Queued — ${waitQueue.length + 1} in line, waiting for a slot...`);
-    return new Promise<void>((resolve) => {
-        waitQueue.push(() => { activeFixerCount++; resolve(); });
-    });
-}
-
-function releaseSlot(): void {
-    activeFixerCount--;
-    const next = waitQueue.shift();
-    if (next) next();
-}
-
 export async function runFixer(
     projectId: string,
     description: string,
@@ -69,7 +48,7 @@ export async function runFixer(
     abortSignal?: AbortSignal,
     cliOverride?: string,
 ): Promise<FixerResult> {
-    await acquireSlot(sendStatus);
+    await acquireCLISlot(sendStatus);
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
 
     try {
@@ -120,7 +99,7 @@ export async function runFixer(
             costUsd: cliResult.costUsd,
         };
     } finally {
-        releaseSlot();
+        releaseCLISlot();
         try { fs.rmSync(sandboxDir, { recursive: true, force: true }); } catch {}
     }
 }
