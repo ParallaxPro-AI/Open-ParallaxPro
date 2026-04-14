@@ -152,15 +152,15 @@ function spawnCodex(opts: SpawnOptions): Promise<CLIRunResult> {
         // so bypass. --skip-git-repo-check is required because the sandbox
         // is not a git repo.
         //
-        // Pin the model to gpt-5-mini and reasoning effort to medium so a
-        // user's global config.toml (often gpt-5.4 + high) doesn't make
-        // every fix take 10+ minutes of hidden thinking time.
+        // Pin model to gpt-5.4 and reasoning effort to medium so a user's
+        // global config.toml (often high effort) doesn't make every fix take
+        // 10+ minutes of hidden thinking time.
         const args = [
             'exec',
             '--json',
             '--skip-git-repo-check',
             '--dangerously-bypass-approvals-and-sandbox',
-            '-c', 'model="gpt-5.4-mini"',
+            '-c', 'model="gpt-5.4"',
             '-c', 'model_reasoning_effort="medium"',
             '-C', opts.sandboxDir,
             opts.prompt,

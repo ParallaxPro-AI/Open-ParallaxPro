@@ -20,12 +20,9 @@ export interface AgentInfo {
     path: string;
 }
 
-// Codex integration is implemented in cli_runner.ts but currently disabled —
-// its reasoning latency on a ChatGPT account makes fixes take too long to be
-// useful. Uncomment the codex line below to re-enable detection.
 const PROBES: Array<Omit<AgentInfo, 'installed' | 'path'> & { bin: string }> = [
     { id: 'claude',   bin: 'claude',   label: 'Editing Agent: Claude Code', caption: 'Edits your project files based on your prompt. Not for chatting.' },
-    // { id: 'codex', bin: 'codex',    label: 'Editing Agent: Codex',       caption: 'Edits your project files based on your prompt. Not for chatting.' },
+    { id: 'codex',    bin: 'codex',    label: 'Editing Agent: Codex',       caption: 'Edits your project files based on your prompt. Not for chatting.' },
     { id: 'opencode', bin: 'opencode', label: 'Editing Agent: OpenCode',    caption: 'Edits your project files based on your prompt. Not for chatting.' },
 ];
 
