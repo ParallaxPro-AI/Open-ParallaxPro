@@ -17,6 +17,49 @@ import { config } from '../../../config.js';
 import { getAvailableAgents } from './cli_availability.js';
 import { wrapSpawn } from './docker_sandbox.js';
 
+// ─── Concurrency gate ───────────────────────────────────────────────────────
+//
+// Per-CLI in-flight caps, shared across `runFixer` and `runCreator`. Callers
+// await acquireCLISlot(cliOverride) before spawning and must call
+// releaseCLISlot(cliOverride) in a finally block — critically, both calls
+// must use the same cliOverride value so the same bucket is incremented and
+// then decremented.
+//
+// opencode gets a much higher cap because it's usually routed at a
+// hosted-provider API (Groq, Anthropic, etc.) — lots of cheap, fast
+// completions. claude/codex run heavier reasoning-backed CLIs that
+// each consume real CPU/RAM on the host, so 8 concurrent is plenty.
+
+const MAX_PER_CLI: Record<CLIName, number> = {
+    claude: 8,
+    codex: 8,
+    opencode: 64,
+};
+
+const activeCountByCLI: Record<CLIName, number> = { claude: 0, codex: 0, opencode: 0 };
+const waitQueueByCLI: Record<CLIName, Array<() => void>> = { claude: [], codex: [], opencode: [] };
+
+export function acquireCLISlot(cliOverride?: string, sendStatus?: (msg: string) => void): Promise<void> {
+    const cli = resolveCLI(cliOverride);
+    const cap = MAX_PER_CLI[cli];
+    if (activeCountByCLI[cli] < cap) {
+        activeCountByCLI[cli]++;
+        return Promise.resolve();
+    }
+    const queue = waitQueueByCLI[cli];
+    sendStatus?.(`Queued — ${queue.length + 1} in line for ${cli}, waiting for a slot...`);
+    return new Promise<void>((resolve) => {
+        queue.push(() => { activeCountByCLI[cli]++; resolve(); });
+    });
+}
+
+export function releaseCLISlot(cliOverride?: string): void {
+    const cli = resolveCLI(cliOverride);
+    activeCountByCLI[cli]--;
+    const next = waitQueueByCLI[cli].shift();
+    if (next) next();
+}
+
 export interface CLIRunResult {
     /** Final agent message — shown to the user as the summary. */
     text: string;
