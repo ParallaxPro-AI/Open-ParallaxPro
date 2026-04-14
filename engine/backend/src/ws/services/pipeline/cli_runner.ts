@@ -43,31 +43,34 @@ export interface SpawnOptions {
     sendStatus?: (msg: string) => void;
     abortSignal?: AbortSignal;
     /**
-     * Override which CLI to use for this one call. Accepts 'claude' | 'codex'.
-     * When unset, falls back to the first CLI detected at startup
-     * (claude preferred, codex second).
+     * Override which CLI to use for this one call. Accepts 'claude' | 'codex' |
+     * 'opencode'. When unset, falls back to the first CLI detected at startup
+     * (probe order: claude → codex → opencode).
      */
     cliOverride?: string;
 }
 
+type CLIName = 'claude' | 'codex' | 'opencode';
+
 /**
  * Pick the CLI for this call. Preference order:
  *   1. Explicit `cliOverride` if set (per-message pick / per-project setting).
- *   2. First agent detected at startup — `PROBES` orders claude before codex,
- *      so claude wins whenever it's installed.
+ *   2. First agent detected at startup — `PROBES` orders claude → codex →
+ *      opencode, so claude wins whenever it's installed.
  * Throws if nothing is installed.
  */
-function resolveCLI(cliOverride?: string): 'claude' | 'codex' {
-    if (cliOverride === 'claude' || cliOverride === 'codex') return cliOverride;
+function resolveCLI(cliOverride?: string): CLIName {
+    if (cliOverride === 'claude' || cliOverride === 'codex' || cliOverride === 'opencode') return cliOverride;
     const first = getAvailableAgents()[0];
-    if (!first) throw new Error('No editing agent CLI is installed. Install claude-code or codex and restart the backend.');
-    return first.id;
+    if (!first) throw new Error('No editing agent CLI is installed. Install claude-code, codex, or opencode and restart the backend.');
+    return first.id as CLIName;
 }
 
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     const cli = resolveCLI(opts.cliOverride);
     if (cli === 'claude') return spawnClaude(opts);
-    return spawnCodex(opts);
+    if (cli === 'codex') return spawnCodex(opts);
+    return spawnOpenCode(opts);
 }
 
 // ─── Claude ─────────────────────────────────────────────────────────────────
@@ -86,7 +89,7 @@ function spawnClaude(opts: SpawnOptions): Promise<CLIRunResult> {
         const proc = spawn('claude', args, {
             cwd: opts.sandboxDir,
             timeout: config.fixer.timeout,
-            stdio: ['pipe', 'pipe', 'pipe'],
+            stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });
 
@@ -166,7 +169,7 @@ function spawnCodex(opts: SpawnOptions): Promise<CLIRunResult> {
         const proc = spawn('codex', args, {
             cwd: opts.sandboxDir,
             timeout: config.fixer.timeout,
-            stdio: ['pipe', 'pipe', 'pipe'],
+            stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });
 
@@ -258,6 +261,112 @@ function codexCommandToActivity(command: string): CLIActivity['kind'] {
     if (/^(apply_patch|patch|sed|awk|tee)$/.test(head)) return 'edit';
     if (head === 'bash' || stripped.includes('validate.sh')) return 'bash';
     if (/>\s*\S/.test(stripped) || /<<\s*'?EOF/.test(stripped)) return 'write';
+    return 'other';
+}
+
+// ─── OpenCode ───────────────────────────────────────────────────────────────
+
+function spawnOpenCode(opts: SpawnOptions): Promise<CLIRunResult> {
+    return new Promise((resolve, reject) => {
+        // opencode auto-uses the user's ~/.opencode auth. `run` is the
+        // non-interactive subcommand, `--format json` emits JSONL events.
+        // We deliberately don't pin a model — opencode's default (typically a
+        // fast groq model like kimi-k2) is far snappier than `opencode/*`
+        // hosted options, and users can swap it via their own opencode config.
+        const args = [
+            'run',
+            '--format', 'json',
+            '--dir', opts.sandboxDir,
+            opts.prompt,
+        ];
+
+        const proc = spawn('opencode', args, {
+            cwd: opts.sandboxDir,
+            timeout: config.fixer.timeout,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, HOME: process.env.HOME || '/tmp' },
+        });
+
+        wireAbort(proc, opts.abortSignal, reject);
+
+        let lastText = '';
+        let costUsd = 0;
+        let stderr = '';
+        let sawError: string | null = null;
+
+        streamJSONL(proc.stdout, (event: any) => {
+            // opencode emits step_start / step_finish / tool_use / text / error
+            // events. `part.tool` names the tool for tool_use; `part.text` is
+            // the assistant message; `part.cost` is on step_finish.
+            if (event.type === 'tool_use') {
+                const tool = event.part?.tool || '';
+                const status = event.part?.state?.status || '';
+                // Skip errored tool calls so we don't flip back-and-forth on
+                // retries; emit on completed tool runs and on pending ones
+                // (the first event seen for each tool call).
+                if (status === 'error') return;
+                const kind = opencodeToolToActivity(tool);
+                const msg = opts.statusMapper({ kind });
+                if (msg) opts.sendStatus?.(msg);
+                return;
+            }
+
+            if (event.type === 'text') {
+                const t = event.part?.text;
+                if (typeof t === 'string' && t.trim()) {
+                    lastText = t.trim();
+                    // Mid-stream narration → live status, keeps user informed.
+                    const firstSentence = lastText.split(/(?<=[.!?])\s/)[0];
+                    opts.sendStatus?.(firstSentence.length > 120 ? firstSentence.slice(0, 117) + '...' : firstSentence);
+                }
+                return;
+            }
+
+            if (event.type === 'step_finish') {
+                const c = event.part?.cost;
+                if (typeof c === 'number') costUsd += c;
+                return;
+            }
+
+            if (event.type === 'error') {
+                const m = event.error?.data?.message || event.error?.message;
+                if (typeof m === 'string') sawError = m;
+            }
+        });
+
+        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); });
+
+        proc.on('close', (code) => {
+            if (code === 0 || code === null) {
+                // opencode sometimes emits an error event mid-run but still
+                // exits 0 with a partial fix; prefer the last text when present.
+                if (lastText) {
+                    resolve({ text: lastText, costUsd });
+                } else if (sawError) {
+                    reject(new Error(`opencode reported an error: ${sawError}`));
+                } else {
+                    resolve({ text: 'Changes applied.', costUsd });
+                }
+            } else {
+                console.error(`[CLIRunner] opencode exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
+                reject(new Error(`Fixer CLI exited with code ${code}`));
+            }
+        });
+
+        proc.on('error', (err) => {
+            console.error(`[CLIRunner] Failed to spawn opencode:`, err.message);
+            reject(new Error(`Failed to spawn fixer CLI "opencode": ${err.message}`));
+        });
+    });
+}
+
+function opencodeToolToActivity(name: string): CLIActivity['kind'] {
+    const lower = name.toLowerCase();
+    if (lower === 'read') return 'read';
+    if (lower === 'edit' || lower === 'patch') return 'edit';
+    if (lower === 'write') return 'write';
+    if (lower === 'bash') return 'bash';
+    if (lower === 'grep' || lower === 'glob' || lower === 'list') return 'search';
     return 'other';
 }
 
