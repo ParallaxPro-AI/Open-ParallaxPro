@@ -832,21 +832,6 @@ git checkout da571fe   # last commit before template unification`;
             }
         });
 
-        // Build button
-        const buildBtn = document.createElement('button');
-        buildBtn.textContent = 'Build from Template';
-        buildBtn.style.width = '100%';
-        buildBtn.style.padding = '8px 16px';
-        buildBtn.style.fontSize = '13px';
-        buildBtn.style.fontWeight = '600';
-        buildBtn.style.background = 'var(--accent, #3b82f6)';
-        buildBtn.style.color = '#fff';
-        buildBtn.style.border = 'none';
-        buildBtn.style.borderRadius = 'var(--radius-sm)';
-        buildBtn.style.cursor = 'pointer';
-        buildBtn.style.marginTop = '4px';
-        templateSection.appendChild(buildBtn);
-
         body.appendChild(templateSection);
 
         // ── Mutual exclusion ──
@@ -860,8 +845,6 @@ git checkout da571fe   # last commit before template unification`;
             searchInput.style.opacity = hasPrompt ? '0.4' : '1';
             templateList.style.opacity = hasPrompt ? '0.4' : '1';
             templateList.style.pointerEvents = hasPrompt ? 'none' : 'auto';
-            buildBtn.style.opacity = hasPrompt ? '0.4' : '1';
-            buildBtn.style.pointerEvents = hasPrompt ? 'none' : 'auto';
         });
 
         // ── Submit handlers ──
@@ -891,12 +874,6 @@ git checkout da571fe   # last commit before template unification`;
             }
         };
 
-        buildBtn.addEventListener('click', async () => {
-            if (!selectedTemplateId) return;
-            close();
-            await submitTemplate(selectedTemplateId);
-        });
-
         const { close } = showModal({
             title: 'New Project',
             body,
@@ -907,6 +884,11 @@ git checkout da571fe   # last commit before template unification`;
                     label: 'Generate',
                     primary: true,
                     action: async () => {
+                        if (selectedTemplateId) {
+                            close();
+                            await submitTemplate(selectedTemplateId);
+                            return;
+                        }
                         const prompt = textarea.value.trim();
                         if (!prompt) return;
                         close();
