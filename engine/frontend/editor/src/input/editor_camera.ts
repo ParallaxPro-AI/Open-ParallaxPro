@@ -19,8 +19,10 @@ import { EditorContext } from '../editor_context.js';
  *  - Scroll wheel: adjust fly speed
  */
 export class EditorCamera {
-    /** Camera target (orbit center). */
-    target: Vec3 = new Vec3(27281, 5, 17557);
+    /** Camera target (orbit center). Defaults to world origin so empty projects
+     *  open looking at the seed ground plane; world-scale templates override
+     *  this on first load via the projectLoaded handler in viewport_panel. */
+    target: Vec3 = new Vec3(0, 0, 0);
 
     /** Spherical coordinates relative to target. */
     private yaw: number = 0.4;
@@ -35,7 +37,7 @@ export class EditorCamera {
 
     /** Fly mode state. */
     private flyMode: boolean = false;
-    private flyPosition: Vec3 = new Vec3(27281, 10, 17572);
+    private flyPosition: Vec3 = new Vec3(0, 10, 15);
     private flyYaw: number = 0;
     private flyPitch: number = 0;
     private flySpeed: number = 10;

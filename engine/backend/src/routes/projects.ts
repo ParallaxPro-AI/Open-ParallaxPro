@@ -154,6 +154,7 @@ router.get('/:id', (req, res) => {
         uiFiles: built.uiFiles,
         sourceMap: built.sourceMap,
         multiplayerConfig: built.multiplayerConfig,
+        editor: extractEditorFiles(data.files),
     });
 });
 
@@ -238,5 +239,19 @@ router.post('/:id/feedback', upload.array('images', 5), (req, res) => {
     console.log(`[Feedback] Saved to ${feedbackDir} (${files?.length || 0} images)`);
     res.json({ success: true });
 });
+
+/**
+ * Pull `editor/*` files out of the file tree and parse them, so the frontend
+ * can read them via `pd.editor['editor/camera.json']` etc. (matches the legacy
+ * shape the editor was already coded against).
+ */
+function extractEditorFiles(files: Record<string, string>): Record<string, any> {
+    const out: Record<string, any> = {};
+    for (const [path, content] of Object.entries(files)) {
+        if (!path.startsWith('editor/')) continue;
+        try { out[path] = JSON.parse(content); } catch { out[path] = content; }
+    }
+    return out;
+}
 
 export default router;
