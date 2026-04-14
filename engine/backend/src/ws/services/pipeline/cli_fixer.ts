@@ -18,11 +18,10 @@
 
 import fs from 'fs';
 import path from 'path';
-import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { config } from '../../../config.js';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { assembleGame } from './level_assembler.js';
+import { spawnCLIAgent, CLIActivity } from './cli_runner.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
@@ -293,103 +292,27 @@ if (errors.length === 0) {
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
+const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Read CONTEXT.md for engine docs and rules. The project lives in project/ — its 4 template files (01_flow.json, 02_entities.json, 03_worlds.json, 04_systems.json) plus pinned behaviors/, systems/, ui/, and any user scripts/. Edit template files (NOT generated artifacts) to fix the bug. If you need a behavior or system from reference/ that isn't in project/, copy it into project/ first and reference it from the template JSON. After fixing, run "bash validate.sh". Be concise — fix the bug, don't refactor.`;
+
+function fixerStatus(activity: CLIActivity): string | undefined {
+    switch (activity.kind) {
+        case 'read': return 'Analyzing game code...';
+        case 'edit': return 'Applying fix...';
+        case 'write': return 'Creating new file...';
+        case 'bash': return 'Running validation...';
+        case 'search': return 'Searching for relevant code...';
+        case 'other': return 'Working...';
+    }
+}
+
 function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal): Promise<{ text: string; costUsd: number }> {
-    return new Promise((resolve, reject) => {
-        const cli = config.fixer.cli;
-        const timeout = config.fixer.timeout;
-
-        const prompt = `Read TASK.md for the bug report and project state. Read CONTEXT.md for engine docs and rules. The project lives in project/ — its 4 template files (01_flow.json, 02_entities.json, 03_worlds.json, 04_systems.json) plus pinned behaviors/, systems/, ui/, and any user scripts/. Edit template files (NOT generated artifacts) to fix the bug. If you need a behavior or system from reference/ that isn't in project/, copy it into project/ first and reference it from the template JSON. After fixing, run "bash validate.sh". Be concise — fix the bug, don't refactor.`;
-
-        let args: string[];
-        if (cli === 'claude') {
-            args = [
-                '-p', prompt,
-                '--output-format', 'stream-json',
-                '--verbose',
-                '--model', 'sonnet',
-                '--dangerously-skip-permissions',
-                '--max-turns', '30',
-            ];
-        } else {
-            throw new Error(`Fixer CLI "${cli}" is not supported yet. Currently only "claude" is supported. Set FIXER_CLI=claude in .env`);
-        }
-
-        const proc = spawn(cli, args, {
-            cwd: sandboxDir,
-            timeout,
-            stdio: ['pipe', 'pipe', 'pipe'],
-            env: { ...process.env, HOME: process.env.HOME || '/tmp' },
-        });
-
-        if (abortSignal) {
-            if (abortSignal.aborted) {
-                proc.kill('SIGTERM');
-                reject(new Error('Aborted'));
-                return;
-            }
-            const onAbort = () => { proc.kill('SIGTERM'); };
-            abortSignal.addEventListener('abort', onAbort, { once: true });
-            proc.on('close', () => abortSignal.removeEventListener('abort', onAbort));
-        }
-
-        let resultText = '';
-        let costUsd = 0;
-        let stderr = '';
-        let buffer = '';
-
-        proc.stdout.on('data', (chunk: Buffer) => {
-            buffer += chunk.toString();
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                    const event = JSON.parse(line);
-                    if (event.type === 'assistant') {
-                        const content = event.message?.content;
-                        if (Array.isArray(content)) {
-                            for (const block of content) {
-                                if (block.type === 'tool_use') {
-                                    const name = block.name || '';
-                                    if (name === 'Read') sendStatus?.('Analyzing game code...');
-                                    else if (name === 'Edit') sendStatus?.('Applying fix...');
-                                    else if (name === 'Write') sendStatus?.('Creating new file...');
-                                    else if (name === 'Bash') sendStatus?.('Running validation...');
-                                    else if (name === 'Grep' || name === 'Glob') sendStatus?.('Searching for relevant code...');
-                                    else sendStatus?.('Working...');
-                                }
-                            }
-                        }
-                    }
-                    if (event.type === 'result') {
-                        resultText = event.result || '';
-                        costUsd = event.total_cost_usd || 0;
-                    }
-                } catch {}
-            }
-        });
-
-        proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
-
-        proc.on('close', (code) => {
-            if (buffer.trim()) {
-                try {
-                    const event = JSON.parse(buffer);
-                    if (event.type === 'result') resultText = event.result || '';
-                } catch {}
-            }
-            if (code === 0 || code === null) {
-                resolve({ text: resultText || 'Changes applied.', costUsd });
-            } else {
-                console.error(`[CLIFixer] ${cli} exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
-                reject(new Error(`Fixer CLI exited with code ${code}`));
-            }
-        });
-
-        proc.on('error', (err) => {
-            console.error(`[CLIFixer] Failed to spawn ${cli}:`, err.message);
-            reject(new Error(`Failed to spawn fixer CLI "${cli}": ${err.message}`));
-        });
+    return spawnCLIAgent({
+        sandboxDir,
+        prompt: FIXER_PROMPT,
+        maxTurns: 30,
+        statusMapper: fixerStatus,
+        sendStatus,
+        abortSignal,
     });
 }
 

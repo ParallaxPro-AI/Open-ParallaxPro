@@ -68,9 +68,9 @@ The **game fixer** is a powerful feature that uses a CLI coding agent to read, a
 
 Currently supported:
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) -- `FIXER_CLI=claude`
+- [Codex](https://github.com/openai/codex) -- `FIXER_CLI=codex`
 
 Coming soon:
-- [Codex](https://github.com/openai/codex) -- `FIXER_CLI=codex`
 - [OpenCode](https://github.com/opencode-ai/opencode) -- `FIXER_CLI=opencode`
 
 To set up Claude Code:
@@ -80,7 +80,14 @@ npm install -g @anthropic-ai/claude-code
 claude  # Follow auth prompts
 ```
 
-Then set `FIXER_CLI=claude` in your `.env`.
+To set up Codex:
+
+```bash
+npm install -g @openai/codex
+codex login  # Follow auth prompts
+```
+
+Then set `FIXER_CLI=claude` or `FIXER_CLI=codex` in your `.env`.
 
 Install dependencies and start the backend:
 
