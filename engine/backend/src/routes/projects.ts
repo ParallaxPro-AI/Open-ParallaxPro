@@ -7,6 +7,14 @@ import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import db from '../db/connection.js';
 import type { EnginePlugin } from '../plugin.js';
+import {
+    parseProjectData,
+    serializeProjectData,
+    isLegacyProjectData,
+} from '../ws/services/pipeline/project_files.js';
+import { seedFromTemplate, seedEmpty } from '../ws/services/pipeline/project_seeder.js';
+import { buildProject, cleanupBuildDir } from '../ws/services/pipeline/project_builder.js';
+import { applyIncomingFile } from '../ws/services/pipeline/project_save.js';
 
 let _plugins: EnginePlugin[] = [];
 export function setProjectPlugins(plugins: EnginePlugin[]) { _plugins = plugins; }
@@ -26,57 +34,18 @@ const upload = multer({
 const router = Router();
 router.use(requireAuth);
 
-const stmtList = db.prepare('SELECT id, name, thumbnail, status, created_at, updated_at FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?');
+// `has_files` checks for the new file-tree shape (post template-unification migration).
+// Legacy projects carry the old `{scenes, scripts, uiFiles}` blob and need an older
+// build of the engine to open. We only sniff the first 500 chars to keep the list
+// query cheap.
+const stmtList = db.prepare(`SELECT id, name, thumbnail, status, created_at, updated_at,
+    instr(substr(project_data, 1, 500), '"files"') AS has_files
+    FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
 const stmtGet = db.prepare('SELECT * FROM projects WHERE id = ?');
 const stmtInsert = db.prepare('INSERT INTO projects (id, user_id, name, project_data) VALUES (?, ?, ?, ?)');
 const stmtUpdate = db.prepare('UPDATE projects SET name = ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?');
 const stmtUpdateData = db.prepare('UPDATE projects SET project_data = ?, updated_at = datetime(\'now\') WHERE id = ?');
 const stmtDelete = db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?');
-
-const DEFAULT_PROJECT_DATA = JSON.stringify({
-    projectConfig: { name: 'Untitled Project' },
-    scenes: {
-        'main.json': {
-            id: 1,
-            name: 'Main',
-            entities: [
-                {
-                    id: 1, name: 'Main Camera', tags: [],
-                    components: [
-                        { type: 'TransformComponent', data: { position: { x: 0, y: 3, z: 5 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 } } },
-                        { type: 'CameraComponent', data: { mode: 0, fov: 60, nearClip: 0.1, farClip: 1000, priority: 0 } },
-                    ],
-                },
-                {
-                    id: 2, name: 'Directional Light', tags: [],
-                    components: [
-                        { type: 'TransformComponent', data: { position: { x: 0, y: 10, z: 0 }, rotation: { x: -0.3, y: 0.5, z: 0, w: 0.85 }, scale: { x: 1, y: 1, z: 1 } } },
-                        { type: 'LightComponent', data: { lightType: 0, color: { r: 1, g: 0.95, b: 0.9, a: 1 }, intensity: 1.0 } },
-                    ],
-                },
-                {
-                    id: 3, name: 'Ground Plane', tags: [],
-                    components: [
-                        { type: 'TransformComponent', data: { position: { x: 0, y: -0.5, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 100, y: 1, z: 100 } } },
-                        { type: 'MeshRendererComponent', data: { meshType: 'cube', materialOverrides: { baseColor: [0.3, 0.35, 0.3, 1] } } },
-                        { type: 'ColliderComponent', data: { shapeType: 0, size: { x: 1, y: 1, z: 1 } } },
-                        { type: 'RigidbodyComponent', data: { mass: 0, bodyType: 'static' } },
-                    ],
-                },
-            ],
-            environment: {
-                ambientColor: [1, 1, 1],
-                ambientIntensity: 0.3,
-                fog: { enabled: false, color: [0.8, 0.8, 0.8], near: 10, far: 100 },
-                gravity: [0, -9.81, 0],
-                timeOfDay: 12,
-                dayNightCycleSpeed: 0,
-            },
-        },
-    },
-    scripts: {},
-    uiFiles: {},
-});
 
 // List projects
 router.get('/', (req, res) => {
@@ -91,6 +60,7 @@ router.get('/', (req, res) => {
         status: r.status,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
+        legacy: !r.has_files,
     }));
     res.json({ projects });
 });
@@ -141,53 +111,35 @@ router.post('/', async (req, res) => {
     const name = `project-${count + 1}`;
     const { templateId } = req.body || {};
 
-    let projectData = JSON.parse(DEFAULT_PROJECT_DATA);
-    projectData.projectConfig.name = name;
-
-    // If a template was selected, assemble it into the project
-    if (templateId) {
-        try {
-            const { loadTemplate } = await import('../ws/services/pipeline/template_loader.js');
-            const { assembleGame } = await import('../ws/services/pipeline/level_assembler.js');
-            const template = loadTemplate(templateId);
-            if (template?._folderPath) {
-                const assembled = assembleGame(template._folderPath);
-                const sceneKey = 'main.json';
-                const sceneData: any = {
-                    name: template.name,
-                    entities: assembled.entities,
-                    environment: {
-                        ambientColor: [1, 1, 1],
-                        ambientIntensity: 0.3,
-                        fog: { enabled: false, color: [0.8, 0.8, 0.8], near: 10, far: 100 },
-                        gravity: [0, -9.81, 0],
-                        timeOfDay: 12,
-                        dayNightCycleSpeed: 0,
-                    },
-                };
-                if (assembled.heightmapTerrain) sceneData.heightmapTerrain = assembled.heightmapTerrain;
-                if (assembled.streamedBuildings) sceneData.streamedBuildings = assembled.streamedBuildings;
-                projectData.scenes[sceneKey] = sceneData;
-                projectData.scripts = { ...(projectData.scripts || {}), ...assembled.scripts };
-                projectData.uiFiles = { ...(projectData.uiFiles || {}), ...assembled.uiFiles };
-            }
-        } catch (e: any) {
-            console.error(`[Projects] Failed to assemble template "${templateId}":`, e.message);
-        }
+    const seed = templateId ? seedFromTemplate(templateId) : seedEmpty();
+    if (seed.warnings.length > 0) {
+        for (const w of seed.warnings) console.warn(`[Projects] Seed warning for "${id}": ${w}`);
     }
+    const projectData = { projectConfig: { name }, files: seed.files };
 
-    stmtInsert.run(id, req.user!.id, name, JSON.stringify(projectData));
+    stmtInsert.run(id, req.user!.id, name, serializeProjectData(projectData));
 
     res.json({ id, name });
 });
 
-// Get project
+// Get project — builds the project from its file tree on each load.
 router.get('/:id', (req, res) => {
     const row = stmtGet.get(req.params.id) as any;
     if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
     if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
 
-    const projectData = row.project_data ? JSON.parse(row.project_data) : {};
+    const data = parseProjectData(row.project_data);
+    if (isLegacyProjectData(data)) {
+        res.status(409).json({ error: 'This project was created before the file-tree migration. Please delete and recreate it.' });
+        return;
+    }
+
+    const built = buildProject(row.id, data.files);
+    if (!built.success) {
+        res.status(500).json({ error: `Failed to build project: ${built.error}` });
+        return;
+    }
+
     res.json({
         id: row.id,
         name: row.name,
@@ -195,7 +147,14 @@ router.get('/:id', (req, res) => {
         status: row.status,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
-        ...projectData,
+        projectConfig: data.projectConfig,
+        files: data.files,
+        scenes: built.scenes,
+        scripts: built.scripts,
+        uiFiles: built.uiFiles,
+        sourceMap: built.sourceMap,
+        multiplayerConfig: built.multiplayerConfig,
+        editor: extractEditorFiles(data.files),
     });
 });
 
@@ -206,31 +165,27 @@ router.put('/:id', (req, res) => {
     res.json({ success: true });
 });
 
-// Save project files
+// Save project files — accepts template paths, scene snapshots (translated into
+// placement edits), editor metadata, and assembled-script keys (routed via
+// the build's source map).
 router.put('/:id/files', (req, res) => {
     const row = stmtGet.get(req.params.id) as any;
     if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
     if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
 
-    const projectData = row.project_data ? JSON.parse(row.project_data) : {};
-    const files = req.body.files || {};
-
-    for (const [path, content] of Object.entries(files)) {
-        if (path === 'projectConfig') {
-            projectData.projectConfig = content;
-        } else if (path.startsWith('scenes/')) {
-            if (!projectData.scenes) projectData.scenes = {};
-            projectData.scenes[path.replace('scenes/', '')] = content;
-        } else if (path.startsWith('scripts/')) {
-            if (!projectData.scripts) projectData.scripts = {};
-            projectData.scripts[path.replace('scripts/', '')] = content;
-        } else if (path.startsWith('uiFiles/')) {
-            if (!projectData.uiFiles) projectData.uiFiles = {};
-            projectData.uiFiles[path.replace('uiFiles/', '')] = content;
-        }
+    const data = parseProjectData(row.project_data);
+    if (isLegacyProjectData(data)) {
+        res.status(409).json({ error: 'Legacy project — please recreate it.' });
+        return;
     }
 
-    stmtUpdateData.run(JSON.stringify(projectData), req.params.id);
+    const incoming = req.body.files || {};
+    for (const [filePath, content] of Object.entries(incoming)) {
+        const result = applyIncomingFile(data, row.id, filePath, content);
+        if (result.error) console.warn(`[Projects] file_save "${filePath}": ${result.error}`);
+    }
+
+    stmtUpdateData.run(serializeProjectData(data), req.params.id);
     res.json({ success: true });
 });
 
@@ -238,6 +193,7 @@ router.put('/:id/files', (req, res) => {
 router.delete('/:id', (req, res) => {
     const result = stmtDelete.run(req.params.id, req.user!.id);
     if (result.changes === 0) { res.status(404).json({ error: 'Project not found' }); return; }
+    cleanupBuildDir(req.params.id);
     for (const p of _plugins) { if (p.onProjectDelete) p.onProjectDelete(req.params.id, req.user!.id); }
     res.json({ success: true });
 });
@@ -283,5 +239,19 @@ router.post('/:id/feedback', upload.array('images', 5), (req, res) => {
     console.log(`[Feedback] Saved to ${feedbackDir} (${files?.length || 0} images)`);
     res.json({ success: true });
 });
+
+/**
+ * Pull `editor/*` files out of the file tree and parse them, so the frontend
+ * can read them via `pd.editor['editor/camera.json']` etc. (matches the legacy
+ * shape the editor was already coded against).
+ */
+function extractEditorFiles(files: Record<string, string>): Record<string, any> {
+    const out: Record<string, any> = {};
+    for (const [path, content] of Object.entries(files)) {
+        if (!path.startsWith('editor/')) continue;
+        try { out[path] = JSON.parse(content); } catch { out[path] = content; }
+    }
+    return out;
+}
 
 export default router;

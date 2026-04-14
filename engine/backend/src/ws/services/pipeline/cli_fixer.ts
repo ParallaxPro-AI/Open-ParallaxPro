@@ -1,14 +1,19 @@
 /**
  * CLI Fixer — spawns a CLI agent (claude, codex, opencode, etc.) to fix game bugs.
  *
+ * Sandbox is the project's file tree in template format. Edits go to template
+ * sources (01-04 JSON, behaviors/, systems/, ui/, scripts/) — never to assembled
+ * output. After the fixer finishes, the modified file tree is read back and
+ * the project is rebuilt.
+ *
  * Flow:
- * 1. Create sandbox with project files + reference docs
- * 2. Write TASK.md with user's bug report + project summary
- * 3. Spawn CLI process with FIXER_CONTEXT.md as system prompt
- * 4. Wait for completion
- * 5. Read changed files from sandbox
- * 6. Validate changes (syntax check)
- * 7. Apply to project data + reload frontend
+ * 1. Hydrate project file tree to sandbox/project/
+ * 2. Copy shared library to sandbox/reference/ (read-only)
+ * 3. Write TASK.md with bug report + project summary
+ * 4. Spawn CLI with FIXER_CONTEXT.md as system prompt
+ * 5. Read changed/added/deleted files
+ * 6. Validate scripts (syntax)
+ * 7. Return changes for the editor to commit + rebuild
  */
 
 import fs from 'fs';
@@ -16,6 +21,8 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { config } from '../../../config.js';
+import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
+import { assembleGame } from './level_assembler.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
@@ -24,7 +31,12 @@ const FIXER_CONTEXT_PATH = path.join(__dirname_fixer, 'FIXER_CONTEXT.md');
 export interface FixerResult {
     success: boolean;
     summary: string;
+    /** Relative file paths in the project tree that changed (added/modified/deleted). */
     filesChanged: string[];
+    /** New/updated file contents to merge into the project tree. */
+    changedFiles: Record<string, string>;
+    /** Files removed from the project tree. */
+    deletedFiles: string[];
     costUsd?: number;
 }
 
@@ -52,7 +64,7 @@ function releaseSlot(): void {
 export async function runFixer(
     projectId: string,
     description: string,
-    projectData: any,
+    projectFiles: ProjectFiles,
     activeSceneKey: string,
     sendStatus?: (msg: string) => void,
     abortSignal?: AbortSignal,
@@ -61,39 +73,50 @@ export async function runFixer(
     const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
 
     try {
-        // 1. Create sandbox
         sendStatus?.('Setting up sandbox...');
-        createSandbox(sandboxDir, projectData);
+        createSandbox(sandboxDir, projectFiles);
 
-        // 2. Write task file
-        const projectSummary = buildProjectSummary(projectData, activeSceneKey);
-        fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), `# Bug Report\n\n${description}\n\n# Current Project State\n\n${projectSummary}`);
+        const projectSummary = buildProjectSummary(sandboxDir, projectFiles, activeSceneKey);
+        fs.writeFileSync(
+            path.join(sandboxDir, 'TASK.md'),
+            `# Bug Report\n\n${description}\n\n# Current Project State\n\n${projectSummary}`,
+        );
 
-        // 3. Spawn CLI
         sendStatus?.('Fixer agent is analyzing and fixing...');
-        const cliResult = await spawnCLI(sandboxDir, description, sendStatus, abortSignal);
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, abortSignal);
 
-        // 4. Read changes
         sendStatus?.('Reading changes...');
-        const changes = readChanges(sandboxDir, projectData);
+        const changes = readChanges(sandboxDir, projectFiles);
 
         if (changes.filesChanged.length === 0) {
-            return { success: true, summary: cliResult.text || 'No changes were needed.', filesChanged: [], costUsd: cliResult.costUsd };
+            return {
+                success: true,
+                summary: cliResult.text || 'No changes were needed.',
+                filesChanged: [],
+                changedFiles: {},
+                deletedFiles: [],
+                costUsd: cliResult.costUsd,
+            };
         }
 
-        // 5. Validate
-        const validationErrors = validateChanges(changes.newScripts);
+        const validationErrors = validateChanges(changes.changedFiles);
         if (validationErrors.length > 0) {
-            return { success: false, summary: `Fix had syntax errors:\n${validationErrors.join('\n')}`, filesChanged: [], costUsd: cliResult.costUsd };
+            return {
+                success: false,
+                summary: `Fix had syntax errors:\n${validationErrors.join('\n')}`,
+                filesChanged: [],
+                changedFiles: {},
+                deletedFiles: [],
+                costUsd: cliResult.costUsd,
+            };
         }
-
-        // 6. Apply changes to project data
-        applyChanges(projectData, changes);
 
         return {
             success: true,
             summary: cliResult.text || `Fixed ${changes.filesChanged.length} file(s).`,
             filesChanged: changes.filesChanged,
+            changedFiles: changes.changedFiles,
+            deletedFiles: changes.deletedFiles,
             costUsd: cliResult.costUsd,
         };
     } finally {
@@ -104,78 +127,63 @@ export async function runFixer(
 
 // ─── Sandbox creation ──────────────────────────────────────────────────────
 
-function createSandbox(sandboxDir: string, projectData: any): void {
+function createSandbox(sandboxDir: string, projectFiles: ProjectFiles): void {
     fs.rmSync(sandboxDir, { recursive: true, force: true });
     fs.mkdirSync(sandboxDir, { recursive: true });
 
-    // Project files
+    // Project: the user's actual file tree (template format).
     const projectDir = path.join(sandboxDir, 'project');
-    fs.mkdirSync(path.join(projectDir, 'scripts'), { recursive: true });
-    fs.mkdirSync(path.join(projectDir, 'scenes'), { recursive: true });
-    fs.mkdirSync(path.join(projectDir, 'ui'), { recursive: true });
+    writeFilesToDir(projectFiles, projectDir);
 
-    // Write scripts
-    if (projectData.scripts) {
-        for (const [key, content] of Object.entries(projectData.scripts)) {
-            const filePath = path.join(projectDir, key);
-            fs.mkdirSync(path.dirname(filePath), { recursive: true });
-            fs.writeFileSync(filePath, content as string);
-        }
-    }
-
-    // Write scenes
-    if (projectData.scenes) {
-        for (const [key, data] of Object.entries(projectData.scenes)) {
-            fs.writeFileSync(path.join(projectDir, 'scenes', key), JSON.stringify(data, null, 2));
-        }
-    }
-
-    // Write UI files
-    if (projectData.uiFiles) {
-        for (const [key, content] of Object.entries(projectData.uiFiles)) {
-            const filePath = path.join(projectDir, key);
-            fs.mkdirSync(path.dirname(filePath), { recursive: true });
-            fs.writeFileSync(filePath, content as string);
-        }
-    }
-
-    // Reference files (read-only copies)
+    // Reference: read-only copies of the shared library so the fixer can
+    // discover behaviors/systems/UI panels not yet pinned to the project.
     const refDir = path.join(sandboxDir, 'reference');
     fs.mkdirSync(refDir, { recursive: true });
 
-    // Copy behaviors
     const behaviorsDir = path.join(RGC_DIR, 'behaviors', 'v0.1');
-    if (fs.existsSync(behaviorsDir)) {
-        copyDirRecursive(behaviorsDir, path.join(refDir, 'behaviors'));
-    }
+    if (fs.existsSync(behaviorsDir)) copyDirRecursive(behaviorsDir, path.join(refDir, 'behaviors'));
 
-    // Copy systems
     const systemsDir = path.join(RGC_DIR, 'systems', 'v0.1');
-    if (fs.existsSync(systemsDir)) {
-        copyDirRecursive(systemsDir, path.join(refDir, 'systems'));
-    }
+    if (fs.existsSync(systemsDir)) copyDirRecursive(systemsDir, path.join(refDir, 'systems'));
 
-    // Copy event definitions
+    const uiDir = path.join(RGC_DIR, 'ui', 'v0.1');
+    if (fs.existsSync(uiDir)) copyDirRecursive(uiDir, path.join(refDir, 'ui'));
+
+    // Convenience: top-level event_definitions.ts pointer.
     const evtDefs = path.join(systemsDir, 'event_definitions.ts');
-    if (fs.existsSync(evtDefs)) {
-        fs.copyFileSync(evtDefs, path.join(refDir, 'event_definitions.ts'));
-    }
+    if (fs.existsSync(evtDefs)) fs.copyFileSync(evtDefs, path.join(refDir, 'event_definitions.ts'));
 
-    // Copy fixer context
     if (fs.existsSync(FIXER_CONTEXT_PATH)) {
         fs.copyFileSync(FIXER_CONTEXT_PATH, path.join(sandboxDir, 'CONTEXT.md'));
     }
 
-    // Validation script — syntax check + headless smoke test
-    const validateScript = `#!/bin/bash
-# Validates project scripts and runs headless smoke test.
-# Run: bash validate.sh
+    writeValidateScripts(sandboxDir);
+}
 
+function copyDirRecursive(src: string, dest: string): void {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) copyDirRecursive(srcPath, destPath);
+        else fs.copyFileSync(srcPath, destPath);
+    }
+}
+
+function writeValidateScripts(sandboxDir: string): void {
+    const validateSh = `#!/bin/bash
+# Validate template JSON, scripts, and run a headless smoke test.
 ERRORS=0
 
-echo "=== Syntax Check ==="
-for f in project/scripts/*.ts project/scripts/**/*.ts; do
-    [ -f "$f" ] || continue
+echo "=== Template JSON Check ==="
+for f in project/01_flow.json project/02_entities.json project/03_worlds.json project/04_systems.json; do
+    [ -f "$f" ] || { echo "MISSING $f"; ERRORS=$((ERRORS+1)); continue; }
+    node -e "JSON.parse(require('fs').readFileSync('$f','utf-8'))" 2>&1
+    if [ $? -ne 0 ]; then echo "JSON ERROR in $f"; ERRORS=$((ERRORS+1)); fi
+done
+
+echo "=== Script Syntax Check ==="
+for f in $(find project/behaviors project/systems project/scripts -name '*.ts' 2>/dev/null); do
     node -e "
         const fs = require('fs');
         const src = fs.readFileSync('$f', 'utf-8');
@@ -183,13 +191,6 @@ for f in project/scripts/*.ts project/scripts/**/*.ts; do
         catch(e) { console.error('SYNTAX ERROR in $f: ' + e.message); process.exit(1); }
     " 2>&1
     if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
-done
-
-echo "=== JSON Check ==="
-for f in project/scenes/*.json; do
-    [ -f "$f" ] || continue
-    node -e "JSON.parse(require('fs').readFileSync('$f','utf-8'))" 2>&1
-    if [ $? -ne 0 ]; then echo "JSON ERROR in $f"; ERRORS=$((ERRORS+1)); fi
 done
 
 echo "=== Headless Smoke Test ==="
@@ -203,83 +204,60 @@ else
     exit 1
 fi
 `;
-    fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), validateScript, { mode: 0o755 });
+    fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), validateSh, { mode: 0o755 });
 
-    // Headless smoke test — loads scripts, runs them for 3 seconds, checks for errors
-    const headlessScript = `
+    const headlessJs = `
 const fs = require('fs');
 const path = require('path');
 
-// Load project data from disk
+const errors = [];
 const scripts = {};
-const scriptsDir = 'project/scripts';
-function walkScripts(dir, prefix) {
+
+function loadScriptsFrom(dir, prefix) {
     if (!fs.existsSync(dir)) return;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const rel = prefix ? prefix + '/' + entry.name : entry.name;
-        if (entry.isDirectory()) walkScripts(path.join(dir, entry.name), rel);
-        else scripts['scripts/' + rel] = fs.readFileSync(path.join(dir, entry.name), 'utf-8');
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) loadScriptsFrom(full, prefix + entry.name + '/');
+        else if (entry.name.endsWith('.ts')) scripts[prefix + entry.name] = fs.readFileSync(full, 'utf-8');
     }
 }
-walkScripts(scriptsDir, '');
+loadScriptsFrom('project/behaviors', 'behaviors/');
+loadScriptsFrom('project/systems', 'systems/');
+loadScriptsFrom('project/scripts', 'scripts/');
 
-const scenes = {};
-const scenesDir = 'project/scenes';
-if (fs.existsSync(scenesDir)) {
-    for (const f of fs.readdirSync(scenesDir)) {
-        if (f.endsWith('.json')) {
-            scenes[f] = JSON.parse(fs.readFileSync(path.join(scenesDir, f), 'utf-8'));
-        }
-    }
-}
-
-// Compile all scripts and check for runtime errors
-const errors = [];
-const compiledClasses = {};
-
-// Minimal GameScript base class
 class GameScript {
     constructor() {
         this.entity = { id: 0, name: '', active: true, transform: { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 }, lookAt() {}, setRotationEuler() {} }, getComponent() { return null; }, playAnimation() {}, tags: new Set() };
-        this.scene = { events: { game: { on() {}, emit() {} }, ui: { on() {}, emit() {} } }, findEntityByName() { return null; }, findEntitiesByTag() { return []; }, setPosition() {}, setVelocity() {}, destroyEntity() {}, createEntity() { return 0; }, raycast() { return null; }, screenRaycast() { return null; }, screenPointToGround() { return null; }, getAllEntities() { return []; }, _fpsYaw: 0, _multiplayer: null, reloadScene() {} };
+        this.scene = { events: { game: { on() {}, emit() {} }, ui: { on() {}, emit() {} } }, findEntityByName() { return null; }, findEntitiesByTag() { return []; }, setPosition() {}, setVelocity() {}, destroyEntity() {}, createEntity() { return 0; }, raycast() { return null; }, screenRaycast() { return null; }, screenPointToGround() { return null; }, getAllEntities() { return []; }, _fpsYaw: 0, reloadScene() {} };
         this.input = { isKeyDown() { return false; }, isKeyPressed() { return false; }, isKeyReleased() { return false; }, getMouseDelta() { return { x: 0, y: 0 }; }, requestPointerLock() {} };
         this.ui = { createText() { return { text: '', remove() {}, x: 0, y: 0 }; }, createPanel() { return { remove() {} }; }, createButton() { return { remove() {} }; }, createImage() { return { remove() {} }; }, sendState() {} };
-        this.audio = { playSound() {}, playMusic() {}, stopMusic() {}, setGroupVolume() {}, getGroupVolume() { return 1; }, preload() {} };
+        this.audio = { playSound() {}, playMusic() {}, stopMusic() {} };
         this.time = { time: 0, deltaTime: 1/60, frameCount: 0 };
     }
-    onStart() {}
-    onUpdate() {}
-    onLateUpdate() {}
-    onFixedUpdate() {}
-    onDestroy() {}
+    onStart() {} onUpdate() {} onLateUpdate() {} onFixedUpdate() {} onDestroy() {}
 }
-
 class Vec3 { constructor(x,y,z) { this.x=x||0; this.y=y||0; this.z=z||0; } }
 class Quat { constructor(x,y,z,w) { this.x=x||0; this.y=y||0; this.z=z||0; this.w=w||1; } }
 
-// Compile each script
+const compiled = {};
 for (const [key, source] of Object.entries(scripts)) {
     try {
-        const classMatch = source.match(/class\\s+(\\w+)/);
-        if (!classMatch) continue;
-        const className = classMatch[1];
-        const fn = new Function('GameScript', 'Vec3', 'Quat', source + '\\nreturn ' + className + ';');
-        const ScriptClass = fn(GameScript, Vec3, Quat);
-        compiledClasses[key] = ScriptClass;
+        const m = source.match(/class\\s+(\\w+)/);
+        if (!m) continue;
+        const fn = new Function('GameScript', 'Vec3', 'Quat', source + '\\nreturn ' + m[1] + ';');
+        compiled[key] = fn(GameScript, Vec3, Quat);
     } catch (e) {
         errors.push('COMPILE ERROR in ' + key + ': ' + e.message);
     }
 }
 
-// Instantiate and run onStart on each script
 const instances = [];
-for (const [key, ScriptClass] of Object.entries(compiledClasses)) {
+for (const [key, Cls] of Object.entries(compiled)) {
     try {
-        const inst = new ScriptClass();
+        const inst = new Cls();
         inst.onStart();
         instances.push({ key, inst });
     } catch (e) {
-        // Filter benign errors (no DOM, no audio context, etc.)
         const msg = e.message || '';
         if (!/document|window|canvas|AudioContext|WebSocket|fetch|pointerLock|requestAnimationFrame/i.test(msg)) {
             errors.push('RUNTIME ERROR in ' + key + ' onStart: ' + msg);
@@ -287,7 +265,6 @@ for (const [key, ScriptClass] of Object.entries(compiledClasses)) {
     }
 }
 
-// Tick 180 frames (3 seconds)
 for (let frame = 0; frame < 180; frame++) {
     for (const { key, inst } of instances) {
         try {
@@ -304,39 +281,24 @@ for (let frame = 0; frame < 180; frame++) {
     }
 }
 
-// Report
 if (errors.length === 0) {
     console.log('Headless smoke test passed (' + Object.keys(scripts).length + ' scripts, 180 frames).');
 } else {
     for (const e of errors) console.error(e);
-    console.error(errors.length + ' error(s) in headless smoke test.');
     process.exit(1);
 }
 `;
-    fs.writeFileSync(path.join(sandboxDir, 'validate_headless.js'), headlessScript);
-}
-
-function copyDirRecursive(src: string, dest: string): void {
-    fs.mkdirSync(dest, { recursive: true });
-    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-        const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
-        if (entry.isDirectory()) {
-            copyDirRecursive(srcPath, destPath);
-        } else {
-            fs.copyFileSync(srcPath, destPath);
-        }
-    }
+    fs.writeFileSync(path.join(sandboxDir, 'validate_headless.js'), headlessJs);
 }
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
-function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal): Promise<{ text: string; costUsd: number }> {
+function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal): Promise<{ text: string; costUsd: number }> {
     return new Promise((resolve, reject) => {
         const cli = config.fixer.cli;
         const timeout = config.fixer.timeout;
 
-        const prompt = `Read TASK.md for the bug report and project state. Read CONTEXT.md for engine docs and rules. Fix the bug by editing files in the project/ directory. After fixing, run "bash validate.sh" to check for syntax errors. Be concise — just fix the bug, don't refactor unrelated code.`;
+        const prompt = `Read TASK.md for the bug report and project state. Read CONTEXT.md for engine docs and rules. The project lives in project/ — its 4 template files (01_flow.json, 02_entities.json, 03_worlds.json, 04_systems.json) plus pinned behaviors/, systems/, ui/, and any user scripts/. Edit template files (NOT generated artifacts) to fix the bug. If you need a behavior or system from reference/ that isn't in project/, copy it into project/ first and reference it from the template JSON. After fixing, run "bash validate.sh". Be concise — fix the bug, don't refactor.`;
 
         let args: string[];
         if (cli === 'claude') {
@@ -359,7 +321,6 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });
 
-        // Kill the process if the user presses Stop
         if (abortSignal) {
             if (abortSignal.aborted) {
                 proc.kill('SIGTERM');
@@ -411,7 +372,6 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
         proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
 
         proc.on('close', (code) => {
-            // Parse any remaining buffer
             if (buffer.trim()) {
                 try {
                     const event = JSON.parse(buffer);
@@ -436,147 +396,126 @@ function spawnCLI(sandboxDir: string, description: string, sendStatus?: (msg: st
 // ─── Read changes ──────────────────────────────────────────────────────────
 
 interface Changes {
-    newScripts: Record<string, string>;
-    newScenes: Record<string, any>;
-    newUiFiles: Record<string, string>;
+    changedFiles: Record<string, string>;
+    deletedFiles: string[];
     filesChanged: string[];
 }
 
-function readChanges(sandboxDir: string, originalData: any): Changes {
+function readChanges(sandboxDir: string, original: ProjectFiles): Changes {
     const projectDir = path.join(sandboxDir, 'project');
+    const newFiles = readFilesFromDir(projectDir);
+
+    const changedFiles: Record<string, string> = {};
+    const deletedFiles: string[] = [];
     const filesChanged: string[] = [];
-    const newScripts: Record<string, string> = {};
-    const newScenes: Record<string, any> = {};
-    const newUiFiles: Record<string, string> = {};
 
-    // Read scripts
-    const scriptsDir = path.join(projectDir, 'scripts');
-    if (fs.existsSync(scriptsDir)) {
-        walkFiles(scriptsDir, '', (relPath, content) => {
-            const key = `scripts/${relPath}`;
-            newScripts[key] = content;
-            if (!originalData.scripts?.[key] || originalData.scripts[key] !== content) {
-                filesChanged.push(key);
-            }
-        });
-    }
-
-    // Read scenes
-    const scenesDir = path.join(projectDir, 'scenes');
-    if (fs.existsSync(scenesDir)) {
-        walkFiles(scenesDir, '', (relPath, content) => {
-            try {
-                const data = JSON.parse(content);
-                newScenes[relPath] = data;
-                const original = originalData.scenes?.[relPath];
-                if (!original || JSON.stringify(original) !== JSON.stringify(data)) {
-                    filesChanged.push(`scenes/${relPath}`);
-                }
-            } catch {}
-        });
-    }
-
-    // Read UI files
-    const uiDir = path.join(projectDir, 'ui');
-    if (fs.existsSync(uiDir)) {
-        walkFiles(uiDir, '', (relPath, content) => {
-            const key = `ui/${relPath}`;
-            newUiFiles[key] = content;
-            if (!originalData.uiFiles?.[key] || originalData.uiFiles[key] !== content) {
-                filesChanged.push(key);
-            }
-        });
-    }
-
-    return { newScripts, newScenes, newUiFiles, filesChanged };
-}
-
-function walkFiles(dir: string, prefix: string, callback: (relPath: string, content: string) => void): void {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            walkFiles(fullPath, relPath, callback);
-        } else {
-            callback(relPath, fs.readFileSync(fullPath, 'utf-8'));
+    for (const [key, content] of Object.entries(newFiles)) {
+        if (original[key] === undefined || original[key] !== content) {
+            changedFiles[key] = content;
+            filesChanged.push(key);
         }
     }
+    for (const key of Object.keys(original)) {
+        if (key === '__legacy__') continue;
+        if (newFiles[key] === undefined) {
+            deletedFiles.push(key);
+            filesChanged.push(key);
+        }
+    }
+
+    return { changedFiles, deletedFiles, filesChanged };
 }
 
 // ─── Validation ────────────────────────────────────────────────────────────
 
-function validateChanges(scripts: Record<string, string>): string[] {
+function validateChanges(changedFiles: Record<string, string>): string[] {
     const errors: string[] = [];
-    for (const [key, source] of Object.entries(scripts)) {
-        try {
-            new Function('GameScript', 'Vec3', 'Quat', source + '\n;');
-        } catch (e: any) {
-            errors.push(`${key}: ${e.message}`);
+    for (const [key, source] of Object.entries(changedFiles)) {
+        if (key.endsWith('.json')) {
+            try { JSON.parse(source); }
+            catch (e: any) { errors.push(`${key}: ${e.message}`); }
+            continue;
+        }
+        if (key.endsWith('.ts') || key.endsWith('.js')) {
+            try { new Function('GameScript', 'Vec3', 'Quat', source + '\n;'); }
+            catch (e: any) { errors.push(`${key}: ${e.message}`); }
         }
     }
     return errors;
 }
 
-// ─── Apply changes ─────────────────────────────────────────────────────────
-
-function applyChanges(projectData: any, changes: Changes): void {
-    // Merge scripts
-    if (Object.keys(changes.newScripts).length > 0) {
-        projectData.scripts = { ...(projectData.scripts || {}), ...changes.newScripts };
-    }
-
-    // Merge scenes
-    if (Object.keys(changes.newScenes).length > 0) {
-        projectData.scenes = { ...(projectData.scenes || {}), ...changes.newScenes };
-    }
-
-    // Merge UI files
-    if (Object.keys(changes.newUiFiles).length > 0) {
-        projectData.uiFiles = { ...(projectData.uiFiles || {}), ...changes.newUiFiles };
-    }
-}
-
 // ─── Project summary ──────────────────────────────────────────────────────
 
-function buildProjectSummary(projectData: any, activeSceneKey: string): string {
+/**
+ * Build a human-readable summary of the project for the fixer. Lists template
+ * files, pinned behaviors/systems, UI panels, and a snapshot of the assembled
+ * scene so the agent knows what's actually rendered.
+ */
+function buildProjectSummary(sandboxDir: string, files: ProjectFiles, activeSceneKey: string): string {
     const lines: string[] = [];
 
-    // Scripts
-    const scripts = projectData.scripts || {};
-    const scriptKeys = Object.keys(scripts);
-    if (scriptKeys.length > 0) {
-        lines.push(`## Scripts (${scriptKeys.length})`);
-        for (const key of scriptKeys) {
-            const source = scripts[key];
-            const classMatch = source.match(/class\s+(\w+)/);
-            lines.push(`- ${key} (${classMatch?.[1] || 'unknown class'})`);
-        }
+    lines.push('## Template Files');
+    for (const k of ['01_flow.json', '02_entities.json', '03_worlds.json', '04_systems.json']) {
+        lines.push(`- ${k}${files[k] ? '' : ' (MISSING)'}`);
+    }
+    lines.push('');
+
+    const groupBy = (prefix: string) => Object.keys(files)
+        .filter(k => k.startsWith(prefix))
+        .sort();
+
+    const behaviors = groupBy('behaviors/');
+    if (behaviors.length > 0) {
+        lines.push(`## Pinned Behaviors (${behaviors.length})`);
+        for (const k of behaviors) lines.push(`- ${k}`);
         lines.push('');
     }
 
-    // Scenes
-    const scenes = projectData.scenes || {};
-    for (const [key, data] of Object.entries(scenes) as [string, any][]) {
-        const isActive = key === activeSceneKey;
-        const entities = data.entities || [];
-        lines.push(`## Scene "${key}"${isActive ? ' (ACTIVE)' : ''} — ${entities.length} entities`);
-        for (const e of entities.slice(0, 30)) {
-            const pos = e.components?.find((c: any) => c.type === 'TransformComponent')?.data?.position;
-            const posStr = pos ? `at (${pos.x?.toFixed?.(1) ?? pos.x}, ${pos.y?.toFixed?.(1) ?? pos.y}, ${pos.z?.toFixed?.(1) ?? pos.z})` : '';
+    const systems = groupBy('systems/');
+    if (systems.length > 0) {
+        lines.push(`## Pinned Systems (${systems.length})`);
+        for (const k of systems) lines.push(`- ${k}`);
+        lines.push('');
+    }
+
+    const ui = groupBy('ui/');
+    if (ui.length > 0) {
+        lines.push(`## UI Panels (${ui.length})`);
+        for (const k of ui) lines.push(`- ${k}`);
+        lines.push('');
+    }
+
+    const userScripts = groupBy('scripts/');
+    if (userScripts.length > 0) {
+        lines.push(`## User Scripts (${userScripts.length})`);
+        for (const k of userScripts) lines.push(`- ${k}`);
+        lines.push('');
+    }
+
+    // Try to assemble for an entity snapshot — best effort, ignore errors.
+    try {
+        const projectDir = path.join(sandboxDir, 'project');
+        const assembled = assembleGame(projectDir, {
+            behaviors: path.join(projectDir, 'behaviors'),
+            systems: path.join(projectDir, 'systems'),
+            ui: path.join(projectDir, 'ui'),
+        });
+        lines.push(`## Assembled Scene "${activeSceneKey}" — ${assembled.entities.length} entities`);
+        for (const e of assembled.entities.slice(0, 30)) {
+            const tc = e.components?.find((c: any) => c.type === 'TransformComponent');
+            const pos = tc?.data?.position;
+            const posStr = pos ? `at (${fmt(pos.x)}, ${fmt(pos.y)}, ${fmt(pos.z)})` : '';
             lines.push(`- ${e.name} ${posStr}`);
         }
-        if (entities.length > 30) lines.push(`  ... and ${entities.length - 30} more`);
-        lines.push('');
-    }
-
-    // UI files
-    const uiFiles = projectData.uiFiles || {};
-    const uiKeys = Object.keys(uiFiles);
-    if (uiKeys.length > 0) {
-        lines.push(`## UI Files (${uiKeys.length})`);
-        for (const key of uiKeys) lines.push(`- ${key}`);
-        lines.push('');
+        if (assembled.entities.length > 30) lines.push(`  ... and ${assembled.entities.length - 30} more`);
+    } catch (e: any) {
+        lines.push(`## Assembled Scene`);
+        lines.push(`(Build failed: ${e.message})`);
     }
 
     return lines.join('\n');
+}
+
+function fmt(n: any): string {
+    return typeof n === 'number' ? n.toFixed(1) : String(n);
 }

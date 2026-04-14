@@ -1,15 +1,46 @@
 # ParallaxPro Game Engine — Template Creator Context
 
-You are creating a NEW game template from scratch for the ParallaxPro 3D game engine. The user described a game they want, and you need to create all the files for it.
+You are creating a NEW game template directly inside a user's project. The user described a game they want, and you need to fill in all the files for it.
 
 ## SECURITY CONSTRAINTS — MANDATORY
-- You may ONLY create/edit files under `template/` and `new_scripts/`
+- You may ONLY create/edit files under `project/`
 - You may read (NOT edit) files under `reference/` and `assets/`
 - You may NOT access files outside the sandbox
 
+## Sandbox Layout
+
+The project is in template format (the same 4-file format every game uses).
+
+```
+project/                           — EDIT THESE
+  01_flow.json                     — Game flow HFSM + ui_params
+  02_entities.json                 — Entity definitions (prefabs) with behavior refs
+  03_worlds.json                   — Scene placements
+  04_systems.json                  — Manager systems
+  behaviors/{cat}/{name}.ts        — Custom or copied behavior scripts
+  systems/{cat}/{name}.ts          — Custom or copied system scripts
+  systems/fsm_driver.ts            — Engine driver (already pinned)
+  systems/_entity_label.ts         — (already pinned)
+  systems/event_definitions.ts     — Valid event schemas (already pinned)
+  systems/ui/ui_bridge.ts          — UI bridge (already pinned)
+  ui/{name}.html                   — UI panels
+  scripts/{name}.ts                — Custom user scripts (optional)
+reference/                         — Read-only library to copy from
+  game_templates/v0.1/...          — Working examples
+  behaviors/, systems/, ui/        — Latest shared behaviors/systems/UI
+assets/                            — 3D_MODELS.md, AUDIO.md, TEXTURES.md
+```
+
+### Pulling in shared library files
+
+If you want a behavior from `reference/behaviors/movement/jump.ts`, COPY it to
+`project/behaviors/movement/jump.ts` and reference it from
+`project/02_entities.json` as `"script": "movement/jump.ts"`. Same pattern for
+systems and UI panels.
+
 ## What You Must Create
 
-### In `template/` — 4 JSON files:
+### In `project/` — fill out the 4 JSON files:
 
 **01_flow.json** — Game state machine (HFSM)
 ```json
@@ -98,12 +129,16 @@ You are creating a NEW game template from scratch for the ParallaxPro 3D game en
 }
 ```
 
-### In `new_scripts/` — Custom scripts
+### Custom scripts
 
-Create behavior and system scripts here:
-- `new_scripts/behaviors/{category}/{name}.ts` — per-entity behaviors
-- `new_scripts/systems/{category}/{name}.ts` — standalone manager systems
-- `new_scripts/ui/{name}.html` — HTML UI overlays (HUD panels, menus)
+Create scripts inside `project/`:
+- `project/behaviors/{category}/{name}.ts` — per-entity behaviors
+- `project/systems/{category}/{name}.ts` — standalone manager systems
+- `project/ui/{name}.html` — HTML UI overlays (HUD panels, menus)
+- `project/scripts/{name}.ts` — anything else specific to this game
+
+If a behavior or system already exists in `reference/`, prefer copying it into
+`project/` over rewriting from scratch.
 
 ## Script Rules — CRITICAL
 
@@ -154,7 +189,7 @@ this.entity.playAnimation("Run", { loop: true })
 - `"collider": "capsule"` for humanoids, box for everything else
 
 ## UI Panels
-HTML files in `new_scripts/ui/` receive game state via postMessage. Example HUD:
+HTML files in `project/ui/` receive game state via postMessage. Example HUD:
 ```html
 <div id="hp" style="position:fixed;bottom:20px;left:20px;color:white;">100</div>
 <script>
@@ -176,7 +211,7 @@ Read files in the `assets/` directory:
 - `assets/TEXTURES.md` — all texture files with paths
 
 ## Event Definitions — STRICT
-Read `reference/event_definitions.ts` for all valid game event names and their payloads.
+Read `project/systems/event_definitions.ts` (the project's pinned copy — there is also `reference/systems/event_definitions.ts` if needed).
 
 **CRITICAL**: You MUST ONLY use event names that exist in event_definitions.ts. The assembler will REJECT any scripts that use unknown events. Do NOT invent new event names like "enemy_killed" or "wave_cleared" — use the existing ones:
 - Use `entity_killed` (not `enemy_killed`)
@@ -199,7 +234,7 @@ After creating all files, run `bash validate.sh`. Fix any errors before finishin
 - [ ] At least one gameplay mechanic (enemies, objectives, etc.)
 - [ ] HUD shows relevant info (health, score, timer, etc.)
 - [ ] Game over condition exists
-- [ ] All behavior scripts referenced in 02_entities.json exist in new_scripts/
-- [ ] All system scripts referenced in 04_systems.json exist in new_scripts/
-- [ ] All UI panels referenced in 01_flow.json exist in new_scripts/ui/
+- [ ] All behavior scripts referenced in 02_entities.json exist in project/behaviors/
+- [ ] All system scripts referenced in 04_systems.json exist in project/systems/
+- [ ] All UI panels referenced in 01_flow.json exist in project/ui/
 - [ ] validate.sh passes

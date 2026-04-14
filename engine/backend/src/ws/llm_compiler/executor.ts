@@ -6,17 +6,27 @@
  */
 
 import { ASTNode, MessageNode, EditNode, ToolCallNode } from './syntax_tree.js';
-import { executeSceneScript } from './scene_script_executor.js';
 import { EDIT_API_DOCS, getProjectSummary } from '../services/chat_protocol.js';
-import { loadTemplateCatalog, loadTemplate, formatCatalogForLLM } from '../services/pipeline/template_loader.js';
-import { assembleGame } from '../services/pipeline/level_assembler.js';
+import { loadTemplateCatalog, formatCatalogForLLM } from '../services/pipeline/template_loader.js';
 import { runFixer } from '../services/pipeline/cli_fixer.js';
 import { runCreator } from '../services/pipeline/cli_creator.js';
+import { seedFromTemplate } from '../services/pipeline/project_seeder.js';
+import type { BuildResult } from '../services/pipeline/project_builder.js';
+import type { ProjectFiles } from '../services/pipeline/project_files.js';
+import { runEditScript } from '../services/pipeline/template_mutator.js';
 
 export interface ExecutionContext {
     sendToFrontend: (type: string, data: any) => void;
+    /**
+     * Returns the AI-facing project view: assembled scenes/scripts/uiFiles
+     * (what the user sees in the editor) plus the underlying file tree and
+     * source map for tools that need to mutate template sources.
+     */
     getProjectData: () => any;
-    saveProjectData: (data: any) => void;
+    /** Patch a set of files into the project's file tree, then rebuild and push. */
+    commitFiles: (updates: Record<string, string | null>) => BuildResult | null;
+    /** Replace the entire file tree (LOAD_TEMPLATE / CREATE_GAME), then rebuild and push. */
+    replaceFiles: (newFiles: ProjectFiles, opts?: { name?: string }) => BuildResult | null;
     reloadScene: (sceneKey: string, sceneData: any) => void;
     searchAssets: (opts: { category?: string; search?: string; source?: string; pack?: string }) => Promise<{ name: string; path: string; category: string; pack: string }[]>;
     onFixerCost?: (costUsd: number) => void;
@@ -66,31 +76,35 @@ export async function execute(ast: ASTNode[], ctx: ExecutionContext): Promise<Ex
 }
 
 function executeEditNode(node: EditNode, ctx: ExecutionContext, result: ExecutionResult): void {
-    const pd = ctx.getProjectData() || {};
-    if (!pd.scenes) pd.scenes = {};
-    if (!pd.scenes[ctx.activeSceneKey]) {
-        pd.scenes[ctx.activeSceneKey] = { name: ctx.activeSceneKey.replace('.json', ''), entities: [], environment: {} };
-    }
+    const view = ctx.getProjectData();
+    const files = (view?.files || {}) as ProjectFiles;
 
-    const scriptResult = executeSceneScript(node.code, pd.scenes, ctx.activeSceneKey);
+    const session = runEditScript(ctx.projectId, files);
+    const mut = session.execute(node.code);
 
-    if (!scriptResult.success) {
-        result.errors.push(scriptResult.error ?? 'Unknown error');
+    if (!mut.success) {
+        result.errors.push(mut.error ?? 'Unknown error');
         return;
     }
 
-    // Apply modified scenes back to project data
-    pd.scenes = scriptResult.scenes;
-    ctx.saveProjectData(pd);
+    if (Object.keys(mut.updatedFiles).length === 0) {
+        // No template-file changes — surface warnings (e.g. unknown verbs) so the
+        // AI can pivot to FIX_GAME if needed.
+        if (mut.warnings.length > 0) {
+            result.errors.push(`EDIT block did not modify the project. Warnings:\n${mut.warnings.join('\n')}`);
+        }
+        return;
+    }
 
-    // Reload all modified scenes on the frontend
-    for (const key of scriptResult.modifiedScenes) {
-        ctx.reloadScene(key, pd.scenes[key]);
+    const built = ctx.commitFiles(mut.updatedFiles);
+    if (!built || !built.success) {
+        result.errors.push(built?.error || 'Build failed after EDIT.');
+        return;
     }
 
     result.madeChanges = true;
-    for (const key of scriptResult.modifiedScenes) {
-        result.fileChanges.push({ path: key, type: 'modified' });
+    for (const f of Object.keys(mut.updatedFiles)) {
+        result.fileChanges.push({ path: f, type: 'modified' });
     }
 }
 
@@ -122,64 +136,33 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
 
         case 'LOAD_TEMPLATE': {
             if (!node.args.template) {
-                // No template specified — list available templates
                 const catalog = loadTemplateCatalog();
                 if (catalog.length === 0) {
                     result.toolResults = '[LOAD_TEMPLATE] No game templates found.';
                 } else {
                     result.toolResults = `[LOAD_TEMPLATE] Available game templates:\n${formatCatalogForLLM(catalog)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match, apologize and tell the user that game type is not available yet. Show them the list so they can pick one.`;
                 }
-            } else {
-                // Template specified — build the game
-                const template = loadTemplate(node.args.template);
-                if (!template || !template._folderPath) {
-                    result.toolResults = `[LOAD_TEMPLATE] Template "${node.args.template}" not found. Call <<<LOAD_TEMPLATE>>><<<END>>> to see available templates.`;
-                    break;
-                }
-
-                try {
-                    const assembled = assembleGame(template._folderPath);
-
-                    // Update project data with the assembled game
-                    const pd = ctx.getProjectData();
-                    const sceneKey = ctx.activeSceneKey;
-                    pd.scenes = pd.scenes || {};
-                    pd.scenes[sceneKey] = {
-                        name: template.name,
-                        entities: assembled.entities,
-                        environment: {
-                            ambientColor: [1, 1, 1],
-                            ambientIntensity: 0.3,
-                            fog: { enabled: false, color: [0.8, 0.8, 0.8], near: 10, far: 100 },
-                            gravity: [0, -9.81, 0],
-                            timeOfDay: 12,
-                            dayNightCycleSpeed: 0,
-                        },
-                    };
-
-                    // Merge scripts and UI files
-                    pd.scripts = { ...(pd.scripts || {}), ...assembled.scripts };
-                    pd.uiFiles = { ...(pd.uiFiles || {}), ...assembled.uiFiles };
-
-                    ctx.saveProjectData(pd);
-                    // Send full project reload (scene + scripts + UI) for game builds
-                    ctx.sendToFrontend('project_reload', {
-                        sceneKey,
-                        sceneData: pd.scenes[sceneKey],
-                        scripts: pd.scripts,
-                        uiFiles: pd.uiFiles,
-                    });
-
-                    result.madeChanges = true;
-                    result.fileChanges.push({ path: sceneKey, type: 'modified' });
-
-                    const entityCount = assembled.entities.length;
-                    const scriptCount = Object.keys(assembled.scripts).length;
-                    result.toolResults = `[LOAD_TEMPLATE] Successfully built "${template.name}" with ${entityCount} entities. The game is now loaded in the editor.\n\nTell the user: the game was generated from the "${template.name}" template. Ask if they want you to incorporate any customizations, or if they'd prefer to start from an empty template and build from scratch.`;
-                } catch (e: any) {
-                    result.toolResults = `[LOAD_TEMPLATE] Failed to build "${node.args.template}": ${e.message}`;
-                }
+                break;
             }
+
+            const seed = seedFromTemplate(node.args.template);
+            if (!seed.templateId) {
+                result.toolResults = `[LOAD_TEMPLATE] Template "${node.args.template}" not found. Call <<<LOAD_TEMPLATE>>><<<END>>> to see available templates.`;
+                break;
+            }
+
+            const built = ctx.replaceFiles(seed.files);
+            if (!built || !built.success) {
+                result.toolResults = `[LOAD_TEMPLATE] Failed to build "${seed.templateId}": ${built?.error || 'unknown build error'}`;
+                break;
+            }
+
+            result.madeChanges = true;
+            result.fileChanges.push({ path: built.activeSceneKey, type: 'modified' });
+
+            const entityCount = built.scenes[built.activeSceneKey]?.entities?.length ?? 0;
+            const warnMsg = seed.warnings.length > 0 ? `\n(Warnings: ${seed.warnings.slice(0, 3).join('; ')})` : '';
+            result.toolResults = `[LOAD_TEMPLATE] Successfully built "${seed.templateId}" with ${entityCount} entities. The game is now loaded in the editor.${warnMsg}\n\nTell the user: the game was generated from the "${seed.templateId}" template. Ask if they want you to incorporate any customizations, or if they'd prefer to start from an empty template and build from scratch.`;
             break;
         }
 
@@ -194,32 +177,29 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             sendStatus('Fixing game...');
 
             try {
-                const pd = ctx.getProjectData();
-                const fixResult = await runFixer(ctx.projectId, description, pd, ctx.activeSceneKey, sendStatus, ctx.abortSignal);
+                const view = ctx.getProjectData();
+                const fixResult = await runFixer(
+                    ctx.projectId,
+                    description,
+                    view.files as ProjectFiles,
+                    ctx.activeSceneKey,
+                    sendStatus,
+                    ctx.abortSignal,
+                );
 
-                // Report fixer cost for usage tracking
-                if (fixResult.costUsd && ctx.onFixerCost) {
-                    ctx.onFixerCost(fixResult.costUsd);
-                }
+                if (fixResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(fixResult.costUsd);
 
                 if (fixResult.success && fixResult.filesChanged.length > 0) {
-                    ctx.saveProjectData(pd);
-
-                    // Reload frontend with updated data
-                    const sceneKey = ctx.activeSceneKey;
-                    if (pd.scenes?.[sceneKey]) {
-                        ctx.sendToFrontend('project_reload', {
-                            sceneKey,
-                            sceneData: pd.scenes[sceneKey],
-                            scripts: pd.scripts,
-                            uiFiles: pd.uiFiles,
-                        });
+                    const updates: Record<string, string | null> = {};
+                    for (const [k, v] of Object.entries(fixResult.changedFiles)) updates[k] = v;
+                    for (const k of fixResult.deletedFiles) updates[k] = null;
+                    const built = ctx.commitFiles(updates);
+                    if (!built || !built.success) {
+                        result.toolResults = `[FIX_GAME] Fix produced files but the build failed: ${built?.error}`;
+                        break;
                     }
-
                     result.madeChanges = true;
-                    for (const f of fixResult.filesChanged) {
-                        result.fileChanges.push({ path: f, type: 'modified' });
-                    }
+                    for (const f of fixResult.filesChanged) result.fileChanges.push({ path: f, type: 'modified' });
                     result.toolResults = `[FIX_GAME] ${fixResult.summary}. Tell the user the fix has been applied and they can press Play to test.`;
                 } else if (fixResult.success) {
                     result.toolResults = `[FIX_GAME] ${fixResult.summary}`;
@@ -245,35 +225,14 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             try {
                 const createResult = await runCreator(ctx.projectId, description, sendStatus);
 
-                if (createResult.success && createResult.assembled) {
-                    const pd = ctx.getProjectData();
-                    const sceneKey = ctx.activeSceneKey;
-                    pd.scenes = pd.scenes || {};
-                    pd.scenes[sceneKey] = {
-                        name: createResult.templateId,
-                        entities: createResult.assembled.entities,
-                        environment: {
-                            ambientColor: [1, 1, 1],
-                            ambientIntensity: 0.3,
-                            fog: { enabled: false, color: [0.8, 0.8, 0.8], near: 10, far: 100 },
-                            gravity: [0, -9.81, 0],
-                            timeOfDay: 12,
-                            dayNightCycleSpeed: 0,
-                        },
-                    };
-                    pd.scripts = { ...(pd.scripts || {}), ...createResult.assembled.scripts };
-                    pd.uiFiles = { ...(pd.uiFiles || {}), ...createResult.assembled.uiFiles };
-
-                    ctx.saveProjectData(pd);
-                    ctx.sendToFrontend('project_reload', {
-                        sceneKey,
-                        sceneData: pd.scenes[sceneKey],
-                        scripts: pd.scripts,
-                        uiFiles: pd.uiFiles,
-                    });
-
+                if (createResult.success && createResult.files) {
+                    const built = ctx.replaceFiles(createResult.files);
+                    if (!built || !built.success) {
+                        result.toolResults = `[CREATE_GAME] Created files but the build failed: ${built?.error}\n\nDo NOT retry CREATE_GAME. Tell the user that creating this game from scratch was not possible right now, and suggest using an existing template instead.`;
+                        break;
+                    }
                     result.madeChanges = true;
-                    result.fileChanges.push({ path: sceneKey, type: 'modified' });
+                    result.fileChanges.push({ path: built.activeSceneKey, type: 'modified' });
                     result.toolResults = `[CREATE_GAME] ${createResult.summary}. The game "${createResult.templateId}" has been created and loaded. Tell the user to press Play to try it.`;
                 } else {
                     result.toolResults = `[CREATE_GAME] Failed: ${createResult.summary}\n\nDo NOT retry CREATE_GAME. Tell the user that creating this game from scratch was not possible right now, and suggest using an existing template instead.`;

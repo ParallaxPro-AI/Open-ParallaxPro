@@ -11,18 +11,37 @@ You are fixing a game in the ParallaxPro 3D game engine. A user built a game and
 
 ## Sandbox Layout
 
+The project lives in template format — the same 4-file format used by every
+template in `reference/`. Edit the template sources, never generated artifacts.
+
 ```
-project/                    — The user's game files. EDIT THESE.
-  scripts/                  — Game script files (.ts)
-  scenes/                   — Scene data (.json)
-  ui/                       — HTML UI overlay files
-reference/                  — Read-only reference files
-  behaviors/                — Shared behavior scripts (examples)
-  systems/                  — Shared system scripts (examples)
-  event_definitions.ts      — Valid game event names + payload schemas
-TASK.md                     — The user's bug report + project summary
-validate.sh                 — Run this to check for syntax errors
+project/                          — The user's game (template format). EDIT THESE.
+  01_flow.json                    — Game flow HFSM + ui_params
+  02_entities.json                — Entity definitions (prefabs) with behavior refs
+  03_worlds.json                  — Scene placements
+  04_systems.json                 — Manager systems
+  behaviors/{category}/{name}.ts  — Pinned behavior scripts (the project's frozen copy)
+  systems/{category}/{name}.ts    — Pinned system scripts
+  systems/fsm_driver.ts           — Engine FSM driver (pinned)
+  systems/_entity_label.ts        — Engine label script (pinned)
+  systems/event_definitions.ts    — Pinned event schema
+  systems/ui/ui_bridge.ts         — Pinned UI bridge
+  ui/{name}.html                  — Pinned UI panels
+  scripts/                        — User-written custom scripts (optional)
+reference/                        — Read-only reference, the latest shared library
+  behaviors/, systems/, ui/, event_definitions.ts
+TASK.md                           — The user's bug report + project summary
+validate.sh                       — Run this to check for syntax errors
 ```
+
+### Editing rules
+
+- To add a behavior the project doesn't pin yet: copy from `reference/behaviors/...`
+  to `project/behaviors/...`, then reference its path in `project/02_entities.json`.
+- Same for systems and UI panels.
+- Edit JSON template files for entity changes (mesh, physics, behaviors, placement)
+  — do NOT generate scenes/*.json files; the engine assembles them from the templates.
+- New scripts that aren't general behaviors go in `project/scripts/{name}.ts`.
 
 ## Validation
 

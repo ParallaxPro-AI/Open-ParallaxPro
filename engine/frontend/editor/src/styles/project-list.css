@@ -303,6 +303,20 @@
     border: 1px solid rgba(158, 158, 158, 0.2);
 }
 
+.project-status-badge.deprecated {
+    background: rgba(244, 67, 54, 0.12);
+    color: #ef9a9a;
+    border: 1px solid rgba(244, 67, 54, 0.35);
+}
+
+.project-card.legacy {
+    opacity: 0.65;
+}
+
+.project-card.legacy:hover {
+    opacity: 0.85;
+}
+
 .project-published-link {
     display: flex;
     align-items: center;

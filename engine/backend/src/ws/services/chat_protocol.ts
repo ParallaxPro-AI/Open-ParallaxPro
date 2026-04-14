@@ -163,6 +163,25 @@ export function getProjectSummary(projectData: any, activeSceneKey?: string): st
         }
     }
 
+    // Surface the template file tree so the AI knows what FIX_GAME can edit.
+    if (projectData.files && typeof projectData.files === 'object') {
+        const filePaths = Object.keys(projectData.files).filter(p => p !== '__legacy__').sort();
+        if (filePaths.length > 0) {
+            const grouped: Record<string, string[]> = {};
+            for (const p of filePaths) {
+                const top = p.split('/')[0];
+                (grouped[top] = grouped[top] || []).push(p);
+            }
+            const lines: string[] = [];
+            for (const [top, paths] of Object.entries(grouped)) {
+                lines.push(`  ${top}/ (${paths.length}):`);
+                for (const p of paths.slice(0, 8)) lines.push(`    - ${p}`);
+                if (paths.length > 8) lines.push(`    ... ${paths.length - 8} more`);
+            }
+            parts.push(`Template files:\n${lines.join('\n')}`);
+        }
+    }
+
     if (parts.length === 0) return '';
-    return `\n[EXISTING PROJECT]\n${parts.join('\n')}\n[END EXISTING PROJECT]\nYour EDIT blocks modify the ACTIVE scene.\n`;
+    return `\n[EXISTING PROJECT]\n${parts.join('\n')}\n[END EXISTING PROJECT]\nYour EDIT blocks modify the ACTIVE scene (and translate to template files).\n`;
 }
