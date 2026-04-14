@@ -17,6 +17,9 @@ export interface ConvertedScene {
   scripts: Record<string, string>;
   uiFiles: Record<string, string>;
   multiplayerConfig?: { maxPlayers?: number; minPlayers?: number };
+  /** Scene-level environment (gravity, lighting, fog, time of day) sourced from
+   *  worlds[0].environment. The editor's environment edits go here. */
+  environment?: Record<string, any>;
   /**
    * Opaque passthrough of `worlds[0].heightmapTerrain` from the template.
    * The editor reads it off the scene and hands it to its HeightmapTerrain
@@ -142,17 +145,18 @@ function loadSystemScript(
 
 // ─── FSM driver generation ─────────────────────────────────────────────────
 
-let _fsmDriverCode: string | null = null;
+const _fsmDriverCache = new Map<string, string>();
 function getFSMDriverCode(systemsDir?: string): string {
-  if (!systemsDir && _fsmDriverCode) return _fsmDriverCode;
   const dir = systemsDir || SYSTEMS_DIR;
+  const cached = _fsmDriverCache.get(dir);
+  if (cached) return cached;
   let code: string;
   try {
     code = fs.readFileSync(path.join(dir, 'fsm_driver.ts'), 'utf-8');
   } catch {
     code = 'class FSMDriver extends GameScript {}';
   }
-  if (!systemsDir) _fsmDriverCode = code;
+  _fsmDriverCache.set(dir, code);
   return code;
 }
 
@@ -168,15 +172,19 @@ function generateFSMDriver(entityName: string, configs: any[], systemsDir?: stri
 // ─── Entity label script ────────────────────────────────────────────────────
 
 const ENTITY_LABEL_KEY = 'scripts/_entity_label.ts';
-let _entityLabelCode: string | null = null;
-function getEntityLabelCode(): string {
-  if (_entityLabelCode) return _entityLabelCode;
+const _entityLabelCache = new Map<string, string>();
+function getEntityLabelCode(systemsDir?: string): string {
+  const dir = systemsDir || SYSTEMS_DIR;
+  const cached = _entityLabelCache.get(dir);
+  if (cached) return cached;
+  let code: string;
   try {
-    _entityLabelCode = fs.readFileSync(path.join(SYSTEMS_DIR, '_entity_label.ts'), 'utf-8');
+    code = fs.readFileSync(path.join(dir, '_entity_label.ts'), 'utf-8');
   } catch {
-    _entityLabelCode = `class EntityLabel extends GameScript { onStart() {} onUpdate(dt) {} }`;
+    code = `class EntityLabel extends GameScript { onStart() {} onUpdate(dt) {} }`;
   }
-  return _entityLabelCode;
+  _entityLabelCache.set(dir, code);
+  return code;
 }
 
 // ─── Shared entity building ─────────────────────────────────────────────────
@@ -193,10 +201,17 @@ interface EntityBuildConfig {
   usedKeys: Set<string>;
   baseDirs?: { behaviors?: string; systems?: string };
   placementMeta?: Record<string, any>;
+  /** Per-instance overrides emitted by the editor mutator (placement-level). */
+  placementOverrides?: {
+    materialOverrides?: any;
+    extraComponents?: any[];
+    extraTags?: string[];
+    active?: boolean;
+  };
 }
 
 function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[] {
-  const { def, entityName, position, parentId, parentTags, scripts, usedKeys, baseDirs, placementMeta } = config;
+  const { def, entityName, position, parentId, parentTags, scripts, usedKeys, baseDirs, placementMeta, placementOverrides } = config;
   const rotation = config.rotation || [0, 0, 0];
   const entities: any[] = [];
 
@@ -204,7 +219,7 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
   const meshScale = config.scale || def.mesh?.scale || [1, 1, 1];
 
   const entityId = nextId.value++;
-  const tags: string[] = def.tags || [];
+  const tags: string[] = [...(def.tags || []), ...(placementOverrides?.extraTags || [])];
   const tagSet = new Set(tags);
 
   // Components
@@ -226,9 +241,9 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     if (def.mesh.modelRotationX) meshData.modelRotationX = def.mesh.modelRotationX;
     if (def.mesh.modelRotationY) meshData.modelRotationY = def.mesh.modelRotationY;
     if (def.mesh.modelRotationZ) meshData.modelRotationZ = def.mesh.modelRotationZ;
-    // Texture overrides
-    if (def.mesh_override) {
-      meshData.materialOverrides = { ...def.mesh_override };
+    // Texture overrides — def-level first, then placement-level (editor edits win).
+    if (def.mesh_override || placementOverrides?.materialOverrides) {
+      meshData.materialOverrides = { ...(def.mesh_override || {}), ...(placementOverrides?.materialOverrides || {}) };
     }
     components.push({ type: 'MeshRendererComponent', data: meshData });
   }
@@ -305,8 +320,22 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     components.push({ type: 'ScriptComponent', data: scriptData });
   }
 
+  // Placement-level extra components — passed through verbatim, after auto-derived ones.
+  if (placementOverrides?.extraComponents) {
+    for (const c of placementOverrides.extraComponents) {
+      if (!c?.type) continue;
+      const existing = components.find((x: any) => x.type === c.type);
+      if (existing) {
+        existing.data = { ...(existing.data || {}), ...(c.data || {}) };
+      } else {
+        components.push({ type: c.type, data: c.data || {} });
+      }
+    }
+  }
+
   const entity: any = { id: entityId, name: entityName, components, tags: [...tags] };
   if (parentId !== undefined) entity.parentId = parentId;
+  if (placementOverrides?.active === false) entity.active = false;
 
   // Entity label — only for interactive entities with meaningful tags
   const hasLabelTag = tags.length > 0 && !tags.every(t => NO_LABEL_TAGS.has(t));
@@ -344,13 +373,14 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
 interface EventFieldDef { type: string; optional?: boolean; }
 interface EventDef { fields: Record<string, EventFieldDef>; }
 
-let _gameEventDefs: Record<string, EventDef> | null = null;
-let _validGameEvents: Set<string> | null = null;
+const _eventDefsCache = new Map<string, { defs: Record<string, EventDef>; names: Set<string> }>();
 
-function loadGameEventDefs(): { defs: Record<string, EventDef>; names: Set<string> } | null {
-  if (_gameEventDefs && _validGameEvents) return { defs: _gameEventDefs, names: _validGameEvents };
+function loadGameEventDefs(systemsDir?: string): { defs: Record<string, EventDef>; names: Set<string> } | null {
+  const dir = systemsDir || SYSTEMS_DIR;
+  const cached = _eventDefsCache.get(dir);
+  if (cached) return cached;
   try {
-    const evtSrc = fs.readFileSync(path.join(SYSTEMS_DIR, 'event_definitions.ts'), 'utf-8');
+    const evtSrc = fs.readFileSync(path.join(dir, 'event_definitions.ts'), 'utf-8');
     // Extract event names from GAME_EVENTS keys
     const nameMatches = evtSrc.matchAll(/^\s+(\w+)\s*:\s*\{/gm);
     const names = new Set<string>();
@@ -378,9 +408,9 @@ function loadGameEventDefs(): { defs: Record<string, EventDef>; names: Set<strin
       defs[name] = { fields };
     }
 
-    _gameEventDefs = defs;
-    _validGameEvents = names;
-    return { defs, names };
+    const result = { defs, names };
+    _eventDefsCache.set(dir, result);
+    return result;
   } catch {}
   return null;
 }
@@ -413,11 +443,11 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   }
 
   // Register shared scripts
-  scripts[ENTITY_LABEL_KEY] = getEntityLabelCode();
+  scripts[ENTITY_LABEL_KEY] = getEntityLabelCode(baseDirs?.systems);
   usedKeys.add(ENTITY_LABEL_KEY);
 
   // Event validator — enforces strict event names on the game bus at runtime
-  const eventData = loadGameEventDefs();
+  const eventData = loadGameEventDefs(baseDirs?.systems);
   const validEvents = eventData?.names || null;
   if (validEvents) {
     const eventNames = [...validEvents];
@@ -530,6 +560,12 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
       usedKeys,
       baseDirs: baseDirs ? { behaviors: baseDirs.behaviors, systems: baseDirs.systems } : undefined,
       placementMeta: placement.meta,
+      placementOverrides: {
+        materialOverrides: placement.material_overrides,
+        extraComponents: placement.extra_components,
+        extraTags: placement.tags,
+        active: placement.active,
+      },
     }, nextId);
     entities.push(...builtEntities);
   }
@@ -626,7 +662,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
 
     // Add FSM driver built-in emits
     try {
-      for (const m of getFSMDriverCode().matchAll(/_emitBus\s*\(\s*"game"\s*,\s*"([^"]+)"/g)) {
+      for (const m of getFSMDriverCode(baseDirs?.systems).matchAll(/_emitBus\s*\(\s*"game"\s*,\s*"([^"]+)"/g)) {
         gameEventsEmitted.add(m[1]);
       }
     } catch {}
@@ -705,8 +741,9 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
 
   const heightmapTerrain = worlds?.worlds?.[0]?.heightmapTerrain;
   const streamedBuildings = worlds?.worlds?.[0]?.streamedBuildings;
+  const environment = worlds?.worlds?.[0]?.environment;
 
-  return { entities, scripts, uiFiles, multiplayerConfig, heightmapTerrain, streamedBuildings };
+  return { entities, scripts, uiFiles, multiplayerConfig, environment, heightmapTerrain, streamedBuildings };
 }
 
 // ─── File loading helpers ──────────────────────────────────────────────────

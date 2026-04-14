@@ -13,6 +13,15 @@ import { SYSTEM_PROMPT, getProjectSummary } from './services/chat_protocol.js';
 import { appendToLog } from './services/chat_log.js';
 import { searchAssets } from '../routes/assets.js';
 import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
+import {
+    parseProjectData,
+    serializeProjectData,
+    isLegacyProjectData,
+    setFile,
+    type ProjectData,
+    type ProjectFiles,
+} from './services/pipeline/project_files.js';
+import { buildProject, type BuildResult } from './services/pipeline/project_builder.js';
 
 let _plugins: EnginePlugin[] = [];
 export function setPlugins(plugins: EnginePlugin[]): void { _plugins = plugins; }
@@ -119,8 +128,13 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
 
         const clientId = `${user.id}_${Date.now()}`;
         const chatSessionId = `u${user.id}_p${projectId.slice(0, 8)}_${randomUUID()}`;
-        const pd = row.project_data ? JSON.parse(row.project_data) : {};
-        const firstSceneKey = Object.keys(pd.scenes || {})[0] || 'main.json';
+        const pd = parseProjectData(row.project_data);
+        if (isLegacyProjectData(pd)) {
+            ws.close(4005, 'Legacy project — please recreate it after the file-tree migration.');
+            return;
+        }
+        const built = buildProject(projectId, pd.files);
+        const firstSceneKey = built.activeSceneKey;
         const client: EditorClient = {
             ws,
             clientId,
@@ -285,14 +299,10 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
                 send(client, 'error', { message: 'No snapshot available for this message.' });
                 break;
             }
-            // Restore project state to the snapshot (state after this message)
             stmtUpdateData.run(msg.project_data_snapshot, client.projectId);
-            // Delete all messages after this one
             stmtDeleteAfter.run(client.projectId, client.chatSessionId, msg.id);
-            // Reload scene and chat
-            const restoredData = JSON.parse(msg.project_data_snapshot);
-            const sceneKey = Object.keys(restoredData.scenes || {})[0];
-            if (sceneKey) send(client, 'scene_reload', { sceneKey, sceneData: restoredData.scenes[sceneKey] });
+            const restored = parseProjectData(msg.project_data_snapshot);
+            if (!isLegacyProjectData(restored)) rebuildAndPush(client, restored, { sceneKey: client.activeSceneKey });
             const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
             send(client, 'chat_history', {
                 messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
@@ -303,10 +313,8 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
         case 'revert_to_before_message': {
             const msg = stmtGetMessage.get(data?.messageId, client.projectId) as any;
             if (!msg) break;
-            // Find the project_data_before: check this message first, then the user message before it
             let beforeData = msg.project_data_before;
             if (!beforeData) {
-                // If this is an assistant message, the user message before it has the before snapshot
                 const prevUser = db.prepare(
                     "SELECT project_data_before FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id < ? AND role = 'user' ORDER BY id DESC LIMIT 1"
                 ).get(client.projectId, client.chatSessionId, msg.id) as any;
@@ -318,9 +326,8 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             }
             stmtUpdateData.run(beforeData, client.projectId);
             stmtDeleteFrom.run(client.projectId, client.chatSessionId, msg.id);
-            const restoredData = JSON.parse(beforeData);
-            const sceneKey = Object.keys(restoredData.scenes || {})[0];
-            if (sceneKey) send(client, 'scene_reload', { sceneKey, sceneData: restoredData.scenes[sceneKey] });
+            const restored = parseProjectData(beforeData);
+            if (!isLegacyProjectData(restored)) rebuildAndPush(client, restored, { sceneKey: client.activeSceneKey });
             const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
             send(client, 'chat_history', {
                 messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
@@ -349,9 +356,10 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
                 messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
             });
             // Reload scene to restored state
-            const pd = getProjectData(client.projectId);
-            const sceneKey = Object.keys(pd.scenes || {})[0];
-            if (sceneKey) send(client, 'scene_reload', { sceneKey, sceneData: pd.scenes[sceneKey] });
+            const restoredPd = readProjectData(client.projectId);
+            if (restoredPd && !isLegacyProjectData(restoredPd)) {
+                rebuildAndPush(client, restoredPd, { sceneKey: client.activeSceneKey });
+            }
             // Re-trigger the AI
             send(client, 'chat_response_start', {});
             const abortController = new AbortController();
@@ -385,25 +393,24 @@ function handleFileSave(client: EditorClient, data: any): void {
     const { path: filePath, content } = data;
     if (!filePath || content === undefined) return;
 
-    const row = stmtGetProject.get(client.projectId) as any;
-    if (!row) return;
-
-    const projectData = row.project_data ? JSON.parse(row.project_data) : {};
+    const pd = readProjectData(client.projectId);
+    if (!pd || isLegacyProjectData(pd)) return;
 
     if (filePath === 'projectConfig') {
-        projectData.projectConfig = content;
-    } else if (filePath.startsWith('scenes/')) {
-        if (!projectData.scenes) projectData.scenes = {};
-        projectData.scenes[filePath.replace('scenes/', '')] = content;
-    } else if (filePath.startsWith('scripts/')) {
-        if (!projectData.scripts) projectData.scripts = {};
-        projectData.scripts[filePath.replace('scripts/', '')] = content;
-    } else if (filePath.startsWith('uiFiles/')) {
-        if (!projectData.uiFiles) projectData.uiFiles = {};
-        projectData.uiFiles[filePath.replace('uiFiles/', '')] = content;
+        pd.projectConfig = content;
+    } else {
+        const built = buildProject(client.projectId, pd.files);
+        const target = resolveSavePath(filePath, built.sourceMap);
+        if (!target) {
+            send(client, 'file_save_error', { path: filePath, error: 'Path is not editable in the file tree.' });
+            return;
+        }
+        const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+        setFile(pd, target, text);
     }
 
-    stmtUpdateData.run(JSON.stringify(projectData), client.projectId);
+    stmtUpdateData.run(serializeProjectData(pd), client.projectId);
+    rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
     send(client, 'file_saved', { path: filePath });
 }
 
@@ -411,28 +418,73 @@ function handleProjectSave(client: EditorClient, data: any): void {
     const files = data?.files;
     if (!files || typeof files !== 'object') return;
 
-    const row = stmtGetProject.get(client.projectId) as any;
-    if (!row) return;
+    const pd = readProjectData(client.projectId);
+    if (!pd || isLegacyProjectData(pd)) return;
 
-    const projectData = row.project_data ? JSON.parse(row.project_data) : {};
-
+    const built = buildProject(client.projectId, pd.files);
     for (const [filePath, content] of Object.entries(files)) {
         if (filePath === 'projectConfig') {
-            projectData.projectConfig = content;
-        } else if (filePath.startsWith('scenes/')) {
-            if (!projectData.scenes) projectData.scenes = {};
-            projectData.scenes[filePath.replace('scenes/', '')] = content;
-        } else if (filePath.startsWith('scripts/')) {
-            if (!projectData.scripts) projectData.scripts = {};
-            projectData.scripts[filePath.replace('scripts/', '')] = content;
-        } else if (filePath.startsWith('uiFiles/')) {
-            if (!projectData.uiFiles) projectData.uiFiles = {};
-            projectData.uiFiles[filePath.replace('uiFiles/', '')] = content;
+            pd.projectConfig = content as { name: string };
+            continue;
         }
+        const target = resolveSavePath(filePath, built.sourceMap);
+        if (!target) continue;
+        const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+        setFile(pd, target, text);
     }
 
-    stmtUpdateData.run(JSON.stringify(projectData), client.projectId);
+    stmtUpdateData.run(serializeProjectData(pd), client.projectId);
+    rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
     send(client, 'project_saved', { success: true });
+}
+
+/** Map an incoming file_save path to a template-file path in the project tree. */
+function resolveSavePath(incomingPath: string, sourceMap: Record<string, string>): string | null {
+    if (incomingPath.endsWith('.json') && /^0\d_/.test(incomingPath)) return incomingPath;
+    if (incomingPath.startsWith('behaviors/')) return incomingPath;
+    if (incomingPath.startsWith('systems/')) return incomingPath;
+    if (incomingPath.startsWith('scripts/')) {
+        return sourceMap[incomingPath] || incomingPath;
+    }
+    if (incomingPath.startsWith('ui/')) return incomingPath;
+    if (incomingPath.startsWith('uiFiles/')) {
+        const ui = `ui/${incomingPath.slice('uiFiles/'.length)}`;
+        return sourceMap[ui] ? sourceMap[ui] : ui;
+    }
+    if (incomingPath.startsWith('scenes/')) return null;
+    return null;
+}
+
+/** Read parsed project data from DB. Returns null if project missing. */
+function readProjectData(projectId: string): ProjectData | null {
+    const row = stmtGetProject.get(projectId) as any;
+    if (!row) return null;
+    return parseProjectData(row.project_data);
+}
+
+/** Compact snapshot for chat history — file tree only (no assembled output). */
+function getProjectSnapshot(projectId: string): string {
+    const pd = readProjectData(projectId);
+    if (!pd) return JSON.stringify({ projectConfig: { name: '' }, files: {} });
+    return serializeProjectData(pd);
+}
+
+/** Rebuild the project and broadcast the assembled scene/scripts/uiFiles. */
+function rebuildAndPush(client: EditorClient, pd: ProjectData, opts: { sceneKey: string }): BuildResult {
+    const built = buildProject(client.projectId, pd.files, { activeSceneKey: opts.sceneKey });
+    if (!built.success) {
+        send(client, 'build_error', { error: built.error });
+        return built;
+    }
+    const sceneData = built.scenes[opts.sceneKey] || built.scenes[built.activeSceneKey];
+    send(client, 'project_reload', {
+        sceneKey: built.activeSceneKey,
+        sceneData,
+        scripts: built.scripts,
+        uiFiles: built.uiFiles,
+        sourceMap: built.sourceMap,
+    });
+    return built;
 }
 
 const MAX_RETRIES = 3;
@@ -447,7 +499,7 @@ function handleChatMessage(client: EditorClient, data: any): void {
     }
 
     // Save user message with current project state as "before" snapshot
-    const beforeSnapshot = JSON.stringify(getProjectData(client.projectId));
+    const beforeSnapshot = getProjectSnapshot(client.projectId);
     stmtInsertMessage.run(client.projectId, client.chatSessionId, 'user', content, null, null, beforeSnapshot);
     send(client, 'chat_response_start', {});
 
@@ -471,17 +523,47 @@ function buildMessages(client: EditorClient, retryContext: LLMMessage[]): LLMMes
     ];
 }
 
+/**
+ * Returns the AI-facing view of a project: assembled scenes/scripts/uiFiles
+ * (so the AI sees the same world the user sees) plus the underlying file tree
+ * for tools that mutate the source (LOAD_TEMPLATE, FIX_GAME, CREATE_GAME, EDIT).
+ */
 function getProjectData(projectId: string): any {
-    const r = stmtGetProject.get(projectId) as any;
-    return r?.project_data ? JSON.parse(r.project_data) : {};
+    const pd = readProjectData(projectId);
+    if (!pd || isLegacyProjectData(pd)) return {};
+    const built = buildProject(projectId, pd.files);
+    return {
+        projectConfig: pd.projectConfig,
+        files: pd.files,
+        scenes: built.scenes,
+        scripts: built.scripts,
+        uiFiles: built.uiFiles,
+        sourceMap: built.sourceMap,
+        multiplayerConfig: built.multiplayerConfig,
+        activeSceneKey: built.activeSceneKey,
+    };
 }
 
 function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): ExecutionContext {
     return {
         sendToFrontend: (type, data) => send(client, type, data),
         getProjectData: () => getProjectData(client.projectId),
-        saveProjectData: (data) => {
-            stmtUpdateData.run(JSON.stringify(data), client.projectId);
+        commitFiles: (updates: Record<string, string | null>) => {
+            const pd = readProjectData(client.projectId);
+            if (!pd) return null;
+            for (const [filePath, content] of Object.entries(updates)) {
+                if (content === null) delete pd.files[filePath];
+                else setFile(pd, filePath, content);
+            }
+            stmtUpdateData.run(serializeProjectData(pd), client.projectId);
+            return rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
+        },
+        replaceFiles: (newFiles: ProjectFiles, opts?: { name?: string }) => {
+            const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled' }, files: {} };
+            pd.files = { ...newFiles };
+            if (opts?.name) pd.projectConfig.name = opts.name;
+            stmtUpdateData.run(serializeProjectData(pd), client.projectId);
+            return rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
         },
         reloadScene: (sceneKey, sceneData) => {
             send(client, 'scene_reload', { sceneKey, sceneData });
@@ -500,7 +582,7 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
 
 function finishChat(client: EditorClient, displayContent: string, fileChanges: any[] = []): void {
     // Save assistant message with post-edit snapshot
-    const snapshot = JSON.stringify(getProjectData(client.projectId));
+    const snapshot = getProjectSnapshot(client.projectId);
     const fileChangesJson = fileChanges.length > 0 ? JSON.stringify(fileChanges) : null;
     const dbResult = stmtInsertMessage.run(
         client.projectId, client.chatSessionId, 'assistant', displayContent,

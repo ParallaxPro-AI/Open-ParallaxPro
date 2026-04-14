@@ -361,12 +361,22 @@ export class ProjectListView {
 
         const isPublished = project.status === 'published' && project.publishedSlug;
         const badge = document.createElement('span');
-        badge.className = `project-status-badge ${isPublished ? 'published' : 'draft'}`;
-        const versionInfo = project.publishedVersion ? ` V${project.publishedVersion}` : '';
-        badge.textContent = isPublished ? `PUBLISHED${versionInfo}` : 'Draft';
+        if (project.legacy) {
+            badge.className = 'project-status-badge deprecated';
+            badge.textContent = 'DEPRECATED';
+            badge.title = 'Stored in the pre-template-unification format. Click the project to learn how to open it.';
+        } else {
+            badge.className = `project-status-badge ${isPublished ? 'published' : 'draft'}`;
+            const versionInfo = project.publishedVersion ? ` V${project.publishedVersion}` : '';
+            badge.textContent = isPublished ? `PUBLISHED${versionInfo}` : 'Draft';
+        }
         nameRow.appendChild(badge);
 
         info.appendChild(nameRow);
+
+        if (project.legacy) {
+            card.classList.add('legacy');
+        }
 
         if (this.activeTab === 'shared' && project.ownerUsername) {
             const sharedByRow = document.createElement('div');
@@ -429,6 +439,10 @@ export class ProjectListView {
         card.appendChild(info);
 
         card.addEventListener('click', () => {
+            if (project.legacy) {
+                this.showDeprecatedModal(project);
+                return;
+            }
             this.onOpenProject?.(project.id);
         });
 
@@ -438,6 +452,55 @@ export class ProjectListView {
         });
 
         return card;
+    }
+
+    private showDeprecatedModal(project: any): void {
+        const body = document.createElement('div');
+        body.style.fontSize = '14px';
+        body.style.lineHeight = '1.5';
+
+        const intro = document.createElement('p');
+        intro.style.margin = '0 0 12px 0';
+        intro.innerHTML = `<strong>${escapeHtml(project.name ?? 'This project')}</strong> was created before the template-unification update and is stored in the old project format. The current build of ParallaxPro can no longer open it.`;
+        body.appendChild(intro);
+
+        const action = document.createElement('p');
+        action.style.margin = '0 0 12px 0';
+        action.textContent = 'To open it, run a build of ParallaxPro from before the migration:';
+        body.appendChild(action);
+
+        const code = document.createElement('pre');
+        code.style.background = 'rgba(255,255,255,0.06)';
+        code.style.border = '1px solid rgba(255,255,255,0.1)';
+        code.style.borderRadius = '6px';
+        code.style.padding = '10px 12px';
+        code.style.fontSize = '12px';
+        code.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+        code.style.margin = '0 0 12px 0';
+        code.style.overflowX = 'auto';
+        code.textContent = `git clone https://github.com/ParallaxPro-AI/Open-ParallaxPro.git
+cd Open-ParallaxPro
+git checkout da571fe   # last commit before template unification`;
+        body.appendChild(code);
+
+        const link = document.createElement('p');
+        link.style.margin = '0 0 12px 0';
+        link.innerHTML = `Source: <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro" target="_blank" rel="noopener" style="color: #66bb6a;">github.com/ParallaxPro-AI/Open-ParallaxPro</a>`;
+        body.appendChild(link);
+
+        const tip = document.createElement('p');
+        tip.style.margin = '0';
+        tip.style.color = '#aaa';
+        tip.style.fontSize = '12px';
+        tip.textContent = 'Tip: once you reopen this project on the older build, you can recreate it on the new build to migrate.';
+        body.appendChild(tip);
+
+        const handle = showModal({
+            title: 'Project requires older ParallaxPro build',
+            body,
+            width: '520px',
+            buttons: [{ label: 'Got it', primary: true, action: () => handle.close() }],
+        });
     }
 
     private toggleSelectAll(): void {
@@ -1056,4 +1119,10 @@ export class ProjectListView {
             console.error('Failed to unpublish:', e);
         }
     }
+}
+
+function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]!));
 }
