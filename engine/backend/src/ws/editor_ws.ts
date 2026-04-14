@@ -373,7 +373,7 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             const abortController = new AbortController();
             client.abortController = abortController;
             const agent = typeof data?.agent === 'string' ? data.agent : '';
-            if ((agent === 'claude' || agent === 'codex') && isAgentAvailable(agent)) {
+            if ((agent === 'claude' || agent === 'codex' || agent === 'opencode') && isAgentAvailable(agent)) {
                 runDirectFixer(client, prevUser.content, agent, abortController);
             } else {
                 runLLMWithRetry(client, abortController, 0, [], []);
@@ -492,11 +492,11 @@ function handleChatMessage(client: EditorClient, data: any): void {
     const abortController = new AbortController();
     client.abortController = abortController;
 
-    // Agent override: when the user explicitly picks claude/codex in the UI
+    // Agent override: when the user explicitly picks a CLI agent in the UI
     // we skip the small LLM entirely and hand the raw message to the CLI
     // fixer. This is the "direct" path — best for concrete fix/feature asks.
     const agent = typeof data?.agent === 'string' ? data.agent : '';
-    if (agent === 'claude' || agent === 'codex') {
+    if (agent === 'claude' || agent === 'codex' || agent === 'opencode') {
         if (!isAgentAvailable(agent)) {
             finishChat(client, `*Agent "${agent}" is not installed on this server.*`);
             return;
@@ -561,7 +561,7 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
             }
         }
 
-        const agentLabel = cliOverride === 'codex' ? 'Codex' : 'Claude Code';
+        const agentLabel = cliOverride === 'codex' ? 'Codex' : cliOverride === 'opencode' ? 'OpenCode' : 'Claude Code';
         const summary = fixResult.success
             ? (fixResult.summary || `${agentLabel} applied the fix.`)
             : `*${agentLabel} failed: ${fixResult.summary}*`;
