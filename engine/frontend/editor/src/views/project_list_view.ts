@@ -30,6 +30,12 @@ export class ProjectListView {
         this.el = document.createElement('div');
         this.el.className = 'project-list-view';
 
+        // Keep the list in sync when publish state changes anywhere —
+        // the Publish modal fires these after a successful submit.
+        const refresh = () => this.loadProjects();
+        this.ctx.on('projectPublished', refresh);
+        this.ctx.on('projectUnpublished', refresh);
+
         const header = document.createElement('div');
         header.className = 'project-list-header';
 
@@ -1334,7 +1340,14 @@ git checkout da571fe   # last commit before template unification`;
         );
         if (!confirmed) return;
         try {
-            await this.ctx.backend.unpublishProject(project.id);
+            // Self-hosted's local OSS backend has no /publish route —
+            // use the prod endpoint via fetchProd. Published projects
+            // always exist on prod (share the same id), so this works.
+            if (this.ctx.backend.isSelfHosted) {
+                await this.ctx.backend.unpublishProd(project.id);
+            } else {
+                await this.ctx.backend.unpublishProject(project.id);
+            }
             project.status = 'draft';
             project.publishedSlug = null;
             project.publishedOwner = null;

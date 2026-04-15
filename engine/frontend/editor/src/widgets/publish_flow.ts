@@ -205,6 +205,7 @@ export class PublishFlow {
                                 version, changelog: changelogInput.value.trim(),
                             });
                             close();
+                            this.ctx.emit('projectPublished', { projectId, ...result });
                             this.showSuccessModal(result);
                         } catch (e: any) {
                             if (e?.__engineMismatchHandled) { close(); return; }
@@ -363,6 +364,7 @@ export class PublishFlow {
                 vInput.value = '';
                 clInput.value = '';
                 newVerError.style.display = 'none';
+                this.ctx.emit('projectPublished', { projectId, ...result });
                 toast(`v${ver} published!`, 'success');
             } catch (e: any) {
                 if (e?.__engineMismatchHandled) { close(); return; }
@@ -387,6 +389,7 @@ export class PublishFlow {
                     await this.ctx.backend.unpublishProject(projectId);
                 }
                 close();
+                this.ctx.emit('projectUnpublished', { projectId });
                 toast('Game unpublished.', 'info');
             } catch (e: any) {
                 alert(e.message || 'Failed to unpublish.');
