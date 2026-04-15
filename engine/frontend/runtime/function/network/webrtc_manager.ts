@@ -323,6 +323,8 @@ export class WebRTCManager {
 
     hasLocalMic(): boolean { return !!this.localAudioTrack; }
 
+    getLocalAudioTrack(): MediaStreamTrack | null { return this.localAudioTrack; }
+
     getRemoteAudioStream(peerId: PeerId): MediaStream | null {
         return this.peers.get(peerId)?.remoteAudioStream ?? null;
     }

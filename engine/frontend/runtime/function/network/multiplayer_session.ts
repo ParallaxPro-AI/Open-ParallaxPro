@@ -124,6 +124,7 @@ export class MultiplayerSession {
     private _voiceGainNodes: Map<PeerId, GainNode> = new Map();
     private _voiceLevels: Map<PeerId, number> = new Map();
     private _voiceAudioCtx: AudioContext | null = null;
+    private _localVoiceAnalyser: { analyser: AnalyserNode; buf: Uint8Array; src: MediaStreamAudioSourceNode } | null = null;
 
     private _lobbyListListeners = new Set<(lobbies: LobbyListEntry[]) => void>();
     private _rosterListeners = new Set<(roster: LobbyRoster | null) => void>();
@@ -334,8 +335,15 @@ export class MultiplayerSession {
         this.webrtc.broadcast({ t: 'ev', ev: event, d: data });
     }
 
-    async enableVoice(): Promise<boolean> { return this.webrtc.enableLocalMic(); }
-    disableVoice(): void { this.webrtc.disableLocalMic(); }
+    async enableVoice(): Promise<boolean> {
+        const ok = await this.webrtc.enableLocalMic();
+        if (ok) this.attachLocalVoiceMeter();
+        return ok;
+    }
+    disableVoice(): void {
+        this.detachLocalVoiceMeter();
+        this.webrtc.disableLocalMic();
+    }
     setMuted(muted: boolean): void { this.webrtc.setLocalMuted(muted); }
     hasVoice(): boolean { return this.webrtc.hasLocalMic(); }
     getRemoteAudioStream(peerId: PeerId): MediaStream | null { return this.webrtc.getRemoteAudioStream(peerId); }
@@ -356,7 +364,49 @@ export class MultiplayerSession {
             }
             this._voiceLevels.set(peerId, Math.sqrt(sum / entry.buf.length));
         }
+        if (this._localVoiceAnalyser) {
+            const a = this._localVoiceAnalyser;
+            (a.analyser as any).getByteTimeDomainData(a.buf);
+            let sum = 0;
+            for (let i = 0; i < a.buf.length; i++) {
+                const v = (a.buf[i] - 128) / 128;
+                sum += v * v;
+            }
+            this._voiceLevels.set(this.localPeerId, Math.sqrt(sum / a.buf.length));
+        } else {
+            this._voiceLevels.delete(this.localPeerId);
+        }
         return this._voiceLevels;
+    }
+
+    private attachLocalVoiceMeter(): void {
+        if (this._localVoiceAnalyser) return;
+        const track = this.webrtc.getLocalAudioTrack();
+        if (!track) return;
+        try {
+            if (!this._voiceAudioCtx) {
+                const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+                if (Ctx) this._voiceAudioCtx = new Ctx();
+            }
+            const ctx = this._voiceAudioCtx;
+            if (!ctx) return;
+            const stream = new MediaStream([track]);
+            const src = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            // Analyser only — never connect to destination or you'd hear
+            // yourself through the speakers with a delay.
+            src.connect(analyser);
+            this._localVoiceAnalyser = { analyser, buf: new Uint8Array(analyser.fftSize), src };
+        } catch { /* AudioContext unavailable — meter silently off. */ }
+    }
+
+    private detachLocalVoiceMeter(): void {
+        if (!this._localVoiceAnalyser) return;
+        try { this._localVoiceAnalyser.src.disconnect(); } catch { /* ignored */ }
+        try { this._localVoiceAnalyser.analyser.disconnect(); } catch { /* ignored */ }
+        this._localVoiceAnalyser = null;
+        this._voiceLevels.delete(this.localPeerId);
     }
 
     private attachRemoteVoice(peerId: PeerId, stream: MediaStream): void {
