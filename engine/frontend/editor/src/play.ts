@@ -148,6 +148,10 @@ async function boot(): Promise<void> {
         compiledScripts: gameData.compiledScripts || {},
         uiFiles: gameData.uiFiles || {},
         projectConfig: gameData.projectConfig,
+        // Needed so play_mode_helpers can plumb min/max players and the
+        // tick rate into mp_bridge — without this, the published Start
+        // button never gets gated and below-min abandonment never fires.
+        multiplayerConfig: gameData.multiplayerConfig || null,
         // Used as the multiplayer lobby shard key. updatedAt bumps on
         // every republish (even republishing as the same version string),
         // so it's stricter than version alone — different bytes always
