@@ -30,7 +30,13 @@
         "modelRotationY": 180
       },
       "physics": false,
-      "tags": ["player"],
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true
+      },
+      "tags": ["player", "networked"],
       "behaviors": [
         {
           "name": "superman_movement",
