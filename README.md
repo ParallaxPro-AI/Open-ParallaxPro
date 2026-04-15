@@ -53,10 +53,9 @@ cd Open-ParallaxPro
 
 ```bash
 cd engine/backend
-cp .env.example .env
 ```
 
-Edit `.env` — the LLM config is **optional**. If you fill it in, any OpenAI-compatible API works:
+The backend runs with zero configuration, but you can drop in an `.env` (copy `.env.example` as a starting point) to point it at an OpenAI-compatible API. Any of these works:
 
 | Provider | `AI_BASE_URL` | Example `AI_MODEL` |
 |----------|--------------|-------------------|
@@ -64,7 +63,7 @@ Edit `.env` — the LLM config is **optional**. If you fill it in, any OpenAI-co
 | [OpenRouter](https://openrouter.ai/) | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
 | Local (Ollama) | `http://localhost:11434/v1` | `llama3.3` |
 
-**Recommended: set an API key.** A direct API call is faster and gives cleaner chat output than driving an agentic CLI as a chat proxy. If you leave the AI config blank the backend falls back to one of your installed CLIs for chat, which works but is slower per message and occasionally produces odd responses — fine for trying things out, not ideal long-term.
+**Recommended: set an API key.** A direct API call is faster and gives cleaner chat output than driving an agentic CLI as a chat proxy. Without one the backend falls back to whichever agent CLI is installed, which works but is slower per message and occasionally produces odd responses — fine for trying things out, not ideal long-term.
 
 The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. At least one of the supported CLIs must be installed — the backend refuses to start without one.
 

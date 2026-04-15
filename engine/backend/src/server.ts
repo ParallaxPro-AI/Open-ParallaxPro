@@ -166,6 +166,22 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
  */
 export async function startEngine(server: http.Server, plugins: EnginePlugin[] = []): Promise<void> {
     return new Promise((resolve) => {
+        // Graceful EADDRINUSE: print a helpful hint instead of dumping a
+        // stack trace. Common when a previous dev server is still alive.
+        server.once('error', (err: NodeJS.ErrnoException) => {
+            if (err.code === 'EADDRINUSE') {
+                console.error(
+                    `[Server] ✗ Port ${config.port} is already in use.\n` +
+                    `         Stop whatever is using it (e.g. \`lsof -ti:${config.port} | xargs kill -9\`),\n` +
+                    `         or set PORT=<other> in your .env. If you change the port, also\n` +
+                    `         set BACKEND_URL=http://localhost:<port> for the editor frontend\n` +
+                    `         so its vite proxy reaches the new port.`,
+                );
+                process.exit(1);
+            }
+            throw err;
+        });
+
         server.listen(config.port, async () => {
             console.log(`[Server] Running on port ${config.port} (${config.nodeEnv})`);
 

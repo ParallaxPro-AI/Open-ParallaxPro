@@ -10,6 +10,11 @@ process.on('uncaughtException', (err) => {
     process.exit(1);
 });
 
+// Override where vite proxies backend requests. Default matches the
+// backend's default PORT. If you change the backend PORT, set BACKEND_URL
+// here too so the proxy still lands.
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3003';
+
 export default defineConfig(({ command }) => ({
     root: '.',
     server: {
@@ -21,11 +26,11 @@ export default defineConfig(({ command }) => ({
             ignored: ['!**/engine/frontend/runtime/**', '!**/engine/shared/**'],
         },
         proxy: {
-            '/api/engine': { target: 'http://localhost:3003', configure: (p: any) => p.on('error', () => {}) },
-            '/assets': { target: 'http://localhost:3003', configure: (p: any) => p.on('error', () => {}) },
-            '/uploads': { target: 'http://localhost:3003', configure: (p: any) => p.on('error', () => {}) },
-            '/ws/engine': { target: 'http://localhost:3003', ws: true, changeOrigin: true, configure: (p: any) => p.on('error', () => {}) },
-            '/ws/multiplayer': { target: 'http://localhost:3003', ws: true, changeOrigin: true, configure: (p: any) => p.on('error', () => {}) },
+            '/api/engine': { target: BACKEND_URL, configure: (p: any) => p.on('error', () => {}) },
+            '/assets': { target: BACKEND_URL, configure: (p: any) => p.on('error', () => {}) },
+            '/uploads': { target: BACKEND_URL, configure: (p: any) => p.on('error', () => {}) },
+            '/ws/engine': { target: BACKEND_URL, ws: true, changeOrigin: true, configure: (p: any) => p.on('error', () => {}) },
+            '/ws/multiplayer': { target: BACKEND_URL, ws: true, changeOrigin: true, configure: (p: any) => p.on('error', () => {}) },
         },
     },
     base: command === 'build' ? '/editor/' : '/',

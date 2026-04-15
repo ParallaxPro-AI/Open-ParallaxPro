@@ -6,21 +6,11 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.resolve(__dirname, '../.env');
 
-if (!fs.existsSync(envPath)) {
-    console.error('[Config] .env file not found at ' + envPath);
-    console.error('[Config] Copy .env.example to .env and fill in your values.');
-    process.exit(1);
-}
-
-dotenv.config({ path: envPath });
-
-function envRequired(key: string): string {
-    const v = process.env[key];
-    if (!v) {
-        console.error(`[Config] Missing required env var: ${key}`);
-        process.exit(1);
-    }
-    return v;
+// .env is optional — every field has a default. If present we load it; if
+// not, we fall through to process.env + the defaults below. Lets new users
+// run the backend with zero configuration.
+if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
 }
 
 function envString(key: string, fallback: string): string {
