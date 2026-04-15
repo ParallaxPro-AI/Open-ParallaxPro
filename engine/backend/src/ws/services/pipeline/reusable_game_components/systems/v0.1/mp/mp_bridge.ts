@@ -61,8 +61,35 @@ class MpBridge extends GameScript {
 
         // Subscribe to session state changes and push them onto the UI bus.
         this._unsubs.push(mp.onLobbyList(function(lobbies) {
-            self._lobbies = lobbies || [];
+            var next = lobbies || [];
+            // Preserve previous pingMs by lobby id so a measurement in flight
+            // or already landed doesn't briefly disappear when the list refreshes.
+            var prev = {};
+            for (var i = 0; i < self._lobbies.length; i++) {
+                var l = self._lobbies[i];
+                if (typeof l.pingMs === "number") prev[l.id] = l.pingMs;
+            }
+            for (var j = 0; j < next.length; j++) {
+                if (prev[next[j].id] !== undefined) next[j].pingMs = prev[next[j].id];
+            }
+            self._lobbies = next;
             self._pushUiUpdate();
+
+            // Fire a fresh ping at each lobby's host. Result updates the
+            // matching row (if still present) and re-pushes the state.
+            for (var k = 0; k < next.length; k++) {
+                (function(lobby) {
+                    mp.measureLobbyPing(lobby.id).then(function(ms) {
+                        var idx = -1;
+                        for (var m = 0; m < self._lobbies.length; m++) {
+                            if (self._lobbies[m].id === lobby.id) { idx = m; break; }
+                        }
+                        if (idx < 0) return;
+                        self._lobbies[idx].pingMs = ms;
+                        self._pushUiUpdate();
+                    });
+                })(next[k]);
+            }
         }));
         this._unsubs.push(mp.onRoster(function(roster) {
             self._roster = roster;

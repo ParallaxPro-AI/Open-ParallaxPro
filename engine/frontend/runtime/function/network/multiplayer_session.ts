@@ -189,7 +189,14 @@ export class MultiplayerSession {
             onKicked: (reason) => this.handleKicked(reason),
             onSignal: (fromPeerId, payload) => this.webrtc.handleSignal(fromPeerId, payload),
             onPingRequest: (fromPeerId, clientTs) => this.lobby.respondPing(fromPeerId, clientTs),
-            onPingResult: (_hostPeerId, _clientTs) => { /* used by lobby UI, not in-game */ },
+            onPingResult: (_hostPeerId, clientTs) => {
+                const entry = this._lobbyPingPending.get(clientTs);
+                if (entry) {
+                    clearTimeout(entry.timeout);
+                    this._lobbyPingPending.delete(clientTs);
+                    entry.resolve(performance.now() - clientTs);
+                }
+            },
             onHostChanged: (newHostPeerId, _uname) => this.handleHostChanged(newHostPeerId),
             onError: (message) => this.fireError(message),
             onDisconnect: () => this.handleDisconnect(),
@@ -270,32 +277,28 @@ export class MultiplayerSession {
         this.lobby.kick(peerId, reason);
     }
 
+    private _lobbyPingPending: Map<number, {
+        resolve: (ms: number) => void;
+        timeout: ReturnType<typeof setTimeout>;
+    }> = new Map();
+
+    /**
+     * Fire a host-ping through the signaling server and resolve with the
+     * round-trip time in milliseconds (or -1 on timeout). Safe to call
+     * concurrently — each pending ping is keyed by its own clientTs.
+     */
     async measureLobbyPing(lobbyId: string): Promise<number> {
         return new Promise<number>((resolve) => {
             const clientTs = performance.now();
-            const off = this.lobby.setEvents.bind(this.lobby);
-            void off;
-            // Install a one-shot handler alongside the existing handler set.
-            const prevEvents = (this.lobby as any).events;
-            const wrapped = {
-                ...prevEvents,
-                onPingResult: (hostPeerId: PeerId, ts: number) => {
-                    if (ts === clientTs) {
-                        (this.lobby as any).events = prevEvents;
-                        resolve(performance.now() - clientTs);
-                    } else {
-                        prevEvents.onPingResult?.(hostPeerId, ts);
-                    }
-                },
-            };
-            (this.lobby as any).events = wrapped;
-            this.lobby.pingHost(lobbyId, clientTs);
-            setTimeout(() => {
-                if ((this.lobby as any).events === wrapped) {
-                    (this.lobby as any).events = prevEvents;
-                    resolve(-1);
+            const timeout = setTimeout(() => {
+                const entry = this._lobbyPingPending.get(clientTs);
+                if (entry) {
+                    this._lobbyPingPending.delete(clientTs);
+                    entry.resolve(-1);
                 }
             }, 3000);
+            this._lobbyPingPending.set(clientTs, { resolve, timeout });
+            this.lobby.pingHost(lobbyId, clientTs);
         });
     }
 
