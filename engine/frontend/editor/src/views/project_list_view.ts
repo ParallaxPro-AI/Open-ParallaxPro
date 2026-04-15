@@ -137,28 +137,33 @@ export class ProjectListView {
         this.tabBar = document.createElement('div');
         this.tabBar.className = 'project-tabs';
 
-        const tabs: { key: 'all' | 'my' | 'cloud'; label: string; el?: HTMLElement }[] = [
-            { key: 'all', label: 'All' },
-            { key: 'my', label: 'Local Projects' },
-            { key: 'cloud', label: 'Cloud Projects' },
-        ];
-        for (const t of tabs) {
-            const btn = document.createElement('button');
-            btn.className = 'project-tab' + (t.key === this.activeTab ? ' active' : '');
-            btn.textContent = t.label;
-            btn.addEventListener('click', () => {
-                if (this.activeTab === t.key) return;
-                this.activeTab = t.key;
-                for (const other of tabs) other.el!.classList.toggle('active', other.key === t.key);
-                this.currentPage = 1;
-                this.selectedIds.clear();
-                this.loadProjects();
-            });
-            t.el = btn;
-            this.tabBar.appendChild(btn);
+        // On parallaxpro.ai/editor/ every project is inherently cloud —
+        // the local/cloud split doesn't apply, so the tab bar adds
+        // noise without meaning. Skip it and always use the 'all' load
+        // path (which on hosted is just listProjects + publish merge).
+        if (this.ctx.backend.isSelfHosted) {
+            const tabs: { key: 'all' | 'my' | 'cloud'; label: string; el?: HTMLElement }[] = [
+                { key: 'all', label: 'All' },
+                { key: 'my', label: 'Local Projects' },
+                { key: 'cloud', label: 'Cloud Projects' },
+            ];
+            for (const t of tabs) {
+                const btn = document.createElement('button');
+                btn.className = 'project-tab' + (t.key === this.activeTab ? ' active' : '');
+                btn.textContent = t.label;
+                btn.addEventListener('click', () => {
+                    if (this.activeTab === t.key) return;
+                    this.activeTab = t.key;
+                    for (const other of tabs) other.el!.classList.toggle('active', other.key === t.key);
+                    this.currentPage = 1;
+                    this.selectedIds.clear();
+                    this.loadProjects();
+                });
+                t.el = btn;
+                this.tabBar.appendChild(btn);
+            }
+            this.el.appendChild(this.tabBar);
         }
-
-        this.el.appendChild(this.tabBar);
 
         this.gridEl = document.createElement('div');
         this.gridEl.className = 'project-grid';
