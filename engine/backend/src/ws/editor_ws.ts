@@ -8,7 +8,7 @@ import { verifyToken, type AuthUser } from '../middleware/auth.js';
 import { consumeWsTicket } from './ws_tickets.js';
 import type { EnginePlugin } from '../plugin.js';
 import db from '../db/connection.js';
-import { callLLMStream, type LLMMessage } from './services/llm.js';
+import { callLLMStream, isDirectApiConfigured, type LLMMessage } from './services/llm.js';
 import { SYSTEM_PROMPT, getProjectSummary } from './services/chat_protocol.js';
 import { appendToLog } from './services/chat_log.js';
 import { searchAssets } from '../routes/assets.js';
@@ -184,6 +184,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
                 label: a.label,
                 caption: a.caption,
             })),
+            llmApiAvailable: isDirectApiConfigured(),
         });
 
         // Send chat history
@@ -713,6 +714,9 @@ async function runLLMWithRetry(
         }
     }
 
+    const pdForAgent = getProjectData(client.projectId);
+    const chatAgent = pdForAgent?.projectConfig?.chatAgent;
+
     callLLMStream(messages, {
         onChunk: () => {},
         onDone: async (fullText, usage) => {
@@ -784,5 +788,5 @@ async function runLLMWithRetry(
             client.abortController = null;
             finishChat(client, `*Error: ${error}*`);
         },
-    }, abortController.signal);
+    }, abortController.signal, chatAgent);
 }

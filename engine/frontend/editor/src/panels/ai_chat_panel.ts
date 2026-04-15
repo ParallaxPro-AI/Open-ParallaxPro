@@ -195,6 +195,9 @@ export class AiChatPanel {
                 this.ctx.state.availableAgents = data.availableAgents;
                 this.rebuildAgentOptions();
             }
+            if (typeof data.llmApiAvailable === 'boolean') {
+                this.ctx.state.llmApiAvailable = data.llmApiAvailable;
+            }
         });
 
         ws.onWsMessage('session_switched', (data: any) => {

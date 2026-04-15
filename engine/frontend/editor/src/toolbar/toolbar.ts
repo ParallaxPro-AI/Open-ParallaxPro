@@ -870,6 +870,43 @@ export class Toolbar {
             body.appendChild(agentRow);
         }
 
+        // Chat Agent picker — which provider handles the conversational LLM
+        // calls. "LLM API" uses the direct AI_BASE_URL when configured; the
+        // rest drive a local CLI as a chat completion proxy. Only shows
+        // providers that are actually available on the backend.
+        const chatOptions: { value: string; label: string }[] = [];
+        if (this.ctx.state.llmApiAvailable) chatOptions.push({ value: 'llm_api', label: 'LLM API' });
+        for (const a of cliAgents) {
+            const label = a.label.replace(/^Editing Agent:\s*/, '');
+            chatOptions.push({ value: a.id, label });
+        }
+        let chatSelect: HTMLSelectElement | null = null;
+        if (chatOptions.length >= 2) {
+            const chatRow = document.createElement('div');
+            chatRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+            const chatLabel = document.createElement('label');
+            chatLabel.textContent = 'Chat Agent';
+            chatLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
+            chatSelect = document.createElement('select');
+            chatSelect.style.cssText = 'width:100%;height:28px;';
+            const currentChat = this.ctx.state.projectData?.projectConfig?.chatAgent
+                ?? (this.ctx.state.llmApiAvailable ? 'llm_api' : chatOptions[0].value);
+            for (const opt of chatOptions) {
+                const el = document.createElement('option');
+                el.value = opt.value;
+                el.textContent = opt.label;
+                if (opt.value === currentChat) el.selected = true;
+                chatSelect.appendChild(el);
+            }
+            const chatHint = document.createElement('span');
+            chatHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
+            chatHint.textContent = 'Provider for the conversational AI. LLM API is fastest; CLI agents work without an API key but are agentic and slower.';
+            chatRow.appendChild(chatLabel);
+            chatRow.appendChild(chatSelect);
+            chatRow.appendChild(chatHint);
+            body.appendChild(chatRow);
+        }
+
         const gfxRow = document.createElement('div');
         gfxRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
         const gfxLabel = document.createElement('label');
@@ -921,6 +958,11 @@ export class Toolbar {
                             const pd = this.ctx.state.projectData;
                             if (!pd.projectConfig) pd.projectConfig = {};
                             pd.projectConfig.editingAgent = agentSelect.value;
+                        }
+                        if (chatSelect && this.ctx.state.projectData) {
+                            const pd = this.ctx.state.projectData;
+                            if (!pd.projectConfig) pd.projectConfig = {};
+                            pd.projectConfig.chatAgent = chatSelect.value;
                         }
                         const selectedQuality = gfxSelect.value as 'low' | 'medium' | 'high';
                         localStorage.setItem('graphics_quality', selectedQuality);

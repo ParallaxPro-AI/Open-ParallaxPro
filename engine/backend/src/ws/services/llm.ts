@@ -28,8 +28,12 @@ export interface LLMStreamCallbacks {
  * / copilot) for text completion — slower and agentic by nature, but lets
  * first-time users run the engine without signing up for an API key.
  */
-function hasDirectApiConfig(): boolean {
+export function isDirectApiConfigured(): boolean {
     return !!(config.ai.baseUrl && config.ai.model && config.ai.apiKey);
+}
+
+function hasDirectApiConfig(): boolean {
+    return isDirectApiConfigured();
 }
 
 /**
@@ -105,12 +109,31 @@ function sanitizeProjectName(raw: string): string | null {
     return cleaned.length >= 2 ? cleaned : null;
 }
 
+/**
+ * Chat-path routing:
+ *   - `chatAgent === 'llm_api'` → force the direct API path. Errors out if
+ *     AI_BASE_URL / AI_MODEL / AI_API_KEY aren't all set.
+ *   - `chatAgent` is a known CLI id → force the CLI fallback path using
+ *     that specific CLI (errors if it isn't installed).
+ *   - `chatAgent` unset → auto: direct API when configured, else first
+ *     installed CLI.
+ */
 export async function callLLMStream(
     messages: LLMMessage[],
     callbacks: LLMStreamCallbacks,
     abortSignal?: AbortSignal,
+    chatAgent?: string,
 ): Promise<void> {
-    if (!hasDirectApiConfig()) {
+    if (chatAgent === 'llm_api') {
+        if (!hasDirectApiConfig()) {
+            callbacks.onError('Chat Agent is set to "LLM API" but AI_BASE_URL / AI_MODEL / AI_API_KEY are not configured.');
+            return;
+        }
+    } else if (chatAgent && chatAgent !== 'llm_api') {
+        // Caller asked for a specific CLI — honor it (or fail loudly).
+        return callCLIForTextStream(messages, callbacks, abortSignal, chatAgent);
+    } else if (!hasDirectApiConfig()) {
+        // No override and no API config — auto-fallback to first CLI.
         return callCLIForTextStream(messages, callbacks, abortSignal);
     }
 
@@ -200,10 +223,21 @@ export async function callLLMStream(
 // CLI takes effect immediately.
 
 type FallbackCLI = 'claude' | 'codex' | 'opencode' | 'copilot';
+const VALID_FALLBACK_CLIS: ReadonlySet<FallbackCLI> = new Set(['claude', 'codex', 'opencode', 'copilot']);
 
-function pickFallbackCLI(): FallbackCLI | null {
+/**
+ * Pick the CLI to use for text completion. When `preferred` is supplied and
+ * installed, returns it; otherwise returns the first installed CLI in
+ * probe order (claude → codex → opencode → copilot). Returns null when
+ * no fallback CLI is available.
+ */
+function pickFallbackCLI(preferred?: string): FallbackCLI | null {
     const installed = getAvailableAgents();
     if (installed.length === 0) return null;
+    if (preferred && VALID_FALLBACK_CLIS.has(preferred as FallbackCLI)) {
+        const hit = installed.find(a => a.id === preferred);
+        if (hit) return preferred as FallbackCLI;
+    }
     return installed[0].id as FallbackCLI;
 }
 
@@ -307,8 +341,15 @@ async function runCLIForText(
     messages: LLMMessage[],
     onChunk: (text: string) => void,
     abortSignal?: AbortSignal,
+    preferredCLI?: string,
 ): Promise<{ text: string; error?: string }> {
-    const cli = pickFallbackCLI();
+    if (preferredCLI && VALID_FALLBACK_CLIS.has(preferredCLI as FallbackCLI)) {
+        const installed = getAvailableAgents().some(a => a.id === preferredCLI);
+        if (!installed) {
+            return { text: '', error: `Chat Agent "${preferredCLI}" is not installed on this server.` };
+        }
+    }
+    const cli = pickFallbackCLI(preferredCLI);
     if (!cli) {
         return { text: '', error: 'No LLM configured (AI_BASE_URL unset) and no fallback CLI installed.' };
     }
@@ -376,8 +417,9 @@ async function callCLIForTextStream(
     messages: LLMMessage[],
     callbacks: LLMStreamCallbacks,
     abortSignal?: AbortSignal,
+    preferredCLI?: string,
 ): Promise<void> {
-    const result = await runCLIForText(messages, callbacks.onChunk, abortSignal);
+    const result = await runCLIForText(messages, callbacks.onChunk, abortSignal, preferredCLI);
     if (result.error && !result.text) {
         callbacks.onError(result.error);
         return;

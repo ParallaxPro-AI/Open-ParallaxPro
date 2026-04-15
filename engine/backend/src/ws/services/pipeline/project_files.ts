@@ -27,6 +27,14 @@ export interface ProjectData {
          * picker in the editor surfaces only the installed CLIs.
          */
         editingAgent?: string;
+        /**
+         * Which provider handles chat-path LLM calls (the conversational back-
+         * and-forth that decides whether to call EDIT / FIX_GAME / etc.).
+         * 'llm_api' uses the direct AI_BASE_URL; otherwise the same CLI ids
+         * as editingAgent drive a local CLI for chat. Missing/empty means
+         * auto (direct API when configured, else first installed CLI).
+         */
+        chatAgent?: string;
     };
     files: ProjectFiles;
 }
