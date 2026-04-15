@@ -431,7 +431,11 @@ export class ProjectListView {
 
         if (isPublished) {
             const linkRow = document.createElement('a');
-            const playUrl = `${window.location.origin}/games/${project.publishedOwner}/${project.publishedSlug}`;
+            // Published games always live on parallaxpro.ai — even when
+            // we're rendering from localhost — so the link has to point
+            // there, not at window.location.origin.
+            const origin = this.ctx.backend.isSelfHosted ? 'https://parallaxpro.ai' : window.location.origin;
+            const playUrl = `${origin}/games/${project.publishedOwner}/${project.publishedSlug}`;
             linkRow.href = playUrl;
             linkRow.target = '_blank';
             linkRow.className = 'project-published-link';
@@ -653,7 +657,8 @@ git checkout da571fe   # last commit before template unification`;
                 items.push({
                     label: 'View Published Game',
                     action: () => {
-                        window.open(`${window.location.origin}/games/${project.publishedOwner}/${project.publishedSlug}`, '_blank');
+                        const origin = this.ctx.backend.isSelfHosted ? 'https://parallaxpro.ai' : window.location.origin;
+                        window.open(`${origin}/games/${project.publishedOwner}/${project.publishedSlug}`, '_blank');
                     },
                 });
                 items.push({ label: 'Unpublish', action: () => this.unpublishProject(project) });
@@ -1046,7 +1051,8 @@ git checkout da571fe   # last commit before template unification`;
 
         const preview = document.createElement('div');
         preview.style.cssText = 'font-size:12px;color:var(--text-disabled);word-break:break-all;';
-        const updatePreview = () => { preview.textContent = `${window.location.origin}/games/you/${slugInput.value || 'my-game'}`; };
+        const origin = this.ctx.backend.isSelfHosted ? 'https://parallaxpro.ai' : window.location.origin;
+        const updatePreview = () => { preview.textContent = `${origin}/games/you/${slugInput.value || 'my-game'}`; };
         updatePreview();
         slugInput.addEventListener('input', updatePreview);
         body.appendChild(preview);

@@ -1034,7 +1034,11 @@ export class Toolbar {
         const projectName = this.ctx.state.projectData?.name ?? 'Untitled Project';
         const autoSlug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
         const owner = this.getUsername();
-        const urlPrefix = owner ? `${window.location.host}/games/${owner}/` : `${window.location.host}/games/.../`;
+        // When self-hosted, the game will actually live on parallaxpro.ai
+        // (that's where the publish-from-local POST lands), so preview
+        // the hosted URL rather than the localhost dev-server host.
+        const host = this.ctx.backend.isSelfHosted ? 'parallaxpro.ai' : window.location.host;
+        const urlPrefix = owner ? `${host}/games/${owner}/` : `${host}/games/.../`;
 
         const body = document.createElement('div');
         body.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
@@ -1136,7 +1140,8 @@ export class Toolbar {
         // Info header
         const infoSection = document.createElement('div');
         infoSection.style.cssText = 'padding:12px;background:var(--bg-secondary);border-radius:6px;';
-        const gameUrl = `${window.location.origin}/games/${pubData.owner}/${pubData.slug}`;
+        const origin = this.ctx.backend.isSelfHosted ? 'https://parallaxpro.ai' : window.location.origin;
+        const gameUrl = `${origin}/games/${pubData.owner}/${pubData.slug}`;
         infoSection.innerHTML = `<div style="font-weight:600;font-size:14px;">${pubData.name}</div>
             <div style="font-size:11px;color:var(--text-disabled);margin-top:4px;">Live: v${pubData.liveVersion} &middot; ${pubData.versions.length} version(s) &middot; ${pubData.visibility}</div>
             <a href="${gameUrl}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;">${gameUrl}</a>`;
@@ -1329,7 +1334,8 @@ export class Toolbar {
     }
 
     private showPublishSuccessModal(result: any): void {
-        const url = result.url || `${window.location.origin}/games/${result.owner}/${result.slug}`;
+        const origin = this.ctx.backend.isSelfHosted ? 'https://parallaxpro.ai' : window.location.origin;
+        const url = result.url || `${origin}/games/${result.owner}/${result.slug}`;
         const successBody = document.createElement('div');
         successBody.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
         const msg = document.createElement('div');
