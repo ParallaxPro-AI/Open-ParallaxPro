@@ -58,7 +58,6 @@ export const ENGINE_UI = [
     'ui/lobby_room.html',
     'ui/connecting_overlay.html',
     'ui/disconnected_banner.html',
-    'ui/hud/fps.html',
     'ui/hud/ping.html',
     'ui/hud/text_chat.html',
     'ui/hud/voice_chat.html',

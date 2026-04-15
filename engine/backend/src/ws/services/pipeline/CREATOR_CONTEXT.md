@@ -237,8 +237,7 @@ Pin these from `reference/ui/` — do not rewrite them:
 - `ui/lobby_room.html`
 - `ui/connecting_overlay.html`
 - `ui/disconnected_banner.html`
-- `ui/hud/fps.html` — shown in multiplayer games (and single-player if you want)
-- `ui/hud/ping.html` — shown only when multiplayer is enabled (auto-hides otherwise)
+- `ui/hud/ping.html` — shown only when multiplayer is enabled (auto-hides otherwise). FPS is already drawn by the play-mode shell, no separate HUD needed.
 - `ui/hud/text_chat.html` — in-lobby and in-game chat (press Enter)
 - `ui/hud/voice_chat.html` — mic toggle + per-peer speaking indicators
 
