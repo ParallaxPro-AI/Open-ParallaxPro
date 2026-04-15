@@ -38,6 +38,7 @@ const RTC_CONFIG: RTCConfiguration = {
 
 const DATA_CHANNEL_LABEL = 'gamedata';
 const CONNECT_TIMEOUT_MS = 15_000;
+const VOICE_RECONCILE_MS = 2000;
 
 export type PeerId = string;
 
@@ -91,6 +92,16 @@ export class WebRTCManager {
     private events: WebRTCEvents = {};
     private localAudioTrack: MediaStreamTrack | null = null;
     private dynamicIceServers: RTCIceServer[] | null = null;
+    /**
+     * Voice-reconcile state. Each peer periodically broadcasts its own
+     * `micOn` over the data channel so everyone knows who's expected to
+     * be audible. If our receive side is missing a stream from a peer
+     * that claims to have mic on, we send them a `voice_missing` and
+     * they re-attach + renegotiate. This loop catches bugs in SDP
+     * negotiation that pointer-equality checks would miss.
+     */
+    private remoteMicState: Map<PeerId, boolean> = new Map();
+    private voiceReconcileTimer: ReturnType<typeof setInterval> | null = null;
 
     /**
      * Replace the default STUN+OpenRelay TURN list with server-issued
@@ -110,6 +121,8 @@ export class WebRTCManager {
         this.localPeerId = localPeerId;
         this.sendSignal = sendSignal;
         this.events = events;
+        if (this.voiceReconcileTimer) clearInterval(this.voiceReconcileTimer);
+        this.voiceReconcileTimer = setInterval(() => this._voiceReconcileTick(), VOICE_RECONCILE_MS);
     }
 
     /**
@@ -308,6 +321,11 @@ export class WebRTCManager {
     disconnectAll(): void {
         for (const id of Array.from(this.peers.keys())) this.teardown(id);
         this.localAudioTrack = null;
+        if (this.voiceReconcileTimer) {
+            clearInterval(this.voiceReconcileTimer);
+            this.voiceReconcileTimer = null;
+        }
+        this.remoteMicState.clear();
     }
 
     // -- Voice --------------------------------------------------------------
@@ -322,6 +340,7 @@ export class WebRTCManager {
             this.localAudioTrack = stream.getAudioTracks()[0] ?? null;
             if (!this.localAudioTrack) return false;
             for (const info of this.peers.values()) this.attachLocalAudio(info);
+            this._broadcastVoiceState();
             return true;
         } catch (e) {
             console.warn('[WebRTC] mic permission denied or unavailable', e);
@@ -338,6 +357,7 @@ export class WebRTCManager {
                 try { info.outgoingAudioSender.replaceTrack(null); } catch { /* ignored */ }
             }
         }
+        this._broadcastVoiceState();
     }
 
     setLocalMuted(muted: boolean): void {
@@ -441,6 +461,17 @@ export class WebRTCManager {
         channel.onmessage = (e) => {
             try {
                 const msg: RTCMessage = JSON.parse(typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data));
+                // Internal voice-reconcile messages are absorbed here; the
+                // session never sees them. Anything else goes up to the
+                // session's onMessage handler as before.
+                if (msg && (msg as any).t === 'voice_state') {
+                    this._handleVoiceState(info.peerId, !!(msg as any).micOn);
+                    return;
+                }
+                if (msg && (msg as any).t === 'voice_missing') {
+                    this._handleVoiceMissing(info);
+                    return;
+                }
                 this.events.onMessage?.(info.peerId, msg);
             } catch { /* ignore malformed */ }
         };
@@ -453,6 +484,87 @@ export class WebRTCManager {
         try { info.channel?.close(); } catch { /* ignored */ }
         try { info.connection.close(); } catch { /* ignored */ }
         this.peers.delete(peerId);
+        this.remoteMicState.delete(peerId);
         if (info.ready) this.events.onClose?.(peerId);
+    }
+
+    // ── Voice reconcile ─────────────────────────────────────────────────────
+
+    /**
+     * Periodic tick: broadcast our current mic state, then for every peer
+     * that's claimed to have mic on but we're not actually receiving audio
+     * from, send them a voice_missing so they re-attach + renegotiate.
+     *
+     * Running on both sides makes this a symmetric repair — either direction
+     * broken, detected and fixed within ~2-4 seconds without manually
+     * chasing Chrome's SDP quirks.
+     */
+    private _voiceReconcileTick(): void {
+        this._broadcastVoiceState();
+        for (const info of this.peers.values()) {
+            if (!info.ready || !info.channel || info.channel.readyState !== 'open') continue;
+            const theyClaimMicOn = this.remoteMicState.get(info.peerId) === true;
+            if (!theyClaimMicOn) continue;
+            if (this._remoteAudioAppearsAlive(info)) continue;
+            try {
+                info.channel.send(JSON.stringify({ t: 'voice_missing' }));
+            } catch { /* channel half-closed */ }
+        }
+    }
+
+    private _broadcastVoiceState(): void {
+        const payload = JSON.stringify({ t: 'voice_state', micOn: !!this.localAudioTrack });
+        for (const info of this.peers.values()) {
+            if (!info.ready || !info.channel || info.channel.readyState !== 'open') continue;
+            try { info.channel.send(payload); } catch { /* ignored */ }
+        }
+    }
+
+    /**
+     * Heuristic for "I'm actually receiving audio from this peer": we have
+     * a MediaStream for them AND at least one of its audio tracks is
+     * unmuted. Chrome sets `track.muted = true` when no RTP is flowing,
+     * so this reliably catches the "ontrack fired with a ghost track"
+     * case where the stream exists but nothing's coming through.
+     */
+    private _remoteAudioAppearsAlive(info: PeerInfo): boolean {
+        const stream = info.remoteAudioStream;
+        if (!stream) return false;
+        const tracks = stream.getAudioTracks();
+        if (!tracks || tracks.length === 0) return false;
+        for (const t of tracks) {
+            if (!t.muted && t.readyState === 'live') return true;
+        }
+        return false;
+    }
+
+    private _handleVoiceState(peerId: PeerId, micOn: boolean): void {
+        this.remoteMicState.set(peerId, micOn);
+    }
+
+    /**
+     * A peer told us they can't hear us. Force re-attach the current mic
+     * track to their sender and kick a fresh renegotiation, bypassing
+     * replaceTrack's "codec already negotiated, skip SDP" fast path
+     * because that's exactly what got wedged in the first place.
+     */
+    private _handleVoiceMissing(info: PeerInfo): void {
+        if (!this.localAudioTrack) return;
+        console.warn('[WebRTC] voice_missing from', info.peerId, '- forcing re-attach');
+        try {
+            if (info.audioTransceiver) {
+                info.audioTransceiver.sender.replaceTrack(this.localAudioTrack);
+                info.outgoingAudioSender = info.audioTransceiver.sender;
+                try { info.audioTransceiver.direction = 'sendrecv'; } catch { /* read-only in some states */ }
+            } else {
+                const sender = info.connection.addTrack(this.localAudioTrack);
+                info.outgoingAudioSender = sender;
+            }
+        } catch (e) {
+            console.warn('[WebRTC] re-attach on voice_missing failed', e);
+        }
+        if (info.ready && info.connection.signalingState === 'stable') {
+            void this.triggerRenegotiation(info);
+        }
     }
 }
