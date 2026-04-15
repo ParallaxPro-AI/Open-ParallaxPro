@@ -40,7 +40,13 @@ class FPSMovementBehavior extends GameScript {
 
         this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
 
-        // Rotate player to face camera yaw
-        this.entity.transform.setRotationEuler(0, this.scene._fpsYaw || 0, 0);
+        // Rotate player to face the camera yaw. The entity rotation has
+        // to be negated because Quat.fromEuler rotates -Z to -X under a
+        // positive Y turn, while the camera's lookAt formula (used
+        // by camera_fps) rotates -Z to +X under the same yaw. Without
+        // the sign flip the model faces opposite the camera's aim — so
+        // other peers see a soldier running backwards relative to where
+        // they're looking.
+        this.entity.transform.setRotationEuler(0, -(this.scene._fpsYaw || 0), 0);
     }
 }
