@@ -767,7 +767,14 @@ export class EditorContext extends EventBus {
         this.clearSelection();
         if (this.htmlUIManager) { this.htmlUIManager.destroyAll(); this.htmlUIManager = null; }
         if (this.gameUISystem) { this.gameUISystem.destroyAll(); this.gameUISystem = null; }
+        // Editor collaboration multiplayer (distinct from the runtime
+        // P2P session below).
         this.multiplayer.disconnect();
+        // Runtime P2P multiplayer: close lobby WS, every peer connection,
+        // release the mic, tear down voice elements and reconcile timer.
+        // Without this, Stop leaves the user still in a lobby, still
+        // holding the mic, and still connected to every other peer.
+        try { this.engine?.globalContext.multiplayerSession.disconnect(); } catch { /* ignored */ }
         if (this.engine && this.preMultiplayerTickUpdate) {
             this.engine.globalContext.scriptSystem.tickUpdate = this.preMultiplayerTickUpdate;
             this.preMultiplayerTickUpdate = null;

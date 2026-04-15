@@ -305,8 +305,33 @@ export class MultiplayerSession {
     }
 
     disconnect(): void {
+        // Tear down voice subsystems first — so audio elements stop
+        // playing and the OS mic is released before we close the peer
+        // connections that feed them.
+        this.detachLocalVoiceMeter();
+        for (const peerId of Array.from(this._voiceAudioElems.keys())) {
+            this.detachRemoteVoice(peerId);
+        }
+        this._voiceLevels.clear();
+        if (this._voiceCtxGestureHandler && typeof document !== 'undefined') {
+            document.removeEventListener('pointerdown', this._voiceCtxGestureHandler, true);
+            document.removeEventListener('keydown', this._voiceCtxGestureHandler, true);
+            document.removeEventListener('touchstart', this._voiceCtxGestureHandler, true);
+            this._voiceCtxGestureHandler = null;
+        }
+        // Suspend (not close) the AudioContext so a subsequent session
+        // can reuse it without the autoplay-policy dance. Closed contexts
+        // cannot be resumed.
+        if (this._voiceAudioCtx && this._voiceAudioCtx.state === 'running') {
+            this._voiceAudioCtx.suspend().catch(() => { /* ignored */ });
+        }
+
+        // Close the transport last. webrtc.disconnectAll() stops the mic
+        // track, clears the voice-reconcile timer, and tears down every
+        // RTCPeerConnection; lobby.disconnect() closes the WebSocket.
         this.webrtc.disconnectAll();
         this.lobby.disconnect();
+
         this._currentRoster = null;
         this._isHost = false;
         this._hostPeerId = '';
@@ -314,12 +339,6 @@ export class MultiplayerSession {
         this._inflightPings.clear();
         this._chatHistory = [];
         this.interpolator.clear();
-        if (this._voiceCtxGestureHandler && typeof document !== 'undefined') {
-            document.removeEventListener('pointerdown', this._voiceCtxGestureHandler, true);
-            document.removeEventListener('keydown', this._voiceCtxGestureHandler, true);
-            document.removeEventListener('touchstart', this._voiceCtxGestureHandler, true);
-            this._voiceCtxGestureHandler = null;
-        }
         this.setPhase('disconnected');
     }
 

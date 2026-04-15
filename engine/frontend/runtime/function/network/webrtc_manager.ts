@@ -320,8 +320,11 @@ export class WebRTCManager {
     }
 
     disconnectAll(): void {
+        // Releases the OS mic (stops getUserMedia tracks) and detaches
+        // from any live senders before we tear them down. Silently no-ops
+        // when mic was never enabled.
+        this.disableLocalMic();
         for (const id of Array.from(this.peers.keys())) this.teardown(id);
-        this.localAudioTrack = null;
         if (this.voiceReconcileTimer) {
             clearInterval(this.voiceReconcileTimer);
             this.voiceReconcileTimer = null;
