@@ -124,6 +124,7 @@ export class MultiplayerSession {
     private _voiceGainNodes: Map<PeerId, GainNode> = new Map();
     private _voiceLevels: Map<PeerId, number> = new Map();
     private _voiceAudioCtx: AudioContext | null = null;
+    private _voiceCtxGestureHandler: (() => void) | null = null;
     private _localVoiceAnalyser: { analyser: AnalyserNode; buf: Uint8Array; src: MediaStreamAudioSourceNode } | null = null;
 
     private _lobbyListListeners = new Set<(lobbies: LobbyListEntry[]) => void>();
@@ -246,6 +247,12 @@ export class MultiplayerSession {
         this._inflightPings.clear();
         this._chatHistory = [];
         this.interpolator.clear();
+        if (this._voiceCtxGestureHandler && typeof document !== 'undefined') {
+            document.removeEventListener('pointerdown', this._voiceCtxGestureHandler, true);
+            document.removeEventListener('keydown', this._voiceCtxGestureHandler, true);
+            document.removeEventListener('touchstart', this._voiceCtxGestureHandler, true);
+            this._voiceCtxGestureHandler = null;
+        }
         this.setPhase('disconnected');
     }
 
@@ -384,11 +391,7 @@ export class MultiplayerSession {
         const track = this.webrtc.getLocalAudioTrack();
         if (!track) return;
         try {
-            if (!this._voiceAudioCtx) {
-                const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
-                if (Ctx) this._voiceAudioCtx = new Ctx();
-            }
-            const ctx = this._voiceAudioCtx;
+            const ctx = this.ensureVoiceAudioCtx();
             if (!ctx) return;
             const stream = new MediaStream([track]);
             const src = ctx.createMediaStreamSource(stream);
@@ -407,6 +410,40 @@ export class MultiplayerSession {
         try { this._localVoiceAnalyser.analyser.disconnect(); } catch { /* ignored */ }
         this._localVoiceAnalyser = null;
         this._voiceLevels.delete(this.localPeerId);
+    }
+
+    private ensureVoiceAudioCtx(): AudioContext | null {
+        if (!this._voiceAudioCtx) {
+            const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+            if (Ctx) this._voiceAudioCtx = new Ctx();
+        }
+        const ctx = this._voiceAudioCtx;
+        if (!ctx) return null;
+        // A context created outside a user gesture starts suspended and
+        // produces no sound until resumed. Without this, a peer who never
+        // clicks their own mic button still sees the inbound stream but
+        // hears nothing. Arm a one-shot gesture listener that resumes the
+        // context on the first click/key/touch.
+        if (ctx.state === 'suspended' && typeof document !== 'undefined' && !this._voiceCtxGestureHandler) {
+            const handler = () => {
+                if (this._voiceAudioCtx && this._voiceAudioCtx.state === 'suspended') {
+                    this._voiceAudioCtx.resume().catch(() => { /* ignored */ });
+                }
+                document.removeEventListener('pointerdown', handler, true);
+                document.removeEventListener('keydown', handler, true);
+                document.removeEventListener('touchstart', handler, true);
+                this._voiceCtxGestureHandler = null;
+            };
+            this._voiceCtxGestureHandler = handler;
+            document.addEventListener('pointerdown', handler, true);
+            document.addEventListener('keydown', handler, true);
+            document.addEventListener('touchstart', handler, true);
+        }
+        // Opportunistic resume: if we happen to be inside a gesture right
+        // now (e.g. attach triggered off a click-initiated getUserMedia),
+        // this succeeds immediately.
+        if (ctx.state === 'suspended') ctx.resume().catch(() => { /* ignored */ });
+        return ctx;
     }
 
     private attachRemoteVoice(peerId: PeerId, stream: MediaStream): void {
@@ -428,11 +465,7 @@ export class MultiplayerSession {
         audio.play().catch(() => { /* blocked until user gesture */ });
 
         try {
-            if (!this._voiceAudioCtx) {
-                const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
-                if (Ctx) this._voiceAudioCtx = new Ctx();
-            }
-            const ctx = this._voiceAudioCtx;
+            const ctx = this.ensureVoiceAudioCtx();
             if (!ctx) return;
 
             // Audio chain per peer:
