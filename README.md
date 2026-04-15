@@ -67,49 +67,24 @@ Edit `.env` and add your LLM API key. Any OpenAI-compatible API works:
 The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. It needs a CLI agent installed to work -- without one, everything else still works but the fixer won't be available.
 
 Currently supported:
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-- [Codex](https://github.com/openai/codex)
-- [OpenCode](https://github.com/opencode-ai/opencode) -- works with **any LLM, any provider, even local models** (Claude, GPT, Gemini, Groq, Ollama, LM Studio, you name it)
+- [Claude Code](https://code.claude.com/docs/en/overview)
+- [Codex](https://developers.openai.com/codex/cli)
+- [OpenCode](https://opencode.ai/) -- works with **any LLM, any provider, even local models** (Claude, GPT, Gemini, Groq, Ollama, LM Studio, you name it)
+- [GitHub Copilot CLI](https://github.com/features/copilot/cli)
 
 Install one or more of them and the backend will auto-detect them at startup. If multiple are installed, pick your default per-project from the editor's Project Settings, or override per-message from the chat input.
 
-> ⚠️ **Security note — the agents run in YOLO mode.** To let the agent edit your project files without interactive approval prompts, the backend spawns each CLI with its "skip permissions" flag:
+> ⚠️ **Security note.** The agents run without interactive approval prompts, so they inherit the **same filesystem and network permissions as the backend process** — they can read anything that user can read (`~/.ssh`, `~/.env`, other projects) and write anywhere that user can write. Don't run the backend on a host with secrets you don't want an LLM to see.
 >
-> - `claude --dangerously-skip-permissions`
-> - `codex exec --dangerously-bypass-approvals-and-sandbox`
-> - `opencode run` (no sandbox flag exposed)
->
-> This means the agent has the **same filesystem and network permissions as the backend process** — it can read anything the user running the backend can read (`~/.ssh`, `~/.env`, other projects, etc.) and write anywhere that user can write.
->
-> **Do not run the backend on a host with secrets you don't want an LLM to see.** Treat running the editor like running `curl | bash` from the internet — you're trusting the agent's code actions and its model provider.
->
-> **Docker sandbox (opt-in):** set `DOCKER_SANDBOX=1` to run every CLI invocation inside an ephemeral Docker container so the agent only sees its per-fix sandbox dir and its own auth dir — nothing else on your filesystem. Requires Docker on the host plus a one-time image build:
+> **Docker sandbox (opt-in):** set `DOCKER_SANDBOX=1` to run every CLI invocation inside an ephemeral container that only sees its per-fix sandbox dir and the agent's own auth dir. One-time image build:
 >
 > ```bash
 > docker build -t parallaxpro/agent-sandbox engine/backend/docker/agent-sandbox
 > ```
 >
-> Recommended for any host where you care about file isolation from the agent (personal laptop with other projects and secrets, shared workstations, multi-tenant deployments, etc.). It's off by default so the engine works out of the box without a Docker dependency.
+> Recommended for any host where you care about isolating the agent from other files.
 
-To set up Claude Code:
-
-```bash
-npm install -g @anthropic-ai/claude-code
-claude  # Follow auth prompts
-```
-
-To set up Codex:
-
-```bash
-npm install -g @openai/codex
-codex login  # Follow auth prompts
-```
-
-To set up OpenCode, follow [the installer instructions](https://opencode.ai/docs) and then:
-
-```bash
-opencode auth  # Configure any provider: Anthropic, OpenAI, Groq, Ollama, LM Studio, etc.
-```
+Install at least one CLI and follow its own auth steps — links above. The backend auto-detects whichever ones are on your `PATH` at startup.
 
 Install dependencies and start the backend:
 
