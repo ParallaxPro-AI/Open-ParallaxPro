@@ -49,15 +49,11 @@ export class AudioSystem {
     private currentMusicGain: GainNode | null = null;
 
     initialize(): void {
-        this.audioContext = new AudioContext();
-        this.masterGain = this.audioContext.createGain();
-        this.masterGain.connect(this.audioContext.destination);
-
-        const defaultGroups: AudioGroup[] = ['music', 'sfx', 'voice', 'ambient'];
-        for (const name of defaultGroups) {
-            this.createGroup(name);
-        }
-        this.groups.set('master', this.masterGain);
+        // Deliberately empty. Constructing an AudioContext before a user
+        // gesture triggers Chrome's "AudioContext was not allowed to start"
+        // warning. Defer creation to the first call to ensureContext(),
+        // which the engine wires up via resume() on canvas click/keydown
+        // so it runs inside a gesture handler.
     }
 
     /**
@@ -89,9 +85,12 @@ export class AudioSystem {
     }
 
     /**
-     * Resume AudioContext (required after user interaction in most browsers).
+     * Resume (and lazily construct) the AudioContext. Called from the
+     * engine's canvas click/keydown handler so we're inside a user gesture
+     * when the context is created — sidestepping Chrome's autoplay policy.
      */
     async resume(): Promise<void> {
+        this.ensureContext();
         if (this.audioContext && this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
@@ -471,9 +470,16 @@ export class AudioSystem {
     }
 
     private ensureContext(): void {
-        if (!this.audioContext) this.initialize();
-        if (this.audioContext!.state === 'suspended') {
-            this.audioContext!.resume();
+        if (!this.audioContext) {
+            this.audioContext = new AudioContext();
+            this.masterGain = this.audioContext.createGain();
+            this.masterGain.connect(this.audioContext.destination);
+            const defaultGroups: AudioGroup[] = ['music', 'sfx', 'voice', 'ambient'];
+            for (const name of defaultGroups) this.createGroup(name);
+            this.groups.set('master', this.masterGain);
+        }
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
         }
     }
 
