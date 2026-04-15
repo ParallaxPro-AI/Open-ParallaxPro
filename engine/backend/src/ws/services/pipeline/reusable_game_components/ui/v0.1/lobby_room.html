@@ -184,10 +184,12 @@
     if (!roster) {
       listEl.innerHTML = '';
       titleEl.textContent = 'Lobby';
-      metaEl.textContent = 'Not connected';
+      metaEl.textContent = 'Connecting…';
       countEl.textContent = '';
-      btnReady.disabled = true;
-      btnStart.disabled = true;
+      // Hide both action buttons until we know the role; otherwise they
+      // appear greyed-out and confusing.
+      btnReady.style.display = 'none';
+      btnStart.style.display = 'none';
       return;
     }
 
@@ -196,12 +198,21 @@
     countEl.textContent = roster.peers.length + '/' + slots;
 
     var readyCount = roster.peers.filter(function (p) { return p.isReady || p.isHost; }).length;
-    var canStart = amHost && roster.peers.length >= (roster.minPlayers || 1) && readyCount === roster.peers.length;
+    var enoughPlayers = roster.peers.length >= (roster.minPlayers || 1);
+    var canStart = amHost && enoughPlayers && readyCount === roster.peers.length;
     btnStart.disabled = !canStart;
     btnStart.style.display = amHost ? '' : 'none';
+    // Helpful tooltip so a disabled button explains itself.
+    btnStart.title = !amHost
+      ? 'Only the host can start the match'
+      : !enoughPlayers
+        ? 'Need at least ' + (roster.minPlayers || 1) + ' players to start'
+        : readyCount !== roster.peers.length
+          ? 'Waiting for all players to ready up'
+          : 'Start the match';
 
     metaEl.textContent = amHost
-      ? 'You are hosting · ' + (canStart ? 'Ready to start' : 'Waiting for players to ready up')
+      ? 'You are hosting · ' + (canStart ? 'Ready to start' : (enoughPlayers ? 'Waiting for players to ready up' : 'Waiting for more players (' + roster.peers.length + '/' + (roster.minPlayers || 1) + ' min)'))
       : (ready ? 'Ready' : 'Waiting — press Ready up when prepared');
 
     listEl.innerHTML = '';

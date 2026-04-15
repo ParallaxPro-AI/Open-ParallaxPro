@@ -14,7 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { ProjectFiles, ENGINE_MACHINERY, emptyTemplateFiles } from './project_files.js';
+import { ProjectFiles, ENGINE_MACHINERY, ENGINE_UI, emptyTemplateFiles } from './project_files.js';
 import { loadTemplate } from './template_loader.js';
 
 const __dirname_seeder = path.dirname(fileURLToPath(import.meta.url));
@@ -99,6 +99,12 @@ function copyEngineMachinery(files: ProjectFiles): void {
  */
 export function refreshEngineMachinery(files: ProjectFiles): void {
     copyEngineMachinery(files);
+    // Reusable lobby + HUD UIs are engine-owned too; refresh each build.
+    for (const rel of ENGINE_UI) {
+        const sub = rel.replace(/^ui\//, '');
+        const src = path.join(UI_DIR, sub);
+        if (fs.existsSync(src)) files[rel] = fs.readFileSync(src, 'utf-8');
+    }
 }
 
 /** Walk 02_entities.json behavior refs and pin each script into behaviors/. */
