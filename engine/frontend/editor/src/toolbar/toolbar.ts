@@ -3,26 +3,7 @@ import { showModal, showPromptModal, showConfirmModal } from '../widgets/modal.j
 import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Settings, MousePointer2, Crosshair, Globe, Box } from '../widgets/icons.js';
 import { ensureLoggedIn, clearStoredToken } from '../backend/auth_session.js';
 import { ApiError, AuthRequiredError } from '../backend/backend_client.js';
-
-// Local-project → prod-published mapping. Persisted in localStorage so
-// subsequent publish sessions from the same browser don't need a lookup
-// roundtrip to match a local project back to its hosted game row.
-const PUBLISH_MAP_KEY = 'ppl_publish_map_v1';
-interface PublishMapEntry { prodProjectId: string; owner: string; slug: string }
-function readPublishMap(): Record<string, PublishMapEntry> {
-    try { return JSON.parse(localStorage.getItem(PUBLISH_MAP_KEY) || '{}') || {}; }
-    catch { return {}; }
-}
-function writePublishMapEntry(localProjectId: string, entry: PublishMapEntry): void {
-    const map = readPublishMap();
-    map[localProjectId] = entry;
-    try { localStorage.setItem(PUBLISH_MAP_KEY, JSON.stringify(map)); } catch {}
-}
-function deletePublishMapEntry(localProjectId: string): void {
-    const map = readPublishMap();
-    delete map[localProjectId];
-    try { localStorage.setItem(PUBLISH_MAP_KEY, JSON.stringify(map)); } catch {}
-}
+import { readPublishMap, writePublishMapEntry, deletePublishMapEntry } from '../backend/publish_map.js';
 
 interface CollabUser {
     clientId: string;

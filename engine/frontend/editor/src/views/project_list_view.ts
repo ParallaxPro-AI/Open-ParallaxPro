@@ -186,14 +186,44 @@ export class ProjectListView {
                 this.projects = await this.ctx.backend.listSharedProjects();
             } else {
                 this.projects = await this.ctx.backend.listProjects();
-                // Merge publish info if available
-                const pubInfo = await this.ctx.backend.getPublishInfo();
-                for (const p of this.projects) {
-                    const info = pubInfo[p.id];
-                    if (info) {
+
+                if (this.ctx.backend.isSelfHosted) {
+                    // Best-effort merge of parallaxpro.ai publish state onto
+                    // the local project list: requires a valid cli-login
+                    // token AND network reachability. getPublishInfoProd
+                    // swallows errors and returns {}, so offline / logged-
+                    // out users just see their plain local projects with
+                    // no publish badges.
+                    const { readPublishMap } = await import('../backend/publish_map.js');
+                    const [prodInfo, map] = [await this.ctx.backend.getPublishInfoProd(), readPublishMap()];
+                    for (const p of this.projects) {
+                        const mapping = map[p.id];
+                        if (!mapping) continue;
+                        const info = prodInfo[mapping.prodProjectId];
+                        if (!info) continue;
                         p.publishedSlug = info.publishedSlug;
                         p.publishedOwner = info.publishedOwner;
                         p.publishedVersion = info.publishedVersion;
+                        p.status = 'published';
+                        if (info.thumbnail) {
+                            // prod serves thumbnails at parallaxpro.ai/uploads/…
+                            // — absolute URL so the <img> doesn't get proxied
+                            // to the local backend, which has no copy.
+                            p.thumbnail = info.thumbnail.startsWith('http')
+                                ? info.thumbnail
+                                : `https://parallaxpro.ai${info.thumbnail}`;
+                        }
+                    }
+                } else {
+                    // Hosted path — local backend IS prod, same-key lookup works.
+                    const pubInfo = await this.ctx.backend.getPublishInfo();
+                    for (const p of this.projects) {
+                        const info = pubInfo[p.id];
+                        if (info) {
+                            p.publishedSlug = info.publishedSlug;
+                            p.publishedOwner = info.publishedOwner;
+                            p.publishedVersion = info.publishedVersion;
+                        }
                     }
                 }
             }

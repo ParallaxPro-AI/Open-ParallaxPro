@@ -366,6 +366,15 @@ export class BackendClient {
         return this.fetchProd(`/projects/${prodProjectId}/thumbnail`, { method: 'POST', body: fd });
     }
 
+    async getPublishInfoProd(): Promise<Record<string, { publishedSlug: string; publishedOwner: string; publishedVersion: string; visibility: string; thumbnail: string | null }>> {
+        try {
+            const res = await this.fetchProd('/projects/publish-info');
+            return res.info ?? {};
+        } catch {
+            return {};
+        }
+    }
+
     async getEngineBundles(): Promise<{ latestHash: string | null; latestSemver: string | null; bundles: { hash: string; semver: string | null; status: string; addedAt: string }[] }> {
         const res = await window.fetch(`${PROD_ORIGIN}/api/engine/engine-bundles`);
         if (!res.ok) throw new Error(`Failed to load engine bundle registry (${res.status})`);
