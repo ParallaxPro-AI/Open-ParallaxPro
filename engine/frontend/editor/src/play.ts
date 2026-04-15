@@ -111,7 +111,9 @@ async function boot(): Promise<void> {
     }
 
     const scripts = gameData.scripts || {};
-    const isMultiplayerGame = Object.keys(scripts).some(k => k.includes('network_sync'));
+    const mpConfig = gameData.multiplayerConfig || gameData.projectConfig?.multiplayerConfig;
+    const isMultiplayerGame = !!mpConfig?.enabled
+        || Object.keys(scripts).some(k => k.includes('network_sync'));
     if (isMultiplayerGame && !isLoggedIn) {
         splashScreen.style.display = 'none';
         showError('This is a multiplayer game. Please sign up or log in to play.');

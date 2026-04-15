@@ -143,7 +143,14 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
         // server set immediately. Don't block hello_ack — if Cloudflare is
         // slow or down, fall back to STUN-only and the client will still
         // succeed for the ~80% of NATs that don't need a relay.
-        getTurnIceServers().then((iceServers) => {
+        //
+        // Gate TURN to authed users only: unauthenticated peers can still
+        // play singleplayer-style lobbies via STUN, but the paid relay path
+        // is reserved for signed-in accounts so randoms can't burn through
+        // our Cloudflare quota.
+        const issueTurn = userId !== null;
+        const turnPromise = issueTurn ? getTurnIceServers() : Promise.resolve(null);
+        turnPromise.then((iceServers) => {
             send(ws, 'lobby.hello_ack', {
                 peerId: peer.peerId,
                 username: peer.username,

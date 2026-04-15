@@ -60,6 +60,18 @@ class MpBridge extends GameScript {
             // protocol they shipped against when we eventually ship /v2.
             url = proto + "//" + window.location.host + "/ws/multiplayer/v1";
         }
+        // Forward the user's auth token if present so the lobby server can
+        // surface the real username (instead of guest-xxx) and gate
+        // protected resources like Cloudflare TURN credentials behind a
+        // verified account.
+        try {
+            if (typeof localStorage !== "undefined" && url) {
+                var token = localStorage.getItem("auth_token") || localStorage.getItem("token") || "";
+                if (token) {
+                    url += (url.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(token);
+                }
+            }
+        } catch (e) { /* localStorage unavailable */ }
         var templateId = cfg.gameTemplateId || this._gameTemplateId || "default";
         if (mpCfg.tickRate) mp.setTickRate(mpCfg.tickRate);
         if (typeof mpCfg.predictLocalPlayer === "boolean") mp.setPredictionEnabled(mpCfg.predictLocalPlayer);
