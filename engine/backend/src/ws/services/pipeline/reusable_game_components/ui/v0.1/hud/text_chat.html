@@ -91,6 +91,7 @@
   var hint = document.getElementById('hint');
   var localUsername = '';
   var fadeTimer = null;
+  var justClosedAt = 0;
 
   function emit(action, payload) {
     var msg = { type: 'game_command', action: action };
@@ -130,6 +131,11 @@
   }
 
   function openInput() {
+    if (inputRow.classList.contains('open')) return;
+    // Ignore open pulses that arrive right after a close — the race between
+    // chat_focus:false propagating through the parent and the next state
+    // resend would otherwise flicker the input back open.
+    if (Date.now() - justClosedAt < 600) return;
     inputRow.classList.add('open');
     hint.style.display = 'none';
     input.value = '';
@@ -137,8 +143,11 @@
     emit('chat_focus', { focus: true });
   }
   function closeInput() {
+    if (!inputRow.classList.contains('open')) return;
     inputRow.classList.remove('open');
     hint.style.display = '';
+    justClosedAt = Date.now();
+    try { input.blur(); } catch (e) {}
     emit('chat_focus', { focus: false });
   }
 

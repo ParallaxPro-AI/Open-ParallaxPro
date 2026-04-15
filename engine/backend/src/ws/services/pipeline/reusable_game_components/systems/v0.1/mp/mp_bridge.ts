@@ -173,8 +173,16 @@ class MpBridge extends GameScript {
         });
         ui.on("ui_event:hud/text_chat:chat_focus", function(d) {
             var p = (d && d.payload) || {};
+            var wasFocused = self._chatFocused;
             self._chatFocused = !!p.focus;
-            // Flow can react to chat_focus/chat_blur to pause input capture.
+            // On blur: kill any still-pending open pulse so the iframe doesn't
+            // see a stale openChat:true on the next hud_update and reopen
+            // itself right after the user pressed Enter to send.
+            if (wasFocused && !self._chatFocused) {
+                self._openChatPulse = false;
+                self._chatPulseTimer = 0;
+                self._pushUiUpdate();
+            }
             var gbus = self.scene.events.game;
             gbus.emit(p.focus ? "mp_chat_focus" : "mp_chat_blur", {});
         });
