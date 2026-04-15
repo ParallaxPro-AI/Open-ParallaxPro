@@ -492,6 +492,14 @@ export class AudioSystem {
         const targetNode = this.getGroupNode(group);
         source.connect(gain);
         gain.connect(targetNode);
+        // Once playback finishes, disconnect both nodes so they're not
+        // retained by the output graph. Without this, firing a weapon at
+        // 10 shots/sec accumulates source+gain nodes on the sfx bus
+        // indefinitely — a real leak pattern for rapid-fire games.
+        source.onended = () => {
+            try { source.disconnect(); } catch { /* already detached */ }
+            try { gain.disconnect(); } catch { /* already detached */ }
+        };
         source.start(0);
     }
 
