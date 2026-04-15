@@ -171,7 +171,7 @@
       var mp = s.multiplayer;
       if (mp) {
         if (Array.isArray(mp.chatHistory)) renderAll(mp.chatHistory);
-        if (mp.openChat) openInput();
+        if (mp.openChat && !inputRow.classList.contains('open')) openInput();
       }
     } else if (e.data.type === 'chat_append') {
       var m = e.data.message || {};

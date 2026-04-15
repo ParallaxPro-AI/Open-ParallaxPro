@@ -26,6 +26,9 @@ class MpBridge extends GameScript {
     _micOn = false;
     _muted = false;
     _uiResendCounter = 0;
+    _chatFocused = false;
+    _openChatPulse = false;
+    _chatPulseTimer = 0;
 
     onStart() {
         var self = this;
@@ -165,8 +168,10 @@ class MpBridge extends GameScript {
         });
         ui.on("ui_event:hud/text_chat:chat_focus", function(d) {
             var p = (d && d.payload) || {};
+            self._chatFocused = !!p.focus;
             // Flow can react to chat_focus/chat_blur to pause input capture.
-            self.scene.events.game.emit(p.focus ? "mp_chat_focus" : "mp_chat_blur", {});
+            var gbus = self.scene.events.game;
+            gbus.emit(p.focus ? "mp_chat_focus" : "mp_chat_blur", {});
         });
 
         // Connect on start (non-blocking — the lobby UI will show errors).
@@ -179,9 +184,28 @@ class MpBridge extends GameScript {
         }
     }
 
-    onUpdate() {
+    onUpdate(dt) {
         if (!this._session) return;
         var mp = this._session;
+
+        // Keyboard events can't reach HUD iframes while the game canvas has
+        // focus, so the chat-open shortcut has to live here. Pressing Enter
+        // while chat isn't focused sets a one-frame pulse that the iframe
+        // reads from state and uses to open its input.
+        if (!this._chatFocused && this.input && this.input.isKeyPressed &&
+            (this.input.isKeyPressed("Enter") || this.input.isKeyPressed("KeyT"))) {
+            this._openChatPulse = true;
+            this._chatPulseTimer = 0;
+            this._pushUiUpdate();
+        }
+        if (this._openChatPulse) {
+            this._chatPulseTimer += (dt || 0);
+            if (this._chatPulseTimer > 0.15) {
+                this._openChatPulse = false;
+                this._chatPulseTimer = 0;
+                this._pushUiUpdate();
+            }
+        }
 
         // Ping + voice levels change continuously; sync them onto UI state.
         var nextPing = Math.round(mp.hostPingMs || 0);
@@ -237,6 +261,7 @@ class MpBridge extends GameScript {
                 muted: this._muted,
                 maxPlayers: this._roster ? this._roster.maxPlayers : undefined,
                 minPlayers: this._roster ? this._roster.minPlayers : undefined,
+                openChat: this._openChatPulse,
             },
             errorMessage: this._pendingError,
             fps: this.scene && this.scene._engineFps || undefined,
