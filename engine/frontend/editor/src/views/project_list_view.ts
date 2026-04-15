@@ -875,8 +875,20 @@ git checkout da571fe   # last commit before template unification`;
         if (count === 0) return;
 
         const confirmed = await showConfirmModal(
-            'Delete Projects',
-            `Are you sure you want to delete ${count} project${count !== 1 ? 's' : ''}? This cannot be undone.`
+            'Delete projects',
+            (() => {
+                const byId = new Map(this.projects.map((p) => [p.id, p]));
+                const cloudCount = [...this.selectedIds].filter((id) => {
+                    const p = byId.get(id);
+                    return p?.isCloud || p?._cloudState === 'remote-only';
+                }).length;
+                const base = `Delete ${count} project${count !== 1 ? 's' : ''}? This cannot be undone.`;
+                if (cloudCount === 0) return base;
+                return `${base}<div style="margin-top:12px;padding:10px 12px;background:rgba(138,27,27,0.2);border:1px solid rgba(220,80,80,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
+                    + `<strong>⚠ ${cloudCount} of these ${cloudCount === 1 ? 'is a cloud project' : 'are cloud projects'}.</strong><br>`
+                    + `Deleting ${cloudCount === 1 ? 'it' : 'them'} also removes ${cloudCount === 1 ? 'it' : 'them'} from parallaxpro.ai — other machines will lose access to the source tree.`
+                    + `</div>`;
+            })(),
         );
         if (!confirmed) return;
 
@@ -1252,11 +1264,18 @@ git checkout da571fe   # last commit before template unification`;
     }
 
     private async deleteProject(project: any): Promise<void> {
+        const touchesCloud = project.isCloud || project._cloudState === 'remote-only';
+        const name = escapeHtml(project.name ?? 'Untitled');
+        const message = touchesCloud
+            ? `<div style="margin-bottom:12px;">Delete <strong>${name}</strong>?</div>`
+              + `<div style="padding:10px 12px;background:rgba(138,27,27,0.2);border:1px solid rgba(220,80,80,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
+              + `<strong>⚠ This will also delete the project on parallaxpro.ai.</strong><br>`
+              + `Other machines lose access to the source tree. Already-published game versions stay playable at their URL (the frozen snapshot is kept) but the editable source is gone for everyone.`
+              + `</div>`
+            : `Are you sure you want to delete <strong>${name}</strong>? This cannot be undone.`;
         const confirmed = await showConfirmModal(
-            'Delete Project',
-            project.isCloud || project._cloudState === 'remote-only'
-                ? `Are you sure you want to delete "${project.name}"? This deletes the copy on parallaxpro.ai too — published versions stay on any player's URL but the editable source is gone.`
-                : `Are you sure you want to delete "${project.name}"? This cannot be undone.`,
+            touchesCloud ? 'Delete cloud project' : 'Delete project',
+            message,
         );
         if (!confirmed) return;
         try {
