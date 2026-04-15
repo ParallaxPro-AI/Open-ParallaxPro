@@ -214,6 +214,7 @@ class MpBridge extends GameScript {
                 maxPlayers: mpCfg.maxPlayers || 2,
                 minPlayers: mpCfg.minPlayers || 1,
                 password: p.password || null,
+                allowJoinInProgress: mpCfg.allowJoinInProgress === true,
             });
         });
 

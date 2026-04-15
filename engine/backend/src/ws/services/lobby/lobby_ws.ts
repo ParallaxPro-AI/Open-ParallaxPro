@@ -233,6 +233,7 @@ function handleMessage(peer: Peer, type: string, data: any): void {
                 Number(data?.maxPlayers ?? 0),
                 Number(data?.minPlayers ?? 0),
                 typeof data?.password === 'string' ? data.password : null,
+                data?.allowJoinInProgress === true,
             );
             if (!res.ok) { sendError(peer.ws, res.error); return; }
             send(peer.ws, 'lobby.created', rosterPayload(res.lobby));

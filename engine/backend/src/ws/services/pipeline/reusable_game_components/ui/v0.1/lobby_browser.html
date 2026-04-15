@@ -248,7 +248,11 @@
     listEl.innerHTML = '';
     lobbies.forEach(function (lb) {
       var row = document.createElement('div');
-      row.className = 'row' + (lb.state === 'playing' ? ' playing' : '') + (lb.id === selectedId ? ' selected' : '');
+      // Fade only lobbies we can't actually join (match started AND the
+      // game doesn't allow late joiners). allowJoinInProgress lobbies
+      // stay full-opacity even in the 'playing' state.
+      var lbBlocked = lb.state === 'playing' && !lb.allowJoinInProgress;
+      row.className = 'row' + (lbBlocked ? ' playing' : '') + (lb.id === selectedId ? ' selected' : '');
       row.dataset.id = lb.id;
 
       // Server-supplied estimate from GeoIP lookup of both peers' IPs.
@@ -273,8 +277,13 @@
       row.onclick = function () {
         selectedId = lb.id;
         render();
-        joinBtn.disabled = lb.state === 'playing';
-        joinBtn.style.opacity = joinBtn.disabled ? '0.5' : '1';
+        // Lobbies in 'playing' state are joinable iff the game opted into
+        // late-joiners via multiplayer.allowJoinInProgress. Otherwise the
+        // server will reject — keep the button greyed out client-side so
+        // the user doesn't click and get an error.
+        var blocked = lb.state === 'playing' && !lb.allowJoinInProgress;
+        joinBtn.disabled = blocked;
+        joinBtn.style.opacity = blocked ? '0.5' : '1';
       };
 
       listEl.appendChild(row);

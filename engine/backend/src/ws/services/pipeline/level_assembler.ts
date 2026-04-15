@@ -32,6 +32,14 @@ export interface MultiplayerConfig {
    *             templates that predate this field.
    */
   remotePlayerPrefab?: string | null;
+  /**
+   * Whether players can join a lobby that's already in-progress.
+   * Defaults to false (competitive templates — you can't drop into a
+   * coin-grab match halfway through). Social / open-world games
+   * (walk-around, MMOs) set this to true so players come and go
+   * without the host having to restart the match.
+   */
+  allowJoinInProgress?: boolean;
 }
 
 export interface ConvertedScene {
@@ -701,6 +709,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     } else if (typeof mpBlock.remotePlayerPrefab === 'string' && mpBlock.remotePlayerPrefab.length > 0) {
       multiplayerConfig.remotePlayerPrefab = mpBlock.remotePlayerPrefab;
     }
+    multiplayerConfig.allowJoinInProgress = mpBlock.allowJoinInProgress === true;
   } else if (flow?.max_players || flow?.min_players) {
     multiplayerConfig = {
       enabled: true,

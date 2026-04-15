@@ -346,13 +346,14 @@ export class MultiplayerSession {
 
     requestLobbyList(): void { this.lobby.list(this._gameTemplateId); }
 
-    hostLobby(opts: { name: string; maxPlayers: number; minPlayers: number; password?: string | null }): void {
+    hostLobby(opts: { name: string; maxPlayers: number; minPlayers: number; password?: string | null; allowJoinInProgress?: boolean }): void {
         this.lobby.create({
             gameTemplateId: this._gameTemplateId,
             name: opts.name,
             maxPlayers: opts.maxPlayers,
             minPlayers: opts.minPlayers,
             password: opts.password ?? null,
+            allowJoinInProgress: !!opts.allowJoinInProgress,
         });
     }
 
@@ -876,7 +877,15 @@ export class MultiplayerSession {
         this._hostPeerId = roster.hostPeerId;
         this._lastProcessedInputSeqByPeer = {};
         for (const cb of this._rosterListeners) cb(roster);
-        this.setPhase('in_lobby');
+        // If we're joining a lobby that's already in-progress (the host's
+        // game allowed join-in-progress and the match is running), skip
+        // the lobby-room stage entirely and drop straight into gameplay.
+        // Otherwise use the normal pre-match lobby phase.
+        if (roster.state === 'playing') {
+            this.setPhase('in_game');
+        } else {
+            this.setPhase('in_lobby');
+        }
 
         if (asHost) {
             // Host waits for clients' offers.

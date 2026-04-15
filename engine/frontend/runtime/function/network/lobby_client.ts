@@ -166,6 +166,7 @@ export class LobbyClient {
         maxPlayers: number;
         minPlayers: number;
         password?: string | null;
+        allowJoinInProgress?: boolean;
     }): void { this.send('lobby.create', opts); }
 
     join(opts: { lobbyId: string; password?: string | null }): void {

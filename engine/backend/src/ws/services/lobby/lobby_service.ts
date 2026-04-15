@@ -40,6 +40,14 @@ export interface Lobby {
     peers: Map<PeerId, Peer>;
     createdAt: number;
     state: 'waiting' | 'playing';
+    /**
+     * When true, new peers can join this lobby after the host has
+     * marked it `playing`. Competitive games keep this off (default)
+     * so players can't drop in mid-match; open-world / social games
+     * set it on so peers come and go freely. Stored on the lobby so
+     * the server can reject illegal joins without trusting the client.
+     */
+    allowJoinInProgress: boolean;
 }
 
 export interface LobbyListEntry {
@@ -51,6 +59,9 @@ export interface LobbyListEntry {
     minPlayers: number;
     hasPassword: boolean;
     state: 'waiting' | 'playing';
+    /** Surface for the browser so "Join" can stay enabled on a playing
+     *  lobby when the game allows late joiners. */
+    allowJoinInProgress: boolean;
     createdAt: number;
     /** Estimated P2P RTT in ms (GeoIP great-circle distance + baseline).
      *  -1 when one side has no known geolocation. */
@@ -130,6 +141,7 @@ export function createLobby(
     rawMaxPlayers: number,
     rawMinPlayers: number,
     password: string | null,
+    allowJoinInProgress: boolean = false,
 ): { ok: true; lobby: Lobby } | { ok: false; error: string } {
     const host = peersById.get(hostPeerId);
     if (!host) return { ok: false, error: 'Unknown peer' };
@@ -166,6 +178,7 @@ export function createLobby(
         peers: new Map([[hostPeerId, host]]),
         createdAt: Date.now(),
         state: 'waiting',
+        allowJoinInProgress: !!allowJoinInProgress,
     };
 
     host.lobbyId = lobby.id;
@@ -186,6 +199,9 @@ export function joinLobby(
     const lobby = lobbies.get(lobbyId);
     if (!lobby) return { ok: false, error: 'Lobby not found' };
 
+    if (lobby.state === 'playing' && !lobby.allowJoinInProgress) {
+        return { ok: false, error: 'Match already in progress' };
+    }
     if (lobby.peers.size >= lobby.maxPlayers) return { ok: false, error: 'Lobby is full' };
     if (lobby.password !== null) {
         if (typeof password !== 'string' || !constantTimeEqual(password, lobby.password)) {
@@ -247,6 +263,7 @@ export function listLobbies(gameTemplateId: string, requesterIp?: string): Lobby
             minPlayers: lobby.minPlayers,
             hasPassword: lobby.password !== null,
             state: lobby.state,
+            allowJoinInProgress: lobby.allowJoinInProgress,
             createdAt: lobby.createdAt,
             estimatedPingMs: requesterIp && host?.ip
                 ? estimatePingMs(requesterIp, host.ip)

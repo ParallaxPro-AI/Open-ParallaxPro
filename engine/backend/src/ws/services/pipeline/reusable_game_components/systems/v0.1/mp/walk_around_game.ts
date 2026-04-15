@@ -80,6 +80,10 @@ class WalkAroundGameSystem extends GameScript {
             if (!p.active) continue;
             var ni = p.getComponent("NetworkIdentityComponent");
             if (!ni) continue;
+            // Don't label our own player — the local view is first/third-
+            // person on yourself, and a tag hovering over your own head
+            // is just visual noise.
+            if (ni.isLocalPlayer) continue;
             var peerId = (ni.ownerId && typeof ni.ownerId === "string") ? ni.ownerId : "";
             if (!peerId) continue;
             var username = this._knownUsernames[peerId] || peerId.slice(0, 6);
