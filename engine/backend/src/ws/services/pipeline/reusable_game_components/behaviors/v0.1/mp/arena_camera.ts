@@ -11,12 +11,10 @@ class ArenaCameraBehavior extends GameScript {
         if (!target) return;
         var tpos = target.transform ? target.transform.position : null;
         if (!tpos) return;
-        var cpos = this.entity.transform.position;
-        cpos.x = tpos.x;
-        cpos.y = this._height;
-        cpos.z = tpos.z + 0.01;  // small offset keeps camera aimed at target
-        this.entity.transform.setRotationEuler(-Math.PI / 2, 0, 0);
-        this.entity.transform.markDirty && this.entity.transform.markDirty();
+        // Park directly over the player and aim at them. lookAt handles the
+        // rotation math so we don't have to wrestle with Euler conventions.
+        this.scene.setPosition(this.entity.id, tpos.x, this._height, tpos.z);
+        this.entity.transform.lookAt(tpos.x, tpos.y, tpos.z);
     }
 
     _findLocalPlayer() {
