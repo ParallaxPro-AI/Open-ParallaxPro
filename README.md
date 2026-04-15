@@ -40,7 +40,12 @@ https://github.com/user-attachments/assets/eba68cf6-724e-4225-a23e-8b385d5c598c
 
 ### Run Locally
 
-**Prerequisites:** Node.js 20+, npm
+**Prerequisites:** Node.js 20+, npm, and **at least one** of the following agent CLIs installed and authenticated (backend refuses to start without one):
+
+- [Claude Code](https://code.claude.com/docs/en/overview)
+- [Codex](https://developers.openai.com/codex/cli)
+- [OpenCode](https://opencode.ai/) -- works with **any LLM, any provider, even local models** (Claude, GPT, Gemini, Groq, Ollama, LM Studio, you name it)
+- [GitHub Copilot CLI](https://github.com/features/copilot/cli)
 
 #### 1. Clone the repo
 
@@ -49,54 +54,17 @@ git clone https://github.com/ParallaxPro-AI/Open-ParallaxPro.git
 cd Open-ParallaxPro
 ```
 
-#### 2. Set up the backend
+#### 2. Start the backend
 
 ```bash
 cd engine/backend
-```
-
-The backend runs with zero configuration, but you can drop in an `.env` (copy `.env.example` as a starting point) to point it at an OpenAI-compatible API. Any of these works:
-
-| Provider | `AI_BASE_URL` | Example `AI_MODEL` |
-|----------|--------------|-------------------|
-| [Groq](https://console.groq.com/) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
-| [OpenRouter](https://openrouter.ai/) | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
-| Local (Ollama) | `http://localhost:11434/v1` | `llama3.3` |
-
-**Recommended: set an API key.** A direct API call is faster and gives cleaner chat output than driving an agentic CLI as a chat proxy. Without one the backend falls back to whichever agent CLI is installed, which works but is slower per message and occasionally produces odd responses — fine for trying things out, not ideal long-term.
-
-The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. At least one of the supported CLIs must be installed — the backend refuses to start without one.
-
-Currently supported:
-- [Claude Code](https://code.claude.com/docs/en/overview)
-- [Codex](https://developers.openai.com/codex/cli)
-- [OpenCode](https://opencode.ai/) -- works with **any LLM, any provider, even local models** (Claude, GPT, Gemini, Groq, Ollama, LM Studio, you name it)
-- [GitHub Copilot CLI](https://github.com/features/copilot/cli)
-
-Install one or more of them and the backend will auto-detect them at startup. If multiple are installed, pick your default per-project from the editor's Project Settings, or override per-message from the chat input.
-
-> ⚠️ **Security note.** The agents run without interactive approval prompts, so they inherit the **same filesystem and network permissions as the backend process** — they can read anything that user can read (`~/.ssh`, `~/.env`, other projects) and write anywhere that user can write. Don't run the backend on a host with secrets you don't want an LLM to see.
->
-> **Docker sandbox (opt-in):** set `DOCKER_SANDBOX=1` to run every CLI invocation inside an ephemeral container that only sees its per-fix sandbox dir and the agent's own auth dir. One-time image build:
->
-> ```bash
-> docker build -t parallaxpro/agent-sandbox engine/backend/docker/agent-sandbox
-> ```
->
-> Recommended for any host where you care about isolating the agent from other files.
-
-Install at least one CLI and follow its own auth steps — links above. The backend auto-detects whichever ones are on your `PATH` at startup.
-
-Install dependencies and start the backend:
-
-```bash
 npm install
 npx tsx src/server.ts
 ```
 
-The backend will start on `http://localhost:3003`.
+Serves on `http://localhost:3003`.
 
-#### 3. Set up the frontend
+#### 3. Start the frontend
 
 In a new terminal:
 
@@ -106,11 +74,29 @@ npm install
 npm run dev
 ```
 
-The editor will open at **http://localhost:5174**.
+Open **http://localhost:5174** in Chrome/Edge (for WebGPU). Type a game idea in the chat and the AI will build it for you.
 
-#### 4. Start building games
+---
 
-Open `http://localhost:5174` in your browser (Chrome/Edge recommended for WebGPU). Type a game name like "chess" or "racing game" in the chat and the AI will build it for you.
+#### Optional configuration
+
+- **Direct LLM API** (recommended for better chat — faster and cleaner than driving a CLI as a chat proxy). Copy `engine/backend/.env.example` to `engine/backend/.env` and set `AI_BASE_URL` / `AI_MODEL` / `AI_API_KEY`. Any OpenAI-compatible provider works:
+
+  | Provider | `AI_BASE_URL` | Example `AI_MODEL` |
+  |----------|--------------|-------------------|
+  | [Groq](https://console.groq.com/) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+  | [OpenRouter](https://openrouter.ai/) | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
+  | Local (Ollama) | `http://localhost:11434/v1` | `llama3.3` |
+
+  Without this the backend falls back to whichever agent CLI is installed — works fine for trying things out but is slower and occasionally produces odd chat responses.
+
+- **Docker sandbox** (recommended if you care about filesystem isolation). The agents otherwise run with the **same filesystem and network permissions as the backend process** — they can read `~/.ssh`, `~/.env`, other projects, etc. Turn on isolation by setting `DOCKER_SANDBOX=1` in `.env` and building the image once:
+
+  ```bash
+  docker build -t parallaxpro/agent-sandbox engine/backend/docker/agent-sandbox
+  ```
+
+  Every CLI invocation then runs inside an ephemeral container that only sees its per-fix sandbox dir and the agent's own auth dir.
 
 ### How It Works
 
