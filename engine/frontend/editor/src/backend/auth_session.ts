@@ -15,13 +15,28 @@ const CLI_LOGIN_PATH = '/cli-login';
 const CALLBACK_PATH = '/auth/callback';
 const MESSAGE_TYPE = 'parallaxpro-auth';
 
+// Dedicated storage key for the prod JWT acquired via the cli-login
+// popup. Kept separate from 'auth_token'/'token' (which the local
+// backend_client sends to its own backend) so we don't accidentally
+// hand a parallaxpro.ai JWT to the self-hosted local backend — its
+// dev-secret can't verify it, so it would 401 every request even
+// though its dev-mode bypass would have admitted an anonymous one.
+export const CLI_TOKEN_KEY = 'pp_cli_token';
+
 export function getStoredToken(): string | null {
-    return localStorage.getItem('auth_token') ?? localStorage.getItem('token');
+    // Fall back to legacy auth_token/token on parallaxpro.ai itself so
+    // the hosted editor keeps working without a second login round-trip.
+    const dedicated = localStorage.getItem(CLI_TOKEN_KEY);
+    if (dedicated) return dedicated;
+    const h = window.location.hostname;
+    if (h === 'parallaxpro.ai' || h === 'www.parallaxpro.ai') {
+        return localStorage.getItem('auth_token') ?? localStorage.getItem('token');
+    }
+    return null;
 }
 
 export function clearStoredToken(): void {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('token');
+    localStorage.removeItem(CLI_TOKEN_KEY);
 }
 
 /**
@@ -82,7 +97,7 @@ function loginViaPopup(): Promise<string> {
             cleanup();
             if (data.error) { reject(new Error(data.error)); return; }
             if (!data.token) { reject(new Error('Login returned no token.')); return; }
-            try { localStorage.setItem('auth_token', data.token); } catch {}
+            try { localStorage.setItem(CLI_TOKEN_KEY, data.token); } catch {}
             resolve(data.token);
         };
         window.addEventListener('message', onMessage);

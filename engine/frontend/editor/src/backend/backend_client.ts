@@ -1,4 +1,5 @@
 import { redirectToLogin } from '../main.js';
+import { getStoredToken as getCliToken, clearStoredToken as clearCliToken } from './auth_session.js';
 
 // Absolute origin for the hosted production backend. When the editor is
 // running on localhost the publish flow talks directly to this origin so
@@ -50,7 +51,12 @@ export class BackendClient {
     }
 
     private getAuthToken(): string | null {
-        return localStorage.getItem('auth_token') ?? localStorage.getItem('token');
+        // fetchProd targets parallaxpro.ai. Use the cli-login token (stored
+        // under a dedicated key on self-hosted setups, or the hosted
+        // auth_token on parallaxpro.ai itself) — NOT the local backend's
+        // session token, which would fail verification against prod's JWT
+        // secret.
+        return getCliToken();
     }
 
     async listProjects(): Promise<any[]> {
@@ -283,7 +289,7 @@ export class BackendClient {
         const ct = res.headers.get('content-type') || '';
         const body = ct.includes('application/json') ? await res.json().catch(() => ({})) : await res.text().catch(() => '');
         if (res.status === 401) {
-            localStorage.removeItem('auth_token');
+            clearCliToken();
             throw new AuthRequiredError();
         }
         if (!res.ok) {

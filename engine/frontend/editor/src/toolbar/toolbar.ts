@@ -1540,15 +1540,22 @@ export class Toolbar {
             const file = fileInput.files?.[0];
             if (!file || !this.ctx.state.projectId) return;
             try {
-                // Always persist to the local backend so the editor shows
-                // the preview immediately. Self-hosted publishes still pass
-                // the File itself to prod below.
-                const result = await this.ctx.backend.uploadThumbnail(this.ctx.state.projectId, file);
-                if (this.ctx.state.projectData) this.ctx.state.projectData.thumbnail = result.thumbnail;
+                let previewSrc: string;
+                if (this.ctx.backend.isSelfHosted) {
+                    // The OSS backend has no /thumbnail route — that lives
+                    // in the hosted publish plugin. Stash the File and use
+                    // an object URL for the in-modal preview; the actual
+                    // upload happens as part of publishFromLocal.
+                    previewSrc = URL.createObjectURL(file);
+                } else {
+                    const result = await this.ctx.backend.uploadThumbnail(this.ctx.state.projectId, file);
+                    if (this.ctx.state.projectData) this.ctx.state.projectData.thumbnail = result.thumbnail;
+                    previewSrc = result.thumbnail;
+                }
                 this._pendingPublishThumbnail = file;
                 thumbPreview.innerHTML = '';
                 const img = document.createElement('img');
-                img.src = result.thumbnail;
+                img.src = previewSrc;
                 img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
                 thumbPreview.appendChild(img);
                 uploadBtn.textContent = 'Change';
