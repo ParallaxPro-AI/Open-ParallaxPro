@@ -91,6 +91,7 @@ export class WebRTCManager {
     private sendSignal: (toPeerId: PeerId, payload: { kind: string; [k: string]: any }) => void = () => {};
     private events: WebRTCEvents = {};
     private localAudioTrack: MediaStreamTrack | null = null;
+    private localMuted: boolean = false;
     private dynamicIceServers: RTCIceServer[] | null = null;
     /**
      * Voice-reconcile state. Each peer periodically broadcasts its own
@@ -352,6 +353,7 @@ export class WebRTCManager {
         if (!this.localAudioTrack) return;
         this.localAudioTrack.stop();
         this.localAudioTrack = null;
+        this.localMuted = false;
         for (const info of this.peers.values()) {
             if (info.outgoingAudioSender) {
                 try { info.outgoingAudioSender.replaceTrack(null); } catch { /* ignored */ }
@@ -360,9 +362,30 @@ export class WebRTCManager {
         this._broadcastVoiceState();
     }
 
+    /**
+     * Strict mute: detach the mic track from every peer's sender so no
+     * RTP at all goes over the wire (not even WebRTC's silence-filler
+     * packets). Belt-and-suspenders: also flip `track.enabled=false` so
+     * even if a sender managed to hold onto a stale reference, the OS
+     * dims the mic indicator and the track produces no samples locally.
+     * Unmuting is the inverse — reattach the same track to every sender
+     * (codec and SSRC were negotiated at first attach, no renegotiation
+     * needed). The voice-state ping/pong re-broadcasts immediately so
+     * peers know our outgoing stream went silent and don't trigger a
+     * voice_missing repair that would undo the mute.
+     */
     setLocalMuted(muted: boolean): void {
         if (!this.localAudioTrack) return;
+        if (this.localMuted === muted) return;
+        this.localMuted = muted;
         this.localAudioTrack.enabled = !muted;
+        const payload = muted ? null : this.localAudioTrack;
+        for (const info of this.peers.values()) {
+            const sender = info.outgoingAudioSender ?? info.audioTransceiver?.sender ?? null;
+            if (!sender) continue;
+            try { sender.replaceTrack(payload); } catch { /* ignored */ }
+        }
+        this._broadcastVoiceState();
     }
 
     hasLocalMic(): boolean { return !!this.localAudioTrack; }
@@ -513,7 +536,11 @@ export class WebRTCManager {
     }
 
     private _broadcastVoiceState(): void {
-        const payload = JSON.stringify({ t: 'voice_state', micOn: !!this.localAudioTrack });
+        // "micOn" is the effective state — actively transmitting audio. A
+        // muted peer is NOT micOn, so other peers don't trigger a
+        // voice_missing repair when they correctly see silence on the wire.
+        const active = !!this.localAudioTrack && !this.localMuted;
+        const payload = JSON.stringify({ t: 'voice_state', micOn: active });
         for (const info of this.peers.values()) {
             if (!info.ready || !info.channel || info.channel.readyState !== 'open') continue;
             try { info.channel.send(payload); } catch { /* ignored */ }
@@ -549,7 +576,9 @@ export class WebRTCManager {
      * because that's exactly what got wedged in the first place.
      */
     private _handleVoiceMissing(info: PeerInfo): void {
-        if (!this.localAudioTrack) return;
+        // Race case: peer's state was stale, they asked for a repair after
+        // we muted. Honor the mute — don't re-attach the track.
+        if (!this.localAudioTrack || this.localMuted) return;
         console.warn('[WebRTC] voice_missing from', info.peerId, '- forcing re-attach');
         try {
             if (info.audioTransceiver) {
