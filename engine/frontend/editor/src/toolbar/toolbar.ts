@@ -1,6 +1,28 @@
 import { EditorContext } from '../editor_context.js';
 import { showModal, showPromptModal, showConfirmModal } from '../widgets/modal.js';
 import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Settings, MousePointer2, Crosshair, Globe, Box } from '../widgets/icons.js';
+import { ensureLoggedIn, clearStoredToken } from '../backend/auth_session.js';
+import { ApiError, AuthRequiredError } from '../backend/backend_client.js';
+
+// Local-project → prod-published mapping. Persisted in localStorage so
+// subsequent publish sessions from the same browser don't need a lookup
+// roundtrip to match a local project back to its hosted game row.
+const PUBLISH_MAP_KEY = 'ppl_publish_map_v1';
+interface PublishMapEntry { prodProjectId: string; owner: string; slug: string }
+function readPublishMap(): Record<string, PublishMapEntry> {
+    try { return JSON.parse(localStorage.getItem(PUBLISH_MAP_KEY) || '{}') || {}; }
+    catch { return {}; }
+}
+function writePublishMapEntry(localProjectId: string, entry: PublishMapEntry): void {
+    const map = readPublishMap();
+    map[localProjectId] = entry;
+    try { localStorage.setItem(PUBLISH_MAP_KEY, JSON.stringify(map)); } catch {}
+}
+function deletePublishMapEntry(localProjectId: string): void {
+    const map = readPublishMap();
+    delete map[localProjectId];
+    try { localStorage.setItem(PUBLISH_MAP_KEY, JSON.stringify(map)); } catch {}
+}
 
 interface CollabUser {
     clientId: string;
@@ -19,6 +41,11 @@ interface CollabChatMsg {
 export class Toolbar {
     readonly el: HTMLElement;
     private ctx: EditorContext;
+
+    // Thumbnail file picked in the open publish modal. Stashed so a
+    // subsequent self-hosted publish can upload the same image to prod
+    // without asking the user to pick it again.
+    private _pendingPublishThumbnail: File | null = null;
 
     private projectNameEl!: HTMLElement;
     private saveBtn!: HTMLElement;
@@ -966,31 +993,53 @@ export class Toolbar {
         const projectId = this.ctx.state.projectId;
         if (!projectId) return;
 
-        if (!this.isHosted()) {
-            const body = document.createElement('div');
-            body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
-            const msg = document.createElement('div');
-            msg.style.cssText = 'font-size:13px;line-height:1.6;color:var(--text-primary);';
-            msg.innerHTML = `Publishing is currently only available on the hosted version at <a href="https://parallaxpro.ai/editor" target="_blank" style="color:var(--accent);">parallaxpro.ai</a>.<br><br>We're working on a way to publish directly from self-hosted instances. Stay tuned!`;
-            body.appendChild(msg);
-            const { close } = showModal({
-                title: 'Publish',
-                body,
-                width: '400px',
-                buttons: [{ label: 'OK', primary: true, action: () => close() }],
-            });
-            return;
-        }
+        this._pendingPublishThumbnail = null;
 
         if (this.ctx.state.projectDirty) {
             await this.ctx.saveProject();
         }
 
+        // Self-hosted editor: sign in to parallaxpro.ai first so we can
+        // publish against the hosted publish-from-local endpoint on the
+        // user's behalf.
+        if (this.ctx.backend.isSelfHosted) {
+            try {
+                await ensureLoggedIn();
+            } catch (e: any) {
+                this.showToast(e.message || 'Sign-in cancelled.', 'error');
+                return;
+            }
+        }
+
         let pubData: any;
         try {
-            pubData = await this.ctx.backend.listVersions(projectId);
-        } catch {
+            if (this.ctx.backend.isSelfHosted) {
+                const mapping = readPublishMap()[projectId];
+                if (mapping?.prodProjectId) {
+                    try {
+                        pubData = await this.ctx.backend.listVersionsProd(mapping.prodProjectId);
+                    } catch (e: any) {
+                        // Stale mapping (game was unpublished on another machine, etc). Treat as first publish.
+                        if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+                            deletePublishMapEntry(projectId);
+                            pubData = { published: false, versions: [] };
+                        } else if (e instanceof AuthRequiredError) {
+                            clearStoredToken();
+                            this.showToast('Your session expired. Try publishing again.', 'error');
+                            return;
+                        } else {
+                            throw e;
+                        }
+                    }
+                } else {
+                    pubData = { published: false, versions: [] };
+                }
+            } else {
+                pubData = await this.ctx.backend.listVersions(projectId);
+            }
+        } catch (e: any) {
             pubData = { published: false, versions: [] };
+            console.warn('[Publish] failed to fetch publish state:', e?.message ?? e);
         }
 
         if (pubData.published) {
@@ -1081,10 +1130,14 @@ export class Toolbar {
                         errorMsg.textContent = 'Enter a valid version (e.g., 1.0.0).'; errorMsg.style.display = 'block'; return;
                     }
                     try {
-                        const result = await this.ctx.backend.publishProject(this.ctx.state.projectId!, gameName, gameSlug, visSelect.value, version, changelogInput.value.trim());
+                        const result = await this.submitPublish({
+                            name: gameName, slug: gameSlug, visibility: visSelect.value,
+                            version, changelog: changelogInput.value.trim(),
+                        });
                         close();
                         this.showPublishSuccessModal(result);
                     } catch (e: any) {
+                        if (e?.__engineMismatchHandled) { close(); return; }
                         errorMsg.textContent = e.message?.replace(/^API error \d+: /, '') || 'Publish failed.';
                         try { errorMsg.textContent = JSON.parse(e.message?.replace(/^API error \d+: /, '') || '{}').error || errorMsg.textContent; } catch {}
                         errorMsg.style.display = 'block';
@@ -1148,7 +1201,13 @@ export class Toolbar {
                     setLiveBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--accent);color:white;border:none;border-radius:3px;cursor:pointer;';
                     setLiveBtn.addEventListener('click', async () => {
                         try {
-                            await this.ctx.backend.setLiveVersion(projectId, v.id);
+                            if (this.ctx.backend.isSelfHosted) {
+                                const prodId = readPublishMap()[projectId]?.prodProjectId;
+                                if (!prodId) throw new Error('Missing published mapping.');
+                                await this.ctx.backend.setLiveVersionProd(prodId, v.id);
+                            } else {
+                                await this.ctx.backend.setLiveVersion(projectId, v.id);
+                            }
                             for (const ver of pubData.versions) ver.isLive = ver.id === v.id;
                             pubData.liveVersion = v.version;
                             buildVersionList();
@@ -1162,6 +1221,14 @@ export class Toolbar {
                 const revertBtn = document.createElement('button');
                 revertBtn.textContent = 'Checkout';
                 revertBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);border-radius:3px;cursor:pointer;';
+                // Checkout restores the project source into the local DB. For
+                // self-hosted editors the source lives on parallaxpro.ai but
+                // would need to be pushed back into the local backend — not
+                // wired up yet, so hide the button rather than let it succeed
+                // silently against the wrong DB.
+                if (this.ctx.backend.isSelfHosted) {
+                    revertBtn.style.display = 'none';
+                }
                 revertBtn.addEventListener('click', async () => {
                     if (!confirm(`Revert project to v${v.version}? Your current editor state will be replaced.`)) return;
                     try {
@@ -1222,7 +1289,10 @@ export class Toolbar {
             const ver = vInput.value.trim();
             if (!ver || !this.isValidSemver(ver)) { newVerError.textContent = 'Enter a valid version.'; newVerError.style.display = 'block'; return; }
             try {
-                const result = await this.ctx.backend.publishProject(projectId, pubData.name, pubData.slug, pubData.visibility, ver, clInput.value.trim());
+                const result = await this.submitPublish({
+                    name: pubData.name, slug: pubData.slug, visibility: pubData.visibility,
+                    version: ver, changelog: clInput.value.trim(),
+                });
                 pubData.versions.unshift({ id: result.gameId, version: ver, changelog: clInput.value.trim(), isLive: true });
                 for (const v2 of pubData.versions) { if (v2 !== pubData.versions[0]) v2.isLive = false; }
                 pubData.liveVersion = ver;
@@ -1232,6 +1302,7 @@ export class Toolbar {
                 newVerError.style.display = 'none';
                 this.showToast(`v${ver} published!`, 'success');
             } catch (e: any) {
+                if (e?.__engineMismatchHandled) { close(); return; }
                 newVerError.textContent = e.message?.replace(/^API error \d+: /, '') || 'Publish failed.';
                 try { newVerError.textContent = JSON.parse(e.message?.replace(/^API error \d+: /, '') || '{}').error || newVerError.textContent; } catch {}
                 newVerError.style.display = 'block';
@@ -1248,7 +1319,14 @@ export class Toolbar {
         unpubBtn.addEventListener('click', async () => {
             if (!confirm('Unpublish this game? It will no longer be accessible to players.')) return;
             try {
-                await this.ctx.backend.unpublishProject(projectId);
+                if (this.ctx.backend.isSelfHosted) {
+                    const prodId = readPublishMap()[projectId]?.prodProjectId;
+                    if (!prodId) throw new Error('Missing published mapping.');
+                    await this.ctx.backend.unpublishProd(prodId);
+                    deletePublishMapEntry(projectId);
+                } else {
+                    await this.ctx.backend.unpublishProject(projectId);
+                }
                 close();
                 this.showToast('Game unpublished.', 'info');
             } catch (e: any) {
@@ -1280,6 +1358,132 @@ export class Toolbar {
         const { close } = showModal({
             title: 'Published!', body: successBody, width: '420px',
             buttons: [{ label: 'Done', primary: true, action: () => close() }],
+        });
+    }
+
+    /** Unified publish entry: hosted calls the local-is-prod endpoint; self-
+     *  hosted uploads the project tree to parallaxpro.ai via publish-from-
+     *  local. Handles engine-hash mismatches by showing a dedicated modal
+     *  and throwing a sentinel so the caller collapses its own error UI.
+     */
+    private async submitPublish(opts: { name: string; slug: string; visibility: string; version: string; changelog: string }): Promise<any> {
+        const projectId = this.ctx.state.projectId!;
+        if (!this.ctx.backend.isSelfHosted) {
+            return this.ctx.backend.publishProject(projectId, opts.name, opts.slug, opts.visibility, opts.version, opts.changelog);
+        }
+
+        // Self-hosted — publish-from-local flow.
+        const hash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
+        if (hash === 'unknown' || !hash) {
+            throw new Error(
+                'Cannot detect your editor\'s git commit. If you installed this repo as a tarball, clone it via `git clone` so publish can tag the engine version it was built with.',
+            );
+        }
+
+        let project: any;
+        try {
+            project = await this.ctx.backend.loadProject(projectId);
+        } catch (e: any) {
+            throw new Error(`Couldn't read the local project before publishing: ${e?.message ?? e}`);
+        }
+        if (!project?.files) {
+            throw new Error('This project is missing a files tree — can\'t publish. Try re-saving first.');
+        }
+
+        const thumbnail = await this.resolvePublishThumbnail(project.thumbnail);
+
+        try {
+            const result = await this.ctx.backend.publishFromLocal({
+                name: opts.name,
+                slug: opts.slug,
+                visibility: opts.visibility,
+                version: opts.version,
+                changelog: opts.changelog,
+                engineGitHash: hash,
+                projectData: { projectConfig: project.projectConfig ?? { name: opts.name }, files: project.files },
+                thumbnail,
+            });
+            writePublishMapEntry(projectId, { prodProjectId: result.projectId, owner: result.owner, slug: result.slug });
+            return result;
+        } catch (e: any) {
+            if (e instanceof AuthRequiredError) {
+                clearStoredToken();
+                this.showToast('Your session expired. Try publishing again.', 'error');
+                const sentinel: any = new Error('auth expired');
+                sentinel.__engineMismatchHandled = true; // reuse sentinel: also swallow in parent modal
+                throw sentinel;
+            }
+            if (e instanceof ApiError) {
+                const payload = e.payload || {};
+                if (payload?.error === 'unknown_engine_hash' || payload?.error === 'rejected_engine_hash') {
+                    this.showEngineMismatchModal(payload, hash);
+                    const sentinel: any = new Error(payload.message || 'Engine version mismatch');
+                    sentinel.__engineMismatchHandled = true;
+                    throw sentinel;
+                }
+                if (payload?.error) throw new Error(payload.error);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Convert whatever thumbnail the project currently has into a File so
+     * the publish-from-local multipart payload can carry it. Priority:
+     *   1. File the user picked during this publish session.
+     *   2. Existing thumbnail URL from the local project (fetch + wrap).
+     *   3. Nothing — prod keeps the game without a thumbnail.
+     */
+    private async resolvePublishThumbnail(projectThumbnailUrl?: string | null): Promise<File | null> {
+        if (this._pendingPublishThumbnail) return this._pendingPublishThumbnail;
+        if (!projectThumbnailUrl) return null;
+        try {
+            // projectThumbnailUrl is typically /uploads/thumbnails/<id>.png —
+            // a relative path served by the local backend. Absolute URLs
+            // (e.g., CDN) are fine too; fetch handles both.
+            const res = await window.fetch(projectThumbnailUrl);
+            if (!res.ok) return null;
+            const blob = await res.blob();
+            const ext = (projectThumbnailUrl.match(/\.(png|jpg|jpeg|webp|gif)$/i)?.[1] || 'png').toLowerCase();
+            return new File([blob], `thumbnail.${ext}`, { type: blob.type || `image/${ext === 'jpg' ? 'jpeg' : ext}` });
+        } catch {
+            return null;
+        }
+    }
+
+    /** Shown when prod doesn't recognize the editor's engine commit. The
+     *  fastest remediation is pulling upstream so the user's commit matches
+     *  a deployed bundle; we surface that prominently.
+     */
+    private showEngineMismatchModal(payload: any, yourHash: string): void {
+        const body = document.createElement('div');
+        body.style.cssText = 'display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5;';
+
+        const headline = document.createElement('div');
+        headline.style.cssText = 'font-size:14px;color:var(--text-primary);';
+        headline.textContent = payload.error === 'rejected_engine_hash'
+            ? 'Your editor is running an engine version that\'s been blocked from publishing.'
+            : 'Your editor is running an engine version parallaxpro.ai doesn\'t recognize yet.';
+        body.appendChild(headline);
+
+        const versions = document.createElement('div');
+        versions.style.cssText = 'background:var(--bg-secondary);padding:10px 12px;border-radius:6px;font-family:monospace;font-size:11.5px;color:var(--text-secondary);display:flex;flex-direction:column;gap:4px;';
+        versions.innerHTML =
+            `<div>Your commit:&nbsp;&nbsp;<strong style="color:var(--text-primary)">${(yourHash || '').slice(0, 12)}</strong></div>` +
+            (payload.latestHash
+                ? `<div>Latest supported:&nbsp;<strong style="color:var(--accent)">${String(payload.latestHash).slice(0, 12)}</strong>${payload.latestSemver ? ` (v${payload.latestSemver})` : ''}</div>`
+                : '');
+        body.appendChild(versions);
+
+        const tip = document.createElement('div');
+        tip.style.cssText = 'color:var(--text-secondary);';
+        tip.innerHTML = 'The simplest fix: <code>git pull</code> in your Open-ParallaxPro checkout, restart the editor, and try Publish again.';
+        body.appendChild(tip);
+
+        const { close } = showModal({
+            title: 'Engine version not supported',
+            body, width: '480px',
+            buttons: [{ label: 'Got it', primary: true, action: () => close() }],
         });
     }
 
@@ -1336,8 +1540,12 @@ export class Toolbar {
             const file = fileInput.files?.[0];
             if (!file || !this.ctx.state.projectId) return;
             try {
+                // Always persist to the local backend so the editor shows
+                // the preview immediately. Self-hosted publishes still pass
+                // the File itself to prod below.
                 const result = await this.ctx.backend.uploadThumbnail(this.ctx.state.projectId, file);
                 if (this.ctx.state.projectData) this.ctx.state.projectData.thumbnail = result.thumbnail;
+                this._pendingPublishThumbnail = file;
                 thumbPreview.innerHTML = '';
                 const img = document.createElement('img');
                 img.src = result.thumbnail;

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import path from 'path';
+import { execSync } from 'child_process';
 
 // Prevent Vite from crashing when the backend restarts
 process.on('uncaughtException', (err) => {
@@ -15,8 +16,26 @@ process.on('uncaughtException', (err) => {
 // here too so the proxy still lands.
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3003';
 
+// Resolve the commit hash of the engine the editor was built against. Used
+// by the publish-from-local flow so the server can pair each published
+// game with the exact engine bundle it needs to replay. Resolves at dev-
+// server start *and* at build time. Falls back to 'unknown' outside a git
+// checkout (tarball installs, CI without .git, etc).
+function resolveEngineGitHash(): string {
+    if (process.env.ENGINE_GIT_HASH) return process.env.ENGINE_GIT_HASH;
+    try {
+        return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+    } catch {
+        return 'unknown';
+    }
+}
+const ENGINE_GIT_HASH = resolveEngineGitHash();
+
 export default defineConfig(({ command }) => ({
     root: '.',
+    define: {
+        __ENGINE_GIT_HASH__: JSON.stringify(ENGINE_GIT_HASH),
+    },
     server: {
         port: 5174,
         host: true,
@@ -48,16 +67,23 @@ export default defineConfig(({ command }) => ({
             input: {
                 main: path.resolve(__dirname, 'index.html'),
                 play: path.resolve(__dirname, 'play.html'),
+                authCallback: path.resolve(__dirname, 'auth-callback.html'),
             },
         },
     },
     plugins: [
         {
-            name: 'play-page-rewrite',
+            name: 'page-rewrites',
             configureServer(server) {
                 server.middlewares.use((req, _res, next) => {
-                    if (req.url && /^\/play\//.test(req.url)) {
-                        req.url = '/play.html';
+                    if (req.url) {
+                        if (/^\/play\//.test(req.url)) {
+                            req.url = '/play.html';
+                        } else if (/^\/auth\/callback(?:\?|$)/.test(req.url)) {
+                            // Preserve query string when serving the static HTML.
+                            const q = req.url.indexOf('?');
+                            req.url = q >= 0 ? `/auth-callback.html${req.url.slice(q)}` : '/auth-callback.html';
+                        }
                     }
                     next();
                 });

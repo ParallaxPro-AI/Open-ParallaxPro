@@ -1,5 +1,30 @@
 import { redirectToLogin } from '../main.js';
 
+// Absolute origin for the hosted production backend. When the editor is
+// running on localhost the publish flow talks directly to this origin so
+// games show up on parallaxpro.ai, not in the user's local DB.
+const PROD_ORIGIN = 'https://parallaxpro.ai';
+
+function isSelfHostedOrigin(): boolean {
+    const h = window.location.hostname;
+    return h !== 'parallaxpro.ai' && h !== 'www.parallaxpro.ai';
+}
+
+export class AuthRequiredError extends Error {
+    constructor() { super('Authentication required'); this.name = 'AuthRequiredError'; }
+}
+
+export class ApiError extends Error {
+    status: number;
+    payload: any;
+    constructor(message: string, status: number, payload: any) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.payload = payload;
+    }
+}
+
 export class BackendClient {
     private baseUrl: string;
     private ws: WebSocket | null = null;
@@ -18,6 +43,14 @@ export class BackendClient {
 
     get isConnected(): boolean {
         return this._connected;
+    }
+
+    get isSelfHosted(): boolean {
+        return isSelfHostedOrigin();
+    }
+
+    private getAuthToken(): string | null {
+        return localStorage.getItem('auth_token') ?? localStorage.getItem('token');
     }
 
     async listProjects(): Promise<any[]> {
@@ -221,6 +254,105 @@ export class BackendClient {
         const params = new URLSearchParams({ category });
         if (source) params.set('source', source);
         return this.fetch(`/assets/browse?${params.toString()}`);
+    }
+
+    /**
+     * Fetch against the hosted production backend (parallaxpro.ai) directly
+     * instead of the local backend proxy. Used by the publish-from-local
+     * flow so self-hosted editors can publish games to the hosted site.
+     *
+     * - Throws `AuthRequiredError` when no token is available (caller should
+     *   run the auth popup and retry).
+     * - Surfaces the parsed JSON `{error, message, ...}` on non-2xx so UI
+     *   can branch on engine-hash errors etc.
+     */
+    async fetchProd(path: string, options?: RequestInit): Promise<any> {
+        const token = this.getAuthToken();
+        if (!token) throw new AuthRequiredError();
+        const headers: Record<string, string> = {
+            ...(options?.headers as Record<string, string> ?? {}),
+            Authorization: `Bearer ${token}`,
+        };
+        // Only set JSON content-type when the body is a string (JSON) — for
+        // FormData we must not set it so the browser picks the right
+        // multipart boundary.
+        if (options?.body && typeof options.body === 'string' && !headers['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        }
+        const res = await window.fetch(`${PROD_ORIGIN}/api/engine${path}`, { ...options, headers });
+        const ct = res.headers.get('content-type') || '';
+        const body = ct.includes('application/json') ? await res.json().catch(() => ({})) : await res.text().catch(() => '');
+        if (res.status === 401) {
+            localStorage.removeItem('auth_token');
+            throw new AuthRequiredError();
+        }
+        if (!res.ok) {
+            const err = new ApiError(
+                typeof body === 'object' && body?.error ? String(body.error) : `HTTP ${res.status}`,
+                res.status,
+                typeof body === 'object' ? body : null,
+            );
+            throw err;
+        }
+        return body;
+    }
+
+    /** Publish a local project straight to parallaxpro.ai (requires auth token). */
+    async publishFromLocal(opts: {
+        name: string;
+        slug: string;
+        visibility: string;
+        version: string;
+        changelog?: string;
+        projectData: unknown;
+        engineGitHash: string;
+        thumbnail?: File | null;
+    }): Promise<{ success: true; projectId: string; gameId: string; slug: string; owner: string; version: string; url: string }> {
+        const fd = new FormData();
+        fd.append('name', opts.name);
+        fd.append('slug', opts.slug);
+        fd.append('visibility', opts.visibility);
+        fd.append('version', opts.version);
+        if (opts.changelog) fd.append('changelog', opts.changelog);
+        fd.append('engineGitHash', opts.engineGitHash);
+        fd.append('projectData', JSON.stringify(opts.projectData));
+        if (opts.thumbnail) fd.append('thumbnail', opts.thumbnail);
+        return this.fetchProd('/projects/publish-from-local', { method: 'POST', body: fd });
+    }
+
+    async listVersionsProd(prodProjectId: string): Promise<any> {
+        return this.fetchProd(`/projects/${prodProjectId}/versions`);
+    }
+
+    async unpublishProd(prodProjectId: string): Promise<any> {
+        return this.fetchProd(`/projects/${prodProjectId}/publish`, { method: 'DELETE' });
+    }
+
+    async updatePublishSettingsProd(prodProjectId: string, name: string, slug: string, visibility: string): Promise<any> {
+        return this.fetchProd(`/projects/${prodProjectId}/publish`, {
+            method: 'PUT',
+            body: JSON.stringify({ name, slug, visibility }),
+        });
+    }
+
+    async setLiveVersionProd(prodProjectId: string, versionId: string): Promise<any> {
+        return this.fetchProd(`/projects/${prodProjectId}/set-live-version`, {
+            method: 'POST',
+            body: JSON.stringify({ versionId }),
+        });
+    }
+
+    async uploadThumbnailProd(prodProjectId: string, file: File): Promise<{ success: boolean; thumbnail: string }> {
+        if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5 MB.');
+        const fd = new FormData();
+        fd.append('thumbnail', file);
+        return this.fetchProd(`/projects/${prodProjectId}/thumbnail`, { method: 'POST', body: fd });
+    }
+
+    async getEngineBundles(): Promise<{ latestHash: string | null; latestSemver: string | null; bundles: { hash: string; semver: string | null; status: string; addedAt: string }[] }> {
+        const res = await window.fetch(`${PROD_ORIGIN}/api/engine/engine-bundles`);
+        if (!res.ok) throw new Error(`Failed to load engine bundle registry (${res.status})`);
+        return res.json();
     }
 
     private async fetch(path: string, options?: RequestInit): Promise<any> {
