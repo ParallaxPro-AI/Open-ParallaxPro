@@ -261,6 +261,13 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     // templates use; project-specific net events can be added per-project.
     net_match_ended:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_coin_collected:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Deathmatch net events: player_shot carries the damage event across
+    // peers (each peer is authoritative over its own health), and
+    // player_killed is broadcast by the victim so every peer's scoreboard
+    // can tally kills consistently.
+    net_player_shot:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_player_killed:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_player_respawn:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));

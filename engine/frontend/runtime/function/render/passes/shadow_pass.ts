@@ -5,14 +5,16 @@ import { ShaderLibrary } from '../shader_library.js';
 import { RenderScene, RenderMeshInstance, RenderCamera } from '../render_scene.js';
 import { RenderStats } from '../render_stats.js';
 
-const SHADOW_MAP_SIZE = 1024;
+const SHADOW_MAP_SIZE = 2048;
 const NUM_CASCADES = 4;
 const SHADOW_ARRAY_LAYERS = 4;
 const LIGHT_CAMERA_SIZE = 128; // 2 x mat4x4(64)
 // Hard cap so the farthest cascade doesn't re-rasterize the entire world
-// each frame. Beyond this, shadows simply fade out — barely noticeable
-// in motion and saves a lot of draw cost.
-const MAX_SHADOW_DISTANCE = 1000;
+// each frame. Beyond this, shadows simply fade out. 150 keeps texel
+// density high for typical game scenes (arenas, corridors, interiors)
+// — was 1000, which meant ~0.5 world units per texel on cascade 3 and
+// visibly fuzzy shadows everywhere.
+const MAX_SHADOW_DISTANCE = 150;
 const CASCADE_SPLIT_LAMBDA = 0.75;
 
 /**
@@ -54,6 +56,13 @@ export class ShadowPass {
     private modelDataScratch = new Float32Array(32);
     private matrixSlotMap = new Map<Mat4, number>();
     private slotCachedMatrix: Float32Array[] = [];
+
+    // Skinned pipeline + bind groups. Shares the model buffer pool above
+    // so skinned meshes get the same matrix-cache benefits, wrapped with
+    // the per-mesh joint storage buffer in a (model, joints) bind group.
+    private skinnedPipeline: GPURenderPipeline | null = null;
+    private skinnedModelBGL: GPUBindGroupLayout | null = null;
+    private skinnedModelBindGroupCache = new Map<string, GPUBindGroup>();
 
     private viewMatrix: Mat4 = new Mat4();
     private projMatrix: Mat4 = new Mat4();
@@ -149,6 +158,53 @@ export class ShadowPass {
                 depthBias: 4, depthBiasSlopeScale: 3.0, depthBiasClamp: 0.002,
             },
         });
+
+        // Skinned pipeline — reads position from the standard vertex buffer,
+        // joint indices + weights from the mesh's skinBuffer, and applies
+        // linear blend skinning before projecting into light space.
+        // Without this, shadows of animated characters are frozen in the
+        // GLB bind pose (T-pose) while the visible mesh plays its clip.
+        this.skinnedModelBGL = resources.createBindGroupLayout([
+            { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+        ], 'shadow_skinned_model_bgl');
+
+        const skinnedPipelineLayout = resources.createPipelineLayout(
+            [this.lightCameraBGL, this.skinnedModelBGL],
+            'shadow_skinned_pipeline_layout'
+        );
+        const skinnedShadowModule = shaderLib.getModule('shadow_vertex_skinned');
+
+        this.skinnedPipeline = device.createRenderPipeline({
+            label: 'shadow_skinned_pipeline',
+            layout: skinnedPipelineLayout,
+            vertex: {
+                module: skinnedShadowModule,
+                entryPoint: 'vs_main',
+                buffers: [
+                    {
+                        arrayStride: 32,  // pos(12) + normal(12) + uv(8)
+                        stepMode: 'vertex',
+                        attributes: [
+                            { shaderLocation: 0, offset: 0, format: 'float32x3' as GPUVertexFormat },
+                        ],
+                    },
+                    {
+                        arrayStride: 32,  // joints(u32x4=16) + weights(f32x4=16)
+                        stepMode: 'vertex',
+                        attributes: [
+                            { shaderLocation: 3, offset: 0, format: 'uint32x4' as GPUVertexFormat },
+                            { shaderLocation: 4, offset: 16, format: 'float32x4' as GPUVertexFormat },
+                        ],
+                    },
+                ],
+            },
+            primitive: { topology: 'triangle-list', cullMode: 'none' },
+            depthStencil: {
+                format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less',
+                depthBias: 4, depthBiasSlopeScale: 3.0, depthBiasClamp: 0.002,
+            },
+        });
     }
 
     execute(commandEncoder: GPUCommandEncoder, scene: RenderScene): void {
@@ -158,7 +214,19 @@ export class ShadowPass {
         const lightDir = scene.directionalLights[0].direction;
         const camera = scene.camera;
 
-        this.computeCascadeSplits(camera.near, camera.far);
+        // Reset the per-frame slot assignment. The pool itself (buffers +
+        // bindgroups) persists — we just let getModelBindGroup re-assign
+        // indices from 0 as meshes come in. Without this, keying by Mat4
+        // identity would leak any time an upstream path allocated a fresh
+        // Mat4 per frame (easy to do, and the leak is unbounded).
+        this.matrixSlotMap.clear();
+
+        // The default MAX_SHADOW_DISTANCE is tuned for typical arena-scale
+        // scenes (sharp shadows everywhere); open-world templates that need
+        // distant shadows can raise it via LightComponent.shadowDistance,
+        // trading texel density for coverage.
+        const maxShadowDist = scene.directionalLights[0].shadowDistance ?? MAX_SHADOW_DISTANCE;
+        this.computeCascadeSplits(camera.near, camera.far, maxShadowDist);
 
         for (let cascade = 0; cascade < NUM_CASCADES; cascade++) {
             const nearDist = cascade === 0 ? camera.near : this.cascadeSplits[cascade - 1];
@@ -192,6 +260,17 @@ export class ShadowPass {
                     meshBindGroups.push(null);
                     continue;
                 }
+                const isSkinned = !!(mesh.meshHandle.skinBuffer && mesh.jointMatricesBuffer);
+                if (isSkinned) {
+                    // Skinned draws always take a per-mesh bind group (joint
+                    // buffer changes even when the model matrix matches), so
+                    // skip the consecutive-mesh fast path.
+                    meshBindGroups.push(this.getSkinnedModelBindGroup(mesh));
+                    lastVertexBuffer = null;
+                    lastModelMatrix = null;
+                    lastBindGroup = null;
+                    continue;
+                }
                 if (mesh.meshHandle.vertexBuffer === lastVertexBuffer && mesh.modelMatrix === lastModelMatrix && lastBindGroup) {
                     meshBindGroups.push(lastBindGroup);
                 } else {
@@ -218,16 +297,22 @@ export class ShadowPass {
             renderPass.setBindGroup(0, this.lightCameraBindGroups[cascade]);
 
             let lastVB: GPUBuffer | null = null;
-            let currentStride36 = false;
+            type ActivePipeline = 'standard' | 'stride36' | 'skinned';
+            let activePipeline: ActivePipeline = 'standard';
 
             for (let i = 0; i < visibleMeshes.length; i++) {
                 const mesh = visibleMeshes[i];
                 if (mesh.alphaMode === 'BLEND' || !meshBindGroups[i]) continue;
 
-                const needsStride36 = !!mesh.meshHandle.hasBuildingMeta;
-                if (needsStride36 !== currentStride36) {
-                    renderPass.setPipeline(needsStride36 ? this.pipeline36! : this.pipeline);
-                    currentStride36 = needsStride36;
+                const isSkinned = !!(mesh.meshHandle.skinBuffer && mesh.jointMatricesBuffer);
+                const needsStride36 = !isSkinned && !!mesh.meshHandle.hasBuildingMeta;
+                const wanted: ActivePipeline = isSkinned ? 'skinned' : (needsStride36 ? 'stride36' : 'standard');
+                if (wanted !== activePipeline) {
+                    const pipe = wanted === 'skinned'
+                        ? this.skinnedPipeline!
+                        : (wanted === 'stride36' ? this.pipeline36! : this.pipeline);
+                    renderPass.setPipeline(pipe);
+                    activePipeline = wanted;
                     lastVB = null;
                 }
 
@@ -235,6 +320,9 @@ export class ShadowPass {
                     renderPass.setVertexBuffer(0, mesh.meshHandle.vertexBuffer);
                     renderPass.setIndexBuffer(mesh.meshHandle.indexBuffer, mesh.meshHandle.indexFormat);
                     lastVB = mesh.meshHandle.vertexBuffer;
+                }
+                if (isSkinned) {
+                    renderPass.setVertexBuffer(1, mesh.meshHandle.skinBuffer!);
                 }
 
                 renderPass.setBindGroup(1, meshBindGroups[i]!);
@@ -265,28 +353,67 @@ export class ShadowPass {
         this.modelBindGroupPool = [];
         this.matrixSlotMap.clear();
         this.slotCachedMatrix.length = 0;
+        this.skinnedModelBindGroupCache.clear();
         this.pipeline = null;
         this.pipeline36 = null;
+        this.skinnedPipeline = null;
+        this.skinnedModelBGL = null;
         this.device = null;
         this.resources = null;
+    }
+
+    /**
+     * Skinned equivalent of getModelBindGroup. Pulls the shared model
+     * buffer slot (so the matrix upload and GPU-side caching work the
+     * same way), then wraps it with the mesh's joint-matrices storage
+     * buffer into a dedicated (model, joints) bind group. Cached by
+     * `${slotIdx}_${jointBufferLabel}` so a peer's proxy keeps its
+     * bind group across frames.
+     */
+    private getSkinnedModelBindGroup(mesh: RenderMeshInstance): GPUBindGroup | null {
+        if (!mesh.jointMatricesBuffer) return null;
+        // Reuse getModelBindGroup's slot allocation + matrix upload — the
+        // returned standard BG is discarded, we just need the slot index
+        // and the backing buffer to be populated.
+        this.getModelBindGroup(mesh);
+        const idx = this.matrixSlotMap.get(mesh.modelMatrix);
+        if (idx === undefined) return null;
+
+        const jointBuf = mesh.jointMatricesBuffer;
+        const cacheKey = `${idx}_${jointBuf.label ?? ''}`;
+        let bg = this.skinnedModelBindGroupCache.get(cacheKey);
+        if (!bg) {
+            bg = this.resources!.createBindGroup(this.skinnedModelBGL!, [
+                { binding: 0, resource: { buffer: this.modelBufferPool[idx] } },
+                { binding: 1, resource: { buffer: jointBuf } },
+            ], `shadow_skinned_model_bg_${cacheKey}`);
+            this.skinnedModelBindGroupCache.set(cacheKey, bg);
+        }
+        return bg;
     }
 
     private getModelBindGroup(mesh: RenderMeshInstance): GPUBindGroup {
         let idx = this.matrixSlotMap.get(mesh.modelMatrix);
         if (idx === undefined) {
             idx = this.matrixSlotMap.size;
-            const buf = this.resources!.createUniformBuffer(128, `shadow_model_pool_${idx}`);
-            this.modelBufferPool.push(buf);
-            this.modelBindGroupPool.push(
-                this.resources!.createBindGroup(this.modelBGL!, [{
-                    binding: 0,
-                    resource: { buffer: buf },
-                }], `shadow_model_bg_pool_${idx}`)
-            );
+            // Only grow the pool when we've exhausted existing slots.
+            // Reused slots keep their GPUBuffer + GPUBindGroup — we just
+            // force the sentinel mismatch so the first writeBuffer of the
+            // frame actually uploads (the old cached data doesn't describe
+            // the new mesh assigned to this slot).
+            if (idx >= this.modelBufferPool.length) {
+                const buf = this.resources!.createUniformBuffer(128, `shadow_model_pool_${idx}`);
+                this.modelBufferPool.push(buf);
+                this.modelBindGroupPool.push(
+                    this.resources!.createBindGroup(this.modelBGL!, [{
+                        binding: 0,
+                        resource: { buffer: buf },
+                    }], `shadow_model_bg_pool_${idx}`)
+                );
+                this.slotCachedMatrix[idx] = new Float32Array(16);
+            }
+            this.slotCachedMatrix[idx][0] = NaN; // force first-write mismatch
             this.matrixSlotMap.set(mesh.modelMatrix, idx);
-            const sentinel = new Float32Array(16);
-            sentinel[0] = NaN; // force first-write mismatch
-            this.slotCachedMatrix[idx] = sentinel;
         }
 
         const cached = this.slotCachedMatrix[idx];
@@ -308,8 +435,8 @@ export class ShadowPass {
         return this.modelBindGroupPool[idx];
     }
 
-    private computeCascadeSplits(near: number, far: number): void {
-        const shadowFar = Math.min(far, MAX_SHADOW_DISTANCE);
+    private computeCascadeSplits(near: number, far: number, maxShadowDist: number): void {
+        const shadowFar = Math.min(far, maxShadowDist);
         for (let i = 0; i < NUM_CASCADES; i++) {
             const p = (i + 1) / NUM_CASCADES;
             const log = near * Math.pow(shadowFar / near, p);

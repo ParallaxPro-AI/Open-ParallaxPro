@@ -21,6 +21,7 @@ export class ShaderLibrary {
         this.compileModule('terrain_fragment', TERRAIN_FRAGMENT_SHADER);
         this.compileModule('terrain_fragment_mrt', TERRAIN_FRAGMENT_SHADER_MRT);
         this.compileModule('shadow_vertex', SHADOW_VERTEX_SHADER);
+        this.compileModule('shadow_vertex_skinned', SHADOW_VERTEX_SHADER_SKINNED);
         this.compileModule('fullscreen_vertex', FULLSCREEN_VERTEX_SHADER);
         this.compileModule('fxaa_fragment', FXAA_FRAGMENT_SHADER);
         this.compileModule('ssr_fragment', SSR_FRAGMENT_SHADER);
@@ -384,9 +385,12 @@ fn computeShadow(worldPos: vec3<f32>, normal: vec3<f32>) -> f32 {
     let shadow = sampleShadowCascade(worldPos, normal, cascade);
 
     // Smooth transition at cascade boundaries to avoid visible seams.
+    // 20% of each cascade's range blends into the next — was 10% but the
+    // resulting band was too narrow to hide the resolution jump, showing
+    // up as visible "lines" across the scene.
     let cascadeFar = camera.cascadeSplits[cascade];
     let cascadeNear = select(camera.cascadeSplits[cascade - 1], 0.0, cascade == 0);
-    let blendZone = (cascadeFar - cascadeNear) * 0.1;
+    let blendZone = (cascadeFar - cascadeNear) * 0.2;
     let distToEdge = cascadeFar - depth;
     if (distToEdge < blendZone && cascade < 3) {
         let nextShadow = sampleShadowCascade(worldPos, normal, cascade + 1);
@@ -1488,6 +1492,42 @@ ${MODEL_STRUCT}
 @vertex
 fn vs_main(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
     return lightCamera.projMatrix * lightCamera.viewMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
+}
+`;
+
+// Skinned variant — applies linear blend skinning before projecting into
+// light space. Without this, shadows of animated characters are frozen
+// in the GLB's bind pose (T-pose) while the visible mesh runs its
+// current clip.
+export const SHADOW_VERTEX_SHADER_SKINNED = /* wgsl */ `
+struct LightCamera {
+    viewMatrix: mat4x4<f32>,
+    projMatrix: mat4x4<f32>,
+};
+${MODEL_STRUCT}
+
+@group(0) @binding(0) var<uniform> lightCamera: LightCamera;
+@group(1) @binding(0) var<uniform> model: ModelUniforms;
+@group(1) @binding(1) var<storage, read> jointMatrices: array<mat4x4<f32>>;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) joints: vec4<u32>,
+    @location(4) weights: vec4<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> @builtin(position) vec4<f32> {
+    var skinnedPos = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        let jointIdx = input.joints[i];
+        let weight = input.weights[i];
+        if (weight > 0.0) {
+            let jm = jointMatrices[jointIdx];
+            skinnedPos = skinnedPos + weight * (jm * vec4<f32>(input.position, 1.0));
+        }
+    }
+    return lightCamera.projMatrix * lightCamera.viewMatrix * model.modelMatrix * skinnedPos;
 }
 `;
 

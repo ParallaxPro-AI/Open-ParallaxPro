@@ -107,6 +107,21 @@ export class MultiplayerSession {
     private _tickRate: number = TICK_RATE_DEFAULT;
     private _predictionEnabled: boolean = true;
 
+    // ── Remote-player proxy policy ────────────────────────────────────────
+    // A declarative prefab name (Layer 1), a per-peer resolver callback
+    // (Layer 2 — e.g. MOBA champion pick), and a manual bind map (Layer 3
+    // — games that spawn proxies themselves and just tell the adapter
+    // which entity to route snapshots to). Any of the three can be set;
+    // resolution order is:
+    //   1. boundProxies entry → use it, no spawn.
+    //   2. resolver(peerId) → instantiate that prefab.
+    //   3. _remotePlayerPrefab (string) → instantiate by name.
+    //   4. _remotePlayerPrefab === null → skip auto-spawn entirely.
+    //   5. _remotePlayerPrefab undefined → legacy blue-capsule fallback.
+    private _remotePlayerPrefab: string | null | undefined = undefined;
+    private _remotePlayerPrefabResolver: ((peerId: PeerId, roster: LobbyRoster | null) => string | null | undefined) | null = null;
+    private _boundProxies: Map<PeerId, any> = new Map();
+
     private _simTick: number = 0;
     private _simAccumulator: number = 0;
     private _inputSeq: number = 0;
@@ -124,6 +139,8 @@ export class MultiplayerSession {
     private _voiceGainNodes: Map<PeerId, GainNode> = new Map();
     private _voiceLevels: Map<PeerId, number> = new Map();
     private _voiceAudioCtx: AudioContext | null = null;
+    private _voiceCtxGestureHandler: (() => void) | null = null;
+    private _localVoiceAnalyser: { analyser: AnalyserNode; buf: Uint8Array; src: MediaStreamAudioSourceNode } | null = null;
 
     private _lobbyListListeners = new Set<(lobbies: LobbyListEntry[]) => void>();
     private _rosterListeners = new Set<(roster: LobbyRoster | null) => void>();
@@ -138,6 +155,53 @@ export class MultiplayerSession {
         this._tickRate = Math.max(5, Math.min(120, Math.floor(tickRate) || TICK_RATE_DEFAULT));
     }
     setPredictionEnabled(enabled: boolean): void { this._predictionEnabled = enabled; }
+
+    /**
+     * Layer 1: declarative default. Called from the play bootstrapper
+     * with the value read out of `multiplayerConfig.remotePlayerPrefab`.
+     *   - string → adapter instantiates that prefab for every new peer.
+     *   - null   → adapter skips auto-spawning (game owns the spawn).
+     *   - undefined → legacy blue-capsule fallback.
+     */
+    setRemotePlayerPrefab(name: string | null | undefined): void {
+        this._remotePlayerPrefab = name;
+    }
+
+    /**
+     * Layer 2: per-peer override. Resolver returns a prefab name based on
+     * the peer's role/team/champion/class. Returning `undefined` defers
+     * to the Layer 1 default; returning `null` skips spawn for that peer.
+     */
+    setRemotePlayerPrefabResolver(fn: ((peerId: PeerId, roster: LobbyRoster | null) => string | null | undefined) | null): void {
+        this._remotePlayerPrefabResolver = fn;
+    }
+
+    /**
+     * Layer 3: the game owns the spawn. Call this after creating the
+     * proxy entity yourself, and the adapter will route subsequent
+     * snapshots to it without doing any auto-spawn work.
+     */
+    bindProxyEntity(peerId: PeerId, entity: any): void {
+        if (!entity) return;
+        this._boundProxies.set(peerId, entity);
+    }
+    unbindProxyEntity(peerId: PeerId): void { this._boundProxies.delete(peerId); }
+    getBoundProxyEntity(peerId: PeerId): any | null { return this._boundProxies.get(peerId) ?? null; }
+
+    /**
+     * Adapter hook: returns whichever prefab should be instantiated for a
+     * new remote peer, honoring Layer 2 over Layer 1. `undefined` means
+     * fall back to legacy default; `null` means don't spawn at all; a
+     * string is the prefab name to look up in the scene's prefab
+     * registry.
+     */
+    resolveRemotePlayerPrefab(peerId: PeerId): string | null | undefined {
+        if (this._remotePlayerPrefabResolver) {
+            const r = this._remotePlayerPrefabResolver(peerId, this._currentRoster);
+            if (r !== undefined) return r;
+        }
+        return this._remotePlayerPrefab;
+    }
 
     get phase(): SessionPhase { return this._phase; }
     get isHost(): boolean { return this._isHost; }
@@ -176,6 +240,15 @@ export class MultiplayerSession {
         this._gameTemplateId = gameTemplateId;
         this.setPhase('connecting');
         this.lobby.setEvents({
+            onHelloAck: (info) => {
+                // Server may ship server-issued (Cloudflare) TURN credentials —
+                // hand them to the WebRTC manager so future RTCPeerConnection
+                // configs use them. Falls back to bundled STUN+OpenRelay
+                // when not present.
+                if (info?.iceServers && info.iceServers.length > 0) {
+                    this.webrtc.setIceServers(info.iceServers);
+                }
+            },
             onListResult: (_tid, lobbies) => {
                 for (const cb of this._lobbyListListeners) cb(lobbies);
             },
@@ -188,6 +261,21 @@ export class MultiplayerSession {
             onStarted: () => {
                 if (this._currentRoster) this._currentRoster.state = 'playing';
                 this.setPhase('in_game');
+            },
+            onMatchEnded: () => {
+                // Server broadcasts this when the host signals the round
+                // is over. Flip our lobby state + phase back so the next
+                // Start click actually triggers a phase transition (else
+                // setPhase('in_game') is a no-op because phase is still
+                // in_game from the previous round), and drop every peer's
+                // isReady so the lobby-room UI doesn't still show them
+                // as ready from the last round.
+                if (this._currentRoster) {
+                    this._currentRoster.state = 'waiting';
+                    for (const p of this._currentRoster.peers) p.isReady = false;
+                    for (const cb of this._rosterListeners) cb(this._currentRoster);
+                }
+                this.setPhase('in_lobby');
             },
             onKicked: (reason) => this.handleKicked(reason),
             onSignal: (fromPeerId, payload) => this.webrtc.handleSignal(fromPeerId, payload),
@@ -210,6 +298,11 @@ export class MultiplayerSession {
             this.setPhase('disconnected');
             throw e;
         }
+        // Pre-create the voice AudioContext and arm a one-shot gesture
+        // listener now, so by the time the first remote track arrives the
+        // context is already unlocked. Any click/key/touch anywhere in the
+        // page (which includes the in-game controls) will resume it.
+        this.ensureVoiceAudioCtx();
         this.webrtc.initialize(
             this.lobby.peerId,
             (toPeerId, payload) => this.lobby.signal(toPeerId, payload),
@@ -226,9 +319,38 @@ export class MultiplayerSession {
         this.setPhase('browsing');
     }
 
+    private _teardownVoice(dropGestureHandler: boolean): void {
+        // Audio elements + analysers for local meter and every remote peer.
+        // Stop them before the transport closes so playback halts cleanly
+        // and the OS mic is released.
+        this.detachLocalVoiceMeter();
+        for (const peerId of Array.from(this._voiceAudioElems.keys())) {
+            this.detachRemoteVoice(peerId);
+        }
+        this._voiceLevels.clear();
+        if (dropGestureHandler && this._voiceCtxGestureHandler && typeof document !== 'undefined') {
+            document.removeEventListener('pointerdown', this._voiceCtxGestureHandler, true);
+            document.removeEventListener('keydown', this._voiceCtxGestureHandler, true);
+            document.removeEventListener('touchstart', this._voiceCtxGestureHandler, true);
+            this._voiceCtxGestureHandler = null;
+        }
+        // Suspend (not close) the AudioContext so a subsequent session
+        // can reuse it without the autoplay-policy dance. Closed contexts
+        // cannot be resumed.
+        if (this._voiceAudioCtx && this._voiceAudioCtx.state === 'running') {
+            this._voiceAudioCtx.suspend().catch(() => { /* ignored */ });
+        }
+    }
+
     disconnect(): void {
+        this._teardownVoice(true);
+
+        // Close the transport last. webrtc.disconnectAll() stops the mic
+        // track, clears the voice-reconcile timer, and tears down every
+        // RTCPeerConnection; lobby.disconnect() closes the WebSocket.
         this.webrtc.disconnectAll();
         this.lobby.disconnect();
+
         this._currentRoster = null;
         this._isHost = false;
         this._hostPeerId = '';
@@ -243,13 +365,14 @@ export class MultiplayerSession {
 
     requestLobbyList(): void { this.lobby.list(this._gameTemplateId); }
 
-    hostLobby(opts: { name: string; maxPlayers: number; minPlayers: number; password?: string | null }): void {
+    hostLobby(opts: { name: string; maxPlayers: number; minPlayers: number; password?: string | null; allowJoinInProgress?: boolean }): void {
         this.lobby.create({
             gameTemplateId: this._gameTemplateId,
             name: opts.name,
             maxPlayers: opts.maxPlayers,
             minPlayers: opts.minPlayers,
             password: opts.password ?? null,
+            allowJoinInProgress: !!opts.allowJoinInProgress,
         });
     }
 
@@ -258,6 +381,10 @@ export class MultiplayerSession {
     }
 
     leaveLobby(): void {
+        // Keep the gesture handler armed — user may rejoin a lobby
+        // shortly, and we don't want to force another user gesture to
+        // re-enable the AudioContext.
+        this._teardownVoice(false);
         this.lobby.leave();
         this.webrtc.disconnectAll();
         this._currentRoster = null;
@@ -273,6 +400,18 @@ export class MultiplayerSession {
     startGame(): void {
         if (!this._isHost) return;
         this.lobby.start();
+    }
+
+    /**
+     * Host-only: tell the server the round is over. Server flips the
+     * lobby back to 'waiting' + clears everyone's isReady + broadcasts
+     * so peers can re-use the same lobby for a new round. Games with a
+     * match-end condition (deathmatch, coin-grab) call this from their
+     * own _endMatch path; continuous games (everything_game) don't.
+     */
+    endMatch(): void {
+        if (!this._isHost) return;
+        this.lobby.endMatch();
     }
 
     kickPlayer(peerId: PeerId, reason?: string): void {
@@ -325,8 +464,15 @@ export class MultiplayerSession {
         this.webrtc.broadcast({ t: 'ev', ev: event, d: data });
     }
 
-    async enableVoice(): Promise<boolean> { return this.webrtc.enableLocalMic(); }
-    disableVoice(): void { this.webrtc.disableLocalMic(); }
+    async enableVoice(): Promise<boolean> {
+        const ok = await this.webrtc.enableLocalMic();
+        if (ok) this.attachLocalVoiceMeter();
+        return ok;
+    }
+    disableVoice(): void {
+        this.detachLocalVoiceMeter();
+        this.webrtc.disableLocalMic();
+    }
     setMuted(muted: boolean): void { this.webrtc.setLocalMuted(muted); }
     hasVoice(): boolean { return this.webrtc.hasLocalMic(); }
     getRemoteAudioStream(peerId: PeerId): MediaStream | null { return this.webrtc.getRemoteAudioStream(peerId); }
@@ -347,7 +493,79 @@ export class MultiplayerSession {
             }
             this._voiceLevels.set(peerId, Math.sqrt(sum / entry.buf.length));
         }
+        if (this._localVoiceAnalyser) {
+            const a = this._localVoiceAnalyser;
+            (a.analyser as any).getByteTimeDomainData(a.buf);
+            let sum = 0;
+            for (let i = 0; i < a.buf.length; i++) {
+                const v = (a.buf[i] - 128) / 128;
+                sum += v * v;
+            }
+            this._voiceLevels.set(this.localPeerId, Math.sqrt(sum / a.buf.length));
+        } else {
+            this._voiceLevels.delete(this.localPeerId);
+        }
         return this._voiceLevels;
+    }
+
+    private attachLocalVoiceMeter(): void {
+        if (this._localVoiceAnalyser) return;
+        const track = this.webrtc.getLocalAudioTrack();
+        if (!track) return;
+        try {
+            const ctx = this.ensureVoiceAudioCtx();
+            if (!ctx) return;
+            const stream = new MediaStream([track]);
+            const src = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            // Analyser only — never connect to destination or you'd hear
+            // yourself through the speakers with a delay.
+            src.connect(analyser);
+            this._localVoiceAnalyser = { analyser, buf: new Uint8Array(analyser.fftSize), src };
+        } catch { /* AudioContext unavailable — meter silently off. */ }
+    }
+
+    private detachLocalVoiceMeter(): void {
+        if (!this._localVoiceAnalyser) return;
+        try { this._localVoiceAnalyser.src.disconnect(); } catch { /* ignored */ }
+        try { this._localVoiceAnalyser.analyser.disconnect(); } catch { /* ignored */ }
+        this._localVoiceAnalyser = null;
+        this._voiceLevels.delete(this.localPeerId);
+    }
+
+    private ensureVoiceAudioCtx(): AudioContext | null {
+        if (!this._voiceAudioCtx) {
+            const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+            if (Ctx) this._voiceAudioCtx = new Ctx();
+        }
+        const ctx = this._voiceAudioCtx;
+        if (!ctx) return null;
+        // A context created outside a user gesture starts suspended and
+        // produces no sound until resumed. Without this, a peer who never
+        // clicks their own mic button still sees the inbound stream but
+        // hears nothing. Arm a one-shot gesture listener that resumes the
+        // context on the first click/key/touch.
+        if (ctx.state === 'suspended' && typeof document !== 'undefined' && !this._voiceCtxGestureHandler) {
+            const handler = () => {
+                if (this._voiceAudioCtx && this._voiceAudioCtx.state === 'suspended') {
+                    this._voiceAudioCtx.resume().catch(() => { /* ignored */ });
+                }
+                document.removeEventListener('pointerdown', handler, true);
+                document.removeEventListener('keydown', handler, true);
+                document.removeEventListener('touchstart', handler, true);
+                this._voiceCtxGestureHandler = null;
+            };
+            this._voiceCtxGestureHandler = handler;
+            document.addEventListener('pointerdown', handler, true);
+            document.addEventListener('keydown', handler, true);
+            document.addEventListener('touchstart', handler, true);
+        }
+        // Opportunistic resume: if we happen to be inside a gesture right
+        // now (e.g. attach triggered off a click-initiated getUserMedia),
+        // this succeeds immediately.
+        if (ctx.state === 'suspended') ctx.resume().catch(() => { /* ignored */ });
+        return ctx;
     }
 
     private attachRemoteVoice(peerId: PeerId, stream: MediaStream): void {
@@ -369,11 +587,7 @@ export class MultiplayerSession {
         audio.play().catch(() => { /* blocked until user gesture */ });
 
         try {
-            if (!this._voiceAudioCtx) {
-                const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
-                if (Ctx) this._voiceAudioCtx = new Ctx();
-            }
-            const ctx = this._voiceAudioCtx;
+            const ctx = this.ensureVoiceAudioCtx();
             if (!ctx) return;
 
             // Audio chain per peer:
@@ -437,6 +651,19 @@ export class MultiplayerSession {
     // -- Fixed-step tick (called from engine main loop) --------------------
 
     tick(deltaTime: number, _renderTime: number): void {
+        // Ping measurement runs in lobby AND in-game so the lobby room can
+        // show the host ping before the match starts. Sim broadcasts and
+        // entity interpolation are gated on in_game below.
+        if (this._phase !== 'in_lobby' && this._phase !== 'in_game') return;
+
+        this._pingAccumulator += deltaTime * 1000;
+        if (this._pingAccumulator >= PING_INTERVAL_MS && !this._isHost && this._hostPeerId) {
+            this._pingAccumulator = 0;
+            const id = this._nextPingId++;
+            this._inflightPings.set(id, performance.now());
+            this.webrtc.send(this._hostPeerId, { t: 'ping', id, tsMs: performance.now() });
+        }
+
         if (this._phase !== 'in_game') return;
 
         // Per-frame smoothing for remote entity transforms, independent of
@@ -446,14 +673,6 @@ export class MultiplayerSession {
         const adapterAny = this._adapter as any;
         if (adapterAny && typeof adapterAny.tickInterpolation === 'function') {
             adapterAny.tickInterpolation(deltaTime);
-        }
-
-        this._pingAccumulator += deltaTime * 1000;
-        if (this._pingAccumulator >= PING_INTERVAL_MS && !this._isHost && this._hostPeerId) {
-            this._pingAccumulator = 0;
-            const id = this._nextPingId++;
-            this._inflightPings.set(id, performance.now());
-            this.webrtc.send(this._hostPeerId, { t: 'ping', id, tsMs: performance.now() });
         }
 
         this._simAccumulator += deltaTime;
@@ -693,7 +912,15 @@ export class MultiplayerSession {
         this._hostPeerId = roster.hostPeerId;
         this._lastProcessedInputSeqByPeer = {};
         for (const cb of this._rosterListeners) cb(roster);
-        this.setPhase('in_lobby');
+        // If we're joining a lobby that's already in-progress (the host's
+        // game allowed join-in-progress and the match is running), skip
+        // the lobby-room stage entirely and drop straight into gameplay.
+        // Otherwise use the normal pre-match lobby phase.
+        if (roster.state === 'playing') {
+            this.setPhase('in_game');
+        } else {
+            this.setPhase('in_lobby');
+        }
 
         if (asHost) {
             // Host waits for clients' offers.

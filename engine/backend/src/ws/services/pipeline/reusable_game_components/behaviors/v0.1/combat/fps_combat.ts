@@ -12,8 +12,28 @@ class FPSCombatBehavior extends GameScript {
     _reloadTimer = 0;
     _weaponName = "Rifle";
     _shootSound = "";
+    _matchOver = false;
+
+    onStart() {
+        var self = this;
+        this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
+        this.scene.events.game.on("match_started", function() { self._matchOver = false; });
+    }
 
     onUpdate(dt) {
+        // No firing / reloading between matches — mouse clicks on the
+        // game-over screen are for UI, not bullets.
+        if (this._matchOver) return;
+        // Multiplayer: remote player proxies share the behavior but must
+        // not shoot — only the owning peer drives its own weapon.
+        var ni = this.entity.getComponent ? this.entity.getComponent("NetworkIdentityComponent") : null;
+        if (ni && !ni.isLocalPlayer) return;
+
+        // No shooting while dead (also no reload progression — timer
+        // freezes rather than snapping to ready on respawn).
+        var health = this.entity.getScript ? this.entity.getScript("PlayerHealthBehavior") : null;
+        if (health && health._dead) return;
+
         this._fireCooldown -= dt;
 
         // Reload
@@ -61,7 +81,35 @@ class FPSCombatBehavior extends GameScript {
                 var dz = -Math.cos(yaw) * Math.cos(pitch);
                 var hit = this.scene.raycast(cp.x, cp.y, cp.z, dx, dy, dz, 200, this.entity.id);
                 if (hit && hit.entityId) {
-                    this.scene.events.game.emit("entity_damaged", { entityId: hit.entityId, amount: this._damage, source: "bullet" });
+                    // Always fire the local damage event so single-player
+                    // enemies, crates, barrels, etc. react immediately.
+                    this.scene.events.game.emit("entity_damaged", {
+                        entityId: hit.entityId, amount: this._damage, source: "bullet"
+                    });
+
+                    // Multiplayer: if the hit target carries a
+                    // NetworkIdentity with an ownerId, it's a remote
+                    // player proxy. Broadcast so the target's peer
+                    // applies the damage on their own authoritative
+                    // health. We look the entity up on the scene because
+                    // raycast only returns entityId, not the Entity
+                    // object.
+                    var mp = this.scene._mp;
+                    if (mp) {
+                        var hitEntity = this.scene.getEntity
+                            ? this.scene.getEntity(hit.entityId)
+                            : null;
+                        var targetNi = hitEntity && hitEntity.getComponent
+                            ? hitEntity.getComponent("NetworkIdentityComponent")
+                            : null;
+                        if (targetNi && typeof targetNi.ownerId === "string" && targetNi.ownerId) {
+                            mp.sendNetworkedEvent("player_shot", {
+                                targetPeerId: targetNi.ownerId,
+                                damage: this._damage,
+                                shooterPeerId: mp.localPeerId,
+                            });
+                        }
+                    }
                 }
             }
 

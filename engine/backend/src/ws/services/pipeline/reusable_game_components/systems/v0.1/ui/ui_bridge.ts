@@ -74,8 +74,11 @@ class UIBridge extends GameScript {
     }
 
     onUpdate(dt) {
-        // Keyboard shortcuts
-        if (this.input.isKeyPressed("Escape")) {
+        // Pause toggle. KeyP is the reserved pause key — don't bind
+        // Escape, it's owned by the browser's pointer-lock release.
+        // Emits both pause and resume — each FSM state scopes its own
+        // transition, so only the relevant one fires.
+        if (this.input.isKeyPressed("KeyP")) {
             this.scene.events.ui.emit("keyboard:pause", {});
             this.scene.events.ui.emit("keyboard:resume", {});
         }

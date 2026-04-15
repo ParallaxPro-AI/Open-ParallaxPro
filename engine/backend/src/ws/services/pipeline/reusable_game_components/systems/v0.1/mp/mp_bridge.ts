@@ -56,43 +56,57 @@ class MpBridge extends GameScript {
         var url = cfg.multiplayerSignalUrl || this._connectUrl;
         if (!url && typeof window !== "undefined") {
             var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-            url = proto + "//" + window.location.host + "/ws/multiplayer";
+            // /v1 — versioned mount so older published games stay on the
+            // protocol they shipped against when we eventually ship /v2.
+            url = proto + "//" + window.location.host + "/ws/multiplayer/v1";
         }
+        // Forward the user's auth token if present so the lobby server can
+        // surface the real username (instead of guest-xxx) and gate
+        // protected resources like Cloudflare TURN credentials behind a
+        // verified account.
+        try {
+            if (typeof localStorage !== "undefined" && url) {
+                var token = localStorage.getItem("auth_token") || localStorage.getItem("token") || "";
+                if (token) {
+                    url += (url.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(token);
+                }
+            }
+        } catch (e) { /* localStorage unavailable */ }
+        // Editor multiplayer preview: both the host tab and any "+ Preview
+        // Client" tabs send the same auth token and would otherwise show
+        // up as the same username. Tag preview tabs with a stable per-tab
+        // suffix so the roster can tell them apart. auto_play=1 is only
+        // set on preview tabs opened via the toolbar button.
+        try {
+            if (typeof window !== "undefined" && url && window.location.search.indexOf("auto_play=1") >= 0) {
+                var previewId = "";
+                try { previewId = sessionStorage.getItem("mp_preview_id") || ""; } catch (e) { /* ignore */ }
+                if (!previewId) {
+                    previewId = Math.random().toString(36).slice(2, 6);
+                    try { sessionStorage.setItem("mp_preview_id", previewId); } catch (e) { /* ignore */ }
+                }
+                url += (url.indexOf("?") >= 0 ? "&" : "?") + "suffix=" + encodeURIComponent("(preview " + previewId + ")");
+            }
+        } catch (e) { /* window unavailable */ }
         var templateId = cfg.gameTemplateId || this._gameTemplateId || "default";
         if (mpCfg.tickRate) mp.setTickRate(mpCfg.tickRate);
         if (typeof mpCfg.predictLocalPlayer === "boolean") mp.setPredictionEnabled(mpCfg.predictLocalPlayer);
+        // remotePlayerPrefab — string name = adapter instantiates that
+        // prefab for every new peer; null = adapter skips auto-spawn so
+        // the game can call mp.bindProxyEntity itself; undefined = legacy
+        // fallback (blue capsule).
+        if (mp.setRemotePlayerPrefab && (mpCfg.remotePlayerPrefab === null || typeof mpCfg.remotePlayerPrefab === "string")) {
+            mp.setRemotePlayerPrefab(mpCfg.remotePlayerPrefab);
+        }
 
         // Subscribe to session state changes and push them onto the UI bus.
         this._unsubs.push(mp.onLobbyList(function(lobbies) {
-            var next = lobbies || [];
-            // Preserve previous pingMs by lobby id so a measurement in flight
-            // or already landed doesn't briefly disappear when the list refreshes.
-            var prev = {};
-            for (var i = 0; i < self._lobbies.length; i++) {
-                var l = self._lobbies[i];
-                if (typeof l.pingMs === "number") prev[l.id] = l.pingMs;
-            }
-            for (var j = 0; j < next.length; j++) {
-                if (prev[next[j].id] !== undefined) next[j].pingMs = prev[next[j].id];
-            }
-            self._lobbies = next;
+            self._lobbies = lobbies || [];
             self._pushUiUpdate();
-
-            // Fire a fresh ping at each lobby's host. Result updates the
-            // matching row (if still present) and re-pushes the state.
-            for (var k = 0; k < next.length; k++) {
-                (function(lobby) {
-                    mp.measureLobbyPing(lobby.id).then(function(ms) {
-                        var idx = -1;
-                        for (var m = 0; m < self._lobbies.length; m++) {
-                            if (self._lobbies[m].id === lobby.id) { idx = m; break; }
-                        }
-                        if (idx < 0) return;
-                        self._lobbies[idx].pingMs = ms;
-                        self._pushUiUpdate();
-                    });
-                })(next[k]);
-            }
+            // Per-lobby host ping was measured here, but it only sampled
+            // signaling-server RTT (client → server → host → server → client),
+            // which has no relationship to actual P2P latency. The in-game
+            // ping HUD shows the real number once you join.
         }));
         this._unsubs.push(mp.onRoster(function(roster) {
             // _currentRoster on the session is mutated in place — reading
@@ -106,6 +120,18 @@ class MpBridge extends GameScript {
             self._roster = roster;
             self._lastRosterPeerCount = newPeerCount;
             self._lastHostId = newHostPeerId;
+
+            // Sync our local ready state with the server-authoritative
+            // one. Otherwise after match_end clears isReady on the roster
+            // the button still reads "Unready" until the user clicks it.
+            if (roster && mp.localPeerId) {
+                for (var pi = 0; pi < roster.peers.length; pi++) {
+                    if (roster.peers[pi].peerId === mp.localPeerId) {
+                        self._localReady = !!roster.peers[pi].isReady;
+                        break;
+                    }
+                }
+            }
             self._pushUiUpdate();
 
             if (!roster) return;
@@ -200,6 +226,7 @@ class MpBridge extends GameScript {
                 maxPlayers: mpCfg.maxPlayers || 2,
                 minPlayers: mpCfg.minPlayers || 1,
                 password: p.password || null,
+                allowJoinInProgress: mpCfg.allowJoinInProgress === true,
             });
         });
 
@@ -219,6 +246,9 @@ class MpBridge extends GameScript {
 
         ui.on("ui_event:connecting_overlay:cancel_connect", function() { mp.leaveLobby(); });
         ui.on("ui_event:disconnected_banner:leave_lobby", function() { mp.leaveLobby(); });
+        // FSM-issued leave (mp:leave_lobby in on_enter for main_menu, etc.).
+        // Idempotent — silently no-ops when we aren't actually in a lobby.
+        ui.on("ui_event:mp:leave_lobby", function() { mp.leaveLobby(); });
 
         // ── Voice + chat HUDs ──
         ui.on("ui_event:hud/voice_chat:voice_request_mic", function() {
@@ -263,22 +293,10 @@ class MpBridge extends GameScript {
             });
         }
 
-        // If the browser has already granted mic permission to this origin,
-        // flip the mic on automatically so the player doesn't have to click
-        // Mic off every time they join a match. If permission is prompt/denied
-        // we leave the mic off — the user has to explicitly click to grant.
-        try {
-            if (typeof navigator !== "undefined" && navigator.permissions && navigator.permissions.query) {
-                navigator.permissions.query({ name: "microphone" }).then(function(status) {
-                    if (status.state === "granted") {
-                        mp.enableVoice().then(function(ok) {
-                            self._micOn = !!ok;
-                            self._pushUiUpdate();
-                        });
-                    }
-                }).catch(function() { /* permissions API not supported for mic */ });
-            }
-        } catch (e) { /* older browser — skip auto-enable */ }
+        // Mic stays off until the user explicitly clicks "Muted" or presses
+        // V. Previously we auto-enabled when the browser had already granted
+        // permission, but that surprises users who joined with headphones
+        // on or are in a quiet room — privacy default wins over convenience.
     }
 
     onUpdate(dt) {
@@ -340,16 +358,29 @@ class MpBridge extends GameScript {
         var nextPing = Math.round(mp.hostPingMs || 0);
         var levels = mp.getVoiceLevels();
         var voicePeers = [];
+        var localPeer = null;
         if (this._roster) {
             for (var i = 0; i < this._roster.peers.length; i++) {
                 var peer = this._roster.peers[i];
-                if (peer.peerId === mp.localPeerId) continue;
+                if (peer.peerId === mp.localPeerId) { localPeer = peer; continue; }
                 voicePeers.push({
                     peerId: peer.peerId,
                     username: peer.username,
                     level: levels.get(peer.peerId) || 0,
                 });
             }
+        }
+        // Always surface the local user's row while they're in a lobby so
+        // the Voice panel (and its mic toggle) is reachable even when
+        // alone — otherwise the user can't turn their mic on in a solo
+        // lobby. Level goes live only when mic is enabled AND not muted.
+        if (localPeer) {
+            voicePeers.unshift({
+                peerId: localPeer.peerId,
+                username: localPeer.username + " (you)",
+                level: (this._micOn && !this._muted) ? (levels.get(localPeer.peerId) || 0) : 0,
+                muted: this._micOn && this._muted,
+            });
         }
         var peersChanged = JSON.stringify(voicePeers) !== JSON.stringify(this._voicePeers);
         this._voicePeers = voicePeers;

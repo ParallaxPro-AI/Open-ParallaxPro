@@ -24,11 +24,21 @@ const RTC_CONFIG: RTCConfiguration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        // Free public TURN (OpenRelay / metered.ca). Required so peers
+        // behind symmetric NATs or strict corporate firewalls — where
+        // STUN alone fails — can still relay through. UDP first, then
+        // TCP fallbacks (443 specifically slips through almost
+        // everything since it looks like HTTPS to firewalls).
+        // Long-term replace with a self-hosted coturn for reliability.
+        { urls: 'turn:openrelay.metered.ca:80',  username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
     ],
 };
 
 const DATA_CHANNEL_LABEL = 'gamedata';
 const CONNECT_TIMEOUT_MS = 15_000;
+const VOICE_RECONCILE_MS = 2000;
 
 export type PeerId = string;
 
@@ -56,10 +66,16 @@ interface PeerInfo {
     outgoingAudioSender: RTCRtpSender | null;
     /**
      * Pre-created sendrecv audio transceiver. Reserving it at connect time
-     * means we can enable/disable the mic later via sender.replaceTrack()
-     * without triggering an SDP renegotiation round-trip.
+     * means later mic toggles can ride out on sender.replaceTrack(), and
+     * re-negotiation (required only on the *first* real track attach per
+     * connection) uses the existing m-section.
      */
     audioTransceiver: RTCRtpTransceiver | null;
+    /**
+     * Set while a local offer is being generated + sent so incoming offers
+     * can be detected as glare. Part of the perfect-negotiation pattern.
+     */
+    makingOffer: boolean;
 }
 
 export interface WebRTCEvents {
@@ -75,6 +91,28 @@ export class WebRTCManager {
     private sendSignal: (toPeerId: PeerId, payload: { kind: string; [k: string]: any }) => void = () => {};
     private events: WebRTCEvents = {};
     private localAudioTrack: MediaStreamTrack | null = null;
+    private localMuted: boolean = false;
+    private dynamicIceServers: RTCIceServer[] | null = null;
+    /**
+     * Voice-reconcile state. Each peer periodically broadcasts its own
+     * `micOn` over the data channel so everyone knows who's expected to
+     * be audible. If our receive side is missing a stream from a peer
+     * that claims to have mic on, we send them a `voice_missing` and
+     * they re-attach + renegotiate. This loop catches bugs in SDP
+     * negotiation that pointer-equality checks would miss.
+     */
+    private remoteMicState: Map<PeerId, boolean> = new Map();
+    private voiceReconcileTimer: ReturnType<typeof setInterval> | null = null;
+
+    /**
+     * Replace the default STUN+OpenRelay TURN list with server-issued
+     * ICE servers (typically Cloudflare ephemeral TURN). Affects only
+     * peer connections opened AFTER this call. Existing connections
+     * keep their current ICE config — they're already negotiated.
+     */
+    setIceServers(servers: RTCIceServer[] | null): void {
+        this.dynamicIceServers = (servers && servers.length > 0) ? servers : null;
+    }
 
     initialize(
         localPeerId: PeerId,
@@ -84,6 +122,8 @@ export class WebRTCManager {
         this.localPeerId = localPeerId;
         this.sendSignal = sendSignal;
         this.events = events;
+        if (this.voiceReconcileTimer) clearInterval(this.voiceReconcileTimer);
+        this.voiceReconcileTimer = setInterval(() => this._voiceReconcileTick(), VOICE_RECONCILE_MS);
     }
 
     /**
@@ -95,7 +135,19 @@ export class WebRTCManager {
     async connect(peerId: PeerId, amInitiator: boolean): Promise<void> {
         if (this.peers.has(peerId)) return;
 
-        const pc = new RTCPeerConnection(RTC_CONFIG);
+        // Prefer dynamic (server-issued) ICE servers when present; they
+        // override the bundled STUN+OpenRelay defaults. STUN entries from
+        // the default list still get merged in for direct-path discovery.
+        const config: RTCConfiguration = this.dynamicIceServers
+            ? { iceServers: [
+                  ...RTC_CONFIG.iceServers!.filter(s => {
+                      const u = Array.isArray(s.urls) ? s.urls[0] : s.urls;
+                      return typeof u === 'string' && u.startsWith('stun:');
+                  }),
+                  ...this.dynamicIceServers,
+              ] }
+            : RTC_CONFIG;
+        const pc = new RTCPeerConnection(config);
         const info: PeerInfo = {
             peerId,
             connection: pc,
@@ -108,6 +160,7 @@ export class WebRTCManager {
             remoteAudioStream: null,
             outgoingAudioSender: null,
             audioTransceiver: null,
+            makingOffer: false,
         };
         this.peers.set(peerId, info);
 
@@ -125,18 +178,12 @@ export class WebRTCManager {
         };
 
         // Renegotiation safety net: fires when the set of transceivers
-        // changes in a way that needs a new SDP exchange (e.g. the fallback
-        // addTrack path in attachLocalAudio). The initial offer/answer is
-        // driven manually below so we gate on `ready`.
-        pc.onnegotiationneeded = async () => {
+        // changes in a way that needs a new SDP exchange (e.g. the
+        // addTrack fallback in attachLocalAudio). The initial offer/answer
+        // is driven manually below, so gate on `ready` to avoid racing it.
+        pc.onnegotiationneeded = () => {
             if (!info.ready) return;
-            try {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                this.sendSignal(peerId, { kind: 'offer', sdp: offer });
-            } catch (e) {
-                console.warn('[WebRTC] renegotiation failed', e);
-            }
+            void this.triggerRenegotiation(info);
         };
 
         pc.ontrack = (e) => {
@@ -149,10 +196,24 @@ export class WebRTCManager {
         };
 
         // Always add a transceiver so voice can be toggled later via
-        // sender.replaceTrack() without renegotiating the PeerConnection.
+        // sender.replaceTrack(). Even when no mic is enabled at connect
+        // time, having the transceiver in the initial SDP reserves an m=
+        // section for audio so later negotiations are incremental.
         try {
             info.audioTransceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
         } catch { /* not supported, voice disabled for this peer */ }
+
+        // Attach the mic track BEFORE createOffer when we already have one,
+        // so the initial SDP advertises a sending SSRC. Without this, the
+        // offer goes out with no a=ssrc for the sender; the peer's ontrack
+        // fires (if at all) with a stub that never receives RTP, and later
+        // replaceTrack() alone does not publish a new SSRC. This is the
+        // classic "late track addition" footgun — browsers disagree on
+        // whether it should work and Chrome in particular needs the SDP
+        // to advertise the track.
+        if (this.localAudioTrack) {
+            this.attachLocalAudio(info);
+        }
 
         if (amInitiator) {
             const channel = pc.createDataChannel(DATA_CHANNEL_LABEL, {
@@ -179,10 +240,6 @@ export class WebRTCManager {
                 this.teardown(peerId);
             }
         }, CONNECT_TIMEOUT_MS);
-
-        if (this.localAudioTrack) {
-            this.attachLocalAudio(info);
-        }
     }
 
     async handleSignal(fromPeerId: PeerId, payload: { kind: string; sdp?: any; candidate?: any }): Promise<void> {
@@ -197,11 +254,24 @@ export class WebRTCManager {
 
         try {
             if (payload.kind === 'offer' && payload.sdp) {
-                await info.connection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                const pc = info.connection;
+                // Perfect-negotiation glare handling: if both peers fire
+                // renegotiation around the same time (e.g. each enables
+                // mic), the offers cross. The polite side rolls back its
+                // own offer and accepts the incoming one; the impolite
+                // side ignores the incoming offer. Initiator = impolite.
+                const offerCollision =
+                    info.makingOffer || pc.signalingState !== 'stable';
+                const polite = !info.isInitiator;
+                if (offerCollision && !polite) return;
+                if (offerCollision && polite) {
+                    try { await (pc as any).setLocalDescription({ type: 'rollback' }); } catch { /* ignored */ }
+                }
+                await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
                 info.remoteDescSet = true;
                 await this.drainPendingIce(info);
-                const answer = await info.connection.createAnswer();
-                await info.connection.setLocalDescription(answer);
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
                 this.sendSignal(fromPeerId, { kind: 'answer', sdp: answer });
             } else if (payload.kind === 'answer' && payload.sdp) {
                 await info.connection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
@@ -250,8 +320,16 @@ export class WebRTCManager {
     }
 
     disconnectAll(): void {
+        // Releases the OS mic (stops getUserMedia tracks) and detaches
+        // from any live senders before we tear them down. Silently no-ops
+        // when mic was never enabled.
+        this.disableLocalMic();
         for (const id of Array.from(this.peers.keys())) this.teardown(id);
-        this.localAudioTrack = null;
+        if (this.voiceReconcileTimer) {
+            clearInterval(this.voiceReconcileTimer);
+            this.voiceReconcileTimer = null;
+        }
+        this.remoteMicState.clear();
     }
 
     // -- Voice --------------------------------------------------------------
@@ -266,6 +344,7 @@ export class WebRTCManager {
             this.localAudioTrack = stream.getAudioTracks()[0] ?? null;
             if (!this.localAudioTrack) return false;
             for (const info of this.peers.values()) this.attachLocalAudio(info);
+            this._broadcastVoiceState();
             return true;
         } catch (e) {
             console.warn('[WebRTC] mic permission denied or unavailable', e);
@@ -277,19 +356,44 @@ export class WebRTCManager {
         if (!this.localAudioTrack) return;
         this.localAudioTrack.stop();
         this.localAudioTrack = null;
+        this.localMuted = false;
         for (const info of this.peers.values()) {
             if (info.outgoingAudioSender) {
                 try { info.outgoingAudioSender.replaceTrack(null); } catch { /* ignored */ }
             }
         }
+        this._broadcastVoiceState();
     }
 
+    /**
+     * Strict mute: detach the mic track from every peer's sender so no
+     * RTP at all goes over the wire (not even WebRTC's silence-filler
+     * packets). Belt-and-suspenders: also flip `track.enabled=false` so
+     * even if a sender managed to hold onto a stale reference, the OS
+     * dims the mic indicator and the track produces no samples locally.
+     * Unmuting is the inverse — reattach the same track to every sender
+     * (codec and SSRC were negotiated at first attach, no renegotiation
+     * needed). The voice-state ping/pong re-broadcasts immediately so
+     * peers know our outgoing stream went silent and don't trigger a
+     * voice_missing repair that would undo the mute.
+     */
     setLocalMuted(muted: boolean): void {
         if (!this.localAudioTrack) return;
+        if (this.localMuted === muted) return;
+        this.localMuted = muted;
         this.localAudioTrack.enabled = !muted;
+        const payload = muted ? null : this.localAudioTrack;
+        for (const info of this.peers.values()) {
+            const sender = info.outgoingAudioSender ?? info.audioTransceiver?.sender ?? null;
+            if (!sender) continue;
+            try { sender.replaceTrack(payload); } catch { /* ignored */ }
+        }
+        this._broadcastVoiceState();
     }
 
     hasLocalMic(): boolean { return !!this.localAudioTrack; }
+
+    getLocalAudioTrack(): MediaStreamTrack | null { return this.localAudioTrack; }
 
     getRemoteAudioStream(peerId: PeerId): MediaStream | null {
         return this.peers.get(peerId)?.remoteAudioStream ?? null;
@@ -298,7 +402,9 @@ export class WebRTCManager {
     private attachLocalAudio(info: PeerInfo): void {
         if (!this.localAudioTrack) return;
 
-        // Already bound — just swap the track.
+        // Already bound — just swap the track. Codec/SSRC were negotiated
+        // the first time this sender went live, so swapping to a new mic
+        // track doesn't need another offer/answer round.
         if (info.outgoingAudioSender) {
             try { info.outgoingAudioSender.replaceTrack(this.localAudioTrack); } catch (e) {
                 console.warn('[WebRTC] replaceTrack failed', e);
@@ -306,26 +412,50 @@ export class WebRTCManager {
             return;
         }
 
-        // Preferred: use the sendrecv transceiver reserved at connect time.
-        // sender.replaceTrack() on an existing transceiver does NOT require
-        // an SDP renegotiation, so enabling mic post-connect just works.
+        // First-time attach. Put the track on the pre-created transceiver's
+        // sender so the next SDP round publishes an a=ssrc for us.
         if (info.audioTransceiver) {
             try {
                 info.audioTransceiver.sender.replaceTrack(this.localAudioTrack);
                 info.outgoingAudioSender = info.audioTransceiver.sender;
-                return;
             } catch (e) {
                 console.warn('[WebRTC] transceiver replaceTrack failed, falling back to addTrack', e);
+                try {
+                    const sender = info.connection.addTrack(this.localAudioTrack);
+                    info.outgoingAudioSender = sender;
+                } catch (e2) { console.warn('[WebRTC] addTrack fallback failed', e2); }
             }
+        } else {
+            try {
+                const sender = info.connection.addTrack(this.localAudioTrack);
+                info.outgoingAudioSender = sender;
+            } catch (e) { console.warn('[WebRTC] addTrack failed', e); }
         }
 
-        // Fallback: add a new track. Triggers onnegotiationneeded which we
-        // handle below to renegotiate automatically.
+        // If the peer is already past initial negotiation, publishing the
+        // new track requires a fresh offer — replaceTrack alone doesn't
+        // announce a new SSRC to the remote side and the peer's ontrack
+        // never fires with a real receiver. If we're still pre-initial-
+        // offer (connect() in progress before createOffer), skip: the
+        // track will ride out in the first offer automatically.
+        if (info.ready && info.connection.signalingState === 'stable') {
+            void this.triggerRenegotiation(info);
+        }
+    }
+
+    private async triggerRenegotiation(info: PeerInfo): Promise<void> {
+        const pc = info.connection;
+        if (pc.signalingState !== 'stable') return;
+        info.makingOffer = true;
         try {
-            const sender = info.connection.addTrack(this.localAudioTrack);
-            info.outgoingAudioSender = sender;
+            const offer = await pc.createOffer();
+            if (pc.signalingState !== 'stable') return;
+            await pc.setLocalDescription(offer);
+            this.sendSignal(info.peerId, { kind: 'offer', sdp: offer });
         } catch (e) {
-            console.warn('[WebRTC] addTrack failed', e);
+            console.warn('[WebRTC] renegotiation failed', e);
+        } finally {
+            info.makingOffer = false;
         }
     }
 
@@ -357,6 +487,17 @@ export class WebRTCManager {
         channel.onmessage = (e) => {
             try {
                 const msg: RTCMessage = JSON.parse(typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data));
+                // Internal voice-reconcile messages are absorbed here; the
+                // session never sees them. Anything else goes up to the
+                // session's onMessage handler as before.
+                if (msg && (msg as any).t === 'voice_state') {
+                    this._handleVoiceState(info.peerId, !!(msg as any).micOn);
+                    return;
+                }
+                if (msg && (msg as any).t === 'voice_missing') {
+                    this._handleVoiceMissing(info);
+                    return;
+                }
                 this.events.onMessage?.(info.peerId, msg);
             } catch { /* ignore malformed */ }
         };
@@ -369,6 +510,93 @@ export class WebRTCManager {
         try { info.channel?.close(); } catch { /* ignored */ }
         try { info.connection.close(); } catch { /* ignored */ }
         this.peers.delete(peerId);
+        this.remoteMicState.delete(peerId);
         if (info.ready) this.events.onClose?.(peerId);
+    }
+
+    // ── Voice reconcile ─────────────────────────────────────────────────────
+
+    /**
+     * Periodic tick: broadcast our current mic state, then for every peer
+     * that's claimed to have mic on but we're not actually receiving audio
+     * from, send them a voice_missing so they re-attach + renegotiate.
+     *
+     * Running on both sides makes this a symmetric repair — either direction
+     * broken, detected and fixed within ~2-4 seconds without manually
+     * chasing Chrome's SDP quirks.
+     */
+    private _voiceReconcileTick(): void {
+        this._broadcastVoiceState();
+        for (const info of this.peers.values()) {
+            if (!info.ready || !info.channel || info.channel.readyState !== 'open') continue;
+            const theyClaimMicOn = this.remoteMicState.get(info.peerId) === true;
+            if (!theyClaimMicOn) continue;
+            if (this._remoteAudioAppearsAlive(info)) continue;
+            try {
+                info.channel.send(JSON.stringify({ t: 'voice_missing' }));
+            } catch { /* channel half-closed */ }
+        }
+    }
+
+    private _broadcastVoiceState(): void {
+        // "micOn" is the effective state — actively transmitting audio. A
+        // muted peer is NOT micOn, so other peers don't trigger a
+        // voice_missing repair when they correctly see silence on the wire.
+        const active = !!this.localAudioTrack && !this.localMuted;
+        const payload = JSON.stringify({ t: 'voice_state', micOn: active });
+        for (const info of this.peers.values()) {
+            if (!info.ready || !info.channel || info.channel.readyState !== 'open') continue;
+            try { info.channel.send(payload); } catch { /* ignored */ }
+        }
+    }
+
+    /**
+     * Heuristic for "I'm actually receiving audio from this peer": we have
+     * a MediaStream for them AND at least one of its audio tracks is
+     * unmuted. Chrome sets `track.muted = true` when no RTP is flowing,
+     * so this reliably catches the "ontrack fired with a ghost track"
+     * case where the stream exists but nothing's coming through.
+     */
+    private _remoteAudioAppearsAlive(info: PeerInfo): boolean {
+        const stream = info.remoteAudioStream;
+        if (!stream) return false;
+        const tracks = stream.getAudioTracks();
+        if (!tracks || tracks.length === 0) return false;
+        for (const t of tracks) {
+            if (!t.muted && t.readyState === 'live') return true;
+        }
+        return false;
+    }
+
+    private _handleVoiceState(peerId: PeerId, micOn: boolean): void {
+        this.remoteMicState.set(peerId, micOn);
+    }
+
+    /**
+     * A peer told us they can't hear us. Force re-attach the current mic
+     * track to their sender and kick a fresh renegotiation, bypassing
+     * replaceTrack's "codec already negotiated, skip SDP" fast path
+     * because that's exactly what got wedged in the first place.
+     */
+    private _handleVoiceMissing(info: PeerInfo): void {
+        // Race case: peer's state was stale, they asked for a repair after
+        // we muted. Honor the mute — don't re-attach the track.
+        if (!this.localAudioTrack || this.localMuted) return;
+        console.warn('[WebRTC] voice_missing from', info.peerId, '- forcing re-attach');
+        try {
+            if (info.audioTransceiver) {
+                info.audioTransceiver.sender.replaceTrack(this.localAudioTrack);
+                info.outgoingAudioSender = info.audioTransceiver.sender;
+                try { info.audioTransceiver.direction = 'sendrecv'; } catch { /* read-only in some states */ }
+            } else {
+                const sender = info.connection.addTrack(this.localAudioTrack);
+                info.outgoingAudioSender = sender;
+            }
+        } catch (e) {
+            console.warn('[WebRTC] re-attach on voice_missing failed', e);
+        }
+        if (info.ready && info.connection.signalingState === 'stable') {
+            void this.triggerRenegotiation(info);
+        }
     }
 }

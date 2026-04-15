@@ -296,6 +296,9 @@ class CoinGrabGameSystem extends GameScript {
         if (mp) mp.sendNetworkedEvent("match_ended", payload);
         this.scene.events.game.emit("match_ended", payload);
         this._pushGameOver(winnerPeerId, reason);
+        // Host flips the server lobby back to 'waiting' so Play Again
+        // can re-Start the round without stale ready-state baggage.
+        if (mp && mp.isHost && mp.endMatch) mp.endMatch();
     }
 
     _pushGameOver(winnerPeerId, reason) {

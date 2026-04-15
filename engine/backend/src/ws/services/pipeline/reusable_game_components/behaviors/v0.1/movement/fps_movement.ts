@@ -5,8 +5,32 @@ class FPSMovementBehavior extends GameScript {
     _sprintSpeed = 10;
     _jumpForce = 7;
     _canJump = true;
+    _matchOver = false;
+
+    onStart() {
+        var self = this;
+        this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
+        this.scene.events.game.on("match_started", function() { self._matchOver = false; });
+    }
 
     onUpdate(dt) {
+        if (this._matchOver) {
+            if (this.scene.setVelocity) this.scene.setVelocity(this.entity.id, { x: 0, y: 0, z: 0 });
+            return;
+        }
+        // Multiplayer: remote player proxies carry the same behavior but
+        // must not run input — their transform comes from snapshots.
+        var ni = this.entity.getComponent ? this.entity.getComponent("NetworkIdentityComponent") : null;
+        if (ni && !ni.isLocalPlayer) return;
+
+        // Dead players freeze in place until their respawn timer fires.
+        // Velocity is zeroed so physics momentum doesn't keep sliding them.
+        var health = this.entity.getScript ? this.entity.getScript("PlayerHealthBehavior") : null;
+        if (health && health._dead) {
+            if (this.scene.setVelocity) this.scene.setVelocity(this.entity.id, { x: 0, y: 0, z: 0 });
+            return;
+        }
+
         var yaw = (this.scene._fpsYaw || 0) * Math.PI / 180;
         var forward = 0, strafe = 0;
 
@@ -35,7 +59,13 @@ class FPSMovementBehavior extends GameScript {
 
         this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
 
-        // Rotate player to face camera yaw
-        this.entity.transform.setRotationEuler(0, this.scene._fpsYaw || 0, 0);
+        // Rotate player to face the camera yaw. The entity rotation has
+        // to be negated because Quat.fromEuler rotates -Z to -X under a
+        // positive Y turn, while the camera's lookAt formula (used
+        // by camera_fps) rotates -Z to +X under the same yaw. Without
+        // the sign flip the model faces opposite the camera's aim — so
+        // other peers see a soldier running backwards relative to where
+        // they're looking.
+        this.entity.transform.setRotationEuler(0, -(this.scene._fpsYaw || 0), 0);
     }
 }

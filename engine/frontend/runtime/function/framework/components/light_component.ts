@@ -22,6 +22,13 @@ export class LightComponent extends Component {
     outerConeAngle: number = 0.5;
     castShadows: boolean = false;
     shadowMapSize: number = 1024;
+    /**
+     * Optional max world-space distance for cascaded shadows. Undefined =
+     * use the engine default (tuned for arena-scale scenes); open-world
+     * templates (terrain-heavy, long sight lines) set this higher — e.g.
+     * 800-1000 — at the cost of softer shadows per texel.
+     */
+    shadowDistance: number | undefined = undefined;
 
     constructor() {
         super();
@@ -56,6 +63,7 @@ export class LightComponent extends Component {
         this.outerConeAngle = data.outerConeAngle ?? 0.5;
         this.castShadows = data.castShadows ?? false;
         this.shadowMapSize = data.shadowMapSize ?? 1024;
+        this.shadowDistance = data.shadowDistance;
     }
 
     toJSON(): Record<string, any> {
@@ -68,6 +76,7 @@ export class LightComponent extends Component {
             outerConeAngle: this.outerConeAngle,
             castShadows: this.castShadows,
             shadowMapSize: this.shadowMapSize,
+            shadowDistance: this.shadowDistance,
         };
     }
 }

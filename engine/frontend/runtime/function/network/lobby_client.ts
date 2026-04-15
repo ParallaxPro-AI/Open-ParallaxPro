@@ -10,6 +10,14 @@
 
 export type PeerId = string;
 
+/**
+ * Wire protocol version this client speaks. Must match the server
+ * mounted at /ws/multiplayer/v{LOBBY_PROTOCOL_VERSION}. Server replies
+ * with its own version on hello_ack — connect() rejects on mismatch so
+ * an outdated client doesn't silently bind into an incompatible session.
+ */
+export const LOBBY_PROTOCOL_VERSION = 1;
+
 export interface LobbyListEntry {
     id: string;
     name: string;
@@ -42,7 +50,7 @@ export interface LobbyRoster {
 }
 
 export interface LobbyClientEvents {
-    onHelloAck?: (info: { peerId: PeerId; username: string }) => void;
+    onHelloAck?: (info: { peerId: PeerId; username: string; iceServers?: RTCIceServer[] | null; protocolVersion?: number }) => void;
     onListResult?: (gameTemplateId: string, lobbies: LobbyListEntry[]) => void;
     onCreated?: (roster: LobbyRoster) => void;
     onJoined?: (roster: LobbyRoster) => void;
@@ -51,6 +59,7 @@ export interface LobbyClientEvents {
     onPeerReady?: (peerId: PeerId, isReady: boolean) => void;
     onClosed?: (lobbyId: string, reason: string) => void;
     onStarted?: (lobbyId: string) => void;
+    onMatchEnded?: (lobbyId: string) => void;
     onKicked?: (reason: string) => void;
     onSignal?: (fromPeerId: PeerId, payload: any) => void;
     onPingRequest?: (fromPeerId: PeerId, clientTs: number) => void;
@@ -98,6 +107,15 @@ export class LobbyClient {
                 if (msg.type === 'lobby.hello_ack' && !resolved) {
                     resolved = true;
                     clearTimeout(timer);
+                    const serverV = Number(msg.data.protocolVersion || 0);
+                    if (serverV && serverV !== LOBBY_PROTOCOL_VERSION) {
+                        try { ws.close(); } catch { /* ignored */ }
+                        reject(new Error(
+                            `Lobby protocol mismatch: client v${LOBBY_PROTOCOL_VERSION}, server v${serverV}. ` +
+                            `This game is built against an older engine — re-publish to upgrade.`
+                        ));
+                        return;
+                    }
                     this.peerId = msg.data.peerId;
                     this.username = msg.data.username;
                     this.events.onHelloAck?.(msg.data);
@@ -149,6 +167,7 @@ export class LobbyClient {
         maxPlayers: number;
         minPlayers: number;
         password?: string | null;
+        allowJoinInProgress?: boolean;
     }): void { this.send('lobby.create', opts); }
 
     join(opts: { lobbyId: string; password?: string | null }): void {
@@ -160,6 +179,7 @@ export class LobbyClient {
     setReady(ready: boolean): void { this.send('lobby.ready', { ready }); }
 
     start(): void { this.send('lobby.start', {}); }
+    endMatch(): void { this.send('lobby.end_match', {}); }
 
     kick(peerId: PeerId, reason?: string): void { this.send('lobby.kick', { peerId, reason }); }
 
@@ -200,6 +220,9 @@ export class LobbyClient {
                 return;
             case 'lobby.started':
                 this.events.onStarted?.(data.lobbyId);
+                return;
+            case 'lobby.match_ended':
+                this.events.onMatchEnded?.(data.lobbyId);
                 return;
             case 'lobby.kicked':
                 this.events.onKicked?.(data.reason || 'Kicked by host');

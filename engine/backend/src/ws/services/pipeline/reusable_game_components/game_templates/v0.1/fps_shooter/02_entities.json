@@ -13,7 +13,14 @@
         "freeze_rotation": true,
         "collider": "capsule"
       },
-      "tags": ["player"],
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true,
+        "networkedVars": ["health"]
+      },
+      "tags": ["player", "networked"],
       "behaviors": [
         {
           "name": "fps_movement",
@@ -44,7 +51,8 @@
           "params": {
             "maxHealth": 100,
             "regenDelay": 5,
-            "regenRate": 20
+            "regenRate": 20,
+            "respawnDelay": 3
           }
         }
       ]
@@ -59,36 +67,6 @@
           "params": {
             "sensitivity": 0.15,
             "eyeHeight": 1.6
-          }
-        }
-      ]
-    },
-    "enemy": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb",
-        "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 0
-      },
-      "physics": {
-        "type": "dynamic",
-        "mass": 70,
-        "freeze_rotation": true,
-        "collider": "capsule"
-      },
-      "tags": ["enemy"],
-      "behaviors": [
-        {
-          "name": "enemy_ai",
-          "script": "ai/enemy_ai.ts",
-          "params": {
-            "health": 100,
-            "maxHealth": 100,
-            "detectionRange": 20,
-            "fireRange": 15,
-            "damage": 10,
-            "fireRate": 1.0,
-            "moveSpeed": 3
           }
         }
       ]

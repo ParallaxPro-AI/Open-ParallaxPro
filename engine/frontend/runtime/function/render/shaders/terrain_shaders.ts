@@ -225,7 +225,9 @@ fn computeShadow(worldPos: vec3<f32>, normal: vec3<f32>) -> f32 {
 
     let cascadeFar = camera.cascadeSplits[cascade];
     let cascadeNear = select(camera.cascadeSplits[cascade - 1], 0.0, cascade == 0);
-    let blendZone = (cascadeFar - cascadeNear) * 0.1;
+    // 20% blend (was 10%) — narrower band was too abrupt, seams between
+    // cascades showed as visible lines on terrain.
+    let blendZone = (cascadeFar - cascadeNear) * 0.2;
     let distToEdge = cascadeFar - depth;
 
     if (distToEdge < blendZone && cascade < 3) {

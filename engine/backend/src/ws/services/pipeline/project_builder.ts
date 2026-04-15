@@ -101,6 +101,7 @@ export function buildProject(
     };
     if (assembled.heightmapTerrain) scene.heightmapTerrain = assembled.heightmapTerrain;
     if (assembled.streamedBuildings) scene.streamedBuildings = assembled.streamedBuildings;
+    if (assembled.prefabs) scene.prefabs = assembled.prefabs;
 
     return {
         success: true,

@@ -218,13 +218,17 @@ export class Toolbar {
         this.previewClientBtn = document.createElement('button');
         this.previewClientBtn.className = 'toolbar-btn';
         this.previewClientBtn.style.cssText = 'font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap;margin-left:4px;display:none;';
-        this.previewClientBtn.textContent = '+ Preview Client';
+        this.previewClientBtn.textContent = '+ Client';
         this.previewClientBtn.title = 'Open another window of this project to test multiplayer locally';
         this.previewClientBtn.addEventListener('click', () => {
             const pid = this.ctx.state.projectId;
             if (!pid) return;
-            const url = `${window.location.origin}/?project=${encodeURIComponent(pid)}&auto_play=1`;
-            window.open(url, '_blank', 'noopener,noreferrer');
+            // Preserve the current pathname so the editor opens at the same
+            // base — root in dev (`/`) but `/editor/` on the hosted site.
+            const url = new URL(window.location.href);
+            url.searchParams.set('project', pid);
+            url.searchParams.set('auto_play', '1');
+            window.open(url.toString(), '_blank', 'noopener,noreferrer');
         });
         playGroup.appendChild(this.previewClientBtn);
 

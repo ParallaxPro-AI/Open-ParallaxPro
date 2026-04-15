@@ -29,6 +29,14 @@ export class Scene {
     private tagIndex: Map<string, Set<number>> = new Map();
     private nameIndex: Map<string, Set<number>> = new Map();
 
+    /**
+     * Named prefab blueprints emitted by the level_assembler. Each value
+     * is a component bundle (same shape as entries in scene.entities)
+     * minus a persistent id / parentId. Use instantiatePrefab() to stamp
+     * one into the scene at a given position with a fresh id.
+     */
+    private prefabBlueprints: Map<string, Record<string, any>> = new Map();
+
     private idAllocator: IdAllocator;
 
     constructor(sceneData?: Record<string, any>) {
@@ -72,6 +80,115 @@ export class Scene {
             }
         }
 
+        return entity;
+    }
+
+    // -- Prefabs --------------------------------------------------------------
+
+    /**
+     * Populate the prefab registry from the serialized scene blob. Called
+     * once from the scene-load path; games don't need to invoke this
+     * directly.
+     */
+    registerPrefabs(blueprints: Record<string, any> | undefined | null): void {
+        if (!blueprints) return;
+        for (const [name, bp] of Object.entries(blueprints)) {
+            if (bp && typeof bp === 'object') {
+                this.prefabBlueprints.set(name, bp);
+            }
+        }
+    }
+
+    hasPrefab(name: string): boolean {
+        return this.prefabBlueprints.has(name);
+    }
+
+    /**
+     * Instantiate a named prefab with a fresh id. Returns the new Entity,
+     * or null when the prefab name isn't registered.
+     *
+     * Options:
+     *   - position / rotation / scale: override the template's transform.
+     *   - name: override the entity's display name (default: prefab name).
+     *   - skipBehaviors: drop the ScriptComponent so no movement / combat
+     *     / input behaviors run. Network-proxy use case — the proxy is
+     *     driven entirely by inbound snapshots, not local input.
+     *   - kinematicPhysics: downgrade a dynamic Rigidbody to kinematic so
+     *     the proxy doesn't fight its own snapshot-driven transform. Only
+     *     mutates RigidbodyComponent.bodyType; collider stays.
+     *   - extraComponents: appended after the prefab's own components,
+     *     overwriting any of the same type. Adapter uses this to stamp
+     *     NetworkIdentityComponent onto proxies.
+     */
+    instantiatePrefab(
+        name: string,
+        opts: {
+            position?: { x: number; y: number; z: number } | [number, number, number];
+            rotation?: { x: number; y: number; z: number; w: number } | [number, number, number, number];
+            scale?: { x: number; y: number; z: number } | [number, number, number];
+            name?: string;
+            skipBehaviors?: boolean;
+            kinematicPhysics?: boolean;
+            extraComponents?: Array<{ type: string; data?: Record<string, any> }>;
+        } = {},
+    ): Entity | null {
+        const blueprint = this.prefabBlueprints.get(name);
+        if (!blueprint) return null;
+
+        // Clone so we can mutate freely without corrupting the registry.
+        const entityData = JSON.parse(JSON.stringify(blueprint));
+        entityData.id = this.idAllocator.allocate();
+        entityData.name = opts.name ?? (entityData.name || name);
+        if (entityData.parentId !== undefined) delete entityData.parentId;
+
+        const components: any[] = Array.isArray(entityData.components) ? entityData.components : [];
+
+        // Transform overrides — position/rotation/scale take precedence over
+        // whatever the prefab baked in.
+        const tc = components.find((c: any) => c.type === 'TransformComponent');
+        if (tc) {
+            const td = (tc.data = tc.data || {});
+            if (opts.position) {
+                const p: any = opts.position;
+                td.position = Array.isArray(p) ? { x: p[0], y: p[1], z: p[2] } : { x: p.x, y: p.y, z: p.z };
+            }
+            if (opts.rotation) {
+                const r: any = opts.rotation;
+                td.rotation = Array.isArray(r) ? { x: r[0], y: r[1], z: r[2], w: r[3] } : { x: r.x, y: r.y, z: r.z, w: r.w };
+            }
+            if (opts.scale) {
+                const s: any = opts.scale;
+                td.scale = Array.isArray(s) ? { x: s[0], y: s[1], z: s[2] } : { x: s.x, y: s.y, z: s.z };
+            }
+        }
+
+        if (opts.skipBehaviors) {
+            entityData.components = components.filter((c: any) => c.type !== 'ScriptComponent');
+        }
+
+        if (opts.kinematicPhysics) {
+            for (const c of entityData.components) {
+                if (c.type === 'RigidbodyComponent') {
+                    c.data = c.data || {};
+                    c.data.bodyType = 'kinematic';
+                }
+            }
+        }
+
+        if (opts.extraComponents) {
+            for (const extra of opts.extraComponents) {
+                if (!extra?.type) continue;
+                const existing = entityData.components.find((c: any) => c.type === extra.type);
+                if (existing) existing.data = { ...(existing.data || {}), ...(extra.data || {}) };
+                else entityData.components.push({ type: extra.type, data: extra.data || {} });
+            }
+        }
+
+        const entity = Entity.fromJSON(entityData, this);
+        this.entities.set(entity.id, entity);
+        this.idAllocator.ensureMinimum(entity.id);
+        this._indexAddName(entity.id, entity.name);
+        for (const tag of entity.tags) this._indexAddTag(entity.id, tag);
         return entity;
     }
 
@@ -310,13 +427,36 @@ export class Scene {
 
             let modelMatrix = entity.getWorldMatrix();
 
-            // Apply mesh-level offset and rotation in model space
+            // Apply mesh-level offset and rotation in model space.
+            // The output Mat4 is cached on the component — reusing the
+            // same reference across frames is required because shadow_pass
+            // keys its GPU-buffer pool by Mat4 identity. A fresh Mat4 per
+            // frame creates a fresh GPUBuffer + GPUBindGroup per frame and
+            // the pool grows without bound.
             if (mr.modelRotationX !== 0 || mr.modelRotationY !== 0 || mr.modelRotationZ !== 0 || mr.modelOffsetY !== 0) {
-                const deg2rad = Math.PI / 180;
-                const meshRot = Quat.fromEuler(mr.modelRotationX * deg2rad, mr.modelRotationY * deg2rad, mr.modelRotationZ * deg2rad);
-                const meshOffset = new Vec3(0, mr.modelOffsetY, 0);
-                const meshTransform = Mat4.compose(meshOffset, meshRot, new Vec3(1, 1, 1));
-                modelMatrix = modelMatrix.multiply(meshTransform);
+                // Mesh-local transform only needs to be rebuilt when the
+                // rotation/offset values themselves change — ordinarily
+                // they're set once on the prefab and never touched again.
+                if (mr._meshTransformCache === null ||
+                    mr._meshTransformRotX !== mr.modelRotationX ||
+                    mr._meshTransformRotY !== mr.modelRotationY ||
+                    mr._meshTransformRotZ !== mr.modelRotationZ ||
+                    mr._meshTransformOffY !== mr.modelOffsetY) {
+                    const deg2rad = Math.PI / 180;
+                    const meshRot = Quat.fromEuler(mr.modelRotationX * deg2rad, mr.modelRotationY * deg2rad, mr.modelRotationZ * deg2rad);
+                    const meshOffset = new Vec3(0, mr.modelOffsetY, 0);
+                    mr._meshTransformCache = Mat4.compose(meshOffset, meshRot, new Vec3(1, 1, 1));
+                    mr._meshTransformRotX = mr.modelRotationX;
+                    mr._meshTransformRotY = mr.modelRotationY;
+                    mr._meshTransformRotZ = mr.modelRotationZ;
+                    mr._meshTransformOffY = mr.modelOffsetY;
+                }
+                // Composite world × meshTransform into a persistent output
+                // buffer. Mat4.multiply(out) mutates 'out' in place and
+                // returns it, so modelMatrix is the same reference every
+                // frame.
+                if (mr._modelMatrixCache === null) mr._modelMatrixCache = new Mat4();
+                modelMatrix = modelMatrix.multiply(mr._meshTransformCache, mr._modelMatrixCache);
             }
 
             const overrides = mr.materialOverrides;
@@ -413,6 +553,7 @@ export class Scene {
                 direction: dir,
                 color: new Vec3(light.color.r, light.color.g, light.color.b),
                 intensity: light.intensity,
+                shadowDistance: light.shadowDistance,
             });
         }
         return result;
@@ -554,6 +695,10 @@ export class Scene {
 
         if (sceneData.environment) {
             scene.environment = EnvironmentData.fromJSON(sceneData.environment);
+        }
+
+        if (sceneData.prefabs) {
+            scene.registerPrefabs(sceneData.prefabs);
         }
 
         const entitiesData: Record<string, any>[] = sceneData.entities ?? [];

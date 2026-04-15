@@ -33,6 +33,7 @@ import { URL } from 'url';
 import { verifyToken } from '../../../middleware/auth.js';
 import { consumeWsTicket } from '../../ws_tickets.js';
 import { relaySignal, type SignalPayload } from './signaling.js';
+import { getTurnIceServers } from './cloudflare_turn.js';
 import {
     registerPeer,
     unregisterPeer,
@@ -43,6 +44,7 @@ import {
     leaveLobby,
     listLobbies,
     markLobbyPlaying,
+    endMatch,
     checkSignalRate,
     sanitizeName,
     type Lobby,
@@ -51,6 +53,18 @@ import {
 } from './lobby_service.js';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
+
+/**
+ * Lobby wire protocol version. Bumps any time the server changes a
+ * message shape in a way old clients can't tolerate. Clients send their
+ * compiled-in version; the server tells them ours; if they disagree, we
+ * close cleanly with a recognisable error before the client goes off and
+ * does WebRTC negotiation against an incompatible peer set.
+ *
+ * Keep the handler mounted under /ws/multiplayer/vN forever once shipped
+ * so old published games keep working when v(N+1) goes live.
+ */
+export const LOBBY_PROTOCOL_VERSION = 1;
 
 function send(ws: WebSocket, type: string, data: any): void {
     if (ws.readyState !== ws.OPEN) return;
@@ -96,6 +110,7 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
         const ticket = url.searchParams.get('ticket') ?? '';
         const token = url.searchParams.get('token') ?? '';
         const rawName = url.searchParams.get('name') ?? '';
+        const rawSuffix = url.searchParams.get('suffix') ?? '';
 
         let username = sanitizeName(rawName, 32);
         let userId: number | null = null;
@@ -110,6 +125,15 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
 
         if (!username) username = `guest-${Math.random().toString(36).slice(2, 8)}`;
 
+        // Editor "+ Preview Client" tabs send an auth token + a disambiguating
+        // suffix so two tabs of the same account don't collapse to one
+        // username in the roster. Suffix is purely cosmetic; peerId remains
+        // unique per connection.
+        const suffix = sanitizeName(rawSuffix, 20);
+        if (suffix && userId !== null) {
+            username = `${username} ${suffix}`.slice(0, 48);
+        }
+
         const ip =
             (req.headers['x-real-ip'] as string) ||
             (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
@@ -117,7 +141,41 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
             'unknown';
 
         const peer = registerPeer(ws, username, userId, ip);
-        send(ws, 'lobby.hello_ack', { peerId: peer.peerId, username: peer.username });
+        // Optional client-declared protocol version. We accept the
+        // connection regardless (so a client can just listen for the
+        // hello_ack version field and bail if it's wrong), but log a
+        // warning here so server logs surface mismatches early.
+        const clientV = Number(url.searchParams.get('v') || '0');
+        if (clientV && clientV !== LOBBY_PROTOCOL_VERSION) {
+            console.warn(`[lobby] client connected with protocol v${clientV}, server is v${LOBBY_PROTOCOL_VERSION}`);
+        }
+        // Issue Cloudflare TURN ephemeral credentials at hello time so the
+        // client can stand up RTCPeerConnection against the right ICE
+        // server set immediately. Don't block hello_ack — if Cloudflare is
+        // slow or down, fall back to STUN-only and the client will still
+        // succeed for the ~80% of NATs that don't need a relay.
+        //
+        // Gate TURN to authed users only: unauthenticated peers can still
+        // play singleplayer-style lobbies via STUN, but the paid relay path
+        // is reserved for signed-in accounts so randoms can't burn through
+        // our Cloudflare quota.
+        const issueTurn = userId !== null;
+        const turnPromise = issueTurn ? getTurnIceServers() : Promise.resolve(null);
+        turnPromise.then((iceServers) => {
+            send(ws, 'lobby.hello_ack', {
+                peerId: peer.peerId,
+                username: peer.username,
+                protocolVersion: LOBBY_PROTOCOL_VERSION,
+                iceServers: iceServers || null,
+            });
+        }).catch(() => {
+            send(ws, 'lobby.hello_ack', {
+                peerId: peer.peerId,
+                username: peer.username,
+                protocolVersion: LOBBY_PROTOCOL_VERSION,
+                iceServers: null,
+            });
+        });
 
         const heartbeat = setInterval(() => {
             if (ws.readyState === ws.OPEN) ws.ping();
@@ -163,7 +221,7 @@ function handleMessage(peer: Peer, type: string, data: any): void {
     switch (type) {
         case 'lobby.list': {
             const gameTemplateId = typeof data?.gameTemplateId === 'string' ? data.gameTemplateId : '';
-            const lobbies = listLobbies(gameTemplateId);
+            const lobbies = listLobbies(gameTemplateId, peer.ip);
             send(peer.ws, 'lobby.list_result', { gameTemplateId, lobbies });
             return;
         }
@@ -176,6 +234,7 @@ function handleMessage(peer: Peer, type: string, data: any): void {
                 Number(data?.maxPlayers ?? 0),
                 Number(data?.minPlayers ?? 0),
                 typeof data?.password === 'string' ? data.password : null,
+                data?.allowJoinInProgress === true,
             );
             if (!res.ok) { sendError(peer.ws, res.error); return; }
             send(peer.ws, 'lobby.created', rosterPayload(res.lobby));
@@ -253,6 +312,18 @@ function handleMessage(peer: Peer, type: string, data: any): void {
             }
             markLobbyPlaying(lobby.id);
             broadcast(lobby, 'lobby.started', { lobbyId: lobby.id });
+            return;
+        }
+
+        case 'lobby.end_match': {
+            // Host signals the round is over. Flip state back to
+            // 'waiting' and clear every peer's isReady so the lobby
+            // browser and lobby room show a clean slate for the next
+            // round. Non-host callers are rejected inside endMatch().
+            if (!peer.lobbyId) return;
+            const res = endMatch(peer.peerId, peer.lobbyId);
+            if (!res.ok) { sendError(peer.ws, res.error); return; }
+            broadcast(res.lobby, 'lobby.match_ended', { lobbyId: res.lobby.id });
             return;
         }
 

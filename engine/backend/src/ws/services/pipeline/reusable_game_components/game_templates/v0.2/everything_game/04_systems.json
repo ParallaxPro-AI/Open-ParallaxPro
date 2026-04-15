@@ -1,3 +1,8 @@
 {
-  "systems": {}
+  "systems": {
+    "walk_around_game": {
+      "description": "Social-walking MP setup — bootstraps the local player's NetworkIdentity on match start and renders a username tag above every player.",
+      "script": "mp/walk_around_game.ts"
+    }
+  }
 }

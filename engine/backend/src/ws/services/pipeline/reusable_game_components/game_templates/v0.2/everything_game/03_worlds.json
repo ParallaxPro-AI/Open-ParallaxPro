@@ -6,7 +6,8 @@
       "lighting": {
         "ambient": [0.45, 0.48, 0.55],
         "sun_direction": [0.3, -0.8, 0.2],
-        "sun_color": [1.0, 0.96, 0.88]
+        "sun_color": [1.0, 0.96, 0.88],
+        "shadowDistance": 2000
       },
       "heightmapTerrain": {
         "metaUrl": "/assets/official/everything_game/terrain/heightmap_meta.json",

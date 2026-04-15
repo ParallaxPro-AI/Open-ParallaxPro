@@ -114,6 +114,13 @@ this.input.isKeyReleased("KeyE")       // just released
 this.input.isKeyDown("MouseLeft")      // mouse buttons
 this.input.getMouseDelta()             // { x, y }
 
+// Reserved keys — DO NOT rebind for gameplay:
+//   KeyV  — voice chat mute toggle
+//   Enter — text chat open / send
+//   KeyP  — pause menu
+// If a game script uses any of these for gameplay, swap to a free key
+// (KeyE/KeyF/KeyQ/KeyR/KeyT/KeyG/KeyC/KeyX/KeyZ/Tab/digit keys).
+
 // Audio
 this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserSmall_000.ogg", 0.5)
 this.audio.playMusic("/assets/kenney/audio/rpg_audio/music.ogg")
@@ -157,6 +164,30 @@ The game flow is an HFSM. Transitions use these formats:
 - `static` bodies: don't move (walls, ground)
 - `freezeRotation: true` is required for character entities to prevent tumbling
 - Capsule colliders for humanoid characters, box for everything else
+
+## Pause menu
+
+`ui/pause_menu.html` is a reusable overlay. Its buttons are config-driven:
+set them in `01_flow.json` → `ui_params.pause_menu.pauseButtons`. Each
+button action becomes a `ui_event:pause_menu:<action>` transition. KeyP
+toggles pause via `keyboard:pause` / `keyboard:resume`. If a game doesn't
+need a button (e.g., single-player has no `leave_match`), just omit it
+from `pauseButtons`. Omitting `pauseButtons` gives the default `Resume` +
+`Main Menu`.
+
+```json
+"ui_params": {
+  "pause_menu": {
+    "pauseTitle": "PAUSED",
+    "pauseButtons": [
+      { "action": "resume",      "label": "Resume", "primary": true },
+      { "action": "retry",       "label": "Retry" },
+      { "action": "leave_match", "label": "Leave Match", "danger": true },
+      { "action": "main_menu",   "label": "Main Menu" }
+    ]
+  }
+}
+```
 
 ## Common Bugs to Check
 

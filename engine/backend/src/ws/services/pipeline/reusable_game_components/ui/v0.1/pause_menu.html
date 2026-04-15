@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --text: #eaf0f6;
+    --text-dim: #6b7280;
+    --text-muted: #3e4550;
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.15);
+    --accent-1: #6366f1;
+    --accent-2: #8b5cf6;
+    --accent-3: #ec4899;
+    --glow-1: rgba(99, 102, 241, 0.4);
+    --glow-2: rgba(139, 92, 246, 0.3);
+    --danger: #ef4444;
+    --danger-glow: rgba(239, 68, 68, 0.25);
+  }
+
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .hidden { display: none !important; }
+
+  /* ===== OVERLAY ===== */
+  .pm-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 250;
+    background: rgba(6, 6, 12, 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  .pm-overlay.visible {
+    opacity: 1;
+  }
+
+  /* Ambient glow behind the card */
+  .pm-ambient {
+    position: absolute;
+    width: 520px;
+    height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+      rgba(99, 102, 241, 0.25) 0%,
+      rgba(139, 92, 246, 0.15) 40%,
+      transparent 70%);
+    filter: blur(60px);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  .pm-overlay.visible .pm-ambient {
+    opacity: 1;
+    animation: pmAmbientPulse 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes pmAmbientPulse {
+    from { transform: scale(1); opacity: 0.8; }
+    to { transform: scale(1.08); opacity: 1; }
+  }
+
+  /* ===== CARD ===== */
+  .pm-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 56px 40px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(20, 20, 28, 0.85), rgba(12, 12, 18, 0.85));
+    border: 1px solid var(--border);
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, 0.6),
+      0 0 60px rgba(99, 102, 241, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    min-width: 360px;
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+    transition: none;
+  }
+
+  .pm-overlay.visible .pm-card {
+    animation: pmCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes pmCardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ===== TITLE ===== */
+  .pm-title {
+    font-size: 44px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 8px;
+    line-height: 1;
+    background: linear-gradient(135deg, #e0e7ff 0%, var(--accent-1) 40%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 20px var(--glow-1));
+  }
+
+  .pm-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-top: 10px;
+  }
+
+  .pm-line {
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-1), var(--accent-2), transparent);
+    margin: 18px auto 0;
+    border-radius: 1px;
+    opacity: 0.7;
+  }
+
+  /* ===== BUTTONS ===== */
+  .pm-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 260px;
+    margin-top: 32px;
+  }
+
+  .pm-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 14px 22px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: pmBtnIn 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  }
+
+  .pm-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border-radius: 10px;
+  }
+
+  .pm-btn span { position: relative; z-index: 1; }
+
+  .pm-btn:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 18px var(--glow-2);
+  }
+
+  .pm-btn:hover::before { opacity: 0.12; }
+
+  .pm-btn:active {
+    transform: translateY(0);
+    transition-duration: 0.05s;
+  }
+
+  .pm-btn.primary {
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    border-color: transparent;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 16px 22px;
+  }
+
+  .pm-btn.primary::before {
+    background: linear-gradient(135deg, var(--accent-2), var(--accent-3));
+  }
+
+  .pm-btn.primary:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35), 0 0 28px var(--glow-1);
+    filter: brightness(1.1);
+  }
+
+  .pm-btn.primary:hover::before { opacity: 0.3; }
+
+  .pm-btn.danger {
+    color: #ffd4d4;
+  }
+
+  .pm-btn.danger:hover {
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 18px var(--danger-glow);
+  }
+
+  .pm-btn.danger::before {
+    background: linear-gradient(135deg, var(--danger), #b91c1c);
+  }
+
+  .pm-btn.danger:hover::before { opacity: 0.15; }
+
+  /* Staggered entrance */
+  .pm-overlay.visible .pm-btn:nth-child(1) { animation-delay: 0.12s; }
+  .pm-overlay.visible .pm-btn:nth-child(2) { animation-delay: 0.18s; }
+  .pm-overlay.visible .pm-btn:nth-child(3) { animation-delay: 0.24s; }
+  .pm-overlay.visible .pm-btn:nth-child(4) { animation-delay: 0.30s; }
+  .pm-overlay.visible .pm-btn:nth-child(5) { animation-delay: 0.36s; }
+
+  @keyframes pmBtnIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== HINT ===== */
+  .pm-hint {
+    margin-top: 22px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    opacity: 0;
+  }
+
+  .pm-overlay.visible .pm-hint {
+    animation: pmHintFade 0.5s ease 0.5s forwards;
+  }
+
+  @keyframes pmHintFade {
+    from { opacity: 0; }
+    to { opacity: 0.7; }
+  }
+
+  .pm-kbd {
+    display: inline-block;
+    padding: 2px 7px;
+    margin: 0 2px;
+    border: 1px solid var(--border-hover);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<div class="pm-overlay hidden" id="pm-overlay">
+  <div class="pm-ambient"></div>
+  <div class="pm-card">
+    <div class="pm-title" id="pm-title">PAUSED</div>
+    <div class="pm-subtitle hidden" id="pm-subtitle"></div>
+    <div class="pm-line"></div>
+    <div class="pm-buttons" id="pm-buttons"></div>
+    <div class="pm-hint" id="pm-hint">Press <span class="pm-kbd">P</span> to resume</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var overlay = document.getElementById('pm-overlay');
+  var titleEl = document.getElementById('pm-title');
+  var subtitleEl = document.getElementById('pm-subtitle');
+  var buttonsEl = document.getElementById('pm-buttons');
+  var hintEl = document.getElementById('pm-hint');
+
+  var DEFAULT_BUTTONS = [
+    { action: 'resume', label: 'Resume', primary: true },
+    { action: 'main_menu', label: 'Main Menu' }
+  ];
+
+  var lastSig = '';
+
+  function emit(action) {
+    window.parent.postMessage({
+      type: 'game_command',
+      panel: 'pause_menu',
+      action: action
+    }, '*');
+  }
+
+  // Keep explicit literal actions so the template validator can discover
+  // supported pause_menu ui_event targets from this panel source.
+  function emitResume() { emit('resume'); }
+  function emitMainMenu() { emit('main_menu'); }
+  function emitLeaveMatch() { emit('leave_match'); }
+
+  function renderButtons(buttons) {
+    var sig = JSON.stringify(buttons);
+    if (sig === lastSig) return;
+    lastSig = sig;
+
+    buttonsEl.innerHTML = '';
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i];
+      if (!b || !b.action) continue;
+      var btn = document.createElement('button');
+      btn.className = 'pm-btn';
+      if (b.primary) btn.className += ' primary';
+      if (b.danger) btn.className += ' danger';
+      btn.setAttribute('data-interactive', '');
+      btn.style.pointerEvents = 'auto';
+      var span = document.createElement('span');
+      span.textContent = b.label || b.action;
+      btn.appendChild(span);
+      (function(action) {
+        btn.onclick = function() { emit(action); };
+      })(b.action);
+      buttonsEl.appendChild(btn);
+    }
+  }
+
+  function update(state) {
+    if (!state) return;
+
+    // ui_params.pause_menu values arrive as top-level state keys (the FSM
+    // driver flattens them via a hud_update emit), so keys are prefixed
+    // with "pause" to avoid colliding with other panels' state.
+    if (state.pauseTitle !== undefined) titleEl.textContent = state.pauseTitle || 'PAUSED';
+    if (state.pauseSubtitle) {
+      subtitleEl.textContent = state.pauseSubtitle;
+      subtitleEl.classList.remove('hidden');
+    } else if (state.pauseSubtitle === '') {
+      subtitleEl.classList.add('hidden');
+    }
+    if (state.pauseHint === '') {
+      hintEl.classList.add('hidden');
+    } else if (state.pauseHint) {
+      hintEl.innerHTML = state.pauseHint;
+      hintEl.classList.remove('hidden');
+    }
+
+    var buttons = (state.pauseButtons && state.pauseButtons.length) ? state.pauseButtons : DEFAULT_BUTTONS;
+    renderButtons(buttons);
+
+    if (state.pause_menuVisible === true) {
+      overlay.classList.remove('hidden');
+      requestAnimationFrame(function() { overlay.classList.add('visible'); });
+    } else if (state.pause_menuVisible === false) {
+      overlay.classList.remove('visible');
+      setTimeout(function() {
+        if (!overlay.classList.contains('visible')) overlay.classList.add('hidden');
+      }, 250);
+    }
+  }
+
+  // Render defaults immediately so a later update() doesn't race.
+  renderButtons(DEFAULT_BUTTONS);
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+  Object.defineProperty(window, 'gameState', {
+    configurable: true,
+    set: function(val) { update(val); },
+    get: function() { return {}; }
+  });
+})();
+</script>
+</body>
+</html>

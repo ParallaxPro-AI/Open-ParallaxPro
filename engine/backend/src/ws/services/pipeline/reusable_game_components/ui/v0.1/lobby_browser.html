@@ -111,7 +111,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: 1.8fr 1fr 0.7fr 0.7fr auto;
+    grid-template-columns: 1.8fr 1fr 0.7fr 0.8fr auto;
     gap: 10px;
     align-items: center;
     padding: 10px 12px;
@@ -127,10 +127,13 @@
   .row .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row .host { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
   .row .count { font-size: 12px; color: var(--text); text-align: center; }
-  .row .ping { font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+  .row .ping {
+    font-size: 12px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .ping .est { font-size: 9px; color: var(--text-muted); margin-left: 2px; }
   .row .state { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
   .row .lock { width: 14px; height: 14px; opacity: 0.5; }
-
   .ping-good { color: var(--ping-good); }
   .ping-mid  { color: var(--ping-mid); }
   .ping-bad  { color: var(--ping-bad); }
@@ -234,13 +237,6 @@
     msgEl.classList.toggle('err', !!text);
   }
 
-  function pingClass(ms) {
-    if (ms == null || ms < 0) return '';
-    if (ms < 80) return 'ping-good';
-    if (ms < 150) return 'ping-mid';
-    return 'ping-bad';
-  }
-
   function render() {
     if (!lobbies.length) {
       listEl.innerHTML = '';
@@ -252,24 +248,42 @@
     listEl.innerHTML = '';
     lobbies.forEach(function (lb) {
       var row = document.createElement('div');
-      row.className = 'row' + (lb.state === 'playing' ? ' playing' : '') + (lb.id === selectedId ? ' selected' : '');
+      // Fade only lobbies we can't actually join (match started AND the
+      // game doesn't allow late joiners). allowJoinInProgress lobbies
+      // stay full-opacity even in the 'playing' state.
+      var lbBlocked = lb.state === 'playing' && !lb.allowJoinInProgress;
+      row.className = 'row' + (lbBlocked ? ' playing' : '') + (lb.id === selectedId ? ' selected' : '');
       row.dataset.id = lb.id;
 
-      var pingMs = typeof lb.pingMs === 'number' ? lb.pingMs : null;
-      var pingTxt = pingMs == null || pingMs < 0 ? '—' : Math.round(pingMs) + 'ms';
-
+      // Server-supplied estimate from GeoIP lookup of both peers' IPs.
+      // Not the actual P2P RTT (no probe before joining), but typically
+      // within ±30% of reality on real-world routes. -1 means unknown.
+      var pingMs = typeof lb.estimatedPingMs === 'number' ? lb.estimatedPingMs : -1;
+      var pingTxt;
+      var pingClass = '';
+      if (pingMs < 0) {
+        pingTxt = '—';
+      } else {
+        pingTxt = '~' + pingMs + 'ms<span class="est"> est</span>';
+        pingClass = pingMs < 80 ? 'ping-good' : (pingMs < 150 ? 'ping-mid' : 'ping-bad');
+      }
       row.innerHTML =
         '<div class="name">' + (lb.hasPassword ? '&#128274; ' : '') + escape(lb.name) + '</div>' +
         '<div class="host">by ' + escape(lb.hostUsername) + '</div>' +
         '<div class="count">' + lb.playerCount + '/' + lb.maxPlayers + '</div>' +
-        '<div class="ping ' + pingClass(pingMs) + '">' + pingTxt + '</div>' +
+        '<div class="ping ' + pingClass + '">' + pingTxt + '</div>' +
         '<div class="state">' + (lb.state === 'playing' ? 'in game' : 'waiting') + '</div>';
 
       row.onclick = function () {
         selectedId = lb.id;
         render();
-        joinBtn.disabled = lb.state === 'playing';
-        joinBtn.style.opacity = joinBtn.disabled ? '0.5' : '1';
+        // Lobbies in 'playing' state are joinable iff the game opted into
+        // late-joiners via multiplayer.allowJoinInProgress. Otherwise the
+        // server will reject — keep the button greyed out client-side so
+        // the user doesn't click and get an error.
+        var blocked = lb.state === 'playing' && !lb.allowJoinInProgress;
+        joinBtn.disabled = blocked;
+        joinBtn.style.opacity = blocked ? '0.5' : '1';
       };
 
       listEl.appendChild(row);
