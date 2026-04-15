@@ -5,8 +5,20 @@ class CameraFPSBehavior extends GameScript {
     _yawDeg = 0;
     _sensitivity = 0.15;
     _eyeHeight = 1.6;
+    _matchOver = false;
+
+    onStart() {
+        var self = this;
+        this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
+        this.scene.events.game.on("match_started", function() { self._matchOver = false; });
+    }
 
     onUpdate(dt) {
+        // Freeze between matches — the game-over screen shows the
+        // virtual cursor and clicks are for the Play Again / Main
+        // Menu buttons, not camera aim.
+        if (this._matchOver) return;
+
         var player = this._findLocalPlayer();
         if (!player) return;
 

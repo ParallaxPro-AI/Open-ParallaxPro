@@ -254,6 +254,10 @@ class DeathmatchGameSystem extends GameScript {
         if (mp) mp.sendNetworkedEvent("match_ended", payload);
         this.scene.events.game.emit("match_ended", payload);
         this._pushGameOver(winnerPeerId, reason);
+        // Host tells the server the lobby is no longer playing so the
+        // next Start click actually fires a state transition (and
+        // everyone's isReady resets so the UI doesn't show stale flags).
+        if (mp && mp.isHost && mp.endMatch) mp.endMatch();
     }
 
     _pushGameOver(winnerPeerId, reason) {

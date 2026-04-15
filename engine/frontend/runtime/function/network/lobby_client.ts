@@ -59,6 +59,7 @@ export interface LobbyClientEvents {
     onPeerReady?: (peerId: PeerId, isReady: boolean) => void;
     onClosed?: (lobbyId: string, reason: string) => void;
     onStarted?: (lobbyId: string) => void;
+    onMatchEnded?: (lobbyId: string) => void;
     onKicked?: (reason: string) => void;
     onSignal?: (fromPeerId: PeerId, payload: any) => void;
     onPingRequest?: (fromPeerId: PeerId, clientTs: number) => void;
@@ -178,6 +179,7 @@ export class LobbyClient {
     setReady(ready: boolean): void { this.send('lobby.ready', { ready }); }
 
     start(): void { this.send('lobby.start', {}); }
+    endMatch(): void { this.send('lobby.end_match', {}); }
 
     kick(peerId: PeerId, reason?: string): void { this.send('lobby.kick', { peerId, reason }); }
 
@@ -218,6 +220,9 @@ export class LobbyClient {
                 return;
             case 'lobby.started':
                 this.events.onStarted?.(data.lobbyId);
+                return;
+            case 'lobby.match_ended':
+                this.events.onMatchEnded?.(data.lobbyId);
                 return;
             case 'lobby.kicked':
                 this.events.onKicked?.(data.reason || 'Kicked by host');

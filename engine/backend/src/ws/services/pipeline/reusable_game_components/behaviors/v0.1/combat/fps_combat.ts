@@ -12,8 +12,18 @@ class FPSCombatBehavior extends GameScript {
     _reloadTimer = 0;
     _weaponName = "Rifle";
     _shootSound = "";
+    _matchOver = false;
+
+    onStart() {
+        var self = this;
+        this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
+        this.scene.events.game.on("match_started", function() { self._matchOver = false; });
+    }
 
     onUpdate(dt) {
+        // No firing / reloading between matches — mouse clicks on the
+        // game-over screen are for UI, not bullets.
+        if (this._matchOver) return;
         // Multiplayer: remote player proxies share the behavior but must
         // not shoot — only the owning peer drives its own weapon.
         var ni = this.entity.getComponent ? this.entity.getComponent("NetworkIdentityComponent") : null;

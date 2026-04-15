@@ -5,8 +5,19 @@ class FPSMovementBehavior extends GameScript {
     _sprintSpeed = 10;
     _jumpForce = 7;
     _canJump = true;
+    _matchOver = false;
+
+    onStart() {
+        var self = this;
+        this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
+        this.scene.events.game.on("match_started", function() { self._matchOver = false; });
+    }
 
     onUpdate(dt) {
+        if (this._matchOver) {
+            if (this.scene.setVelocity) this.scene.setVelocity(this.entity.id, { x: 0, y: 0, z: 0 });
+            return;
+        }
         // Multiplayer: remote player proxies carry the same behavior but
         // must not run input — their transform comes from snapshots.
         var ni = this.entity.getComponent ? this.entity.getComponent("NetworkIdentityComponent") : null;

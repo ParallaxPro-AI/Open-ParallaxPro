@@ -120,6 +120,18 @@ class MpBridge extends GameScript {
             self._roster = roster;
             self._lastRosterPeerCount = newPeerCount;
             self._lastHostId = newHostPeerId;
+
+            // Sync our local ready state with the server-authoritative
+            // one. Otherwise after match_end clears isReady on the roster
+            // the button still reads "Unready" until the user clicks it.
+            if (roster && mp.localPeerId) {
+                for (var pi = 0; pi < roster.peers.length; pi++) {
+                    if (roster.peers[pi].peerId === mp.localPeerId) {
+                        self._localReady = !!roster.peers[pi].isReady;
+                        break;
+                    }
+                }
+            }
             self._pushUiUpdate();
 
             if (!roster) return;

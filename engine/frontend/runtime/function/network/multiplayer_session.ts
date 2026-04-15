@@ -262,6 +262,21 @@ export class MultiplayerSession {
                 if (this._currentRoster) this._currentRoster.state = 'playing';
                 this.setPhase('in_game');
             },
+            onMatchEnded: () => {
+                // Server broadcasts this when the host signals the round
+                // is over. Flip our lobby state + phase back so the next
+                // Start click actually triggers a phase transition (else
+                // setPhase('in_game') is a no-op because phase is still
+                // in_game from the previous round), and drop every peer's
+                // isReady so the lobby-room UI doesn't still show them
+                // as ready from the last round.
+                if (this._currentRoster) {
+                    this._currentRoster.state = 'waiting';
+                    for (const p of this._currentRoster.peers) p.isReady = false;
+                    for (const cb of this._rosterListeners) cb(this._currentRoster);
+                }
+                this.setPhase('in_lobby');
+            },
             onKicked: (reason) => this.handleKicked(reason),
             onSignal: (fromPeerId, payload) => this.webrtc.handleSignal(fromPeerId, payload),
             onPingRequest: (fromPeerId, clientTs) => this.lobby.respondPing(fromPeerId, clientTs),
@@ -377,6 +392,18 @@ export class MultiplayerSession {
     startGame(): void {
         if (!this._isHost) return;
         this.lobby.start();
+    }
+
+    /**
+     * Host-only: tell the server the round is over. Server flips the
+     * lobby back to 'waiting' + clears everyone's isReady + broadcasts
+     * so peers can re-use the same lobby for a new round. Games with a
+     * match-end condition (deathmatch, coin-grab) call this from their
+     * own _endMatch path; continuous games (everything_game) don't.
+     */
+    endMatch(): void {
+        if (!this._isHost) return;
+        this.lobby.endMatch();
     }
 
     kickPlayer(peerId: PeerId, reason?: string): void {

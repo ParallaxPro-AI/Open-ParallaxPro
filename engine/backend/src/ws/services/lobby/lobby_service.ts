@@ -285,6 +285,22 @@ export function markLobbyPlaying(lobbyId: LobbyId): void {
     if (lobby) lobby.state = 'playing';
 }
 
+/**
+ * Host-only: return the lobby to the 'waiting' state and clear every
+ * peer's isReady flag so the next round can be restarted cleanly.
+ * Called when a match ends (from deathmatch/coin-grab-style games that
+ * have an explicit end condition). Returns false for non-host callers
+ * so the WS handler can reject them.
+ */
+export function endMatch(hostPeerId: PeerId, lobbyId: LobbyId): { ok: true; lobby: Lobby } | { ok: false; error: string } {
+    const lobby = lobbies.get(lobbyId);
+    if (!lobby) return { ok: false, error: 'Lobby not found' };
+    if (lobby.hostPeerId !== hostPeerId) return { ok: false, error: 'Only the host can end the match' };
+    lobby.state = 'waiting';
+    for (const peer of lobby.peers.values()) peer.isReady = false;
+    return { ok: true, lobby };
+}
+
 export function checkSignalRate(peer: Peer): boolean {
     const now = Date.now();
     if (now - peer.lastSignalAt >= 1000) {

@@ -44,6 +44,7 @@ import {
     leaveLobby,
     listLobbies,
     markLobbyPlaying,
+    endMatch,
     checkSignalRate,
     sanitizeName,
     type Lobby,
@@ -311,6 +312,18 @@ function handleMessage(peer: Peer, type: string, data: any): void {
             }
             markLobbyPlaying(lobby.id);
             broadcast(lobby, 'lobby.started', { lobbyId: lobby.id });
+            return;
+        }
+
+        case 'lobby.end_match': {
+            // Host signals the round is over. Flip state back to
+            // 'waiting' and clear every peer's isReady so the lobby
+            // browser and lobby room show a clean slate for the next
+            // round. Non-host callers are rejected inside endMatch().
+            if (!peer.lobbyId) return;
+            const res = endMatch(peer.peerId, peer.lobbyId);
+            if (!res.ok) { sendError(peer.ws, res.error); return; }
+            broadcast(res.lobby, 'lobby.match_ended', { lobbyId: res.lobby.id });
             return;
         }
 
