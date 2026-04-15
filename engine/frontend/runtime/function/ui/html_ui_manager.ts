@@ -104,6 +104,17 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
         const onMouseMove = (e: MouseEvent) => {
             const el = getInteractiveAt(e.clientX, e.clientY);
             container.style.cursor = el ? 'pointer' : '';
+            // For HUD panels (click-through by default), flip the iframe to
+            // pointer-events:auto while the cursor is over one of its
+            // interactive children so native clicks land; else back to none
+            // so the rest of the screen stays click-through to the canvas.
+            // getInteractiveAt is closure-bound to this iframe, so a non-null
+            // `el` means the mouse is over an interactive element inside it.
+            const pName = path.replace('ui/', '').replace('.html', '');
+            const isHud = pName.startsWith('hud/') || pName === 'game_hud';
+            if (isHud && iframe.style.display !== 'none') {
+                iframe.style.pointerEvents = el ? 'auto' : 'none';
+            }
         };
 
         container.addEventListener('mousedown', onMouseDown, true);
@@ -155,8 +166,14 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
             // HUD components (hud/*.html) — each shown only by its own flag
             if (name.startsWith('hud/') || name === 'game_hud') {
                 const specificFlag = name.replace(/[^a-zA-Z0-9_]/g, '') + 'Visible';
-                iframe.style.display = state[specificFlag] === true ? '' : 'none';
-                iframe.style.pointerEvents = 'none';
+                const wasVisible = iframe.style.display !== 'none';
+                const show = state[specificFlag] === true;
+                iframe.style.display = show ? '' : 'none';
+                // Only force pointer-events:none when hiding or just shown
+                // (default). The mousemove handler flips it to auto while the
+                // cursor is over an interactive child, so don't clobber that.
+                if (!show) iframe.style.pointerEvents = 'none';
+                else if (!wasVisible) iframe.style.pointerEvents = 'none';
                 continue;
             }
 

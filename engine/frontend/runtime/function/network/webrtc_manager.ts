@@ -54,6 +54,12 @@ interface PeerInfo {
     // Voice bits
     remoteAudioStream: MediaStream | null;
     outgoingAudioSender: RTCRtpSender | null;
+    /**
+     * Pre-created sendrecv audio transceiver. Reserving it at connect time
+     * means we can enable/disable the mic later via sender.replaceTrack()
+     * without triggering an SDP renegotiation round-trip.
+     */
+    audioTransceiver: RTCRtpTransceiver | null;
 }
 
 export interface WebRTCEvents {
@@ -101,6 +107,7 @@ export class WebRTCManager {
             connectionTimeout: null,
             remoteAudioStream: null,
             outgoingAudioSender: null,
+            audioTransceiver: null,
         };
         this.peers.set(peerId, info);
 
@@ -117,6 +124,21 @@ export class WebRTCManager {
             }
         };
 
+        // Renegotiation safety net: fires when the set of transceivers
+        // changes in a way that needs a new SDP exchange (e.g. the fallback
+        // addTrack path in attachLocalAudio). The initial offer/answer is
+        // driven manually below so we gate on `ready`.
+        pc.onnegotiationneeded = async () => {
+            if (!info.ready) return;
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                this.sendSignal(peerId, { kind: 'offer', sdp: offer });
+            } catch (e) {
+                console.warn('[WebRTC] renegotiation failed', e);
+            }
+        };
+
         pc.ontrack = (e) => {
             if (e.streams.length > 0) {
                 info.remoteAudioStream = e.streams[0];
@@ -126,10 +148,10 @@ export class WebRTCManager {
             this.events.onRemoteAudio?.(peerId, info.remoteAudioStream);
         };
 
-        // Always add a transceiver so voice can be negotiated without
-        // renegotiating the PeerConnection later.
+        // Always add a transceiver so voice can be toggled later via
+        // sender.replaceTrack() without renegotiating the PeerConnection.
         try {
-            pc.addTransceiver('audio', { direction: 'sendrecv' });
+            info.audioTransceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
         } catch { /* not supported, voice disabled for this peer */ }
 
         if (amInitiator) {
@@ -275,17 +297,35 @@ export class WebRTCManager {
 
     private attachLocalAudio(info: PeerInfo): void {
         if (!this.localAudioTrack) return;
+
+        // Already bound — just swap the track.
         if (info.outgoingAudioSender) {
-            try { info.outgoingAudioSender.replaceTrack(this.localAudioTrack); } catch { /* ignored */ }
+            try { info.outgoingAudioSender.replaceTrack(this.localAudioTrack); } catch (e) {
+                console.warn('[WebRTC] replaceTrack failed', e);
+            }
             return;
         }
+
+        // Preferred: use the sendrecv transceiver reserved at connect time.
+        // sender.replaceTrack() on an existing transceiver does NOT require
+        // an SDP renegotiation, so enabling mic post-connect just works.
+        if (info.audioTransceiver) {
+            try {
+                info.audioTransceiver.sender.replaceTrack(this.localAudioTrack);
+                info.outgoingAudioSender = info.audioTransceiver.sender;
+                return;
+            } catch (e) {
+                console.warn('[WebRTC] transceiver replaceTrack failed, falling back to addTrack', e);
+            }
+        }
+
+        // Fallback: add a new track. Triggers onnegotiationneeded which we
+        // handle below to renegotiate automatically.
         try {
             const sender = info.connection.addTrack(this.localAudioTrack);
             info.outgoingAudioSender = sender;
         } catch (e) {
-            // Adding a track after the initial offer triggers a renegotiation.
-            // For v0.1 we only support mic enabled *before* connect, so log + skip.
-            console.warn('[WebRTC] addTrack failed (mic likely enabled after connect)', e);
+            console.warn('[WebRTC] addTrack failed', e);
         }
     }
 
