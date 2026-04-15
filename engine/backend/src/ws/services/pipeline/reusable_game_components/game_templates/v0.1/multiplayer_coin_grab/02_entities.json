@@ -51,6 +51,15 @@
         }
       ]
     },
+    "coin": {
+      "mesh": {
+        "type": "sphere",
+        "color": [1, 0.82, 0.2, 1],
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "tags": ["coin", "networked"],
+      "label": false
+    },
     "camera": {
       "camera": { "fov": 55 },
       "tags": ["camera"],

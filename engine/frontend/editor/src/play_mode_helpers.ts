@@ -295,6 +295,10 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
                 engine.globalContext.multiplayerSession,
                 scene as any,
                 engine.globalContext.inputSystem,
+                // After a remote-driven spawn, kick the editor's primitive
+                // mesh upload pass so sphere/capsule meshes for the new
+                // entity reach the GPU.
+                () => { try { ensurePrimitiveMeshes(); } catch { /* ignored */ } },
             );
         }
     } catch { /* ignored — editor-less contexts */ }

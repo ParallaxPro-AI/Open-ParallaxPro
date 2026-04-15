@@ -61,6 +61,7 @@ export const ENGINE_UI = [
     'ui/hud/ping.html',
     'ui/hud/text_chat.html',
     'ui/hud/voice_chat.html',
+    'ui/hud/scoreboard.html',
 ] as const;
 
 /** Empty 4-file template — the seed for a project created with no template. */

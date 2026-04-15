@@ -1,7 +1,7 @@
 {
-  "id": "multiplayer_arena_flow",
-  "name": "Multiplayer Arena",
-  "description": "Top-down peer-to-peer arena. 2-8 players. Host authoritative, client-side prediction, voice + text chat in lobby and in-game.",
+  "id": "multiplayer_coin_grab_flow",
+  "name": "Multiplayer Coin Grab",
+  "description": "Top-down peer-to-peer arena for 2-8 players. Host spawns a coin at a random spot; first to touch it gets a point and the coin relocates. First to 10 points or highest after 3 minutes wins.",
   "start": "boot",
   "multiplayer": {
     "enabled": true,
@@ -14,8 +14,8 @@
   },
   "ui_params": {
     "main_menu": {
-      "gameTitle": "ARENA",
-      "gameSubtitle": "Peer-to-peer multiplayer"
+      "gameTitle": "COIN GRAB",
+      "gameSubtitle": "First to 10 coins wins"
     }
   },
   "states": {
@@ -62,17 +62,19 @@
     },
     "gameplay": {
       "description": "Match in progress",
-      "active_systems": ["mp_bridge", "arena_game"],
+      "active_systems": ["mp_bridge", "coin_grab_game"],
       "active_behaviors": ["player_arena_movement", "arena_camera"],
       "on_enter": [
         "show_ui:hud/ping",
         "show_ui:hud/text_chat",
         "show_ui:hud/voice_chat",
+        "show_ui:hud/scoreboard",
         "hide_cursor",
         "emit:game.match_started"
       ],
       "on_exit": [
-        "hide_ui:hud/ping"
+        "hide_ui:hud/ping",
+        "hide_ui:hud/scoreboard"
       ],
       "transitions": [
         { "when": "mp_event:phase_disconnected", "goto": "main_menu" },

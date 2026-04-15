@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #eaf0f6;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .wrap {
+    position: fixed; top: 12px; left: 50%;
+    transform: translateX(-50%);
+    min-width: 280px;
+    max-width: 420px;
+    background: rgba(8, 8, 14, 0.55);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 8px 10px;
+    backdrop-filter: blur(6px);
+  }
+  .wrap.hidden { display: none; }
+  .title {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #6b7280;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 4px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    transition: background 0.1s;
+  }
+  .row.me { background: rgba(99, 102, 241, 0.25); }
+  .row .user {
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 60%;
+  }
+  .row .score {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    color: #facc15;
+  }
+  .row .score.winning { color: #4ade80; }
+  .rank {
+    color: #6b7280;
+    font-size: 10px;
+    margin-right: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap hidden" id="wrap">
+  <div class="title" id="title">Scoreboard</div>
+  <div id="rows"></div>
+</div>
+<script>
+(function () {
+  var wrap = document.getElementById('wrap');
+  var titleEl = document.getElementById('title');
+  var rows = document.getElementById('rows');
+
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function render(sb) {
+    if (!sb || !sb.players || !sb.players.length) {
+      wrap.classList.add('hidden');
+      return;
+    }
+    wrap.classList.remove('hidden');
+    titleEl.textContent = 'First to ' + (sb.scoreToWin || 10);
+    var leader = sb.players[0] ? sb.players[0].score : 0;
+    rows.innerHTML = '';
+    for (var i = 0; i < sb.players.length; i++) {
+      var p = sb.players[i];
+      var row = document.createElement('div');
+      row.className = 'row' + (p.isLocal ? ' me' : '');
+      var leading = (p.score === leader && leader > 0);
+      row.innerHTML =
+        '<span class="user"><span class="rank">' + (i + 1) + '.</span>' + escape(p.username) + '</span>' +
+        '<span class="score' + (leading ? ' winning' : '') + '">' + (p.score || 0) + '</span>';
+      rows.appendChild(row);
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.scoreboard) render(s.scoreboard);
+  });
+})();
+</script>
+</body>
+</html>

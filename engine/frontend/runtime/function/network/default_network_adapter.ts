@@ -46,13 +46,19 @@ interface RemoteInputBuffer {
  * Hook up the adapter automatically. Call once from the engine / play
  * bootstrapper, right after the MultiplayerSession is attached to the
  * scriptScene. The returned callback detaches cleanup.
+ *
+ * `onEntitySpawned` is called after the adapter creates a new entity for
+ * an inbound spawn or proxy. The bootstrapper uses it to trigger mesh
+ * uploads (raw Scene.createEntity doesn't emit the editor's entityCreated
+ * event that normally drives ensurePrimitiveMeshes).
  */
 export function installDefaultNetworkAdapter(
     session: MultiplayerSession,
     scene: Scene,
     inputSystem: InputSystem,
+    onEntitySpawned?: () => void,
 ): () => void {
-    const adapter = new DefaultNetworkAdapter(session, scene, inputSystem);
+    const adapter = new DefaultNetworkAdapter(session, scene, inputSystem, onEntitySpawned);
     session.setAdapter(adapter);
     return () => { session.setAdapter(null); };
 }
@@ -65,6 +71,7 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
         private readonly session: MultiplayerSession,
         private readonly scene: Scene,
         private readonly inputSystem: InputSystem,
+        private readonly onEntitySpawned?: () => void,
     ) {}
 
     listLocallyOwnedEntities(): Array<{ networkId: number; getSnapshot(): any }> {
@@ -105,42 +112,117 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
         // Skip local player — reconciliation happens separately via reconcileLocalPlayer.
         if ((entity.flags & 4) !== 0 && entity.owner === this.session.localPeerId) return;
 
-        const sceneEntity = this.findSceneEntityByNetId(entity.id);
+        let sceneEntity = this.findSceneEntityByNetId(entity.id);
         if (!sceneEntity) {
-            // Not spawned yet — buffer the snapshot. When host broadcasts the
-            // matching spawn (or a FULL_STATE reveals this entity), we apply.
-            this._pendingSpawnInfo.set(entity.id, entity);
-            return;
+            // We've never seen this networkId. For remote player snapshots
+            // (flag 4 = localPlayer-hint on origin), auto-spawn a visual
+            // proxy so the player is actually rendered on every peer. Other
+            // entity kinds wait for an explicit spawn message so game code
+            // can control construction.
+            if ((entity.flags & 4) !== 0 && entity.owner && entity.owner !== this.session.localPeerId) {
+                sceneEntity = this._spawnRemotePlayerProxy(entity);
+            }
+            if (!sceneEntity) {
+                this._pendingSpawnInfo.set(entity.id, entity);
+                return;
+            }
         }
         this.applySnapshotToEntity(sceneEntity, entity);
     }
 
+    /**
+     * Spawn a minimal capsule with the networked identity stamped on it so
+     * subsequent snapshots flow into its transform. Used for remote players
+     * coming from other peers — no movement behavior attached, just a
+     * visible avatar the interpolator can drive.
+     */
+    private _spawnRemotePlayerProxy(entity: SnapshotEntity): any {
+        const scene = this.scene as any;
+        if (typeof scene.createEntity !== 'function') return null;
+        const ent = scene.createEntity('RemotePlayer_' + entity.id);
+        if (!ent || typeof ent.addComponent !== 'function') return null;
+        ent.addComponent('TransformComponent', {
+            position: { x: entity.pos?.[0] ?? 0, y: entity.pos?.[1] ?? 0, z: entity.pos?.[2] ?? 0 },
+            rotation: { x: entity.rot?.[0] ?? 0, y: entity.rot?.[1] ?? 0, z: entity.rot?.[2] ?? 0, w: entity.rot?.[3] ?? 1 },
+            scale: { x: 1, y: 1, z: 1 },
+        });
+        ent.addComponent('MeshRendererComponent', {
+            meshType: 'capsule',
+            baseColor: [0.4, 0.6, 1.0, 1],
+        });
+        ent.addComponent('NetworkIdentityComponent', {
+            networkId: entity.id,
+            ownerId: entity.owner || -1,
+            isLocalPlayer: false,
+            syncTransform: true,
+        });
+        if (typeof ent.addTag === 'function') {
+            ent.addTag('player');
+            ent.addTag('remote');
+            ent.addTag('networked');
+        }
+        this.onEntitySpawned?.();
+        return ent;
+    }
+
     onSpawnEntity(info: { networkId: number; prefab: string; owner: PeerId | '';
         pos: [number, number, number]; rot: [number, number, number, number] }): void {
-        // Look up or create the prefab. Spawning logic is project-specific —
-        // we delegate to a scene hook if present, otherwise log a warning.
+        // Skip if already present (host's own spawn won't echo back, but
+        // FULL_STATE delivery on late-join might).
+        if (this.findSceneEntityByNetId(info.networkId)) {
+            this._applyBuffered(info.networkId);
+            return;
+        }
+        // Default-spawn a minimal visual entity using the raw Scene/Entity
+        // API. "coin" → gold sphere, anything else → blue capsule (works
+        // for player proxies).
         const scene = this.scene as any;
-        if (typeof scene.spawnNetworkedPrefab === 'function') {
-            scene.spawnNetworkedPrefab({
-                networkId: info.networkId,
-                prefab: info.prefab,
-                owner: info.owner,
-                isLocalPlayer: info.owner === this.session.localPeerId,
-                position: info.pos,
-                rotation: info.rot,
-            });
-        } else {
-            // Fallback: attempt spawn via normal scene API
-            console.warn('[DefaultNetworkAdapter] scene.spawnNetworkedPrefab not implemented — cannot spawn', info.prefab);
+        if (typeof scene.createEntity !== 'function') {
+            console.warn('[DefaultNetworkAdapter] scene.createEntity missing — cannot spawn', info.prefab);
+            return;
         }
+        const isCoin = info.prefab === 'coin';
+        const entity = scene.createEntity(this._defaultProxyName(info));
+        if (!entity || typeof entity.addComponent !== 'function') {
+            console.warn('[DefaultNetworkAdapter] entity.addComponent missing — cannot spawn', info.prefab);
+            return;
+        }
+        const scale = isCoin ? { x: 0.6, y: 0.6, z: 0.6 } : { x: 1, y: 1, z: 1 };
+        entity.addComponent('TransformComponent', {
+            position: { x: info.pos[0], y: info.pos[1], z: info.pos[2] },
+            rotation: { x: info.rot[0], y: info.rot[1], z: info.rot[2], w: info.rot[3] },
+            scale,
+        });
+        entity.addComponent('MeshRendererComponent', {
+            meshType: isCoin ? 'sphere' : 'capsule',
+            baseColor: isCoin ? [1, 0.82, 0.2, 1] : [0.4, 0.6, 1.0, 1],
+        });
+        entity.addComponent('NetworkIdentityComponent', {
+            networkId: info.networkId,
+            ownerId: info.owner || -1,
+            isLocalPlayer: false,
+            syncTransform: true,
+        });
+        if (typeof entity.addTag === 'function') {
+            if (isCoin) { entity.addTag('coin'); }
+            else { entity.addTag('player'); entity.addTag('remote'); }
+            entity.addTag('networked');
+        }
+        this.onEntitySpawned?.();
+        this._applyBuffered(info.networkId);
+    }
 
-        // Apply any buffered snapshot
-        const buffered = this._pendingSpawnInfo.get(info.networkId);
-        if (buffered) {
-            this._pendingSpawnInfo.delete(info.networkId);
-            const e = this.findSceneEntityByNetId(info.networkId);
-            if (e) this.applySnapshotToEntity(e, buffered);
-        }
+    private _defaultProxyName(info: { prefab: string; networkId: number }): string {
+        if (info.prefab === 'coin') return 'Coin';
+        return 'RemotePlayer_' + info.networkId;
+    }
+
+    private _applyBuffered(networkId: number): void {
+        const buffered = this._pendingSpawnInfo.get(networkId);
+        if (!buffered) return;
+        this._pendingSpawnInfo.delete(networkId);
+        const e = this.findSceneEntityByNetId(networkId);
+        if (e) this.applySnapshotToEntity(e, buffered);
     }
 
     onDespawnEntity(networkId: number): void {

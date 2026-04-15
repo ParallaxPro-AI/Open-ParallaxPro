@@ -252,6 +252,7 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     // received from a remote peer. We allowlist the ones the reference
     // templates use; project-specific net events can be added per-project.
     net_match_ended:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_coin_collected:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));

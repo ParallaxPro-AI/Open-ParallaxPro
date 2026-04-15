@@ -463,8 +463,33 @@ export class MultiplayerSession {
         if (this._isHost) {
             this.buildAndBroadcastSnapshot();
         } else {
+            // Client-authoritative local player: each peer broadcasts its
+            // own owned entities' transforms. Star topology means the
+            // packet reaches the host only; host forwards to other peers.
+            this.buildAndBroadcastClientSnapshot();
             this.sampleAndSendLocalInput();
         }
+    }
+
+    private buildAndBroadcastClientSnapshot(): void {
+        const adapter = this._adapter!;
+        const entities: SnapshotEntity[] = [];
+        for (const e of adapter.listLocallyOwnedEntities()) {
+            const s = e.getSnapshot();
+            entities.push({
+                id: e.networkId,
+                owner: this.lobby.peerId,
+                flags: (s.pos ? 1 : 0) | (s.vars ? 2 : 0) | 4,
+                ...s,
+            });
+        }
+        if (entities.length === 0 || !this._hostPeerId) return;
+        const snap: Snapshot = {
+            tick: this._simTick,
+            ts: performance.now() / 1000,
+            entities,
+        };
+        this.webrtc.send(this._hostPeerId, { t: 'snap', ...snap });
     }
 
     // -- Host: snapshot broadcast ------------------------------------------
@@ -528,8 +553,18 @@ export class MultiplayerSession {
         const adapter = this._adapter;
         switch (msg.t) {
             case 'snap': {
-                if (this._isHost) return;  // host ignores its own type from peers
-                this.applyRemoteSnapshot(msg as unknown as Snapshot);
+                const snap = msg as unknown as Snapshot;
+                // Every peer applies received snapshots locally so other
+                // players show up in its scene.
+                this.applyRemoteSnapshot(snap);
+                // Host is the hub of the star topology — relay client
+                // snapshots to every other connected client so they can
+                // see each other without a direct P2P mesh.
+                if (this._isHost) {
+                    for (const otherId of this.webrtc.getPeerIds()) {
+                        if (otherId !== fromPeerId) this.webrtc.send(otherId, msg);
+                    }
+                }
                 return;
             }
             case 'in': {
