@@ -40,6 +40,7 @@
     padding: 4px 8px;
     border-radius: 6px;
     cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
   }
   .mic-toggle:hover { border-color: rgba(255,255,255,0.2); }
   .mic-toggle.on {
@@ -49,6 +50,20 @@
   .mic-toggle.muted {
     background: rgba(239,68,68,0.2);
     border-color: rgba(239,68,68,0.5);
+  }
+  .kbd {
+    display: inline-block;
+    min-width: 14px;
+    padding: 1px 4px;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1;
+    text-align: center;
+    color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-bottom-width: 2px;
+    border-radius: 3px;
   }
 
   .peers { display: flex; flex-direction: column; gap: 4px; }
@@ -103,15 +118,19 @@
 
   function updateMicButton() {
     micToggle.classList.remove('on', 'muted');
+    var label;
     if (!micOn) {
-      micToggle.textContent = 'Mic off';
+      label = 'Mic off';
     } else if (muted) {
       micToggle.classList.add('muted');
-      micToggle.textContent = 'Muted';
+      label = 'Muted';
     } else {
       micToggle.classList.add('on');
-      micToggle.textContent = 'Mic on';
+      label = 'Mic on';
     }
+    // Keycap next to the label so the V shortcut is discoverable
+    // without needing a tooltip.
+    micToggle.innerHTML = '<span>' + label + '</span><span class="kbd">V</span>';
   }
 
   micToggle.onclick = function () {
