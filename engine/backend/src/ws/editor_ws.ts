@@ -75,6 +75,19 @@ function send(client: EditorClient, type: string, data: any): void {
     }
 }
 
+/**
+ * Push a name change to every editor client currently watching this project.
+ * Called from the async project-name generator in routes/projects.ts — the
+ * heartbeat is a raw WS ping, so renames don't propagate on their own.
+ */
+export function broadcastProjectRenamed(projectId: string, name: string): void {
+    for (const client of clients.values()) {
+        if (client.projectId === projectId) {
+            send(client, 'project_renamed', { projectId, name });
+        }
+    }
+}
+
 export function setupEditorWebSocket(wss: WebSocketServer): void {
     wss.on('connection', (ws, req) => {
         const url = new URL(req.url ?? '', 'http://localhost');

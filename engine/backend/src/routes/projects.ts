@@ -15,6 +15,8 @@ import {
 import { seedFromTemplate, seedEmpty } from '../ws/services/pipeline/project_seeder.js';
 import { buildProject, cleanupBuildDir } from '../ws/services/pipeline/project_builder.js';
 import { applyIncomingFile } from '../ws/services/pipeline/project_save.js';
+import { generateProjectName } from '../ws/services/llm.js';
+import { broadcastProjectRenamed } from '../ws/editor_ws.js';
 
 let _plugins: EnginePlugin[] = [];
 export function setProjectPlugins(plugins: EnginePlugin[]) { _plugins = plugins; }
@@ -103,24 +105,102 @@ router.get('/templates', async (req, res) => {
 });
 
 // Create project
-const stmtCountProjects = db.prepare('SELECT COUNT(*) as count FROM projects WHERE user_id = ?');
+const stmtUserProjectNames = db.prepare('SELECT name FROM projects WHERE user_id = ?');
+const stmtUserProjectNamesExcept = db.prepare('SELECT name FROM projects WHERE user_id = ? AND id != ?');
+
+/**
+ * Pick the smallest N >= 1 such that `${base}-${N}` isn't already a project
+ * name for this user. Used for both the default `project-N` names and the
+ * template-derived `fps_shooter-N` names.
+ */
+function nextCountedName(userId: number, base: string): string {
+    const rows = stmtUserProjectNames.all(userId) as { name: string }[];
+    const taken = new Set(rows.map(r => r.name));
+    let i = 1;
+    while (taken.has(`${base}-${i}`)) i++;
+    return `${base}-${i}`;
+}
+
+/**
+ * Resolve a preferred name against a user's existing projects. Returns the
+ * preferred name unchanged if free, otherwise appends `-2`, `-3`, … until
+ * unique. `excludeId` lets the caller ignore the project being renamed.
+ */
+function resolveUniqueName(userId: number, preferred: string, excludeId?: string): string {
+    const rows = (excludeId
+        ? stmtUserProjectNamesExcept.all(userId, excludeId)
+        : stmtUserProjectNames.all(userId)) as { name: string }[];
+    const taken = new Set(rows.map(r => r.name));
+    if (!taken.has(preferred)) return preferred;
+    let i = 2;
+    while (taken.has(`${preferred}-${i}`)) i++;
+    return `${preferred}-${i}`;
+}
 
 router.post('/', async (req, res) => {
     const id = randomUUID();
-    const count = (stmtCountProjects.get(req.user!.id) as any).count;
-    const name = `project-${count + 1}`;
-    const { templateId } = req.body || {};
+    const { templateId, prompt } = req.body || {};
 
     const seed = templateId ? seedFromTemplate(templateId) : seedEmpty();
     if (seed.warnings.length > 0) {
         for (const w of seed.warnings) console.warn(`[Projects] Seed warning for "${id}": ${w}`);
     }
+
+    // Template flow gets a name derived from the template id; prompt and
+    // empty flows start with the generic `project-N`. The prompt flow upgrades
+    // the name asynchronously below once the LLM responds.
+    const baseName = templateId || 'project';
+    const name = nextCountedName(req.user!.id, baseName);
     const projectData = { projectConfig: { name }, files: seed.files };
 
     stmtInsert.run(id, req.user!.id, name, serializeProjectData(projectData));
 
     res.json({ id, name });
+
+    if (typeof prompt === 'string' && prompt.trim() && !templateId) {
+        renameFromPromptAsync(id, req.user!.id, prompt, name).catch(e => {
+            console.warn(`[Projects] async rename failed for ${id}:`, e?.message ?? e);
+        });
+    }
 });
+
+/**
+ * Fire-and-forget: ask the LLM for a short kebab-case name, resolve any
+ * conflict with the user's existing project names, write it to the DB +
+ * project_data, and push a `project_renamed` event to any open editor tabs.
+ * Silently gives up if the LLM times out or returns nothing usable — the
+ * initial `project-N` name just stays.
+ */
+async function renameFromPromptAsync(projectId: string, userId: number, prompt: string, initialName: string): Promise<void> {
+    const generated = await generateProjectName(prompt, 10000);
+    if (!generated) return;
+
+    const row = stmtGet.get(projectId) as any;
+    if (!row || row.user_id !== userId) return;
+
+    // If the user already renamed the project while the LLM was thinking,
+    // respect their choice and bail out — don't clobber with the auto-name.
+    if (row.name !== initialName) return;
+
+    const finalName = resolveUniqueName(userId, generated, projectId);
+
+    let newProjectDataJson: string | null = null;
+    try {
+        const data = parseProjectData(row.project_data);
+        if (!isLegacyProjectData(data) && data.projectConfig) {
+            data.projectConfig.name = finalName;
+            newProjectDataJson = serializeProjectData(data);
+        }
+    } catch { /* leave project_data untouched on parse failure */ }
+
+    const tx = db.transaction(() => {
+        stmtUpdate.run(finalName, projectId, userId);
+        if (newProjectDataJson) stmtUpdateData.run(newProjectDataJson, projectId);
+    });
+    tx();
+
+    broadcastProjectRenamed(projectId, finalName);
+}
 
 // Get project — builds the project from its file tree on each load.
 router.get('/:id', (req, res) => {

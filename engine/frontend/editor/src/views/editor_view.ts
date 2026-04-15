@@ -113,6 +113,13 @@ export class EditorView {
             }
         });
 
+        this.ctx.backend.onWsMessage('project_renamed', (data: any) => {
+            if (!data?.name || !this.ctx.state.projectData) return;
+            if (data.projectId && data.projectId !== this.ctx.state.projectId) return;
+            this.ctx.state.projectData.name = data.name;
+            this.toolbar.setProjectName(data.name);
+        });
+
         this.ctx.backend.onWsMessage('project_freshness', (data: any) => {
             if (!data.updatedAt || !this.ctx.state.projectData) return;
             const serverTime = new Date(data.updatedAt.includes('T') ? data.updatedAt : data.updatedAt + 'Z').getTime();
