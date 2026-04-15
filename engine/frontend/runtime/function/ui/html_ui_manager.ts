@@ -88,13 +88,23 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
             }
         };
 
+        // When the iframe is pointer-events:auto the browser already routes
+        // native mouse events to the target inside it — we don't need (and
+        // can't afford) to synthesise a second click, that'd toggle
+        // two-state buttons twice and make them appear unresponsive. Only
+        // synthesise when the iframe is click-through (pointer-events:none)
+        // such as an unhovered HUD or a full-screen panel driven purely by
+        // the virtual cursor.
         const onMouseDown = (e: MouseEvent) => {
+            if (iframe.style.pointerEvents === 'auto') return;
             if (getInteractiveAt(e.clientX, e.clientY)) e.stopPropagation();
         };
         const onMouseUp = (e: MouseEvent) => {
+            if (iframe.style.pointerEvents === 'auto') return;
             if (getInteractiveAt(e.clientX, e.clientY)) e.stopPropagation();
         };
         const onClick = (e: MouseEvent) => {
+            if (iframe.style.pointerEvents === 'auto') return;
             const el = getInteractiveAt(e.clientX, e.clientY);
             if (el) {
                 e.stopPropagation();
