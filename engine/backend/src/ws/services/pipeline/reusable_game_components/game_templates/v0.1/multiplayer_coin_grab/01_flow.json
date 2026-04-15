@@ -34,7 +34,7 @@
     "main_menu": {
       "description": "Title screen",
       "active_systems": ["mp_bridge"],
-      "on_enter": ["mp:leave_lobby", "show_ui:main_menu", "show_cursor"],
+      "on_enter": ["mp:leave_lobby", "hide_ui:hud/voice_chat", "hide_ui:hud/text_chat", "show_ui:main_menu", "show_cursor"],
       "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
       "transitions": [
         { "when": "ui_event:main_menu:start_game", "goto": "lobby_browser" }

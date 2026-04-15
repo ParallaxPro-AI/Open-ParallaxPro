@@ -319,16 +319,16 @@ export class MultiplayerSession {
         this.setPhase('browsing');
     }
 
-    disconnect(): void {
-        // Tear down voice subsystems first — so audio elements stop
-        // playing and the OS mic is released before we close the peer
-        // connections that feed them.
+    private _teardownVoice(dropGestureHandler: boolean): void {
+        // Audio elements + analysers for local meter and every remote peer.
+        // Stop them before the transport closes so playback halts cleanly
+        // and the OS mic is released.
         this.detachLocalVoiceMeter();
         for (const peerId of Array.from(this._voiceAudioElems.keys())) {
             this.detachRemoteVoice(peerId);
         }
         this._voiceLevels.clear();
-        if (this._voiceCtxGestureHandler && typeof document !== 'undefined') {
+        if (dropGestureHandler && this._voiceCtxGestureHandler && typeof document !== 'undefined') {
             document.removeEventListener('pointerdown', this._voiceCtxGestureHandler, true);
             document.removeEventListener('keydown', this._voiceCtxGestureHandler, true);
             document.removeEventListener('touchstart', this._voiceCtxGestureHandler, true);
@@ -340,6 +340,10 @@ export class MultiplayerSession {
         if (this._voiceAudioCtx && this._voiceAudioCtx.state === 'running') {
             this._voiceAudioCtx.suspend().catch(() => { /* ignored */ });
         }
+    }
+
+    disconnect(): void {
+        this._teardownVoice(true);
 
         // Close the transport last. webrtc.disconnectAll() stops the mic
         // track, clears the voice-reconcile timer, and tears down every
@@ -377,6 +381,10 @@ export class MultiplayerSession {
     }
 
     leaveLobby(): void {
+        // Keep the gesture handler armed — user may rejoin a lobby
+        // shortly, and we don't want to force another user gesture to
+        // re-enable the AudioContext.
+        this._teardownVoice(false);
         this.lobby.leave();
         this.webrtc.disconnectAll();
         this._currentRoster = null;
