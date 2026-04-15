@@ -169,10 +169,21 @@ export async function startEngine(server: http.Server, plugins: EnginePlugin[] =
         server.listen(config.port, async () => {
             console.log(`[Server] Running on port ${config.port} (${config.nodeEnv})`);
 
-            // Detect which CLI fixer agents (claude, codex) are installed.
-            // Runs once, cached for the life of the process.
+            // Detect which CLI fixer agents (claude, codex, opencode, copilot)
+            // are installed. Runs once, cached for the life of the process.
+            // Hard-fail if zero are installed — without an editing agent the
+            // fixer silently can't run, which is a confusing failure mode to
+            // discover at first-message time.
             import('./ws/services/pipeline/cli_availability.js').then(({ detectAgents }) => {
-                detectAgents();
+                const agents = detectAgents();
+                if (!agents.some(a => a.installed)) {
+                    console.error(
+                        '[Agents] ✗ No editing-agent CLIs detected on PATH.\n' +
+                        '         Install at least one of: claude, codex, opencode, copilot\n' +
+                        '         (see README.md → "Fixer CLIs"). Refusing to start.',
+                    );
+                    process.exit(1);
+                }
             });
 
             // If DOCKER_SANDBOX=1, confirm docker + the sandbox image are
