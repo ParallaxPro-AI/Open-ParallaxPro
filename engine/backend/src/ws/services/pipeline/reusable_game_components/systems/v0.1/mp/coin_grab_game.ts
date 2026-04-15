@@ -58,10 +58,20 @@ class CoinGrabGameSystem extends GameScript {
 
         // Host migrated mid-match — if I'm the new host, claim the coin
         // and resume the loop. Other peers keep their scoreboard as-is.
+        // Also re-checks the below-min-players condition: peer_left fires
+        // before host_changed, so when the old host was the one who left,
+        // the below-min event arrived while I wasn't host yet and bounced
+        // off the !isHost guard. Re-evaluate now that I am.
         this.scene.events.game.on("mp_host_changed", function() {
             if (self._ended || !self._initialized) return;
             var mp2 = self.scene._mp;
             if (!mp2 || !mp2.isHost) return;
+            var roster = mp2.roster;
+            var minP = (roster && roster.minPlayers) || 1;
+            if (roster && roster.peers.length < minP) {
+                self._endMatch(self._findHighestScorer(), "abandoned");
+                return;
+            }
             // Best-effort: re-spawn (idempotent — relocates if already there)
             // and reset the round timer so the new host has a clean count.
             self._spawnCoin();
