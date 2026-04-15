@@ -368,6 +368,26 @@ export class EditorView {
 
         this.maybeShowPromoteToCloudPrompt();
         this.maybeShowCloudSignedOutBanner();
+        this.maybeFlushPendingCloudPush();
+    }
+
+    /**
+     * If this cloud project has local saves newer than our last known
+     * server state, push them immediately on open rather than waiting
+     * for the next explicit save. Covers the "edited offline last
+     * session, now online" case so users see ✓ Synced instead of
+     * ↑ Unsynced without having to touch the file.
+     */
+    private maybeFlushPendingCloudPush(): void {
+        const pd: any = this.ctx.state.projectData;
+        if (!pd?.isCloud) return;
+        if (!this.ctx.backend.isSelfHosted) return;
+        if (!this.ctx.cloudSync.currentUserId()) return;
+        const localT = Date.parse(pd.updatedAt || 0);
+        const lastSync = Date.parse(pd.cloudPulledUpdatedAt || 0);
+        if (localT > lastSync && this.ctx.state.projectId) {
+            this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+        }
     }
 
     /**

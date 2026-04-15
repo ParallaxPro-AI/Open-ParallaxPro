@@ -342,11 +342,11 @@ router.post('/:id/cloud-pull', (req, res) => {
     }
     const data = JSON.stringify({ projectConfig: projectConfig || { name }, files });
     const existing = stmtGet.get(req.params.id) as any;
+    // Set updated_at to the remote's timestamp so a just-pulled row
+    // compares as 'synced' (localT === cloudPulledUpdatedAt) instead of
+    // 'local-newer' — which is what would happen if we stamped "now"
+    // (the pull would always look like an unsynced edit).
     if (existing) {
-        // Match the row to the authenticated local user. On the OSS
-        // backend with dev-bypass, user id is 1 and this is effectively
-        // a no-op guard; with a real auth plugin it keeps cross-user
-        // pulls out.
         if (existing.user_id !== req.user!.id) {
             res.status(403).json({ error: 'Project is owned by a different local user.' });
             return;
@@ -355,16 +355,17 @@ router.post('/:id/cloud-pull', (req, res) => {
             UPDATE projects
             SET name = ?, project_data = ?, thumbnail = ?, is_cloud = 1,
                 cloud_user_id = ?, cloud_pulled_updated_at = ?, edited_engine_hash = ?,
-                updated_at = datetime('now')
+                updated_at = ?
             WHERE id = ?
-        `).run(name, data, thumbnail ?? null, cloudUserId, cloudUpdatedAt, editedEngineHash ?? null, req.params.id);
+        `).run(name, data, thumbnail ?? null, cloudUserId, cloudUpdatedAt, editedEngineHash ?? null, cloudUpdatedAt, req.params.id);
     } else {
         db.prepare(`
             INSERT INTO projects (
                 id, user_id, name, project_data, thumbnail,
-                is_cloud, cloud_user_id, cloud_pulled_updated_at, edited_engine_hash
-            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
-        `).run(req.params.id, req.user!.id, name, data, thumbnail ?? null, cloudUserId, cloudUpdatedAt, editedEngineHash ?? null);
+                is_cloud, cloud_user_id, cloud_pulled_updated_at, edited_engine_hash,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+        `).run(req.params.id, req.user!.id, name, data, thumbnail ?? null, cloudUserId, cloudUpdatedAt, editedEngineHash ?? null, cloudUpdatedAt);
     }
     res.json({ success: true });
 });
