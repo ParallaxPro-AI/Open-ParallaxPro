@@ -64,7 +64,7 @@ Edit `.env` — the LLM config is **optional**. If you fill it in, any OpenAI-co
 | [OpenRouter](https://openrouter.ai/) | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
 | Local (Ollama) | `http://localhost:11434/v1` | `llama3.3` |
 
-If you leave `AI_BASE_URL` / `AI_MODEL` / `AI_API_KEY` blank, the backend falls back to driving an installed agent CLI (claude / codex / opencode / copilot) for chat too. Slower and occasionally rougher output than a direct API call, but lets you start without signing up anywhere.
+**Recommended: set an API key.** A direct API call is faster and gives cleaner chat output than driving an agentic CLI as a chat proxy. If you leave the AI config blank the backend falls back to one of your installed CLIs for chat, which works but is slower per message and occasionally produces odd responses — fine for trying things out, not ideal long-term.
 
 The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. At least one of the supported CLIs must be installed — the backend refuses to start without one.
 

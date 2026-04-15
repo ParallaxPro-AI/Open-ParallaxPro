@@ -858,7 +858,7 @@ export class Toolbar {
             }
             const chatHint = document.createElement('span');
             chatHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
-            chatHint.textContent = 'Provider for the conversational AI. LLM API is fastest; CLI agents work without an API key but are agentic and slower.';
+            chatHint.textContent = 'Recommended: LLM API — faster (<1s vs 2-3s per message), cheaper, and produces cleaner output. CLI agents are a convenience when you don\'t have an API key, but they\'re agentic and may occasionally emit tool calls instead of chat replies.';
             chatRow.appendChild(chatLabel);
             chatRow.appendChild(chatSelect);
             chatRow.appendChild(chatHint);
