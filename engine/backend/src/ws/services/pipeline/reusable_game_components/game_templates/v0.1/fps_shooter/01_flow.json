@@ -1,7 +1,7 @@
 {
   "id": "fps_deathmatch_flow",
   "name": "FPS Deathmatch",
-  "description": "1-10 player peer-to-peer first-person deathmatch. Free-for-all kill count with 3-second respawns. First to 20 kills or highest after 5 minutes wins.",
+  "description": "1-10 player peer-to-peer first-person deathmatch. Free-for-all kill count with 3-second respawns. First to 5 kills or highest after 5 minutes wins.",
   "start": "boot",
   "multiplayer": {
     "enabled": true,
