@@ -1249,113 +1249,17 @@ git checkout da571fe   # last commit before template unification`;
         }
     }
 
-    private isHosted(): boolean {
-        const h = window.location.hostname;
-        return h === 'parallaxpro.ai' || h === 'www.parallaxpro.ai';
-    }
-
-    private showSelfHostedPublishMessage(): void {
-        const body = document.createElement('div');
-        body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
-        const msg = document.createElement('div');
-        msg.style.cssText = 'font-size:13px;line-height:1.6;color:var(--text-primary);';
-        msg.innerHTML = `Publishing is currently only available on the hosted version at <a href="https://parallaxpro.ai/editor" target="_blank" style="color:var(--accent);">parallaxpro.ai</a>.<br><br>We're working on a way to publish directly from self-hosted instances. Stay tuned!`;
-        body.appendChild(msg);
-        const { close } = showModal({
-            title: 'Publish',
-            body,
-            width: '400px',
-            buttons: [{ label: 'OK', primary: true, action: () => close() }],
-        });
-    }
-
     private async publishProject(project: any): Promise<void> {
-        if (!this.isHosted()) { this.showSelfHostedPublishMessage(); return; }
-
-        const body = document.createElement('div');
-        body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
-
-        const mkLabel = (text: string) => {
-            const lbl = document.createElement('label');
-            lbl.textContent = text;
-            lbl.style.cssText = 'font-size:13px;font-weight:600;color:var(--text-secondary);';
-            return lbl;
-        };
-        const mkInput = (value: string, placeholder: string) => {
-            const inp = document.createElement('input');
-            inp.type = 'text'; inp.value = value; inp.placeholder = placeholder;
-            inp.style.cssText = 'width:100%;height:32px;padding:0 10px;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);';
-            return inp;
-        };
-
-        body.appendChild(mkLabel('Game Name'));
-        const nameInput = mkInput(project.name ?? '', 'My Awesome Game');
-        body.appendChild(nameInput);
-
-        body.appendChild(mkLabel('URL Slug'));
-        const slugInput = mkInput(
-            (project.name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'my-game',
-            'my-game-name'
-        );
-        body.appendChild(slugInput);
-
-        const preview = document.createElement('div');
-        preview.style.cssText = 'font-size:12px;color:var(--text-disabled);word-break:break-all;';
-        const origin = this.ctx.backend.isSelfHosted ? 'https://parallaxpro.ai' : window.location.origin;
-        const updatePreview = () => { preview.textContent = `${origin}/games/you/${slugInput.value || 'my-game'}`; };
-        updatePreview();
-        slugInput.addEventListener('input', updatePreview);
-        body.appendChild(preview);
-
-        body.appendChild(mkLabel('Version'));
-        const versionInput = mkInput('1.0.0', '1.0.0');
-        body.appendChild(versionInput);
-
-        body.appendChild(mkLabel('Changelog (optional)'));
-        const changelogInput = document.createElement('textarea');
-        changelogInput.placeholder = 'What\'s in this version...';
-        changelogInput.style.cssText = 'width:100%;height:50px;resize:vertical;font-family:inherit;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);padding:6px 10px;';
-        body.appendChild(changelogInput);
-
-        const errorMsg = document.createElement('div');
-        errorMsg.style.cssText = 'color:#e74c3c;font-size:12px;display:none;';
-        body.appendChild(errorMsg);
-
-        const { close } = showModal({
-            title: 'Publish Game',
-            body,
-            width: '420px',
-            closeOnBackdrop: false,
-            buttons: [
-                { label: 'Cancel', action: () => close() },
-                {
-                    label: 'Publish',
-                    primary: true,
-                    action: async () => {
-                        const gameName = nameInput.value.trim();
-                        const slug = slugInput.value.trim();
-                        const version = versionInput.value.trim();
-                        if (!gameName || !slug) { errorMsg.textContent = 'Name and slug are required.'; errorMsg.style.display = 'block'; return; }
-                        if (!version) { errorMsg.textContent = 'Version is required.'; errorMsg.style.display = 'block'; return; }
-                        try {
-                            const result = await this.ctx.backend.publishProject(project.id, gameName, slug, 'public', version, changelogInput.value.trim());
-                            close();
-                            project.status = 'published';
-                            project.publishedSlug = result.slug;
-                            project.publishedOwner = result.owner;
-                            project.publishedVersion = result.version;
-                            this.render();
-                        } catch (e: any) {
-                            errorMsg.textContent = e.message?.replace(/^API error \d+: /, '') || 'Publish failed.';
-                            try { errorMsg.textContent = JSON.parse(e.message?.replace(/^API error \d+: /, '') || '{}').error || errorMsg.textContent; } catch {}
-                            errorMsg.style.display = 'block';
-                        }
-                    },
-                },
-            ],
+        // Shared flow with the toolbar's Publish button — same modal,
+        // same validation, same self-hosted / hosted branches.
+        const { PublishFlow } = await import('../widgets/publish_flow.js');
+        await new PublishFlow(this.ctx).open(project.id, {
+            id: project.id,
+            name: project.name,
+            thumbnail: project.thumbnail,
         });
-
-        nameInput.focus();
+        // Re-sync the list so the card reflects any new publish state.
+        this.loadProjects();
     }
 
     private setThumbnail(project: any): void {
