@@ -360,9 +360,11 @@ export class BackendClient {
         }
     }
 
-    sendChatMessage(message: string, agent?: string): void {
-        const payload: { content: string; agent?: string } = { content: message };
+    sendChatMessage(message: string, agent?: string, chatAgent?: string, editingAgent?: string): void {
+        const payload: { content: string; agent?: string; chatAgent?: string; editingAgent?: string } = { content: message };
         if (agent) payload.agent = agent;
+        if (chatAgent) payload.chatAgent = chatAgent;
+        if (editingAgent) payload.editingAgent = editingAgent;
         this.sendWsMessage('chat_message', payload);
     }
 

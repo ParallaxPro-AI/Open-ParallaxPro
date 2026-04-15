@@ -860,7 +860,7 @@ export class Toolbar {
             chatLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
             chatSelect = document.createElement('select');
             chatSelect.style.cssText = 'width:100%;height:28px;';
-            const currentChat = this.ctx.state.projectData?.projectConfig?.chatAgent
+            const currentChat = localStorage.getItem('chat_agent')
                 ?? (this.ctx.state.llmApiAvailable ? 'llm_api' : chatOptions[0].value);
             for (const opt of chatOptions) {
                 const el = document.createElement('option');
@@ -890,7 +890,7 @@ export class Toolbar {
             agentLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
             agentSelect = document.createElement('select');
             agentSelect.style.cssText = 'width:100%;height:28px;';
-            const currentAgent = this.ctx.state.projectData?.projectConfig?.editingAgent ?? 'claude';
+            const currentAgent = localStorage.getItem('editing_agent') ?? 'claude';
             for (const a of cliAgents) {
                 const opt = document.createElement('option');
                 opt.value = a.id;
@@ -919,13 +919,7 @@ export class Toolbar {
             { value: 'medium', label: 'Medium', hint: 'Shadows, FXAA anti-aliasing, HBAO' },
             { value: 'high', label: 'High', hint: 'Shadows, MSAA anti-aliasing, HBAO, screen-space reflections, bloom' },
         ];
-        // Read priority: project's own setting → legacy localStorage value
-        // → 'medium'. Authors set per-project in the modal; localStorage is
-        // only the fallback for projects that predate this setting.
-        const currentQuality =
-            this.ctx.state.projectData?.projectConfig?.graphicsQuality
-            ?? (localStorage.getItem('graphics_quality') as string)
-            ?? 'medium';
+        const currentQuality = (localStorage.getItem('graphics_quality') as string) ?? 'medium';
         for (const q of qualities) {
             const opt = document.createElement('option');
             opt.value = q.value;
@@ -960,24 +954,12 @@ export class Toolbar {
                             this.ctx.state.projectData.name = newName;
                             this.projectNameEl.textContent = newName;
                         }
-                        if (agentSelect && this.ctx.state.projectData) {
-                            const pd = this.ctx.state.projectData;
-                            if (!pd.projectConfig) pd.projectConfig = {};
-                            pd.projectConfig.editingAgent = agentSelect.value;
-                        }
-                        if (chatSelect && this.ctx.state.projectData) {
-                            const pd = this.ctx.state.projectData;
-                            if (!pd.projectConfig) pd.projectConfig = {};
-                            pd.projectConfig.chatAgent = chatSelect.value;
-                        }
+                        if (agentSelect) localStorage.setItem('editing_agent', agentSelect.value);
+                        if (chatSelect) localStorage.setItem('chat_agent', chatSelect.value);
                         const selectedQuality = gfxSelect.value as 'low' | 'medium' | 'high';
-                        if (this.ctx.state.projectData) {
-                            const pd = this.ctx.state.projectData;
-                            if (!pd.projectConfig) pd.projectConfig = {};
-                            pd.projectConfig.graphicsQuality = selectedQuality;
-                        }
+                        localStorage.setItem('graphics_quality', selectedQuality);
                         this.ctx.setGraphicsQuality(selectedQuality);
-                        this.ctx.markDirty();
+                        if (newName) this.ctx.markDirty();
                         close();
                     },
                 },

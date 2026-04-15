@@ -360,12 +360,7 @@ export class EditorView {
 
         this.ctx.startAutosave(30000);
 
-        // Per-project graphics quality wins over the legacy per-browser
-        // localStorage value. Medium is the baseline when neither is set.
-        const savedQuality =
-            (this.ctx.state.projectData?.projectConfig?.graphicsQuality as 'low' | 'medium' | 'high' | undefined)
-            ?? (localStorage.getItem('graphics_quality') as 'low' | 'medium' | 'high' | null)
-            ?? 'medium';
+        const savedQuality = (localStorage.getItem('graphics_quality') as 'low' | 'medium' | 'high') ?? 'medium';
         this.ctx.setGraphicsQuality(savedQuality);
 
         this.ctx.emit('projectLoaded');

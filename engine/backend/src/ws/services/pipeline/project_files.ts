@@ -20,28 +20,6 @@ export type ProjectFiles = Record<string, string>;
 export interface ProjectData {
     projectConfig: {
         name: string;
-        /**
-         * Which CLI fixer agent runs when the AI decides to escalate a request
-         * (via the LLM's FIX_GAME tool call). 'claude' | 'codex' | 'opencode' | 'copilot'. Optional —
-         * missing means "use the first installed CLI" (claude preferred). The
-         * picker in the editor surfaces only the installed CLIs.
-         */
-        editingAgent?: string;
-        /**
-         * Which provider handles chat-path LLM calls (the conversational back-
-         * and-forth that decides whether to call EDIT / FIX_GAME / etc.).
-         * 'llm_api' uses the direct AI_BASE_URL; otherwise the same CLI ids
-         * as editingAgent drive a local CLI for chat. Missing/empty means
-         * auto (direct API when configured, else first installed CLI).
-         */
-        chatAgent?: string;
-        /**
-         * Author-chosen render quality for this project. Applied when the
-         * editor loads and as the default when a player opens play mode.
-         * Players can still override per-session in the play-mode settings
-         * panel (stored in localStorage).
-         */
-        graphicsQuality?: 'low' | 'medium' | 'high';
     };
     files: ProjectFiles;
 }

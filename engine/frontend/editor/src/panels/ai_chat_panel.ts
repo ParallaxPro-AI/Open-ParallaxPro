@@ -492,7 +492,9 @@ export class AiChatPanel {
         this.transitionTo(State.STREAMING);
         this.pendingChunks = '';
         this.showTypingIndicator();
-        this.ctx.backend.sendChatMessage(text, this.selectedAgent);
+        const chatAgent = localStorage.getItem('chat_agent') ?? undefined;
+        const editingAgent = localStorage.getItem('editing_agent') ?? undefined;
+        this.ctx.backend.sendChatMessage(text, this.selectedAgent, chatAgent, editingAgent);
         this.scrollToBottom();
     }
 

@@ -39,6 +39,11 @@ interface EditorClient {
     chatSessionId: string;
     activeSceneKey: string;
     abortController: AbortController | null;
+    /** User prefs forwarded from the frontend's localStorage on each chat
+     *  message. Remembered so retries in the same turn re-use the same
+     *  routing (chat LLM provider and fixer CLI). */
+    chatAgent?: string;
+    editingAgent?: string;
 }
 
 const clients = new Map<string, EditorClient>();
@@ -493,6 +498,11 @@ function handleChatMessage(client: EditorClient, data: any): void {
     const content = data?.content;
     if (!content || typeof content !== 'string') return;
 
+    // Cache the frontend's localStorage prefs for this turn. Retries within
+    // the same turn (runLLMWithRetry, FIX_GAME escalation) re-read these.
+    if (typeof data?.chatAgent === 'string') client.chatAgent = data.chatAgent;
+    if (typeof data?.editingAgent === 'string') client.editingAgent = data.editingAgent;
+
     // Plugin chat hooks
     for (const p of _plugins) {
         if (p.onChatMessage) p.onChatMessage(client, content);
@@ -662,6 +672,7 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
         },
         projectId: client.projectId,
         activeSceneKey: client.activeSceneKey,
+        editingAgent: client.editingAgent,
     };
 }
 
@@ -713,9 +724,6 @@ async function runLLMWithRetry(
             }
         }
     }
-
-    const pdForAgent = getProjectData(client.projectId);
-    const chatAgent = pdForAgent?.projectConfig?.chatAgent;
 
     callLLMStream(messages, {
         onChunk: () => {},
@@ -788,5 +796,5 @@ async function runLLMWithRetry(
             client.abortController = null;
             finishChat(client, `*Error: ${error}*`);
         },
-    }, abortController.signal, chatAgent);
+    }, abortController.signal, client.chatAgent);
 }
