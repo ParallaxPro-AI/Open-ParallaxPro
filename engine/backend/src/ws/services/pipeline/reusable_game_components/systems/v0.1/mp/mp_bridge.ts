@@ -72,6 +72,22 @@ class MpBridge extends GameScript {
                 }
             }
         } catch (e) { /* localStorage unavailable */ }
+        // Editor multiplayer preview: both the host tab and any "+ Preview
+        // Client" tabs send the same auth token and would otherwise show
+        // up as the same username. Tag preview tabs with a stable per-tab
+        // suffix so the roster can tell them apart. auto_play=1 is only
+        // set on preview tabs opened via the toolbar button.
+        try {
+            if (typeof window !== "undefined" && url && window.location.search.indexOf("auto_play=1") >= 0) {
+                var previewId = "";
+                try { previewId = sessionStorage.getItem("mp_preview_id") || ""; } catch (e) { /* ignore */ }
+                if (!previewId) {
+                    previewId = Math.random().toString(36).slice(2, 6);
+                    try { sessionStorage.setItem("mp_preview_id", previewId); } catch (e) { /* ignore */ }
+                }
+                url += (url.indexOf("?") >= 0 ? "&" : "?") + "suffix=" + encodeURIComponent("(preview " + previewId + ")");
+            }
+        } catch (e) { /* window unavailable */ }
         var templateId = cfg.gameTemplateId || this._gameTemplateId || "default";
         if (mpCfg.tickRate) mp.setTickRate(mpCfg.tickRate);
         if (typeof mpCfg.predictLocalPlayer === "boolean") mp.setPredictionEnabled(mpCfg.predictLocalPlayer);

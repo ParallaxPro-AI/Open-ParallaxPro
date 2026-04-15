@@ -109,6 +109,7 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
         const ticket = url.searchParams.get('ticket') ?? '';
         const token = url.searchParams.get('token') ?? '';
         const rawName = url.searchParams.get('name') ?? '';
+        const rawSuffix = url.searchParams.get('suffix') ?? '';
 
         let username = sanitizeName(rawName, 32);
         let userId: number | null = null;
@@ -122,6 +123,15 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
         }
 
         if (!username) username = `guest-${Math.random().toString(36).slice(2, 8)}`;
+
+        // Editor "+ Preview Client" tabs send an auth token + a disambiguating
+        // suffix so two tabs of the same account don't collapse to one
+        // username in the roster. Suffix is purely cosmetic; peerId remains
+        // unique per connection.
+        const suffix = sanitizeName(rawSuffix, 20);
+        if (suffix && userId !== null) {
+            username = `${username} ${suffix}`.slice(0, 48);
+        }
 
         const ip =
             (req.headers['x-real-ip'] as string) ||
