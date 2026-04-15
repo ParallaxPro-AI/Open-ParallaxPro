@@ -437,6 +437,15 @@ export class MultiplayerSession {
     tick(deltaTime: number, _renderTime: number): void {
         if (this._phase !== 'in_game') return;
 
+        // Per-frame smoothing for remote entity transforms, independent of
+        // the 30Hz sim tick. The adapter exposes its own tickInterpolation
+        // (the built-in StateInterpolator can't be used because peer
+        // timestamps are in unrelated clocks).
+        const adapterAny = this._adapter as any;
+        if (adapterAny && typeof adapterAny.tickInterpolation === 'function') {
+            adapterAny.tickInterpolation(deltaTime);
+        }
+
         this._pingAccumulator += deltaTime * 1000;
         if (this._pingAccumulator >= PING_INTERVAL_MS && !this._isHost && this._hostPeerId) {
             this._pingAccumulator = 0;

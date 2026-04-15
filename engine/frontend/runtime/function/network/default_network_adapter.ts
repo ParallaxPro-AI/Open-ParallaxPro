@@ -354,30 +354,71 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
     }
 
     private applySnapshotToEntity(entity: any, snap: SnapshotEntity): void {
+        // Just stash the latest target. The actual transform is interpolated
+        // toward it once per render frame (see `tickInterpolation`). The
+        // built-in StateInterpolator can't be used here because peer
+        // timestamps come from each sender's own performance.now() — we
+        // have no shared clock to align against.
         if (snap.pos && snap.rot) {
-            // Use interpolator for smooth render-side movement; the transform
-            // here gets the newest server-confirmed value, which scripts may
-            // read for gameplay logic.
-            const tc = entity.getComponent('TransformComponent') as TransformComponent | null;
-            if (tc) {
-                const interp = this.session.interpolator.interpolate(
-                    snap.id,
-                    this.session.isHost ? 0 : performance.now() / 1000,
-                );
-                const targetPos = interp?.position ?? new Vec3(snap.pos[0], snap.pos[1], snap.pos[2]);
-                const targetRot = interp?.rotation ?? new Quat(snap.rot[0], snap.rot[1], snap.rot[2], snap.rot[3]);
-                tc.position.x = targetPos.x; tc.position.y = targetPos.y; tc.position.z = targetPos.z;
-                tc.rotation.x = targetRot.x; tc.rotation.y = targetRot.y; tc.rotation.z = targetRot.z; tc.rotation.w = targetRot.w;
-                tc.markDirty();
-                (tc as any).worldMatrix = null;
-                (tc as any).localMatrix = null;
-            }
+            this._targets.set(snap.id, {
+                pos: snap.pos.slice() as [number, number, number],
+                rot: snap.rot.slice() as [number, number, number, number],
+                receivedAt: performance.now(),
+            });
         }
         if (snap.vars) {
             const ni = entity.getComponent('NetworkIdentityComponent') as NetworkIdentityComponent | null;
             ni?.applyReceivedVars(snap.vars);
         }
+        void entity;
     }
+
+    /**
+     * Smoothly approach the latest received transform for every networked
+     * remote entity. Engine calls this once per render frame so movement
+     * doesn't pop between 30Hz snapshots, but also doesn't trail behind
+     * the way the StateInterpolator's 100ms delay would.
+     */
+    tickInterpolation(deltaTime: number): void {
+        if (this._targets.size === 0) return;
+        const SMOOTHING = 18; // higher = snappier; tuned by feel
+        const alpha = 1 - Math.exp(-SMOOTHING * deltaTime);
+        for (const [netId, target] of this._targets) {
+            const entity = this.findSceneEntityByNetId(netId);
+            if (!entity) continue;
+            // Don't move our own local player from snapshots — prediction
+            // already drives it, and reconciliation handles divergence.
+            const ni = entity.getComponent('NetworkIdentityComponent') as NetworkIdentityComponent | null;
+            if (ni?.isLocalPlayer) continue;
+            const tc = entity.getComponent('TransformComponent') as TransformComponent | null;
+            if (!tc) continue;
+            tc.position.x += (target.pos[0] - tc.position.x) * alpha;
+            tc.position.y += (target.pos[1] - tc.position.y) * alpha;
+            tc.position.z += (target.pos[2] - tc.position.z) * alpha;
+            // Slerp would be ideal but a normalised lerp is close enough at
+            // these update rates and avoids importing Quat math here.
+            tc.rotation.x += (target.rot[0] - tc.rotation.x) * alpha;
+            tc.rotation.y += (target.rot[1] - tc.rotation.y) * alpha;
+            tc.rotation.z += (target.rot[2] - tc.rotation.z) * alpha;
+            tc.rotation.w += (target.rot[3] - tc.rotation.w) * alpha;
+            const len = Math.sqrt(
+                tc.rotation.x * tc.rotation.x +
+                tc.rotation.y * tc.rotation.y +
+                tc.rotation.z * tc.rotation.z +
+                tc.rotation.w * tc.rotation.w
+            ) || 1;
+            tc.rotation.x /= len; tc.rotation.y /= len; tc.rotation.z /= len; tc.rotation.w /= len;
+            tc.markDirty();
+            (tc as any).worldMatrix = null;
+            (tc as any).localMatrix = null;
+        }
+    }
+
+    private _targets: Map<number, {
+        pos: [number, number, number];
+        rot: [number, number, number, number];
+        receivedAt: number;
+    }> = new Map();
 
     private findSceneEntityByNetId(networkId: number): any | null {
         for (const entity of this.scene.entities.values()) {
