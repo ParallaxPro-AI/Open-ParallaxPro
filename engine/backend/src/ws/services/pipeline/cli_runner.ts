@@ -97,15 +97,32 @@ export interface SpawnOptions {
 
 type CLIName = 'claude' | 'codex' | 'opencode' | 'copilot';
 
+const VALID_CLI_NAMES: ReadonlySet<CLIName> = new Set(['claude', 'codex', 'opencode', 'copilot']);
+
 /**
- * Pick the CLI for this call. Preference order:
- *   1. Explicit `cliOverride` if set (per-message pick / per-project setting).
- *   2. First agent detected at startup — `PROBES` orders claude → codex →
- *      opencode, so claude wins whenever it's installed.
- * Throws if nothing is installed.
+ * Pick the CLI for this call. Strict about overrides — when the caller
+ * asked for a specific CLI we must use exactly that one or fail loudly:
+ *
+ *   - `cliOverride` is an unknown string → throw (prevents silent fallback
+ *     when a stale/typo'd value leaks in from projectConfig).
+ *   - `cliOverride` is a known CLI but isn't installed on this host → throw
+ *     with a clear "X is not installed" error so the user picks another,
+ *     rather than quietly getting Claude when they chose Codex.
+ *   - `cliOverride` unset → fall back to the first detected CLI (PROBES
+ *     order: claude → codex → opencode → copilot).
+ *   - Nothing installed → throw.
  */
 function resolveCLI(cliOverride?: string): CLIName {
-    if (cliOverride === 'claude' || cliOverride === 'codex' || cliOverride === 'opencode' || cliOverride === 'copilot') return cliOverride;
+    if (cliOverride) {
+        if (!VALID_CLI_NAMES.has(cliOverride as CLIName)) {
+            throw new Error(`Unknown editing agent "${cliOverride}". Valid values: ${Array.from(VALID_CLI_NAMES).join(', ')}.`);
+        }
+        const installed = getAvailableAgents().some(a => a.id === cliOverride);
+        if (!installed) {
+            throw new Error(`Editing agent "${cliOverride}" is not installed on this server. Pick a different agent or install the CLI and restart the backend.`);
+        }
+        return cliOverride as CLIName;
+    }
     const first = getAvailableAgents()[0];
     if (!first) throw new Error('No editing agent CLI is installed. Install claude-code, codex, opencode, or copilot and restart the backend.');
     return first.id as CLIName;
@@ -113,10 +130,19 @@ function resolveCLI(cliOverride?: string): CLIName {
 
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     const cli = resolveCLI(opts.cliOverride);
-    if (cli === 'claude') return spawnClaude(opts);
-    if (cli === 'codex') return spawnCodex(opts);
-    if (cli === 'copilot') return spawnCopilot(opts);
-    return spawnOpenCode(opts);
+    switch (cli) {
+        case 'claude':   return spawnClaude(opts);
+        case 'codex':    return spawnCodex(opts);
+        case 'opencode': return spawnOpenCode(opts);
+        case 'copilot':  return spawnCopilot(opts);
+        default: {
+            // Exhaustiveness check — the assignment forces a compile error if
+            // a new CLIName is added but no spawn case is wired here, instead
+            // of silently falling through to a default.
+            const _exhaustive: never = cli;
+            throw new Error(`No spawn implementation for CLI "${_exhaustive}".`);
+        }
+    }
 }
 
 // ─── Claude ─────────────────────────────────────────────────────────────────
