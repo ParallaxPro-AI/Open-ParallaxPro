@@ -19,7 +19,7 @@
     </a>
 </p>
 
-<h3 align="center">Turn prompts into playable games</h3>
+<h3 align="center">Open source tool that turns prompts into playable games</h3>
 
 ## ParallaxPro
 
