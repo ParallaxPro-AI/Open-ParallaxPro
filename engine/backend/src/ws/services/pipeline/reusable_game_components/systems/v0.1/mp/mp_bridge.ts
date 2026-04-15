@@ -277,22 +277,10 @@ class MpBridge extends GameScript {
             });
         }
 
-        // If the browser has already granted mic permission to this origin,
-        // flip the mic on automatically so the player doesn't have to click
-        // Mic off every time they join a match. If permission is prompt/denied
-        // we leave the mic off — the user has to explicitly click to grant.
-        try {
-            if (typeof navigator !== "undefined" && navigator.permissions && navigator.permissions.query) {
-                navigator.permissions.query({ name: "microphone" }).then(function(status) {
-                    if (status.state === "granted") {
-                        mp.enableVoice().then(function(ok) {
-                            self._micOn = !!ok;
-                            self._pushUiUpdate();
-                        });
-                    }
-                }).catch(function() { /* permissions API not supported for mic */ });
-            }
-        } catch (e) { /* older browser — skip auto-enable */ }
+        // Mic stays off until the user explicitly clicks "Muted" or presses
+        // V. Previously we auto-enabled when the browser had already granted
+        // permission, but that surprises users who joined with headphones
+        // on or are in a quiet room — privacy default wins over convenience.
     }
 
     onUpdate(dt) {
