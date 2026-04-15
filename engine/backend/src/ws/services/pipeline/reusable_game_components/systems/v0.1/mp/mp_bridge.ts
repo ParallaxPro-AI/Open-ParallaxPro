@@ -268,6 +268,25 @@ class MpBridge extends GameScript {
             this._chatPulseTimer = 0;
             this._pushUiUpdate();
         }
+
+        // V toggles the mic. First press requests permission + enables; later
+        // presses cycle muted state. Gated on chat focus so it doesn't fire
+        // when the user is typing.
+        if (!this._chatFocused && this.input && this.input.isKeyPressed && this.input.isKeyPressed("KeyV")) {
+            var self2 = this;
+            if (!this._micOn) {
+                mp.enableVoice().then(function(ok) {
+                    self2._micOn = !!ok;
+                    self2._muted = false;
+                    mp.setMuted(false);
+                    self2._pushUiUpdate();
+                });
+            } else {
+                this._muted = !this._muted;
+                mp.setMuted(this._muted);
+                this._pushUiUpdate();
+            }
+        }
         if (this._openChatPulse) {
             this._chatPulseTimer += (dt || 0);
             if (this._chatPulseTimer > 0.15) {
