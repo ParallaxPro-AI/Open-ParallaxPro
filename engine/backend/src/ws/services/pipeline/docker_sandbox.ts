@@ -35,7 +35,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 
-type AgentId = 'claude' | 'codex' | 'opencode';
+type AgentId = 'claude' | 'codex' | 'opencode' | 'copilot';
 
 const HOME = os.homedir();
 
@@ -66,6 +66,10 @@ const AUTH_DIRS: Record<AgentId, string[]> = {
         path.join(HOME, '.local', 'share', 'opencode'),
         path.join(HOME, '.local', 'state', 'opencode'),
     ],
+    // GitHub Copilot CLI keeps auth, session state, IDE integrations, and
+    // logs in `~/.copilot` — one directory covers everything the CLI needs
+    // to authenticate and resume/write sessions.
+    copilot: [path.join(HOME, '.copilot')],
 };
 
 let cachedEnabled: boolean | null = null;

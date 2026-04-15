@@ -386,7 +386,7 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             const abortController = new AbortController();
             client.abortController = abortController;
             const agent = typeof data?.agent === 'string' ? data.agent : '';
-            if ((agent === 'claude' || agent === 'codex' || agent === 'opencode') && isAgentAvailable(agent)) {
+            if ((agent === 'claude' || agent === 'codex' || agent === 'opencode' || agent === 'copilot') && isAgentAvailable(agent)) {
                 runDirectFixer(client, prevUser.content, agent, abortController);
             } else {
                 runLLMWithRetry(client, abortController, 0, [], []);
@@ -509,7 +509,7 @@ function handleChatMessage(client: EditorClient, data: any): void {
     // we skip the small LLM entirely and hand the raw message to the CLI
     // fixer. This is the "direct" path — best for concrete fix/feature asks.
     const agent = typeof data?.agent === 'string' ? data.agent : '';
-    if (agent === 'claude' || agent === 'codex' || agent === 'opencode') {
+    if (agent === 'claude' || agent === 'codex' || agent === 'opencode' || agent === 'copilot') {
         if (!isAgentAvailable(agent)) {
             finishChat(client, `*Agent "${agent}" is not installed on this server.*`);
             return;
@@ -574,7 +574,10 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
             }
         }
 
-        const agentLabel = cliOverride === 'codex' ? 'Codex' : cliOverride === 'opencode' ? 'OpenCode' : 'Claude Code';
+        const agentLabel = cliOverride === 'codex' ? 'Codex'
+            : cliOverride === 'opencode' ? 'OpenCode'
+            : cliOverride === 'copilot' ? 'GitHub Copilot'
+            : 'Claude Code';
         const summary = fixResult.success
             ? (fixResult.summary || `${agentLabel} applied the fix.`)
             : `*${agentLabel} failed: ${fixResult.summary}*`;
