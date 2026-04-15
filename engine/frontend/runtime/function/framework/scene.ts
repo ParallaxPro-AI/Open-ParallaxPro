@@ -427,13 +427,36 @@ export class Scene {
 
             let modelMatrix = entity.getWorldMatrix();
 
-            // Apply mesh-level offset and rotation in model space
+            // Apply mesh-level offset and rotation in model space.
+            // The output Mat4 is cached on the component — reusing the
+            // same reference across frames is required because shadow_pass
+            // keys its GPU-buffer pool by Mat4 identity. A fresh Mat4 per
+            // frame creates a fresh GPUBuffer + GPUBindGroup per frame and
+            // the pool grows without bound.
             if (mr.modelRotationX !== 0 || mr.modelRotationY !== 0 || mr.modelRotationZ !== 0 || mr.modelOffsetY !== 0) {
-                const deg2rad = Math.PI / 180;
-                const meshRot = Quat.fromEuler(mr.modelRotationX * deg2rad, mr.modelRotationY * deg2rad, mr.modelRotationZ * deg2rad);
-                const meshOffset = new Vec3(0, mr.modelOffsetY, 0);
-                const meshTransform = Mat4.compose(meshOffset, meshRot, new Vec3(1, 1, 1));
-                modelMatrix = modelMatrix.multiply(meshTransform);
+                // Mesh-local transform only needs to be rebuilt when the
+                // rotation/offset values themselves change — ordinarily
+                // they're set once on the prefab and never touched again.
+                if (mr._meshTransformCache === null ||
+                    mr._meshTransformRotX !== mr.modelRotationX ||
+                    mr._meshTransformRotY !== mr.modelRotationY ||
+                    mr._meshTransformRotZ !== mr.modelRotationZ ||
+                    mr._meshTransformOffY !== mr.modelOffsetY) {
+                    const deg2rad = Math.PI / 180;
+                    const meshRot = Quat.fromEuler(mr.modelRotationX * deg2rad, mr.modelRotationY * deg2rad, mr.modelRotationZ * deg2rad);
+                    const meshOffset = new Vec3(0, mr.modelOffsetY, 0);
+                    mr._meshTransformCache = Mat4.compose(meshOffset, meshRot, new Vec3(1, 1, 1));
+                    mr._meshTransformRotX = mr.modelRotationX;
+                    mr._meshTransformRotY = mr.modelRotationY;
+                    mr._meshTransformRotZ = mr.modelRotationZ;
+                    mr._meshTransformOffY = mr.modelOffsetY;
+                }
+                // Composite world × meshTransform into a persistent output
+                // buffer. Mat4.multiply(out) mutates 'out' in place and
+                // returns it, so modelMatrix is the same reference every
+                // frame.
+                if (mr._modelMatrixCache === null) mr._modelMatrixCache = new Mat4();
+                modelMatrix = modelMatrix.multiply(mr._meshTransformCache, mr._modelMatrixCache);
             }
 
             const overrides = mr.materialOverrides;

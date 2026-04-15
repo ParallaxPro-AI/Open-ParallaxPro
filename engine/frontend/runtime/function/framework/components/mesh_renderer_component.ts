@@ -57,6 +57,20 @@ export class MeshRendererComponent extends Component {
     skinningData: any = null;
     skeletonName: string = '';
 
+    /**
+     * Output buffers for Scene.collectMeshInstances to write the final
+     * model matrix into. Reusing the same Mat4 object across frames is
+     * critical: shadow_pass keys its GPU-buffer pool by matrix reference,
+     * so allocating a fresh Mat4 per frame would balloon the pool (and
+     * allocated GPUBuffer + GPUBindGroup with it) indefinitely.
+     */
+    _meshTransformCache: any = null;   // Mat4 for the rotation/offset-only transform
+    _meshTransformRotX: number = NaN;
+    _meshTransformRotY: number = NaN;
+    _meshTransformRotZ: number = NaN;
+    _meshTransformOffY: number = NaN;
+    _modelMatrixCache: any = null;     // Mat4 for world × mesh-transform
+
     // -- Lifecycle ------------------------------------------------------------
 
     initialize(data: Record<string, any>): void {

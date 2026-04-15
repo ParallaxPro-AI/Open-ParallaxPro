@@ -158,6 +158,13 @@ export class ShadowPass {
         const lightDir = scene.directionalLights[0].direction;
         const camera = scene.camera;
 
+        // Reset the per-frame slot assignment. The pool itself (buffers +
+        // bindgroups) persists — we just let getModelBindGroup re-assign
+        // indices from 0 as meshes come in. Without this, keying by Mat4
+        // identity would leak any time an upstream path allocated a fresh
+        // Mat4 per frame (easy to do, and the leak is unbounded).
+        this.matrixSlotMap.clear();
+
         this.computeCascadeSplits(camera.near, camera.far);
 
         for (let cascade = 0; cascade < NUM_CASCADES; cascade++) {
@@ -275,18 +282,24 @@ export class ShadowPass {
         let idx = this.matrixSlotMap.get(mesh.modelMatrix);
         if (idx === undefined) {
             idx = this.matrixSlotMap.size;
-            const buf = this.resources!.createUniformBuffer(128, `shadow_model_pool_${idx}`);
-            this.modelBufferPool.push(buf);
-            this.modelBindGroupPool.push(
-                this.resources!.createBindGroup(this.modelBGL!, [{
-                    binding: 0,
-                    resource: { buffer: buf },
-                }], `shadow_model_bg_pool_${idx}`)
-            );
+            // Only grow the pool when we've exhausted existing slots.
+            // Reused slots keep their GPUBuffer + GPUBindGroup — we just
+            // force the sentinel mismatch so the first writeBuffer of the
+            // frame actually uploads (the old cached data doesn't describe
+            // the new mesh assigned to this slot).
+            if (idx >= this.modelBufferPool.length) {
+                const buf = this.resources!.createUniformBuffer(128, `shadow_model_pool_${idx}`);
+                this.modelBufferPool.push(buf);
+                this.modelBindGroupPool.push(
+                    this.resources!.createBindGroup(this.modelBGL!, [{
+                        binding: 0,
+                        resource: { buffer: buf },
+                    }], `shadow_model_bg_pool_${idx}`)
+                );
+                this.slotCachedMatrix[idx] = new Float32Array(16);
+            }
+            this.slotCachedMatrix[idx][0] = NaN; // force first-write mismatch
             this.matrixSlotMap.set(mesh.modelMatrix, idx);
-            const sentinel = new Float32Array(16);
-            sentinel[0] = NaN; // force first-write mismatch
-            this.slotCachedMatrix[idx] = sentinel;
         }
 
         const cached = this.slotCachedMatrix[idx];
