@@ -52,6 +52,18 @@ import {
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
+/**
+ * Lobby wire protocol version. Bumps any time the server changes a
+ * message shape in a way old clients can't tolerate. Clients send their
+ * compiled-in version; the server tells them ours; if they disagree, we
+ * close cleanly with a recognisable error before the client goes off and
+ * does WebRTC negotiation against an incompatible peer set.
+ *
+ * Keep the handler mounted under /ws/multiplayer/vN forever once shipped
+ * so old published games keep working when v(N+1) goes live.
+ */
+export const LOBBY_PROTOCOL_VERSION = 1;
+
 function send(ws: WebSocket, type: string, data: any): void {
     if (ws.readyState !== ws.OPEN) return;
     try { ws.send(JSON.stringify({ type, data })); } catch { /* socket died */ }
@@ -117,7 +129,19 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
             'unknown';
 
         const peer = registerPeer(ws, username, userId, ip);
-        send(ws, 'lobby.hello_ack', { peerId: peer.peerId, username: peer.username });
+        // Optional client-declared protocol version. We accept the
+        // connection regardless (so a client can just listen for the
+        // hello_ack version field and bail if it's wrong), but log a
+        // warning here so server logs surface mismatches early.
+        const clientV = Number(url.searchParams.get('v') || '0');
+        if (clientV && clientV !== LOBBY_PROTOCOL_VERSION) {
+            console.warn(`[lobby] client connected with protocol v${clientV}, server is v${LOBBY_PROTOCOL_VERSION}`);
+        }
+        send(ws, 'lobby.hello_ack', {
+            peerId: peer.peerId,
+            username: peer.username,
+            protocolVersion: LOBBY_PROTOCOL_VERSION,
+        });
 
         const heartbeat = setInterval(() => {
             if (ws.readyState === ws.OPEN) ws.ping();

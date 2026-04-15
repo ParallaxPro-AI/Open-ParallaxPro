@@ -127,6 +127,11 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // Additional WS paths from plugins
     const wsHandlers = new Map<string, WebSocketServer>();
     wsHandlers.set('/ws/engine', editorWSS);
+    // Lobby WS is mounted under a versioned path so we can ship breaking
+    // protocol changes as /v2 / /v3 without yanking /v1 out from under
+    // already-published games. Unversioned alias remains as legacy so
+    // pre-versioning clients still connect.
+    wsHandlers.set('/ws/multiplayer/v1', lobbyWSS);
     wsHandlers.set('/ws/multiplayer', lobbyWSS);
     for (const p of plugins) {
         if (p.registerWebSocket) {

@@ -56,7 +56,9 @@ class MpBridge extends GameScript {
         var url = cfg.multiplayerSignalUrl || this._connectUrl;
         if (!url && typeof window !== "undefined") {
             var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-            url = proto + "//" + window.location.host + "/ws/multiplayer";
+            // /v1 — versioned mount so older published games stay on the
+            // protocol they shipped against when we eventually ship /v2.
+            url = proto + "//" + window.location.host + "/ws/multiplayer/v1";
         }
         var templateId = cfg.gameTemplateId || this._gameTemplateId || "default";
         if (mpCfg.tickRate) mp.setTickRate(mpCfg.tickRate);

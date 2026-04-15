@@ -10,6 +10,14 @@
 
 export type PeerId = string;
 
+/**
+ * Wire protocol version this client speaks. Must match the server
+ * mounted at /ws/multiplayer/v{LOBBY_PROTOCOL_VERSION}. Server replies
+ * with its own version on hello_ack — connect() rejects on mismatch so
+ * an outdated client doesn't silently bind into an incompatible session.
+ */
+export const LOBBY_PROTOCOL_VERSION = 1;
+
 export interface LobbyListEntry {
     id: string;
     name: string;
@@ -98,6 +106,15 @@ export class LobbyClient {
                 if (msg.type === 'lobby.hello_ack' && !resolved) {
                     resolved = true;
                     clearTimeout(timer);
+                    const serverV = Number(msg.data.protocolVersion || 0);
+                    if (serverV && serverV !== LOBBY_PROTOCOL_VERSION) {
+                        try { ws.close(); } catch { /* ignored */ }
+                        reject(new Error(
+                            `Lobby protocol mismatch: client v${LOBBY_PROTOCOL_VERSION}, server v${serverV}. ` +
+                            `This game is built against an older engine — re-publish to upgrade.`
+                        ));
+                        return;
+                    }
                     this.peerId = msg.data.peerId;
                     this.username = msg.data.username;
                     this.events.onHelloAck?.(msg.data);
