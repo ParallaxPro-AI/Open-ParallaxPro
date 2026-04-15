@@ -31,6 +31,7 @@ export class Toolbar {
     private gizmoSpaceBtn!: HTMLElement;
     private playBtn!: HTMLElement;
     private stopBtn!: HTMLElement;
+    private previewClientBtn!: HTMLButtonElement;
     private mpBtn!: HTMLElement;
     private mpDropdown!: HTMLElement;
     private mpLinkText!: HTMLElement;
@@ -210,6 +211,23 @@ export class Toolbar {
         this.stopBtn.style.display = 'none';
         playGroup.appendChild(this.stopBtn);
 
+        // Multiplayer preview: opens the editor in a new tab with the same project
+        // so the developer can exercise both ends of a peer-to-peer match locally.
+        // Only visible for projects that declare multiplayer.enabled in 01_flow.json
+        // (toggled by updatePreviewClientVisibility below).
+        this.previewClientBtn = document.createElement('button');
+        this.previewClientBtn.className = 'toolbar-btn';
+        this.previewClientBtn.style.cssText = 'font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap;margin-left:4px;display:none;';
+        this.previewClientBtn.textContent = '+ Preview Client';
+        this.previewClientBtn.title = 'Open another window of this project to test multiplayer locally';
+        this.previewClientBtn.addEventListener('click', () => {
+            const pid = this.ctx.state.projectId;
+            if (!pid) return;
+            const url = `${window.location.origin}/?project=${encodeURIComponent(pid)}&auto_play=1`;
+            window.open(url, '_blank', 'noopener,noreferrer');
+        });
+        playGroup.appendChild(this.previewClientBtn);
+
         const mpWrapper = document.createElement('div');
         mpWrapper.style.cssText = 'position:relative;display:none;';
         this.mpBtn = document.createElement('button');
@@ -320,7 +338,12 @@ export class Toolbar {
                 (this as any)._mpWrapper.style.display = 'none';
                 this.mpDropdown.style.display = 'none';
             }
+            this.updatePreviewClientVisibility();
         });
+
+        // Project data changes (load, edit) may flip multiplayer on/off.
+        this.ctx.on('projectLoaded', () => this.updatePreviewClientVisibility());
+        this.ctx.on('projectSaved', () => this.updatePreviewClientVisibility());
 
         this.ctx.on('multiplayerRoomCreated', (data: any) => {
             const { joinLink } = data;
@@ -443,6 +466,37 @@ export class Toolbar {
         const g = document.createElement('div');
         g.className = 'toolbar-group';
         return g;
+    }
+
+    /**
+     * Show the "+ Preview Client" button only for projects that declare
+     * multiplayer.enabled in their flow JSON. The button opens a second
+     * editor tab with ?auto_play=1, so the dev can host in one tab and
+     * join in the other without leaving the browser.
+     */
+    private updatePreviewClientVisibility(): void {
+        // Only meaningful while the game is running in play mode — opening a
+        // second client without the host playing just gets you two lobby
+        // browsers pointed at nothing.
+        const playing = !!this.ctx.state.isPlaying;
+        const pd: any = this.ctx.state.projectData;
+        const mpEnabled = pd?.multiplayerConfig?.enabled
+            || pd?.projectConfig?.multiplayerConfig?.enabled
+            || this.detectMultiplayerInFlow(pd);
+        this.previewClientBtn.style.display = (playing && mpEnabled) ? '' : 'none';
+    }
+
+    private detectMultiplayerInFlow(projectData: any): boolean {
+        const files = projectData?.files;
+        if (!files || typeof files !== 'object') return false;
+        const flow = files['01_flow.json'];
+        if (typeof flow !== 'string') return false;
+        try {
+            const parsed = JSON.parse(flow);
+            return !!parsed?.multiplayer?.enabled;
+        } catch {
+            return false;
+        }
     }
 
     private createButton(label: string, iconStr: string, className: string, onClick: () => void): HTMLElement {

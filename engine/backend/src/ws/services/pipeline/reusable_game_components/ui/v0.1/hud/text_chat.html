@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #eaf0f6;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .box {
+    position: fixed; bottom: 14px; left: 14px;
+    width: min(380px, 46vw);
+    display: flex; flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .log {
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    border-radius: 8px;
+    background: rgba(8,8,14,0.35);
+    transition: background 0.2s;
+  }
+  .log.empty { background: transparent; }
+  .log::-webkit-scrollbar { width: 4px; }
+  .log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  .line {
+    padding: 1px 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+  }
+  .line .user { color: #8b5cf6; font-weight: 700; margin-right: 4px; }
+  .line.me .user { color: #22c55e; }
+  .line.sys .body { color: #6b7280; font-style: italic; }
+
+  .input-row {
+    display: none;
+    pointer-events: auto;
+    align-items: center;
+    background: rgba(8,8,14,0.82);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 6px 8px;
+    gap: 8px;
+    backdrop-filter: blur(6px);
+  }
+  .input-row.open { display: flex; }
+  .input-row .prefix {
+    font-size: 11px; color: #6366f1;
+    letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700;
+  }
+  .input-row input {
+    flex: 1;
+    background: transparent;
+    border: 0; outline: none;
+    color: #eaf0f6;
+    font-family: inherit; font-size: 13px;
+  }
+  .hint {
+    font-size: 10px; color: #3e4550;
+    text-transform: uppercase; letter-spacing: 1px;
+    padding-left: 8px;
+    pointer-events: auto; cursor: pointer;
+  }
+  .hint:hover { color: #6b7280; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="log empty" id="log"></div>
+  <div class="input-row" id="input-row">
+    <div class="prefix">Say:</div>
+    <input id="input" type="text" maxlength="400" autocomplete="off" spellcheck="false" />
+  </div>
+  <div class="hint" id="hint">Press Enter to chat</div>
+</div>
+<script>
+(function () {
+  var logEl = document.getElementById('log');
+  var inputRow = document.getElementById('input-row');
+  var input = document.getElementById('input');
+  var hint = document.getElementById('hint');
+  var localUsername = '';
+  var fadeTimer = null;
+  var justClosedAt = 0;
+
+  function emit(action, payload) {
+    var msg = { type: 'game_command', action: action };
+    if (payload) msg.payload = payload;
+    window.parent.postMessage(msg, '*');
+  }
+
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function scrollDown() {
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function appendLine(cls, html) {
+    var line = document.createElement('div');
+    line.className = 'line ' + (cls || '');
+    line.innerHTML = html;
+    logEl.appendChild(line);
+    logEl.classList.remove('empty');
+    while (logEl.childNodes.length > 80) logEl.removeChild(logEl.firstChild);
+    scrollDown();
+  }
+
+  function renderAll(messages) {
+    logEl.innerHTML = '';
+    (messages || []).forEach(function (m) {
+      var isMe = m.fromUsername === localUsername;
+      appendLine(isMe ? 'me' : '',
+        '<span class="user">' + escape(m.fromUsername) + ':</span>' +
+        '<span class="body">' + escape(m.body) + '</span>');
+    });
+    if (!messages || !messages.length) logEl.classList.add('empty');
+  }
+
+  function openInput() {
+    if (inputRow.classList.contains('open')) return;
+    // Ignore open pulses that arrive right after a close — the race between
+    // chat_focus:false propagating through the parent and the next state
+    // resend would otherwise flicker the input back open.
+    if (Date.now() - justClosedAt < 600) return;
+    inputRow.classList.add('open');
+    hint.style.display = 'none';
+    input.value = '';
+    setTimeout(function () { input.focus(); }, 20);
+    emit('chat_focus', { focus: true });
+  }
+  function closeInput() {
+    if (!inputRow.classList.contains('open')) return;
+    inputRow.classList.remove('open');
+    hint.style.display = '';
+    justClosedAt = Date.now();
+    try { input.blur(); } catch (e) {}
+    emit('chat_focus', { focus: false });
+  }
+
+  hint.onclick = openInput;
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      var body = input.value.trim();
+      if (body) emit('send_chat', { body: body });
+      closeInput();
+    } else if (e.key === 'Escape') {
+      closeInput();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (inputRow.classList.contains('open')) return;
+    // 't' or 'Enter' opens chat (while iframe has focus). Parent forwards its own t/Enter via postMessage too.
+    if (e.key === 't' || e.key === 'Enter') {
+      e.preventDefault();
+      openInput();
+    }
+  });
+
+  window.addEventListener('message', function (e) {
+    if (!e.data) return;
+    if (e.data.type === 'gameState') {
+      var s = e.data.state || {};
+      if (s.username) localUsername = s.username;
+      var mp = s.multiplayer;
+      if (mp) {
+        if (Array.isArray(mp.chatHistory)) renderAll(mp.chatHistory);
+        if (mp.openChat && !inputRow.classList.contains('open')) openInput();
+      }
+    } else if (e.data.type === 'chat_append') {
+      var m = e.data.message || {};
+      var isMe = m.fromUsername === localUsername;
+      appendLine(isMe ? 'me' : '',
+        '<span class="user">' + escape(m.fromUsername) + ':</span>' +
+        '<span class="body">' + escape(m.body) + '</span>');
+    } else if (e.data.type === 'chat_system') {
+      appendLine('sys', '<span class="body">' + escape(e.data.body || '') + '</span>');
+    }
+  });
+})();
+</script>
+</body>
+</html>

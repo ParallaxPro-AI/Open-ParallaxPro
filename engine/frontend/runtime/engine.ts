@@ -189,6 +189,7 @@ export class ParallaxEngine {
         if (gameMode) {
             perf.beginPhase('network');
             ctx.networkSystem.tick(deltaTime);
+            ctx.multiplayerSession.tick(deltaTime, this.totalTime);
             perf.endPhase();
         }
 

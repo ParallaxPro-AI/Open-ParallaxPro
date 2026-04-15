@@ -230,6 +230,37 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     power_down:         { fields: {} },
     combo_hit:          { fields: { combo: { type: 'number', optional: true } } },
     streak_ended:       { fields: {} },
+
+    // ── Multiplayer ──
+    // Phase markers emitted by mp_bridge when the session's phase changes.
+    // Transitions watch these via `mp_event:phase_<name>`.
+    mp_phase_disconnected: { fields: {} },
+    mp_phase_connecting:   { fields: {} },
+    mp_phase_browsing:     { fields: {} },
+    mp_phase_in_lobby:     { fields: {} },
+    mp_phase_in_game:      { fields: {} },
+    mp_phase_game_over:    { fields: {} },
+    // Chat focus/blur: tell the flow to pause input capture while typing.
+    mp_chat_focus:         { fields: {} },
+    mp_chat_blur:          { fields: {} },
+    // "Back to menu" from the lobby browser (not a phase — a user action).
+    mp_back_to_menu:       { fields: {} },
+    // Host changed mid-session. Game systems that own host-authoritative
+    // state (timers, host-spawned entities) should re-claim ownership when
+    // the new host id matches their local peer.
+    mp_host_changed:       { fields: { newHostPeerId: { type: 'string', optional: true } } },
+    // Player count fell below the game's declared minPlayers. A game can
+    // listen for this and abandon the match cleanly.
+    mp_below_min_players:  { fields: { count: { type: 'number', optional: true }, min: { type: 'number', optional: true } } },
+    mp_roster_changed:     { fields: { count: { type: 'number', optional: true } } },
+    // Match lifecycle for multiplayer templates.
+    match_started:         { fields: {} },
+    match_ended:           { fields: { reason: { type: 'string', optional: true }, winner: { type: 'any', optional: true } } },
+    // Networked events relayed by mp_bridge — events prefixed "net_" are
+    // received from a remote peer. We allowlist the ones the reference
+    // templates use; project-specific net events can be added per-project.
+    net_match_ended:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_coin_collected:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));

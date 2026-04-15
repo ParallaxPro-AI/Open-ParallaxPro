@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #eaf0f6;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .panel {
+    position: fixed; top: 12px; left: 12px;
+    min-width: 170px;
+    background: rgba(8,8,14,0.55);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 8px;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+  }
+  .panel.hidden { display: none; }
+  .title-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .title {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    color: #6b7280;
+  }
+  .mic-toggle {
+    font-family: inherit;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #eaf0f6;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .mic-toggle:hover { border-color: rgba(255,255,255,0.2); }
+  .mic-toggle.on {
+    background: rgba(99,102,241,0.25);
+    border-color: #6366f1;
+  }
+  .mic-toggle.muted {
+    background: rgba(239,68,68,0.2);
+    border-color: rgba(239,68,68,0.5);
+  }
+
+  .peers { display: flex; flex-direction: column; gap: 4px; }
+  .peer {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 11px;
+    transition: background 0.15s;
+  }
+  .peer.speaking { background: rgba(34,197,94,0.15); }
+  .peer .name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .peer .meter { display: flex; gap: 2px; align-items: flex-end; }
+  .peer .bar {
+    width: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 1px;
+    transition: background 0.05s, height 0.05s;
+  }
+  .peer .bar.on { background: #22c55e; }
+  .peer .bar.hot { background: #eab308; }
+  .peer .bar.max { background: #ef4444; }
+</style>
+</head>
+<body>
+<div class="panel hidden" id="panel">
+  <div class="title-row">
+    <div class="title">Voice</div>
+    <button class="mic-toggle" id="mic-toggle">Mic off</button>
+  </div>
+  <div class="peers" id="peers"></div>
+</div>
+<script>
+(function () {
+  var micToggle = document.getElementById('mic-toggle');
+  var peersEl = document.getElementById('peers');
+  var panel = document.getElementById('panel');
+  var micOn = false;
+  var muted = false;
+
+  function emit(action, payload) {
+    var msg = { type: 'game_command', action: action };
+    if (payload) msg.payload = payload;
+    window.parent.postMessage(msg, '*');
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function updateMicButton() {
+    micToggle.classList.remove('on', 'muted');
+    if (!micOn) {
+      micToggle.textContent = 'Mic off';
+    } else if (muted) {
+      micToggle.classList.add('muted');
+      micToggle.textContent = 'Muted';
+    } else {
+      micToggle.classList.add('on');
+      micToggle.textContent = 'Mic on';
+    }
+  }
+
+  micToggle.onclick = function () {
+    if (!micOn) {
+      emit('voice_request_mic');
+    } else if (!muted) {
+      muted = true;
+      emit('voice_set_muted', { muted: true });
+      updateMicButton();
+    } else {
+      muted = false;
+      emit('voice_set_muted', { muted: false });
+      updateMicButton();
+    }
+  };
+
+  function renderPeers(peers) {
+    peersEl.innerHTML = '';
+    if (!peers || !peers.length) { panel.classList.add('hidden'); return; }
+    panel.classList.remove('hidden');
+    peers.forEach(function (p) {
+      var row = document.createElement('div');
+      // The raw RMS level from the analyser is quiet (typical speech maxes
+      // around 0.2). Take sqrt to stretch the useful range and amplify so
+      // the meter actually moves when someone talks. Clamp at 1.
+      var raw = Number(p.level || 0);
+      var lvl = Math.min(1, Math.sqrt(raw) * 1.8);
+      var speaking = lvl > 0.08;
+      row.className = 'peer' + (speaking ? ' speaking' : '');
+
+      var BARS = 8;
+      var bars = '';
+      for (var i = 0; i < BARS; i++) {
+        var t = (i + 1) / BARS;               // threshold 0.125 .. 1.0
+        var on = lvl >= t;
+        var cls = on
+          ? (i >= BARS - 2 ? 'max' : (i >= BARS - 4 ? 'hot' : 'on'))
+          : '';
+        // Height grows linearly so the meter has a visible shape even at
+        // low amplitudes.
+        var h = 4 + Math.round((i / (BARS - 1)) * 10);
+        bars += '<div class="bar ' + cls + '" style="height:' + h + 'px"></div>';
+      }
+      row.innerHTML =
+        '<div class="name">' + escapeHtml(p.username) + (p.muted ? ' 🔇' : '') + '</div>' +
+        '<div class="meter">' + bars + '</div>';
+      peersEl.appendChild(row);
+    });
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var mp = (e.data.state || {}).multiplayer || {};
+    if (typeof mp.micOn === 'boolean') micOn = mp.micOn;
+    if (typeof mp.muted === 'boolean') muted = mp.muted;
+    updateMicButton();
+    renderPeers(mp.voicePeers || []);
+  });
+
+  updateMicButton();
+})();
+</script>
+</body>
+</html>

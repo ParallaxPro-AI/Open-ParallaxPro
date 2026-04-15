@@ -23,6 +23,7 @@ project/                           — EDIT THESE
   systems/_entity_label.ts         — (already pinned)
   systems/event_definitions.ts     — Valid event schemas (already pinned)
   systems/ui/ui_bridge.ts          — UI bridge (already pinned)
+  systems/mp/mp_bridge.ts          — Multiplayer session bridge (pinned; activate when multiplayer is enabled)
   ui/{name}.html                   — UI panels
   scripts/{name}.ts                — Custom user scripts (optional)
 reference/                         — Read-only library to copy from
@@ -178,8 +179,89 @@ this.entity.playAnimation("Run", { loop: true })
 - `ui_event:panel:action` — UI button (e.g., `ui_event:main_menu:start_game`)
 - `game_event:name` — game event (e.g., `game_event:player_died`)
 - `keyboard:action` — key press (e.g., `keyboard:pause`)
+- `mp_event:phase_in_game` — multiplayer session phase change
+- `net_event:match_ended` — networked game event received from a peer
 - `score>=100` — variable comparison
 - `timer_expired` — state duration elapsed
+
+## Multiplayer (peer-to-peer, opt-in)
+
+Set this block in `01_flow.json` to make the game multiplayer. Omit it for single-player games.
+
+```json
+"multiplayer": {
+  "enabled": true,
+  "minPlayers": 2,
+  "maxPlayers": 8,         // cap 16, star topology does not scale past that
+  "tickRate": 30,
+  "authority": "host",     // host runs the sim, clients predict + reconcile
+  "predictLocalPlayer": true,
+  "hostPlaysGame": true
+}
+```
+
+Mark entities that should sync across the network with a `network` block in `02_entities.json`:
+
+```json
+"player": {
+  "mesh": { ... },
+  "network": {
+    "syncTransform": true,
+    "syncInterval": 33,
+    "ownership": "local_player",   // or "host" for AI/props
+    "predictLocally": true,
+    "networkedVars": ["health", "score"]
+  },
+  "behaviors": [...]
+}
+```
+
+Only entities with a `network` block are transmitted; everything else is
+strictly local per peer.
+
+### Multiplayer flow actions (FSM shortcuts)
+
+- `mp:show_browser` / `mp:show_room` — open the lobby browser / lobby room UI
+- `mp:hide_browser` / `mp:hide_room`
+- `mp:refresh_lobbies` — request the current lobby list
+- `emit:net.<event>` — broadcast a networked event to all peers
+  (arrives on peers as `net_<event>` on the game bus; transition with `net_event:<event>`)
+
+### Reusable lobby + HUD UI panels
+
+Pin these from `reference/ui/` — do not rewrite them:
+
+- `ui/main_menu.html`
+- `ui/lobby_browser.html`
+- `ui/lobby_host_config.html`
+- `ui/lobby_room.html`
+- `ui/connecting_overlay.html`
+- `ui/disconnected_banner.html`
+- `ui/hud/ping.html` — shown only when multiplayer is enabled (auto-hides otherwise). FPS is already drawn by the play-mode shell, no separate HUD needed.
+- `ui/hud/text_chat.html` — in-lobby and in-game chat (press Enter)
+- `ui/hud/voice_chat.html` — mic toggle + per-peer speaking indicators
+
+### Required pinned system
+
+Every multiplayer game needs `systems/mp/mp_bridge.ts` active (list it in
+`active_systems` for every state). Without it, the lobby/HUD UIs won't receive
+state and the session won't drive phase transitions.
+
+### Typical multiplayer flow skeleton
+
+```
+boot → main_menu → lobby_browser ⇄ lobby_host_config → lobby_room → gameplay → game_over
+                                                          ↑                        ↓
+                                                          └── (play again) ────────┘
+```
+
+Transitions to watch for:
+- `mp_event:phase_in_lobby` → you've entered a room (via create or join)
+- `mp_event:phase_in_game`  → host pressed Start; match is live
+- `mp_event:phase_browsing` → back to the lobby list
+- `mp_event:phase_disconnected` → socket/session dropped; fall back to main_menu
+
+See `reference/game_templates/v0.1/multiplayer_arena/` for a complete example.
 
 ## Physics Rules
 - `dynamic` + `setVelocity()` for moving characters (NOT `setPosition`)

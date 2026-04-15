@@ -54,12 +54,19 @@ function readFolderMeta(folderPath: string, dirName: string): TemplateSummary | 
         if (flowData.name) description = flowData.name;
     } catch {}
 
-    // Detect multiplayer
-    let multiplayer = dirName.endsWith('_mp');
+    // Detect multiplayer — folder suffix, legacy network_sync system, or the
+    // new `multiplayer.enabled` flag in 01_flow.json.
+    let multiplayer = dirName.endsWith('_mp') || dirName.startsWith('multiplayer_');
     if (!multiplayer) {
         try {
             const sysData = JSON.parse(fs.readFileSync(path.join(folderPath, '04_systems.json'), 'utf-8'));
             if (sysData.systems?.network_sync) multiplayer = true;
+        } catch {}
+    }
+    if (!multiplayer) {
+        try {
+            const flowData = JSON.parse(fs.readFileSync(path.join(folderPath, '01_flow.json'), 'utf-8'));
+            if (flowData?.multiplayer?.enabled) multiplayer = true;
         } catch {}
     }
 

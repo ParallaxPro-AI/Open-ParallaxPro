@@ -44,6 +44,24 @@ export const ENGINE_MACHINERY = [
     'systems/_entity_label.ts',
     'systems/event_definitions.ts',
     'systems/ui/ui_bridge.ts',
+    'systems/mp/mp_bridge.ts',
+] as const;
+
+/**
+ * Engine-owned reusable UI panels. Like ENGINE_MACHINERY these are refreshed
+ * from the shared library on every build so fixes to the lobby / HUD UIs land
+ * in existing projects. User custom UI (e.g. `ui/my_hud.html`) is untouched.
+ */
+export const ENGINE_UI = [
+    'ui/lobby_browser.html',
+    'ui/lobby_host_config.html',
+    'ui/lobby_room.html',
+    'ui/connecting_overlay.html',
+    'ui/disconnected_banner.html',
+    'ui/hud/ping.html',
+    'ui/hud/text_chat.html',
+    'ui/hud/voice_chat.html',
+    'ui/hud/scoreboard.html',
 ] as const;
 
 /** Empty 4-file template — the seed for a project created with no template. */

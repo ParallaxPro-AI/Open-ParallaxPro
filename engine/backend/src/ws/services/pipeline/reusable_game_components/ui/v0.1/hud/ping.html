@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #eaf0f6;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .ping {
+    position: fixed; top: 12px; right: 12px;
+    display: flex; align-items: baseline; gap: 4px;
+    padding: 6px 10px;
+    background: rgba(8, 8, 14, 0.55);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(6px);
+  }
+  .ping.hidden { display: none; }
+  .ping.disconnected { border-color: rgba(239,68,68,0.6); }
+  .label { color: #6b7280; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
+  .value { font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+  .v-good { color: #22c55e; }
+  .v-mid  { color: #eab308; }
+  .v-bad  { color: #ef4444; }
+  .unit { color: #6b7280; font-size: 9px; }
+</style>
+</head>
+<body>
+<div class="ping hidden" id="root">
+  <div class="label">PING</div>
+  <div class="value v-good" id="val">0</div>
+  <div class="unit">ms</div>
+</div>
+<script>
+(function () {
+  var root = document.getElementById('root');
+  var val = document.getElementById('val');
+  function colorFor(ms) {
+    if (ms < 0) return 'v-bad';
+    if (ms < 80) return 'v-good';
+    if (ms < 150) return 'v-mid';
+    return 'v-bad';
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    var mp = s.multiplayer;
+    if (!mp || !mp.enabled) { root.classList.add('hidden'); return; }
+    root.classList.remove('hidden');
+    root.classList.toggle('disconnected', mp.connected === false);
+    var ms = typeof mp.ping === 'number' ? mp.ping : -1;
+    val.textContent = ms < 0 ? '—' : String(Math.round(ms));
+    val.className = 'value ' + colorFor(ms);
+  });
+})();
+</script>
+</body>
+</html>

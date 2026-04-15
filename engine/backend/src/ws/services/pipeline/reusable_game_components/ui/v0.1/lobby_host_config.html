@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-dark: rgba(8, 8, 14, 0.92);
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.15);
+    --text: #eaf0f6;
+    --text-dim: #6b7280;
+    --text-muted: #3e4550;
+    --accent-1: #6366f1;
+    --accent-2: #8b5cf6;
+    --accent-3: #ec4899;
+  }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: rgba(0,0,0,0.55);
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .wrap {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .panel {
+    width: min(460px, 100%);
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(14px);
+    pointer-events: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .title {
+    font-size: 20px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-3));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 18px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim);
+  }
+  .field input[type="text"],
+  .field input[type="password"] {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-family: inherit; font-size: 13px;
+    outline: none;
+  }
+  .field input:focus { border-color: var(--accent-1); }
+  .players-readonly {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+  }
+  .players-readonly .num {
+    font-size: 18px; font-weight: 800; color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .players-readonly .label-inline {
+    font-size: 11px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .hint { font-size: 11px; color: var(--text-muted); }
+  .buttons { display: flex; gap: 8px; margin-top: 14px; }
+  .btn {
+    flex: 1;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    color: var(--text);
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 12px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    border-color: transparent;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <div class="title">Host new lobby</div>
+
+    <div class="field">
+      <label>Lobby name</label>
+      <input id="name" type="text" maxlength="48" placeholder="e.g. Casual Arena" />
+    </div>
+
+    <div class="field">
+      <label>Password (optional)</label>
+      <input id="pw" type="password" maxlength="64" placeholder="Leave empty for public lobby" />
+    </div>
+
+    <div class="buttons">
+      <button class="btn" id="btn-cancel">Cancel</button>
+      <button class="btn primary" id="btn-create">Create lobby</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var nameEl = document.getElementById('name');
+  var pwEl = document.getElementById('pw');
+  var defaultUsername = '';
+
+  function emit(action, payload) {
+    var msg = { type: 'game_command', action: action };
+    if (payload) msg.payload = payload;
+    window.parent.postMessage(msg, '*');
+  }
+
+  document.getElementById('btn-cancel').onclick = function () { emit('close_host_config'); };
+  document.getElementById('btn-create').onclick = function () {
+    var name = nameEl.value.trim() || (defaultUsername ? defaultUsername + "'s lobby" : 'New lobby');
+    // Slot counts come from the game config — mp_bridge resolves them.
+    emit('host_lobby', { name: name, password: pwEl.value || null });
+  };
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var state = e.data.state || {};
+    if (state.username) defaultUsername = state.username;
+  });
+})();
+</script>
+</body>
+</html>

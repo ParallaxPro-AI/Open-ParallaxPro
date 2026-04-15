@@ -1,0 +1,9 @@
+{
+  "systems": {
+    "coin_grab_game": {
+      "description": "Coin-grab match rules — host spawns a coin, awards points on pickup, ends on score or timer.",
+      "script": "mp/coin_grab_game.ts",
+      "params": { "roundDurationSec": 180, "scoreToWin": 5, "pickupRadius": 1.5 }
+    }
+  }
+}
