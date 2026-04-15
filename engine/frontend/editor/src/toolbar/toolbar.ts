@@ -223,8 +223,12 @@ export class Toolbar {
         this.previewClientBtn.addEventListener('click', () => {
             const pid = this.ctx.state.projectId;
             if (!pid) return;
-            const url = `${window.location.origin}/?project=${encodeURIComponent(pid)}&auto_play=1`;
-            window.open(url, '_blank', 'noopener,noreferrer');
+            // Preserve the current pathname so the editor opens at the same
+            // base — root in dev (`/`) but `/editor/` on the hosted site.
+            const url = new URL(window.location.href);
+            url.searchParams.set('project', pid);
+            url.searchParams.set('auto_play', '1');
+            window.open(url.toString(), '_blank', 'noopener,noreferrer');
         });
         playGroup.appendChild(this.previewClientBtn);
 
