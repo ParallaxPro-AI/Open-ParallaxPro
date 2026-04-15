@@ -44,10 +44,11 @@ export async function generateProjectName(prompt: string, timeoutMs: number = 10
             },
             body: JSON.stringify({
                 model,
-                // 256 tokens leaves room for reasoning-model chain-of-thought
-                // before the final name. With 24 the whole budget was eaten
-                // by reasoning tokens and `content` came back empty.
-                max_tokens: 256,
+                // Reasoning models (e.g. openai/gpt-oss-120b on Groq) eat
+                // most of the budget on chain-of-thought before the final
+                // name — 2048 gives them plenty of headroom while still
+                // bounded by the 10s client timeout.
+                max_tokens: 2048,
                 stream: false,
                 messages: [
                     { role: 'system', content: systemPrompt },
