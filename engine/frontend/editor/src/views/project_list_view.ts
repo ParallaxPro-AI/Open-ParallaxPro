@@ -711,8 +711,20 @@ export class ProjectListView {
         }
         const ourHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
         if (projectEngineHash && ourHash && ourHash !== 'unknown' && projectEngineHash !== ourHash) {
-            const proceed = await this.showEngineMismatchWarning(projectEngineHash, ourHash);
-            if (!proceed) { card?.classList.remove('disabled'); return; }
+            // Don't re-nag if the user already clicked "Open anyway" for
+            // this exact (projectHash, ourHash) pair. A fresh warning
+            // triggers when either hash changes — e.g. they `git pull`
+            // locally, or another machine saves the project on a new
+            // engine commit.
+            const ackKey = `pp_hash_ack:${project.id}`;
+            const ackValue = `${ourHash}::${projectEngineHash}`;
+            let alreadyAcked = false;
+            try { alreadyAcked = localStorage.getItem(ackKey) === ackValue; } catch {}
+            if (!alreadyAcked) {
+                const proceed = await this.showEngineMismatchWarning(projectEngineHash, ourHash);
+                if (!proceed) { card?.classList.remove('disabled'); return; }
+                try { localStorage.setItem(ackKey, ackValue); } catch {}
+            }
         }
 
         this.onOpenProject?.(project.id);
