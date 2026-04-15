@@ -218,7 +218,7 @@ export class Toolbar {
         this.previewClientBtn = document.createElement('button');
         this.previewClientBtn.className = 'toolbar-btn';
         this.previewClientBtn.style.cssText = 'font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap;margin-left:4px;display:none;';
-        this.previewClientBtn.textContent = '+ Preview Client';
+        this.previewClientBtn.textContent = '+ Client';
         this.previewClientBtn.title = 'Open another window of this project to test multiplayer locally';
         this.previewClientBtn.addEventListener('click', () => {
             const pid = this.ctx.state.projectId;
