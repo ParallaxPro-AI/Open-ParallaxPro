@@ -128,28 +128,31 @@ async function boot(): Promise<void> {
         // different engine commit than this bundle was built with, hop
         // over to the matching archived bundle so runtime deserialization
         // can trust the shapes in gameData. Skipped when we have no hash
-        // of our own (local git-less checkout) or the game predates the
-        // engine_bundles registry and carries no hash.
+        // of our own (local git-less checkout), the game predates the
+        // engine_bundles registry and carries no hash, or no archive
+        // exists on prod for the target hash. A HEAD probe isn't
+        // trustworthy because nginx falls through to the landing-page
+        // SPA for unknown paths, so we consult the registry directly.
         const ourHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
         const wantHash: string | null = gameData.engineGitHash || null;
         const alreadyInArchive = /^\/engine-bundles\//.test(window.location.pathname);
         if (wantHash && ourHash && ourHash !== 'unknown' && wantHash !== ourHash && !alreadyInArchive) {
-            const params = new URLSearchParams(window.location.search);
-            params.set('owner', owner);
-            params.set('slug', slug);
-            const target = `/engine-bundles/${encodeURIComponent(wantHash)}/play.html?${params.toString()}`;
-            // Probe that the archived bundle actually exists before we
-            // redirect — a missing bundle would send the user to a 404.
-            // Cheap HEAD request; if it fails or prod hasn't archived
-            // this hash yet, fall through and play with the current
-            // engine (may be degraded but beats 404).
+            let shouldRedirect = false;
             try {
-                const probe = await fetch(target, { method: 'HEAD' });
-                if (probe.ok) {
-                    window.location.replace(target);
-                    return;
+                const regRes = await fetch('/api/engine/engine-bundles');
+                if (regRes.ok) {
+                    const reg = await regRes.json();
+                    const matched = (reg.bundles || []).find((b: any) => b.hash === wantHash && b.status !== 'rejected' && b.archiveExists);
+                    shouldRedirect = !!matched;
                 }
             } catch {}
+            if (shouldRedirect) {
+                const params = new URLSearchParams(window.location.search);
+                params.set('owner', owner);
+                params.set('slug', slug);
+                window.location.replace(`/engine-bundles/${encodeURIComponent(wantHash)}/play.html?${params.toString()}`);
+                return;
+            }
             console.warn(`[play] engine hash ${wantHash.slice(0, 7)} has no archived bundle; falling back to current engine (${ourHash.slice(0, 7)})`);
         }
     }
