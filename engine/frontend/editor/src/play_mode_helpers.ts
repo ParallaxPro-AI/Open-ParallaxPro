@@ -280,8 +280,21 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
         // Merge assembled multiplayer config (server-built) into projectConfig
         // so mp_bridge can read tickRate, min/max players, prediction flag, etc.
         const mpConfig = state.projectData?.multiplayerConfig;
+        // Lobby shard key: project + updatedAt. Same project + same
+        // updatedAt means same bytes, so it's safe to share a session.
+        // Republishing as the same version string still bumps updatedAt
+        // on the backend row, so v1.0.0 republished today is a different
+        // shard than v1.0.0 from yesterday — prevents mixed-script
+        // sessions where one peer has the new scripts and the other
+        // hasn't refreshed.
+        // Editor projects use the project row's updated_at (only bumps
+        // on actual saves, so two tabs sharing the loaded snapshot share
+        // a pool). "dev" is the last-resort fallback.
+        const projectIdRaw = projectConfig.gameTemplateId || (state as any).projectId || 'default';
+        const versionRaw = (state.projectData as any)?.updatedAt || 'dev';
+        const lobbyKey = `${projectIdRaw}@${versionRaw}`;
         const merged = mpConfig
-            ? { ...projectConfig, multiplayerConfig: mpConfig, gameTemplateId: projectConfig.gameTemplateId || (state as any).projectId || 'default' }
+            ? { ...projectConfig, multiplayerConfig: mpConfig, gameTemplateId: lobbyKey }
             : projectConfig;
         (result.scriptScene as any)._mp = engine.globalContext.multiplayerSession;
         (result.scriptScene as any)._projectConfig = merged;

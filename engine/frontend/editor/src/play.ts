@@ -148,7 +148,13 @@ async function boot(): Promise<void> {
         compiledScripts: gameData.compiledScripts || {},
         uiFiles: gameData.uiFiles || {},
         projectConfig: gameData.projectConfig,
-    };
+        // Used as the multiplayer lobby shard key. updatedAt bumps on
+        // every republish (even republishing as the same version string),
+        // so it's stricter than version alone — different bytes always
+        // get different shards. publishedAt is the fallback if the play
+        // API hasn't been updated to include updatedAt yet.
+        updatedAt: gameData.updatedAt || gameData.publishedAt || null,
+    } as any;
 
     if (gameData.id) ctx.state.projectId = gameData.id;
 
