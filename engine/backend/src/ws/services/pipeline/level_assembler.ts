@@ -477,6 +477,14 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     systems['ui'] = { description: 'HUD, menus, virtual cursor', script: 'ui/ui_bridge.ts' };
   }
 
+  // Multiplayer bridge is auto-injected for multiplayer-enabled games so the
+  // template doesn't have to remember to declare it. Kept always-active like
+  // the ui bridge — the session survives flow state changes.
+  const mpEnabled = !!(flow?.multiplayer && (flow.multiplayer.enabled !== false));
+  if (mpEnabled && !systems['mp_bridge']) {
+    systems['mp_bridge'] = { description: 'Multiplayer session bridge', script: 'mp/mp_bridge.ts' };
+  }
+
   // Register shared scripts
   scripts[ENTITY_LABEL_KEY] = getEntityLabelCode(baseDirs?.systems);
   usedKeys.add(ENTITY_LABEL_KEY);
@@ -548,7 +556,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     const sysEntity: any = {
       id: nextId.value++,
       name: entityName,
-      active: sysName === 'ui',
+      active: sysName === 'ui' || sysName === 'mp_bridge',
       components: [{ type: 'TransformComponent', data: { position: { x: 0, y: 0, z: 0 } } }],
       tags: ['manager', `system_${sysName}`],
       parentId: managersParentId,

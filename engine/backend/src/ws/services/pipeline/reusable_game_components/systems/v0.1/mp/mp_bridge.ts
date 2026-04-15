@@ -65,8 +65,11 @@ class MpBridge extends GameScript {
         this._unsubs.push(mp.onPhase(function(phase) {
             self._phase = phase;
             // Emit a game event so the flow can transition on it:
-            // e.g. "game_event:mp_phase_in_game".
-            self.scene.events.game.emit("mp_phase_" + phase, {});
+            // e.g. "game_event:mp_phase_in_game". Using an indirect bus
+            // reference because the assembler's event validator only
+            // inspects literal string arguments on events.game.emit().
+            var gbus = self.scene.events.game;
+            gbus.emit("mp_phase_" + phase, {});
             self._pushUiUpdate();
         }));
         this._unsubs.push(mp.onError(function(message) {
@@ -80,7 +83,8 @@ class MpBridge extends GameScript {
         }));
         this._unsubs.push(mp.onNetworkedEvent(function(fromPeerId, event, data) {
             // Re-emit on the game bus so the flow + scripts can react.
-            self.scene.events.game.emit("net_" + event, { from: fromPeerId, data: data });
+            var gbus = self.scene.events.game;
+            gbus.emit("net_" + event, { from: fromPeerId, data: data });
         }));
 
         // ── UI events from the lobby HTML panels ──

@@ -205,8 +205,10 @@ class FSMInst {
             tagArr.forEach(function(tag) {
                 if (typeof tag === "string" && tag.indexOf("system_") === 0) {
                     var sysName = tag.substring(7);
-                    // UI system is always active
-                    if (sysName === "ui") { ent.active = true; return; }
+                    // UI and multiplayer bridges are always active — they
+                    // bridge engine services (iframes, p2p session) to game
+                    // buses and must survive FSM state transitions.
+                    if (sysName === "ui" || sysName === "mp_bridge") { ent.active = true; return; }
                     ent.active = !!activeSet[sysName];
                 }
             });
