@@ -292,7 +292,10 @@ function buildCLIInvocation(cli: FallbackCLI, prompt: string): CLIInvocation {
                 '--json',
                 '--skip-git-repo-check',
                 '--dangerously-bypass-approvals-and-sandbox',
-                '-c', 'model_reasoning_effort="minimal"',
+                // 'minimal' trips the provider ("web_search cannot be used
+                // with reasoning.effort 'minimal'"); 'low' is the lowest
+                // setting that keeps codex's default tool set working.
+                '-c', 'model_reasoning_effort="low"',
                 prompt,
             ],
             // Codex emits item.completed with agent_message items. Stream the
