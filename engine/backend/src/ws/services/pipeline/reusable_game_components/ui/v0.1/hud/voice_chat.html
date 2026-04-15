@@ -118,18 +118,19 @@
 
   function updateMicButton() {
     micToggle.classList.remove('on', 'muted');
+    // Two visible states: "Mic on" (green-ish indigo, audible) and
+    // "Muted" (red, not transmitting). Mic-off and mic-on-but-muted both
+    // read as "Muted" from the listener's perspective — collapsing them
+    // keeps the UI binary and avoids the "is muted the same as off?"
+    // question.
     var label;
-    if (!micOn) {
-      label = 'Mic off';
-    } else if (muted) {
-      micToggle.classList.add('muted');
-      label = 'Muted';
-    } else {
+    if (micOn && !muted) {
       micToggle.classList.add('on');
       label = 'Mic on';
+    } else {
+      micToggle.classList.add('muted');
+      label = 'Muted';
     }
-    // Keycap next to the label so the V shortcut is discoverable
-    // without needing a tooltip.
     micToggle.innerHTML = '<span>' + label + '</span><span class="kbd">V</span>';
   }
 
