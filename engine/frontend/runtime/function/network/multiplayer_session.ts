@@ -119,6 +119,7 @@ export class MultiplayerSession {
     private _chatHistory: ChatMessage[] = [];
     private _voiceAudioElems: Map<PeerId, HTMLAudioElement> = new Map();
     private _voiceAnalysers: Map<PeerId, { analyser: AnalyserNode; buf: Uint8Array }> = new Map();
+    private _voiceGainNodes: Map<PeerId, GainNode> = new Map();
     private _voiceLevels: Map<PeerId, number> = new Map();
     private _voiceAudioCtx: AudioContext | null = null;
 
@@ -349,6 +350,9 @@ export class MultiplayerSession {
 
     private attachRemoteVoice(peerId: PeerId, stream: MediaStream): void {
         if (typeof document === 'undefined') return;
+        // The audio element exists so Chrome treats the stream as "playing"
+        // (a quirk: MediaStreamSource only pulls data when the stream has a
+        // sink). Muted because WebAudio below actually drives the speakers.
         let audio = this._voiceAudioElems.get(peerId);
         if (!audio) {
             audio = document.createElement('audio');
@@ -359,6 +363,7 @@ export class MultiplayerSession {
             this._voiceAudioElems.set(peerId, audio);
         }
         audio.srcObject = stream;
+        audio.muted = true;
         audio.play().catch(() => { /* blocked until user gesture */ });
 
         try {
@@ -367,16 +372,48 @@ export class MultiplayerSession {
                 if (Ctx) this._voiceAudioCtx = new Ctx();
             }
             const ctx = this._voiceAudioCtx;
-            if (ctx) {
-                const src = ctx.createMediaStreamSource(stream);
-                const analyser = ctx.createAnalyser();
-                analyser.fftSize = 256;
-                src.connect(analyser);
-                const existing = this._voiceAnalysers.get(peerId);
-                if (existing) { try { existing.analyser.disconnect(); } catch { /* ignored */ } }
-                this._voiceAnalysers.set(peerId, { analyser, buf: new Uint8Array(analyser.fftSize) });
-            }
-        } catch { /* AudioContext unavailable — skip metering */ }
+            if (!ctx) return;
+
+            // Audio chain per peer:
+            //   MediaStreamSource → Compressor → Gain → destination
+            //                    ↘ Analyser (metering only)
+            // Compressor lifts quiet voices without clipping loud ones;
+            // gain of 2.5 is a gentle final boost that works well with
+            // typical laptop mic levels.
+            const src = ctx.createMediaStreamSource(stream);
+
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            src.connect(analyser);
+
+            const compressor = ctx.createDynamicsCompressor();
+            compressor.threshold.value = -40;
+            compressor.knee.value = 20;
+            compressor.ratio.value = 6;
+            compressor.attack.value = 0.005;
+            compressor.release.value = 0.2;
+
+            const gain = ctx.createGain();
+            gain.gain.value = 2.5;
+
+            src.connect(compressor);
+            compressor.connect(gain);
+            gain.connect(ctx.destination);
+
+            const existing = this._voiceAnalysers.get(peerId);
+            if (existing) { try { existing.analyser.disconnect(); } catch { /* ignored */ } }
+            const prevGain = this._voiceGainNodes.get(peerId);
+            if (prevGain) { try { prevGain.disconnect(); } catch { /* ignored */ } }
+
+            this._voiceAnalysers.set(peerId, { analyser, buf: new Uint8Array(analyser.fftSize) });
+            this._voiceGainNodes.set(peerId, gain);
+        } catch { /* AudioContext unavailable — fall back to muted element (silent). */ }
+    }
+
+    /** Set per-peer playback gain. 0 = mute, 1 = unity, values up to 8 allowed. */
+    setPeerVoiceGain(peerId: PeerId, gain: number): void {
+        const node = this._voiceGainNodes.get(peerId);
+        if (node) node.gain.value = Math.max(0, Math.min(8, gain));
     }
 
     private detachRemoteVoice(peerId: PeerId): void {
@@ -388,7 +425,10 @@ export class MultiplayerSession {
         }
         const a = this._voiceAnalysers.get(peerId);
         if (a) { try { a.analyser.disconnect(); } catch { /* ignored */ } }
+        const g = this._voiceGainNodes.get(peerId);
+        if (g) { try { g.disconnect(); } catch { /* ignored */ } }
         this._voiceAnalysers.delete(peerId);
+        this._voiceGainNodes.delete(peerId);
         this._voiceLevels.delete(peerId);
     }
 
