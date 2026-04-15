@@ -14,7 +14,7 @@
 // kills or ignore death. That's acceptable for a friendly FFA template.
 class DeathmatchGameSystem extends GameScript {
     _roundDurationSec = 300;
-    _killsToWin = 20;
+    _killsToWin = 3;
     _minPlayers = 1;
 
     _kills = {};

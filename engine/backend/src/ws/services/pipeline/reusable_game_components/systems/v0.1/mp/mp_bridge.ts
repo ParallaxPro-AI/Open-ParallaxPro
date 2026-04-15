@@ -233,6 +233,9 @@ class MpBridge extends GameScript {
 
         ui.on("ui_event:connecting_overlay:cancel_connect", function() { mp.leaveLobby(); });
         ui.on("ui_event:disconnected_banner:leave_lobby", function() { mp.leaveLobby(); });
+        // FSM-issued leave (mp:leave_lobby in on_enter for main_menu, etc.).
+        // Idempotent — silently no-ops when we aren't actually in a lobby.
+        ui.on("ui_event:mp:leave_lobby", function() { mp.leaveLobby(); });
 
         // ── Voice + chat HUDs ──
         ui.on("ui_event:hud/voice_chat:voice_request_mic", function() {

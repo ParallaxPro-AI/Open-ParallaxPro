@@ -176,7 +176,7 @@
         bars += '<div class="bar ' + cls + '" style="height:' + h + 'px"></div>';
       }
       row.innerHTML =
-        '<div class="name">' + escapeHtml(p.username) + (p.muted ? ' 🔇' : '') + '</div>' +
+        '<div class="name">' + escapeHtml(p.username) + '</div>' +
         '<div class="meter">' + bars + '</div>';
       peersEl.appendChild(row);
     });
