@@ -267,6 +267,7 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     // can tally kills consistently.
     net_player_shot:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_player_killed:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_player_respawn:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));

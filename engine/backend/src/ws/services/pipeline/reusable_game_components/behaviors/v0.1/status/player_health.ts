@@ -60,6 +60,9 @@ class PlayerHealthBehavior extends GameScript {
             this._health = 0;
             this._dead = true;
             this._respawnTimer = this._respawnDelay;
+            if (this.entity.playAnimation) {
+                try { this.entity.playAnimation("Death", { loop: false }); } catch (e) { /* no anim */ }
+            }
             this.scene.events.game.emit("player_died", { killerPeerId: this._lastShooterPeerId });
         }
         this._sendHUD();
@@ -80,6 +83,9 @@ class PlayerHealthBehavior extends GameScript {
                 this._health = this._maxHealth;
                 this._respawnTimer = 0;
                 this._lastShooterPeerId = "";
+                if (this.entity.playAnimation) {
+                    try { this.entity.playAnimation("Idle", { loop: true }); } catch (e) { /* no anim */ }
+                }
                 this.scene.events.game.emit("player_respawned", {});
                 this._sendHUD();
             }

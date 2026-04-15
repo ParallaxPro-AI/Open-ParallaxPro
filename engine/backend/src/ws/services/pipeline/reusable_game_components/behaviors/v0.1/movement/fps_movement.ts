@@ -12,6 +12,14 @@ class FPSMovementBehavior extends GameScript {
         var ni = this.entity.getComponent ? this.entity.getComponent("NetworkIdentityComponent") : null;
         if (ni && !ni.isLocalPlayer) return;
 
+        // Dead players freeze in place until their respawn timer fires.
+        // Velocity is zeroed so physics momentum doesn't keep sliding them.
+        var health = this.entity.getScript ? this.entity.getScript("PlayerHealthBehavior") : null;
+        if (health && health._dead) {
+            if (this.scene.setVelocity) this.scene.setVelocity(this.entity.id, { x: 0, y: 0, z: 0 });
+            return;
+        }
+
         var yaw = (this.scene._fpsYaw || 0) * Math.PI / 180;
         var forward = 0, strafe = 0;
 

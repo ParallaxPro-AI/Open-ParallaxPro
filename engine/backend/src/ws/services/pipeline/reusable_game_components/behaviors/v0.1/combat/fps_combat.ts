@@ -19,6 +19,11 @@ class FPSCombatBehavior extends GameScript {
         var ni = this.entity.getComponent ? this.entity.getComponent("NetworkIdentityComponent") : null;
         if (ni && !ni.isLocalPlayer) return;
 
+        // No shooting while dead (also no reload progression — timer
+        // freezes rather than snapping to ready on respawn).
+        var health = this.entity.getScript ? this.entity.getScript("PlayerHealthBehavior") : null;
+        if (health && health._dead) return;
+
         this._fireCooldown -= dt;
 
         // Reload

@@ -22,6 +22,7 @@ class DeathmatchGameSystem extends GameScript {
     _elapsed = 0;
     _ended = false;
     _initialized = false;
+    _killFeed = []; // [{ killer, victim, tsMs }], capped + auto-expires
     _spawnPoints = [
         { x: -12, z: -12 },
         { x:  12, z: -12 },
@@ -42,10 +43,14 @@ class DeathmatchGameSystem extends GameScript {
 
         // Local death → broadcast a kill event + tally locally so the
         // scoreboard updates without waiting for the event to echo back.
-        this.scene.events.game.on("player_died", function(evt) {
+        // player_died is a LOCAL event (emitted via scene.events.game.emit
+        // with the data object passed directly), so the handler receives
+        // the payload as its first arg — NOT wrapped in { from, data }
+        // like net_* events are.
+        this.scene.events.game.on("player_died", function(data) {
             var mp = self.scene._mp;
             if (!mp) return;
-            var d = (evt && evt.data) || {};
+            var d = data || {};
             var killerPeerId = d.killerPeerId || "";
             var victimPeerId = mp.localPeerId;
             if (killerPeerId && killerPeerId !== victimPeerId) {
@@ -53,6 +58,7 @@ class DeathmatchGameSystem extends GameScript {
             }
             self._deaths[victimPeerId] = (self._deaths[victimPeerId] || 0) + 1;
             self._pushScoreboard();
+            self._pushKillFeed(killerPeerId, victimPeerId);
             mp.sendNetworkedEvent("player_killed", {
                 killerPeerId: killerPeerId,
                 victimPeerId: victimPeerId,
@@ -60,9 +66,18 @@ class DeathmatchGameSystem extends GameScript {
         });
 
         // player_health emits player_respawned after its 3s timer.
-        // Teleport our local player to a fresh spawn point.
+        // Teleport our local player to a fresh spawn point and tell
+        // other peers so they can swap our proxy's Death anim back to
+        // Idle — otherwise the body just jumps to the new spawn point
+        // still face-down on the floor.
         this.scene.events.game.on("player_respawned", function() {
             self._teleportLocalToSpawn();
+            var mp = self.scene._mp;
+            if (mp) {
+                mp.sendNetworkedEvent("player_respawn", {
+                    peerId: mp.localPeerId,
+                });
+            }
         });
 
         // Another peer reported a kill. Apply to our local tallies, but
@@ -71,14 +86,26 @@ class DeathmatchGameSystem extends GameScript {
         this.scene.events.game.on("net_player_killed", function(evt) {
             var d = (evt && evt.data) || {};
             var mp2 = self.scene._mp;
-            if (mp2 && d.victimPeerId === mp2.localPeerId) return;
-            if (d.killerPeerId && d.killerPeerId !== d.victimPeerId) {
-                self._kills[d.killerPeerId] = (self._kills[d.killerPeerId] || 0) + 1;
+            var ownKill = (mp2 && d.victimPeerId === mp2.localPeerId);
+            if (!ownKill) {
+                if (d.killerPeerId && d.killerPeerId !== d.victimPeerId) {
+                    self._kills[d.killerPeerId] = (self._kills[d.killerPeerId] || 0) + 1;
+                }
+                if (d.victimPeerId) {
+                    self._deaths[d.victimPeerId] = (self._deaths[d.victimPeerId] || 0) + 1;
+                }
+                self._pushScoreboard();
+                self._pushKillFeed(d.killerPeerId, d.victimPeerId);
             }
-            if (d.victimPeerId) {
-                self._deaths[d.victimPeerId] = (self._deaths[d.victimPeerId] || 0) + 1;
-            }
-            self._pushScoreboard();
+            // Animation on the victim's proxy plays on every peer.
+            self._playAnimOnPeer(d.victimPeerId, "Death", false);
+        });
+
+        // Peer respawned — clear the Death pose on their proxy.
+        this.scene.events.game.on("net_player_respawn", function(evt) {
+            var d = (evt && evt.data) || {};
+            if (!d.peerId) return;
+            self._playAnimOnPeer(d.peerId, "Idle", true);
         });
 
         this.scene.events.game.on("net_match_ended", function(evt) {
@@ -117,6 +144,22 @@ class DeathmatchGameSystem extends GameScript {
     onUpdate(dt) {
         var mp = this.scene._mp;
         if (!mp || !this._initialized || this._ended) return;
+
+        // Expire kill-feed entries older than ~5s so the overlay doesn't
+        // accumulate forever. Pushes a refreshed list only when something
+        // actually left to keep UI traffic quiet during idle moments.
+        if (this._killFeed.length > 0) {
+            var now = Date.now();
+            var cutoff = now - 5000;
+            var kept = [];
+            for (var kf = 0; kf < this._killFeed.length; kf++) {
+                if (this._killFeed[kf].tsMs > cutoff) kept.push(this._killFeed[kf]);
+            }
+            if (kept.length !== this._killFeed.length) {
+                this._killFeed = kept;
+                this._pushKillFeedState();
+            }
+        }
 
         // Win check runs host-only (one source of truth for the round end).
         if (!mp.isHost) return;
@@ -259,6 +302,61 @@ class DeathmatchGameSystem extends GameScript {
     }
 
     // ─── UI ─────────────────────────────────────────────────────────────
+
+    // ─── Kill feed ──────────────────────────────────────────────────────
+
+    _pushKillFeed(killerPeerId, victimPeerId) {
+        var mp = this.scene._mp;
+        var roster = mp && mp.roster;
+        if (!victimPeerId) return;
+        var killerName = killerPeerId ? this._peerNameOrId(roster, killerPeerId) : "";
+        var victimName = this._peerNameOrId(roster, victimPeerId);
+        this._killFeed.push({
+            killer: killerName,
+            victim: victimName,
+            killerIsLocal: !!(mp && killerPeerId === mp.localPeerId),
+            victimIsLocal: !!(mp && victimPeerId === mp.localPeerId),
+            tsMs: Date.now(),
+        });
+        // Cap at 6 entries so the overlay never grows unboundedly.
+        if (this._killFeed.length > 6) this._killFeed = this._killFeed.slice(-6);
+        this._pushKillFeedState();
+    }
+
+    _pushKillFeedState() {
+        this.scene.events.ui.emit("hud_update", {
+            killFeed: { entries: this._killFeed.slice() },
+        });
+    }
+
+    _peerNameOrId(roster, peerId) {
+        if (roster && roster.peers) {
+            for (var i = 0; i < roster.peers.length; i++) {
+                if (roster.peers[i].peerId === peerId) return roster.peers[i].username;
+            }
+        }
+        return peerId.slice(0, 6);
+    }
+
+    // ─── Remote proxy animations ────────────────────────────────────────
+
+    _playAnimOnPeer(peerId, animName, loop) {
+        if (!peerId) return;
+        var ent = this._findPlayerByPeerId(peerId);
+        if (ent && ent.playAnimation) {
+            try { ent.playAnimation(animName, { loop: !!loop }); } catch (e) { /* no anim */ }
+        }
+    }
+
+    _findPlayerByPeerId(peerId) {
+        var players = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+        for (var i = 0; i < players.length; i++) {
+            var p = players[i];
+            var ni = p.getComponent("NetworkIdentityComponent");
+            if (ni && ni.ownerId === peerId) return p;
+        }
+        return null;
+    }
 
     _pushScoreboard() {
         var mp = this.scene._mp;

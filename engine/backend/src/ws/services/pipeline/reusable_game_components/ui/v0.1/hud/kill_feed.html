@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #eaf0f6;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .feed {
+    position: fixed;
+    top: 60px;
+    right: 14px;
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    pointer-events: none;
+  }
+  .entry {
+    background: rgba(8, 8, 14, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    opacity: 1;
+    animation: fadeIn 0.15s ease-out;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Last entry (most recent) gets a subtle highlight. */
+  .entry.fresh {
+    border-color: rgba(250, 204, 21, 0.4);
+  }
+  .entry.fading {
+    opacity: 0;
+    transition: opacity 0.4s ease-in;
+  }
+  .name {
+    font-weight: 700;
+    font-family: 'Menlo', 'Consolas', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .name.me { color: #818cf8; }
+  .weapon {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+  }
+  @keyframes fadeIn {
+    from { transform: translateX(8px); opacity: 0; }
+    to   { transform: translateX(0);   opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="feed" id="feed"></div>
+<script>
+(function () {
+  var feedEl = document.getElementById('feed');
+  // tsMs → DOM element. mp_bridge pushes state several times per second
+  // (ping/voice/scoreboard), so wiping and rebuilding feedEl each push
+  // would re-trigger the fadeIn keyframe and look like a flicker. Keep
+  // existing rows, only add new ones, only remove ones that disappeared.
+  var rowsByTs = Object.create(null);
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function buildRow(e) {
+    var row = document.createElement('div');
+    row.className = 'entry';
+    row.dataset.ts = String(e.tsMs);
+    var killerHtml = e.killer
+      ? '<span class="name' + (e.killerIsLocal ? ' me' : '') + '">' + escapeHtml(e.killer) + '</span>'
+      : '';
+    var victimHtml = '<span class="name' + (e.victimIsLocal ? ' me' : '') + '">' + escapeHtml(e.victim) + '</span>';
+    if (e.killer) {
+      row.innerHTML = killerHtml + '<span class="weapon">→</span>' + victimHtml;
+    } else {
+      row.innerHTML = victimHtml + '<span class="weapon">· died</span>';
+    }
+    return row;
+  }
+
+  function render(entries) {
+    var list = (entries || []).slice().reverse();   // newest first
+
+    // Drop rows whose entry isn't in the new state.
+    var nextTsSet = Object.create(null);
+    for (var i = 0; i < list.length; i++) nextTsSet[list[i].tsMs] = true;
+    for (var ts in rowsByTs) {
+      if (!nextTsSet[ts]) {
+        rowsByTs[ts].remove();
+        delete rowsByTs[ts];
+      }
+    }
+
+    // Insert/move into the right order. New rows animate via fadeIn;
+    // existing rows just shift class for "fresh" highlight.
+    for (var j = 0; j < list.length; j++) {
+      var e = list[j];
+      var row = rowsByTs[e.tsMs];
+      if (!row) {
+        row = buildRow(e);
+        rowsByTs[e.tsMs] = row;
+      }
+      if (j === 0) row.classList.add('fresh');
+      else row.classList.remove('fresh');
+      // Re-append moves the node into position without re-animating
+      // (browser preserves animation state across re-parenting within
+      // the same parent only when the node hasn't been disconnected).
+      if (feedEl.children[j] !== row) feedEl.insertBefore(row, feedEl.children[j] || null);
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.killFeed) render(s.killFeed.entries);
+  });
+})();
+</script>
+</body>
+</html>
