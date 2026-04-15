@@ -475,11 +475,15 @@ export class Toolbar {
      * join in the other without leaving the browser.
      */
     private updatePreviewClientVisibility(): void {
+        // Only meaningful while the game is running in play mode — opening a
+        // second client without the host playing just gets you two lobby
+        // browsers pointed at nothing.
+        const playing = !!this.ctx.state.isPlaying;
         const pd: any = this.ctx.state.projectData;
         const mpEnabled = pd?.multiplayerConfig?.enabled
             || pd?.projectConfig?.multiplayerConfig?.enabled
             || this.detectMultiplayerInFlow(pd);
-        this.previewClientBtn.style.display = mpEnabled ? '' : 'none';
+        this.previewClientBtn.style.display = (playing && mpEnabled) ? '' : 'none';
     }
 
     private detectMultiplayerInFlow(projectData: any): boolean {
