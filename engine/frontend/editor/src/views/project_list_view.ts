@@ -1,7 +1,8 @@
 import { EditorContext } from '../editor_context.js';
 import { showConfirmModal, showPromptModal, showModal } from '../widgets/modal.js';
 import { showContextMenu } from '../widgets/context_menu.js';
-import { icon, MoreVertical, Check, FolderOpen, Plus, LogOut, ExternalLink } from '../widgets/icons.js';
+import { icon, MoreVertical, Check, FolderOpen, Plus, LogIn, LogOut, ExternalLink } from '../widgets/icons.js';
+import { ensureLoggedIn, getStoredToken, clearStoredToken, decodeToken } from '../backend/auth_session.js';
 
 export class ProjectListView {
     readonly el: HTMLElement;
@@ -22,6 +23,7 @@ export class ProjectListView {
     private activeTab: 'my' | 'shared' = 'my';
     private tabBar!: HTMLElement;
     private statusFilterEl!: HTMLSelectElement;
+    private authSlot!: HTMLElement;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -51,17 +53,29 @@ export class ProjectListView {
         createBtn.addEventListener('click', () => this.createProject());
         header.appendChild(createBtn);
 
-        const exitBtn = document.createElement('button');
-        exitBtn.className = 'toolbar-btn exit-btn';
-        exitBtn.appendChild(icon(LogOut, 15));
-        const exitLabel = document.createElement('span');
-        exitLabel.textContent = ' Exit';
-        exitBtn.appendChild(exitLabel);
-        exitBtn.title = 'Back to landing page';
-        exitBtn.addEventListener('click', () => {
-            window.location.href = '/';
-        });
-        header.appendChild(exitBtn);
+        // "Exit" only makes sense on parallaxpro.ai (goes back to the
+        // landing page). On self-hosted instances there's nowhere to
+        // exit to, so swap it out for an auth widget that lets the
+        // user sign in to parallaxpro.ai (so publish-from-local
+        // works) or sign out of the session.
+        if (this.ctx.backend.isSelfHosted) {
+            this.authSlot = document.createElement('div');
+            this.authSlot.style.display = 'flex';
+            this.renderAuthSlot();
+            header.appendChild(this.authSlot);
+        } else {
+            const exitBtn = document.createElement('button');
+            exitBtn.className = 'toolbar-btn exit-btn';
+            exitBtn.appendChild(icon(LogOut, 15));
+            const exitLabel = document.createElement('span');
+            exitLabel.textContent = ' Exit';
+            exitBtn.appendChild(exitLabel);
+            exitBtn.title = 'Back to landing page';
+            exitBtn.addEventListener('click', () => {
+                window.location.href = '/';
+            });
+            header.appendChild(exitBtn);
+        }
 
         this.el.appendChild(header);
 
@@ -1131,6 +1145,113 @@ git checkout da571fe   # last commit before template unification`;
         } catch (e) {
             console.error('Failed to unpublish:', e);
         }
+    }
+
+    /**
+     * Render the auth slot in the header (self-hosted only). Swaps between:
+     *   - A "Login" button when no cli-login token is stored.
+     *   - An avatar + dropdown (username, "Log out") when signed in.
+     * Logging in/out both re-render the list so publish badges update.
+     */
+    private renderAuthSlot(): void {
+        this.authSlot.innerHTML = '';
+        const token = getStoredToken();
+        const payload = token ? decodeToken(token) : null;
+        const username = payload?.username || null;
+
+        if (!username) {
+            const loginBtn = document.createElement('button');
+            loginBtn.className = 'toolbar-btn exit-btn';
+            loginBtn.appendChild(icon(LogIn, 15));
+            const lbl = document.createElement('span');
+            lbl.textContent = ' Login';
+            loginBtn.appendChild(lbl);
+            loginBtn.title = 'Sign in to parallaxpro.ai so you can publish this project';
+            loginBtn.addEventListener('click', async () => {
+                loginBtn.classList.add('disabled');
+                try {
+                    await ensureLoggedIn();
+                    this.renderAuthSlot();
+                    // Kick a reload so publish badges + thumbnails show up on
+                    // already-published projects the user now has access to.
+                    this.loadProjects();
+                } catch (e: any) {
+                    loginBtn.classList.remove('disabled');
+                    console.warn('[auth] login cancelled:', e?.message ?? e);
+                }
+            });
+            this.authSlot.appendChild(loginBtn);
+            return;
+        }
+
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:relative;display:flex;align-items:center;';
+
+        const avatar = document.createElement('button');
+        avatar.className = 'toolbar-btn';
+        avatar.title = `Signed in as ${username}`;
+        avatar.style.cssText = 'padding:4px 10px;display:flex;align-items:center;gap:8px;';
+        avatar.appendChild(this.buildAvatar(username));
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = username;
+        nameSpan.style.cssText = 'font-size:13px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        avatar.appendChild(nameSpan);
+
+        const menu = document.createElement('div');
+        menu.style.cssText = 'position:absolute;right:0;top:calc(100% + 6px);min-width:160px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,0.25);padding:4px 0;z-index:1000;display:none;';
+
+        const emailRow = document.createElement('div');
+        emailRow.style.cssText = 'padding:8px 12px;font-size:11px;color:var(--text-disabled);border-bottom:1px solid var(--border);';
+        emailRow.textContent = payload?.email || '';
+        if (payload?.email) menu.appendChild(emailRow);
+
+        const logoutItem = document.createElement('button');
+        logoutItem.style.cssText = 'width:100%;padding:8px 12px;display:flex;align-items:center;gap:8px;background:transparent;border:0;color:var(--text-primary);cursor:pointer;font-size:13px;text-align:left;';
+        logoutItem.appendChild(icon(LogOut, 14));
+        const logoutLabel = document.createElement('span');
+        logoutLabel.textContent = 'Log out';
+        logoutItem.appendChild(logoutLabel);
+        logoutItem.addEventListener('mouseenter', () => { logoutItem.style.background = 'var(--bg-input)'; });
+        logoutItem.addEventListener('mouseleave', () => { logoutItem.style.background = 'transparent'; });
+        logoutItem.addEventListener('click', () => {
+            clearStoredToken();
+            this.renderAuthSlot();
+            this.loadProjects();
+        });
+        menu.appendChild(logoutItem);
+
+        wrap.appendChild(avatar);
+        wrap.appendChild(menu);
+
+        let open = false;
+        const closeOnOutside = (e: MouseEvent) => {
+            if (!wrap.contains(e.target as Node)) {
+                menu.style.display = 'none';
+                open = false;
+                document.removeEventListener('click', closeOnOutside);
+            }
+        };
+        avatar.addEventListener('click', (e) => {
+            e.stopPropagation();
+            open = !open;
+            menu.style.display = open ? 'block' : 'none';
+            if (open) setTimeout(() => document.addEventListener('click', closeOnOutside), 0);
+        });
+
+        this.authSlot.appendChild(wrap);
+    }
+
+    /** Tiny deterministic initial-avatar — no external service needed. */
+    private buildAvatar(username: string): HTMLElement {
+        const av = document.createElement('div');
+        const letter = (username[0] || '?').toUpperCase();
+        // Hash username → one of a handful of hues so repeat visits stay consistent.
+        let h = 0;
+        for (let i = 0; i < username.length; i++) h = (h * 31 + username.charCodeAt(i)) >>> 0;
+        const hue = h % 360;
+        av.textContent = letter;
+        av.style.cssText = `width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;background:hsl(${hue},55%,45%);`;
+        return av;
     }
 }
 

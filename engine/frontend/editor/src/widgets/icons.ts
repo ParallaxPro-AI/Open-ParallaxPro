@@ -6,7 +6,7 @@ import {
     Eye, EyeOff, Lock, Unlock, Search, Trash2, Copy, Check,
     ChevronDown, ChevronRight, Lightbulb, Layers,
     MousePointer2, Crosshair, Grid3x3, FolderOpen, File, FileCode,
-    Send, MoreVertical, X, LogOut, ExternalLink,
+    Send, MoreVertical, X, LogIn, LogOut, ExternalLink,
     ThumbsUp, ThumbsDown, RefreshCw,
 } from 'lucide';
 
@@ -32,6 +32,6 @@ export {
     Eye, EyeOff, Lock, Unlock, Search, Trash2, Copy, Check,
     ChevronDown, ChevronRight, Lightbulb, Layers,
     MousePointer2, Crosshair, Grid3x3, FolderOpen, File, FileCode,
-    Send, MoreVertical, X, LogOut, ExternalLink,
+    Send, MoreVertical, X, LogIn, LogOut, ExternalLink,
     ThumbsUp, ThumbsDown, RefreshCw,
 };
