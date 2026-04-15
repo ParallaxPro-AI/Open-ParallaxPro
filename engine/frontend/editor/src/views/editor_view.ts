@@ -367,6 +367,52 @@ export class EditorView {
         this.ctx.emit('sceneChanged');
 
         this.maybeShowPromoteToCloudPrompt();
+        this.maybeShowCloudSignedOutBanner();
+    }
+
+    /**
+     * When a user opens a cloud project on self-hosted while logged out,
+     * saves keep working locally but don't push to parallaxpro.ai. That's
+     * a silent failure mode — surface it as a persistent warning banner
+     * above the toolbar, with a one-click Sign in that resumes sync.
+     */
+    private maybeShowCloudSignedOutBanner(): void {
+        const pd: any = this.ctx.state.projectData;
+        if (!pd?.isCloud) return;
+        if (!this.ctx.backend.isSelfHosted) return;
+        if (this.ctx.cloudSync.currentUserId()) return;
+
+        const banner = document.createElement('div');
+        banner.className = 'connection-banner';
+        banner.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(154,99,0,0.22);border-bottom:1px solid rgba(234,170,70,0.4);color:var(--text-primary);font-size:13px;';
+
+        const text = document.createElement('span');
+        text.style.flex = '1';
+        text.innerHTML = 'You\'re editing a cloud project while signed out — changes save locally but <strong>won\'t sync to parallaxpro.ai</strong> until you sign in.';
+        banner.appendChild(text);
+
+        const signInBtn = document.createElement('button');
+        signInBtn.textContent = 'Sign in';
+        signInBtn.style.cssText = 'padding:4px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
+        signInBtn.addEventListener('click', async () => {
+            signInBtn.disabled = true;
+            signInBtn.textContent = 'Signing in…';
+            try {
+                const { ensureLoggedIn } = await import('../backend/auth_session.js');
+                await ensureLoggedIn();
+                banner.remove();
+                // Push whatever the user has edited since opening so their
+                // offline work shows up on prod immediately.
+                if (this.ctx.state.projectId) this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+            } catch (e: any) {
+                signInBtn.disabled = false;
+                signInBtn.textContent = 'Sign in';
+                console.warn('[auth] sign-in cancelled:', e?.message ?? e);
+            }
+        });
+        banner.appendChild(signInBtn);
+
+        this.el.insertBefore(banner, this.connectionBanner);
     }
 
     /**

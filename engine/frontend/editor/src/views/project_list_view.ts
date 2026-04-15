@@ -236,7 +236,13 @@ export class ProjectListView {
             let state: string | null = null;
             let remoteUpdatedAt: string | undefined;
             if (local.isCloud) {
-                state = remote ? this.computeCloudState(local, remote) : 'removed-remotely';
+                if (!userId) {
+                    // Signed out — we can't tell whether the remote still
+                    // exists or is ahead. Don't lie with "removed".
+                    state = 'signed-out';
+                } else {
+                    state = remote ? this.computeCloudState(local, remote) : 'removed-remotely';
+                }
                 remoteUpdatedAt = remote?.updatedAt;
             }
             merged.push({ ...local, _cloudState: state, _remoteOnly: false, _remoteUpdatedAt: remoteUpdatedAt });
@@ -577,6 +583,7 @@ export class ProjectListView {
                 'remote-newer':      { text: '↓ Updated online',  bg: '#2a4d9a', fg: '#c7daff' },
                 'remote-only':       { text: 'Not downloaded',    bg: '#3a3a3a', fg: '#c9c9c9' },
                 'removed-remotely':  { text: '⚠ Removed online',  bg: '#8a1b1b', fg: '#ffd3d3' },
+                'signed-out':        { text: 'Sign in to sync',   bg: '#4a3f8a', fg: '#d7ccff' },
             } as Record<string, { text: string; bg: string; fg: string }>)[project._cloudState];
             if (spec) {
                 cloudBadge.textContent = spec.text;
