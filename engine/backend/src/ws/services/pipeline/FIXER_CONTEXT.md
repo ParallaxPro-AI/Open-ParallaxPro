@@ -114,6 +114,13 @@ this.input.isKeyReleased("KeyE")       // just released
 this.input.isKeyDown("MouseLeft")      // mouse buttons
 this.input.getMouseDelta()             // { x, y }
 
+// Reserved keys — DO NOT rebind for gameplay:
+//   KeyV  — voice chat mute toggle
+//   Enter — text chat open / send
+//   KeyP  — pause menu
+// If a game script uses any of these for gameplay, swap to a free key
+// (KeyE/KeyF/KeyQ/KeyR/KeyT/KeyG/KeyC/KeyX/KeyZ/Tab/digit keys).
+
 // Audio
 this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserSmall_000.ogg", 0.5)
 this.audio.playMusic("/assets/kenney/audio/rpg_audio/music.ogg")

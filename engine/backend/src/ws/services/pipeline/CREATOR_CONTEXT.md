@@ -175,6 +175,18 @@ this.audio.playSound("/assets/kenney/audio/...", 0.5)
 this.entity.playAnimation("Run", { loop: true })
 ```
 
+### Reserved keys — DO NOT use for gameplay
+
+The engine reserves these keys globally. Never bind them for game actions
+(movement, firing, abilities, menu toggles, etc.):
+
+- `KeyV` — voice chat mute toggle
+- `Enter` — text chat open / send
+- `KeyP` — pause menu
+
+Pick other keys for gameplay bindings. Common free keys: `KeyE`, `KeyF`,
+`KeyQ`, `KeyR`, `KeyT`, `KeyG`, `KeyC`, `KeyX`, `KeyZ`, `Tab`, digit keys.
+
 ## Transition Formats
 - `ui_event:panel:action` — UI button (e.g., `ui_event:main_menu:start_game`)
 - `game_event:name` — game event (e.g., `game_event:player_died`)
