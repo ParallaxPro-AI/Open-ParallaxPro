@@ -12,11 +12,21 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+export interface MultiplayerConfig {
+  enabled?: boolean;
+  maxPlayers?: number;
+  minPlayers?: number;
+  tickRate?: number;
+  authority?: 'host';
+  predictLocalPlayer?: boolean;
+  hostPlaysGame?: boolean;
+}
+
 export interface ConvertedScene {
   entities: any[];
   scripts: Record<string, string>;
   uiFiles: Record<string, string>;
-  multiplayerConfig?: { maxPlayers?: number; minPlayers?: number };
+  multiplayerConfig?: MultiplayerConfig;
   /** Scene-level environment (gravity, lighting, fog, time of day) sourced from
    *  worlds[0].environment. The editor's environment edits go here. */
   environment?: Record<string, any>;
@@ -296,6 +306,31 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
   // Player flag
   if (tagSet.has('player') || parentTags?.has('player')) {
     properties._isPlayerControlled = true;
+  }
+
+  // Network identity — populated from the `network` block on the entity def.
+  // Only added when the block is present; single-player games are unaffected.
+  if (def.network && typeof def.network === 'object') {
+    const n = def.network as any;
+    const initialVars: Record<string, any> = {};
+    if (Array.isArray(n.networkedVars)) {
+      for (const name of n.networkedVars) {
+        if (typeof name === 'string') initialVars[name] = 0;
+      }
+    } else if (n.networkedVars && typeof n.networkedVars === 'object') {
+      for (const [k, v] of Object.entries(n.networkedVars)) initialVars[k] = v;
+    }
+    components.push({ type: 'NetworkIdentityComponent', data: {
+      // networkId/ownerId/isLocalPlayer are populated at spawn time by the
+      // MultiplayerSession; these are placeholders for the template-defined
+      // instances placed in the world.
+      networkId: -1,
+      ownerId: n.ownership === 'local_player' ? -2 : -1,
+      isLocalPlayer: n.ownership === 'local_player',
+      syncTransform: n.syncTransform !== false,
+      syncInterval: Math.max(16, Math.min(1000, Number(n.syncInterval) || 33)),
+      networkedVars: initialVars,
+    } });
   }
 
   // Meta properties (pickups, mission markers, etc.)
@@ -591,12 +626,49 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   // 4. Build-time validation
   // ════════════════════════════════════════════════════════════════════════════
 
-  // Multiplayer config
-  let multiplayerConfig: { maxPlayers?: number; minPlayers?: number } | undefined;
-  if (flow?.max_players || flow?.min_players) {
+  // Multiplayer config. Supports both the legacy flat shape
+  // (flow.max_players / flow.min_players) and the richer nested block:
+  //
+  //   "multiplayer": {
+  //     "enabled": true,
+  //     "minPlayers": 2,
+  //     "maxPlayers": 8,
+  //     "tickRate": 30,
+  //     "authority": "host",
+  //     "predictLocalPlayer": true,
+  //     "hostPlaysGame": true
+  //   }
+  //
+  // Cap on maxPlayers is 16 (peer-to-peer star topology limit).
+  let multiplayerConfig: {
+    enabled?: boolean;
+    maxPlayers?: number;
+    minPlayers?: number;
+    tickRate?: number;
+    authority?: 'host';
+    predictLocalPlayer?: boolean;
+    hostPlaysGame?: boolean;
+  } | undefined;
+  const mpBlock: any = flow?.multiplayer;
+  if (mpBlock && typeof mpBlock === 'object') {
     multiplayerConfig = {};
-    if (flow.max_players) multiplayerConfig.maxPlayers = Number(flow.max_players);
-    if (flow.min_players) multiplayerConfig.minPlayers = Number(flow.min_players);
+    multiplayerConfig.enabled = mpBlock.enabled !== false;
+    multiplayerConfig.maxPlayers = Math.max(1, Math.min(16, Number(mpBlock.maxPlayers) || 2));
+    multiplayerConfig.minPlayers = Math.max(1, Math.min(multiplayerConfig.maxPlayers, Number(mpBlock.minPlayers) || 1));
+    multiplayerConfig.tickRate = Math.max(5, Math.min(120, Math.floor(Number(mpBlock.tickRate) || 30)));
+    multiplayerConfig.authority = 'host';
+    multiplayerConfig.predictLocalPlayer = mpBlock.predictLocalPlayer !== false;
+    multiplayerConfig.hostPlaysGame = mpBlock.hostPlaysGame !== false;
+  } else if (flow?.max_players || flow?.min_players) {
+    multiplayerConfig = {
+      enabled: true,
+      authority: 'host',
+      predictLocalPlayer: true,
+      hostPlaysGame: true,
+      tickRate: 30,
+    };
+    if (flow.max_players) multiplayerConfig.maxPlayers = Math.max(1, Math.min(16, Number(flow.max_players)));
+    if (flow.min_players) multiplayerConfig.minPlayers = Math.max(1, Math.min(multiplayerConfig.maxPlayers ?? 16, Number(flow.min_players)));
   }
 
   // Event validation

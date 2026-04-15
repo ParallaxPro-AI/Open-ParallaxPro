@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #eaf0f6;
+    background: rgba(8, 8, 14, 0.72);
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+    overflow: hidden;
+  }
+  .wrap {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 20px;
+  }
+  .spinner {
+    width: 56px; height: 56px;
+    border: 3px solid rgba(255,255,255,0.08);
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .title {
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+  }
+  .sub {
+    font-size: 12px; color: #6b7280; letter-spacing: 1.5px;
+    text-transform: uppercase;
+    min-height: 18px;
+  }
+  .btn {
+    margin-top: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #eaf0f6;
+    font-family: inherit; font-size: 11px; font-weight: 600;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 10px 20px;
+    border-radius: 8px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:hover { border-color: rgba(255,255,255,0.15); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="spinner"></div>
+  <div class="title" id="title">Connecting</div>
+  <div class="sub" id="sub">Negotiating peer-to-peer connection…</div>
+  <button class="btn" id="cancel">Cancel</button>
+</div>
+<script>
+(function () {
+  function emit(action) {
+    window.parent.postMessage({ type: 'game_command', action: action }, '*');
+  }
+  document.getElementById('cancel').onclick = function () { emit('cancel_connect'); };
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    var mp = s.multiplayer || {};
+    if (mp.connectingTitle) document.getElementById('title').textContent = mp.connectingTitle;
+    if (mp.connectingSub) document.getElementById('sub').textContent = mp.connectingSub;
+  });
+})();
+</script>
+</body>
+</html>

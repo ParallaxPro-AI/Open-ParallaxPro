@@ -100,6 +100,17 @@ class App {
                 localStorage.removeItem('pendingPrompt');
                 view.sendInitialChatMessage(prompt);
             }
+
+            // ?auto_play=1 is used by the "+ Preview Client" toolbar button so
+            // a second tab of the editor starts playing as soon as the project
+            // loads. The mp_bridge auto-connects to the lobby server; the dev
+            // just clicks Join on one side and Host on the other.
+            const autoPlay = new URLSearchParams(window.location.search).get('auto_play');
+            if (autoPlay === '1') {
+                const ctx = EditorContext.instance;
+                // Give the asset loader a beat to start, then kick play.
+                setTimeout(() => { try { ctx.play(); } catch { /* ignored */ } }, 400);
+            }
         } catch (e) {
             console.error('Failed to initialize editor:', e);
         }

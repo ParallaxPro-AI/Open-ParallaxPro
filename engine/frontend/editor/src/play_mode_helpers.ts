@@ -9,6 +9,7 @@ import { AudioSystem } from '../../runtime/function/audio/audio_system.js';
 import { TerrainComponent } from '../../runtime/function/framework/components/terrain_component.js';
 
 import { buildScriptScene as sharedBuildScriptScene } from '../../../shared/scripting/script_scene_builder.js';
+import { installDefaultNetworkAdapter } from '../../runtime/function/network/default_network_adapter.js';
 
 export function computeScreenToWorldRay(
     screenX: number, screenY: number, scene: Scene, engine: ParallaxEngine,
@@ -268,5 +269,34 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
         scheduleCall: (fn: () => void, delayMs: number) => setTimeout(fn, delayMs),
     };
 
-    return sharedBuildScriptScene(sharedDeps as any);
+    const result = sharedBuildScriptScene(sharedDeps as any);
+    // Expose the peer-to-peer multiplayer session + project config on the
+    // scriptScene so the mp_bridge system and any multiplayer game script can
+    // talk to them without depending on global window state. `_mp` is the new
+    // p2p session; the legacy `_multiplayer` (editor's MultiplayerManager) is
+    // set separately when the user enters the editor's multiplayer flow.
+    try {
+        const projectConfig = state.projectData?.projectConfig ?? {};
+        // Merge assembled multiplayer config (server-built) into projectConfig
+        // so mp_bridge can read tickRate, min/max players, prediction flag, etc.
+        const mpConfig = state.projectData?.multiplayerConfig;
+        const merged = mpConfig
+            ? { ...projectConfig, multiplayerConfig: mpConfig, gameTemplateId: projectConfig.gameTemplateId || (state as any).projectId || 'default' }
+            : projectConfig;
+        (result.scriptScene as any)._mp = engine.globalContext.multiplayerSession;
+        (result.scriptScene as any)._projectConfig = merged;
+        (result.scriptScene as any)._engine = engine;
+
+        // Bind the default scene ↔ session adapter so host snapshots and
+        // client inputs move automatically as long as entities declare a
+        // NetworkIdentityComponent.
+        if (mpConfig?.enabled !== false) {
+            installDefaultNetworkAdapter(
+                engine.globalContext.multiplayerSession,
+                scene as any,
+                engine.globalContext.inputSystem,
+            );
+        }
+    } catch { /* ignored — editor-less contexts */ }
+    return result;
 }

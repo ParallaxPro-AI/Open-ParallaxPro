@@ -11,6 +11,7 @@ import { AudioSystem } from '../audio/audio_system.js';
 import { InputSystem, connectInputDevice } from '../input/input_system.js';
 import { ScriptSystem } from '../scripting/script_system.js';
 import { NetworkSystem } from '../network/network_system.js';
+import { MultiplayerSession } from '../network/multiplayer_session.js';
 import { WorldManager } from '../framework/world_manager.js';
 import { Vec3 } from '../../core/math/vec3.js';
 import { SeededRandom } from '../../core/math/seeded_random.js';
@@ -33,6 +34,7 @@ export class RuntimeGlobalContext {
     readonly inputSystem: InputSystem = new InputSystem();
     readonly scriptSystem: ScriptSystem = new ScriptSystem();
     readonly networkSystem: NetworkSystem = new NetworkSystem();
+    readonly multiplayerSession: MultiplayerSession = new MultiplayerSession();
     readonly worldManager: WorldManager = new WorldManager();
     readonly random: SeededRandom = new SeededRandom();
 
@@ -72,6 +74,7 @@ export class RuntimeGlobalContext {
     }
 
     shutdownSystems(): void {
+        this.multiplayerSession.disconnect();
         this.networkSystem.shutdown();
         this.scriptSystem.shutdown();
         this.audioSystem.shutdown();

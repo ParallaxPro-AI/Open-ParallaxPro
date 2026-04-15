@@ -1,0 +1,63 @@
+{
+  "definitions": {
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.18, 0.22, 0.28, 1],
+        "scale": [40, 1, 40]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [20, 0.05, 20] }
+      },
+      "tags": ["ground"],
+      "label": false
+    },
+    "wall_block": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.35, 0.35, 0.42, 1],
+        "scale": [2, 2, 2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [1, 1, 1] }
+      },
+      "tags": ["wall", "obstacle"]
+    },
+    "player": {
+      "mesh": {
+        "type": "capsule",
+        "color": [0.9, 0.35, 0.35, 1],
+        "scale": [1, 1, 1]
+      },
+      "physics": {
+        "type": "kinematic",
+        "collider": { "shape": "capsule", "halfHeight": 0.5, "radius": 0.4 }
+      },
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true,
+        "networkedVars": ["health", "score"]
+      },
+      "tags": ["player", "networked"],
+      "behaviors": [
+        {
+          "name": "player_arena_movement",
+          "script": "mp/player_arena_movement.ts",
+          "params": { "speed": 6, "turnSpeed": 4 }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 55 },
+      "tags": ["camera"],
+      "transform": { "position": [0, 22, 0] },
+      "behaviors": [
+        { "name": "arena_camera", "script": "mp/arena_camera.ts", "params": { "height": 22 } }
+      ]
+    }
+  }
+}

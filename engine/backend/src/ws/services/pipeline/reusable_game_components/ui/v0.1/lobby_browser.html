@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-dark: rgba(8, 8, 14, 0.92);
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.15);
+    --text: #eaf0f6;
+    --text-dim: #6b7280;
+    --text-muted: #3e4550;
+    --accent-1: #6366f1;
+    --accent-2: #8b5cf6;
+    --accent-3: #ec4899;
+    --glow-1: rgba(99, 102, 241, 0.4);
+    --glow-2: rgba(139, 92, 246, 0.3);
+    --ping-good: #22c55e;
+    --ping-mid: #eab308;
+    --ping-bad: #ef4444;
+  }
+
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .wrap {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 24px;
+  }
+
+  .panel {
+    width: min(760px, 100%);
+    max-height: 85vh;
+    display: flex; flex-direction: column;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 24px 20px;
+    backdrop-filter: blur(14px);
+    pointer-events: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 40px var(--glow-2);
+  }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .title {
+    font-size: 22px; font-weight: 800; letter-spacing: 3px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-3));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    font-size: 11px; color: var(--text-dim); letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .toolbar {
+    display: flex; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .pill-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .pill-btn:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+  .pill-btn.primary {
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    border-color: transparent;
+  }
+
+  .list {
+    flex: 1;
+    min-height: 280px;
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+    gap: 8px;
+    padding-right: 4px;
+  }
+  .list::-webkit-scrollbar { width: 6px; }
+  .list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+  .list::-webkit-scrollbar-track { background: transparent; }
+
+  .empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1;
+    color: var(--text-muted); font-size: 13px;
+    padding: 40px 0;
+    text-align: center;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr 0.7fr 0.7fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .row:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.04); }
+  .row.selected { border-color: var(--accent-1); background: rgba(99,102,241,0.08); }
+  .row.playing { opacity: 0.55; }
+  .row .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .host { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .row .count { font-size: 12px; color: var(--text); text-align: center; }
+  .row .ping { font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+  .row .state { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
+  .row .lock { width: 14px; height: 14px; opacity: 0.5; }
+
+  .ping-good { color: var(--ping-good); }
+  .ping-mid  { color: var(--ping-mid); }
+  .ping-bad  { color: var(--ping-bad); }
+
+  .footer-bar {
+    display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+    padding-top: 14px; margin-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .footer-bar .msg { flex: 1; font-size: 12px; color: var(--text-dim); }
+  .footer-bar .msg.err { color: var(--ping-bad); }
+
+  .hidden { display: none !important; }
+
+  .pw-overlay {
+    position: fixed; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.55);
+    z-index: 10;
+    pointer-events: auto;
+  }
+  .pw-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    width: 320px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .pw-card input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-family: inherit; font-size: 13px;
+    outline: none;
+  }
+  .pw-card input:focus { border-color: var(--accent-1); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <div class="header">
+      <div>
+        <div class="title" id="title">Multiplayer</div>
+        <div class="subtitle" id="subtitle">Find a lobby or host your own</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="pill-btn" id="btn-refresh">Refresh</button>
+      <button class="pill-btn primary" id="btn-host">Host lobby</button>
+      <button class="pill-btn" id="btn-back">Back</button>
+    </div>
+
+    <div class="list" id="list">
+      <div class="empty" id="empty">No lobbies open. Host one to get started.</div>
+    </div>
+
+    <div class="footer-bar">
+      <div class="msg" id="msg"></div>
+      <button class="pill-btn primary" id="btn-join" disabled style="flex:0 0 auto; opacity:0.5;">Join selected</button>
+    </div>
+  </div>
+</div>
+
+<div class="pw-overlay" id="pw-overlay">
+  <div class="pw-card">
+    <div style="font-size:13px; font-weight:700; letter-spacing:2px; text-transform:uppercase;">Lobby password</div>
+    <input id="pw-input" type="password" autocomplete="off" maxlength="64" placeholder="Enter password" />
+    <div style="display:flex; gap:8px;">
+      <button class="pill-btn" id="pw-cancel" style="flex:1;">Cancel</button>
+      <button class="pill-btn primary" id="pw-submit" style="flex:1;">Join</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var listEl = document.getElementById('list');
+  var emptyEl = document.getElementById('empty');
+  var msgEl = document.getElementById('msg');
+  var joinBtn = document.getElementById('btn-join');
+  var pwOverlay = document.getElementById('pw-overlay');
+  var pwInput = document.getElementById('pw-input');
+  var selectedId = null;
+  var lobbies = [];
+  var pendingPasswordFor = null;
+
+  function emit(action, payload) {
+    var msg = { type: 'game_command', action: action };
+    if (payload) msg.payload = payload;
+    window.parent.postMessage(msg, '*');
+  }
+
+  function showError(text) {
+    msgEl.textContent = text || '';
+    msgEl.classList.toggle('err', !!text);
+  }
+
+  function pingClass(ms) {
+    if (ms == null || ms < 0) return '';
+    if (ms < 80) return 'ping-good';
+    if (ms < 150) return 'ping-mid';
+    return 'ping-bad';
+  }
+
+  function render() {
+    if (!lobbies.length) {
+      listEl.innerHTML = '';
+      listEl.appendChild(emptyEl);
+      joinBtn.disabled = true;
+      joinBtn.style.opacity = '0.5';
+      return;
+    }
+    listEl.innerHTML = '';
+    lobbies.forEach(function (lb) {
+      var row = document.createElement('div');
+      row.className = 'row' + (lb.state === 'playing' ? ' playing' : '') + (lb.id === selectedId ? ' selected' : '');
+      row.dataset.id = lb.id;
+
+      var pingMs = typeof lb.pingMs === 'number' ? lb.pingMs : null;
+      var pingTxt = pingMs == null || pingMs < 0 ? '—' : Math.round(pingMs) + 'ms';
+
+      row.innerHTML =
+        '<div class="name">' + (lb.hasPassword ? '&#128274; ' : '') + escape(lb.name) + '</div>' +
+        '<div class="host">by ' + escape(lb.hostUsername) + '</div>' +
+        '<div class="count">' + lb.playerCount + '/' + lb.maxPlayers + '</div>' +
+        '<div class="ping ' + pingClass(pingMs) + '">' + pingTxt + '</div>' +
+        '<div class="state">' + (lb.state === 'playing' ? 'in game' : 'waiting') + '</div>';
+
+      row.onclick = function () {
+        selectedId = lb.id;
+        render();
+        joinBtn.disabled = lb.state === 'playing';
+        joinBtn.style.opacity = joinBtn.disabled ? '0.5' : '1';
+      };
+
+      listEl.appendChild(row);
+    });
+  }
+
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  document.getElementById('btn-refresh').onclick = function () { showError(''); emit('refresh_lobbies'); };
+  document.getElementById('btn-host').onclick = function () { showError(''); emit('open_host_config'); };
+  document.getElementById('btn-back').onclick = function () { showError(''); emit('back_to_menu'); };
+  joinBtn.onclick = function () {
+    if (!selectedId) return;
+    var lb = lobbies.find(function (x) { return x.id === selectedId; });
+    if (!lb) return;
+    if (lb.hasPassword) {
+      pendingPasswordFor = selectedId;
+      pwInput.value = '';
+      pwOverlay.style.display = 'flex';
+      setTimeout(function () { pwInput.focus(); }, 30);
+    } else {
+      emit('join_lobby', { lobbyId: selectedId });
+    }
+  };
+
+  document.getElementById('pw-cancel').onclick = function () {
+    pwOverlay.style.display = 'none';
+    pendingPasswordFor = null;
+  };
+  document.getElementById('pw-submit').onclick = function () {
+    if (pendingPasswordFor) {
+      emit('join_lobby', { lobbyId: pendingPasswordFor, password: pwInput.value });
+    }
+    pwOverlay.style.display = 'none';
+    pendingPasswordFor = null;
+  };
+  pwInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('pw-submit').click();
+    if (e.key === 'Escape') document.getElementById('pw-cancel').click();
+  });
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var state = e.data.state;
+    if (state.lobbies) { lobbies = state.lobbies; render(); }
+    if (state.errorMessage !== undefined) showError(state.errorMessage);
+    if (state.gameTitle) document.getElementById('title').textContent = state.gameTitle;
+  });
+})();
+</script>
+</body>
+</html>

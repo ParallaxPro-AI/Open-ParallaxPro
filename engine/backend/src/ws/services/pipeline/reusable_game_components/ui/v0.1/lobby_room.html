@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-dark: rgba(8, 8, 14, 0.92);
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.15);
+    --text: #eaf0f6;
+    --text-dim: #6b7280;
+    --text-muted: #3e4550;
+    --accent-1: #6366f1;
+    --accent-2: #8b5cf6;
+    --accent-3: #ec4899;
+    --ok: #22c55e;
+    --warn: #eab308;
+    --err: #ef4444;
+  }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: rgba(0,0,0,0.55);
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .wrap {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .panel {
+    width: min(680px, 100%);
+    max-height: 88vh;
+    display: flex; flex-direction: column;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px;
+    backdrop-filter: blur(14px);
+    pointer-events: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px;
+  }
+  .head .title {
+    font-size: 20px; font-weight: 800; letter-spacing: 2.5px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-3));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .head .meta {
+    font-size: 11px; color: var(--text-dim);
+    letter-spacing: 1.5px; text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .head .count {
+    font-size: 12px; color: var(--text-dim);
+    letter-spacing: 2px; text-transform: uppercase;
+  }
+  .list {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 6px;
+    overflow-y: auto;
+    min-height: 200px;
+    padding-right: 4px;
+  }
+  .list::-webkit-scrollbar { width: 6px; }
+  .list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+  .pl-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+  }
+  .pl-row .u { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .pl-row .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 999px;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .pl-row .badge.host { background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); }
+  .pl-row .badge.you { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+  .pl-row .ready {
+    font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--warn);
+  }
+  .pl-row .ready.on { color: var(--ok); }
+  .pl-row .kick-btn {
+    background: transparent; color: var(--err);
+    border: 1px solid rgba(239,68,68,0.4);
+    border-radius: 6px;
+    font-family: inherit; font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .pl-row .kick-btn:hover { background: rgba(239,68,68,0.12); }
+
+  .actions {
+    display: flex; gap: 8px; margin-top: 14px;
+    padding-top: 14px; border-top: 1px solid var(--border);
+  }
+  .btn {
+    flex: 1;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    color: var(--text);
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 12px;
+    border-radius: 8px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    border-color: transparent;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.ready-on { background: rgba(34, 197, 94, 0.2); border-color: rgba(34,197,94,0.5); }
+
+  .err {
+    font-size: 12px; color: var(--err); margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <div class="head">
+      <div>
+        <div class="title" id="title">Lobby</div>
+        <div class="meta" id="meta">Waiting for players</div>
+      </div>
+      <div class="count" id="count">0/0</div>
+    </div>
+
+    <div class="list" id="list"></div>
+
+    <div class="err" id="err"></div>
+
+    <div class="actions">
+      <button class="btn" id="btn-leave">Leave</button>
+      <button class="btn" id="btn-ready">Ready up</button>
+      <button class="btn primary" id="btn-start">Start game</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var listEl = document.getElementById('list');
+  var countEl = document.getElementById('count');
+  var metaEl = document.getElementById('meta');
+  var titleEl = document.getElementById('title');
+  var btnReady = document.getElementById('btn-ready');
+  var btnStart = document.getElementById('btn-start');
+  var errEl = document.getElementById('err');
+  var amHost = false;
+  var ready = false;
+  var roster = null;
+  var localPeerId = '';
+
+  function emit(action, payload) {
+    var msg = { type: 'game_command', action: action };
+    if (payload) msg.payload = payload;
+    window.parent.postMessage(msg, '*');
+  }
+
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function render() {
+    if (!roster) {
+      listEl.innerHTML = '';
+      titleEl.textContent = 'Lobby';
+      metaEl.textContent = 'Not connected';
+      countEl.textContent = '';
+      btnReady.disabled = true;
+      btnStart.disabled = true;
+      return;
+    }
+
+    titleEl.textContent = roster.name;
+    var slots = roster.maxPlayers;
+    countEl.textContent = roster.peers.length + '/' + slots;
+
+    var readyCount = roster.peers.filter(function (p) { return p.isReady || p.isHost; }).length;
+    var canStart = amHost && roster.peers.length >= (roster.minPlayers || 1) && readyCount === roster.peers.length;
+    btnStart.disabled = !canStart;
+    btnStart.style.display = amHost ? '' : 'none';
+
+    metaEl.textContent = amHost
+      ? 'You are hosting · ' + (canStart ? 'Ready to start' : 'Waiting for players to ready up')
+      : (ready ? 'Ready' : 'Waiting — press Ready up when prepared');
+
+    listEl.innerHTML = '';
+    roster.peers.forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'pl-row';
+      var badges = '';
+      if (p.isHost) badges += '<span class="badge host">Host</span>';
+      if (p.peerId === localPeerId) badges += '<span class="badge you">You</span>';
+
+      var readyBit = p.isHost
+        ? '<span class="ready on">Host</span>'
+        : '<span class="ready ' + (p.isReady ? 'on' : '') + '">' + (p.isReady ? 'Ready' : 'Not ready') + '</span>';
+
+      var kick = (amHost && !p.isHost)
+        ? '<button class="kick-btn" data-kick="' + p.peerId + '">Kick</button>'
+        : '<span></span>';
+
+      row.innerHTML =
+        '<div class="u">' + escape(p.username) + badges + '</div>' +
+        readyBit + kick;
+
+      listEl.appendChild(row);
+    });
+
+    Array.prototype.forEach.call(listEl.querySelectorAll('[data-kick]'), function (btn) {
+      btn.addEventListener('click', function () { emit('kick_player', { peerId: btn.getAttribute('data-kick') }); });
+    });
+
+    btnReady.textContent = ready ? 'Unready' : 'Ready up';
+    btnReady.classList.toggle('ready-on', ready);
+    btnReady.style.display = amHost ? 'none' : '';
+  }
+
+  document.getElementById('btn-leave').onclick = function () { emit('leave_lobby'); };
+  btnReady.onclick = function () {
+    ready = !ready;
+    emit('toggle_ready', { ready: ready });
+    render();
+  };
+  btnStart.onclick = function () { emit('start_game'); };
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var state = e.data.state || {};
+    if (state.multiplayer) {
+      roster = state.multiplayer.roster || null;
+      amHost = !!state.multiplayer.isHost;
+      localPeerId = state.multiplayer.localPeerId || '';
+      ready = !!state.multiplayer.localReady;
+    }
+    if (state.errorMessage !== undefined) errEl.textContent = state.errorMessage || '';
+    render();
+  });
+})();
+</script>
+</body>
+</html>

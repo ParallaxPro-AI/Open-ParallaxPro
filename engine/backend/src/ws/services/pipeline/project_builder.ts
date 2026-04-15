@@ -16,7 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { ProjectFiles } from './project_files.js';
-import { assembleGame, ConvertedScene } from './level_assembler.js';
+import { assembleGame, ConvertedScene, MultiplayerConfig } from './level_assembler.js';
 
 export interface BuildResult {
     success: boolean;
@@ -25,7 +25,7 @@ export interface BuildResult {
     scenes: Record<string, any>;
     scripts: Record<string, string>;
     uiFiles: Record<string, string>;
-    multiplayerConfig?: { maxPlayers?: number; minPlayers?: number };
+    multiplayerConfig?: MultiplayerConfig;
     /** Default scene environment (the frontend expects this on each scene). */
     activeSceneKey: string;
     /** Mapping: assembled script/UI key → underlying template file path in the project tree. */

@@ -44,6 +44,7 @@ export const ENGINE_MACHINERY = [
     'systems/_entity_label.ts',
     'systems/event_definitions.ts',
     'systems/ui/ui_bridge.ts',
+    'systems/mp/mp_bridge.ts',
 ] as const;
 
 /** Empty 4-file template — the seed for a project created with no template. */

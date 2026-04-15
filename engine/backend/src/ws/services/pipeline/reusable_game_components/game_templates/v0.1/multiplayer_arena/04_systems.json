@@ -1,0 +1,9 @@
+{
+  "systems": {
+    "arena_game": {
+      "description": "Arena match rules — scoring, round timer, winner detection.",
+      "script": "mp/arena_game.ts",
+      "params": { "roundDurationSec": 180, "scoreToWin": 10 }
+    }
+  }
+}

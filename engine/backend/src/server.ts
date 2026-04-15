@@ -120,9 +120,14 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     const editorWSS = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 1 * 1024 * 1024 });
     setupEditorWebSocket(editorWSS);
 
+    const { setupLobbyWebSocket } = await import('./ws/services/lobby/lobby_ws.js');
+    const lobbyWSS = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 128 * 1024 });
+    setupLobbyWebSocket(lobbyWSS);
+
     // Additional WS paths from plugins
     const wsHandlers = new Map<string, WebSocketServer>();
     wsHandlers.set('/ws/engine', editorWSS);
+    wsHandlers.set('/ws/multiplayer', lobbyWSS);
     for (const p of plugins) {
         if (p.registerWebSocket) {
             p.registerWebSocket(wsHandlers);

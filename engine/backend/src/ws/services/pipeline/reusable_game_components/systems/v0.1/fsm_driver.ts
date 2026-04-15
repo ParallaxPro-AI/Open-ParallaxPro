@@ -72,6 +72,11 @@ class FSMDriver extends GameScript {
                     if (w.indexOf(".") >= 0) { allEvents[w] = true; continue; }
                     // game_event:xxx → subscribe on game bus
                     if (w.indexOf("game_event:") === 0) { allEvents["game." + w.substring(11)] = true; continue; }
+                    // mp_event:xxx → subscribe to "mp_" prefixed events on the game bus
+                    // (MpBridge emits mp_phase_xxx, mp_chat_focus, mp_chat_blur, etc.)
+                    if (w.indexOf("mp_event:") === 0) { allEvents["game.mp_" + w.substring(9)] = true; continue; }
+                    // net_event:xxx → subscribe to "net_" prefixed events (received from peers)
+                    if (w.indexOf("net_event:") === 0) { allEvents["game.net_" + w.substring(10)] = true; continue; }
                     // ui_event:panel:action or keyboard:action → subscribe on ui bus
                     if (w.indexOf(":") >= 0) { allEvents["ui." + w] = true; continue; }
                 }
@@ -332,9 +337,11 @@ class FSMInst {
                 if (m[2] === "!=") return lhs != rhs;
             }
         }
-        // Event flag: strip game_event: prefix since handleEvent stores bare name
+        // Event flag: strip prefix since handleEvent stores bare name
         var checkKey = cond;
         if (cond.indexOf("game_event:") === 0) checkKey = cond.substring(11);
+        else if (cond.indexOf("mp_event:") === 0) checkKey = "mp_" + cond.substring(9);
+        else if (cond.indexOf("net_event:") === 0) checkKey = "net_" + cond.substring(10);
         return !!this._vars[checkKey];
     }
 
@@ -403,6 +410,28 @@ class FSMInst {
             if (dotIdx > 0) {
                 this._emitBus(emitArg.substring(0, dotIdx), emitArg.substring(dotIdx + 1), eventData || {});
             }
+            return;
+        }
+
+        // ── Multiplayer shortcuts ──
+        // Convert `mp:host_lobby`, `mp:leave`, etc. into ui_event emissions so
+        // mp_bridge picks them up without the flow having to know bus plumbing.
+        if (action.indexOf("mp:") === 0) {
+            var mpCmd = action.substring(3);
+            var payload = eventData || {};
+            // mp:show_browser is the canonical way to open the lobby list UI.
+            if (mpCmd === "show_browser") {
+                this._emitBus("ui", "show_ui", { panel: "lobby_browser" });
+                return;
+            }
+            if (mpCmd === "show_room") {
+                this._emitBus("ui", "show_ui", { panel: "lobby_room" });
+                return;
+            }
+            if (mpCmd === "hide_browser") { this._emitBus("ui", "hide_ui", { panel: "lobby_browser" }); return; }
+            if (mpCmd === "hide_room") { this._emitBus("ui", "hide_ui", { panel: "lobby_room" }); return; }
+            // Generic: mp:xxx → ui_event:mp:xxx — mp_bridge listens.
+            this._emitBus("ui", "ui_event:mp:" + mpCmd, payload);
             return;
         }
 

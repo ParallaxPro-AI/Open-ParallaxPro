@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #eaf0f6;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .banner {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.95), rgba(185, 28, 28, 0.85));
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    pointer-events: auto;
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
+  }
+  .left { display: flex; align-items: center; gap: 10px; }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #fff;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+  .right { display: flex; gap: 6px; }
+  .btn {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn:hover { background: rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div class="banner" id="banner" style="display:none;">
+  <div class="left">
+    <div class="dot"></div>
+    <div id="text">Connection lost</div>
+  </div>
+  <div class="right">
+    <button class="btn" id="leave">Leave</button>
+  </div>
+</div>
+<script>
+(function () {
+  function emit(action) {
+    window.parent.postMessage({ type: 'game_command', action: action }, '*');
+  }
+  document.getElementById('leave').onclick = function () { emit('leave_lobby'); };
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var mp = (e.data.state || {}).multiplayer || {};
+    var banner = document.getElementById('banner');
+    var text = document.getElementById('text');
+    if (mp.disconnected) {
+      banner.style.display = '';
+      text.textContent = mp.disconnectText || 'Connection lost';
+    } else {
+      banner.style.display = 'none';
+    }
+  });
+})();
+</script>
+</body>
+</html>

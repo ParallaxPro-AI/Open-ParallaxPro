@@ -1,0 +1,29 @@
+{
+  "worlds": [
+    {
+      "id": "arena",
+      "name": "Arena",
+      "environment": {
+        "ambientColor": [0.7, 0.75, 0.85],
+        "ambientIntensity": 0.45,
+        "sunColor": [1, 0.95, 0.9],
+        "sunIntensity": 0.9,
+        "fog": { "enabled": true, "color": [0.1, 0.12, 0.18], "near": 20, "far": 60 },
+        "gravity": [0, -9.81, 0]
+      },
+      "placements": [
+        { "ref": "ground",     "position": [0, 0, 0] },
+        { "ref": "camera",     "position": [0, 22, 0] },
+        { "ref": "player",     "position": [0, 1, 0] },
+        { "ref": "wall_block", "position": [-8, 1, -8] },
+        { "ref": "wall_block", "position": [ 8, 1, -8] },
+        { "ref": "wall_block", "position": [-8, 1,  8] },
+        { "ref": "wall_block", "position": [ 8, 1,  8] },
+        { "ref": "wall_block", "position": [ 0, 1, -10] },
+        { "ref": "wall_block", "position": [ 0, 1,  10] },
+        { "ref": "wall_block", "position": [-10, 1, 0] },
+        { "ref": "wall_block", "position": [ 10, 1, 0] }
+      ]
+    }
+  ]
+}
