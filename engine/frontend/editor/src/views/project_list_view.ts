@@ -20,7 +20,7 @@ export class ProjectListView {
     private statusFilter: 'all' | 'published' | 'draft' = 'all';
     private currentPage: number = 1;
     private readonly pageSize: number = 10;
-    private activeTab: 'my' | 'shared' | 'cloud' = 'my';
+    private activeTab: 'my' | 'cloud' = 'my';
     private tabBar!: HTMLElement;
     private statusFilterEl!: HTMLSelectElement;
     private authSlot!: HTMLElement;
@@ -137,9 +137,8 @@ export class ProjectListView {
         this.tabBar = document.createElement('div');
         this.tabBar.className = 'project-tabs';
 
-        const tabs: { key: 'my' | 'shared' | 'cloud'; label: string; el?: HTMLElement }[] = [
+        const tabs: { key: 'my' | 'cloud'; label: string; el?: HTMLElement }[] = [
             { key: 'my', label: 'My Projects' },
-            { key: 'shared', label: 'Shared with me' },
             { key: 'cloud', label: 'Cloud Projects' },
         ];
         for (const t of tabs) {
@@ -190,9 +189,7 @@ export class ProjectListView {
 
     private async loadProjects(): Promise<void> {
         try {
-            if (this.activeTab === 'shared') {
-                this.projects = await this.ctx.backend.listSharedProjects();
-            } else if (this.activeTab === 'cloud') {
+            if (this.activeTab === 'cloud') {
                 this.projects = await this.loadCloudProjects();
             } else {
                 this.projects = await this.ctx.backend.listProjects();
@@ -454,7 +451,7 @@ export class ProjectListView {
         card.className = 'project-card';
         if (this.selectedIds.has(project.id)) card.classList.add('selected');
 
-        if (this.activeTab !== 'shared') {
+        {
             const checkbox = document.createElement('div');
             checkbox.className = 'project-card-checkbox';
             if (this.selectedIds.has(project.id)) {
@@ -530,13 +527,6 @@ export class ProjectListView {
 
         if (project.legacy) {
             card.classList.add('legacy');
-        }
-
-        if (this.activeTab === 'shared' && project.ownerUsername) {
-            const sharedByRow = document.createElement('div');
-            sharedByRow.className = 'project-card-shared-by';
-            sharedByRow.textContent = `Shared by ${project.ownerUsername}`;
-            info.appendChild(sharedByRow);
         }
 
         if (isPublished) {
@@ -830,13 +820,12 @@ git checkout da571fe   # last commit before template unification`;
 
     private showProjectMenu(project: any, x: number, y: number): void {
         const isPublished = project.status === 'published' && project.publishedSlug;
-        const isSharedTab = this.activeTab === 'shared';
 
         const items: any[] = [
             { label: 'Open', action: () => this.onOpenProject?.(project.id) },
         ];
 
-        if (!isSharedTab) {
+        {
             items.push({ label: 'Rename', action: () => this.renameProject(project) });
             items.push({ label: 'Duplicate', action: () => this.duplicateProject(project) });
             items.push({ label: project.thumbnail ? 'Change Thumbnail' : 'Set Thumbnail', action: () => this.setThumbnail(project) });
