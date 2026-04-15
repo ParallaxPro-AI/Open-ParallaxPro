@@ -54,6 +54,17 @@ git clone https://github.com/ParallaxPro-AI/Open-ParallaxPro.git
 cd Open-ParallaxPro
 ```
 
+Two branches to choose from:
+
+- **`main`** *(default)* — active development. Changes land here first. Safe to browse, may occasionally break `Publish` flow if the commit hasn't been deployed to `parallaxpro.ai` yet.
+- **`production`** — exact commit currently running on `parallaxpro.ai`. Check this out if you want `Publish` to always succeed against the hosted engine-bundle registry:
+
+```bash
+git checkout production
+```
+
+You can always jump back with `git checkout main`.
+
 #### 2. Start the backend
 
 ```bash
