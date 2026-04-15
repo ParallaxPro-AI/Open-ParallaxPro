@@ -221,6 +221,11 @@ export class MultiplayerSession {
             this.setPhase('disconnected');
             throw e;
         }
+        // Pre-create the voice AudioContext and arm a one-shot gesture
+        // listener now, so by the time the first remote track arrives the
+        // context is already unlocked. Any click/key/touch anywhere in the
+        // page (which includes the in-game controls) will resume it.
+        this.ensureVoiceAudioCtx();
         this.webrtc.initialize(
             this.lobby.peerId,
             (toPeerId, payload) => this.lobby.signal(toPeerId, payload),
