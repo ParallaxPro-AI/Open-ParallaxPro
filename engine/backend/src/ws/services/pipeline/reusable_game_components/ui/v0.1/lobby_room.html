@@ -61,6 +61,15 @@
     font-size: 12px; color: var(--text-dim);
     letter-spacing: 2px; text-transform: uppercase;
   }
+  .head .ping {
+    font-size: 11px; margin-top: 4px;
+    letter-spacing: 1px; text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .ping-good { color: var(--ok); }
+  .ping-mid  { color: var(--warn); }
+  .ping-bad  { color: var(--err); }
   .list {
     flex: 1;
     display: flex; flex-direction: column; gap: 6px;
@@ -139,7 +148,10 @@
         <div class="title" id="title">Lobby</div>
         <div class="meta" id="meta">Waiting for players</div>
       </div>
-      <div class="count" id="count">0/0</div>
+      <div>
+        <div class="count" id="count">0/0</div>
+        <div class="ping" id="ping" style="display:none;"></div>
+      </div>
     </div>
 
     <div class="list" id="list"></div>
@@ -158,6 +170,7 @@
 (function () {
   var listEl = document.getElementById('list');
   var countEl = document.getElementById('count');
+  var pingEl = document.getElementById('ping');
   var metaEl = document.getElementById('meta');
   var titleEl = document.getElementById('title');
   var btnReady = document.getElementById('btn-ready');
@@ -167,6 +180,8 @@
   var ready = false;
   var roster = null;
   var localPeerId = '';
+  var pingMs = -1;
+  var pingConnected = false;
 
   function emit(action, payload) {
     var msg = { type: 'game_command', action: action };
@@ -196,6 +211,19 @@
     titleEl.textContent = roster.name;
     var slots = roster.maxPlayers;
     countEl.textContent = roster.peers.length + '/' + slots;
+
+    // Ping to host (non-host only — host is "0ms" by definition).
+    if (amHost) {
+      pingEl.style.display = 'none';
+    } else {
+      pingEl.style.display = '';
+      var label = pingMs < 0 ? '— ping' : Math.round(pingMs) + 'ms ping';
+      pingEl.textContent = label;
+      var pclass = 'ping-good';
+      if (pingMs >= 150) pclass = 'ping-bad';
+      else if (pingMs >= 80) pclass = 'ping-mid';
+      pingEl.className = 'ping ' + (pingMs < 0 ? '' : pclass);
+    }
 
     var readyCount = roster.peers.filter(function (p) { return p.isReady || p.isHost; }).length;
     var enoughPlayers = roster.peers.length >= (roster.minPlayers || 1);
@@ -263,6 +291,8 @@
       amHost = !!state.multiplayer.isHost;
       localPeerId = state.multiplayer.localPeerId || '';
       ready = !!state.multiplayer.localReady;
+      if (typeof state.multiplayer.ping === 'number') pingMs = state.multiplayer.ping;
+      pingConnected = state.multiplayer.connected !== false;
     }
     if (state.errorMessage !== undefined) errEl.textContent = state.errorMessage || '';
     render();

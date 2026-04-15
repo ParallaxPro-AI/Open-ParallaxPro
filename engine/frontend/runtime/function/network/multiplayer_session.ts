@@ -437,6 +437,19 @@ export class MultiplayerSession {
     // -- Fixed-step tick (called from engine main loop) --------------------
 
     tick(deltaTime: number, _renderTime: number): void {
+        // Ping measurement runs in lobby AND in-game so the lobby room can
+        // show the host ping before the match starts. Sim broadcasts and
+        // entity interpolation are gated on in_game below.
+        if (this._phase !== 'in_lobby' && this._phase !== 'in_game') return;
+
+        this._pingAccumulator += deltaTime * 1000;
+        if (this._pingAccumulator >= PING_INTERVAL_MS && !this._isHost && this._hostPeerId) {
+            this._pingAccumulator = 0;
+            const id = this._nextPingId++;
+            this._inflightPings.set(id, performance.now());
+            this.webrtc.send(this._hostPeerId, { t: 'ping', id, tsMs: performance.now() });
+        }
+
         if (this._phase !== 'in_game') return;
 
         // Per-frame smoothing for remote entity transforms, independent of
@@ -446,14 +459,6 @@ export class MultiplayerSession {
         const adapterAny = this._adapter as any;
         if (adapterAny && typeof adapterAny.tickInterpolation === 'function') {
             adapterAny.tickInterpolation(deltaTime);
-        }
-
-        this._pingAccumulator += deltaTime * 1000;
-        if (this._pingAccumulator >= PING_INTERVAL_MS && !this._isHost && this._hostPeerId) {
-            this._pingAccumulator = 0;
-            const id = this._nextPingId++;
-            this._inflightPings.set(id, performance.now());
-            this.webrtc.send(this._hostPeerId, { t: 'ping', id, tsMs: performance.now() });
         }
 
         this._simAccumulator += deltaTime;
