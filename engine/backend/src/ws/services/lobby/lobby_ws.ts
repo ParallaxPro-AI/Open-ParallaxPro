@@ -163,7 +163,7 @@ function handleMessage(peer: Peer, type: string, data: any): void {
     switch (type) {
         case 'lobby.list': {
             const gameTemplateId = typeof data?.gameTemplateId === 'string' ? data.gameTemplateId : '';
-            const lobbies = listLobbies(gameTemplateId);
+            const lobbies = listLobbies(gameTemplateId, peer.ip);
             send(peer.ws, 'lobby.list_result', { gameTemplateId, lobbies });
             return;
         }

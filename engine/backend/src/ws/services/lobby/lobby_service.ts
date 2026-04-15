@@ -11,6 +11,7 @@
 
 import { randomUUID } from 'crypto';
 import type { WebSocket } from 'ws';
+import { estimatePingMs } from './geoip.js';
 
 export type PeerId = string;
 export type LobbyId = string;
@@ -51,6 +52,9 @@ export interface LobbyListEntry {
     hasPassword: boolean;
     state: 'waiting' | 'playing';
     createdAt: number;
+    /** Estimated P2P RTT in ms (GeoIP great-circle distance + baseline).
+     *  -1 when one side has no known geolocation. */
+    estimatedPingMs?: number;
 }
 
 const MAX_LOBBIES_PER_TEMPLATE = 200;
@@ -228,7 +232,7 @@ export function leaveLobby(peerId: PeerId): {
     return { closedLobby: null, affected: lobby, newHost };
 }
 
-export function listLobbies(gameTemplateId: string): LobbyListEntry[] {
+export function listLobbies(gameTemplateId: string, requesterIp?: string): LobbyListEntry[] {
     const id = sanitizeName(gameTemplateId, 128);
     const out: LobbyListEntry[] = [];
     for (const lobby of lobbies.values()) {
@@ -244,6 +248,9 @@ export function listLobbies(gameTemplateId: string): LobbyListEntry[] {
             hasPassword: lobby.password !== null,
             state: lobby.state,
             createdAt: lobby.createdAt,
+            estimatedPingMs: requesterIp && host?.ip
+                ? estimatePingMs(requesterIp, host.ip)
+                : -1,
         });
     }
     // Default order: games in progress last, then fuller lobbies first,

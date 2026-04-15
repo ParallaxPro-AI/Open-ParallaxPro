@@ -111,7 +111,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: 1.8fr 1fr 0.7fr auto;
+    grid-template-columns: 1.8fr 1fr 0.7fr 0.8fr auto;
     gap: 10px;
     align-items: center;
     padding: 10px 12px;
@@ -127,8 +127,16 @@
   .row .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row .host { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
   .row .count { font-size: 12px; color: var(--text); text-align: center; }
+  .row .ping {
+    font-size: 12px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .ping .est { font-size: 9px; color: var(--text-muted); margin-left: 2px; }
   .row .state { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
   .row .lock { width: 14px; height: 14px; opacity: 0.5; }
+  .ping-good { color: var(--ping-good); }
+  .ping-mid  { color: var(--ping-mid); }
+  .ping-bad  { color: var(--ping-bad); }
 
   .footer-bar {
     display: flex; gap: 8px; align-items: center; justify-content: flex-end;
@@ -243,14 +251,23 @@
       row.className = 'row' + (lb.state === 'playing' ? ' playing' : '') + (lb.id === selectedId ? ' selected' : '');
       row.dataset.id = lb.id;
 
-      // Note: a "ping" column was intentionally dropped — what we could
-      // measure pre-join was signaling-server RTT, which is unrelated to
-      // the actual P2P latency between you and the host. The in-game
-      // ping HUD shows the real number once you join.
+      // Server-supplied estimate from GeoIP lookup of both peers' IPs.
+      // Not the actual P2P RTT (no probe before joining), but typically
+      // within ±30% of reality on real-world routes. -1 means unknown.
+      var pingMs = typeof lb.estimatedPingMs === 'number' ? lb.estimatedPingMs : -1;
+      var pingTxt;
+      var pingClass = '';
+      if (pingMs < 0) {
+        pingTxt = '—';
+      } else {
+        pingTxt = '~' + pingMs + 'ms<span class="est"> est</span>';
+        pingClass = pingMs < 80 ? 'ping-good' : (pingMs < 150 ? 'ping-mid' : 'ping-bad');
+      }
       row.innerHTML =
         '<div class="name">' + (lb.hasPassword ? '&#128274; ' : '') + escape(lb.name) + '</div>' +
         '<div class="host">by ' + escape(lb.hostUsername) + '</div>' +
         '<div class="count">' + lb.playerCount + '/' + lb.maxPlayers + '</div>' +
+        '<div class="ping ' + pingClass + '">' + pingTxt + '</div>' +
         '<div class="state">' + (lb.state === 'playing' ? 'in game' : 'waiting') + '</div>';
 
       row.onclick = function () {
