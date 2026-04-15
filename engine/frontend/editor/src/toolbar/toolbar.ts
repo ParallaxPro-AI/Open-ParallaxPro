@@ -1221,18 +1221,22 @@ export class Toolbar {
                 const revertBtn = document.createElement('button');
                 revertBtn.textContent = 'Checkout';
                 revertBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);border-radius:3px;cursor:pointer;';
-                // Checkout restores the project source into the local DB. For
-                // self-hosted editors the source lives on parallaxpro.ai but
-                // would need to be pushed back into the local backend — not
-                // wired up yet, so hide the button rather than let it succeed
-                // silently against the wrong DB.
-                if (this.ctx.backend.isSelfHosted) {
-                    revertBtn.style.display = 'none';
-                }
                 revertBtn.addEventListener('click', async () => {
                     if (!confirm(`Revert project to v${v.version}? Your current editor state will be replaced.`)) return;
                     try {
-                        await this.ctx.backend.revertToVersion(projectId, v.id);
+                        if (this.ctx.backend.isSelfHosted) {
+                            // Fetch the frozen source from prod and replace
+                            // the local project_data wholesale — a per-file
+                            // merge would leave orphan files from newer
+                            // versions lying around.
+                            const prodId = readPublishMap()[projectId]?.prodProjectId;
+                            if (!prodId) throw new Error('Missing published mapping.');
+                            const src = await this.ctx.backend.getVersionSourceProd(prodId, v.id);
+                            if (!src.files) throw new Error('This version has no source files to restore.');
+                            await this.ctx.backend.replaceProjectData(projectId, { projectConfig: src.projectConfig, files: src.files });
+                        } else {
+                            await this.ctx.backend.revertToVersion(projectId, v.id);
+                        }
                         close();
                         window.location.reload();
                     } catch (e: any) {

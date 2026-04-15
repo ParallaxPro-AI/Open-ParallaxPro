@@ -348,6 +348,17 @@ export class BackendClient {
         });
     }
 
+    async getVersionSourceProd(prodProjectId: string, versionId: string): Promise<{ version: string; projectConfig: any; files: Record<string, any> }> {
+        return this.fetchProd(`/projects/${prodProjectId}/versions/${versionId}/source`);
+    }
+
+    async replaceProjectData(localProjectId: string, data: { projectConfig?: any; files: Record<string, any> }): Promise<any> {
+        return this.fetch(`/projects/${localProjectId}/replace-project-data`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
     async uploadThumbnailProd(prodProjectId: string, file: File): Promise<{ success: boolean; thumbnail: string }> {
         if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5 MB.');
         const fd = new FormData();

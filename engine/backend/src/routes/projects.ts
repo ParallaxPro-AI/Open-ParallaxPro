@@ -299,6 +299,27 @@ router.post('/:id/duplicate', (req, res) => {
 });
 
 export { stmtGet, stmtUpdateData };
+
+// Replace the entire project_data blob. Used by self-hosted Checkout
+// flows to revert local source to a previously-published version's
+// frozen tree (fetched from parallaxpro.ai). Intentionally distinct
+// from PUT /:id/files — which merges per-file via applyIncomingFile
+// and would leave any files present locally but absent in the target
+// version still hanging around.
+router.post('/:id/replace-project-data', (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+
+    const { projectConfig, files } = req.body;
+    if (!files || typeof files !== 'object') {
+        res.status(400).json({ error: 'files required' });
+        return;
+    }
+    const next = { projectConfig: projectConfig || { name: row.name }, files };
+    stmtUpdateData.run(JSON.stringify(next), req.params.id);
+    res.json({ success: true });
+});
 // Submit feedback with optional image uploads
 router.post('/:id/feedback', upload.array('images', 5), (req, res) => {
     const message = req.body.message;
