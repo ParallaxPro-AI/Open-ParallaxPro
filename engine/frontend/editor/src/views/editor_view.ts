@@ -372,37 +372,65 @@ export class EditorView {
 
     /**
      * When a user opens a cloud project on self-hosted while logged out,
-     * saves keep working locally but don't push to parallaxpro.ai. That's
-     * a silent failure mode — surface it as a persistent warning banner
-     * above the toolbar, with a one-click Sign in that resumes sync.
+     * saves keep working locally but don't push to parallaxpro.ai. Surface
+     * it as a bottom-right toast (same form factor as the promote toast)
+     * — dismissable per-project-per-session, with a Sign in button that
+     * resumes sync and flushes anything edited offline.
      */
     private maybeShowCloudSignedOutBanner(): void {
+        const projectId = this.ctx.state.projectId;
         const pd: any = this.ctx.state.projectData;
-        if (!pd?.isCloud) return;
+        if (!projectId || !pd?.isCloud) return;
         if (!this.ctx.backend.isSelfHosted) return;
         if (this.ctx.cloudSync.currentUserId()) return;
+        const dismissKey = `pp_signedout_dismissed:${projectId}`;
+        try { if (sessionStorage.getItem(dismissKey)) return; } catch {}
 
-        const banner = document.createElement('div');
-        banner.className = 'connection-banner';
-        banner.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(154,99,0,0.22);border-bottom:1px solid rgba(234,170,70,0.4);color:var(--text-primary);font-size:13px;';
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;right:18px;bottom:18px;max-width:340px;background:linear-gradient(135deg,rgba(154,99,0,0.96),rgba(234,170,70,0.96));color:#fff;padding:14px 16px;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,0.35);z-index:200;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.45;animation:ppCloudPromoteSlideIn 0.25s ease-out;';
 
-        const text = document.createElement('span');
+        if (!document.getElementById('pp-cloud-promote-style')) {
+            const style = document.createElement('style');
+            style.id = 'pp-cloud-promote-style';
+            style.textContent = '@keyframes ppCloudPromoteSlideIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+            document.head.appendChild(style);
+        }
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;align-items:flex-start;gap:10px;';
+        const text = document.createElement('div');
         text.style.flex = '1';
-        text.innerHTML = 'You\'re editing a cloud project while signed out — changes save locally but <strong>won\'t sync to parallaxpro.ai</strong> until you sign in.';
-        banner.appendChild(text);
+        text.innerHTML = 'Editing a cloud project while signed out — changes save locally but <strong>won\'t sync to parallaxpro.ai</strong> until you sign in.';
+        header.appendChild(text);
+
+        const dismissBtn = document.createElement('button');
+        dismissBtn.textContent = '×';
+        dismissBtn.title = 'Dismiss for this session';
+        dismissBtn.style.cssText = 'padding:0 6px;background:transparent;border:0;color:rgba(255,255,255,0.85);font-size:20px;cursor:pointer;line-height:1;';
+        dismissBtn.addEventListener('click', () => {
+            try { sessionStorage.setItem(dismissKey, '1'); } catch {}
+            toast.remove();
+        });
+        header.appendChild(dismissBtn);
+        toast.appendChild(header);
+
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:11.5px;color:rgba(255,255,255,0.9);';
+        hint.textContent = 'You can sign in any time from the Settings panel in the toolbar.';
+        toast.appendChild(hint);
 
         const signInBtn = document.createElement('button');
         signInBtn.textContent = 'Sign in';
-        signInBtn.style.cssText = 'padding:4px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
+        signInBtn.style.cssText = 'align-self:flex-start;padding:6px 16px;background:#fff;color:#6b4300;border:0;border-radius:6px;font-size:12.5px;font-weight:700;cursor:pointer;';
         signInBtn.addEventListener('click', async () => {
             signInBtn.disabled = true;
             signInBtn.textContent = 'Signing in…';
             try {
                 const { ensureLoggedIn } = await import('../backend/auth_session.js');
                 await ensureLoggedIn();
-                banner.remove();
+                toast.remove();
                 // Push whatever the user has edited since opening so their
-                // offline work shows up on prod immediately.
+                // offline work reaches prod immediately.
                 if (this.ctx.state.projectId) this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
             } catch (e: any) {
                 signInBtn.disabled = false;
@@ -410,9 +438,9 @@ export class EditorView {
                 console.warn('[auth] sign-in cancelled:', e?.message ?? e);
             }
         });
-        banner.appendChild(signInBtn);
+        toast.appendChild(signInBtn);
 
-        this.el.insertBefore(banner, this.connectionBanner);
+        document.body.appendChild(toast);
     }
 
     /**

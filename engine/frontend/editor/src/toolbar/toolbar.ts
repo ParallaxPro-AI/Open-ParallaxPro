@@ -981,8 +981,37 @@ export class Toolbar {
         if (!signedIn) {
             const hint = document.createElement('div');
             hint.style.cssText = 'font-size:12px;color:var(--text-secondary);line-height:1.4;';
-            hint.textContent = 'Sign in to parallaxpro.ai (via the Login button on the project list) to enable cloud sync for this project.';
+            hint.textContent = isCloud
+                ? 'This is a cloud project but you\'re signed out — saves aren\'t reaching parallaxpro.ai. Sign in to resume syncing.'
+                : 'Sign in to parallaxpro.ai to enable cloud sync for this project.';
             container.appendChild(hint);
+
+            const btn = document.createElement('button');
+            btn.textContent = 'Sign in';
+            btn.style.cssText = 'align-self:flex-start;padding:6px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.textContent = 'Signing in…';
+                try {
+                    const { ensureLoggedIn } = await import('../backend/auth_session.js');
+                    await ensureLoggedIn();
+                    // Re-render this section in place so it flips from
+                    // "Sign in" to either "Promote to Cloud" or the
+                    // green synced state — whichever applies now.
+                    this.renderCloudSettingsSection(container);
+                    // If this is already a cloud project, push whatever
+                    // was edited offline right away.
+                    if (isCloud && this.ctx.state.projectId) {
+                        this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+                    }
+                    this.showToast('Signed in to parallaxpro.ai.', 'success');
+                } catch (e: any) {
+                    btn.disabled = false;
+                    btn.textContent = 'Sign in';
+                    console.warn('[auth] sign-in cancelled:', e?.message ?? e);
+                }
+            });
+            container.appendChild(btn);
             return;
         }
 
