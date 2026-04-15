@@ -24,7 +24,13 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3003';
 function resolveEngineGitHash(): string {
     if (process.env.ENGINE_GIT_HASH) return process.env.ENGINE_GIT_HASH;
     try {
-        return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+        const hash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+        // Uncommitted engine changes mean two laptops on the same HEAD
+        // could still disagree on behaviour. Flag that so cloud-sync
+        // warns about mismatches instead of trusting the bare hash.
+        let dirty = false;
+        try { execSync('git diff --quiet HEAD --', { stdio: 'ignore' }); } catch { dirty = true; }
+        return dirty ? `${hash}+dirty` : hash;
     } catch {
         return 'unknown';
     }

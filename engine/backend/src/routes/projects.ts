@@ -41,6 +41,7 @@ router.use(requireAuth);
 // build of the engine to open. We only sniff the first 500 chars to keep the list
 // query cheap.
 const stmtList = db.prepare(`SELECT id, name, thumbnail, status, created_at, updated_at,
+    is_cloud, cloud_user_id, cloud_pulled_updated_at, edited_engine_hash,
     instr(substr(project_data, 1, 500), '"files"') AS has_files
     FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
 const stmtGet = db.prepare('SELECT * FROM projects WHERE id = ?');
@@ -63,6 +64,10 @@ router.get('/', (req, res) => {
         createdAt: r.created_at,
         updatedAt: r.updated_at,
         legacy: !r.has_files,
+        isCloud: !!r.is_cloud,
+        cloudUserId: r.cloud_user_id,
+        cloudPulledUpdatedAt: r.cloud_pulled_updated_at,
+        editedEngineHash: r.edited_engine_hash,
     }));
     res.json({ projects });
 });
@@ -242,6 +247,10 @@ router.get('/:id', (req, res) => {
         sourceMap: built.sourceMap,
         multiplayerConfig: built.multiplayerConfig,
         editor: extractEditorFiles(data.files),
+        isCloud: !!row.is_cloud,
+        cloudUserId: row.cloud_user_id,
+        cloudPulledUpdatedAt: row.cloud_pulled_updated_at,
+        editedEngineHash: row.edited_engine_hash,
     });
 });
 
@@ -318,6 +327,78 @@ router.post('/:id/replace-project-data', (req, res) => {
     }
     const next = { projectConfig: projectConfig || { name: row.name }, files };
     stmtUpdateData.run(JSON.stringify(next), req.params.id);
+    res.json({ success: true });
+});
+
+// ── Cloud sync (local side) ──
+// cloud-pull upserts a project row with data that came from prod,
+// flips is_cloud=1 and stamps the sync-state columns so the next
+// save can issue a matching expectedUpdatedAt on push.
+router.post('/:id/cloud-pull', (req, res) => {
+    const { name, projectConfig, files, thumbnail, cloudUpdatedAt, cloudUserId, editedEngineHash } = req.body;
+    if (!name || !files || typeof files !== 'object' || !cloudUpdatedAt || typeof cloudUserId !== 'number') {
+        res.status(400).json({ error: 'name, files, cloudUpdatedAt, and cloudUserId are required.' });
+        return;
+    }
+    const data = JSON.stringify({ projectConfig: projectConfig || { name }, files });
+    const existing = stmtGet.get(req.params.id) as any;
+    if (existing) {
+        // Match the row to the authenticated local user. On the OSS
+        // backend with dev-bypass, user id is 1 and this is effectively
+        // a no-op guard; with a real auth plugin it keeps cross-user
+        // pulls out.
+        if (existing.user_id !== req.user!.id) {
+            res.status(403).json({ error: 'Project is owned by a different local user.' });
+            return;
+        }
+        db.prepare(`
+            UPDATE projects
+            SET name = ?, project_data = ?, thumbnail = ?, is_cloud = 1,
+                cloud_user_id = ?, cloud_pulled_updated_at = ?, edited_engine_hash = ?,
+                updated_at = datetime('now')
+            WHERE id = ?
+        `).run(name, data, thumbnail ?? null, cloudUserId, cloudUpdatedAt, editedEngineHash ?? null, req.params.id);
+    } else {
+        db.prepare(`
+            INSERT INTO projects (
+                id, user_id, name, project_data, thumbnail,
+                is_cloud, cloud_user_id, cloud_pulled_updated_at, edited_engine_hash
+            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+        `).run(req.params.id, req.user!.id, name, data, thumbnail ?? null, cloudUserId, cloudUpdatedAt, editedEngineHash ?? null);
+    }
+    res.json({ success: true });
+});
+
+// mark-cloud is the lighter-weight pair to cloud-pull — used by the
+// push path to record "this project is now cloud, last known prod
+// updated_at is X" without rewriting project_data. Also used by the
+// Promote to Cloud prompt after a one-off cloud-upsert.
+router.post('/:id/mark-cloud', (req, res) => {
+    const { cloudUserId, cloudUpdatedAt, editedEngineHash, thumbnail } = req.body;
+    if (typeof cloudUserId !== 'number' || !cloudUpdatedAt) {
+        res.status(400).json({ error: 'cloudUserId and cloudUpdatedAt are required.' });
+        return;
+    }
+    const existing = stmtGet.get(req.params.id) as any;
+    if (!existing) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (existing.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+    db.prepare(`
+        UPDATE projects
+        SET is_cloud = 1, cloud_user_id = ?, cloud_pulled_updated_at = ?,
+            edited_engine_hash = COALESCE(?, edited_engine_hash),
+            thumbnail = COALESCE(?, thumbnail)
+        WHERE id = ?
+    `).run(cloudUserId, cloudUpdatedAt, editedEngineHash ?? null, thumbnail ?? null, req.params.id);
+    res.json({ success: true });
+});
+
+// Explicit unmark (used by "Delete, keep cloud copy" choice).
+router.post('/:id/unmark-cloud', (req, res) => {
+    const existing = stmtGet.get(req.params.id) as any;
+    if (!existing) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (existing.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+    db.prepare(`UPDATE projects SET is_cloud = 0, cloud_user_id = NULL, cloud_pulled_updated_at = NULL WHERE id = ?`)
+        .run(req.params.id);
     res.json({ success: true });
 });
 // Submit feedback with optional image uploads

@@ -365,6 +365,82 @@ export class EditorView {
 
         this.ctx.emit('projectLoaded');
         this.ctx.emit('sceneChanged');
+
+        this.maybeShowPromoteToCloudPrompt();
+    }
+
+    /**
+     * On self-hosted editors, if the user is signed in to parallaxpro.ai
+     * and the current project isn't cloud-synced, offer to promote it.
+     * Gentle banner — dismissable, remembered per-project in localStorage.
+     * The actual promote action runs cloud-upsert + mark-cloud.
+     */
+    private maybeShowPromoteToCloudPrompt(): void {
+        const projectId = this.ctx.state.projectId;
+        const pd: any = this.ctx.state.projectData;
+        if (!projectId || !pd) return;
+        if (pd.isCloud) return;
+        if (!this.ctx.backend.isSelfHosted) return;
+        if (!this.ctx.cloudSync.currentUserId()) return;
+        const dismissKey = `pp_promote_dismissed:${projectId}`;
+        if (localStorage.getItem(dismissKey)) return;
+
+        const banner = document.createElement('div');
+        banner.className = 'connection-banner';
+        banner.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 14px;background:linear-gradient(90deg,rgba(134,72,230,0.12),rgba(105,187,243,0.12));border-bottom:1px solid rgba(134,72,230,0.3);color:var(--text-primary);font-size:13px;';
+
+        const text = document.createElement('span');
+        text.style.flex = '1';
+        text.innerHTML = 'Sync this project to <strong>parallaxpro.ai</strong> so you can pick up where you left off from any computer?';
+        banner.appendChild(text);
+
+        const promoteBtn = document.createElement('button');
+        promoteBtn.textContent = 'Promote to Cloud';
+        promoteBtn.style.cssText = 'padding:4px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
+        promoteBtn.addEventListener('click', async () => {
+            promoteBtn.disabled = true;
+            promoteBtn.textContent = 'Syncing…';
+            try {
+                const engineGitHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
+                const fresh = await this.ctx.backend.loadProject(projectId);
+                const res = await this.ctx.backend.cloudUpsertProd({
+                    id: projectId,
+                    name: fresh.name,
+                    projectData: { projectConfig: fresh.projectConfig ?? { name: fresh.name }, files: fresh.files ?? {} },
+                    expectedUpdatedAt: null,
+                    engineGitHash,
+                    force: true, // new-to-cloud or first upsert — no conflict to check
+                });
+                const userId = this.ctx.cloudSync.currentUserId()!;
+                await this.ctx.backend.markCloudLocal(projectId, {
+                    cloudUserId: userId,
+                    cloudUpdatedAt: res.updatedAt,
+                    editedEngineHash: res.editedEngineHash,
+                    thumbnail: res.thumbnail,
+                });
+                if (this.ctx.state.projectData) (this.ctx.state.projectData as any).isCloud = true;
+                banner.remove();
+            } catch (e: any) {
+                promoteBtn.disabled = false;
+                promoteBtn.textContent = 'Promote to Cloud';
+                alert(e?.message || 'Failed to promote to cloud.');
+            }
+        });
+        banner.appendChild(promoteBtn);
+
+        const dismissBtn = document.createElement('button');
+        dismissBtn.textContent = '×';
+        dismissBtn.title = 'Don\'t ask again for this project';
+        dismissBtn.style.cssText = 'padding:2px 10px;background:transparent;border:0;color:var(--text-secondary);font-size:18px;cursor:pointer;line-height:1;';
+        dismissBtn.addEventListener('click', () => {
+            try { localStorage.setItem(dismissKey, '1'); } catch {}
+            banner.remove();
+        });
+        banner.appendChild(dismissBtn);
+
+        // Slot the banner above the connection banner so it sits right
+        // under the toolbar but below any reconnection notice.
+        this.el.insertBefore(banner, this.connectionBanner);
     }
 
     private async recoverStateAfterReconnect(projectId: string): Promise<void> {

@@ -303,27 +303,15 @@ export class BackendClient {
         return body;
     }
 
-    /** Publish a local project straight to parallaxpro.ai (requires auth token). */
-    async publishFromLocal(opts: {
-        name: string;
-        slug: string;
-        visibility: string;
-        version: string;
-        changelog?: string;
-        projectData: unknown;
-        engineGitHash: string;
-        thumbnail?: File | null;
-    }): Promise<{ success: true; projectId: string; gameId: string; slug: string; owner: string; version: string; url: string }> {
-        const fd = new FormData();
-        fd.append('name', opts.name);
-        fd.append('slug', opts.slug);
-        fd.append('visibility', opts.visibility);
-        fd.append('version', opts.version);
-        if (opts.changelog) fd.append('changelog', opts.changelog);
-        fd.append('engineGitHash', opts.engineGitHash);
-        fd.append('projectData', JSON.stringify(opts.projectData));
-        if (opts.thumbnail) fd.append('thumbnail', opts.thumbnail);
-        return this.fetchProd('/projects/publish-from-local', { method: 'POST', body: fd });
+    /** Publish a cloud project to parallaxpro.ai via the regular hosted
+     *  publish endpoint. Project must already exist on prod (usually via
+     *  cloud-upsert immediately before this). Returns the standard
+     *  publish response. */
+    async publishProjectProd(prodProjectId: string, name: string, slug: string, visibility: string, version: string, changelog?: string): Promise<any> {
+        return this.fetchProd(`/projects/${prodProjectId}/publish`, {
+            method: 'POST',
+            body: JSON.stringify({ name, slug, visibility, version, changelog }),
+        });
     }
 
     async listVersionsProd(prodProjectId: string): Promise<any> {
@@ -373,6 +361,94 @@ export class BackendClient {
         } catch {
             return {};
         }
+    }
+
+    // ── Cloud sync ──
+
+    /** Push local project state up to parallaxpro.ai. Throws ApiError
+     *  with payload.error==='conflict' when the server has moved since
+     *  the caller's expectedUpdatedAt; payload.current carries the
+     *  server's view so the UI can render a resolution dialog. */
+    async cloudUpsertProd(opts: {
+        id: string;
+        name: string;
+        projectData: { projectConfig: any; files: Record<string, any> };
+        expectedUpdatedAt?: string | null;
+        engineGitHash: string;
+        force?: boolean;
+    }): Promise<{ id: string; updatedAt: string; editedEngineHash: string; name: string; thumbnail: string | null }> {
+        return this.fetchProd(`/projects/${opts.id}/cloud-upsert`, {
+            method: 'POST',
+            body: JSON.stringify({
+                name: opts.name,
+                projectData: opts.projectData,
+                expectedUpdatedAt: opts.expectedUpdatedAt ?? undefined,
+                engineGitHash: opts.engineGitHash,
+                force: opts.force ?? false,
+            }),
+        });
+    }
+
+    async cloudThumbnailProd(id: string, file: File): Promise<{ thumbnail: string; updatedAt: string }> {
+        if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5 MB.');
+        const fd = new FormData();
+        fd.append('thumbnail', file);
+        return this.fetchProd(`/projects/${id}/cloud-thumbnail`, { method: 'POST', body: fd });
+    }
+
+    async listCloudProjectsProd(): Promise<any[]> {
+        const all: any[] = [];
+        let page = 1;
+        while (true) {
+            const res = await this.fetchProd(`/projects?page=${page}&limit=100`);
+            const batch = res.projects ?? [];
+            all.push(...batch);
+            if (batch.length < 100 || all.length >= (res.total ?? Infinity)) break;
+            page++;
+        }
+        return all;
+    }
+
+    async loadProjectProd(id: string): Promise<any> {
+        return this.fetchProd(`/projects/${id}`);
+    }
+
+    async deleteProjectProd(id: string): Promise<void> {
+        await this.fetchProd(`/projects/${id}`, { method: 'DELETE' });
+    }
+
+    /** Write a pulled-from-prod project into the local backend. Upserts
+     *  the row, flips is_cloud=1, stamps the sync-state columns so the
+     *  next local save can issue a matching expectedUpdatedAt. */
+    async cloudPullLocal(id: string, body: {
+        name: string;
+        projectConfig: any;
+        files: Record<string, any>;
+        thumbnail: string | null;
+        cloudUpdatedAt: string;
+        cloudUserId: number;
+        editedEngineHash: string | null;
+    }): Promise<{ success: true }> {
+        return this.fetch(`/projects/${id}/cloud-pull`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async markCloudLocal(id: string, body: {
+        cloudUserId: number;
+        cloudUpdatedAt: string;
+        editedEngineHash?: string | null;
+        thumbnail?: string | null;
+    }): Promise<{ success: true }> {
+        return this.fetch(`/projects/${id}/mark-cloud`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async unmarkCloudLocal(id: string): Promise<{ success: true }> {
+        return this.fetch(`/projects/${id}/unmark-cloud`, { method: 'POST' });
     }
 
     async getEngineBundles(): Promise<{ latestHash: string | null; latestSemver: string | null; bundles: { hash: string; semver: string | null; status: string; addedAt: string }[] }> {

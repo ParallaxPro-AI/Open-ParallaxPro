@@ -20,7 +20,7 @@ export class ProjectListView {
     private statusFilter: 'all' | 'published' | 'draft' = 'all';
     private currentPage: number = 1;
     private readonly pageSize: number = 10;
-    private activeTab: 'my' | 'shared' = 'my';
+    private activeTab: 'my' | 'shared' | 'cloud' = 'my';
     private tabBar!: HTMLElement;
     private statusFilterEl!: HTMLSelectElement;
     private authSlot!: HTMLElement;
@@ -137,32 +137,26 @@ export class ProjectListView {
         this.tabBar = document.createElement('div');
         this.tabBar.className = 'project-tabs';
 
-        const myTab = document.createElement('button');
-        myTab.className = 'project-tab active';
-        myTab.textContent = 'My Projects';
-        myTab.addEventListener('click', () => {
-            if (this.activeTab === 'my') return;
-            this.activeTab = 'my';
-            myTab.classList.add('active');
-            sharedTab.classList.remove('active');
-            this.currentPage = 1;
-            this.loadProjects();
-        });
-        this.tabBar.appendChild(myTab);
-
-        const sharedTab = document.createElement('button');
-        sharedTab.className = 'project-tab';
-        sharedTab.textContent = 'Shared with me';
-        sharedTab.addEventListener('click', () => {
-            if (this.activeTab === 'shared') return;
-            this.activeTab = 'shared';
-            sharedTab.classList.add('active');
-            myTab.classList.remove('active');
-            this.currentPage = 1;
-            this.selectedIds.clear();
-            this.loadProjects();
-        });
-        this.tabBar.appendChild(sharedTab);
+        const tabs: { key: 'my' | 'shared' | 'cloud'; label: string; el?: HTMLElement }[] = [
+            { key: 'my', label: 'My Projects' },
+            { key: 'shared', label: 'Shared with me' },
+            { key: 'cloud', label: 'Cloud Projects' },
+        ];
+        for (const t of tabs) {
+            const btn = document.createElement('button');
+            btn.className = 'project-tab' + (t.key === this.activeTab ? ' active' : '');
+            btn.textContent = t.label;
+            btn.addEventListener('click', () => {
+                if (this.activeTab === t.key) return;
+                this.activeTab = t.key;
+                for (const other of tabs) other.el!.classList.toggle('active', other.key === t.key);
+                this.currentPage = 1;
+                this.selectedIds.clear();
+                this.loadProjects();
+            });
+            t.el = btn;
+            this.tabBar.appendChild(btn);
+        }
 
         this.el.appendChild(this.tabBar);
 
@@ -198,46 +192,32 @@ export class ProjectListView {
         try {
             if (this.activeTab === 'shared') {
                 this.projects = await this.ctx.backend.listSharedProjects();
+            } else if (this.activeTab === 'cloud') {
+                this.projects = await this.loadCloudProjects();
             } else {
                 this.projects = await this.ctx.backend.listProjects();
 
-                if (this.ctx.backend.isSelfHosted) {
-                    // Best-effort merge of parallaxpro.ai publish state onto
-                    // the local project list: requires a valid cli-login
-                    // token AND network reachability. getPublishInfoProd
-                    // swallows errors and returns {}, so offline / logged-
-                    // out users just see their plain local projects with
-                    // no publish badges.
-                    const { readPublishMap } = await import('../backend/publish_map.js');
-                    const [prodInfo, map] = [await this.ctx.backend.getPublishInfoProd(), readPublishMap()];
-                    for (const p of this.projects) {
-                        const mapping = map[p.id];
-                        if (!mapping) continue;
-                        const info = prodInfo[mapping.prodProjectId];
-                        if (!info) continue;
-                        p.publishedSlug = info.publishedSlug;
-                        p.publishedOwner = info.publishedOwner;
-                        p.publishedVersion = info.publishedVersion;
-                        p.status = 'published';
-                        if (info.thumbnail) {
-                            // prod serves thumbnails at parallaxpro.ai/uploads/…
-                            // — absolute URL so the <img> doesn't get proxied
-                            // to the local backend, which has no copy.
-                            p.thumbnail = info.thumbnail.startsWith('http')
-                                ? info.thumbnail
-                                : `https://parallaxpro.ai${info.thumbnail}`;
-                        }
-                    }
-                } else {
-                    // Hosted path — local backend IS prod, same-key lookup works.
-                    const pubInfo = await this.ctx.backend.getPublishInfo();
-                    for (const p of this.projects) {
-                        const info = pubInfo[p.id];
-                        if (info) {
-                            p.publishedSlug = info.publishedSlug;
-                            p.publishedOwner = info.publishedOwner;
-                            p.publishedVersion = info.publishedVersion;
-                        }
+                // Publish-state merge: cloud projects share ids with prod,
+                // so a single lookup of prod's publish-info suffices. On
+                // the hosted editor this even elides the network call
+                // (local IS prod). Offline / logged-out self-hosted users
+                // get the plain list.
+                const pubInfo = this.ctx.backend.isSelfHosted
+                    ? await this.ctx.backend.getPublishInfoProd()
+                    : await this.ctx.backend.getPublishInfo();
+                for (const p of this.projects) {
+                    const info = pubInfo[p.id];
+                    if (!info) continue;
+                    p.publishedSlug = info.publishedSlug;
+                    p.publishedOwner = info.publishedOwner;
+                    p.publishedVersion = info.publishedVersion;
+                    p.status = 'published';
+                    const thumb = (info as any).thumbnail;
+                    if (thumb && this.ctx.backend.isSelfHosted) {
+                        // prod serves thumbnails on parallaxpro.ai; make it
+                        // absolute so the editor's <img> doesn't proxy to
+                        // the local backend which has no copy.
+                        p.thumbnail = thumb.startsWith('http') ? thumb : `https://parallaxpro.ai${thumb}`;
                     }
                 }
             }
@@ -245,6 +225,83 @@ export class ProjectListView {
             this.projects = [];
         }
         this.render();
+    }
+
+    /**
+     * Union local cloud projects (is_cloud=1) with prod projects, deciding
+     * each card's sync state. Requires a valid cli-login token — returns
+     * [] with an inline login prompt rendered in the grid when absent.
+     */
+    private async loadCloudProjects(): Promise<any[]> {
+        const userId = this.ctx.cloudSync.currentUserId();
+        if (!userId) return [];
+
+        const [localAll, remoteAll] = await Promise.all([
+            this.ctx.backend.listProjects().catch(() => []),
+            this.ctx.backend.listCloudProjectsProd().catch(() => []),
+        ]);
+
+        const localById = new Map<string, any>();
+        for (const p of localAll) {
+            if (p.isCloud && p.cloudUserId === userId) localById.set(p.id, p);
+        }
+        const remoteById = new Map<string, any>(remoteAll.map((p: any) => [p.id, p]));
+
+        const merged: any[] = [];
+        for (const r of remoteAll) {
+            const local = localById.get(r.id);
+            if (!local) {
+                merged.push({
+                    id: r.id,
+                    name: r.name,
+                    status: r.status ?? 'draft',
+                    thumbnail: r.thumbnail
+                        ? (r.thumbnail.startsWith('http') ? r.thumbnail : `https://parallaxpro.ai${r.thumbnail}`)
+                        : null,
+                    updatedAt: r.updatedAt,
+                    _cloudState: 'remote-only',
+                    _remoteOnly: true,
+                    _remoteUpdatedAt: r.updatedAt,
+                });
+                continue;
+            }
+            const state = this.computeCloudState(local, r);
+            merged.push({
+                ...local,
+                _cloudState: state,
+                _remoteOnly: false,
+                _remoteUpdatedAt: r.updatedAt,
+            });
+        }
+        // Local cloud projects the server doesn't know about anymore —
+        // deleted elsewhere. Surface so user can keep local or drop.
+        for (const local of localById.values()) {
+            if (!remoteById.has(local.id)) {
+                merged.push({
+                    ...local,
+                    _cloudState: 'removed-remotely',
+                    _remoteOnly: false,
+                });
+            }
+        }
+        // Sort by most recently updated first (remote or local, whichever is newer)
+        merged.sort((a, b) => {
+            const at = Math.max(Date.parse(a.updatedAt || 0), Date.parse(a._remoteUpdatedAt || 0));
+            const bt = Math.max(Date.parse(b.updatedAt || 0), Date.parse(b._remoteUpdatedAt || 0));
+            return bt - at;
+        });
+        return merged;
+    }
+
+    private computeCloudState(local: any, remote: any): 'synced' | 'local-newer' | 'remote-newer' {
+        const localT = Date.parse(local.updatedAt || 0);
+        const remoteT = Date.parse(remote.updatedAt || 0);
+        const lastSync = Date.parse(local.cloudPulledUpdatedAt || 0);
+        // Local has saves newer than last sync → we have un-pushed work.
+        if (localT > lastSync && localT >= remoteT) return 'local-newer';
+        // Remote moved since last sync → they have changes we don't.
+        if (remoteT > lastSync) return 'remote-newer';
+        return 'synced';
     }
 
     private getFilteredProjects(): any[] {
@@ -266,6 +323,37 @@ export class ProjectListView {
     private render(): void {
         this.gridEl.innerHTML = '';
 
+        // Cloud tab: if the user isn't logged in to parallaxpro.ai, the
+        // tab is useless until they sign in. Render an inline prompt
+        // that triggers the same popup login the header button uses.
+        if (this.activeTab === 'cloud' && !this.ctx.cloudSync.currentUserId()) {
+            const prompt = document.createElement('div');
+            prompt.className = 'project-empty-state';
+            prompt.style.gridColumn = '1 / -1';
+            const title = document.createElement('div');
+            title.className = 'empty-text';
+            title.textContent = 'Sign in to parallaxpro.ai to access your cloud projects.';
+            title.style.marginBottom = '16px';
+            prompt.appendChild(title);
+            const btn = document.createElement('button');
+            btn.className = 'toolbar-btn publish-btn';
+            btn.textContent = 'Sign in';
+            btn.addEventListener('click', async () => {
+                const { ensureLoggedIn } = await import('../backend/auth_session.js');
+                try {
+                    await ensureLoggedIn();
+                    this.renderAuthSlot();
+                    this.loadProjects();
+                } catch (e: any) {
+                    console.warn('[auth] sign-in cancelled:', e?.message ?? e);
+                }
+            });
+            prompt.appendChild(btn);
+            this.gridEl.appendChild(prompt);
+            this.paginationEl.innerHTML = '';
+            return;
+        }
+
         const filtered = this.getFilteredProjects();
 
         if (filtered.length === 0) {
@@ -282,7 +370,9 @@ export class ProjectListView {
             text.className = 'empty-text';
             text.textContent = this.searchQuery
                 ? 'No projects match your search.'
-                : 'No projects yet. Create your first game!';
+                : this.activeTab === 'cloud'
+                    ? 'No cloud projects yet. Publishing or promoting a project will put it here.'
+                    : 'No projects yet. Create your first game!';
             empty.appendChild(text);
 
             this.gridEl.appendChild(empty);
@@ -416,6 +506,26 @@ export class ProjectListView {
         }
         nameRow.appendChild(badge);
 
+        // Cloud sync badge, only on the Cloud Projects tab where
+        // _cloudState is populated.
+        if (project._cloudState) {
+            const cloudBadge = document.createElement('span');
+            cloudBadge.style.cssText = 'font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:6px;';
+            const spec = ({
+                'synced':            { text: '✓ Synced',          bg: '#1f6f43', fg: '#cdeedc' },
+                'local-newer':       { text: '↑ Unsynced',        bg: '#9a6300', fg: '#ffe6b2' },
+                'remote-newer':      { text: '↓ Updated online',  bg: '#2a4d9a', fg: '#c7daff' },
+                'remote-only':       { text: 'Not downloaded',    bg: '#3a3a3a', fg: '#c9c9c9' },
+                'removed-remotely':  { text: '⚠ Removed online',  bg: '#8a1b1b', fg: '#ffd3d3' },
+            } as Record<string, { text: string; bg: string; fg: string }>)[project._cloudState];
+            if (spec) {
+                cloudBadge.textContent = spec.text;
+                cloudBadge.style.background = spec.bg;
+                cloudBadge.style.color = spec.fg;
+                nameRow.appendChild(cloudBadge);
+            }
+        }
+
         info.appendChild(nameRow);
 
         if (project.legacy) {
@@ -486,12 +596,12 @@ export class ProjectListView {
         info.appendChild(bottom);
         card.appendChild(info);
 
-        card.addEventListener('click', () => {
+        card.addEventListener('click', async () => {
             if (project.legacy) {
                 this.showDeprecatedModal(project);
                 return;
             }
-            this.onOpenProject?.(project.id);
+            await this.openProjectWithChecks(project, card);
         });
 
         card.addEventListener('contextmenu', (e) => {
@@ -500,6 +610,76 @@ export class ProjectListView {
         });
 
         return card;
+    }
+
+    /**
+     * Open a project, pulling from cloud first if needed and warning
+     * about engine-version mismatches on cloud projects. Hook point
+     * for all "click to open" paths — replaces the raw
+     * onOpenProject call so the checks aren't bypassed by any card.
+     */
+    private async openProjectWithChecks(project: any, card?: HTMLElement): Promise<void> {
+        if (project._cloudState === 'remote-only' || project._cloudState === 'remote-newer') {
+            card?.classList.add('disabled');
+            try {
+                await this.ctx.cloudSync.pull(project.id);
+            } catch (e: any) {
+                card?.classList.remove('disabled');
+                alert(e?.message || 'Failed to pull cloud project.');
+                return;
+            }
+        }
+
+        // Engine-version mismatch check: cloud projects carry the hash
+        // of the last editor that wrote them. If our local build is a
+        // different commit, warn before opening — the source format
+        // could have drifted (fields added, renamed, or removed).
+        // Hash mismatch is soft: user can still force-open.
+        let projectEngineHash: string | null = project.editedEngineHash ?? null;
+        if (!projectEngineHash && project._cloudState && project._cloudState !== 'remote-only') {
+            // Post-pull local row is authoritative for the hash; reread.
+            try {
+                const fresh = await this.ctx.backend.loadProject(project.id);
+                projectEngineHash = fresh.editedEngineHash ?? null;
+            } catch {}
+        }
+        const ourHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
+        if (projectEngineHash && ourHash && ourHash !== 'unknown' && projectEngineHash !== ourHash) {
+            const proceed = await this.showEngineMismatchWarning(projectEngineHash, ourHash);
+            if (!proceed) { card?.classList.remove('disabled'); return; }
+        }
+
+        this.onOpenProject?.(project.id);
+    }
+
+    private showEngineMismatchWarning(projectHash: string, ourHash: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            const body = document.createElement('div');
+            body.style.cssText = 'display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5;';
+            const title = document.createElement('div');
+            title.style.cssText = 'color:var(--text-primary);';
+            title.textContent = "This project was last edited on a different engine version. Opening or saving it may drop fields the other version added.";
+            body.appendChild(title);
+            const row = document.createElement('div');
+            row.style.cssText = 'background:var(--bg-secondary);padding:10px 12px;border-radius:6px;font-family:monospace;font-size:11.5px;color:var(--text-secondary);display:flex;flex-direction:column;gap:4px;';
+            row.innerHTML =
+                `<div>Your engine:&nbsp;<strong style="color:var(--text-primary);">${projectHash === ourHash ? ourHash.slice(0, 12) : ourHash.slice(0, 12)}</strong></div>` +
+                `<div>Project edited on:&nbsp;<strong style="color:var(--accent);">${projectHash.slice(0, 12)}</strong></div>`;
+            body.appendChild(row);
+            const hint = document.createElement('div');
+            hint.style.cssText = 'color:var(--text-secondary);';
+            hint.textContent = 'Run `git pull` in your Open-ParallaxPro checkout if you want to match the other version before opening.';
+            body.appendChild(hint);
+            let done = false;
+            const { close } = showModal({
+                title: 'Engine version mismatch',
+                body, width: '480px', closeOnBackdrop: false,
+                buttons: [
+                    { label: 'Cancel', action: () => { if (!done) { done = true; close(); resolve(false); } } },
+                    { label: 'Open anyway', primary: true, action: () => { if (!done) { done = true; close(); resolve(true); } } },
+                ],
+            });
+        });
     }
 
     private showDeprecatedModal(project: any): void {
@@ -623,9 +803,21 @@ git checkout da571fe   # last commit before template unification`;
         if (!confirmed) return;
 
         const idsToDelete = [...this.selectedIds];
+        const byId = new Map(this.projects.map((p) => [p.id, p]));
         for (const id of idsToDelete) {
             try {
-                await this.ctx.backend.deleteProject(id);
+                const proj = byId.get(id);
+                if (proj?._cloudState === 'remote-only') {
+                    await this.ctx.backend.deleteProjectProd(id);
+                } else {
+                    await this.ctx.backend.deleteProject(id);
+                    if (proj?.isCloud) {
+                        try { await this.ctx.backend.deleteProjectProd(id); }
+                        catch (e: any) {
+                            if (!(e?.status === 404)) console.warn('[delete] remote cascade failed:', e?.message ?? e);
+                        }
+                    }
+                }
                 this.projects = this.projects.filter(p => p.id !== id);
             } catch (e) {
                 console.error('Failed to delete project:', id, e);
@@ -985,11 +1177,26 @@ git checkout da571fe   # last commit before template unification`;
     private async deleteProject(project: any): Promise<void> {
         const confirmed = await showConfirmModal(
             'Delete Project',
-            `Are you sure you want to delete "${project.name}"? This cannot be undone.`
+            project.isCloud || project._cloudState === 'remote-only'
+                ? `Are you sure you want to delete "${project.name}"? This deletes the copy on parallaxpro.ai too — published versions stay on any player's URL but the editable source is gone.`
+                : `Are you sure you want to delete "${project.name}"? This cannot be undone.`,
         );
         if (!confirmed) return;
         try {
-            await this.ctx.backend.deleteProject(project.id);
+            // Remote-only cards never had a local row — just delete on prod.
+            if (project._cloudState === 'remote-only') {
+                await this.ctx.backend.deleteProjectProd(project.id);
+            } else {
+                await this.ctx.backend.deleteProject(project.id);
+                // Cascade to prod when this was a cloud project. Swallow 404s
+                // since the server may have already deleted it.
+                if (project.isCloud) {
+                    try { await this.ctx.backend.deleteProjectProd(project.id); }
+                    catch (e: any) {
+                        if (!(e?.status === 404)) console.warn('[delete] remote cascade failed:', e?.message ?? e);
+                    }
+                }
+            }
             this.projects = this.projects.filter(p => p.id !== project.id);
             this.selectedIds.delete(project.id);
             this.render();

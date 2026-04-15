@@ -3,7 +3,6 @@ import { showModal, showPromptModal, showConfirmModal } from '../widgets/modal.j
 import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Settings, MousePointer2, Crosshair, Globe, Box } from '../widgets/icons.js';
 import { ensureLoggedIn, clearStoredToken } from '../backend/auth_session.js';
 import { ApiError, AuthRequiredError } from '../backend/backend_client.js';
-import { readPublishMap, writePublishMapEntry, deletePublishMapEntry } from '../backend/publish_map.js';
 
 interface CollabUser {
     clientId: string;
@@ -995,25 +994,22 @@ export class Toolbar {
         let pubData: any;
         try {
             if (this.ctx.backend.isSelfHosted) {
-                const mapping = readPublishMap()[projectId];
-                if (mapping?.prodProjectId) {
-                    try {
-                        pubData = await this.ctx.backend.listVersionsProd(mapping.prodProjectId);
-                    } catch (e: any) {
-                        // Stale mapping (game was unpublished on another machine, etc). Treat as first publish.
-                        if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
-                            deletePublishMapEntry(projectId);
-                            pubData = { published: false, versions: [] };
-                        } else if (e instanceof AuthRequiredError) {
-                            clearStoredToken();
-                            this.showToast('Your session expired. Try publishing again.', 'error');
-                            return;
-                        } else {
-                            throw e;
-                        }
+                // Cloud projects share an id with prod, so we can call
+                // listVersionsProd(projectId) directly — no mapping
+                // needed. For local-only projects prod returns 404,
+                // which we treat as "not published yet".
+                try {
+                    pubData = await this.ctx.backend.listVersionsProd(projectId);
+                } catch (e: any) {
+                    if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+                        pubData = { published: false, versions: [] };
+                    } else if (e instanceof AuthRequiredError) {
+                        clearStoredToken();
+                        this.showToast('Your session expired. Try publishing again.', 'error');
+                        return;
+                    } else {
+                        throw e;
                     }
-                } else {
-                    pubData = { published: false, versions: [] };
                 }
             } else {
                 pubData = await this.ctx.backend.listVersions(projectId);
@@ -1188,9 +1184,7 @@ export class Toolbar {
                     setLiveBtn.addEventListener('click', async () => {
                         try {
                             if (this.ctx.backend.isSelfHosted) {
-                                const prodId = readPublishMap()[projectId]?.prodProjectId;
-                                if (!prodId) throw new Error('Missing published mapping.');
-                                await this.ctx.backend.setLiveVersionProd(prodId, v.id);
+                                await this.ctx.backend.setLiveVersionProd(projectId, v.id);
                             } else {
                                 await this.ctx.backend.setLiveVersion(projectId, v.id);
                             }
@@ -1215,9 +1209,7 @@ export class Toolbar {
                             // the local project_data wholesale — a per-file
                             // merge would leave orphan files from newer
                             // versions lying around.
-                            const prodId = readPublishMap()[projectId]?.prodProjectId;
-                            if (!prodId) throw new Error('Missing published mapping.');
-                            const src = await this.ctx.backend.getVersionSourceProd(prodId, v.id);
+                            const src = await this.ctx.backend.getVersionSourceProd(projectId, v.id);
                             if (!src.files) throw new Error('This version has no source files to restore.');
                             await this.ctx.backend.replaceProjectData(projectId, { projectConfig: src.projectConfig, files: src.files });
                         } else {
@@ -1310,10 +1302,7 @@ export class Toolbar {
             if (!confirm('Unpublish this game? It will no longer be accessible to players.')) return;
             try {
                 if (this.ctx.backend.isSelfHosted) {
-                    const prodId = readPublishMap()[projectId]?.prodProjectId;
-                    if (!prodId) throw new Error('Missing published mapping.');
-                    await this.ctx.backend.unpublishProd(prodId);
-                    deletePublishMapEntry(projectId);
+                    await this.ctx.backend.unpublishProd(projectId);
                 } else {
                     await this.ctx.backend.unpublishProject(projectId);
                 }
@@ -1363,7 +1352,14 @@ export class Toolbar {
             return this.ctx.backend.publishProject(projectId, opts.name, opts.slug, opts.visibility, opts.version, opts.changelog);
         }
 
-        // Self-hosted — publish-from-local flow.
+        // Self-hosted: three-step publish now that cloud projects share
+        // an id with prod.
+        //   1. cloud-upsert — creates the project on prod if it isn't
+        //      there yet (first publish) or refreshes it (re-publish).
+        //   2. mark-cloud on the local backend so subsequent saves
+        //      auto-push.
+        //   3. hosted POST /projects/:id/publish for the actual slug +
+        //      version + snapshot freeze.
         const hash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
         if (hash === 'unknown' || !hash) {
             throw new Error(
@@ -1381,27 +1377,48 @@ export class Toolbar {
             throw new Error('This project is missing a files tree — can\'t publish. Try re-saving first.');
         }
 
-        const thumbnail = await this.resolvePublishThumbnail(project.thumbnail);
-
         try {
-            const result = await this.ctx.backend.publishFromLocal({
+            // Step 1 — upload source to prod (or overwrite it).
+            const upsert = await this.ctx.backend.cloudUpsertProd({
+                id: projectId,
                 name: opts.name,
-                slug: opts.slug,
-                visibility: opts.visibility,
-                version: opts.version,
-                changelog: opts.changelog,
-                engineGitHash: hash,
                 projectData: { projectConfig: project.projectConfig ?? { name: opts.name }, files: project.files },
-                thumbnail,
+                expectedUpdatedAt: project.cloudPulledUpdatedAt,
+                engineGitHash: hash,
+                force: !project.isCloud, // first publish is an unconditional create
             });
-            writePublishMapEntry(projectId, { prodProjectId: result.projectId, owner: result.owner, slug: result.slug });
+
+            // Step 2 — thumbnail, if the user picked one (or if local has
+            // one and this is the first cloud push).
+            const thumbFile = await this.resolvePublishThumbnail(project.thumbnail);
+            if (thumbFile) {
+                const t = await this.ctx.backend.cloudThumbnailProd(projectId, thumbFile);
+                upsert.thumbnail = t.thumbnail;
+            }
+
+            // Step 3 — mark cloud locally so saves auto-push going forward.
+            const userId = this.ctx.cloudSync.currentUserId();
+            if (userId) {
+                await this.ctx.backend.markCloudLocal(projectId, {
+                    cloudUserId: userId,
+                    cloudUpdatedAt: upsert.updatedAt,
+                    editedEngineHash: upsert.editedEngineHash,
+                    thumbnail: upsert.thumbnail ? (upsert.thumbnail.startsWith('http') ? upsert.thumbnail : `https://parallaxpro.ai${upsert.thumbnail}`) : null,
+                });
+                if (this.ctx.state.projectData) (this.ctx.state.projectData as any).isCloud = true;
+            }
+
+            // Step 4 — run the regular publish endpoint.
+            const result = await this.ctx.backend.publishProjectProd(
+                projectId, opts.name, opts.slug, opts.visibility, opts.version, opts.changelog,
+            );
             return result;
         } catch (e: any) {
             if (e instanceof AuthRequiredError) {
                 clearStoredToken();
                 this.showToast('Your session expired. Try publishing again.', 'error');
                 const sentinel: any = new Error('auth expired');
-                sentinel.__engineMismatchHandled = true; // reuse sentinel: also swallow in parent modal
+                sentinel.__engineMismatchHandled = true;
                 throw sentinel;
             }
             if (e instanceof ApiError) {
