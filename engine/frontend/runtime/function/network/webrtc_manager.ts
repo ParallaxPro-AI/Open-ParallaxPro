@@ -84,6 +84,17 @@ export class WebRTCManager {
     private sendSignal: (toPeerId: PeerId, payload: { kind: string; [k: string]: any }) => void = () => {};
     private events: WebRTCEvents = {};
     private localAudioTrack: MediaStreamTrack | null = null;
+    private dynamicIceServers: RTCIceServer[] | null = null;
+
+    /**
+     * Replace the default STUN+OpenRelay TURN list with server-issued
+     * ICE servers (typically Cloudflare ephemeral TURN). Affects only
+     * peer connections opened AFTER this call. Existing connections
+     * keep their current ICE config — they're already negotiated.
+     */
+    setIceServers(servers: RTCIceServer[] | null): void {
+        this.dynamicIceServers = (servers && servers.length > 0) ? servers : null;
+    }
 
     initialize(
         localPeerId: PeerId,
@@ -104,7 +115,19 @@ export class WebRTCManager {
     async connect(peerId: PeerId, amInitiator: boolean): Promise<void> {
         if (this.peers.has(peerId)) return;
 
-        const pc = new RTCPeerConnection(RTC_CONFIG);
+        // Prefer dynamic (server-issued) ICE servers when present; they
+        // override the bundled STUN+OpenRelay defaults. STUN entries from
+        // the default list still get merged in for direct-path discovery.
+        const config: RTCConfiguration = this.dynamicIceServers
+            ? { iceServers: [
+                  ...RTC_CONFIG.iceServers!.filter(s => {
+                      const u = Array.isArray(s.urls) ? s.urls[0] : s.urls;
+                      return typeof u === 'string' && u.startsWith('stun:');
+                  }),
+                  ...this.dynamicIceServers,
+              ] }
+            : RTC_CONFIG;
+        const pc = new RTCPeerConnection(config);
         const info: PeerInfo = {
             peerId,
             connection: pc,

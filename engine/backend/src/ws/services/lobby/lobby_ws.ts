@@ -33,6 +33,7 @@ import { URL } from 'url';
 import { verifyToken } from '../../../middleware/auth.js';
 import { consumeWsTicket } from '../../ws_tickets.js';
 import { relaySignal, type SignalPayload } from './signaling.js';
+import { getTurnIceServers } from './cloudflare_turn.js';
 import {
     registerPeer,
     unregisterPeer,
@@ -137,10 +138,25 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
         if (clientV && clientV !== LOBBY_PROTOCOL_VERSION) {
             console.warn(`[lobby] client connected with protocol v${clientV}, server is v${LOBBY_PROTOCOL_VERSION}`);
         }
-        send(ws, 'lobby.hello_ack', {
-            peerId: peer.peerId,
-            username: peer.username,
-            protocolVersion: LOBBY_PROTOCOL_VERSION,
+        // Issue Cloudflare TURN ephemeral credentials at hello time so the
+        // client can stand up RTCPeerConnection against the right ICE
+        // server set immediately. Don't block hello_ack — if Cloudflare is
+        // slow or down, fall back to STUN-only and the client will still
+        // succeed for the ~80% of NATs that don't need a relay.
+        getTurnIceServers().then((iceServers) => {
+            send(ws, 'lobby.hello_ack', {
+                peerId: peer.peerId,
+                username: peer.username,
+                protocolVersion: LOBBY_PROTOCOL_VERSION,
+                iceServers: iceServers || null,
+            });
+        }).catch(() => {
+            send(ws, 'lobby.hello_ack', {
+                peerId: peer.peerId,
+                username: peer.username,
+                protocolVersion: LOBBY_PROTOCOL_VERSION,
+                iceServers: null,
+            });
         });
 
         const heartbeat = setInterval(() => {

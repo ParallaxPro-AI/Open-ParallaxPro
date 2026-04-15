@@ -50,7 +50,7 @@ export interface LobbyRoster {
 }
 
 export interface LobbyClientEvents {
-    onHelloAck?: (info: { peerId: PeerId; username: string }) => void;
+    onHelloAck?: (info: { peerId: PeerId; username: string; iceServers?: RTCIceServer[] | null; protocolVersion?: number }) => void;
     onListResult?: (gameTemplateId: string, lobbies: LobbyListEntry[]) => void;
     onCreated?: (roster: LobbyRoster) => void;
     onJoined?: (roster: LobbyRoster) => void;

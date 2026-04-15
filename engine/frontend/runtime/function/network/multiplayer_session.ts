@@ -176,6 +176,15 @@ export class MultiplayerSession {
         this._gameTemplateId = gameTemplateId;
         this.setPhase('connecting');
         this.lobby.setEvents({
+            onHelloAck: (info) => {
+                // Server may ship server-issued (Cloudflare) TURN credentials —
+                // hand them to the WebRTC manager so future RTCPeerConnection
+                // configs use them. Falls back to bundled STUN+OpenRelay
+                // when not present.
+                if (info?.iceServers && info.iceServers.length > 0) {
+                    this.webrtc.setIceServers(info.iceServers);
+                }
+            },
             onListResult: (_tid, lobbies) => {
                 for (const cb of this._lobbyListListeners) cb(lobbies);
             },
