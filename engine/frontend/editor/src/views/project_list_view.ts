@@ -886,7 +886,7 @@ git checkout da571fe   # last commit before template unification`;
                 if (cloudCount === 0) return base;
                 return `${base}<div style="margin-top:12px;padding:10px 12px;background:rgba(138,27,27,0.2);border:1px solid rgba(220,80,80,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
                     + `<strong>⚠ ${cloudCount} of these ${cloudCount === 1 ? 'is a cloud project' : 'are cloud projects'}.</strong><br>`
-                    + `Deleting ${cloudCount === 1 ? 'it' : 'them'} also removes ${cloudCount === 1 ? 'it' : 'them'} from parallaxpro.ai — other machines will lose access to the source tree.`
+                    + `Deleting ${cloudCount === 1 ? 'it' : 'them'} also removes ${cloudCount === 1 ? 'it' : 'them'} from parallaxpro.ai — source tree, published game, and version history all go away permanently.`
                     + `</div>`;
             })(),
         );
@@ -1269,8 +1269,8 @@ git checkout da571fe   # last commit before template unification`;
         const message = touchesCloud
             ? `<div style="margin-bottom:12px;">Delete <strong>${name}</strong>?</div>`
               + `<div style="padding:10px 12px;background:rgba(138,27,27,0.2);border:1px solid rgba(220,80,80,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
-              + `<strong>⚠ This will also delete the project on parallaxpro.ai.</strong><br>`
-              + `Other machines lose access to the source tree. Already-published game versions stay playable at their URL (the frozen snapshot is kept) but the editable source is gone for everyone.`
+              + `<strong>⚠ This also deletes the project on parallaxpro.ai.</strong><br>`
+              + `Other machines lose the source tree, and if this project is published the game at <code>/games/&lt;you&gt;/&lt;slug&gt;</code> and every version in its history go offline. All of it is permanent.`
               + `</div>`
             : `Are you sure you want to delete <strong>${name}</strong>? This cannot be undone.`;
         const confirmed = await showConfirmModal(
