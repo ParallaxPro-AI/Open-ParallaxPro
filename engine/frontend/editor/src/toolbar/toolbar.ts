@@ -827,19 +827,6 @@ export class Toolbar {
         const body = document.createElement('div');
         body.style.cssText = 'display:flex;flex-direction:column;gap:16px;';
 
-        const nameRow = document.createElement('div');
-        nameRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
-        const nameLabel = document.createElement('label');
-        nameLabel.textContent = 'Project Name';
-        nameLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.value = this.ctx.state.projectData?.name ?? 'Untitled Project';
-        nameInput.style.cssText = 'width:100%;height:28px;';
-        nameRow.appendChild(nameLabel);
-        nameRow.appendChild(nameInput);
-        body.appendChild(nameRow);
-
         // Chat Agent picker — which provider handles the conversational LLM
         // calls. "LLM API" uses the direct AI_BASE_URL when configured; the
         // rest drive a local CLI as a chat completion proxy. Only shows
@@ -939,7 +926,7 @@ export class Toolbar {
         body.appendChild(gfxRow);
 
         const { close } = showModal({
-            title: 'Project Settings',
+            title: 'Settings',
             body,
             width: '400px',
             closeOnBackdrop: false,
@@ -949,17 +936,11 @@ export class Toolbar {
                     label: 'Save',
                     primary: true,
                     action: () => {
-                        const newName = nameInput.value.trim();
-                        if (newName && this.ctx.state.projectData) {
-                            this.ctx.state.projectData.name = newName;
-                            this.projectNameEl.textContent = newName;
-                        }
                         if (agentSelect) localStorage.setItem('editing_agent', agentSelect.value);
                         if (chatSelect) localStorage.setItem('chat_agent', chatSelect.value);
                         const selectedQuality = gfxSelect.value as 'low' | 'medium' | 'high';
                         localStorage.setItem('graphics_quality', selectedQuality);
                         this.ctx.setGraphicsQuality(selectedQuality);
-                        if (newName) this.ctx.markDirty();
                         close();
                     },
                 },
