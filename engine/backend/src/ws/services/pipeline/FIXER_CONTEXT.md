@@ -165,6 +165,30 @@ The game flow is an HFSM. Transitions use these formats:
 - `freezeRotation: true` is required for character entities to prevent tumbling
 - Capsule colliders for humanoid characters, box for everything else
 
+## Pause menu
+
+`ui/pause_menu.html` is a reusable overlay. Its buttons are config-driven:
+set them in `01_flow.json` → `ui_params.pause_menu.pauseButtons`. Each
+button action becomes a `ui_event:pause_menu:<action>` transition. KeyP
+toggles pause via `keyboard:pause` / `keyboard:resume`. If a game doesn't
+need a button (e.g., single-player has no `leave_match`), just omit it
+from `pauseButtons`. Omitting `pauseButtons` gives the default `Resume` +
+`Main Menu`.
+
+```json
+"ui_params": {
+  "pause_menu": {
+    "pauseTitle": "PAUSED",
+    "pauseButtons": [
+      { "action": "resume",      "label": "Resume", "primary": true },
+      { "action": "retry",       "label": "Retry" },
+      { "action": "leave_match", "label": "Leave Match", "danger": true },
+      { "action": "main_menu",   "label": "Main Menu" }
+    ]
+  }
+}
+```
+
 ## Common Bugs to Check
 
 1. **Entity not moving**: Using `setPosition` on dynamic body (fights physics). Use `setVelocity` instead.

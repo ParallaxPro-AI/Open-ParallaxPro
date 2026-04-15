@@ -17,6 +17,14 @@
     "main_menu": {
       "gameTitle": "DEATHMATCH",
       "gameSubtitle": "First to 3 kills wins"
+    },
+    "pause_menu": {
+      "pauseTitle": "PAUSED",
+      "pauseHint": "Press <span class=\"pm-kbd\">P</span> to resume",
+      "pauseButtons": [
+        { "action": "resume",      "label": "Resume", "primary": true },
+        { "action": "leave_match", "label": "Leave Match", "danger": true }
+      ]
     }
   },
   "states": {
@@ -63,7 +71,7 @@
     "gameplay": {
       "description": "Match in progress",
       "active_systems": ["mp_bridge", "deathmatch_game"],
-      "active_behaviors": ["fps_camera", "fps_movement", "fps_combat", "player_health"],
+      "start": "playing",
       "on_enter": [
         "show_ui:hud/ping",
         "show_ui:hud/text_chat",
@@ -73,7 +81,6 @@
         "show_ui:hud/health",
         "show_ui:hud/ammo",
         "show_ui:hud/crosshair",
-        "hide_cursor",
         "emit:game.match_started"
       ],
       "on_exit": [
@@ -82,11 +89,31 @@
         "hide_ui:hud/kill_feed",
         "hide_ui:hud/health",
         "hide_ui:hud/ammo",
-        "hide_ui:hud/crosshair"
+        "hide_ui:hud/crosshair",
+        "hide_ui:pause_menu"
       ],
+      "substates": {
+        "playing": {
+          "active_behaviors": ["fps_camera", "fps_movement", "fps_combat", "player_health"],
+          "on_enter": ["hide_cursor"],
+          "transitions": [
+            { "when": "keyboard:pause", "goto": "paused" }
+          ]
+        },
+        "paused": {
+          "active_behaviors": [],
+          "on_enter": ["show_ui:pause_menu", "show_cursor"],
+          "on_exit":  ["hide_ui:pause_menu"],
+          "transitions": [
+            { "when": "keyboard:resume",            "goto": "playing" },
+            { "when": "ui_event:pause_menu:resume", "goto": "playing" }
+          ]
+        }
+      },
       "transitions": [
-        { "when": "mp_event:phase_disconnected", "goto": "main_menu" },
-        { "when": "game_event:match_ended", "goto": "game_over" }
+        { "when": "mp_event:phase_disconnected",     "goto": "main_menu" },
+        { "when": "game_event:match_ended",          "goto": "game_over" },
+        { "when": "ui_event:pause_menu:leave_match", "goto": "main_menu" }
       ]
     },
     "game_over": {

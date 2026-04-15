@@ -252,6 +252,7 @@ Pin these from `reference/ui/` — do not rewrite them:
 - `ui/hud/ping.html` — shown only when multiplayer is enabled (auto-hides otherwise). FPS is already drawn by the play-mode shell, no separate HUD needed.
 - `ui/hud/text_chat.html` — in-lobby and in-game chat (press Enter)
 - `ui/hud/voice_chat.html` — mic toggle + per-peer speaking indicators
+- `ui/pause_menu.html` — reusable pause overlay (see "Pause menu" below)
 
 ### Required pinned system
 
@@ -274,6 +275,69 @@ Transitions to watch for:
 - `mp_event:phase_disconnected` → socket/session dropped; fall back to main_menu
 
 See `reference/game_templates/v0.1/multiplayer_arena/` for a complete example.
+
+## Pause menu (optional, reusable)
+
+Pin `ui/pause_menu.html` and wire it via the FSM. Buttons are fully
+configurable through `ui_params.pause_menu.pauseButtons` — each button's
+`action` becomes the tail of a `ui_event:pause_menu:<action>` transition.
+
+```json
+"ui_params": {
+  "pause_menu": {
+    "pauseTitle": "PAUSED",
+    "pauseSubtitle": "",
+    "pauseHint": "Press <span class=\"pm-kbd\">P</span> to resume",
+    "pauseButtons": [
+      { "action": "resume", "label": "Resume", "primary": true },
+      { "action": "retry",  "label": "Retry" },
+      { "action": "leave_match", "label": "Leave Match", "danger": true },
+      { "action": "main_menu",    "label": "Main Menu" }
+    ]
+  }
+}
+```
+
+Typical FSM wiring — a `paused` substate under `gameplay`:
+
+```json
+"gameplay": {
+  "start": "playing",
+  "substates": {
+    "playing": {
+      "active_behaviors": ["movement", "combat"],
+      "transitions": [
+        { "when": "keyboard:pause", "goto": "paused" }
+      ]
+    },
+    "paused": {
+      "active_behaviors": [],
+      "on_enter": ["show_ui:pause_menu", "show_cursor"],
+      "on_exit":  ["hide_ui:pause_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "keyboard:resume",            "goto": "playing" },
+        { "when": "ui_event:pause_menu:resume", "goto": "playing" },
+        { "when": "ui_event:pause_menu:retry",  "goto": "playing" }
+      ]
+    }
+  },
+  "transitions": [
+    { "when": "ui_event:pause_menu:main_menu",   "goto": "main_menu" },
+    { "when": "ui_event:pause_menu:leave_match", "goto": "main_menu" }
+  ]
+}
+```
+
+Notes:
+- `keyboard:pause` fires on `KeyP` only. Don't bind `Escape` — the browser
+  owns it for exiting pointer lock.
+- Omit `pauseButtons` to get the default (`Resume` + `Main Menu`).
+- Only include buttons that make sense for the game — no button appears
+  unless you list it. Single-player shouldn't include `leave_match`;
+  multiplayer typically replaces `retry` with `leave_match`.
+- `ui_event:pause_menu:<action>` transitions in the `paused` substate
+  should go back to `playing`; transitions that exit the match should be
+  on the parent `gameplay` state.
 
 ## Physics Rules
 - `dynamic` + `setVelocity()` for moving characters (NOT `setPosition`)
