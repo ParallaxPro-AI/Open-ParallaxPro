@@ -51,7 +51,9 @@ class CoinGrabGameSystem extends GameScript {
             if (self._ended) return;
             self._ended = true;
             var d = (evt && evt.data) || {};
+            if (d.scores) self._scores = d.scores;
             self.scene.events.game.emit("match_ended", d);
+            self._pushGameOver(d.winner, d.reason);
         });
     }
 
@@ -155,6 +157,14 @@ class CoinGrabGameSystem extends GameScript {
     // ─── Coin ────────────────────────────────────────────────────────────
 
     _spawnCoin() {
+        // Idempotent — onStart + match_started both call _initMatch on the
+        // first frame, so we'd double-spawn without this guard.
+        var existing = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
+        if (existing) {
+            var rp = this._randomCoinPosition();
+            this.scene.setPosition(existing.id, rp.x, rp.y, rp.z);
+            return;
+        }
         var scene = this.scene;
         var id = scene.createEntity ? scene.createEntity(this._coinEntityName) : null;
         if (id == null) return;
@@ -249,6 +259,50 @@ class CoinGrabGameSystem extends GameScript {
         var payload = { winner: winnerPeerId, reason: reason, scores: this._scores };
         if (mp) mp.sendNetworkedEvent("match_ended", payload);
         this.scene.events.game.emit("match_ended", payload);
+        this._pushGameOver(winnerPeerId, reason);
+    }
+
+    _pushGameOver(winnerPeerId, reason) {
+        var mp = this.scene._mp;
+        var roster = mp && mp.roster;
+        var localPeerId = mp && mp.localPeerId;
+        var iWon = winnerPeerId && winnerPeerId === localPeerId;
+
+        // Look up the winner's display name from the roster.
+        var winnerName = "Nobody";
+        if (roster && winnerPeerId) {
+            for (var i = 0; i < roster.peers.length; i++) {
+                if (roster.peers[i].peerId === winnerPeerId) {
+                    winnerName = roster.peers[i].username;
+                    break;
+                }
+            }
+        }
+        var title;
+        if (!winnerPeerId) title = "Draw!";
+        else if (iWon) title = "VICTORY!";
+        else title = winnerName + " wins";
+
+        var myScore = (mp && this._scores[localPeerId]) || 0;
+
+        // Stats — show every player's score, leader first.
+        var stats = {};
+        if (roster && roster.peers) {
+            var ranked = roster.peers.slice().sort(function(a, b) {
+                return (this._scores[b.peerId] || 0) - (this._scores[a.peerId] || 0);
+            }.bind(this));
+            for (var j = 0; j < ranked.length; j++) {
+                var pr = ranked[j];
+                var label = pr.username + (pr.peerId === localPeerId ? " (you)" : "");
+                stats[label] = String(this._scores[pr.peerId] || 0);
+            }
+        }
+        if (reason === "time") stats["Reason"] = "Time up";
+        else if (reason === "score") stats["Reason"] = "Reached " + this._scoreToWin;
+
+        this.scene.events.ui.emit("hud_update", {
+            _gameOver: { title: title, score: myScore, stats: stats },
+        });
     }
 
     // ─── UI ──────────────────────────────────────────────────────────────

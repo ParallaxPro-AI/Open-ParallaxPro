@@ -15,7 +15,7 @@
   "ui_params": {
     "main_menu": {
       "gameTitle": "COIN GRAB",
-      "gameSubtitle": "First to 10 coins wins"
+      "gameSubtitle": "First to 5 coins wins"
     }
   },
   "states": {
