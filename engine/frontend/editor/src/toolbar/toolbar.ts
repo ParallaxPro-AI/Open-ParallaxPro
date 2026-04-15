@@ -919,7 +919,13 @@ export class Toolbar {
             { value: 'medium', label: 'Medium', hint: 'Shadows, FXAA anti-aliasing, HBAO' },
             { value: 'high', label: 'High', hint: 'Shadows, MSAA anti-aliasing, HBAO, screen-space reflections, bloom' },
         ];
-        const currentQuality = (localStorage.getItem('graphics_quality') as string) ?? 'medium';
+        // Read priority: project's own setting → legacy localStorage value
+        // → 'medium'. Authors set per-project in the modal; localStorage is
+        // only the fallback for projects that predate this setting.
+        const currentQuality =
+            this.ctx.state.projectData?.projectConfig?.graphicsQuality
+            ?? (localStorage.getItem('graphics_quality') as string)
+            ?? 'medium';
         for (const q of qualities) {
             const opt = document.createElement('option');
             opt.value = q.value;
@@ -965,7 +971,11 @@ export class Toolbar {
                             pd.projectConfig.chatAgent = chatSelect.value;
                         }
                         const selectedQuality = gfxSelect.value as 'low' | 'medium' | 'high';
-                        localStorage.setItem('graphics_quality', selectedQuality);
+                        if (this.ctx.state.projectData) {
+                            const pd = this.ctx.state.projectData;
+                            if (!pd.projectConfig) pd.projectConfig = {};
+                            pd.projectConfig.graphicsQuality = selectedQuality;
+                        }
                         this.ctx.setGraphicsQuality(selectedQuality);
                         this.ctx.markDirty();
                         close();

@@ -35,6 +35,13 @@ export interface ProjectData {
          * auto (direct API when configured, else first installed CLI).
          */
         chatAgent?: string;
+        /**
+         * Author-chosen render quality for this project. Applied when the
+         * editor loads and as the default when a player opens play mode.
+         * Players can still override per-session in the play-mode settings
+         * panel (stored in localStorage).
+         */
+        graphicsQuality?: 'low' | 'medium' | 'high';
     };
     files: ProjectFiles;
 }

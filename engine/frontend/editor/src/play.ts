@@ -164,7 +164,13 @@ async function boot(): Promise<void> {
 
     if (gameData.id) ctx.state.projectId = gameData.id;
 
-    const quality = (localStorage.getItem('graphics_quality') as 'low' | 'medium' | 'high') ?? 'medium';
+    // Player-side override (their in-game setting) beats the author's
+    // default; fall back to the project's authored graphicsQuality, then
+    // medium. Authors tune per-project in the editor; players tweak
+    // per-device in the play-mode settings panel.
+    const authoredQuality = gameData.projectConfig?.graphicsQuality as 'low' | 'medium' | 'high' | undefined;
+    const playerQuality = localStorage.getItem('graphics_quality') as 'low' | 'medium' | 'high' | null;
+    const quality: 'low' | 'medium' | 'high' = playerQuality ?? authoredQuality ?? 'medium';
     ctx.setGraphicsQuality(quality);
 
     ctx.ensurePrimitiveMeshes();
@@ -221,7 +227,7 @@ async function boot(): Promise<void> {
     });
     settingsPanel.addEventListener('click', (e) => e.stopPropagation());
 
-    const currentQuality = localStorage.getItem('graphics_quality') || 'medium';
+    const currentQuality = playerQuality ?? authoredQuality ?? 'medium';
     const qualityBtns = settingsPanel.querySelectorAll('.quality-btn');
     qualityBtns.forEach((btn) => {
         if ((btn as HTMLElement).dataset.quality === currentQuality) {
