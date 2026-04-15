@@ -56,13 +56,15 @@ cd engine/backend
 cp .env.example .env
 ```
 
-Edit `.env` and add your LLM API key. Any OpenAI-compatible API works:
+Edit `.env` — the LLM config is **optional**. If you fill it in, any OpenAI-compatible API works:
 
 | Provider | `AI_BASE_URL` | Example `AI_MODEL` |
 |----------|--------------|-------------------|
 | [Groq](https://console.groq.com/) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
 | [OpenRouter](https://openrouter.ai/) | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
 | Local (Ollama) | `http://localhost:11434/v1` | `llama3.3` |
+
+If you leave `AI_BASE_URL` / `AI_MODEL` / `AI_API_KEY` blank, the backend falls back to driving an installed agent CLI (claude / codex / opencode / copilot) for chat too. Slower and occasionally rougher output than a direct API call, but lets you start without signing up anywhere.
 
 The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. At least one of the supported CLIs must be installed — the backend refuses to start without one.
 

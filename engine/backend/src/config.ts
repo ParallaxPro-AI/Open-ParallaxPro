@@ -43,10 +43,14 @@ export const config = {
     assetsDir: envString('ASSETS_DIR', path.resolve(__dirname, '../../../reusable_assets')),
     assetsCdn: envString('ASSETS_CDN', 'https://parallaxpro.ai'),
     isHosted: !!process.env.WEBSITE_BACKEND_URL,
+    // AI_BASE_URL / AI_MODEL / AI_API_KEY are optional. When any of the three
+    // is missing, the backend falls back to driving a locally-installed CLI
+    // agent (claude) for text completion — slower and less clean than a
+    // direct API call, but gets you running without signing up for a key.
     ai: {
-        baseUrl: envRequired('AI_BASE_URL'),
-        model: envRequired('AI_MODEL'),
-        apiKey: envRequired('AI_API_KEY'),
+        baseUrl: envString('AI_BASE_URL', ''),
+        model: envString('AI_MODEL', ''),
+        apiKey: envString('AI_API_KEY', ''),
         maxTokens: envInt('AI_MAX_TOKENS', 8192),
     },
     fixer: {
