@@ -245,6 +245,14 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     mp_chat_blur:          { fields: {} },
     // "Back to menu" from the lobby browser (not a phase — a user action).
     mp_back_to_menu:       { fields: {} },
+    // Host changed mid-session. Game systems that own host-authoritative
+    // state (timers, host-spawned entities) should re-claim ownership when
+    // the new host id matches their local peer.
+    mp_host_changed:       { fields: { newHostPeerId: { type: 'string', optional: true } } },
+    // Player count fell below the game's declared minPlayers. A game can
+    // listen for this and abandon the match cleanly.
+    mp_below_min_players:  { fields: { count: { type: 'number', optional: true }, min: { type: 'number', optional: true } } },
+    mp_roster_changed:     { fields: { count: { type: 'number', optional: true } } },
     // Match lifecycle for multiplayer templates.
     match_started:         { fields: {} },
     match_ended:           { fields: { reason: { type: 'string', optional: true }, winner: { type: 'any', optional: true } } },

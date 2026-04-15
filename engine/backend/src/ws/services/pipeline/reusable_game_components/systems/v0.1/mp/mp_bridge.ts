@@ -31,6 +31,9 @@ class MpBridge extends GameScript {
     _chatPulseTimer = 0;
     _lobbyListPollTimer = 0;
     _mpCfg = null;
+    _belowMinFired = false;
+    _lastRosterPeerCount = -1;
+    _lastHostId = "";
 
     onStart() {
         var self = this;
@@ -92,11 +95,48 @@ class MpBridge extends GameScript {
             }
         }));
         this._unsubs.push(mp.onRoster(function(roster) {
+            // _currentRoster on the session is mutated in place — reading
+            // self._roster after assignment would give us NEW values for
+            // both prev and current. Track previous values explicitly.
+            var prevPeerCount = self._lastRosterPeerCount;
+            var prevHostPeerId = self._lastHostId;
+            var newPeerCount = roster ? roster.peers.length : 0;
+            var newHostPeerId = roster ? roster.hostPeerId : "";
+
             self._roster = roster;
+            self._lastRosterPeerCount = newPeerCount;
+            self._lastHostId = newHostPeerId;
             self._pushUiUpdate();
+
+            if (!roster) return;
+
+            // Detect host migration so game systems can claim authority.
+            if (prevHostPeerId && newHostPeerId && newHostPeerId !== prevHostPeerId) {
+                var gbus = self.scene.events.game;
+                gbus.emit("mp_host_changed", { newHostPeerId: newHostPeerId });
+            }
+
+            // General roster-change ping so games can prune per-peer state.
+            if (prevPeerCount >= 0 && prevPeerCount !== newPeerCount) {
+                var gbus3 = self.scene.events.game;
+                gbus3.emit("mp_roster_changed", { count: newPeerCount });
+            }
+
+            // Notify on player count dropping below minPlayers (only fires
+            // once per match so a game doesn't spam end events).
+            if (self._phase === "in_game" && !self._belowMinFired) {
+                var minP = (mpCfg.minPlayers || 1);
+                if (newPeerCount < minP && (prevPeerCount < 0 || newPeerCount < prevPeerCount)) {
+                    self._belowMinFired = true;
+                    var gbus2 = self.scene.events.game;
+                    gbus2.emit("mp_below_min_players", { count: newPeerCount, min: minP });
+                }
+            }
         }));
         this._unsubs.push(mp.onPhase(function(phase) {
             self._phase = phase;
+            // Reset per-match guards on phase change so the next match starts fresh.
+            if (phase !== "in_game") self._belowMinFired = false;
             // Emit a game event so the flow can transition on it:
             // e.g. "game_event:mp_phase_in_game". Using an indirect bus
             // reference because the assembler's event validator only

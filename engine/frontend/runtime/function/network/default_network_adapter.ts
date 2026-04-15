@@ -228,7 +228,31 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
     onDespawnEntity(networkId: number): void {
         const e = this.findSceneEntityByNetId(networkId);
         if (!e) return;
+        this._targets.delete(networkId);
         (this.scene as any).destroyEntity?.(e.id);
+    }
+
+    /**
+     * A peer disconnected — destroy every entity they owned so we don't
+     * leave dead avatars standing around. Players are typed under the
+     * "player" / "remote" tag, but we match by ownerId for generality.
+     */
+    onPeerLeft(peerId: PeerId): void {
+        const scene = this.scene as any;
+        if (typeof scene.entities?.values !== 'function' || typeof scene.destroyEntity !== 'function') return;
+        const toDestroy: number[] = [];
+        for (const entity of scene.entities.values()) {
+            const ni = entity.getComponent('NetworkIdentityComponent') as NetworkIdentityComponent | null;
+            if (!ni) continue;
+            // ownerId is loosely-typed (we store peerId strings) — direct compare.
+            if ((ni.ownerId as any) === peerId) toDestroy.push(entity.id);
+        }
+        for (const id of toDestroy) {
+            const e = scene.entities.get(id);
+            const ni = e?.getComponent?.('NetworkIdentityComponent');
+            if (ni && typeof ni.networkId === 'number') this._targets.delete(ni.networkId);
+            scene.destroyEntity(id);
+        }
     }
 
     applyLocalInputPrediction(frame: LocalInputFrame): void {

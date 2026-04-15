@@ -80,6 +80,8 @@ export interface NetworkedEntityAdapter {
     onSpawnEntity(info: { networkId: number; prefab: string; owner: PeerId | '';
         pos: [number, number, number]; rot: [number, number, number, number] }): void;
     onDespawnEntity(networkId: number): void;
+    /** Fired when a peer disconnects so the adapter can drop their entities. */
+    onPeerLeft?(peerId: PeerId): void;
     applyLocalInputPrediction(frame: LocalInputFrame): void;
     reconcileLocalPlayer(authoritative: SnapshotEntity, lastProcessedSeq: number, replayInputs: LocalInputFrame[]): void;
     onRemoteInput(fromPeerId: PeerId, frame: LocalInputFrame): void;   // host-side
@@ -726,9 +728,10 @@ export class MultiplayerSession {
         }
         this.webrtc.disconnect(peerId);
         this.detachRemoteVoice(peerId);
-        if (this._adapter) {
-            // Despawn any entities owned by that peer — adapter decides how.
-            // (We don't track ownership here; adapter can look it up by scanning.)
+        // Adapter destroys any entities owned by the leaving peer (player
+        // proxy capsules, etc.) so the scene doesn't accumulate ghosts.
+        if (this._adapter && typeof this._adapter.onPeerLeft === 'function') {
+            try { this._adapter.onPeerLeft(peerId); } catch (e) { console.warn('[mp] adapter.onPeerLeft', e); }
         }
         delete this._lastProcessedInputSeqByPeer[peerId];
     }

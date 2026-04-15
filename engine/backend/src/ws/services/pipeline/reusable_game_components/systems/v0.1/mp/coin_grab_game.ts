@@ -55,6 +55,32 @@ class CoinGrabGameSystem extends GameScript {
             self.scene.events.game.emit("match_ended", d);
             self._pushGameOver(d.winner, d.reason);
         });
+
+        // Host migrated mid-match — if I'm the new host, claim the coin
+        // and resume the loop. Other peers keep their scoreboard as-is.
+        this.scene.events.game.on("mp_host_changed", function() {
+            if (self._ended || !self._initialized) return;
+            var mp2 = self.scene._mp;
+            if (!mp2 || !mp2.isHost) return;
+            // Best-effort: re-spawn (idempotent — relocates if already there)
+            // and reset the round timer so the new host has a clean count.
+            self._spawnCoin();
+            self._elapsed = 0;
+        });
+
+        // Game can't continue with too few players — host abandons.
+        this.scene.events.game.on("mp_below_min_players", function() {
+            if (self._ended) return;
+            var mp2 = self.scene._mp;
+            if (!mp2 || !mp2.isHost) return;
+            self._endMatch(self._findHighestScorer(), "abandoned");
+        });
+
+        // Prune scores for players who left so the scoreboard doesn't keep
+        // ghost rows.
+        this.scene.events.game.on("mp_phase_in_lobby", function() { self._pruneScoresFromRoster(); });
+        this.scene.events.game.on("mp_phase_in_game", function() { self._pruneScoresFromRoster(); });
+        this.scene.events.game.on("mp_roster_changed", function() { self._pruneScoresFromRoster(); });
     }
 
     onUpdate(dt) {
@@ -335,5 +361,28 @@ class CoinGrabGameSystem extends GameScript {
             h = Math.imul(h, 16777619);
         }
         return ((h >>> 0) % 1000000) + 1000;
+    }
+
+    _findHighestScorer() {
+        var bestScore = -1;
+        var bestPeer = null;
+        for (var p in this._scores) {
+            if (this._scores[p] > bestScore) { bestScore = this._scores[p]; bestPeer = p; }
+        }
+        return bestPeer;
+    }
+
+    _pruneScoresFromRoster() {
+        var mp = this.scene._mp;
+        if (!mp || !mp.roster) return;
+        var current = {};
+        for (var i = 0; i < mp.roster.peers.length; i++) {
+            current[mp.roster.peers[i].peerId] = true;
+        }
+        var changed = false;
+        for (var k in this._scores) {
+            if (!current[k]) { delete this._scores[k]; changed = true; }
+        }
+        if (changed) this._pushScoreboard();
     }
 }
