@@ -553,6 +553,7 @@ export class Scene {
                 direction: dir,
                 color: new Vec3(light.color.r, light.color.g, light.color.b),
                 intensity: light.intensity,
+                shadowDistance: light.shadowDistance,
             });
         }
         return result;

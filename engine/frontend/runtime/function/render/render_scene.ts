@@ -80,6 +80,12 @@ export interface RenderDirectionalLight {
     direction: Vec3;
     color: Vec3;
     intensity: number;
+    /**
+     * Maximum world-space distance the shadow cascades span. Undefined =
+     * the engine default (tuned for typical arena-scale scenes); open-
+     * world templates that need distant shadows can raise this.
+     */
+    shadowDistance?: number;
 }
 
 export interface RenderPointLight {

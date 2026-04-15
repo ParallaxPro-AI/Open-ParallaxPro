@@ -597,13 +597,24 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
 
   const world = worlds?.worlds?.[0];
 
-  // Directional light — pitched down, yawed for sun-like angle
+  // Directional light — pitched down, yawed for sun-like angle. Shadow
+  // distance can be overridden per-world via world.lighting.shadowDistance
+  // (open-world templates raise it to 800-1000 for long sight lines; the
+  // default serves arena-scale scenes with sharp shadows).
+  const lightData: any = {
+    lightType: 'directional',
+    intensity: 1.0,
+    color: world?.lighting?.sun_color || [1, 1, 1],
+  };
+  if (typeof world?.lighting?.shadowDistance === 'number') {
+    lightData.shadowDistance = world.lighting.shadowDistance;
+  }
   entities.push({
     id: nextId.value++,
     name: 'Directional Light',
     components: [
       { type: 'TransformComponent', data: { position: { x: 0, y: 10, z: 0 }, rotation: eulerDegreesToQuat(-30, -30, 0) } },
-      { type: 'LightComponent', data: { lightType: 'directional', intensity: 1.0, color: world?.lighting?.sun_color || [1, 1, 1] } },
+      { type: 'LightComponent', data: lightData },
     ],
   });
 

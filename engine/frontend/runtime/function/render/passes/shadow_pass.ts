@@ -5,14 +5,16 @@ import { ShaderLibrary } from '../shader_library.js';
 import { RenderScene, RenderMeshInstance, RenderCamera } from '../render_scene.js';
 import { RenderStats } from '../render_stats.js';
 
-const SHADOW_MAP_SIZE = 1024;
+const SHADOW_MAP_SIZE = 2048;
 const NUM_CASCADES = 4;
 const SHADOW_ARRAY_LAYERS = 4;
 const LIGHT_CAMERA_SIZE = 128; // 2 x mat4x4(64)
 // Hard cap so the farthest cascade doesn't re-rasterize the entire world
-// each frame. Beyond this, shadows simply fade out — barely noticeable
-// in motion and saves a lot of draw cost.
-const MAX_SHADOW_DISTANCE = 1000;
+// each frame. Beyond this, shadows simply fade out. 150 keeps texel
+// density high for typical game scenes (arenas, corridors, interiors)
+// — was 1000, which meant ~0.5 world units per texel on cascade 3 and
+// visibly fuzzy shadows everywhere.
+const MAX_SHADOW_DISTANCE = 150;
 const CASCADE_SPLIT_LAMBDA = 0.75;
 
 /**
@@ -165,7 +167,12 @@ export class ShadowPass {
         // Mat4 per frame (easy to do, and the leak is unbounded).
         this.matrixSlotMap.clear();
 
-        this.computeCascadeSplits(camera.near, camera.far);
+        // The default MAX_SHADOW_DISTANCE is tuned for typical arena-scale
+        // scenes (sharp shadows everywhere); open-world templates that need
+        // distant shadows can raise it via LightComponent.shadowDistance,
+        // trading texel density for coverage.
+        const maxShadowDist = scene.directionalLights[0].shadowDistance ?? MAX_SHADOW_DISTANCE;
+        this.computeCascadeSplits(camera.near, camera.far, maxShadowDist);
 
         for (let cascade = 0; cascade < NUM_CASCADES; cascade++) {
             const nearDist = cascade === 0 ? camera.near : this.cascadeSplits[cascade - 1];
@@ -321,8 +328,8 @@ export class ShadowPass {
         return this.modelBindGroupPool[idx];
     }
 
-    private computeCascadeSplits(near: number, far: number): void {
-        const shadowFar = Math.min(far, MAX_SHADOW_DISTANCE);
+    private computeCascadeSplits(near: number, far: number, maxShadowDist: number): void {
+        const shadowFar = Math.min(far, maxShadowDist);
         for (let i = 0; i < NUM_CASCADES; i++) {
             const p = (i + 1) / NUM_CASCADES;
             const log = near * Math.pow(shadowFar / near, p);

@@ -384,9 +384,12 @@ fn computeShadow(worldPos: vec3<f32>, normal: vec3<f32>) -> f32 {
     let shadow = sampleShadowCascade(worldPos, normal, cascade);
 
     // Smooth transition at cascade boundaries to avoid visible seams.
+    // 20% of each cascade's range blends into the next — was 10% but the
+    // resulting band was too narrow to hide the resolution jump, showing
+    // up as visible "lines" across the scene.
     let cascadeFar = camera.cascadeSplits[cascade];
     let cascadeNear = select(camera.cascadeSplits[cascade - 1], 0.0, cascade == 0);
-    let blendZone = (cascadeFar - cascadeNear) * 0.1;
+    let blendZone = (cascadeFar - cascadeNear) * 0.2;
     let distToEdge = cascadeFar - depth;
     if (distToEdge < blendZone && cascade < 3) {
         let nextShadow = sampleShadowCascade(worldPos, normal, cascade + 1);
