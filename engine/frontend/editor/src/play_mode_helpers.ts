@@ -146,6 +146,28 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
 
         raycast: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number) => {
             const player = (scene as any).getEntityByName?.('Player') ?? [...scene.entities.values()].find(e => e.name === 'Player');
+            // Physics raycast first — collider-based, doesn't care about
+            // gpuMesh load state, and respects kinematic proxy colliders
+            // that the mesh-AABB path never sees. Falls through to the
+            // mesh-AABB pass if physics has nothing to report, so visual-
+            // only entities still contribute (matches pre-physics-raycast
+            // behavior for games that rely on it).
+            const phys = engine.globalContext.physicsSystem;
+            if (phys && (phys as any).raycastWorld) {
+                const hit = (phys as any).raycastWorld(
+                    new Vec3(ox, oy, oz), new Vec3(dx, dy, dz), maxDist, player?.id,
+                );
+                if (hit) {
+                    const ent = scene.entities.get(hit.entityId);
+                    return {
+                        entityId: hit.entityId,
+                        entityName: ent?.name ?? '',
+                        distance: hit.distance,
+                        point: hit.point,
+                        normal: hit.normal,
+                    };
+                }
+            }
             return doRaycast(scene, ox, oy, oz, dx, dy, dz, maxDist, player?.id);
         },
 
@@ -155,6 +177,24 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
         screenRaycast: (screenX: number, screenY: number, maxDist: number = 200) => {
             const ray = computeScreenToWorldRay(screenX, screenY, scene, engine);
             if (!ray) return null;
+            const phys = engine.globalContext.physicsSystem;
+            if (phys && (phys as any).raycastWorld) {
+                const hit = (phys as any).raycastWorld(
+                    new Vec3(ray.origin.x, ray.origin.y, ray.origin.z),
+                    new Vec3(ray.direction.x, ray.direction.y, ray.direction.z),
+                    maxDist, undefined,
+                );
+                if (hit) {
+                    const ent = scene.entities.get(hit.entityId);
+                    return {
+                        entityId: hit.entityId,
+                        entityName: ent?.name ?? '',
+                        distance: hit.distance,
+                        point: hit.point,
+                        normal: hit.normal,
+                    };
+                }
+            }
             return doRaycast(scene, ray.origin.x, ray.origin.y, ray.origin.z, ray.direction.x, ray.direction.y, ray.direction.z, maxDist);
         },
 
