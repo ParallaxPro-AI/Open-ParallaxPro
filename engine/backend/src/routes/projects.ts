@@ -137,9 +137,16 @@ function resolveUniqueName(userId: number, preferred: string, excludeId?: string
     return `${preferred}-${i}`;
 }
 
+const MAX_PROMPT_CHARS = 2500;
+
 router.post('/', async (req, res) => {
     const id = randomUUID();
     const { templateId, prompt } = req.body || {};
+
+    if (typeof prompt === 'string' && prompt.length > MAX_PROMPT_CHARS) {
+        res.status(400).json({ error: `Prompt exceeds ${MAX_PROMPT_CHARS} characters.` });
+        return;
+    }
 
     const seed = templateId ? seedFromTemplate(templateId) : seedEmpty();
     if (seed.warnings.length > 0) {

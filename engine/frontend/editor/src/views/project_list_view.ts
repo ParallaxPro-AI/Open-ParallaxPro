@@ -662,6 +662,7 @@ git checkout da571fe   # last commit before template unification`;
 
         const textarea = document.createElement('textarea');
         textarea.placeholder = 'e.g. A 3D platformer with double-jump and coin collection...';
+        textarea.maxLength = 2000;
         textarea.style.width = '100%';
         textarea.style.height = '100px';
         textarea.style.resize = 'vertical';
