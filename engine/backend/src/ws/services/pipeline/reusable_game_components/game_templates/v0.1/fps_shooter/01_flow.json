@@ -16,7 +16,7 @@
   "ui_params": {
     "main_menu": {
       "gameTitle": "DEATHMATCH",
-      "gameSubtitle": "First to 3 kills wins"
+      "gameSubtitle": "First to 5 kills wins"
     },
     "pause_menu": {
       "pauseTitle": "PAUSED",

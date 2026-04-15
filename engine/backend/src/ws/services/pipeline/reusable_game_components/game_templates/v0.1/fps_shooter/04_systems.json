@@ -5,7 +5,7 @@
       "script": "mp/deathmatch_game.ts",
       "params": {
         "roundDurationSec": 300,
-        "killsToWin": 3
+        "killsToWin": 5
       }
     }
   }
