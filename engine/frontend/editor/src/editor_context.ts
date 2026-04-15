@@ -8,6 +8,7 @@ import { MeshData } from '../../runtime/resource/types/mesh_data.js';
 import { EditorState } from './state/editor_state.js';
 import { UndoRedoManager } from './history/undo_redo_manager.js';
 import { BackendClient } from './backend/backend_client.js';
+import { CloudSync } from './backend/cloud_sync.js';
 import { loadGLB, ParsedMesh } from './utils/glb_loader.js';
 import { loadScriptClass } from '../../runtime/function/scripting/script_loader.js';
 import { ScriptComponent } from '../../runtime/function/framework/components/script_component.js';
@@ -36,6 +37,7 @@ export class EditorContext extends EventBus {
     readonly state: EditorState = new EditorState();
     readonly undoManager: UndoRedoManager = new UndoRedoManager();
     readonly backend: BackendClient = new BackendClient();
+    readonly cloudSync: CloudSync = new CloudSync(this.backend);
     engine: ParallaxEngine | null = null;
     readonly multiplayer: MultiplayerManager = new MultiplayerManager();
     private preMultiplayerTickUpdate: ((dt?: number) => void) | null = null;
@@ -68,6 +70,41 @@ export class EditorContext extends EventBus {
             if (sceneKey) {
                 this.backend.sendWsMessage('set_active_scene', { sceneKey });
             }
+        });
+        // Surface cloud-sync conflicts regardless of which view is
+        // active — subscribe once at context level so the modal pops
+        // from the editor AND the project list the same way.
+        this.cloudSync.on('conflict', async (e: any) => {
+            const { showCloudConflictModal } = await import('./widgets/cloud_conflict_modal.js');
+            showCloudConflictModal(e.payload, {
+                keepMine: async () => {
+                    try { await this.cloudSync.forcePush(e.projectId); } catch (err) { console.error(err); }
+                },
+                keepRemote: async () => {
+                    try {
+                        await this.cloudSync.pull(e.projectId);
+                        if (this.state.projectId === e.projectId) window.location.reload();
+                    } catch (err) { console.error(err); }
+                },
+                keepBoth: async () => {
+                    // Fork local state into a new local-only project, then
+                    // pull the remote into the current one. We can't undo
+                    // is_cloud on the original without losing the mapping,
+                    // so duplicate it via the existing /duplicate endpoint
+                    // (which produces a draft copy) and then pull remote.
+                    try {
+                        const dup = await this.backend.duplicateProject(e.projectId);
+                        // Mark the duplicate as local-only (already is by
+                        // default — /duplicate doesn't carry is_cloud).
+                        await this.cloudSync.pull(e.projectId);
+                        if (this.state.projectId === e.projectId) window.location.reload();
+                        console.info('[cloudSync] forked local → ' + dup.id);
+                    } catch (err) { console.error(err); }
+                },
+            });
+        });
+        this.cloudSync.on('auth_required', () => {
+            console.warn('[cloudSync] auth required; user needs to sign in again');
         });
     }
 
@@ -844,6 +881,12 @@ export class EditorContext extends EventBus {
             await this.backend.saveProject(this.state.projectId, files);
             this.markClean();
             this.emit('projectSaved');
+            // Cloud projects also push to parallaxpro.ai. Debounced, so
+            // autosave bursts coalesce into one HTTP call.
+            const pd: any = this.state.projectData;
+            if (pd?.isCloud) {
+                this.cloudSync.schedulePush(this.state.projectId);
+            }
         } catch (e) {
             console.error('Failed to save project:', e);
         }
@@ -873,6 +916,47 @@ export class EditorContext extends EventBus {
         if (this.autosaveTimer) {
             clearInterval(this.autosaveTimer);
             this.autosaveTimer = 0;
+        }
+    }
+
+    /**
+     * Turn a local-only project into a cloud project: cloud-upserts the
+     * source to parallaxpro.ai with the shared UUID, then marks the
+     * local row is_cloud=1 so subsequent saves auto-push. Shared by the
+     * editor's promote banner and the Settings modal's "Promote to
+     * Cloud" button. No-ops cleanly when requirements aren't met.
+     */
+    async promoteCurrentProjectToCloud(): Promise<{ ok: true } | { ok: false; reason: string }> {
+        const projectId = this.state.projectId;
+        if (!projectId) return { ok: false, reason: 'No project open.' };
+        if (!this.backend.isSelfHosted) return { ok: false, reason: 'Already on parallaxpro.ai.' };
+        const userId = this.cloudSync.currentUserId();
+        if (!userId) return { ok: false, reason: 'Sign in to parallaxpro.ai first.' };
+        const engineGitHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
+        try {
+            const fresh = await this.backend.loadProject(projectId);
+            const res = await this.backend.cloudUpsertProd({
+                id: projectId,
+                name: fresh.name,
+                projectData: { projectConfig: fresh.projectConfig ?? { name: fresh.name }, files: fresh.files ?? {} },
+                expectedUpdatedAt: null,
+                engineGitHash,
+                force: true, // first cloud push — no prior state to conflict with
+            });
+            const abs = res.thumbnail
+                ? (res.thumbnail.startsWith('http') ? res.thumbnail : `https://parallaxpro.ai${res.thumbnail}`)
+                : null;
+            await this.backend.markCloudLocal(projectId, {
+                cloudUserId: userId,
+                cloudUpdatedAt: res.updatedAt,
+                editedEngineHash: res.editedEngineHash,
+                thumbnail: abs,
+            });
+            if (this.state.projectData) (this.state.projectData as any).isCloud = true;
+            this.emit('cloudPromoted');
+            return { ok: true };
+        } catch (e: any) {
+            return { ok: false, reason: e?.message ?? 'Failed to promote to cloud.' };
         }
     }
 

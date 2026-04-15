@@ -25,11 +25,25 @@ const __dirname_proj = path.dirname(fileURLToPath(import.meta.url));
 const FEEDBACKS_DIR = path.resolve(__dirname_proj, '../../feedbacks');
 if (!fs.existsSync(FEEDBACKS_DIR)) fs.mkdirSync(FEEDBACKS_DIR, { recursive: true });
 
+// Project card thumbnails. Shared with the hosted publish plugin's
+// THUMBNAIL_DIR — same on-disk dir — so uploads from the local OSS
+// backend and uploads from the hosted publish flow co-exist cleanly.
+export const THUMBNAIL_DIR = path.resolve(__dirname_proj, '../../uploads/thumbnails');
+if (!fs.existsSync(THUMBNAIL_DIR)) fs.mkdirSync(THUMBNAIL_DIR, { recursive: true });
+
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024, files: 5 },
     fileFilter: (_req, file, cb) => {
         cb(null, file.mimetype.startsWith('image/'));
+    },
+});
+
+const thumbnailUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        cb(null, ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.mimetype));
     },
 });
 
@@ -41,6 +55,7 @@ router.use(requireAuth);
 // build of the engine to open. We only sniff the first 500 chars to keep the list
 // query cheap.
 const stmtList = db.prepare(`SELECT id, name, thumbnail, status, created_at, updated_at,
+    is_cloud, cloud_user_id, cloud_pulled_updated_at, edited_engine_hash,
     instr(substr(project_data, 1, 500), '"files"') AS has_files
     FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
 const stmtGet = db.prepare('SELECT * FROM projects WHERE id = ?');
@@ -63,6 +78,10 @@ router.get('/', (req, res) => {
         createdAt: r.created_at,
         updatedAt: r.updated_at,
         legacy: !r.has_files,
+        isCloud: !!r.is_cloud,
+        cloudUserId: r.cloud_user_id,
+        cloudPulledUpdatedAt: r.cloud_pulled_updated_at,
+        editedEngineHash: r.edited_engine_hash,
     }));
     res.json({ projects });
 });
@@ -242,6 +261,10 @@ router.get('/:id', (req, res) => {
         sourceMap: built.sourceMap,
         multiplayerConfig: built.multiplayerConfig,
         editor: extractEditorFiles(data.files),
+        isCloud: !!row.is_cloud,
+        cloudUserId: row.cloud_user_id,
+        cloudPulledUpdatedAt: row.cloud_pulled_updated_at,
+        editedEngineHash: row.edited_engine_hash,
     });
 });
 
@@ -299,6 +322,140 @@ router.post('/:id/duplicate', (req, res) => {
 });
 
 export { stmtGet, stmtUpdateData };
+
+// Replace the entire project_data blob. Used by self-hosted Checkout
+// flows to revert local source to a previously-published version's
+// frozen tree (fetched from parallaxpro.ai). Intentionally distinct
+// from PUT /:id/files — which merges per-file via applyIncomingFile
+// and would leave any files present locally but absent in the target
+// version still hanging around.
+router.post('/:id/replace-project-data', (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+
+    const { projectConfig, files } = req.body;
+    if (!files || typeof files !== 'object') {
+        res.status(400).json({ error: 'files required' });
+        return;
+    }
+    const next = { projectConfig: projectConfig || { name: row.name }, files };
+    stmtUpdateData.run(JSON.stringify(next), req.params.id);
+    res.json({ success: true });
+});
+
+// ── Cloud sync (local side) ──
+// cloud-pull upserts a project row with data that came from prod,
+// flips is_cloud=1 and stamps the sync-state columns so the next
+// save can issue a matching expectedUpdatedAt on push.
+router.post('/:id/cloud-pull', (req, res) => {
+    const { name, projectConfig, files, thumbnail, cloudUpdatedAt, cloudUserId, editedEngineHash } = req.body;
+    if (!name || !files || typeof files !== 'object' || !cloudUpdatedAt || typeof cloudUserId !== 'number') {
+        res.status(400).json({ error: 'name, files, cloudUpdatedAt, and cloudUserId are required.' });
+        return;
+    }
+    const data = JSON.stringify({ projectConfig: projectConfig || { name }, files });
+    const existing = stmtGet.get(req.params.id) as any;
+    // Set updated_at to the remote's timestamp so a just-pulled row
+    // compares as 'synced' (localT === cloudPulledUpdatedAt) instead of
+    // 'local-newer' — which is what would happen if we stamped "now"
+    // (the pull would always look like an unsynced edit).
+    if (existing) {
+        if (existing.user_id !== req.user!.id) {
+            res.status(403).json({ error: 'Project is owned by a different local user.' });
+            return;
+        }
+        db.prepare(`
+            UPDATE projects
+            SET name = ?, project_data = ?, thumbnail = ?, is_cloud = 1,
+                cloud_user_id = ?, cloud_pulled_updated_at = ?, edited_engine_hash = ?,
+                updated_at = ?
+            WHERE id = ?
+        `).run(name, data, thumbnail ?? null, cloudUserId, cloudUpdatedAt, editedEngineHash ?? null, cloudUpdatedAt, req.params.id);
+    } else {
+        db.prepare(`
+            INSERT INTO projects (
+                id, user_id, name, project_data, thumbnail,
+                is_cloud, cloud_user_id, cloud_pulled_updated_at, edited_engine_hash,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+        `).run(req.params.id, req.user!.id, name, data, thumbnail ?? null, cloudUserId, cloudUpdatedAt, editedEngineHash ?? null, cloudUpdatedAt);
+    }
+    res.json({ success: true });
+});
+
+// mark-cloud is the lighter-weight pair to cloud-pull — used by the
+// push path to record "this project is now cloud, last known prod
+// updated_at is X" without rewriting project_data. Also used by the
+// Promote to Cloud prompt after a one-off cloud-upsert.
+router.post('/:id/mark-cloud', (req, res) => {
+    const { cloudUserId, cloudUpdatedAt, editedEngineHash, thumbnail } = req.body;
+    if (typeof cloudUserId !== 'number' || !cloudUpdatedAt) {
+        res.status(400).json({ error: 'cloudUserId and cloudUpdatedAt are required.' });
+        return;
+    }
+    const existing = stmtGet.get(req.params.id) as any;
+    if (!existing) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (existing.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+    db.prepare(`
+        UPDATE projects
+        SET is_cloud = 1, cloud_user_id = ?, cloud_pulled_updated_at = ?,
+            edited_engine_hash = COALESCE(?, edited_engine_hash),
+            thumbnail = COALESCE(?, thumbnail)
+        WHERE id = ?
+    `).run(cloudUserId, cloudUpdatedAt, editedEngineHash ?? null, thumbnail ?? null, req.params.id);
+    res.json({ success: true });
+});
+
+// Upload a project thumbnail. Writes to uploads/thumbnails/<id>.<ext>
+// and stores the relative URL on the row. Hosted deployments also run
+// the publish plugin's /thumbnail route against the same dir — they
+// co-exist because URLs end up the same. For cloud projects on self-
+// hosted, the client is responsible for mirroring the upload to prod
+// via cloud-thumbnail so other machines see the new image too.
+router.post('/:id/thumbnail', thumbnailUpload.single('thumbnail'), (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+    if (!req.file) { res.status(400).json({ error: 'No valid image file provided.' }); return; }
+
+    const ext = path.extname(req.file.originalname).toLowerCase() || '.png';
+    const filename = `${req.params.id}${ext}`;
+    try {
+        fs.writeFileSync(path.join(THUMBNAIL_DIR, filename), req.file.buffer);
+    } catch (e: any) {
+        res.status(500).json({ error: `Failed to persist thumbnail: ${e.message}` });
+        return;
+    }
+    const thumbnailUrl = `/uploads/thumbnails/${filename}`;
+    db.prepare(`UPDATE projects SET thumbnail = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`)
+        .run(thumbnailUrl, req.params.id, req.user!.id);
+    res.json({ success: true, thumbnail: thumbnailUrl });
+});
+
+router.delete('/:id/thumbnail', (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+
+    if (row.thumbnail) {
+        const filePath = path.join(THUMBNAIL_DIR, path.basename(row.thumbnail));
+        try { fs.unlinkSync(filePath); } catch {}
+    }
+    db.prepare(`UPDATE projects SET thumbnail = NULL, updated_at = datetime('now') WHERE id = ? AND user_id = ?`)
+        .run(req.params.id, req.user!.id);
+    res.json({ success: true });
+});
+
+// Explicit unmark (used by "Delete, keep cloud copy" choice).
+router.post('/:id/unmark-cloud', (req, res) => {
+    const existing = stmtGet.get(req.params.id) as any;
+    if (!existing) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (existing.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+    db.prepare(`UPDATE projects SET is_cloud = 0, cloud_user_id = NULL, cloud_pulled_updated_at = NULL WHERE id = ?`)
+        .run(req.params.id);
+    res.json({ success: true });
+});
 // Submit feedback with optional image uploads
 router.post('/:id/feedback', upload.array('images', 5), (req, res) => {
     const message = req.body.message;

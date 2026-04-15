@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParallaxPro — Signing you in</title>
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; background: #111; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        body { display: flex; align-items: center; justify-content: center; }
+        .card { text-align: center; padding: 32px; max-width: 360px; }
+        .spinner { width: 32px; height: 32px; border: 3px solid rgba(134,72,230,0.25); border-top-color: #8648e6; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        h1 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+        p { font-size: 13px; color: #999; margin: 0; line-height: 1.5; }
+        .error { color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="spinner" id="spinner"></div>
+        <h1 id="title">Signing you in…</h1>
+        <p id="message">You can close this window when it doesn't close on its own.</p>
+    </div>
+    <script>
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+            const state = params.get('state');
+            const error = params.get('error');
+            const message = { type: 'parallaxpro-auth', token: token || null, state: state || null, error: error || null };
+
+            const fail = (label, detail) => {
+                const spinner = document.getElementById('spinner');
+                if (spinner) spinner.style.display = 'none';
+                const t = document.getElementById('title');
+                const m = document.getElementById('message');
+                if (t) { t.textContent = label; t.classList.add('error'); }
+                if (m) m.textContent = detail;
+            };
+
+            try {
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage(message, window.location.origin);
+                } else {
+                    fail('Opener not found', 'Open the editor and try publishing again.');
+                    return;
+                }
+            } catch (e) {
+                fail('Unable to reach editor window', String(e && e.message || e));
+                return;
+            }
+
+            if (error) {
+                fail('Sign-in cancelled', error);
+                return;
+            }
+
+            setTimeout(() => { try { window.close(); } catch (_) {} }, 400);
+        })();
+    </script>
+</body>
+</html>

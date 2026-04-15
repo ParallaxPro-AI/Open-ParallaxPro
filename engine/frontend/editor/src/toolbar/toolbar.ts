@@ -1,6 +1,7 @@
 import { EditorContext } from '../editor_context.js';
 import { showModal, showPromptModal, showConfirmModal } from '../widgets/modal.js';
 import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Settings, MousePointer2, Crosshair, Globe, Box } from '../widgets/icons.js';
+import { PublishFlow } from '../widgets/publish_flow.js';
 
 interface CollabUser {
     clientId: string;
@@ -21,6 +22,7 @@ export class Toolbar {
     private ctx: EditorContext;
 
     private projectNameEl!: HTMLElement;
+    private syncStatusEl!: HTMLElement;
     private saveBtn!: HTMLElement;
     private undoBtn!: HTMLElement;
     private redoBtn!: HTMLElement;
@@ -92,6 +94,13 @@ export class Toolbar {
         this.projectNameEl.style.cursor = 'pointer';
         this.projectNameEl.addEventListener('click', () => this.startRenameProject());
         this.el.appendChild(this.projectNameEl);
+
+        // Cloud sync status pill — only visible when the open project
+        // is a cloud project. Drives off cloudSync events.
+        this.syncStatusEl = document.createElement('span');
+        this.syncStatusEl.style.cssText = 'display:none;margin-left:8px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;';
+        this.el.appendChild(this.syncStatusEl);
+        this.wireSyncStatus();
 
         this.addSeparator();
 
@@ -543,6 +552,11 @@ export class Toolbar {
         if (this.ctx.state.projectId) {
             try {
                 await this.ctx.backend.renameProject(this.ctx.state.projectId, newName);
+                const pd: any = this.ctx.state.projectData;
+                if (pd?.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
+                    try { await this.ctx.backend.renameProjectProd(this.ctx.state.projectId, newName); }
+                    catch (e) { console.warn('Cloud rename push failed:', e); }
+                }
                 this.showToast('Project renamed', 'success');
             } catch (e) {
                 console.error('Failed to rename project:', e);
@@ -925,6 +939,22 @@ export class Toolbar {
         gfxRow.appendChild(gfxHint);
         body.appendChild(gfxRow);
 
+        // Cloud sync section — only shown on self-hosted instances.
+        // Mirrors the editor's promote toast but survives the user's
+        // previous dismissal. Two states:
+        //   - Not cloud yet → "Promote to Cloud" button.
+        //   - Already cloud → static "Synced to parallaxpro.ai" line.
+        if (this.ctx.backend.isSelfHosted) {
+            const cloudRow = document.createElement('div');
+            cloudRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--bg-secondary);border-radius:6px;';
+            const cloudLabel = document.createElement('div');
+            cloudLabel.textContent = 'Cloud Sync';
+            cloudLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
+            cloudRow.appendChild(cloudLabel);
+            this.renderCloudSettingsSection(cloudRow);
+            body.appendChild(cloudRow);
+        }
+
         const { close } = showModal({
             title: 'Settings',
             body,
@@ -948,6 +978,92 @@ export class Toolbar {
         });
     }
 
+    /**
+     * Render the Cloud Sync section of the Settings modal. Extracted
+     * so the Promote button can re-render itself in place after
+     * successfully syncing (no modal close/reopen needed).
+     */
+    private renderCloudSettingsSection(container: HTMLElement): void {
+        // Remove the section's body (keep the label — first child).
+        while (container.children.length > 1) container.removeChild(container.lastChild!);
+
+        const pd: any = this.ctx.state.projectData;
+        const isCloud = !!pd?.isCloud;
+        const signedIn = !!this.ctx.cloudSync.currentUserId();
+
+        if (!signedIn) {
+            const hint = document.createElement('div');
+            hint.style.cssText = 'font-size:12px;color:var(--text-secondary);line-height:1.4;';
+            hint.textContent = isCloud
+                ? 'This is a cloud project but you\'re signed out — saves aren\'t reaching parallaxpro.ai. Sign in to resume syncing.'
+                : 'Sign in to parallaxpro.ai to enable cloud sync for this project.';
+            container.appendChild(hint);
+
+            const btn = document.createElement('button');
+            btn.textContent = 'Sign in';
+            btn.style.cssText = 'align-self:flex-start;padding:6px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.textContent = 'Signing in…';
+                try {
+                    const { ensureLoggedIn } = await import('../backend/auth_session.js');
+                    await ensureLoggedIn();
+                    // Re-render this section in place so it flips from
+                    // "Sign in" to either "Promote to Cloud" or the
+                    // green synced state — whichever applies now.
+                    this.renderCloudSettingsSection(container);
+                    // If this is already a cloud project, push whatever
+                    // was edited offline right away.
+                    if (isCloud && this.ctx.state.projectId) {
+                        this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+                    }
+                    this.showToast('Signed in to parallaxpro.ai.', 'success');
+                } catch (e: any) {
+                    btn.disabled = false;
+                    btn.textContent = 'Sign in';
+                    console.warn('[auth] sign-in cancelled:', e?.message ?? e);
+                }
+            });
+            container.appendChild(btn);
+            return;
+        }
+
+        if (isCloud) {
+            const status = document.createElement('div');
+            status.style.cssText = 'font-size:12.5px;color:#7bca9b;display:flex;align-items:center;gap:6px;';
+            status.textContent = '✓ This project syncs to parallaxpro.ai on every save.';
+            container.appendChild(status);
+            return;
+        }
+
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:12px;color:var(--text-secondary);line-height:1.4;';
+        hint.textContent = 'Sync this project to parallaxpro.ai so you can pick up where you left off from any computer.';
+        container.appendChild(hint);
+
+        const btn = document.createElement('button');
+        btn.textContent = 'Promote to Cloud';
+        btn.style.cssText = 'align-self:flex-start;padding:6px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = 'Syncing…';
+            const result = await this.ctx.promoteCurrentProjectToCloud();
+            if (result.ok) {
+                // Also clear any per-project "don't show toast" flag so a
+                // future unsynced project still gets offered if the user
+                // dismissed this one in the past.
+                try { localStorage.removeItem(`pp_promote_dismissed:${this.ctx.state.projectId}`); } catch {}
+                this.renderCloudSettingsSection(container);
+                this.showToast('Project synced to parallaxpro.ai.', 'success');
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Promote to Cloud';
+                alert(result.reason);
+            }
+        });
+        container.appendChild(btn);
+    }
+
     private getUsername(): string {
         try {
             const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token');
@@ -965,401 +1081,90 @@ export class Toolbar {
     private async showPublishModal(): Promise<void> {
         const projectId = this.ctx.state.projectId;
         if (!projectId) return;
-
-        if (!this.isHosted()) {
-            const body = document.createElement('div');
-            body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
-            const msg = document.createElement('div');
-            msg.style.cssText = 'font-size:13px;line-height:1.6;color:var(--text-primary);';
-            msg.innerHTML = `Publishing is currently only available on the hosted version at <a href="https://parallaxpro.ai/editor" target="_blank" style="color:var(--accent);">parallaxpro.ai</a>.<br><br>We're working on a way to publish directly from self-hosted instances. Stay tuned!`;
-            body.appendChild(msg);
-            const { close } = showModal({
-                title: 'Publish',
-                body,
-                width: '400px',
-                buttons: [{ label: 'OK', primary: true, action: () => close() }],
-            });
-            return;
-        }
-
-        if (this.ctx.state.projectDirty) {
-            await this.ctx.saveProject();
-        }
-
-        let pubData: any;
-        try {
-            pubData = await this.ctx.backend.listVersions(projectId);
-        } catch {
-            pubData = { published: false, versions: [] };
-        }
-
-        if (pubData.published) {
-            this.showPublishManageModal(pubData);
-        } else {
-            this.showFirstPublishModal();
-        }
-    }
-
-    private showFirstPublishModal(): void {
-        const projectName = this.ctx.state.projectData?.name ?? 'Untitled Project';
-        const autoSlug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
-        const owner = this.getUsername();
-        const urlPrefix = owner ? `${window.location.host}/games/${owner}/` : `${window.location.host}/games/.../`;
-
-        const body = document.createElement('div');
-        body.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
-
-        body.appendChild(this.makeField('Game Name', () => {
-            const inp = document.createElement('input');
-            inp.type = 'text'; inp.value = projectName; inp.placeholder = 'My Awesome Game';
-            inp.style.cssText = 'width:100%;height:28px;';
-            return inp;
-        }));
-        const nameInput = body.querySelector('input')!;
-
-        const slugRow = this.makeField('URL Slug', () => {
-            const inp = document.createElement('input');
-            inp.type = 'text'; inp.value = autoSlug; inp.placeholder = 'my-awesome-game';
-            inp.style.cssText = 'width:100%;height:28px;';
-            return inp;
-        });
-        const slugHint = document.createElement('span');
-        slugHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
-        slugHint.textContent = `${urlPrefix}${autoSlug || '...'}`;
-        slugRow.appendChild(slugHint);
-        body.appendChild(slugRow);
-        const slugInput = slugRow.querySelector('input')!;
-
-        slugInput.addEventListener('input', () => { slugHint.textContent = `${urlPrefix}${slugInput.value || '...'}`; });
-        nameInput.addEventListener('input', () => {
-            const s = nameInput.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
-            slugInput.value = s;
-            slugHint.textContent = `${urlPrefix}${s || '...'}`;
-        });
-
-        body.appendChild(this.makeField('Version', () => {
-            const inp = document.createElement('input');
-            inp.type = 'text'; inp.value = '1.0.0'; inp.placeholder = '1.0.0';
-            inp.style.cssText = 'width:100%;height:28px;';
-            return inp;
-        }));
-        const versionInput = body.querySelectorAll('input')[2] as HTMLInputElement;
-
-        body.appendChild(this.makeField('Changelog (optional)', () => {
-            const ta = document.createElement('textarea');
-            ta.placeholder = 'What\'s in this version...';
-            ta.style.cssText = 'width:100%;height:60px;resize:vertical;font-family:inherit;font-size:13px;';
-            return ta;
-        }));
-        const changelogInput = body.querySelector('textarea')!;
-
-        const visSelect = document.createElement('select');
-        visSelect.style.cssText = 'width:100%;height:28px;';
-        visSelect.innerHTML = '<option value="public">Public</option><option value="unlisted">Unlisted</option>';
-        body.appendChild(this.makeField('Visibility', () => visSelect));
-
-        body.appendChild(this.makeThumbnailField());
-
-        const errorMsg = document.createElement('div');
-        errorMsg.style.cssText = 'color:#e74c3c;font-size:12px;display:none;';
-        body.appendChild(errorMsg);
-
-        const { close } = showModal({
-            title: 'Publish Game',
-            body, width: '440px', closeOnBackdrop: false,
-            buttons: [
-                { label: 'Cancel', action: () => close() },
-                { label: 'Publish', primary: true, action: async () => {
-                    const gameName = nameInput.value.trim();
-                    const gameSlug = slugInput.value.trim();
-                    const version = versionInput.value.trim();
-                    if (!gameName) { errorMsg.textContent = 'Game name is required.'; errorMsg.style.display = 'block'; return; }
-                    if (!gameSlug || !/^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/.test(gameSlug)) {
-                        errorMsg.textContent = 'Slug must be 3-64 chars, lowercase alphanumeric and hyphens.'; errorMsg.style.display = 'block'; return;
-                    }
-                    if (!version || !this.isValidSemver(version)) {
-                        errorMsg.textContent = 'Enter a valid version (e.g., 1.0.0).'; errorMsg.style.display = 'block'; return;
-                    }
-                    try {
-                        const result = await this.ctx.backend.publishProject(this.ctx.state.projectId!, gameName, gameSlug, visSelect.value, version, changelogInput.value.trim());
-                        close();
-                        this.showPublishSuccessModal(result);
-                    } catch (e: any) {
-                        errorMsg.textContent = e.message?.replace(/^API error \d+: /, '') || 'Publish failed.';
-                        try { errorMsg.textContent = JSON.parse(e.message?.replace(/^API error \d+: /, '') || '{}').error || errorMsg.textContent; } catch {}
-                        errorMsg.style.display = 'block';
-                    }
-                }},
-            ],
+        await new PublishFlow(this.ctx).open(projectId, {
+            id: projectId,
+            name: this.ctx.state.projectData?.name,
+            thumbnail: this.ctx.state.projectData?.thumbnail as string | null | undefined,
         });
     }
 
-    private showPublishManageModal(pubData: any): void {
-        const projectId = this.ctx.state.projectId!;
-        const body = document.createElement('div');
-        body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
 
-        // Info header
-        const infoSection = document.createElement('div');
-        infoSection.style.cssText = 'padding:12px;background:var(--bg-secondary);border-radius:6px;';
-        const gameUrl = `${window.location.origin}/games/${pubData.owner}/${pubData.slug}`;
-        infoSection.innerHTML = `<div style="font-weight:600;font-size:14px;">${pubData.name}</div>
-            <div style="font-size:11px;color:var(--text-disabled);margin-top:4px;">Live: v${pubData.liveVersion} &middot; ${pubData.versions.length} version(s) &middot; ${pubData.visibility}</div>
-            <a href="${gameUrl}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;">${gameUrl}</a>`;
-        body.appendChild(infoSection);
-
-        // Version list
-        const list = document.createElement('div');
-        list.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;';
-
-        const buildVersionList = () => {
-            list.innerHTML = '';
-            for (const v of pubData.versions) {
-                const row = document.createElement('div');
-                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-secondary);border-radius:4px;';
-
-                const label = document.createElement('span');
-                label.style.cssText = 'font-weight:600;min-width:60px;';
-                label.textContent = `v${v.version}`;
-                row.appendChild(label);
-
-                if (v.isLive) {
-                    const badge = document.createElement('span');
-                    badge.textContent = 'LIVE';
-                    badge.style.cssText = 'background:#27ae60;color:white;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;';
-                    row.appendChild(badge);
-                }
-
-                if (v.changelog) {
-                    const cl = document.createElement('span');
-                    cl.textContent = v.changelog.slice(0, 40) + (v.changelog.length > 40 ? '...' : '');
-                    cl.style.cssText = 'font-size:11px;color:var(--text-disabled);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-                    row.appendChild(cl);
-                } else {
-                    row.appendChild(Object.assign(document.createElement('span'), { style: 'flex:1;' } as any));
-                }
-
-                const actions = document.createElement('div');
-                actions.style.cssText = 'display:flex;gap:4px;margin-left:auto;';
-
-                if (!v.isLive) {
-                    const setLiveBtn = document.createElement('button');
-                    setLiveBtn.textContent = 'Set Live';
-                    setLiveBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--accent);color:white;border:none;border-radius:3px;cursor:pointer;';
-                    setLiveBtn.addEventListener('click', async () => {
-                        try {
-                            await this.ctx.backend.setLiveVersion(projectId, v.id);
-                            for (const ver of pubData.versions) ver.isLive = ver.id === v.id;
-                            pubData.liveVersion = v.version;
-                            buildVersionList();
-                        } catch (e: any) {
-                            alert(e.message || 'Failed to set live version.');
-                        }
-                    });
-                    actions.appendChild(setLiveBtn);
-                }
-
-                const revertBtn = document.createElement('button');
-                revertBtn.textContent = 'Checkout';
-                revertBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);border-radius:3px;cursor:pointer;';
-                revertBtn.addEventListener('click', async () => {
-                    if (!confirm(`Revert project to v${v.version}? Your current editor state will be replaced.`)) return;
-                    try {
-                        await this.ctx.backend.revertToVersion(projectId, v.id);
-                        close();
-                        window.location.reload();
-                    } catch (e: any) {
-                        alert(e.message || 'Failed to revert.');
-                    }
-                });
-                actions.appendChild(revertBtn);
-
-                row.appendChild(actions);
-                list.appendChild(row);
-            }
+    /** Drive the little cloud-sync status pill off cloudSync events. Pill
+     *  is visible only when the current project is a cloud project on
+     *  self-hosted — and flips between synced / syncing / unsynced /
+     *  signed-out / error states. */
+    private wireSyncStatus(): void {
+        type S = 'synced' | 'syncing' | 'unsynced' | 'signed-out' | 'error';
+        const paint = (state: S, title: string) => {
+            const spec = ({
+                'synced':      { text: '✓ Synced',       bg: '#1f6f43', fg: '#cdeedc' },
+                'syncing':     { text: '↻ Syncing…',    bg: '#2a4d9a', fg: '#c7daff' },
+                'unsynced':    { text: '↑ Unsynced',     bg: '#9a6300', fg: '#ffe6b2' },
+                'signed-out':  { text: 'Sign in to sync', bg: '#4a3f8a', fg: '#d7ccff' },
+                'error':       { text: '⚠ Sync failed',  bg: '#8a1b1b', fg: '#ffd3d3' },
+            } as Record<S, { text: string; bg: string; fg: string }>)[state];
+            this.syncStatusEl.style.display = 'inline-flex';
+            this.syncStatusEl.textContent = spec.text;
+            this.syncStatusEl.style.background = spec.bg;
+            this.syncStatusEl.style.color = spec.fg;
+            this.syncStatusEl.title = title;
+            this.syncStatusEl.style.cursor = (state === 'signed-out' || state === 'error' || state === 'unsynced') ? 'pointer' : 'default';
         };
-        buildVersionList();
-        body.appendChild(list);
 
-        // New version section
-        const newVerSection = document.createElement('div');
-        newVerSection.style.cssText = 'padding:12px;background:var(--bg-secondary);border-radius:6px;display:flex;flex-direction:column;gap:8px;';
-        const newVerTitle = document.createElement('div');
-        newVerTitle.textContent = 'Publish New Version';
-        newVerTitle.style.cssText = 'font-weight:600;font-size:12px;color:var(--text-secondary);';
-        newVerSection.appendChild(newVerTitle);
-
-        const newVerRow = document.createElement('div');
-        newVerRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
-        const vInput = document.createElement('input');
-        vInput.type = 'text';
-        // Auto-suggest next version
-        const latestVer = pubData.versions[0]?.version || '1.0.0';
-        const parts = latestVer.split('.').map(Number);
-        parts[parts.length - 1]++;
-        vInput.value = parts.join('.');
-        vInput.placeholder = '1.0.1';
-        vInput.style.cssText = 'width:80px;height:28px;padding:0 8px;font-size:13px;';
-        newVerRow.appendChild(vInput);
-
-        const clInput = document.createElement('input');
-        clInput.type = 'text';
-        clInput.placeholder = 'Changelog (optional)';
-        clInput.style.cssText = 'flex:1;height:28px;padding:0 8px;font-size:13px;';
-        newVerRow.appendChild(clInput);
-
-        const pubBtn = document.createElement('button');
-        pubBtn.textContent = 'Publish';
-        pubBtn.style.cssText = 'padding:4px 14px;font-size:12px;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;';
-        newVerRow.appendChild(pubBtn);
-        newVerSection.appendChild(newVerRow);
-
-        const newVerError = document.createElement('div');
-        newVerError.style.cssText = 'color:#e74c3c;font-size:11px;display:none;';
-        newVerSection.appendChild(newVerError);
-
-        pubBtn.addEventListener('click', async () => {
-            const ver = vInput.value.trim();
-            if (!ver || !this.isValidSemver(ver)) { newVerError.textContent = 'Enter a valid version.'; newVerError.style.display = 'block'; return; }
-            try {
-                const result = await this.ctx.backend.publishProject(projectId, pubData.name, pubData.slug, pubData.visibility, ver, clInput.value.trim());
-                pubData.versions.unshift({ id: result.gameId, version: ver, changelog: clInput.value.trim(), isLive: true });
-                for (const v2 of pubData.versions) { if (v2 !== pubData.versions[0]) v2.isLive = false; }
-                pubData.liveVersion = ver;
-                buildVersionList();
-                vInput.value = '';
-                clInput.value = '';
-                newVerError.style.display = 'none';
-                this.showToast(`v${ver} published!`, 'success');
-            } catch (e: any) {
-                newVerError.textContent = e.message?.replace(/^API error \d+: /, '') || 'Publish failed.';
-                try { newVerError.textContent = JSON.parse(e.message?.replace(/^API error \d+: /, '') || '{}').error || newVerError.textContent; } catch {}
-                newVerError.style.display = 'block';
+        this.syncStatusEl.addEventListener('click', async () => {
+            const pd: any = this.ctx.state.projectData;
+            if (!pd?.isCloud || !this.ctx.backend.isSelfHosted) return;
+            if (!this.ctx.cloudSync.currentUserId()) {
+                const { ensureLoggedIn } = await import('../backend/auth_session.js');
+                try {
+                    await ensureLoggedIn();
+                    if (this.ctx.state.projectId) this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+                } catch {}
+            } else if (this.ctx.state.projectId) {
+                // Manual retry — force a push now rather than waiting for
+                // the next debounce.
+                this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
             }
         });
-        body.appendChild(newVerSection);
+        const refresh = () => {
+            const pd: any = this.ctx.state.projectData;
+            if (!pd?.isCloud || !this.ctx.backend.isSelfHosted) {
+                this.syncStatusEl.style.display = 'none';
+                return;
+            }
+            if (!this.ctx.cloudSync.currentUserId()) {
+                paint('signed-out', 'Signed out — saves stay local until you sign in.');
+                return;
+            }
+            const localT = Date.parse(pd.updatedAt || 0);
+            const lastSync = Date.parse(pd.cloudPulledUpdatedAt || 0);
+            if (localT > lastSync) paint('unsynced', 'Local edits not yet on parallaxpro.ai.');
+            else paint('synced', `Last synced ${pd.cloudPulledUpdatedAt || 'unknown'}`);
+        };
+        refresh();
 
-        // Unpublish button
-        const dangerSection = document.createElement('div');
-        dangerSection.style.cssText = 'display:flex;justify-content:flex-end;';
-        const unpubBtn = document.createElement('button');
-        unpubBtn.textContent = 'Unpublish Game';
-        unpubBtn.style.cssText = 'padding:4px 12px;font-size:11px;background:transparent;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;cursor:pointer;';
-        unpubBtn.addEventListener('click', async () => {
-            if (!confirm('Unpublish this game? It will no longer be accessible to players.')) return;
-            try {
-                await this.ctx.backend.unpublishProject(projectId);
-                close();
-                this.showToast('Game unpublished.', 'info');
-            } catch (e: any) {
-                alert(e.message || 'Failed to unpublish.');
+        this.ctx.on('projectLoaded', refresh);
+        this.ctx.on('projectSaved', refresh);
+        this.ctx.on('cloudPromoted', refresh);
+        this.ctx.cloudSync.on('pushing', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) paint('syncing', 'Pushing to parallaxpro.ai…');
+        });
+        this.ctx.cloudSync.on('pushed', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) {
+                const pd: any = this.ctx.state.projectData;
+                if (pd) pd.cloudPulledUpdatedAt = e.updatedAt ?? pd.cloudPulledUpdatedAt;
+                paint('synced', `Synced at ${e.updatedAt || 'now'}`);
             }
         });
-        dangerSection.appendChild(unpubBtn);
-        body.appendChild(dangerSection);
-
-        const { close } = showModal({
-            title: 'Manage Published Game',
-            body, width: '520px',
-            buttons: [{ label: 'Close', action: () => close() }],
+        this.ctx.cloudSync.on('pulled', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) paint('synced', 'Pulled latest from parallaxpro.ai');
         });
-    }
-
-    private showPublishSuccessModal(result: any): void {
-        const url = result.url || `${window.location.origin}/games/${result.owner}/${result.slug}`;
-        const successBody = document.createElement('div');
-        successBody.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
-        const msg = document.createElement('div');
-        msg.textContent = `Version ${result.version} is now live!`;
-        msg.style.cssText = 'font-size:14px;color:var(--text-primary);';
-        successBody.appendChild(msg);
-        const link = document.createElement('a');
-        link.href = url; link.target = '_blank'; link.textContent = url;
-        link.style.cssText = 'font-size:13px;color:var(--accent);word-break:break-all;';
-        successBody.appendChild(link);
-        const { close } = showModal({
-            title: 'Published!', body: successBody, width: '420px',
-            buttons: [{ label: 'Done', primary: true, action: () => close() }],
+        this.ctx.cloudSync.on('error', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) paint('error', e?.payload?.message || 'Sync failed. Will retry on next save.');
         });
-    }
-
-    private makeField(label: string, createInput: () => HTMLElement): HTMLElement {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
-        const lbl = document.createElement('label');
-        lbl.textContent = label;
-        lbl.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
-        row.appendChild(lbl);
-        row.appendChild(createInput());
-        return row;
-    }
-
-    private makeThumbnailField(): HTMLElement {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
-        const lbl = document.createElement('label');
-        lbl.textContent = 'Thumbnail (optional)';
-        lbl.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
-        row.appendChild(lbl);
-
-        const inner = document.createElement('div');
-        inner.style.cssText = 'display:flex;align-items:center;gap:10px;';
-
-        const thumbPreview = document.createElement('div');
-        thumbPreview.style.cssText = 'width:120px;height:68px;border-radius:4px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;background:var(--bg-secondary);';
-
-        const currentThumb = this.ctx.state.projectData?.thumbnail as string | null;
-        if (currentThumb) {
-            const img = document.createElement('img');
-            img.src = currentThumb;
-            img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-            thumbPreview.appendChild(img);
-        } else {
-            const ph = document.createElement('span');
-            ph.textContent = 'No image';
-            ph.style.cssText = 'font-size:11px;color:var(--text-disabled);';
-            thumbPreview.appendChild(ph);
-        }
-        inner.appendChild(thumbPreview);
-
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.accept = 'image/png,image/jpeg,image/webp,image/gif';
-        fileInput.style.display = 'none';
-
-        const uploadBtn = document.createElement('button');
-        uploadBtn.textContent = currentThumb ? 'Change' : 'Upload';
-        uploadBtn.style.cssText = 'padding:4px 12px;font-size:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);cursor:pointer;';
-        uploadBtn.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
-
-        fileInput.addEventListener('change', async () => {
-            const file = fileInput.files?.[0];
-            if (!file || !this.ctx.state.projectId) return;
-            try {
-                const result = await this.ctx.backend.uploadThumbnail(this.ctx.state.projectId, file);
-                if (this.ctx.state.projectData) this.ctx.state.projectData.thumbnail = result.thumbnail;
-                thumbPreview.innerHTML = '';
-                const img = document.createElement('img');
-                img.src = result.thumbnail;
-                img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-                thumbPreview.appendChild(img);
-                uploadBtn.textContent = 'Change';
-            } catch (e: any) {
-                alert(e.message || 'Failed to upload thumbnail.');
-            }
-            fileInput.value = '';
+        this.ctx.cloudSync.on('auth_required', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) paint('signed-out', 'Your session expired — sign in to resume syncing.');
         });
-
-        inner.appendChild(uploadBtn);
-        inner.appendChild(fileInput);
-        row.appendChild(inner);
-        return row;
-    }
-
-    private isValidSemver(v: string): boolean {
-        const parts = v.split('.').map(Number);
-        if (parts.length < 1 || parts.length > 3) return false;
-        return parts.every(p => !isNaN(p) && p >= 0 && Number.isInteger(p));
     }
 
     showToast(message: string, type: string): void {

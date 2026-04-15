@@ -265,6 +265,17 @@ export class EditorView {
             this.ctx.emit('collabChatMessage', data);
         });
 
+        // Cloud push trigger for backend-originated writes (AI fixer,
+        // other collaborators editing through this server, etc). These
+        // events signal the local DB has already been mutated — debounced
+        // so a long fixer run with 20 file-writes produces one push.
+        const scheduleIfCloud = () => {
+            const pd: any = this.ctx.state.projectData;
+            if (pd?.isCloud && this.ctx.state.projectId) {
+                this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+            }
+        };
+
         this.ctx.backend.onWsMessage('project_reload', async (data: any) => {
             if (data.sceneData) {
                 this.ctx._isApplyingRemoteChange = true;
@@ -280,6 +291,7 @@ export class EditorView {
                     this.ctx.ensurePrimitiveMeshes();
                     this.ctx.emit('sceneChanged');
                     if (this.ctx.state.projectData) this.ctx.state.projectData._lastLoadedAt = Date.now();
+                    scheduleIfCloud();
                 } finally {
                     this.ctx._isApplyingRemoteChange = false;
                 }
@@ -300,6 +312,7 @@ export class EditorView {
                     this.ctx.emit('sceneChanged');
                     if (this.ctx.state.projectData) this.ctx.state.projectData._lastLoadedAt = Date.now();
                     this.ctx.backend.sendWsMessage('scene_reload_complete', {});
+                    scheduleIfCloud();
                 } finally {
                     this.ctx._isApplyingRemoteChange = false;
                 }
@@ -312,6 +325,7 @@ export class EditorView {
                 if (!this.ctx.state.projectData.scenes) this.ctx.state.projectData.scenes = {};
                 this.ctx.state.projectData.scenes[data.sceneKey] = data.sceneData;
                 this.ctx.emit('sceneChanged');
+                scheduleIfCloud();
             }
         });
 
@@ -320,6 +334,7 @@ export class EditorView {
                 if (!this.ctx.state.projectData) this.ctx.state.projectData = {};
                 if (!this.ctx.state.projectData.scripts) this.ctx.state.projectData.scripts = {};
                 this.ctx.state.projectData.scripts[data.path] = data.content;
+                scheduleIfCloud();
             }
         });
 
@@ -328,6 +343,7 @@ export class EditorView {
                 if (!this.ctx.state.projectData) this.ctx.state.projectData = {};
                 if (!this.ctx.state.projectData.uiFiles) this.ctx.state.projectData.uiFiles = {};
                 this.ctx.state.projectData.uiFiles[data.path] = data.content;
+                scheduleIfCloud();
             }
         });
 
@@ -365,6 +381,175 @@ export class EditorView {
 
         this.ctx.emit('projectLoaded');
         this.ctx.emit('sceneChanged');
+
+        this.maybeShowPromoteToCloudPrompt();
+        this.maybeShowCloudSignedOutBanner();
+        this.maybeFlushPendingCloudPush();
+    }
+
+    /**
+     * If this cloud project has local saves newer than our last known
+     * server state, push them immediately on open rather than waiting
+     * for the next explicit save. Covers the "edited offline last
+     * session, now online" case so users see ✓ Synced instead of
+     * ↑ Unsynced without having to touch the file.
+     */
+    private maybeFlushPendingCloudPush(): void {
+        const pd: any = this.ctx.state.projectData;
+        if (!pd?.isCloud) return;
+        if (!this.ctx.backend.isSelfHosted) return;
+        if (!this.ctx.cloudSync.currentUserId()) return;
+        const localT = Date.parse(pd.updatedAt || 0);
+        const lastSync = Date.parse(pd.cloudPulledUpdatedAt || 0);
+        if (localT > lastSync && this.ctx.state.projectId) {
+            this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+        }
+    }
+
+    /**
+     * When a user opens a cloud project on self-hosted while logged out,
+     * saves keep working locally but don't push to parallaxpro.ai. Surface
+     * it as a bottom-right toast (same form factor as the promote toast)
+     * — dismissable per-project-per-session, with a Sign in button that
+     * resumes sync and flushes anything edited offline.
+     */
+    private maybeShowCloudSignedOutBanner(): void {
+        const projectId = this.ctx.state.projectId;
+        const pd: any = this.ctx.state.projectData;
+        if (!projectId || !pd?.isCloud) return;
+        if (!this.ctx.backend.isSelfHosted) return;
+        if (this.ctx.cloudSync.currentUserId()) return;
+        const dismissKey = `pp_signedout_dismissed:${projectId}`;
+        try { if (sessionStorage.getItem(dismissKey)) return; } catch {}
+
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;right:18px;bottom:18px;max-width:340px;background:linear-gradient(135deg,rgba(154,99,0,0.96),rgba(234,170,70,0.96));color:#fff;padding:14px 16px;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,0.35);z-index:200;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.45;animation:ppCloudPromoteSlideIn 0.25s ease-out;';
+
+        if (!document.getElementById('pp-cloud-promote-style')) {
+            const style = document.createElement('style');
+            style.id = 'pp-cloud-promote-style';
+            style.textContent = '@keyframes ppCloudPromoteSlideIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+            document.head.appendChild(style);
+        }
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;align-items:flex-start;gap:10px;';
+        const text = document.createElement('div');
+        text.style.flex = '1';
+        text.innerHTML = 'Editing a cloud project while signed out — changes save locally but <strong>won\'t sync to parallaxpro.ai</strong> until you sign in.';
+        header.appendChild(text);
+
+        const dismissBtn = document.createElement('button');
+        dismissBtn.textContent = '×';
+        dismissBtn.title = 'Dismiss for this session';
+        dismissBtn.style.cssText = 'padding:0 6px;background:transparent;border:0;color:rgba(255,255,255,0.85);font-size:20px;cursor:pointer;line-height:1;';
+        dismissBtn.addEventListener('click', () => {
+            try { sessionStorage.setItem(dismissKey, '1'); } catch {}
+            toast.remove();
+        });
+        header.appendChild(dismissBtn);
+        toast.appendChild(header);
+
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:11.5px;color:rgba(255,255,255,0.9);';
+        hint.textContent = 'You can sign in any time from the Settings panel in the toolbar.';
+        toast.appendChild(hint);
+
+        const signInBtn = document.createElement('button');
+        signInBtn.textContent = 'Sign in';
+        signInBtn.style.cssText = 'align-self:flex-start;padding:6px 16px;background:#fff;color:#6b4300;border:0;border-radius:6px;font-size:12.5px;font-weight:700;cursor:pointer;';
+        signInBtn.addEventListener('click', async () => {
+            signInBtn.disabled = true;
+            signInBtn.textContent = 'Signing in…';
+            try {
+                const { ensureLoggedIn } = await import('../backend/auth_session.js');
+                await ensureLoggedIn();
+                toast.remove();
+                // Push whatever the user has edited since opening so their
+                // offline work reaches prod immediately.
+                if (this.ctx.state.projectId) this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+            } catch (e: any) {
+                signInBtn.disabled = false;
+                signInBtn.textContent = 'Sign in';
+                console.warn('[auth] sign-in cancelled:', e?.message ?? e);
+            }
+        });
+        toast.appendChild(signInBtn);
+
+        document.body.appendChild(toast);
+    }
+
+    /**
+     * On self-hosted editors, when the user is signed in to parallaxpro.ai
+     * and the current project isn't cloud-synced, float a non-intrusive
+     * toast in the bottom-right corner offering to promote it. Dismissing
+     * ('×') is sticky per-project — we never ask again for that project.
+     * The Settings modal exposes the same action for users who dismissed
+     * and changed their mind.
+     */
+    private maybeShowPromoteToCloudPrompt(): void {
+        const projectId = this.ctx.state.projectId;
+        const pd: any = this.ctx.state.projectData;
+        if (!projectId || !pd) return;
+        if (pd.isCloud) return;
+        if (!this.ctx.backend.isSelfHosted) return;
+        if (!this.ctx.cloudSync.currentUserId()) return;
+        const dismissKey = `pp_promote_dismissed:${projectId}`;
+        if (localStorage.getItem(dismissKey)) return;
+
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;right:18px;bottom:18px;max-width:340px;background:linear-gradient(135deg,rgba(134,72,230,0.96),rgba(105,187,243,0.96));color:#fff;padding:14px 16px;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,0.35);z-index:200;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.45;animation:ppCloudPromoteSlideIn 0.25s ease-out;';
+
+        // Inject the entrance keyframe once so multiple toasts don't
+        // duplicate the style node.
+        if (!document.getElementById('pp-cloud-promote-style')) {
+            const style = document.createElement('style');
+            style.id = 'pp-cloud-promote-style';
+            style.textContent = '@keyframes ppCloudPromoteSlideIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+            document.head.appendChild(style);
+        }
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;align-items:flex-start;gap:10px;';
+        const text = document.createElement('div');
+        text.style.flex = '1';
+        text.innerHTML = 'Sync this project to <strong>parallaxpro.ai</strong> so you can pick up where you left off from any computer.';
+        header.appendChild(text);
+
+        const dismissBtn = document.createElement('button');
+        dismissBtn.textContent = '×';
+        dismissBtn.title = "Don't ask again for this project";
+        dismissBtn.style.cssText = 'padding:0 6px;background:transparent;border:0;color:rgba(255,255,255,0.8);font-size:20px;cursor:pointer;line-height:1;';
+        dismissBtn.addEventListener('click', () => {
+            try { localStorage.setItem(dismissKey, '1'); } catch {}
+            toast.remove();
+        });
+        header.appendChild(dismissBtn);
+        toast.appendChild(header);
+
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:11.5px;color:rgba(255,255,255,0.85);';
+        hint.textContent = 'You can do this any time from the Settings panel in the toolbar.';
+        toast.appendChild(hint);
+
+        const promoteBtn = document.createElement('button');
+        promoteBtn.textContent = 'Promote to Cloud';
+        promoteBtn.style.cssText = 'align-self:flex-start;padding:6px 16px;background:#fff;color:#5a2cba;border:0;border-radius:6px;font-size:12.5px;font-weight:700;cursor:pointer;';
+        promoteBtn.addEventListener('click', async () => {
+            promoteBtn.disabled = true;
+            promoteBtn.textContent = 'Syncing…';
+            const result = await this.ctx.promoteCurrentProjectToCloud();
+            if (result.ok) {
+                toast.remove();
+            } else {
+                promoteBtn.disabled = false;
+                promoteBtn.textContent = 'Promote to Cloud';
+                alert(result.reason);
+            }
+        });
+        toast.appendChild(promoteBtn);
+
+        document.body.appendChild(toast);
     }
 
     private async recoverStateAfterReconnect(projectId: string): Promise<void> {

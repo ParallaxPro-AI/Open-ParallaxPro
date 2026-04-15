@@ -63,14 +63,26 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // Express app
     const app = express();
 
+    // CORS has to run before the auth middleware below, otherwise a
+    // preflight OPTIONS to /api/engine/projects/* hits requireAuth first,
+    // gets a 401 without any Access-Control-Allow-Origin header, and the
+    // browser blocks the real request (self-hosted editors calling
+    // publish-from-local are the common victim).
+    app.use(cors({ origin: config.corsOrigins, credentials: true }));
+    app.use(express.json({ limit: '10mb' }));
+
     // Auth middleware for project routes — applies to both core router and plugin routes
     const pluginAuth = plugins.find(p => p.authMiddleware)?.authMiddleware;
     const { requireAuth } = await import('./middleware/auth.js');
     app.use('/api/engine/projects', pluginAuth || requireAuth);
-
-    app.use(cors({ origin: config.corsOrigins, credentials: true }));
-    app.use(express.json({ limit: '10mb' }));
     if (config.isHosted) app.use('/api/engine', httpRateLimit);
+
+    // Project thumbnails. Same on-disk location as the hosted publish
+    // plugin — so a locally-uploaded thumbnail and a hosted one both
+    // resolve at /uploads/thumbnails/<id>.<ext>. Import lazily so the
+    // routes module has already initialised the directory.
+    const { THUMBNAIL_DIR } = await import('./routes/projects.js');
+    app.use('/uploads/thumbnails', express.static(THUMBNAIL_DIR, { maxAge: '1d' }));
 
     // Static asset serving — local files first, fallback to CDN redirect for self-hosted
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));

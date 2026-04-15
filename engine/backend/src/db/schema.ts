@@ -39,4 +39,13 @@ export function createSchema(db: Database.Database): void {
     addColumn('chat_messages', 'file_changes', 'TEXT');
     addColumn('chat_messages', 'project_data_snapshot', 'TEXT');
     addColumn('chat_messages', 'project_data_before', 'TEXT');
+
+    // Cloud sync: projects that also live on parallaxpro.ai are flagged
+    // here so the editor can auto-push on save + surface sync status
+    // in the project list. The project id is shared with prod (no
+    // separate mapping column needed).
+    addColumn('projects', 'is_cloud', 'INTEGER DEFAULT 0');
+    addColumn('projects', 'cloud_user_id', 'INTEGER');
+    addColumn('projects', 'cloud_pulled_updated_at', 'TEXT');
+    addColumn('projects', 'edited_engine_hash', 'TEXT');
 }

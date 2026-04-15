@@ -57,9 +57,23 @@ async function boot(): Promise<void> {
 
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');
-    const isMultiplayerJoin = pathParts[0] === 'multiplayer' && !!roomId;
+    // Multiplayer still comes in via /play/multiplayer?room=X. A pathParts
+    // check is sufficient when play.html is served at that URL; when the
+    // engine-version bootstrap has redirected us into an archived bundle
+    // (/engine-bundles/<hash>/play.html) the path no longer carries
+    // /play/multiplayer, so fall back to the `room` query param alone.
+    const isMultiplayerJoin = (pathParts[0] === 'multiplayer' && !!roomId)
+        || (!!roomId && pathParts.length < 2 && !urlParams.get('slug'));
 
-    if (!isMultiplayerJoin && pathParts.length < 2) {
+    // owner/slug can come from the URL path (/play/:owner/:slug) or from
+    // query params (?owner=X&slug=Y). The query-param form is used when
+    // the engine-version router has redirected play into a versioned
+    // bundle at /engine-bundles/<hash>/play.html, where the path no
+    // longer contains owner/slug.
+    const queryOwner = urlParams.get('owner');
+    const querySlug = urlParams.get('slug');
+
+    if (!isMultiplayerJoin && pathParts.length < 2 && !(queryOwner && querySlug)) {
         showError('No game specified.');
         return;
     }
@@ -90,7 +104,8 @@ async function boot(): Promise<void> {
             return;
         }
     } else {
-        const [owner, slug] = pathParts;
+        const owner = queryOwner || pathParts[0];
+        const slug = querySlug || pathParts[1];
         try {
             const headers: Record<string, string> = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -107,6 +122,38 @@ async function boot(): Promise<void> {
         } catch {
             showError('Network error. Please try again.');
             return;
+        }
+
+        // Engine-version routing: if the game was published against a
+        // different engine commit than this bundle was built with, hop
+        // over to the matching archived bundle so runtime deserialization
+        // can trust the shapes in gameData. Skipped when we have no hash
+        // of our own (local git-less checkout), the game predates the
+        // engine_bundles registry and carries no hash, or no archive
+        // exists on prod for the target hash. A HEAD probe isn't
+        // trustworthy because nginx falls through to the landing-page
+        // SPA for unknown paths, so we consult the registry directly.
+        const ourHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
+        const wantHash: string | null = gameData.engineGitHash || null;
+        const alreadyInArchive = /^\/engine-bundles\//.test(window.location.pathname);
+        if (wantHash && ourHash && ourHash !== 'unknown' && wantHash !== ourHash && !alreadyInArchive) {
+            let shouldRedirect = false;
+            try {
+                const regRes = await fetch('/api/engine/engine-bundles');
+                if (regRes.ok) {
+                    const reg = await regRes.json();
+                    const matched = (reg.bundles || []).find((b: any) => b.hash === wantHash && b.status !== 'rejected' && b.archiveExists);
+                    shouldRedirect = !!matched;
+                }
+            } catch {}
+            if (shouldRedirect) {
+                const params = new URLSearchParams(window.location.search);
+                params.set('owner', owner);
+                params.set('slug', slug);
+                window.location.replace(`/engine-bundles/${encodeURIComponent(wantHash)}/play.html?${params.toString()}`);
+                return;
+            }
+            console.warn(`[play] engine hash ${wantHash.slice(0, 7)} has no archived bundle; falling back to current engine (${ourHash.slice(0, 7)})`);
         }
     }
 
