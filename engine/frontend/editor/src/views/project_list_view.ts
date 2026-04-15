@@ -20,7 +20,7 @@ export class ProjectListView {
     private statusFilter: 'all' | 'published' | 'draft' = 'all';
     private currentPage: number = 1;
     private readonly pageSize: number = 10;
-    private activeTab: 'my' | 'cloud' = 'my';
+    private activeTab: 'all' | 'my' | 'cloud' = 'all';
     private tabBar!: HTMLElement;
     private statusFilterEl!: HTMLSelectElement;
     private authSlot!: HTMLElement;
@@ -137,7 +137,8 @@ export class ProjectListView {
         this.tabBar = document.createElement('div');
         this.tabBar.className = 'project-tabs';
 
-        const tabs: { key: 'my' | 'cloud'; label: string; el?: HTMLElement }[] = [
+        const tabs: { key: 'all' | 'my' | 'cloud'; label: string; el?: HTMLElement }[] = [
+            { key: 'all', label: 'All' },
             { key: 'my', label: 'My Projects' },
             { key: 'cloud', label: 'Cloud Projects' },
         ];
@@ -191,37 +192,90 @@ export class ProjectListView {
         try {
             if (this.activeTab === 'cloud') {
                 this.projects = await this.loadCloudProjects();
+            } else if (this.activeTab === 'all') {
+                this.projects = await this.loadAllProjects();
             } else {
-                this.projects = await this.ctx.backend.listProjects();
-
-                // Publish-state merge: cloud projects share ids with prod,
-                // so a single lookup of prod's publish-info suffices. On
-                // the hosted editor this even elides the network call
-                // (local IS prod). Offline / logged-out self-hosted users
-                // get the plain list.
-                const pubInfo = this.ctx.backend.isSelfHosted
-                    ? await this.ctx.backend.getPublishInfoProd()
-                    : await this.ctx.backend.getPublishInfo();
-                for (const p of this.projects) {
-                    const info = pubInfo[p.id];
-                    if (!info) continue;
-                    p.publishedSlug = info.publishedSlug;
-                    p.publishedOwner = info.publishedOwner;
-                    p.publishedVersion = info.publishedVersion;
-                    p.status = 'published';
-                    const thumb = (info as any).thumbnail;
-                    if (thumb && this.ctx.backend.isSelfHosted) {
-                        // prod serves thumbnails on parallaxpro.ai; make it
-                        // absolute so the editor's <img> doesn't proxy to
-                        // the local backend which has no copy.
-                        p.thumbnail = thumb.startsWith('http') ? thumb : `https://parallaxpro.ai${thumb}`;
-                    }
-                }
+                this.projects = await this.loadMyProjects();
             }
         } catch {
             this.projects = [];
         }
         this.render();
+    }
+
+    /** Plain local list with publish-state merged in for badges. */
+    private async loadMyProjects(): Promise<any[]> {
+        const projects = await this.ctx.backend.listProjects();
+        await this.mergePublishInfo(projects);
+        return projects;
+    }
+
+    /** Superset of My Projects + remote-only cloud projects, with cloud
+     *  sync state stamped on each card. No login → same as My Projects. */
+    private async loadAllProjects(): Promise<any[]> {
+        const userId = this.ctx.cloudSync.currentUserId();
+        const [localAll, remoteAll] = await Promise.all([
+            this.ctx.backend.listProjects().catch(() => []),
+            userId ? this.ctx.backend.listCloudProjectsProd().catch(() => []) : Promise.resolve([]),
+        ]);
+        const remoteById = new Map<string, any>((remoteAll as any[]).map((p: any) => [p.id, p]));
+        const localById = new Map<string, any>((localAll as any[]).map((p: any) => [p.id, p]));
+
+        const merged: any[] = [];
+        for (const local of localAll) {
+            const remote = remoteById.get(local.id);
+            let state: string | null = null;
+            let remoteUpdatedAt: string | undefined;
+            if (local.isCloud) {
+                state = remote ? this.computeCloudState(local, remote) : 'removed-remotely';
+                remoteUpdatedAt = remote?.updatedAt;
+            }
+            merged.push({ ...local, _cloudState: state, _remoteOnly: false, _remoteUpdatedAt: remoteUpdatedAt });
+        }
+        for (const remote of remoteAll) {
+            if (localById.has(remote.id)) continue;
+            merged.push({
+                id: remote.id,
+                name: remote.name,
+                status: remote.status ?? 'draft',
+                thumbnail: remote.thumbnail
+                    ? (remote.thumbnail.startsWith('http') ? remote.thumbnail : `https://parallaxpro.ai${remote.thumbnail}`)
+                    : null,
+                updatedAt: remote.updatedAt,
+                _cloudState: 'remote-only',
+                _remoteOnly: true,
+                _remoteUpdatedAt: remote.updatedAt,
+            });
+        }
+        await this.mergePublishInfo(merged);
+        merged.sort((a, b) => {
+            const at = Math.max(Date.parse(a.updatedAt || 0), Date.parse(a._remoteUpdatedAt || 0));
+            const bt = Math.max(Date.parse(b.updatedAt || 0), Date.parse(b._remoteUpdatedAt || 0));
+            return bt - at;
+        });
+        return merged;
+    }
+
+    /** Stamp publishedSlug / Owner / Version + absolute-URL thumbnail on
+     *  any project the server considers live. Shared across tabs so
+     *  badge behaviour stays consistent. Silently falls through when
+     *  the user isn't signed in or prod is unreachable. */
+    private async mergePublishInfo(projects: any[]): Promise<void> {
+        const pubInfo = this.ctx.backend.isSelfHosted
+            ? await this.ctx.backend.getPublishInfoProd()
+            : await this.ctx.backend.getPublishInfo();
+        for (const p of projects) {
+            const info = pubInfo[p.id];
+            if (!info) continue;
+            p.publishedSlug = info.publishedSlug;
+            p.publishedOwner = info.publishedOwner;
+            p.publishedVersion = info.publishedVersion;
+            p.status = 'published';
+            const thumb = (info as any).thumbnail;
+            if (thumb && this.ctx.backend.isSelfHosted) {
+                p.thumbnail = thumb.startsWith('http') ? thumb : `https://parallaxpro.ai${thumb}`;
+            }
+        }
     }
 
     /**
