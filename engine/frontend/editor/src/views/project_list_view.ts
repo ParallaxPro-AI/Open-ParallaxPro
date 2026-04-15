@@ -685,6 +685,23 @@ export class ProjectListView {
      * onOpenProject call so the checks aren't bypassed by any card.
      */
     private async openProjectWithChecks(project: any, card?: HTMLElement): Promise<void> {
+        // Cloud project whose remote got deleted elsewhere — confusing to
+        // open without resolving first. Ask the user whether to keep it
+        // as a local-only project (demote is_cloud) or delete it too.
+        if (project._cloudState === 'removed-remotely') {
+            const choice = await this.promptRemovedRemotely(project);
+            if (choice === 'cancel') return;
+            if (choice === 'delete') { this.deleteProject(project); return; }
+            if (choice === 'demote') {
+                try { await this.ctx.backend.unmarkCloudLocal(project.id); }
+                catch (e: any) { alert(e?.message || 'Failed to demote to local-only.'); return; }
+                project.isCloud = false;
+                project._cloudState = null;
+                this.loadProjects();
+                // Fall through to open the now-local project.
+            }
+        }
+
         if (project._cloudState === 'remote-only' || project._cloudState === 'remote-newer') {
             card?.classList.add('disabled');
             try {
@@ -728,6 +745,38 @@ export class ProjectListView {
         }
 
         this.onOpenProject?.(project.id);
+    }
+
+    /**
+     * Three-way choice dialog for a cloud project whose remote has been
+     * deleted elsewhere. Returns 'demote' to flip is_cloud=0 and keep
+     * editing locally, 'delete' to wipe the local copy too, or
+     * 'cancel' to leave things as-is.
+     */
+    private promptRemovedRemotely(project: any): Promise<'demote' | 'delete' | 'cancel'> {
+        return new Promise((resolve) => {
+            const name = project.name ?? 'Untitled';
+            const body = document.createElement('div');
+            body.style.cssText = 'display:flex;flex-direction:column;gap:12px;font-size:13px;line-height:1.5;';
+            const top = document.createElement('div');
+            top.innerHTML = `<strong>"${escapeHtml(name)}"</strong> was deleted on parallaxpro.ai. You still have a local copy — what would you like to do?`;
+            body.appendChild(top);
+
+            let settled = false;
+            let close = () => {};
+            const pick = (c: 'demote' | 'delete' | 'cancel') => { if (!settled) { settled = true; close(); resolve(c); } };
+
+            const modal = showModal({
+                title: 'Cloud copy deleted',
+                body, width: '440px', closeOnBackdrop: false,
+                buttons: [
+                    { label: 'Cancel', action: () => pick('cancel') },
+                    { label: 'Delete local too', danger: true, action: () => pick('delete') },
+                    { label: 'Keep as local-only', primary: true, action: () => pick('demote') },
+                ],
+            });
+            close = modal.close;
+        });
     }
 
     private showEngineMismatchWarning(projectHash: string, ourHash: string): Promise<boolean> {
