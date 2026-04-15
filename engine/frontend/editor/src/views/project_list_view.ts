@@ -35,6 +35,9 @@ export class ProjectListView {
         const refresh = () => this.loadProjects();
         this.ctx.on('projectPublished', refresh);
         this.ctx.on('projectUnpublished', refresh);
+        // Re-fetch on window-focus so changes on other machines / the
+        // hosted editor appear without a manual tab switch.
+        window.addEventListener('focus', refresh);
 
         const header = document.createElement('div');
         header.className = 'project-list-header';
@@ -1302,6 +1305,14 @@ git checkout da571fe   # last commit before template unification`;
         try {
             await this.ctx.backend.renameProject(project.id, newName);
             project.name = newName;
+            // Cloud project names live on prod too — mirror the rename
+            // so other machines don't keep showing the old name. Same
+            // signed-out-is-best-effort pattern as the thumbnail path:
+            // if sign-in is gone, skip silently.
+            if (project.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
+                try { await this.ctx.backend.renameProjectProd(project.id, newName); }
+                catch (e) { console.warn('Cloud rename push failed:', e); }
+            }
             this.render();
         } catch (e) {
             console.error('Failed to rename project:', e);
@@ -1380,7 +1391,17 @@ git checkout da571fe   # last commit before template unification`;
         this.loadProjects();
     }
 
-    private setThumbnail(project: any): void {
+    private async setThumbnail(project: any): Promise<void> {
+        // Warn when changing a cloud project's thumbnail while signed
+        // out — local updates, prod stays old, other machines see the
+        // drift until the next signed-in change.
+        if (project.isCloud && this.ctx.backend.isSelfHosted && !this.ctx.cloudSync.currentUserId()) {
+            const ok = await showConfirmModal(
+                'Change thumbnail locally?',
+                `You're signed out — the thumbnail on parallaxpro.ai won't be updated, so other machines will keep showing the old image until you change it again while signed in. Continue?`,
+            );
+            if (!ok) return;
+        }
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/png,image/jpeg,image/webp,image/gif';
@@ -1448,8 +1469,11 @@ git checkout da571fe   # last commit before template unification`;
             project.publishedSlug = null;
             project.publishedOwner = null;
             this.render();
-        } catch (e) {
+        } catch (e: any) {
             console.error('Failed to unpublish:', e);
+            alert(e?.message === 'Authentication required'
+                ? 'Your parallaxpro.ai session expired. Sign in and try again.'
+                : e?.message || 'Failed to unpublish.');
         }
     }
 

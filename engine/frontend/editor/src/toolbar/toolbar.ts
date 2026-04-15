@@ -22,6 +22,7 @@ export class Toolbar {
     private ctx: EditorContext;
 
     private projectNameEl!: HTMLElement;
+    private syncStatusEl!: HTMLElement;
     private saveBtn!: HTMLElement;
     private undoBtn!: HTMLElement;
     private redoBtn!: HTMLElement;
@@ -93,6 +94,13 @@ export class Toolbar {
         this.projectNameEl.style.cursor = 'pointer';
         this.projectNameEl.addEventListener('click', () => this.startRenameProject());
         this.el.appendChild(this.projectNameEl);
+
+        // Cloud sync status pill — only visible when the open project
+        // is a cloud project. Drives off cloudSync events.
+        this.syncStatusEl = document.createElement('span');
+        this.syncStatusEl.style.cssText = 'display:none;margin-left:8px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;';
+        this.el.appendChild(this.syncStatusEl);
+        this.wireSyncStatus();
 
         this.addSeparator();
 
@@ -544,6 +552,11 @@ export class Toolbar {
         if (this.ctx.state.projectId) {
             try {
                 await this.ctx.backend.renameProject(this.ctx.state.projectId, newName);
+                const pd: any = this.ctx.state.projectData;
+                if (pd?.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
+                    try { await this.ctx.backend.renameProjectProd(this.ctx.state.projectId, newName); }
+                    catch (e) { console.warn('Cloud rename push failed:', e); }
+                }
                 this.showToast('Project renamed', 'success');
             } catch (e) {
                 console.error('Failed to rename project:', e);
@@ -1075,6 +1088,84 @@ export class Toolbar {
         });
     }
 
+
+    /** Drive the little cloud-sync status pill off cloudSync events. Pill
+     *  is visible only when the current project is a cloud project on
+     *  self-hosted — and flips between synced / syncing / unsynced /
+     *  signed-out / error states. */
+    private wireSyncStatus(): void {
+        type S = 'synced' | 'syncing' | 'unsynced' | 'signed-out' | 'error';
+        const paint = (state: S, title: string) => {
+            const spec = ({
+                'synced':      { text: '✓ Synced',       bg: '#1f6f43', fg: '#cdeedc' },
+                'syncing':     { text: '↻ Syncing…',    bg: '#2a4d9a', fg: '#c7daff' },
+                'unsynced':    { text: '↑ Unsynced',     bg: '#9a6300', fg: '#ffe6b2' },
+                'signed-out':  { text: 'Sign in to sync', bg: '#4a3f8a', fg: '#d7ccff' },
+                'error':       { text: '⚠ Sync failed',  bg: '#8a1b1b', fg: '#ffd3d3' },
+            } as Record<S, { text: string; bg: string; fg: string }>)[state];
+            this.syncStatusEl.style.display = 'inline-flex';
+            this.syncStatusEl.textContent = spec.text;
+            this.syncStatusEl.style.background = spec.bg;
+            this.syncStatusEl.style.color = spec.fg;
+            this.syncStatusEl.title = title;
+            this.syncStatusEl.style.cursor = (state === 'signed-out' || state === 'error' || state === 'unsynced') ? 'pointer' : 'default';
+        };
+
+        this.syncStatusEl.addEventListener('click', async () => {
+            const pd: any = this.ctx.state.projectData;
+            if (!pd?.isCloud || !this.ctx.backend.isSelfHosted) return;
+            if (!this.ctx.cloudSync.currentUserId()) {
+                const { ensureLoggedIn } = await import('../backend/auth_session.js');
+                try {
+                    await ensureLoggedIn();
+                    if (this.ctx.state.projectId) this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+                } catch {}
+            } else if (this.ctx.state.projectId) {
+                // Manual retry — force a push now rather than waiting for
+                // the next debounce.
+                this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+            }
+        });
+        const refresh = () => {
+            const pd: any = this.ctx.state.projectData;
+            if (!pd?.isCloud || !this.ctx.backend.isSelfHosted) {
+                this.syncStatusEl.style.display = 'none';
+                return;
+            }
+            if (!this.ctx.cloudSync.currentUserId()) {
+                paint('signed-out', 'Signed out — saves stay local until you sign in.');
+                return;
+            }
+            const localT = Date.parse(pd.updatedAt || 0);
+            const lastSync = Date.parse(pd.cloudPulledUpdatedAt || 0);
+            if (localT > lastSync) paint('unsynced', 'Local edits not yet on parallaxpro.ai.');
+            else paint('synced', `Last synced ${pd.cloudPulledUpdatedAt || 'unknown'}`);
+        };
+        refresh();
+
+        this.ctx.on('projectLoaded', refresh);
+        this.ctx.on('projectSaved', refresh);
+        this.ctx.on('cloudPromoted', refresh);
+        this.ctx.cloudSync.on('pushing', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) paint('syncing', 'Pushing to parallaxpro.ai…');
+        });
+        this.ctx.cloudSync.on('pushed', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) {
+                const pd: any = this.ctx.state.projectData;
+                if (pd) pd.cloudPulledUpdatedAt = e.updatedAt ?? pd.cloudPulledUpdatedAt;
+                paint('synced', `Synced at ${e.updatedAt || 'now'}`);
+            }
+        });
+        this.ctx.cloudSync.on('pulled', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) paint('synced', 'Pulled latest from parallaxpro.ai');
+        });
+        this.ctx.cloudSync.on('error', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) paint('error', e?.payload?.message || 'Sync failed. Will retry on next save.');
+        });
+        this.ctx.cloudSync.on('auth_required', (e: any) => {
+            if (e.projectId === this.ctx.state.projectId) paint('signed-out', 'Your session expired — sign in to resume syncing.');
+        });
+    }
 
     showToast(message: string, type: string): void {
         let container = document.querySelector('.toast-container') as HTMLElement;

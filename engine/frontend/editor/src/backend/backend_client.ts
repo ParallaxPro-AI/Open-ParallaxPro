@@ -413,6 +413,13 @@ export class BackendClient {
         return this.fetchProd(`/projects/${id}`);
     }
 
+    async renameProjectProd(id: string, name: string): Promise<any> {
+        return this.fetchProd(`/projects/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name }),
+        });
+    }
+
     async deleteProjectProd(id: string): Promise<void> {
         await this.fetchProd(`/projects/${id}`, { method: 'DELETE' });
     }

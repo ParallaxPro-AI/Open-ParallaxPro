@@ -265,6 +265,17 @@ export class EditorView {
             this.ctx.emit('collabChatMessage', data);
         });
 
+        // Cloud push trigger for backend-originated writes (AI fixer,
+        // other collaborators editing through this server, etc). These
+        // events signal the local DB has already been mutated — debounced
+        // so a long fixer run with 20 file-writes produces one push.
+        const scheduleIfCloud = () => {
+            const pd: any = this.ctx.state.projectData;
+            if (pd?.isCloud && this.ctx.state.projectId) {
+                this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
+            }
+        };
+
         this.ctx.backend.onWsMessage('project_reload', async (data: any) => {
             if (data.sceneData) {
                 this.ctx._isApplyingRemoteChange = true;
@@ -280,6 +291,7 @@ export class EditorView {
                     this.ctx.ensurePrimitiveMeshes();
                     this.ctx.emit('sceneChanged');
                     if (this.ctx.state.projectData) this.ctx.state.projectData._lastLoadedAt = Date.now();
+                    scheduleIfCloud();
                 } finally {
                     this.ctx._isApplyingRemoteChange = false;
                 }
@@ -300,6 +312,7 @@ export class EditorView {
                     this.ctx.emit('sceneChanged');
                     if (this.ctx.state.projectData) this.ctx.state.projectData._lastLoadedAt = Date.now();
                     this.ctx.backend.sendWsMessage('scene_reload_complete', {});
+                    scheduleIfCloud();
                 } finally {
                     this.ctx._isApplyingRemoteChange = false;
                 }
@@ -312,6 +325,7 @@ export class EditorView {
                 if (!this.ctx.state.projectData.scenes) this.ctx.state.projectData.scenes = {};
                 this.ctx.state.projectData.scenes[data.sceneKey] = data.sceneData;
                 this.ctx.emit('sceneChanged');
+                scheduleIfCloud();
             }
         });
 
@@ -320,6 +334,7 @@ export class EditorView {
                 if (!this.ctx.state.projectData) this.ctx.state.projectData = {};
                 if (!this.ctx.state.projectData.scripts) this.ctx.state.projectData.scripts = {};
                 this.ctx.state.projectData.scripts[data.path] = data.content;
+                scheduleIfCloud();
             }
         });
 
@@ -328,6 +343,7 @@ export class EditorView {
                 if (!this.ctx.state.projectData) this.ctx.state.projectData = {};
                 if (!this.ctx.state.projectData.uiFiles) this.ctx.state.projectData.uiFiles = {};
                 this.ctx.state.projectData.uiFiles[data.path] = data.content;
+                scheduleIfCloud();
             }
         });
 
