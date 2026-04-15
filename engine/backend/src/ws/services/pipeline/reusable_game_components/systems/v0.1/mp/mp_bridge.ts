@@ -29,6 +29,7 @@ class MpBridge extends GameScript {
     _chatFocused = false;
     _openChatPulse = false;
     _chatPulseTimer = 0;
+    _lobbyListPollTimer = 0;
 
     onStart() {
         var self = this;
@@ -187,6 +188,19 @@ class MpBridge extends GameScript {
     onUpdate(dt) {
         if (!this._session) return;
         var mp = this._session;
+
+        // Auto-refresh the lobby list every ~1.5s while the player is on the
+        // browser screen, so newly-created lobbies appear without a manual
+        // refresh click. Stops as soon as they join or host.
+        if (this._phase === "browsing") {
+            this._lobbyListPollTimer += (dt || 0);
+            if (this._lobbyListPollTimer >= 1.5) {
+                this._lobbyListPollTimer = 0;
+                mp.requestLobbyList();
+            }
+        } else {
+            this._lobbyListPollTimer = 0;
+        }
 
         // Keyboard events can't reach HUD iframes while the game canvas has
         // focus, so the chat-open shortcut has to live here. Pressing Enter
