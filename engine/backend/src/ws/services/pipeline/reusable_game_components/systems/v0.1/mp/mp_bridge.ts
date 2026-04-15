@@ -30,6 +30,7 @@ class MpBridge extends GameScript {
     _openChatPulse = false;
     _chatPulseTimer = 0;
     _lobbyListPollTimer = 0;
+    _mpCfg = null;
 
     onStart() {
         var self = this;
@@ -48,6 +49,7 @@ class MpBridge extends GameScript {
         // projectConfig value; fall back to the same host on /ws/multiplayer.
         var cfg = this.scene._projectConfig || {};
         var mpCfg = cfg.multiplayerConfig || {};
+        this._mpCfg = mpCfg;
         var url = cfg.multiplayerSignalUrl || this._connectUrl;
         if (!url && typeof window !== "undefined") {
             var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -124,9 +126,11 @@ class MpBridge extends GameScript {
         ui.on("ui_event:lobby_host_config:host_lobby", function(d) {
             var p = (d && d.payload) || {};
             self.scene.events.ui.emit("hide_ui", { panel: "lobby_host_config" });
+            // Slot counts come from the game's multiplayer config, not the
+            // host — the host can't override the supported player range.
             mp.hostLobby({
                 name: String(p.name || ""),
-                maxPlayers: Number(p.maxPlayers) || (mpCfg.maxPlayers || 4),
+                maxPlayers: mpCfg.maxPlayers || 2,
                 minPlayers: mpCfg.minPlayers || 1,
                 password: p.password || null,
             });
@@ -273,8 +277,11 @@ class MpBridge extends GameScript {
                 voicePeers: this._voicePeers,
                 micOn: this._micOn,
                 muted: this._muted,
-                maxPlayers: this._roster ? this._roster.maxPlayers : undefined,
-                minPlayers: this._roster ? this._roster.minPlayers : undefined,
+                // Expose the game's configured slot range even before a lobby
+                // exists — the host-config UI reads these to show "players per
+                // match" (read-only). Falls back to the live roster once in-lobby.
+                maxPlayers: (this._roster && this._roster.maxPlayers) || (this._mpCfg && this._mpCfg.maxPlayers) || undefined,
+                minPlayers: (this._roster && this._roster.minPlayers) || (this._mpCfg && this._mpCfg.minPlayers) || undefined,
                 openChat: this._openChatPulse,
             },
             errorMessage: this._pendingError,

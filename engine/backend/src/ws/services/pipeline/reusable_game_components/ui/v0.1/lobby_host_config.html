@@ -58,10 +58,20 @@
     outline: none;
   }
   .field input:focus { border-color: var(--accent-1); }
-  .slot-row { display: flex; align-items: center; gap: 12px; }
-  .slot-row input[type="range"] { flex: 1; }
-  .slot-row .val {
-    min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700;
+  .players-readonly {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+  }
+  .players-readonly .num {
+    font-size: 18px; font-weight: 800; color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .players-readonly .label-inline {
+    font-size: 11px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 1px;
   }
   .hint { font-size: 11px; color: var(--text-muted); }
   .buttons { display: flex; gap: 8px; margin-top: 14px; }
@@ -95,15 +105,6 @@
     </div>
 
     <div class="field">
-      <label>Max players</label>
-      <div class="slot-row">
-        <input id="max" type="range" min="1" max="16" value="4" />
-        <div class="val" id="max-val">4</div>
-      </div>
-      <div class="hint" id="max-hint"></div>
-    </div>
-
-    <div class="field">
       <label>Password (optional)</label>
       <input id="pw" type="password" maxlength="64" placeholder="Leave empty for public lobby" />
     </div>
@@ -118,12 +119,7 @@
 <script>
 (function () {
   var nameEl = document.getElementById('name');
-  var maxEl = document.getElementById('max');
-  var maxVal = document.getElementById('max-val');
-  var maxHint = document.getElementById('max-hint');
   var pwEl = document.getElementById('pw');
-  var gameMax = 16;
-  var gameMin = 1;
   var defaultUsername = '';
 
   function emit(action, payload) {
@@ -132,44 +128,18 @@
     window.parent.postMessage(msg, '*');
   }
 
-  function syncHint() {
-    maxVal.textContent = maxEl.value;
-    maxHint.textContent = 'Game allows ' + gameMin + ' to ' + gameMax + ' players per lobby.';
-  }
-
-  maxEl.addEventListener('input', syncHint);
-
   document.getElementById('btn-cancel').onclick = function () { emit('close_host_config'); };
   document.getElementById('btn-create').onclick = function () {
     var name = nameEl.value.trim() || (defaultUsername ? defaultUsername + "'s lobby" : 'New lobby');
-    emit('host_lobby', {
-      name: name,
-      maxPlayers: parseInt(maxEl.value, 10),
-      minPlayers: gameMin,
-      password: pwEl.value || null,
-    });
+    // Slot counts come from the game config — mp_bridge resolves them.
+    emit('host_lobby', { name: name, password: pwEl.value || null });
   };
 
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'gameState') return;
     var state = e.data.state || {};
-    if (state.multiplayer) {
-      if (typeof state.multiplayer.maxPlayers === 'number') {
-        gameMax = state.multiplayer.maxPlayers;
-        maxEl.max = String(gameMax);
-        if (parseInt(maxEl.value, 10) > gameMax) maxEl.value = String(gameMax);
-      }
-      if (typeof state.multiplayer.minPlayers === 'number') {
-        gameMin = state.multiplayer.minPlayers;
-        maxEl.min = String(gameMin);
-        if (parseInt(maxEl.value, 10) < gameMin) maxEl.value = String(gameMin);
-      }
-    }
     if (state.username) defaultUsername = state.username;
-    syncHint();
   });
-
-  syncHint();
 })();
 </script>
 </body>
