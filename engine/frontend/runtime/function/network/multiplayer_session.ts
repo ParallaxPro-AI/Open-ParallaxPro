@@ -786,6 +786,13 @@ export class MultiplayerSession {
         this._hostPeerId = newHostPeerId;
         this._isHost = newHostPeerId === this.lobby.peerId;
 
+        // Reset ping bookkeeping. Hosts don't ping themselves; non-hosts
+        // need a clean slate against the new host since RTT to the
+        // previous host isn't predictive.
+        this._hostPingMs = 0;
+        this._inflightPings.clear();
+        this._pingAccumulator = 0;
+
         // Update roster isHost flags for UI display.
         for (const p of this._currentRoster.peers) {
             p.isHost = p.peerId === newHostPeerId;
