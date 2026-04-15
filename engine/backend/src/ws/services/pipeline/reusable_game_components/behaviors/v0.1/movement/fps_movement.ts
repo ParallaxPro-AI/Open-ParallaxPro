@@ -7,6 +7,11 @@ class FPSMovementBehavior extends GameScript {
     _canJump = true;
 
     onUpdate(dt) {
+        // Multiplayer: remote player proxies carry the same behavior but
+        // must not run input — their transform comes from snapshots.
+        var ni = this.entity.getComponent ? this.entity.getComponent("NetworkIdentityComponent") : null;
+        if (ni && !ni.isLocalPlayer) return;
+
         var yaw = (this.scene._fpsYaw || 0) * Math.PI / 180;
         var forward = 0, strafe = 0;
 

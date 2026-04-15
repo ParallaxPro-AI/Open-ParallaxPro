@@ -1,8 +1,12 @@
 {
   "systems": {
-    "scoring": {
-      "description": "Tracks kills and score",
-      "script": "gameplay/scoring.ts"
+    "deathmatch_game": {
+      "description": "FPS deathmatch match rules — kill-count FFA with respawns. Ends on first to killsToWin, timer expiry, or when the lobby drops below minPlayers.",
+      "script": "mp/deathmatch_game.ts",
+      "params": {
+        "roundDurationSec": 300,
+        "killsToWin": 20
+      }
     }
   }
 }

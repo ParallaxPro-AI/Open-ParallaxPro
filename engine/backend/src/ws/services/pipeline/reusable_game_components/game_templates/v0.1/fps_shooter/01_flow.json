@@ -1,106 +1,99 @@
 {
-  "id": "fps_shooter_flow",
-  "name": "FPS Shooter",
+  "id": "fps_deathmatch_flow",
+  "name": "FPS Deathmatch",
+  "description": "1-10 player peer-to-peer first-person deathmatch. Free-for-all kill count with 3-second respawns. First to 20 kills or highest after 5 minutes wins.",
   "start": "boot",
+  "multiplayer": {
+    "enabled": true,
+    "minPlayers": 1,
+    "maxPlayers": 10,
+    "tickRate": 30,
+    "authority": "host",
+    "predictLocalPlayer": true,
+    "hostPlaysGame": true
+  },
   "ui_params": {
-    "main_menu": { "gameTitle": "FPS Shooter" }
+    "main_menu": {
+      "gameTitle": "DEATHMATCH",
+      "gameSubtitle": "First to 20 kills wins"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize systems",
+      "active_systems": ["mp_bridge"],
       "duration": -1,
-      "on_enter": [
-        "set:boot_frames=0"
-      ],
-      "on_update": [
-        "increment:boot_frames"
-      ],
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
       "transitions": [
-        {
-          "when": "boot_frames>=2",
-          "goto": "main_menu"
-        }
+        { "when": "boot_frames>=2", "goto": "main_menu" }
       ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": [
-        "show_ui:main_menu",
-        "show_cursor"
-      ],
-      "on_exit": [
-        "hide_ui:main_menu",
-        "hide_cursor"
-      ],
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
       "transitions": [
-        {
-          "when": "ui_event:main_menu:start_game",
-          "goto": "gameplay"
-        }
+        { "when": "ui_event:main_menu:start_game", "goto": "lobby_browser" }
+      ]
+    },
+    "lobby_browser": {
+      "description": "Browse open lobbies or host a new one",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:lobby_browser", "show_cursor", "mp:refresh_lobbies"],
+      "on_exit":  ["hide_ui:lobby_browser", "hide_ui:lobby_host_config"],
+      "transitions": [
+        { "when": "mp_event:phase_in_lobby", "goto": "lobby_room" },
+        { "when": "mp_event:back_to_menu", "goto": "main_menu" }
+      ]
+    },
+    "lobby_room": {
+      "description": "Pre-match lobby with roster, chat, voice",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:lobby_room", "show_ui:hud/text_chat", "show_ui:hud/voice_chat"],
+      "on_exit":  ["hide_ui:lobby_room"],
+      "transitions": [
+        { "when": "mp_event:phase_in_game", "goto": "gameplay" },
+        { "when": "mp_event:phase_browsing", "goto": "lobby_browser" },
+        { "when": "mp_event:phase_disconnected", "goto": "main_menu" }
       ]
     },
     "gameplay": {
-      "description": "FPS combat",
-      "start": "playing",
+      "description": "Match in progress",
+      "active_systems": ["mp_bridge", "deathmatch_game"],
+      "active_behaviors": ["fps_camera", "fps_movement", "fps_combat", "player_health"],
       "on_enter": [
-        "emit:game.game_ready"
+        "show_ui:hud/ping",
+        "show_ui:hud/text_chat",
+        "show_ui:hud/voice_chat",
+        "show_ui:hud/scoreboard",
+        "show_ui:hud/health",
+        "show_ui:hud/ammo",
+        "show_ui:hud/crosshair",
+        "hide_cursor",
+        "emit:game.match_started"
       ],
-      "substates": {
-        "playing": {
-          "description": "Active combat",
-          "active_systems": [
-            "scoring"
-          ],
-          "active_behaviors": [
-            "fps_camera",
-            "fps_movement",
-            "fps_combat",
-            "player_health",
-            "enemy_ai"
-          ],
-          "on_enter": [
-            "show_ui:hud/health",
-            "show_ui:hud/ammo",
-            "show_ui:hud/crosshair",
-            "show_ui:hud/score"
-          ],
-          "on_exit": [
-            "hide_ui:hud/health",
-            "hide_ui:hud/ammo",
-            "hide_ui:hud/crosshair",
-            "hide_ui:hud/score"
-          ],
-          "transitions": [
-            {
-              "when": "game_event:player_died",
-              "goto": "game_over"
-            }
-          ]
-        },
-        "game_over": {
-          "description": "Player died",
-          "active_behaviors": [],
-          "on_enter": [
-            "show_ui:game_over",
-            "show_cursor"
-          ],
-          "on_exit": [
-            "hide_ui:game_over",
-            "hide_cursor"
-          ],
-          "transitions": [
-            {
-              "when": "ui_event:game_over:play_again",
-              "goto": "playing"
-            }
-          ]
-        }
-      },
+      "on_exit": [
+        "hide_ui:hud/ping",
+        "hide_ui:hud/scoreboard",
+        "hide_ui:hud/health",
+        "hide_ui:hud/ammo",
+        "hide_ui:hud/crosshair"
+      ],
       "transitions": [
-        {
-          "when": "ui_event:game_over:main_menu",
-          "goto": "main_menu"
-        }
+        { "when": "mp_event:phase_disconnected", "goto": "main_menu" },
+        { "when": "game_event:match_ended", "goto": "game_over" }
+      ]
+    },
+    "game_over": {
+      "description": "Match summary",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit":  ["hide_ui:game_over", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "lobby_room" },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
       ]
     }
   }

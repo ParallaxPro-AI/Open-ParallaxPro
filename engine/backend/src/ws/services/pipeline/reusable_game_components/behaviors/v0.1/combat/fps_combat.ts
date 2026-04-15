@@ -14,6 +14,11 @@ class FPSCombatBehavior extends GameScript {
     _shootSound = "";
 
     onUpdate(dt) {
+        // Multiplayer: remote player proxies share the behavior but must
+        // not shoot — only the owning peer drives its own weapon.
+        var ni = this.entity.getComponent ? this.entity.getComponent("NetworkIdentityComponent") : null;
+        if (ni && !ni.isLocalPlayer) return;
+
         this._fireCooldown -= dt;
 
         // Reload
@@ -60,8 +65,60 @@ class FPSCombatBehavior extends GameScript {
                 var dy = Math.sin(pitch);
                 var dz = -Math.cos(yaw) * Math.cos(pitch);
                 var hit = this.scene.raycast(cp.x, cp.y, cp.z, dx, dy, dz, 200, this.entity.id);
-                if (hit && hit.entityId) {
-                    this.scene.events.game.emit("entity_damaged", { entityId: hit.entityId, amount: this._damage, source: "bullet" });
+                var worldDist = (hit && hit.distance) ? hit.distance : 200;
+
+                // Multiplayer: remote player proxies are spawned by the
+                // network adapter without physics colliders, so the raycast
+                // above never reports them. Do a manual capsule-vs-ray
+                // intersection against every player entity and keep the
+                // nearest one that's closer than the world hit.
+                var mp = this.scene._mp;
+                var playerHit = null;
+                var playerDist = Infinity;
+                if (mp && this.scene.findEntitiesByTag) {
+                    var players = this.scene.findEntitiesByTag("player");
+                    for (var pi = 0; pi < players.length; pi++) {
+                        var pe = players[pi];
+                        var peNi = pe.getComponent ? pe.getComponent("NetworkIdentityComponent") : null;
+                        if (peNi && peNi.isLocalPlayer) continue;
+                        if (!peNi || typeof peNi.ownerId !== "string" || !peNi.ownerId) continue;
+                        var pp = pe.transform.position;
+                        // Parameter t along the ray where the target projects.
+                        var tox = pp.x - cp.x, toy = pp.y - cp.y, toz = pp.z - cp.z;
+                        var t = tox * dx + toy * dy + toz * dz;
+                        if (t < 0 || t > worldDist) continue;
+                        // Perpendicular distance from the target's center to
+                        // the ray line. 0.6 is a forgiving radius — player
+                        // capsule is ~0.4 but the aim reticle is not infinitely
+                        // precise, and this runs at 60Hz off user-driven
+                        // clicks so it's fine to be generous.
+                        var px = (cp.x + t * dx) - pp.x;
+                        var py = (cp.y + t * dy) - (pp.y + 1.0); // aim at torso
+                        var pz = (cp.z + t * dz) - pp.z;
+                        var d2 = px * px + py * py + pz * pz;
+                        if (d2 > 0.8 * 0.8) continue;
+                        if (t < playerDist) { playerDist = t; playerHit = pe; }
+                    }
+                }
+
+                if (playerHit) {
+                    // Player hit beats wall hit — emit damage locally for
+                    // feedback and broadcast so the victim's peer drops HP.
+                    var targetNi = playerHit.getComponent("NetworkIdentityComponent");
+                    this.scene.events.game.emit("entity_damaged", {
+                        entityId: playerHit.id, amount: this._damage, source: "bullet"
+                    });
+                    if (mp && targetNi) {
+                        mp.sendNetworkedEvent("player_shot", {
+                            targetPeerId: targetNi.ownerId,
+                            damage: this._damage,
+                            shooterPeerId: mp.localPeerId,
+                        });
+                    }
+                } else if (hit && hit.entityId) {
+                    this.scene.events.game.emit("entity_damaged", {
+                        entityId: hit.entityId, amount: this._damage, source: "bullet"
+                    });
                 }
             }
 

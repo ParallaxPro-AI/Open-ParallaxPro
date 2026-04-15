@@ -85,7 +85,9 @@
       return;
     }
     wrap.classList.remove('hidden');
-    titleEl.textContent = 'First to ' + (sb.scoreToWin || 10);
+    titleEl.textContent = sb.scoreLabel
+      ? 'First to ' + (sb.scoreToWin || 10) + ' ' + sb.scoreLabel
+      : 'First to ' + (sb.scoreToWin || 10);
     var leader = sb.players[0] ? sb.players[0].score : 0;
     rows.innerHTML = '';
     for (var i = 0; i < sb.players.length; i++) {
