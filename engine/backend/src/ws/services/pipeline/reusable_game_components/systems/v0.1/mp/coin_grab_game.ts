@@ -27,6 +27,7 @@ class CoinGrabGameSystem extends GameScript {
     _initialized = false;
     _coinCheckTimer = 0;
     _coinEntityName = "Coin";
+    _lastLocalGrabAt = 0;
 
     onStart() {
         var self = this;
@@ -56,17 +57,21 @@ class CoinGrabGameSystem extends GameScript {
 
     onUpdate(dt) {
         var mp = this.scene._mp;
-        if (!mp || !this._initialized) return;
-        if (!mp.isHost || this._ended) return;
+        if (!mp || !this._initialized || this._ended) return;
 
-        this._elapsed += dt;
-
+        // Pickup detection runs on EVERY peer for their own local player —
+        // host-only would stall when the host's tab is backgrounded (rAF
+        // throttling). Whoever's collision check fires first wins the coin
+        // and tells everyone via a networked event.
         this._coinCheckTimer += dt;
         if (this._coinCheckTimer >= 0.05) {
             this._coinCheckTimer = 0;
-            this._checkPickup();
+            this._checkLocalPickup();
         }
 
+        // Win check + round timer still host-only (one source of truth).
+        if (!mp.isHost) return;
+        this._elapsed += dt;
         var bestScore = -1;
         var bestPeer = null;
         for (var p in this._scores) {
@@ -190,34 +195,42 @@ class CoinGrabGameSystem extends GameScript {
         this.scene.setPosition(coin.id, x, 1, z);
     }
 
-    _checkPickup() {
+    _checkLocalPickup() {
         var mp = this.scene._mp;
+        if (!mp) return;
+        // Cooldown after a successful local grab so we don't double-claim a
+        // coin while the relocation event is in flight.
+        if (this._lastLocalGrabAt && (Date.now() - this._lastLocalGrabAt) < 250) return;
+
         var coin = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
         if (!coin) return;
+
+        var player = this._findLocalPlayerEntity();
+        if (!player) return;
+        var ni = player.getComponent("NetworkIdentityComponent");
+        if (!ni || !ni.isLocalPlayer) return;
+
+        var pp = player.transform.position;
         var coinPos = coin.transform.position;
-        var players = this.scene.findEntitiesByTag("player");
-        for (var i = 0; i < players.length; i++) {
-            var p = players[i];
-            var ni = p.getComponent("NetworkIdentityComponent");
-            if (!ni || !ni.ownerId || ni.ownerId === -1) continue;
-            var pp = p.transform.position;
-            var dx = pp.x - coinPos.x;
-            var dz = pp.z - coinPos.z;
-            if (dx * dx + dz * dz < this._pickupRadius * this._pickupRadius) {
-                var peerId = String(ni.ownerId);
-                this._scores[peerId] = (this._scores[peerId] || 0) + 1;
-                var np = this._randomCoinPosition();
-                this.scene.setPosition(coin.id, np.x, np.y, np.z);
-                mp.sendNetworkedEvent("coin_collected", {
-                    peerId: peerId,
-                    score: this._scores[peerId],
-                    coinX: np.x,
-                    coinZ: np.z,
-                });
-                this._pushScoreboard();
-                return;
-            }
-        }
+        var dx = pp.x - coinPos.x;
+        var dz = pp.z - coinPos.z;
+        if (dx * dx + dz * dz >= this._pickupRadius * this._pickupRadius) return;
+
+        // I touched the coin — claim it. Pick the next coin position locally
+        // so all peers see the same teleport (everyone receives the event
+        // and applies the position from the payload).
+        var peerId = mp.localPeerId;
+        this._scores[peerId] = (this._scores[peerId] || 0) + 1;
+        var np = this._randomCoinPosition();
+        this.scene.setPosition(coin.id, np.x, np.y, np.z);
+        this._lastLocalGrabAt = Date.now();
+        mp.sendNetworkedEvent("coin_collected", {
+            peerId: peerId,
+            score: this._scores[peerId],
+            coinX: np.x,
+            coinZ: np.z,
+        });
+        this._pushScoreboard();
     }
 
     _randomCoinPosition() {
