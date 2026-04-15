@@ -359,15 +359,16 @@ class MpBridge extends GameScript {
                 });
             }
         }
-        // Show the local user's own meter at the top so they can confirm
-        // their mic is actually picking up audio. Only when mic is enabled
-        // — no point rendering a flat row when they haven't granted perms.
-        if (this._micOn && localPeer) {
+        // Always surface the local user's row while they're in a lobby so
+        // the Voice panel (and its mic toggle) is reachable even when
+        // alone — otherwise the user can't turn their mic on in a solo
+        // lobby. Level goes live only when mic is enabled AND not muted.
+        if (localPeer) {
             voicePeers.unshift({
                 peerId: localPeer.peerId,
                 username: localPeer.username + " (you)",
-                level: this._muted ? 0 : (levels.get(localPeer.peerId) || 0),
-                muted: this._muted,
+                level: (this._micOn && !this._muted) ? (levels.get(localPeer.peerId) || 0) : 0,
+                muted: this._micOn && this._muted,
             });
         }
         var peersChanged = JSON.stringify(voicePeers) !== JSON.stringify(this._voicePeers);
