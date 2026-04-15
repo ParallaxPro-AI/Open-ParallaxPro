@@ -370,10 +370,12 @@ export class EditorView {
     }
 
     /**
-     * On self-hosted editors, if the user is signed in to parallaxpro.ai
-     * and the current project isn't cloud-synced, offer to promote it.
-     * Gentle banner — dismissable, remembered per-project in localStorage.
-     * The actual promote action runs cloud-upsert + mark-cloud.
+     * On self-hosted editors, when the user is signed in to parallaxpro.ai
+     * and the current project isn't cloud-synced, float a non-intrusive
+     * toast in the bottom-right corner offering to promote it. Dismissing
+     * ('×') is sticky per-project — we never ask again for that project.
+     * The Settings modal exposes the same action for users who dismissed
+     * and changed their mind.
      */
     private maybeShowPromoteToCloudPrompt(): void {
         const projectId = this.ctx.state.projectId;
@@ -385,62 +387,59 @@ export class EditorView {
         const dismissKey = `pp_promote_dismissed:${projectId}`;
         if (localStorage.getItem(dismissKey)) return;
 
-        const banner = document.createElement('div');
-        banner.className = 'connection-banner';
-        banner.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 14px;background:linear-gradient(90deg,rgba(134,72,230,0.12),rgba(105,187,243,0.12));border-bottom:1px solid rgba(134,72,230,0.3);color:var(--text-primary);font-size:13px;';
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;right:18px;bottom:18px;max-width:340px;background:linear-gradient(135deg,rgba(134,72,230,0.96),rgba(105,187,243,0.96));color:#fff;padding:14px 16px;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,0.35);z-index:200;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.45;animation:ppCloudPromoteSlideIn 0.25s ease-out;';
 
-        const text = document.createElement('span');
+        // Inject the entrance keyframe once so multiple toasts don't
+        // duplicate the style node.
+        if (!document.getElementById('pp-cloud-promote-style')) {
+            const style = document.createElement('style');
+            style.id = 'pp-cloud-promote-style';
+            style.textContent = '@keyframes ppCloudPromoteSlideIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+            document.head.appendChild(style);
+        }
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;align-items:flex-start;gap:10px;';
+        const text = document.createElement('div');
         text.style.flex = '1';
-        text.innerHTML = 'Sync this project to <strong>parallaxpro.ai</strong> so you can pick up where you left off from any computer?';
-        banner.appendChild(text);
-
-        const promoteBtn = document.createElement('button');
-        promoteBtn.textContent = 'Promote to Cloud';
-        promoteBtn.style.cssText = 'padding:4px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
-        promoteBtn.addEventListener('click', async () => {
-            promoteBtn.disabled = true;
-            promoteBtn.textContent = 'Syncing…';
-            try {
-                const engineGitHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
-                const fresh = await this.ctx.backend.loadProject(projectId);
-                const res = await this.ctx.backend.cloudUpsertProd({
-                    id: projectId,
-                    name: fresh.name,
-                    projectData: { projectConfig: fresh.projectConfig ?? { name: fresh.name }, files: fresh.files ?? {} },
-                    expectedUpdatedAt: null,
-                    engineGitHash,
-                    force: true, // new-to-cloud or first upsert — no conflict to check
-                });
-                const userId = this.ctx.cloudSync.currentUserId()!;
-                await this.ctx.backend.markCloudLocal(projectId, {
-                    cloudUserId: userId,
-                    cloudUpdatedAt: res.updatedAt,
-                    editedEngineHash: res.editedEngineHash,
-                    thumbnail: res.thumbnail,
-                });
-                if (this.ctx.state.projectData) (this.ctx.state.projectData as any).isCloud = true;
-                banner.remove();
-            } catch (e: any) {
-                promoteBtn.disabled = false;
-                promoteBtn.textContent = 'Promote to Cloud';
-                alert(e?.message || 'Failed to promote to cloud.');
-            }
-        });
-        banner.appendChild(promoteBtn);
+        text.innerHTML = 'Sync this project to <strong>parallaxpro.ai</strong> so you can pick up where you left off from any computer.';
+        header.appendChild(text);
 
         const dismissBtn = document.createElement('button');
         dismissBtn.textContent = '×';
-        dismissBtn.title = 'Don\'t ask again for this project';
-        dismissBtn.style.cssText = 'padding:2px 10px;background:transparent;border:0;color:var(--text-secondary);font-size:18px;cursor:pointer;line-height:1;';
+        dismissBtn.title = "Don't ask again for this project";
+        dismissBtn.style.cssText = 'padding:0 6px;background:transparent;border:0;color:rgba(255,255,255,0.8);font-size:20px;cursor:pointer;line-height:1;';
         dismissBtn.addEventListener('click', () => {
             try { localStorage.setItem(dismissKey, '1'); } catch {}
-            banner.remove();
+            toast.remove();
         });
-        banner.appendChild(dismissBtn);
+        header.appendChild(dismissBtn);
+        toast.appendChild(header);
 
-        // Slot the banner above the connection banner so it sits right
-        // under the toolbar but below any reconnection notice.
-        this.el.insertBefore(banner, this.connectionBanner);
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:11.5px;color:rgba(255,255,255,0.85);';
+        hint.textContent = 'You can do this any time from the Settings panel in the toolbar.';
+        toast.appendChild(hint);
+
+        const promoteBtn = document.createElement('button');
+        promoteBtn.textContent = 'Promote to Cloud';
+        promoteBtn.style.cssText = 'align-self:flex-start;padding:6px 16px;background:#fff;color:#5a2cba;border:0;border-radius:6px;font-size:12.5px;font-weight:700;cursor:pointer;';
+        promoteBtn.addEventListener('click', async () => {
+            promoteBtn.disabled = true;
+            promoteBtn.textContent = 'Syncing…';
+            const result = await this.ctx.promoteCurrentProjectToCloud();
+            if (result.ok) {
+                toast.remove();
+            } else {
+                promoteBtn.disabled = false;
+                promoteBtn.textContent = 'Promote to Cloud';
+                alert(result.reason);
+            }
+        });
+        toast.appendChild(promoteBtn);
+
+        document.body.appendChild(toast);
     }
 
     private async recoverStateAfterReconnect(projectId: string): Promise<void> {

@@ -919,6 +919,47 @@ export class EditorContext extends EventBus {
         }
     }
 
+    /**
+     * Turn a local-only project into a cloud project: cloud-upserts the
+     * source to parallaxpro.ai with the shared UUID, then marks the
+     * local row is_cloud=1 so subsequent saves auto-push. Shared by the
+     * editor's promote banner and the Settings modal's "Promote to
+     * Cloud" button. No-ops cleanly when requirements aren't met.
+     */
+    async promoteCurrentProjectToCloud(): Promise<{ ok: true } | { ok: false; reason: string }> {
+        const projectId = this.state.projectId;
+        if (!projectId) return { ok: false, reason: 'No project open.' };
+        if (!this.backend.isSelfHosted) return { ok: false, reason: 'Already on parallaxpro.ai.' };
+        const userId = this.cloudSync.currentUserId();
+        if (!userId) return { ok: false, reason: 'Sign in to parallaxpro.ai first.' };
+        const engineGitHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
+        try {
+            const fresh = await this.backend.loadProject(projectId);
+            const res = await this.backend.cloudUpsertProd({
+                id: projectId,
+                name: fresh.name,
+                projectData: { projectConfig: fresh.projectConfig ?? { name: fresh.name }, files: fresh.files ?? {} },
+                expectedUpdatedAt: null,
+                engineGitHash,
+                force: true, // first cloud push — no prior state to conflict with
+            });
+            const abs = res.thumbnail
+                ? (res.thumbnail.startsWith('http') ? res.thumbnail : `https://parallaxpro.ai${res.thumbnail}`)
+                : null;
+            await this.backend.markCloudLocal(projectId, {
+                cloudUserId: userId,
+                cloudUpdatedAt: res.updatedAt,
+                editedEngineHash: res.editedEngineHash,
+                thumbnail: abs,
+            });
+            if (this.state.projectData) (this.state.projectData as any).isCloud = true;
+            this.emit('cloudPromoted');
+            return { ok: true };
+        } catch (e: any) {
+            return { ok: false, reason: e?.message ?? 'Failed to promote to cloud.' };
+        }
+    }
+
     // ── Primitive Mesh Upload ──
 
     ensurePrimitiveMeshes(): void {

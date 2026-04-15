@@ -932,6 +932,22 @@ export class Toolbar {
         gfxRow.appendChild(gfxHint);
         body.appendChild(gfxRow);
 
+        // Cloud sync section — only shown on self-hosted instances.
+        // Mirrors the editor's promote toast but survives the user's
+        // previous dismissal. Two states:
+        //   - Not cloud yet → "Promote to Cloud" button.
+        //   - Already cloud → static "Synced to parallaxpro.ai" line.
+        if (this.ctx.backend.isSelfHosted) {
+            const cloudRow = document.createElement('div');
+            cloudRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--bg-secondary);border-radius:6px;';
+            const cloudLabel = document.createElement('div');
+            cloudLabel.textContent = 'Cloud Sync';
+            cloudLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
+            cloudRow.appendChild(cloudLabel);
+            this.renderCloudSettingsSection(cloudRow);
+            body.appendChild(cloudRow);
+        }
+
         const { close } = showModal({
             title: 'Settings',
             body,
@@ -953,6 +969,63 @@ export class Toolbar {
                 },
             ],
         });
+    }
+
+    /**
+     * Render the Cloud Sync section of the Settings modal. Extracted
+     * so the Promote button can re-render itself in place after
+     * successfully syncing (no modal close/reopen needed).
+     */
+    private renderCloudSettingsSection(container: HTMLElement): void {
+        // Remove the section's body (keep the label — first child).
+        while (container.children.length > 1) container.removeChild(container.lastChild!);
+
+        const pd: any = this.ctx.state.projectData;
+        const isCloud = !!pd?.isCloud;
+        const signedIn = !!this.ctx.cloudSync.currentUserId();
+
+        if (!signedIn) {
+            const hint = document.createElement('div');
+            hint.style.cssText = 'font-size:12px;color:var(--text-secondary);line-height:1.4;';
+            hint.textContent = 'Sign in to parallaxpro.ai (via the Login button on the project list) to enable cloud sync for this project.';
+            container.appendChild(hint);
+            return;
+        }
+
+        if (isCloud) {
+            const status = document.createElement('div');
+            status.style.cssText = 'font-size:12.5px;color:#7bca9b;display:flex;align-items:center;gap:6px;';
+            status.textContent = '✓ This project syncs to parallaxpro.ai on every save.';
+            container.appendChild(status);
+            return;
+        }
+
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:12px;color:var(--text-secondary);line-height:1.4;';
+        hint.textContent = 'Sync this project to parallaxpro.ai so you can pick up where you left off from any computer.';
+        container.appendChild(hint);
+
+        const btn = document.createElement('button');
+        btn.textContent = 'Promote to Cloud';
+        btn.style.cssText = 'align-self:flex-start;padding:6px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = 'Syncing…';
+            const result = await this.ctx.promoteCurrentProjectToCloud();
+            if (result.ok) {
+                // Also clear any per-project "don't show toast" flag so a
+                // future unsynced project still gets offered if the user
+                // dismissed this one in the past.
+                try { localStorage.removeItem(`pp_promote_dismissed:${this.ctx.state.projectId}`); } catch {}
+                this.renderCloudSettingsSection(container);
+                this.showToast('Project synced to parallaxpro.ai.', 'success');
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Promote to Cloud';
+                alert(result.reason);
+            }
+        });
+        container.appendChild(btn);
     }
 
     private getUsername(): string {
