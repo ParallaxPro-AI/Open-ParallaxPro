@@ -139,7 +139,7 @@ export class ProjectListView {
 
         const tabs: { key: 'all' | 'my' | 'cloud'; label: string; el?: HTMLElement }[] = [
             { key: 'all', label: 'All' },
-            { key: 'my', label: 'My Projects' },
+            { key: 'my', label: 'Local Projects' },
             { key: 'cloud', label: 'Cloud Projects' },
         ];
         for (const t of tabs) {
@@ -203,11 +203,15 @@ export class ProjectListView {
         this.render();
     }
 
-    /** Plain local list with publish-state merged in for badges. */
+    /** Local-only projects (cloud ones are exclusively under the Cloud
+     *  tab to avoid showing every synced project in two places). Still
+     *  merged with publish info in case a local-only project was
+     *  published elsewhere (legacy pre-cloud rows). */
     private async loadMyProjects(): Promise<any[]> {
-        const projects = await this.ctx.backend.listProjects();
-        await this.mergePublishInfo(projects);
-        return projects;
+        const all = await this.ctx.backend.listProjects();
+        const localOnly = all.filter((p: any) => !p.isCloud);
+        await this.mergePublishInfo(localOnly);
+        return localOnly;
     }
 
     /** Superset of My Projects + remote-only cloud projects, with cloud
