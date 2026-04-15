@@ -107,6 +107,21 @@ export class MultiplayerSession {
     private _tickRate: number = TICK_RATE_DEFAULT;
     private _predictionEnabled: boolean = true;
 
+    // ── Remote-player proxy policy ────────────────────────────────────────
+    // A declarative prefab name (Layer 1), a per-peer resolver callback
+    // (Layer 2 — e.g. MOBA champion pick), and a manual bind map (Layer 3
+    // — games that spawn proxies themselves and just tell the adapter
+    // which entity to route snapshots to). Any of the three can be set;
+    // resolution order is:
+    //   1. boundProxies entry → use it, no spawn.
+    //   2. resolver(peerId) → instantiate that prefab.
+    //   3. _remotePlayerPrefab (string) → instantiate by name.
+    //   4. _remotePlayerPrefab === null → skip auto-spawn entirely.
+    //   5. _remotePlayerPrefab undefined → legacy blue-capsule fallback.
+    private _remotePlayerPrefab: string | null | undefined = undefined;
+    private _remotePlayerPrefabResolver: ((peerId: PeerId, roster: LobbyRoster | null) => string | null | undefined) | null = null;
+    private _boundProxies: Map<PeerId, any> = new Map();
+
     private _simTick: number = 0;
     private _simAccumulator: number = 0;
     private _inputSeq: number = 0;
@@ -140,6 +155,53 @@ export class MultiplayerSession {
         this._tickRate = Math.max(5, Math.min(120, Math.floor(tickRate) || TICK_RATE_DEFAULT));
     }
     setPredictionEnabled(enabled: boolean): void { this._predictionEnabled = enabled; }
+
+    /**
+     * Layer 1: declarative default. Called from the play bootstrapper
+     * with the value read out of `multiplayerConfig.remotePlayerPrefab`.
+     *   - string → adapter instantiates that prefab for every new peer.
+     *   - null   → adapter skips auto-spawning (game owns the spawn).
+     *   - undefined → legacy blue-capsule fallback.
+     */
+    setRemotePlayerPrefab(name: string | null | undefined): void {
+        this._remotePlayerPrefab = name;
+    }
+
+    /**
+     * Layer 2: per-peer override. Resolver returns a prefab name based on
+     * the peer's role/team/champion/class. Returning `undefined` defers
+     * to the Layer 1 default; returning `null` skips spawn for that peer.
+     */
+    setRemotePlayerPrefabResolver(fn: ((peerId: PeerId, roster: LobbyRoster | null) => string | null | undefined) | null): void {
+        this._remotePlayerPrefabResolver = fn;
+    }
+
+    /**
+     * Layer 3: the game owns the spawn. Call this after creating the
+     * proxy entity yourself, and the adapter will route subsequent
+     * snapshots to it without doing any auto-spawn work.
+     */
+    bindProxyEntity(peerId: PeerId, entity: any): void {
+        if (!entity) return;
+        this._boundProxies.set(peerId, entity);
+    }
+    unbindProxyEntity(peerId: PeerId): void { this._boundProxies.delete(peerId); }
+    getBoundProxyEntity(peerId: PeerId): any | null { return this._boundProxies.get(peerId) ?? null; }
+
+    /**
+     * Adapter hook: returns whichever prefab should be instantiated for a
+     * new remote peer, honoring Layer 2 over Layer 1. `undefined` means
+     * fall back to legacy default; `null` means don't spawn at all; a
+     * string is the prefab name to look up in the scene's prefab
+     * registry.
+     */
+    resolveRemotePlayerPrefab(peerId: PeerId): string | null | undefined {
+        if (this._remotePlayerPrefabResolver) {
+            const r = this._remotePlayerPrefabResolver(peerId, this._currentRoster);
+            if (r !== undefined) return r;
+        }
+        return this._remotePlayerPrefab;
+    }
 
     get phase(): SessionPhase { return this._phase; }
     get isHost(): boolean { return this._isHost; }

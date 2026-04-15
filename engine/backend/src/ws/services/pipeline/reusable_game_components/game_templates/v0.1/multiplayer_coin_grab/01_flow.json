@@ -10,7 +10,8 @@
     "tickRate": 30,
     "authority": "host",
     "predictLocalPlayer": true,
-    "hostPlaysGame": true
+    "hostPlaysGame": true,
+    "remotePlayerPrefab": "player"
   },
   "ui_params": {
     "main_menu": {

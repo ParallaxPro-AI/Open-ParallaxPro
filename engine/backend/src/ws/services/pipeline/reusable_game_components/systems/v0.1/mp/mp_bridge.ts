@@ -91,6 +91,13 @@ class MpBridge extends GameScript {
         var templateId = cfg.gameTemplateId || this._gameTemplateId || "default";
         if (mpCfg.tickRate) mp.setTickRate(mpCfg.tickRate);
         if (typeof mpCfg.predictLocalPlayer === "boolean") mp.setPredictionEnabled(mpCfg.predictLocalPlayer);
+        // remotePlayerPrefab — string name = adapter instantiates that
+        // prefab for every new peer; null = adapter skips auto-spawn so
+        // the game can call mp.bindProxyEntity itself; undefined = legacy
+        // fallback (blue capsule).
+        if (mp.setRemotePlayerPrefab && (mpCfg.remotePlayerPrefab === null || typeof mpCfg.remotePlayerPrefab === "string")) {
+            mp.setRemotePlayerPrefab(mpCfg.remotePlayerPrefab);
+        }
 
         // Subscribe to session state changes and push them onto the UI bus.
         this._unsubs.push(mp.onLobbyList(function(lobbies) {

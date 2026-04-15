@@ -115,12 +115,11 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
         let sceneEntity = this.findSceneEntityByNetId(entity.id);
         if (!sceneEntity) {
             // We've never seen this networkId. For remote player snapshots
-            // (flag 4 = localPlayer-hint on origin), auto-spawn a visual
-            // proxy so the player is actually rendered on every peer. Other
-            // entity kinds wait for an explicit spawn message so game code
-            // can control construction.
+            // (flag 4 = localPlayer-hint on origin), let the session's
+            // proxy policy decide what to spawn (a named prefab, a
+            // pre-bound entity from Layer 3, or nothing).
             if ((entity.flags & 4) !== 0 && entity.owner && entity.owner !== this.session.localPeerId) {
-                sceneEntity = this._spawnRemotePlayerProxy(entity);
+                sceneEntity = this._resolveRemotePlayerEntity(entity);
             }
             if (!sceneEntity) {
                 this._pendingSpawnInfo.set(entity.id, entity);
@@ -131,12 +130,112 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
     }
 
     /**
-     * Spawn a minimal capsule with the networked identity stamped on it so
-     * subsequent snapshots flow into its transform. Used for remote players
-     * coming from other peers — no movement behavior attached, just a
-     * visible avatar the interpolator can drive.
+     * Find or create the scene entity that represents `entity.owner`'s
+     * avatar. Walks the session's proxy policy:
+     *
+     *   1. If the game has manually bound an entity (Layer 3), use it.
+     *   2. Else ask the session for a prefab name (resolver → default).
+     *      If it returns a string, instantiate that prefab via the scene's
+     *      prefab registry with physics downgraded to kinematic and
+     *      behaviors stripped (proxies are snapshot-driven, not
+     *      locally-controlled).
+     *   3. If the policy is `null`, return null — the game is on its own.
+     *   4. If the policy is `undefined` (not set), fall back to a plain
+     *      blue capsule so templates that predate the field still work.
      */
-    private _spawnRemotePlayerProxy(entity: SnapshotEntity): any {
+    private _resolveRemotePlayerEntity(entity: SnapshotEntity): any {
+        const scene = this.scene as any;
+        const sessionAny = this.session as any;
+        const ownerId = entity.owner as PeerId;
+
+        // Layer 3: manually bound.
+        if (typeof sessionAny.getBoundProxyEntity === 'function') {
+            const bound = sessionAny.getBoundProxyEntity(ownerId);
+            if (bound) {
+                this._stampNetworkIdentity(bound, entity);
+                return bound;
+            }
+        }
+
+        // Layer 1 / 2: prefab policy.
+        const prefab: string | null | undefined =
+            typeof sessionAny.resolveRemotePlayerPrefab === 'function'
+                ? sessionAny.resolveRemotePlayerPrefab(ownerId)
+                : undefined;
+
+        if (prefab === null) return null;  // explicit opt-out
+
+        if (typeof prefab === 'string' && prefab.length > 0 && typeof scene.instantiatePrefab === 'function') {
+            const inst = scene.instantiatePrefab(prefab, {
+                name: 'RemotePlayer_' + entity.id,
+                position: {
+                    x: entity.pos?.[0] ?? 0,
+                    y: entity.pos?.[1] ?? 0,
+                    z: entity.pos?.[2] ?? 0,
+                },
+                rotation: {
+                    x: entity.rot?.[0] ?? 0,
+                    y: entity.rot?.[1] ?? 0,
+                    z: entity.rot?.[2] ?? 0,
+                    w: entity.rot?.[3] ?? 1,
+                },
+                skipBehaviors: true,
+                kinematicPhysics: true,
+                extraComponents: [
+                    {
+                        type: 'NetworkIdentityComponent',
+                        data: {
+                            networkId: entity.id,
+                            ownerId: entity.owner || -1,
+                            isLocalPlayer: false,
+                            syncTransform: true,
+                        },
+                    },
+                ],
+            });
+            if (inst) {
+                if (typeof inst.addTag === 'function') {
+                    inst.addTag('player');
+                    inst.addTag('remote');
+                    inst.addTag('networked');
+                }
+                this.onEntitySpawned?.();
+                return inst;
+            }
+        }
+
+        // Legacy fallback (prefab undefined or registry missing).
+        return this._spawnFallbackCapsule(entity);
+    }
+
+    /**
+     * Apply a NetworkIdentity to an entity the game already placed in the
+     * scene (Layer 3 manual bind). Ensures the next snapshot routes here.
+     */
+    private _stampNetworkIdentity(ent: any, entity: SnapshotEntity): void {
+        if (!ent || typeof ent.addComponent !== 'function') return;
+        const existing = typeof ent.getComponent === 'function' ? ent.getComponent('NetworkIdentityComponent') : null;
+        if (existing) {
+            existing.networkId = entity.id;
+            existing.ownerId = entity.owner || -1;
+            existing.isLocalPlayer = false;
+            existing.syncTransform = true;
+        } else {
+            ent.addComponent('NetworkIdentityComponent', {
+                networkId: entity.id,
+                ownerId: entity.owner || -1,
+                isLocalPlayer: false,
+                syncTransform: true,
+            });
+        }
+    }
+
+    /**
+     * Minimum-viable blue capsule. Kept as the fallback path so older
+     * templates that didn't set remotePlayerPrefab still render remote
+     * peers as something visible.
+     */
+    private _spawnFallbackCapsule(entity: SnapshotEntity): any {
         const scene = this.scene as any;
         if (typeof scene.createEntity !== 'function') return null;
         const ent = scene.createEntity('RemotePlayer_' + entity.id);

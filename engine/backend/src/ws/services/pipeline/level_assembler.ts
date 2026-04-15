@@ -20,12 +20,36 @@ export interface MultiplayerConfig {
   authority?: 'host';
   predictLocalPlayer?: boolean;
   hostPlaysGame?: boolean;
+  /**
+   * Prefab name used when the network adapter needs to instantiate a
+   * visible proxy for a peer it's never seen before (only auto-spawn
+   * path; games can still spawn proxies themselves via the adapter's
+   * manual-bind hook).
+   *
+   *   string  → instantiate `prefabs[name]` per new peer.
+   *   null    → disable auto-spawn entirely; the game owns spawning.
+   *   undef   → legacy fallback (a plain blue capsule), kept for older
+   *             templates that predate this field.
+   */
+  remotePlayerPrefab?: string | null;
 }
 
 export interface ConvertedScene {
   entities: any[];
   scripts: Record<string, string>;
   uiFiles: Record<string, string>;
+  /**
+   * Named prefab blueprints, keyed by the entity-def name from
+   * 02_entities.json. Each value is an already-assembled entity JSON
+   * blob (same shape as entries in `entities`) minus a world position
+   * and id — the runtime calls Scene.instantiatePrefab(name, pos) to
+   * stamp one into the scene with a fresh id.
+   *
+   * Used mainly by the multiplayer adapter to spawn remote-player
+   * proxies that look like the same prefab as the local player, but
+   * any script can call it for per-game entity spawning.
+   */
+  prefabs?: Record<string, any>;
   multiplayerConfig?: MultiplayerConfig;
   /** Scene-level environment (gravity, lighting, fog, time of day) sourced from
    *  worlds[0].environment. The editor's environment edits go here. */
@@ -648,15 +672,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   //   }
   //
   // Cap on maxPlayers is 16 (peer-to-peer star topology limit).
-  let multiplayerConfig: {
-    enabled?: boolean;
-    maxPlayers?: number;
-    minPlayers?: number;
-    tickRate?: number;
-    authority?: 'host';
-    predictLocalPlayer?: boolean;
-    hostPlaysGame?: boolean;
-  } | undefined;
+  let multiplayerConfig: MultiplayerConfig | undefined;
   const mpBlock: any = flow?.multiplayer;
   if (mpBlock && typeof mpBlock === 'object') {
     multiplayerConfig = {};
@@ -667,6 +683,13 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     multiplayerConfig.authority = 'host';
     multiplayerConfig.predictLocalPlayer = mpBlock.predictLocalPlayer !== false;
     multiplayerConfig.hostPlaysGame = mpBlock.hostPlaysGame !== false;
+    // remotePlayerPrefab: null opt-out OR a prefab name string.
+    // undefined means "use the blue-capsule fallback" for back-compat.
+    if (mpBlock.remotePlayerPrefab === null) {
+      multiplayerConfig.remotePlayerPrefab = null;
+    } else if (typeof mpBlock.remotePlayerPrefab === 'string' && mpBlock.remotePlayerPrefab.length > 0) {
+      multiplayerConfig.remotePlayerPrefab = mpBlock.remotePlayerPrefab;
+    }
   } else if (flow?.max_players || flow?.min_players) {
     multiplayerConfig = {
       enabled: true,
@@ -823,7 +846,43 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   const streamedBuildings = worlds?.worlds?.[0]?.streamedBuildings;
   const environment = worlds?.worlds?.[0]?.environment;
 
-  return { entities, scripts, uiFiles, multiplayerConfig, environment, heightmapTerrain, streamedBuildings };
+  // Emit every entity definition as a prefab blueprint so the runtime
+  // can instantiate them on demand (e.g. the network adapter building a
+  // remote-player avatar). Each blueprint is the same shape as an
+  // entry in `entities` — a fully-assembled component bundle — but
+  // with id/parentId stripped since those are assigned at spawn time.
+  //
+  // We run buildEntity with a zero position/rotation, separate `scripts`
+  // and `usedKeys` collections so the blueprint doesn't churn the
+  // deduped script bundle (all script keys referenced here are already
+  // present from the regular placement pass above).
+  const prefabs: Record<string, any> = {};
+  const prefabIds = { value: 1_000_000_000 };  // isolated id space — prefab blueprints are templates, not scene entities.
+  for (const [prefabName, def] of Object.entries(defs)) {
+    try {
+      const built = buildEntity({
+        def,
+        entityName: prefabName,
+        position: [0, 0, 0],
+        scripts,
+        usedKeys,
+        baseDirs: baseDirs ? { behaviors: baseDirs.behaviors, systems: baseDirs.systems } : undefined,
+      }, prefabIds);
+      if (built.length > 0) {
+        const blueprint = built[0];
+        // Strip id/parentId so the runtime assigns fresh ones per spawn.
+        delete blueprint.id;
+        delete blueprint.parentId;
+        // Child blueprints (if any) are siblings in `built[1..]`; drop them for v1.
+        // Most prefabs we care about (players, coins, walls) don't use children.
+        prefabs[prefabName] = blueprint;
+      }
+    } catch (e: any) {
+      console.warn(`[assembler] Failed to build prefab "${prefabName}":`, e?.message || e);
+    }
+  }
+
+  return { entities, scripts, uiFiles, prefabs, multiplayerConfig, environment, heightmapTerrain, streamedBuildings };
 }
 
 // ─── File loading helpers ──────────────────────────────────────────────────
