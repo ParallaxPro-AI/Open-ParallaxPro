@@ -11,7 +11,7 @@
     overflow: hidden;
   }
   .ping {
-    position: fixed; top: 12px; right: 12px;
+    position: fixed; top: 80px; left: 12px;
     display: flex; align-items: baseline; gap: 4px;
     padding: 6px 10px;
     background: rgba(8, 8, 14, 0.55);
@@ -49,6 +49,15 @@
     return 'v-bad';
   }
 
+  // Keep ping pinned directly under voice_chat.html (which starts at top:100
+  // and grows with peer count). Hidden when no peers, so ping sits where
+  // voice chat would have been.
+  function voiceChatHeight(peerCount) {
+    if (!peerCount) return 0;
+    // panel padding (16) + title-row (~26) + border (2) + peers (22 each + 4 gap)
+    return 44 + peerCount * 22 + (peerCount - 1) * 4;
+  }
+
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'gameState') return;
     var s = e.data.state || {};
@@ -59,6 +68,10 @@
     var ms = typeof mp.ping === 'number' ? mp.ping : -1;
     val.textContent = ms < 0 ? '—' : String(Math.round(ms));
     val.className = 'value ' + colorFor(ms);
+
+    var peers = (mp.voicePeers || []).length;
+    var vh = voiceChatHeight(peers);
+    root.style.top = (80 + (vh ? vh + 8 : 0)) + 'px';
   });
 })();
 </script>
