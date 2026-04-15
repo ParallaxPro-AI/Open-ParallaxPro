@@ -28,7 +28,7 @@ LLMs can generate games, but without a real game engine behind them, those games
 [ParallaxPro](https://parallaxpro.ai/) is a browser-based 3D game engine where AI generates games that run on a real engine with real infrastructure -- WebGPU rendering, rigid body physics, skeletal animation, and an ECS architecture. The AI doesn't need to reinvent the wheel. It just places entities, attaches scripts, and the engine handles the rest.
 
 - **Fully open source** -- engine, editor, AI prompts, game templates, everything. No hidden black boxes.
-- **Royalty free** -- games you make are 100% yours. No revenue share, no attribution required, no strings attached.
+- **Royalty-free engine** -- the engine and your game code are yours to distribute. No engine royalties, no attribution required. If you opt in to our monetization tools (microtransactions, etc.), we may take a cut on those — but the engine itself is always free.
 - **No vendor lock-in** -- bring your own LLM (Groq, OpenRouter, Ollama, or any OpenAI-compatible API). Host it yourself or use our cloud.
 - **Transparent AI** -- even the system prompts and LLM compiler are open source. See exactly how the AI builds your games.
 
