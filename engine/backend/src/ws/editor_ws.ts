@@ -8,7 +8,7 @@ import { verifyToken, type AuthUser } from '../middleware/auth.js';
 import { consumeWsTicket } from './ws_tickets.js';
 import type { EnginePlugin } from '../plugin.js';
 import db from '../db/connection.js';
-import { callLLMStream, type LLMMessage } from './services/llm.js';
+import { callLLMStream, isDirectApiConfigured, type LLMMessage } from './services/llm.js';
 import { SYSTEM_PROMPT, getProjectSummary } from './services/chat_protocol.js';
 import { appendToLog } from './services/chat_log.js';
 import { searchAssets } from '../routes/assets.js';
@@ -39,6 +39,11 @@ interface EditorClient {
     chatSessionId: string;
     activeSceneKey: string;
     abortController: AbortController | null;
+    /** User prefs forwarded from the frontend's localStorage on each chat
+     *  message. Remembered so retries in the same turn re-use the same
+     *  routing (chat LLM provider and fixer CLI). */
+    chatAgent?: string;
+    editingAgent?: string;
 }
 
 const clients = new Map<string, EditorClient>();
@@ -184,6 +189,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
                 label: a.label,
                 caption: a.caption,
             })),
+            llmApiAvailable: isDirectApiConfigured(),
         });
 
         // Send chat history
@@ -386,7 +392,7 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             const abortController = new AbortController();
             client.abortController = abortController;
             const agent = typeof data?.agent === 'string' ? data.agent : '';
-            if ((agent === 'claude' || agent === 'codex' || agent === 'opencode') && isAgentAvailable(agent)) {
+            if ((agent === 'claude' || agent === 'codex' || agent === 'opencode' || agent === 'copilot') && isAgentAvailable(agent)) {
                 runDirectFixer(client, prevUser.content, agent, abortController);
             } else {
                 runLLMWithRetry(client, abortController, 0, [], []);
@@ -492,6 +498,11 @@ function handleChatMessage(client: EditorClient, data: any): void {
     const content = data?.content;
     if (!content || typeof content !== 'string') return;
 
+    // Cache the frontend's localStorage prefs for this turn. Retries within
+    // the same turn (runLLMWithRetry, FIX_GAME escalation) re-read these.
+    if (typeof data?.chatAgent === 'string') client.chatAgent = data.chatAgent;
+    if (typeof data?.editingAgent === 'string') client.editingAgent = data.editingAgent;
+
     // Plugin chat hooks
     for (const p of _plugins) {
         if (p.onChatMessage) p.onChatMessage(client, content);
@@ -509,7 +520,7 @@ function handleChatMessage(client: EditorClient, data: any): void {
     // we skip the small LLM entirely and hand the raw message to the CLI
     // fixer. This is the "direct" path — best for concrete fix/feature asks.
     const agent = typeof data?.agent === 'string' ? data.agent : '';
-    if (agent === 'claude' || agent === 'codex' || agent === 'opencode') {
+    if (agent === 'claude' || agent === 'codex' || agent === 'opencode' || agent === 'copilot') {
         if (!isAgentAvailable(agent)) {
             finishChat(client, `*Agent "${agent}" is not installed on this server.*`);
             return;
@@ -574,7 +585,10 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
             }
         }
 
-        const agentLabel = cliOverride === 'codex' ? 'Codex' : cliOverride === 'opencode' ? 'OpenCode' : 'Claude Code';
+        const agentLabel = cliOverride === 'codex' ? 'Codex'
+            : cliOverride === 'opencode' ? 'OpenCode'
+            : cliOverride === 'copilot' ? 'GitHub Copilot'
+            : 'Claude Code';
         const summary = fixResult.success
             ? (fixResult.summary || `${agentLabel} applied the fix.`)
             : `*${agentLabel} failed: ${fixResult.summary}*`;
@@ -658,6 +672,7 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
         },
         projectId: client.projectId,
         activeSceneKey: client.activeSceneKey,
+        editingAgent: client.editingAgent,
     };
 }
 
@@ -781,5 +796,5 @@ async function runLLMWithRetry(
             client.abortController = null;
             finishChat(client, `*Error: ${error}*`);
         },
-    }, abortController.signal);
+    }, abortController.signal, client.chatAgent);
 }

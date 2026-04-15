@@ -19,7 +19,7 @@
     </a>
 </p>
 
-<h3 align="center">Turn prompts into playable games</h3>
+<h3 align="center">Open source tool that turns prompts into playable games</h3>
 
 ## ParallaxPro
 
@@ -28,7 +28,7 @@ LLMs can generate games, but without a real game engine behind them, those games
 [ParallaxPro](https://parallaxpro.ai/) is a browser-based 3D game engine where AI generates games that run on a real engine with real infrastructure -- WebGPU rendering, rigid body physics, skeletal animation, and an ECS architecture. The AI doesn't need to reinvent the wheel. It just places entities, attaches scripts, and the engine handles the rest.
 
 - **Fully open source** -- engine, editor, AI prompts, game templates, everything. No hidden black boxes.
-- **Royalty free** -- games you make are 100% yours. No revenue share, no attribution required, no strings attached.
+- **Royalty-free engine** -- the engine and your game code are yours to distribute. No engine royalties, no attribution required. Monetization tools (microtransactions, etc.) are coming soon — if you opt in to those we may take a cut on them, but the engine itself is always free.
 - **No vendor lock-in** -- bring your own LLM (Groq, OpenRouter, Ollama, or any OpenAI-compatible API). Host it yourself or use our cloud.
 - **Transparent AI** -- even the system prompts and LLM compiler are open source. See exactly how the AI builds your games.
 
@@ -53,10 +53,9 @@ cd Open-ParallaxPro
 
 ```bash
 cd engine/backend
-cp .env.example .env
 ```
 
-Edit `.env` and add your LLM API key. Any OpenAI-compatible API works:
+The backend runs with zero configuration, but you can drop in an `.env` (copy `.env.example` as a starting point) to point it at an OpenAI-compatible API. Any of these works:
 
 | Provider | `AI_BASE_URL` | Example `AI_MODEL` |
 |----------|--------------|-------------------|
@@ -64,52 +63,29 @@ Edit `.env` and add your LLM API key. Any OpenAI-compatible API works:
 | [OpenRouter](https://openrouter.ai/) | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
 | Local (Ollama) | `http://localhost:11434/v1` | `llama3.3` |
 
-The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. It needs a CLI agent installed to work -- without one, everything else still works but the fixer won't be available.
+**Recommended: set an API key.** A direct API call is faster and gives cleaner chat output than driving an agentic CLI as a chat proxy. Without one the backend falls back to whichever agent CLI is installed, which works but is slower per message and occasionally produces odd responses — fine for trying things out, not ideal long-term.
+
+The **game fixer** is a powerful feature that uses a CLI coding agent to read, analyze, and edit your game's scripts and scenes. At least one of the supported CLIs must be installed — the backend refuses to start without one.
 
 Currently supported:
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-- [Codex](https://github.com/openai/codex)
-- [OpenCode](https://github.com/opencode-ai/opencode) -- works with **any LLM, any provider, even local models** (Claude, GPT, Gemini, Groq, Ollama, LM Studio, you name it)
+- [Claude Code](https://code.claude.com/docs/en/overview)
+- [Codex](https://developers.openai.com/codex/cli)
+- [OpenCode](https://opencode.ai/) -- works with **any LLM, any provider, even local models** (Claude, GPT, Gemini, Groq, Ollama, LM Studio, you name it)
+- [GitHub Copilot CLI](https://github.com/features/copilot/cli)
 
 Install one or more of them and the backend will auto-detect them at startup. If multiple are installed, pick your default per-project from the editor's Project Settings, or override per-message from the chat input.
 
-> ⚠️ **Security note — the agents run in YOLO mode.** To let the agent edit your project files without interactive approval prompts, the backend spawns each CLI with its "skip permissions" flag:
+> ⚠️ **Security note.** The agents run without interactive approval prompts, so they inherit the **same filesystem and network permissions as the backend process** — they can read anything that user can read (`~/.ssh`, `~/.env`, other projects) and write anywhere that user can write. Don't run the backend on a host with secrets you don't want an LLM to see.
 >
-> - `claude --dangerously-skip-permissions`
-> - `codex exec --dangerously-bypass-approvals-and-sandbox`
-> - `opencode run` (no sandbox flag exposed)
->
-> This means the agent has the **same filesystem and network permissions as the backend process** — it can read anything the user running the backend can read (`~/.ssh`, `~/.env`, other projects, etc.) and write anywhere that user can write.
->
-> **Do not run the backend on a host with secrets you don't want an LLM to see.** Treat running the editor like running `curl | bash` from the internet — you're trusting the agent's code actions and its model provider.
->
-> **Docker sandbox (opt-in):** set `DOCKER_SANDBOX=1` to run every CLI invocation inside an ephemeral Docker container so the agent only sees its per-fix sandbox dir and its own auth dir — nothing else on your filesystem. Requires Docker on the host plus a one-time image build:
+> **Docker sandbox (opt-in):** set `DOCKER_SANDBOX=1` to run every CLI invocation inside an ephemeral container that only sees its per-fix sandbox dir and the agent's own auth dir. One-time image build:
 >
 > ```bash
 > docker build -t parallaxpro/agent-sandbox engine/backend/docker/agent-sandbox
 > ```
 >
-> Recommended for any host where you care about file isolation from the agent (personal laptop with other projects and secrets, shared workstations, multi-tenant deployments, etc.). It's off by default so the engine works out of the box without a Docker dependency.
+> Recommended for any host where you care about isolating the agent from other files.
 
-To set up Claude Code:
-
-```bash
-npm install -g @anthropic-ai/claude-code
-claude  # Follow auth prompts
-```
-
-To set up Codex:
-
-```bash
-npm install -g @openai/codex
-codex login  # Follow auth prompts
-```
-
-To set up OpenCode, follow [the installer instructions](https://opencode.ai/docs) and then:
-
-```bash
-opencode auth  # Configure any provider: Anthropic, OpenAI, Groq, Ollama, LM Studio, etc.
-```
+Install at least one CLI and follow its own auth steps — links above. The backend auto-detects whichever ones are on your `PATH` at startup.
 
 Install dependencies and start the backend:
 
@@ -168,7 +144,7 @@ To use your own local assets, set `ASSETS_DIR` in your `.env` to a directory con
 
 ### Publishing Games
 
-Game publishing is available on the hosted version at [parallaxpro.ai](https://parallaxpro.ai/). Published games appear at `parallaxpro.ai/games`. We are working on direct publishing from self-hosted instances.
+**We recommend publishing on [parallaxpro.ai](https://parallaxpro.ai/)** — it's the easiest way to get your game in front of players, with free hosting and a shareable `parallaxpro.ai/games/<you>/<game>` URL. Monetization tools are coming soon. Direct publishing from running locally (localhost) is in progress.
 
 ### License
 

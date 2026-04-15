@@ -827,23 +827,47 @@ export class Toolbar {
         const body = document.createElement('div');
         body.style.cssText = 'display:flex;flex-direction:column;gap:16px;';
 
-        const nameRow = document.createElement('div');
-        nameRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
-        const nameLabel = document.createElement('label');
-        nameLabel.textContent = 'Project Name';
-        nameLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.value = this.ctx.state.projectData?.name ?? 'Untitled Project';
-        nameInput.style.cssText = 'width:100%;height:28px;';
-        nameRow.appendChild(nameLabel);
-        nameRow.appendChild(nameInput);
-        body.appendChild(nameRow);
+        // Chat Agent picker — which provider handles the conversational LLM
+        // calls. "LLM API" uses the direct AI_BASE_URL when configured; the
+        // rest drive a local CLI as a chat completion proxy. Only shows
+        // providers that are actually available on the backend.
+        const cliAgents = this.ctx.state.availableAgents ?? [];
+        const chatOptions: { value: string; label: string }[] = [];
+        if (this.ctx.state.llmApiAvailable) chatOptions.push({ value: 'llm_api', label: 'LLM API' });
+        for (const a of cliAgents) {
+            const label = a.label.replace(/^Editing Agent:\s*/, '');
+            chatOptions.push({ value: a.id, label });
+        }
+        let chatSelect: HTMLSelectElement | null = null;
+        if (chatOptions.length >= 2) {
+            const chatRow = document.createElement('div');
+            chatRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+            const chatLabel = document.createElement('label');
+            chatLabel.textContent = 'Chat Agent';
+            chatLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
+            chatSelect = document.createElement('select');
+            chatSelect.style.cssText = 'width:100%;height:28px;';
+            const currentChat = localStorage.getItem('chat_agent')
+                ?? (this.ctx.state.llmApiAvailable ? 'llm_api' : chatOptions[0].value);
+            for (const opt of chatOptions) {
+                const el = document.createElement('option');
+                el.value = opt.value;
+                el.textContent = opt.label;
+                if (opt.value === currentChat) el.selected = true;
+                chatSelect.appendChild(el);
+            }
+            const chatHint = document.createElement('span');
+            chatHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
+            chatHint.textContent = 'Recommended: LLM API — faster (<1s vs 2-3s per message), cheaper, and produces cleaner output. CLI agents are a convenience when you don\'t have an API key, but they\'re agentic and may occasionally emit tool calls instead of chat replies.';
+            chatRow.appendChild(chatLabel);
+            chatRow.appendChild(chatSelect);
+            chatRow.appendChild(chatHint);
+            body.appendChild(chatRow);
+        }
 
         // Editing Agent picker — only when 2+ CLI fixers are installed on the
         // backend. Persisted in projectConfig.editingAgent and used by the
         // fixer whenever the LLM escalates via FIX_GAME (Auto / Small LLM).
-        const cliAgents = this.ctx.state.availableAgents ?? [];
         let agentSelect: HTMLSelectElement | null = null;
         if (cliAgents.length >= 2) {
             const agentRow = document.createElement('div');
@@ -853,7 +877,7 @@ export class Toolbar {
             agentLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
             agentSelect = document.createElement('select');
             agentSelect.style.cssText = 'width:100%;height:28px;';
-            const currentAgent = this.ctx.state.projectData?.projectConfig?.editingAgent ?? 'claude';
+            const currentAgent = localStorage.getItem('editing_agent') ?? 'claude';
             for (const a of cliAgents) {
                 const opt = document.createElement('option');
                 opt.value = a.id;
@@ -902,7 +926,7 @@ export class Toolbar {
         body.appendChild(gfxRow);
 
         const { close } = showModal({
-            title: 'Project Settings',
+            title: 'Settings',
             body,
             width: '400px',
             closeOnBackdrop: false,
@@ -912,20 +936,11 @@ export class Toolbar {
                     label: 'Save',
                     primary: true,
                     action: () => {
-                        const newName = nameInput.value.trim();
-                        if (newName && this.ctx.state.projectData) {
-                            this.ctx.state.projectData.name = newName;
-                            this.projectNameEl.textContent = newName;
-                        }
-                        if (agentSelect && this.ctx.state.projectData) {
-                            const pd = this.ctx.state.projectData;
-                            if (!pd.projectConfig) pd.projectConfig = {};
-                            pd.projectConfig.editingAgent = agentSelect.value;
-                        }
+                        if (agentSelect) localStorage.setItem('editing_agent', agentSelect.value);
+                        if (chatSelect) localStorage.setItem('chat_agent', chatSelect.value);
                         const selectedQuality = gfxSelect.value as 'low' | 'medium' | 'high';
                         localStorage.setItem('graphics_quality', selectedQuality);
                         this.ctx.setGraphicsQuality(selectedQuality);
-                        this.ctx.markDirty();
                         close();
                     },
                 },

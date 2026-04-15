@@ -166,13 +166,40 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
  */
 export async function startEngine(server: http.Server, plugins: EnginePlugin[] = []): Promise<void> {
     return new Promise((resolve) => {
+        // Graceful EADDRINUSE: print a helpful hint instead of dumping a
+        // stack trace. Common when a previous dev server is still alive.
+        server.once('error', (err: NodeJS.ErrnoException) => {
+            if (err.code === 'EADDRINUSE') {
+                console.error(
+                    `[Server] ✗ Port ${config.port} is already in use.\n` +
+                    `         Stop whatever is using it (e.g. \`lsof -ti:${config.port} | xargs kill -9\`),\n` +
+                    `         or set PORT=<other> in your .env. If you change the port, also\n` +
+                    `         set BACKEND_URL=http://localhost:<port> for the editor frontend\n` +
+                    `         so its vite proxy reaches the new port.`,
+                );
+                process.exit(1);
+            }
+            throw err;
+        });
+
         server.listen(config.port, async () => {
             console.log(`[Server] Running on port ${config.port} (${config.nodeEnv})`);
 
-            // Detect which CLI fixer agents (claude, codex) are installed.
-            // Runs once, cached for the life of the process.
+            // Detect which CLI fixer agents (claude, codex, opencode, copilot)
+            // are installed. Runs once, cached for the life of the process.
+            // Hard-fail if zero are installed — without an editing agent the
+            // fixer silently can't run, which is a confusing failure mode to
+            // discover at first-message time.
             import('./ws/services/pipeline/cli_availability.js').then(({ detectAgents }) => {
-                detectAgents();
+                const agents = detectAgents();
+                if (!agents.some(a => a.installed)) {
+                    console.error(
+                        '[Agents] ✗ No editing-agent CLIs detected on PATH.\n' +
+                        '         Install at least one of: claude, codex, opencode, copilot\n' +
+                        '         (see README.md → "Fixer CLIs"). Refusing to start.',
+                    );
+                    process.exit(1);
+                }
             });
 
             // If DOCKER_SANDBOX=1, confirm docker + the sandbox image are

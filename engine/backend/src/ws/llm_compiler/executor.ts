@@ -33,6 +33,12 @@ export interface ExecutionContext {
     abortSignal?: AbortSignal;
     projectId: string;
     activeSceneKey: string;
+    /**
+     * Which CLI fixer agent runs when FIX_GAME escalates. Passed through
+     * from the incoming chat message so the frontend's localStorage pref
+     * wins per call. Missing = "use the first installed CLI".
+     */
+    editingAgent?: string;
 }
 
 export interface ExecutionResult {
@@ -178,7 +184,6 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
 
             try {
                 const view = ctx.getProjectData();
-                const editingAgent = view?.projectConfig?.editingAgent;
                 const fixResult = await runFixer(
                     ctx.projectId,
                     description,
@@ -186,7 +191,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     ctx.activeSceneKey,
                     sendStatus,
                     ctx.abortSignal,
-                    editingAgent,
+                    ctx.editingAgent,
                 );
 
                 if (fixResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(fixResult.costUsd);

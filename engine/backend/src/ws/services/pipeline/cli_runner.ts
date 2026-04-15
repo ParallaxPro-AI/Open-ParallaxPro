@@ -27,17 +27,18 @@ import { wrapSpawn } from './docker_sandbox.js';
 //
 // opencode gets a much higher cap because it's usually routed at a
 // hosted-provider API (Groq, Anthropic, etc.) — lots of cheap, fast
-// completions. claude/codex run heavier reasoning-backed CLIs that
-// each consume real CPU/RAM on the host, so 8 concurrent is plenty.
+// completions. claude/codex/copilot run heavier reasoning-backed CLIs
+// that each consume real CPU/RAM on the host, so 8 concurrent is plenty.
 
 const MAX_PER_CLI: Record<CLIName, number> = {
     claude: 8,
     codex: 8,
     opencode: 64,
+    copilot: 8,
 };
 
-const activeCountByCLI: Record<CLIName, number> = { claude: 0, codex: 0, opencode: 0 };
-const waitQueueByCLI: Record<CLIName, Array<() => void>> = { claude: [], codex: [], opencode: [] };
+const activeCountByCLI: Record<CLIName, number> = { claude: 0, codex: 0, opencode: 0, copilot: 0 };
+const waitQueueByCLI: Record<CLIName, Array<() => void>> = { claude: [], codex: [], opencode: [], copilot: [] };
 
 export function acquireCLISlot(cliOverride?: string, sendStatus?: (msg: string) => void): Promise<void> {
     const cli = resolveCLI(cliOverride);
@@ -88,33 +89,60 @@ export interface SpawnOptions {
     abortSignal?: AbortSignal;
     /**
      * Override which CLI to use for this one call. Accepts 'claude' | 'codex' |
-     * 'opencode'. When unset, falls back to the first CLI detected at startup
-     * (probe order: claude → codex → opencode).
+     * 'opencode' | 'copilot'. When unset, falls back to the first CLI detected
+     * at startup (probe order: claude → codex → opencode → copilot).
      */
     cliOverride?: string;
 }
 
-type CLIName = 'claude' | 'codex' | 'opencode';
+type CLIName = 'claude' | 'codex' | 'opencode' | 'copilot';
+
+const VALID_CLI_NAMES: ReadonlySet<CLIName> = new Set(['claude', 'codex', 'opencode', 'copilot']);
 
 /**
- * Pick the CLI for this call. Preference order:
- *   1. Explicit `cliOverride` if set (per-message pick / per-project setting).
- *   2. First agent detected at startup — `PROBES` orders claude → codex →
- *      opencode, so claude wins whenever it's installed.
- * Throws if nothing is installed.
+ * Pick the CLI for this call. Strict about overrides — when the caller
+ * asked for a specific CLI we must use exactly that one or fail loudly:
+ *
+ *   - `cliOverride` is an unknown string → throw (prevents silent fallback
+ *     when a stale/typo'd value leaks in from projectConfig).
+ *   - `cliOverride` is a known CLI but isn't installed on this host → throw
+ *     with a clear "X is not installed" error so the user picks another,
+ *     rather than quietly getting Claude when they chose Codex.
+ *   - `cliOverride` unset → fall back to the first detected CLI (PROBES
+ *     order: claude → codex → opencode → copilot).
+ *   - Nothing installed → throw.
  */
 function resolveCLI(cliOverride?: string): CLIName {
-    if (cliOverride === 'claude' || cliOverride === 'codex' || cliOverride === 'opencode') return cliOverride;
+    if (cliOverride) {
+        if (!VALID_CLI_NAMES.has(cliOverride as CLIName)) {
+            throw new Error(`Unknown editing agent "${cliOverride}". Valid values: ${Array.from(VALID_CLI_NAMES).join(', ')}.`);
+        }
+        const installed = getAvailableAgents().some(a => a.id === cliOverride);
+        if (!installed) {
+            throw new Error(`Editing agent "${cliOverride}" is not installed on this server. Pick a different agent or install the CLI and restart the backend.`);
+        }
+        return cliOverride as CLIName;
+    }
     const first = getAvailableAgents()[0];
-    if (!first) throw new Error('No editing agent CLI is installed. Install claude-code, codex, or opencode and restart the backend.');
+    if (!first) throw new Error('No editing agent CLI is installed. Install claude-code, codex, opencode, or copilot and restart the backend.');
     return first.id as CLIName;
 }
 
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     const cli = resolveCLI(opts.cliOverride);
-    if (cli === 'claude') return spawnClaude(opts);
-    if (cli === 'codex') return spawnCodex(opts);
-    return spawnOpenCode(opts);
+    switch (cli) {
+        case 'claude':   return spawnClaude(opts);
+        case 'codex':    return spawnCodex(opts);
+        case 'opencode': return spawnOpenCode(opts);
+        case 'copilot':  return spawnCopilot(opts);
+        default: {
+            // Exhaustiveness check — the assignment forces a compile error if
+            // a new CLIName is added but no spawn case is wired here, instead
+            // of silently falling through to a default.
+            const _exhaustive: never = cli;
+            throw new Error(`No spawn implementation for CLI "${_exhaustive}".`);
+        }
+    }
 }
 
 // ─── Claude ─────────────────────────────────────────────────────────────────
@@ -414,6 +442,113 @@ function opencodeToolToActivity(name: string): CLIActivity['kind'] {
     if (lower === 'write') return 'write';
     if (lower === 'bash') return 'bash';
     if (lower === 'grep' || lower === 'glob' || lower === 'list') return 'search';
+    return 'other';
+}
+
+// ─── Copilot ────────────────────────────────────────────────────────────────
+
+function spawnCopilot(opts: SpawnOptions): Promise<CLIRunResult> {
+    return new Promise((resolve, reject) => {
+        // GitHub Copilot CLI: -p runs a single prompt non-interactively,
+        // --output-format json emits JSONL events. `--allow-all` is the
+        // equivalent of claude's --dangerously-skip-permissions (auto-allow
+        // every tool/path/URL). `--no-ask-user` prevents the agent from
+        // blocking on interactive questions. `--add-dir` grants file access
+        // to our sandbox; without it copilot refuses to read outside the
+        // config dir. `--log-level none` keeps the stdout stream clean.
+        // `--no-auto-update` avoids a silent npm update in the middle of a
+        // backend-served request.
+        const args = [
+            '-p', opts.prompt,
+            '--output-format', 'json',
+            '--allow-all',
+            '--no-ask-user',
+            '--no-auto-update',
+            '--log-level', 'none',
+            '--add-dir', opts.sandboxDir,
+        ];
+
+        const { command, args: spawnArgs } = wrapSpawn('copilot', 'copilot', args, opts.sandboxDir);
+        const proc = spawn(command, spawnArgs, {
+            cwd: opts.sandboxDir,
+            timeout: config.fixer.timeout,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, HOME: process.env.HOME || '/tmp' },
+        });
+
+        wireAbort(proc, opts.abortSignal, reject);
+
+        let lastFinalText = '';
+        let stderr = '';
+
+        streamJSONL(proc.stdout, (event: any) => {
+            // tool.execution_start fires once per tool call with { toolName,
+            // arguments }. We map the tool name to an activity for status.
+            if (event.type === 'tool.execution_start') {
+                const tool = event.data?.toolName || '';
+                // `report_intent` is copilot's "I'm about to do X" narration
+                // tool — fires before each real action. Skip it so the status
+                // line doesn't flicker to a generic message before every
+                // actual read/edit.
+                if (tool === 'report_intent') return;
+                const kind = copilotToolToActivity(tool);
+                const msg = opts.statusMapper({ kind });
+                if (msg) opts.sendStatus?.(msg);
+                return;
+            }
+
+            // assistant.message with phase 'final_answer' and no pending
+            // toolRequests is the last reply to the user — capture its
+            // content as the summary. Intermediate commentary messages
+            // (phase 'commentary') describe what copilot is about to do;
+            // surface them as live status.
+            if (event.type === 'assistant.message') {
+                const d = event.data || {};
+                const content: string = typeof d.content === 'string' ? d.content.trim() : '';
+                if (!content) return;
+                const hasPendingTools = Array.isArray(d.toolRequests) && d.toolRequests.length > 0;
+                if (d.phase === 'final_answer' && !hasPendingTools) {
+                    lastFinalText = content;
+                    return;
+                }
+                if (d.phase === 'commentary') {
+                    const firstSentence = content.split(/(?<=[.!?])\s/)[0];
+                    opts.sendStatus?.(firstSentence.length > 120 ? firstSentence.slice(0, 117) + '...' : firstSentence);
+                }
+            }
+        });
+
+        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); });
+
+        proc.on('close', (code) => {
+            if (code === 0 || code === null) {
+                // Copilot doesn't report a dollar cost (only premiumRequests
+                // in the final `result` event), so costUsd stays 0.
+                resolve({ text: lastFinalText || 'Changes applied.', costUsd: 0 });
+            } else {
+                console.error(`[CLIRunner] copilot exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
+                reject(new Error(`Fixer CLI exited with code ${code}`));
+            }
+        });
+
+        proc.on('error', (err) => {
+            console.error(`[CLIRunner] Failed to spawn copilot:`, err.message);
+            reject(new Error(`Failed to spawn fixer CLI "copilot": ${err.message}`));
+        });
+    });
+}
+
+function copilotToolToActivity(name: string): CLIActivity['kind'] {
+    const lower = name.toLowerCase();
+    // Observed copilot tool names: `view` (read), `str_replace_editor` /
+    // `edit` (edit), `create` (write), `bash` (shell), `grep` / `glob`
+    // (search). Unknown → 'other' so the mapper falls through to a generic
+    // status.
+    if (lower === 'view' || lower === 'read') return 'read';
+    if (lower === 'edit' || lower === 'str_replace_editor' || lower === 'patch') return 'edit';
+    if (lower === 'create' || lower === 'write') return 'write';
+    if (lower === 'bash' || lower === 'shell' || lower === 'run') return 'bash';
+    if (lower === 'grep' || lower === 'glob' || lower === 'search' || lower === 'list' || lower === 'find') return 'search';
     return 'other';
 }
 

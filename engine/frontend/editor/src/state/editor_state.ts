@@ -21,6 +21,8 @@ export class EditorState {
     isMultiplayerGuest: boolean = false;
     /** CLI fixer agents advertised by the backend in the `connected` event. */
     availableAgents: { id: string; label: string; caption: string }[] = [];
+    /** Whether the backend has AI_BASE_URL / AI_MODEL / AI_API_KEY configured. */
+    llmApiAvailable: boolean = false;
     terrainSculptActive: boolean = false;
     terrainSculptBrush: {
         radius: number;

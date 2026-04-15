@@ -20,13 +20,6 @@ export type ProjectFiles = Record<string, string>;
 export interface ProjectData {
     projectConfig: {
         name: string;
-        /**
-         * Which CLI fixer agent runs when the AI decides to escalate a request
-         * (via the LLM's FIX_GAME tool call). 'claude' | 'codex'. Optional —
-         * missing means "use the first installed CLI" (claude preferred). The
-         * picker in the editor surfaces only the installed CLIs.
-         */
-        editingAgent?: string;
     };
     files: ProjectFiles;
 }

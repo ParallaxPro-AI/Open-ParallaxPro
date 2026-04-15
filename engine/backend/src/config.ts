@@ -6,21 +6,11 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.resolve(__dirname, '../.env');
 
-if (!fs.existsSync(envPath)) {
-    console.error('[Config] .env file not found at ' + envPath);
-    console.error('[Config] Copy .env.example to .env and fill in your values.');
-    process.exit(1);
-}
-
-dotenv.config({ path: envPath });
-
-function envRequired(key: string): string {
-    const v = process.env[key];
-    if (!v) {
-        console.error(`[Config] Missing required env var: ${key}`);
-        process.exit(1);
-    }
-    return v;
+// .env is optional — every field has a default. If present we load it; if
+// not, we fall through to process.env + the defaults below. Lets new users
+// run the backend with zero configuration.
+if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
 }
 
 function envString(key: string, fallback: string): string {
@@ -43,10 +33,14 @@ export const config = {
     assetsDir: envString('ASSETS_DIR', path.resolve(__dirname, '../../../reusable_assets')),
     assetsCdn: envString('ASSETS_CDN', 'https://parallaxpro.ai'),
     isHosted: !!process.env.WEBSITE_BACKEND_URL,
+    // AI_BASE_URL / AI_MODEL / AI_API_KEY are optional. When any of the three
+    // is missing, the backend falls back to driving a locally-installed CLI
+    // agent (claude) for text completion — slower and less clean than a
+    // direct API call, but gets you running without signing up for a key.
     ai: {
-        baseUrl: envRequired('AI_BASE_URL'),
-        model: envRequired('AI_MODEL'),
-        apiKey: envRequired('AI_API_KEY'),
+        baseUrl: envString('AI_BASE_URL', ''),
+        model: envString('AI_MODEL', ''),
+        apiKey: envString('AI_API_KEY', ''),
         maxTokens: envInt('AI_MAX_TOKENS', 8192),
     },
     fixer: {
