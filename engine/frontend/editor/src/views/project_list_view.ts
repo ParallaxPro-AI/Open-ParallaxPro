@@ -933,9 +933,15 @@ git checkout da571fe   # last commit before template unification`;
                 }).length;
                 const base = `Delete ${count} project${count !== 1 ? 's' : ''}? This cannot be undone.`;
                 if (cloudCount === 0) return base;
-                return `${base}<div style="margin-top:12px;padding:10px 12px;background:rgba(138,27,27,0.2);border:1px solid rgba(220,80,80,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
-                    + `<strong>⚠ ${cloudCount} of these ${cloudCount === 1 ? 'is a cloud project' : 'are cloud projects'}.</strong><br>`
-                    + `Deleting ${cloudCount === 1 ? 'it' : 'them'} also removes ${cloudCount === 1 ? 'it' : 'them'} from parallaxpro.ai — source tree, published game, and version history all go away permanently.`
+                const signedIn = !!this.ctx.cloudSync.currentUserId();
+                if (signedIn) {
+                    return `${base}<div style="margin-top:12px;padding:10px 12px;background:rgba(138,27,27,0.2);border:1px solid rgba(220,80,80,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
+                        + `<strong>⚠ ${cloudCount} of these ${cloudCount === 1 ? 'is a cloud project' : 'are cloud projects'}.</strong><br>`
+                        + `Deleting ${cloudCount === 1 ? 'it' : 'them'} also removes ${cloudCount === 1 ? 'it' : 'them'} from parallaxpro.ai — source tree, published game, and version history all go away permanently.`
+                        + `</div>`;
+                }
+                return `${base}<div style="margin-top:12px;padding:10px 12px;background:rgba(154,99,0,0.2);border:1px solid rgba(234,170,70,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
+                    + `<strong>You're signed out</strong> — the ${cloudCount === 1 ? 'cloud copy' : `${cloudCount} cloud copies`} on parallaxpro.ai <strong>won't be deleted</strong>. Sign in first to cascade the delete.`
                     + `</div>`;
             })(),
         );
@@ -1314,18 +1320,28 @@ git checkout da571fe   # last commit before template unification`;
 
     private async deleteProject(project: any): Promise<void> {
         const touchesCloud = project.isCloud || project._cloudState === 'remote-only';
+        const signedIn = !!this.ctx.cloudSync.currentUserId();
         const name = escapeHtml(project.name ?? 'Untitled');
-        const message = touchesCloud
-            ? `<div style="margin-bottom:12px;">Delete <strong>${name}</strong>?</div>`
-              + `<div style="padding:10px 12px;background:rgba(138,27,27,0.2);border:1px solid rgba(220,80,80,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
-              + `<strong>⚠ This also deletes the project on parallaxpro.ai.</strong><br>`
-              + `Other machines lose the source tree, and if this project is published the game at <code>/games/&lt;you&gt;/&lt;slug&gt;</code> and every version in its history go offline. All of it is permanent.`
-              + `</div>`
-            : `Are you sure you want to delete <strong>${name}</strong>? This cannot be undone.`;
-        const confirmed = await showConfirmModal(
-            touchesCloud ? 'Delete cloud project' : 'Delete project',
-            message,
-        );
+        let message: string;
+        let title: string;
+        if (!touchesCloud) {
+            title = 'Delete project';
+            message = `Are you sure you want to delete <strong>${name}</strong>? This cannot be undone.`;
+        } else if (signedIn) {
+            title = 'Delete cloud project';
+            message = `<div style="margin-bottom:12px;">Delete <strong>${name}</strong>?</div>`
+                + `<div style="padding:10px 12px;background:rgba(138,27,27,0.2);border:1px solid rgba(220,80,80,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
+                + `<strong>⚠ This also deletes the project on parallaxpro.ai.</strong><br>`
+                + `Other machines lose the source tree, and if this project is published the game at <code>/games/&lt;you&gt;/&lt;slug&gt;</code> and every version in its history go offline. All of it is permanent.`
+                + `</div>`;
+        } else {
+            title = 'Delete local copy';
+            message = `<div style="margin-bottom:12px;">Delete the local copy of <strong>${name}</strong>?</div>`
+                + `<div style="padding:10px 12px;background:rgba(154,99,0,0.2);border:1px solid rgba(234,170,70,0.4);border-radius:6px;font-size:12.5px;line-height:1.5;">`
+                + `<strong>You're signed out</strong> — the copy on parallaxpro.ai <strong>won't be deleted</strong>. Sign in first if you want the cascade.`
+                + `</div>`;
+        }
+        const confirmed = await showConfirmModal(title, message);
         if (!confirmed) return;
         try {
             // Remote-only cards never had a local row — just delete on prod.
