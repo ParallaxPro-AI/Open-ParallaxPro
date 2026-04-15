@@ -195,27 +195,37 @@ export function joinLobby(
     return { ok: true, lobby };
 }
 
-export function leaveLobby(peerId: PeerId): { closedLobby: Lobby | null; affected: Lobby | null } {
+export function leaveLobby(peerId: PeerId): {
+    closedLobby: Lobby | null;
+    affected: Lobby | null;
+    newHost: Peer | null;
+} {
     const peer = peersById.get(peerId);
-    if (!peer || !peer.lobbyId) return { closedLobby: null, affected: null };
+    if (!peer || !peer.lobbyId) return { closedLobby: null, affected: null, newHost: null };
 
     const lobby = lobbies.get(peer.lobbyId);
     peer.lobbyId = null;
     peer.isReady = false;
-    if (!lobby) return { closedLobby: null, affected: null };
+    if (!lobby) return { closedLobby: null, affected: null, newHost: null };
 
     lobby.peers.delete(peerId);
 
-    if (peerId === lobby.hostPeerId || lobby.peers.size === 0) {
-        for (const p of lobby.peers.values()) {
-            p.lobbyId = null;
-            p.isReady = false;
-        }
-        lobby.peers.clear();
+    // Empty → close.
+    if (lobby.peers.size === 0) {
         lobbies.delete(lobby.id);
-        return { closedLobby: lobby, affected: null };
+        return { closedLobby: lobby, affected: null, newHost: null };
     }
-    return { closedLobby: null, affected: lobby };
+
+    // Host migration: if the leaver was the host, promote a random remaining
+    // peer so the lobby stays open. Selection is uniformly random — no
+    // priority order — per product spec.
+    let newHost: Peer | null = null;
+    if (peerId === lobby.hostPeerId) {
+        const remaining = Array.from(lobby.peers.values());
+        newHost = remaining[Math.floor(Math.random() * remaining.length)];
+        lobby.hostPeerId = newHost.peerId;
+    }
+    return { closedLobby: null, affected: lobby, newHost };
 }
 
 export function listLobbies(gameTemplateId: string): LobbyListEntry[] {

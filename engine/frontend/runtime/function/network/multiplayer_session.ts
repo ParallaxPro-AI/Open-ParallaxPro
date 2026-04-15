@@ -190,6 +190,7 @@ export class MultiplayerSession {
             onSignal: (fromPeerId, payload) => this.webrtc.handleSignal(fromPeerId, payload),
             onPingRequest: (fromPeerId, clientTs) => this.lobby.respondPing(fromPeerId, clientTs),
             onPingResult: (_hostPeerId, _clientTs) => { /* used by lobby UI, not in-game */ },
+            onHostChanged: (newHostPeerId, _uname) => this.handleHostChanged(newHostPeerId),
             onError: (message) => this.fireError(message),
             onDisconnect: () => this.handleDisconnect(),
         });
@@ -671,6 +672,54 @@ export class MultiplayerSession {
         if (!this._currentRoster) return;
         const p = this._currentRoster.peers.find(x => x.peerId === peerId);
         if (p) p.isReady = isReady;
+        for (const cb of this._rosterListeners) cb(this._currentRoster);
+    }
+
+    /**
+     * Re-point the WebRTC star topology at a new host without tearing down
+     * the rest of the session. Everyone drops their connection to the old
+     * host (it's gone), then the new host initiates fresh connections to
+     * every other peer (responder on the other side). For the old host's
+     * replacement that's "me", `_isHost` flips and input sampling vs.
+     * snapshot broadcasting swaps over on the next sim tick.
+     *
+     * For v0.1 we do NOT migrate any authoritative gameplay state — clients
+     * keep their predicted local-player state but host-owned entities may
+     * reset. Good enough for the reference arena template; mid-match
+     * migration in state-heavy games is a future problem.
+     */
+    private handleHostChanged(newHostPeerId: PeerId): void {
+        if (!this._currentRoster) return;
+        const oldHostPeerId = this._hostPeerId;
+        if (oldHostPeerId === newHostPeerId) return;
+
+        this._hostPeerId = newHostPeerId;
+        this._isHost = newHostPeerId === this.lobby.peerId;
+
+        // Update roster isHost flags for UI display.
+        for (const p of this._currentRoster.peers) {
+            p.isHost = p.peerId === newHostPeerId;
+        }
+        this._currentRoster.hostPeerId = newHostPeerId;
+
+        // Disconnect from the old host (it's dead anyway). Non-old-host
+        // connections stay up if the new host is reusing them.
+        if (oldHostPeerId && oldHostPeerId !== newHostPeerId) {
+            this.webrtc.disconnect(oldHostPeerId);
+        }
+
+        if (this._isHost) {
+            // I'm the new host — initiate connections to every other peer.
+            for (const peer of this._currentRoster.peers) {
+                if (peer.peerId === this.lobby.peerId) continue;
+                this.webrtc.connect(peer.peerId, /* amInitiator */ true).catch(() => {});
+            }
+        } else {
+            // I'm a non-host — ensure there's a connection to the new host.
+            this.webrtc.connect(newHostPeerId, /* amInitiator */ false).catch(() => {});
+        }
+
+        this._lastProcessedInputSeqByPeer = {};
         for (const cb of this._rosterListeners) cb(this._currentRoster);
     }
 

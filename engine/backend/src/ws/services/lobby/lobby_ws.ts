@@ -139,11 +139,17 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
         ws.on('close', () => {
             clearInterval(heartbeat);
             const leavingLobby = peer.lobbyId;
-            const { closedLobby, affected } = leaveLobby(peer.peerId);
+            const { closedLobby, affected, newHost } = leaveLobby(peer.peerId);
             if (closedLobby) {
                 broadcast(closedLobby, 'lobby.closed', { lobbyId: closedLobby.id, reason: 'host_left' });
             } else if (affected) {
                 broadcast(affected, 'lobby.peer_left', { peerId: peer.peerId });
+                if (newHost) {
+                    broadcast(affected, 'lobby.host_changed', {
+                        newHostPeerId: newHost.peerId,
+                        newHostUsername: newHost.username,
+                    });
+                }
             }
             unregisterPeer(peer.peerId);
             void leavingLobby;
@@ -194,11 +200,17 @@ function handleMessage(peer: Peer, type: string, data: any): void {
         }
 
         case 'lobby.leave': {
-            const { closedLobby, affected } = leaveLobby(peer.peerId);
+            const { closedLobby, affected, newHost } = leaveLobby(peer.peerId);
             if (closedLobby) {
                 broadcast(closedLobby, 'lobby.closed', { lobbyId: closedLobby.id, reason: 'host_left' });
             } else if (affected) {
                 broadcast(affected, 'lobby.peer_left', { peerId: peer.peerId });
+                if (newHost) {
+                    broadcast(affected, 'lobby.host_changed', {
+                        newHostPeerId: newHost.peerId,
+                        newHostUsername: newHost.username,
+                    });
+                }
             }
             send(peer.ws, 'lobby.left', {});
             return;
@@ -256,8 +268,16 @@ function handleMessage(peer: Peer, type: string, data: any): void {
             const target = getPeer(targetId);
             if (!target || target.lobbyId !== lobby.id) return;
             send(target.ws, 'lobby.kicked', { reason: data?.reason ?? 'Kicked by host' });
-            const { affected } = leaveLobby(target.peerId);
-            if (affected) broadcast(affected, 'lobby.peer_left', { peerId: target.peerId });
+            const { affected, newHost } = leaveLobby(target.peerId);
+            if (affected) {
+                broadcast(affected, 'lobby.peer_left', { peerId: target.peerId });
+                if (newHost) {
+                    broadcast(affected, 'lobby.host_changed', {
+                        newHostPeerId: newHost.peerId,
+                        newHostUsername: newHost.username,
+                    });
+                }
+            }
             return;
         }
 

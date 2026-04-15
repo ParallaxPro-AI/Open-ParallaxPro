@@ -55,6 +55,7 @@ export interface LobbyClientEvents {
     onSignal?: (fromPeerId: PeerId, payload: any) => void;
     onPingRequest?: (fromPeerId: PeerId, clientTs: number) => void;
     onPingResult?: (hostPeerId: PeerId, clientTs: number) => void;
+    onHostChanged?: (newHostPeerId: PeerId, newHostUsername: string) => void;
     onError?: (message: string, code?: string) => void;
     onDisconnect?: () => void;
 }
@@ -211,6 +212,9 @@ export class LobbyClient {
                 return;
             case 'lobby.ping_result':
                 this.events.onPingResult?.(data.hostPeerId, data.clientTs);
+                return;
+            case 'lobby.host_changed':
+                this.events.onHostChanged?.(data.newHostPeerId, data.newHostUsername || '');
                 return;
             case 'lobby.error':
                 this.events.onError?.(data.message || 'Unknown error', data.code);
