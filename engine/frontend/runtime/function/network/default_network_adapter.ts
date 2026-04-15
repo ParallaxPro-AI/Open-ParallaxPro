@@ -505,6 +505,12 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
     tickInterpolation(deltaTime: number): void {
         if (this._targets.size === 0) return;
         const SMOOTHING = 18; // higher = snappier; tuned by feel
+        // A delta bigger than this between current position and latest
+        // snapshot is assumed to be a teleport (respawn, spawn-point
+        // reroll, admin warp, etc.), not normal motion. Interpolating
+        // across that distance would visibly fly the character across
+        // the level — snap instead.
+        const TELEPORT_SQ = 9 * 9;
         const alpha = 1 - Math.exp(-SMOOTHING * deltaTime);
         for (const [netId, target] of this._targets) {
             const entity = this.findSceneEntityByNetId(netId);
@@ -515,9 +521,18 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
             if (ni?.isLocalPlayer) continue;
             const tc = entity.getComponent('TransformComponent') as TransformComponent | null;
             if (!tc) continue;
-            tc.position.x += (target.pos[0] - tc.position.x) * alpha;
-            tc.position.y += (target.pos[1] - tc.position.y) * alpha;
-            tc.position.z += (target.pos[2] - tc.position.z) * alpha;
+            const dx = target.pos[0] - tc.position.x;
+            const dy = target.pos[1] - tc.position.y;
+            const dz = target.pos[2] - tc.position.z;
+            if (dx * dx + dy * dy + dz * dz > TELEPORT_SQ) {
+                tc.position.x = target.pos[0];
+                tc.position.y = target.pos[1];
+                tc.position.z = target.pos[2];
+            } else {
+                tc.position.x += dx * alpha;
+                tc.position.y += dy * alpha;
+                tc.position.z += dz * alpha;
+            }
             // Slerp would be ideal but a normalised lerp is close enough at
             // these update rates and avoids importing Quat math here.
             tc.rotation.x += (target.rot[0] - tc.rotation.x) * alpha;
