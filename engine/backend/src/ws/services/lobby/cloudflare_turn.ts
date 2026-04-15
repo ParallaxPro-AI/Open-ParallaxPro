@@ -20,8 +20,8 @@
 const TOKEN_ID = process.env.CLOUDFLARE_TURN_TOKEN_ID;
 const API_TOKEN = process.env.CLOUDFLARE_TURN_API_TOKEN;
 
-const TTL_SECONDS = 3600;                  // each cred set good for 1 hour
-const REFRESH_BEFORE_MS = 30 * 60 * 1000;  // refresh ~30 min before expiry
+const TTL_SECONDS = 8 * 3600;                  // each cred set good for 8 hours
+const REFRESH_BEFORE_MS = 4 * 60 * 60 * 1000;  // refresh when <4h validity left
 
 export interface IceServer {
     urls: string | string[];
