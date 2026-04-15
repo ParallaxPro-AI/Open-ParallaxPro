@@ -1288,6 +1288,21 @@ git checkout da571fe   # last commit before template unification`;
             try {
                 const result = await this.ctx.backend.uploadThumbnail(project.id, file);
                 project.thumbnail = result.thumbnail;
+                // Cloud projects mirror to prod so other machines see
+                // the same thumbnail. Swallow the error — local already
+                // saved, so at worst the other laptops show the old
+                // image until the next successful sync.
+                if (project.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
+                    try {
+                        const prod = await this.ctx.backend.cloudThumbnailProd(project.id, file);
+                        const abs = prod.thumbnail.startsWith('http')
+                            ? prod.thumbnail
+                            : `https://parallaxpro.ai${prod.thumbnail}`;
+                        project.thumbnail = abs;
+                    } catch (e) {
+                        console.warn('Cloud thumbnail push failed:', e);
+                    }
+                }
                 this.render();
             } catch (e) {
                 console.error('Failed to upload thumbnail:', e);
@@ -1299,6 +1314,12 @@ git checkout da571fe   # last commit before template unification`;
     private async removeThumbnail(project: any): Promise<void> {
         try {
             await this.ctx.backend.deleteThumbnail(project.id);
+            // Mirror the delete to prod for cloud projects so the card
+            // doesn't keep showing an orphan image elsewhere.
+            if (project.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
+                try { await this.ctx.backend.fetchProd(`/projects/${project.id}/thumbnail`, { method: 'DELETE' }); }
+                catch (e) { console.warn('Cloud thumbnail delete failed:', e); }
+            }
             project.thumbnail = null;
             this.render();
         } catch (e) {

@@ -77,6 +77,13 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use('/api/engine/projects', pluginAuth || requireAuth);
     if (config.isHosted) app.use('/api/engine', httpRateLimit);
 
+    // Project thumbnails. Same on-disk location as the hosted publish
+    // plugin — so a locally-uploaded thumbnail and a hosted one both
+    // resolve at /uploads/thumbnails/<id>.<ext>. Import lazily so the
+    // routes module has already initialised the directory.
+    const { THUMBNAIL_DIR } = await import('./routes/projects.js');
+    app.use('/uploads/thumbnails', express.static(THUMBNAIL_DIR, { maxAge: '1d' }));
+
     // Static asset serving — local files first, fallback to CDN redirect for self-hosted
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));
     if (config.assetsCdn && !config.isHosted) {
