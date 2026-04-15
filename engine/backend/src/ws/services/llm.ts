@@ -44,7 +44,10 @@ export async function generateProjectName(prompt: string, timeoutMs: number = 10
             },
             body: JSON.stringify({
                 model,
-                max_tokens: 24,
+                // 256 tokens leaves room for reasoning-model chain-of-thought
+                // before the final name. With 24 the whole budget was eaten
+                // by reasoning tokens and `content` came back empty.
+                max_tokens: 256,
                 stream: false,
                 messages: [
                     { role: 'system', content: systemPrompt },
