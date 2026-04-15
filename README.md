@@ -104,7 +104,7 @@ Open **http://localhost:5174** in Chrome/Edge (for WebGPU). Type a game idea in 
 2. The AI selects the best matching template from 10+ game templates
 3. The engine assembles the game: entities, scripts, UI, physics, FSM logic
 4. You can play immediately, then ask the AI to fix bugs or add features
-5. The fixer agent reads your game code, edits scripts, and validates changes
+5. The editing agent reads your game code, edits scripts, and validates changes
 
 ### Creating New Game Templates
 
