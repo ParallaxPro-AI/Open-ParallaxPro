@@ -76,14 +76,29 @@ function copyDirInto(srcDir: string, files: ProjectFiles, prefix: string): void 
     walk(srcDir, '');
 }
 
-/** Always-pinned engine files — copied fresh from the shared library. */
+/**
+ * Always-pinned engine files — copied fresh from the shared library.
+ *
+ * We overwrite any existing copy so engine-owned pieces (fsm_driver,
+ * ui_bridge, mp_bridge, event_definitions, _entity_label) track library
+ * updates. These files are not user-editable by convention; a stale copy
+ * pinned at project creation shouldn't lock a project to an old engine.
+ */
 function copyEngineMachinery(files: ProjectFiles): void {
     for (const rel of ENGINE_MACHINERY) {
-        if (files[rel]) continue;
         const sub = rel.replace(/^systems\//, '');
         const src = path.join(SYSTEMS_DIR, sub);
         if (fs.existsSync(src)) files[rel] = fs.readFileSync(src, 'utf-8');
     }
+}
+
+/**
+ * Public entry point used by the builder to refresh engine machinery on
+ * every build. Existing projects pinned at an older engine version pick
+ * up fsm_driver / mp_bridge / ui_bridge patches without needing a reseed.
+ */
+export function refreshEngineMachinery(files: ProjectFiles): void {
+    copyEngineMachinery(files);
 }
 
 /** Walk 02_entities.json behavior refs and pin each script into behaviors/. */

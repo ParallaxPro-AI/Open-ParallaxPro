@@ -92,15 +92,20 @@ class MpBridge extends GameScript {
 
         ui.on("ui_event:lobby_browser:refresh_lobbies", function() { mp.requestLobbyList(); });
         ui.on("ui_event:lobby_browser:open_host_config", function() {
+            // Hide the browser so its overlay doesn't steal clicks / hover from
+            // the host config modal sitting on top.
+            self.scene.events.ui.emit("hide_ui", { panel: "lobby_browser" });
             self.scene.events.ui.emit("show_ui", { panel: "lobby_host_config" });
         });
         ui.on("ui_event:lobby_browser:host_lobby", function() {
             // Click on Host button — actual config comes from lobby_host_config.
+            self.scene.events.ui.emit("hide_ui", { panel: "lobby_browser" });
             self.scene.events.ui.emit("show_ui", { panel: "lobby_host_config" });
         });
         ui.on("ui_event:lobby_browser:back_to_menu", function() {
             self.scene.events.ui.emit("hide_ui", { panel: "lobby_browser" });
-            self.scene.events.game.emit("mp_back_to_menu", {});
+            var gbus = self.scene.events.game;
+            gbus.emit("mp_back_to_menu", {});
         });
         ui.on("ui_event:lobby_browser:join_lobby", function(d) {
             var p = (d && d.payload) || {};
@@ -109,9 +114,12 @@ class MpBridge extends GameScript {
 
         ui.on("ui_event:lobby_host_config:close_host_config", function() {
             self.scene.events.ui.emit("hide_ui", { panel: "lobby_host_config" });
+            // Back to the browser list when user cancels.
+            self.scene.events.ui.emit("show_ui", { panel: "lobby_browser" });
         });
         ui.on("ui_event:lobby_host_config:host_lobby", function(d) {
             var p = (d && d.payload) || {};
+            self.scene.events.ui.emit("hide_ui", { panel: "lobby_host_config" });
             mp.hostLobby({
                 name: String(p.name || ""),
                 maxPlayers: Number(p.maxPlayers) || (mpCfg.maxPlayers || 4),

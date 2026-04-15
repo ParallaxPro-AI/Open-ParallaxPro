@@ -17,6 +17,7 @@ import path from 'path';
 import os from 'os';
 import { ProjectFiles } from './project_files.js';
 import { assembleGame, ConvertedScene, MultiplayerConfig } from './level_assembler.js';
+import { refreshEngineMachinery } from './project_seeder.js';
 
 export interface BuildResult {
     success: boolean;
@@ -66,6 +67,11 @@ export function buildProject(
 ): BuildResult {
     const warnings: string[] = [];
     const dir = buildDirFor(projectId);
+
+    // Freshen engine-owned machinery (fsm_driver, mp_bridge, ui_bridge, …)
+    // before hydrating to disk. Doesn't touch user code, doesn't mutate DB —
+    // only the in-memory `files` copy used for this build.
+    refreshEngineMachinery(files);
 
     try {
         hydrate(files, dir);
