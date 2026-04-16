@@ -1,0 +1,69 @@
+{
+  "worlds": [
+    {
+      "id": "rift_arena",
+      "name": "Mid Lane Rift",
+      "environment": {
+        "ambientColor": [0.5, 0.55, 0.75],
+        "ambientIntensity": 0.7,
+        "sunColor": [1.0, 0.92, 0.78],
+        "sunIntensity": 0.85,
+        "fog": { "enabled": true, "color": [0.05, 0.08, 0.16], "near": 38, "far": 130 },
+        "gravity": [0, -9.81, 0]
+      },
+      "placements": [
+        { "ref": "sky_dome", "position": [0, 30, 0] },
+        { "ref": "rift_ground", "position": [0, -0.2, 0] },
+        { "ref": "rift_lane",   "position": [0, 0.02, 0] },
+        { "ref": "rift_lane_glow", "position": [0, 0.08, 0] },
+
+        { "ref": "camera", "position": [0, 22, 14] },
+        { "name": "Player",       "ref": "player",       "position": [0, 1, 38] },
+        { "name": "BotChampion",  "ref": "bot_champion", "position": [0, 1, -38] },
+
+        { "ref": "rift_base_plate_blue", "position": [0, 0.1,  38] },
+        { "ref": "rift_base_plate_red",  "position": [0, 0.1, -38] },
+
+        { "ref": "rift_banner_blue", "position": [-8, 2.5,  38] },
+        { "ref": "rift_banner_blue", "position": [ 8, 2.5,  38] },
+        { "ref": "rift_banner_red",  "position": [-8, 2.5, -38] },
+        { "ref": "rift_banner_red",  "position": [ 8, 2.5, -38] },
+
+        { "ref": "rift_shop_kiosk_blue", "position": [-6, 1.2,  42] },
+        { "ref": "rift_shop_kiosk_red",  "position": [-6, 1.2, -42] },
+
+        { "ref": "rift_side_wall", "position": [-6, 2, 0] },
+        { "ref": "rift_side_wall", "position": [ 6, 2, 0] },
+
+        { "ref": "rift_decor_tree", "position": [-10, 0, 10] },
+        { "ref": "rift_decor_tree", "position": [ 10, 0, 10] },
+        { "ref": "rift_decor_tree", "position": [-10, 0, -10] },
+        { "ref": "rift_decor_tree", "position": [ 10, 0, -10] },
+        { "ref": "rift_decor_tree", "position": [-14, 0, 0] },
+        { "ref": "rift_decor_tree", "position": [ 14, 0, 0] },
+        { "ref": "rift_decor_tree", "position": [-16, 0, 24] },
+        { "ref": "rift_decor_tree", "position": [ 16, 0, 24] },
+        { "ref": "rift_decor_tree", "position": [-16, 0, -24] },
+        { "ref": "rift_decor_tree", "position": [ 16, 0, -24] },
+        { "ref": "rift_decor_tree", "position": [-20, 0, 34] },
+        { "ref": "rift_decor_tree", "position": [ 20, 0, 34] },
+        { "ref": "rift_decor_tree", "position": [-20, 0, -34] },
+        { "ref": "rift_decor_tree", "position": [ 20, 0, -34] },
+
+        { "ref": "rift_decor_bush", "position": [ -8, 0,  15] },
+        { "ref": "rift_decor_bush", "position": [  8, 0,  15] },
+        { "ref": "rift_decor_bush", "position": [ -8, 0, -15] },
+        { "ref": "rift_decor_bush", "position": [  8, 0, -15] },
+        { "ref": "rift_decor_bush", "position": [ -8, 0,   5] },
+        { "ref": "rift_decor_bush", "position": [  8, 0,   5] },
+        { "ref": "rift_decor_bush", "position": [ -8, 0,  -5] },
+        { "ref": "rift_decor_bush", "position": [  8, 0,  -5] },
+
+        { "ref": "rift_decor_rock", "position": [-12, 0,  18] },
+        { "ref": "rift_decor_rock", "position": [ 12, 0, -18] },
+        { "ref": "rift_decor_rock", "position": [-12, 0, -28] },
+        { "ref": "rift_decor_rock", "position": [ 12, 0,  28] }
+      ]
+    }
+  ]
+}

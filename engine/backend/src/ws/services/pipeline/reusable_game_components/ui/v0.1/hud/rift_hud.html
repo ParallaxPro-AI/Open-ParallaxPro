@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: rgba(6, 10, 20, 0.7);
+    --bg-strong: rgba(3, 5, 14, 0.9);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hot: rgba(255, 255, 255, 0.18);
+    --text: #f3f6ff;
+    --text-dim: #8d93a8;
+    --text-muted: #494d60;
+    --blue: #3b82f6;
+    --blue-glow: rgba(59, 130, 246, 0.55);
+    --red: #ef4444;
+    --red-glow: rgba(239, 68, 68, 0.55);
+    --gold: #fbbf24;
+    --gold-glow: rgba(251, 191, 36, 0.55);
+    --green: #22c55e;
+    --green-glow: rgba(34, 197, 94, 0.5);
+    --mana: #a855f7;
+    --mana-glow: rgba(168, 85, 247, 0.5);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    background: transparent;
+  }
+  button { pointer-events: auto; cursor: pointer; font-family: inherit; }
+
+  /* ───── TOP BAR: NEXUS + KDA ───── */
+  .top {
+    position: fixed;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 12px; align-items: stretch;
+  }
+  .panel {
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 8px 18px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .nexus-side {
+    text-align: center;
+    min-width: 150px;
+  }
+  .nexus-side .lbl {
+    font-size: 9px; letter-spacing: 2.4px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+  .nexus-side.blue .lbl { color: var(--blue); text-shadow: 0 0 10px var(--blue-glow); }
+  .nexus-side.red  .lbl { color: var(--red);  text-shadow: 0 0 10px var(--red-glow);  }
+  .nexus-side .bar-shell {
+    margin-top: 4px;
+    width: 100%; height: 14px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    position: relative;
+  }
+  .nexus-side .bar-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    transition: width 0.25s ease;
+  }
+  .nexus-side.blue .bar-fill { background: linear-gradient(90deg, var(--blue), #2563eb); box-shadow: 0 0 12px var(--blue-glow); }
+  .nexus-side.red  .bar-fill { background: linear-gradient(90deg, var(--red), #dc2626);  box-shadow: 0 0 12px var(--red-glow);  }
+  .nexus-side .meta {
+    font-size: 10px; color: var(--text-dim); margin-top: 4px;
+    font-weight: 700; letter-spacing: 1px;
+  }
+  .nexus-side .meta .tw-ic { color: var(--gold); }
+
+  .clock-panel { text-align: center; min-width: 100px; }
+  .clock-panel .lbl { font-size: 9px; letter-spacing: 2.4px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; }
+  .clock-panel .val { font-size: 24px; font-weight: 900; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+
+  .wave-panel { text-align: center; min-width: 100px; }
+  .wave-panel .lbl { font-size: 9px; letter-spacing: 2px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; }
+  .wave-panel .val { font-size: 16px; font-weight: 800; color: var(--gold); text-shadow: 0 0 8px var(--gold-glow); margin-top: 2px; }
+
+  /* ───── VITALS / ABILITIES (bottom) ───── */
+  .bottom {
+    position: fixed;
+    bottom: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 12px; align-items: flex-end;
+  }
+  .vitals {
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 18px;
+    min-width: 220px;
+  }
+  .vitals .hp {
+    font-size: 10px; letter-spacing: 2px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+    display: flex; justify-content: space-between;
+  }
+  .vitals .hp .v {
+    color: var(--green); text-shadow: 0 0 8px var(--green-glow);
+    font-variant-numeric: tabular-nums;
+  }
+  .vitals .hp-shell {
+    height: 14px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    margin-top: 4px;
+    position: relative;
+  }
+  .vitals .hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), #15803d);
+    transition: width 0.2s ease;
+    box-shadow: 0 0 12px var(--green-glow);
+  }
+  .vitals .hp-fill.low {
+    background: linear-gradient(90deg, var(--red), #dc2626);
+    box-shadow: 0 0 12px var(--red-glow);
+  }
+
+  .abilities {
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 14px;
+    display: flex; gap: 8px;
+  }
+  .slot {
+    width: 48px; height: 48px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 2px solid var(--border-hot);
+    border-radius: 10px;
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .slot .letter {
+    font-size: 22px; font-weight: 900; color: var(--gold);
+    text-shadow: 0 0 10px var(--gold-glow);
+    line-height: 1;
+  }
+  .slot .key {
+    font-size: 8px; letter-spacing: 1.5px; color: var(--text-muted);
+    font-weight: 800;
+    margin-top: 3px;
+  }
+  .slot .cd-cover {
+    position: absolute; inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 900; color: #fff;
+    display: none;
+  }
+  .slot.on-cd .cd-cover { display: flex; }
+  .slot.on-cd { border-color: rgba(255, 255, 255, 0.06); }
+  .slot.basic .letter { color: var(--blue); text-shadow: 0 0 10px var(--blue-glow); }
+
+  /* ───── GOLD ───── */
+  .gold-panel {
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .gold-panel .coin {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, var(--gold), #b45309);
+    box-shadow: 0 0 12px var(--gold-glow);
+  }
+  .gold-panel .val {
+    font-size: 22px; font-weight: 900; color: var(--gold);
+    text-shadow: 0 0 10px var(--gold-glow);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .gold-panel .lbl { font-size: 9px; letter-spacing: 2px; color: var(--text-muted); font-weight: 800; text-transform: uppercase; }
+
+  /* ───── KDA ───── */
+  .kda-panel {
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 16px;
+    text-align: center;
+  }
+  .kda-panel .nums { font-size: 20px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; line-height: 1; }
+  .kda-panel .nums .k { color: var(--green); text-shadow: 0 0 8px var(--green-glow); }
+  .kda-panel .nums .d { color: var(--red); text-shadow: 0 0 8px var(--red-glow); }
+  .kda-panel .nums .s { color: var(--text-muted); }
+  .kda-panel .lbl { font-size: 9px; letter-spacing: 2px; color: var(--text-muted); font-weight: 800; text-transform: uppercase; margin-top: 3px; }
+
+  /* ───── MINIMAP (top-right) ───── */
+  .minimap {
+    position: fixed;
+    top: 14px; right: 14px;
+    width: 180px; height: 180px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--border-hot);
+    border-radius: 12px;
+    padding: 8px;
+    overflow: hidden;
+  }
+  .minimap .inner {
+    position: relative;
+    width: 100%; height: 100%;
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), rgba(0, 0, 0, 0.5), rgba(239, 68, 68, 0.08));
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .minimap .lbl {
+    position: absolute;
+    top: 6px; left: 8px;
+    font-size: 9px; letter-spacing: 2px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+    z-index: 2;
+  }
+  .mm-lane {
+    position: absolute;
+    left: 40%; right: 40%;
+    top: 10%; bottom: 10%;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+  }
+  .mm-nexus {
+    position: absolute;
+    width: 18px; height: 18px;
+    border-radius: 3px;
+    left: 50%; transform: translate(-50%, -50%);
+  }
+  .mm-nexus.blue { top: 82%; background: var(--blue); box-shadow: 0 0 8px var(--blue-glow); }
+  .mm-nexus.red  { top: 18%; background: var(--red);  box-shadow: 0 0 8px var(--red-glow);  }
+  .mm-tower {
+    position: absolute;
+    width: 10px; height: 10px; border-radius: 50%;
+    left: 50%; transform: translate(-50%, -50%);
+    border: 2px solid #fff;
+  }
+  .mm-tower.blue { background: var(--blue); }
+  .mm-tower.red  { background: var(--red); }
+  .mm-dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%); }
+  .mm-dot.me { width: 12px; height: 12px; background: var(--gold); box-shadow: 0 0 10px var(--gold-glow); }
+  .mm-dot.enemy { background: var(--red); box-shadow: 0 0 6px var(--red-glow); }
+  .mm-dot.ally  { background: var(--blue); box-shadow: 0 0 6px var(--blue-glow); }
+
+  /* ───── SHOP ───── */
+  .shop-overlay {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg-strong);
+    border: 1px solid var(--border-hot);
+    border-radius: 18px;
+    padding: 18px 24px;
+    min-width: 420px;
+    display: none;
+    pointer-events: auto;
+    z-index: 20;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  }
+  .shop-overlay.visible { display: block; }
+  .shop-overlay .title {
+    font-size: 18px; font-weight: 900; letter-spacing: 3px;
+    color: var(--gold); text-shadow: 0 0 10px var(--gold-glow);
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  .shop-overlay .grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+  }
+  .shop-item {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px;
+    color: var(--text);
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .shop-item:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--gold); box-shadow: 0 0 12px var(--gold-glow); }
+  .shop-item .name { font-weight: 800; font-size: 13px; }
+  .shop-item .desc { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+  .shop-item .cost { font-weight: 900; color: var(--gold); text-shadow: 0 0 8px var(--gold-glow); font-variant-numeric: tabular-nums; }
+  .shop-overlay .hint {
+    text-align: center;
+    font-size: 10px; letter-spacing: 2px; font-weight: 700;
+    color: var(--text-muted); text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  /* ───── DEATH ───── */
+  .death-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(60, 10, 10, 0.6), rgba(2, 2, 8, 0.85));
+    display: none;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .death-overlay.visible { display: block; }
+  .death-card {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .death-card .big {
+    font-size: 72px; font-weight: 900;
+    color: var(--red); text-shadow: 0 0 34px var(--red-glow);
+    letter-spacing: 4px;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .death-card .sub {
+    font-size: 18px; color: var(--text-dim); margin-top: 10px;
+    font-weight: 700; letter-spacing: 2px;
+  }
+  .death-card .sub .t { color: var(--gold); text-shadow: 0 0 8px var(--gold-glow); font-variant-numeric: tabular-nums; }
+
+  /* ───── CONTROLS ───── */
+  .controls {
+    position: fixed;
+    bottom: 82px; left: 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 10px; font-weight: 600; color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-hot);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px; font-weight: 800;
+    color: var(--text);
+    margin: 0 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Death overlay -->
+<div class="death-overlay" id="death-overlay">
+  <div class="death-card">
+    <div class="big">YOU DIED</div>
+    <div class="sub">Respawning in <span class="t" id="death-timer">8</span>s</div>
+  </div>
+</div>
+
+<!-- Top bar -->
+<div class="top">
+  <div class="panel nexus-side blue">
+    <div class="lbl">Blue Nexus</div>
+    <div class="bar-shell"><div class="bar-fill" id="nexus-blue-fill" style="width:100%"></div></div>
+    <div class="meta"><span class="tw-ic">♜</span> <span id="towers-blue">2</span> towers · <span id="nexus-blue-hp">1500</span> HP</div>
+  </div>
+  <div class="panel clock-panel">
+    <div class="lbl">Time</div>
+    <div class="val" id="clock-val">0:00</div>
+  </div>
+  <div class="panel nexus-side red">
+    <div class="lbl">Red Nexus</div>
+    <div class="bar-shell"><div class="bar-fill" id="nexus-red-fill" style="width:100%"></div></div>
+    <div class="meta"><span class="tw-ic">♜</span> <span id="towers-red">2</span> towers · <span id="nexus-red-hp">1500</span> HP</div>
+  </div>
+  <div class="panel wave-panel">
+    <div class="lbl">Next Wave</div>
+    <div class="val"><span id="wave-timer">—</span>s</div>
+  </div>
+</div>
+
+<!-- Minimap -->
+<div class="minimap">
+  <div class="lbl">Map</div>
+  <div class="inner" id="mm-inner">
+    <div class="mm-lane"></div>
+    <div class="mm-nexus blue"></div>
+    <div class="mm-nexus red"></div>
+  </div>
+</div>
+
+<!-- Controls hint -->
+<div class="controls">
+  <div><kbd>RMB</kbd> Move</div>
+  <div><kbd>LMB</kbd> Auto-attack</div>
+  <div><kbd>Q</kbd> Skillshot</div>
+  <div><kbd>E</kbd> Blink</div>
+  <div><kbd>B</kbd> Shop</div>
+</div>
+
+<!-- Bottom bar -->
+<div class="bottom">
+  <div class="kda-panel">
+    <div class="nums"><span class="k" id="kda-k">0</span><span class="s">/</span><span class="d" id="kda-d">0</span><span class="s">/</span><span id="kda-cs">0</span></div>
+    <div class="lbl">K / D / CS</div>
+  </div>
+  <div class="vitals">
+    <div class="hp"><span>Health</span><span class="v"><span id="hp-val">520</span>/<span id="hp-max">520</span></span></div>
+    <div class="hp-shell"><div class="hp-fill" id="hp-fill" style="width:100%"></div></div>
+  </div>
+  <div class="abilities">
+    <div class="slot basic" id="slot-basic"><div class="letter">A</div><div class="key">LMB</div><div class="cd-cover"><span id="cd-basic">0</span></div></div>
+    <div class="slot" id="slot-q"><div class="letter">Q</div><div class="key">Q</div><div class="cd-cover"><span id="cd-q">0</span></div></div>
+    <div class="slot" id="slot-e"><div class="letter">E</div><div class="key">E</div><div class="cd-cover"><span id="cd-e">0</span></div></div>
+  </div>
+  <div class="gold-panel">
+    <div class="coin"></div>
+    <div>
+      <div class="lbl">Gold</div>
+      <div class="val" id="gold-val">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- Shop overlay -->
+<div class="shop-overlay" id="shop-overlay">
+  <div class="title">Item Shop</div>
+  <div class="grid">
+    <button class="shop-item" data-item="blade"><div><div class="name">⚔ Blade of Insight</div><div class="desc">+6 attack damage</div></div><div class="cost">350</div></button>
+    <button class="shop-item" data-item="shield"><div><div class="name">🛡 Aegis Plate</div><div class="desc">+120 health (instant)</div></div><div class="cost">400</div></button>
+    <button class="shop-item" data-item="staff"><div><div class="name">✨ Void Staff</div><div class="desc">+20 ability damage</div></div><div class="cost">400</div></button>
+    <button class="shop-item" data-item="boots"><div><div class="name">👟 Swift Boots</div><div class="desc">+move speed tier</div></div><div class="cost">300</div></button>
+  </div>
+  <div class="hint">Press <kbd style="font-size:9px;background:rgba(255,255,255,0.1);padding:0 4px;border-radius:3px;">B</kbd> to close · Gold spent updates instantly</div>
+</div>
+
+<script>
+(function() {
+  function emit(action, payload) {
+    var msg = { type: 'game_command', action: action };
+    if (payload) msg.payload = payload;
+    window.parent.postMessage(msg, '*');
+  }
+
+  var els = {
+    nexusBlueFill: document.getElementById('nexus-blue-fill'),
+    nexusBlueHp: document.getElementById('nexus-blue-hp'),
+    nexusRedFill: document.getElementById('nexus-red-fill'),
+    nexusRedHp: document.getElementById('nexus-red-hp'),
+    towersBlue: document.getElementById('towers-blue'),
+    towersRed: document.getElementById('towers-red'),
+    clock: document.getElementById('clock-val'),
+    waveTimer: document.getElementById('wave-timer'),
+    hpVal: document.getElementById('hp-val'),
+    hpMax: document.getElementById('hp-max'),
+    hpFill: document.getElementById('hp-fill'),
+    goldVal: document.getElementById('gold-val'),
+    kdaK: document.getElementById('kda-k'),
+    kdaD: document.getElementById('kda-d'),
+    kdaCs: document.getElementById('kda-cs'),
+    slotQ: document.getElementById('slot-q'),
+    slotE: document.getElementById('slot-e'),
+    slotBasic: document.getElementById('slot-basic'),
+    cdQ: document.getElementById('cd-q'),
+    cdE: document.getElementById('cd-e'),
+    cdBasic: document.getElementById('cd-basic'),
+    deathOverlay: document.getElementById('death-overlay'),
+    deathTimer: document.getElementById('death-timer'),
+    shopOverlay: document.getElementById('shop-overlay'),
+    mmInner: document.getElementById('mm-inner'),
+  };
+
+  var shopOpen = false;
+
+  // Shop item clicks.
+  Array.prototype.forEach.call(document.querySelectorAll('.shop-item[data-item]'), function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-item');
+      emit('buy_item', { itemId: id });
+    });
+  });
+
+  function toClock(sec) {
+    sec = Math.max(0, sec | 0);
+    var m = (sec / 60) | 0;
+    var s = sec - m * 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function cdFmt(cd) {
+    return cd > 0 ? Math.ceil(cd) + 's' : '';
+  }
+
+  function renderPlayersOnMap(players) {
+    // Remove existing dots.
+    Array.prototype.forEach.call(els.mmInner.querySelectorAll('.mm-dot'), function(d) { d.remove(); });
+    // Rebuild towers too.
+    Array.prototype.forEach.call(els.mmInner.querySelectorAll('.mm-tower'), function(d) { d.remove(); });
+    // Minimap uses symbolic positions for 1v1: blue at bottom, red at top.
+    // We just show players and nexus positions.
+    for (var i = 0; i < players.length; i++) {
+      var p = players[i];
+      var dot = document.createElement('div');
+      dot.className = 'mm-dot ' + (p.isLocal ? 'me' : (p.team === 'blue' ? 'ally' : 'enemy'));
+      // Fake position: blue near bottom, red near top, side x small jitter.
+      dot.style.left = (40 + (i * 20) % 20) + '%';
+      dot.style.top = (p.team === 'blue' ? 72 : 28) + '%';
+      els.mmInner.appendChild(dot);
+    }
+  }
+
+  function update(state) {
+    if (state && state._rift) {
+      var r = state._rift;
+
+      // Nexus bars
+      var maxN = r.nexusMaxHp || 1500;
+      els.nexusBlueFill.style.width = Math.max(0, Math.min(100, (r.nexusBlue / maxN) * 100)) + '%';
+      els.nexusRedFill.style.width  = Math.max(0, Math.min(100, (r.nexusRed  / maxN) * 100)) + '%';
+      els.nexusBlueHp.textContent = Math.max(0, Math.round(r.nexusBlue));
+      els.nexusRedHp.textContent  = Math.max(0, Math.round(r.nexusRed));
+      els.towersBlue.textContent = r.towersBlueAlive;
+      els.towersRed.textContent  = r.towersRedAlive;
+
+      // Clock + wave
+      els.clock.textContent = toClock(r.matchElapsed);
+      els.waveTimer.textContent = r.waveTimer;
+
+      // Vitals
+      els.hpVal.textContent = r.myHp;
+      els.hpMax.textContent = r.myMaxHp;
+      var pct = Math.max(0, Math.min(100, (r.myHp / Math.max(1, r.myMaxHp)) * 100));
+      els.hpFill.style.width = pct + '%';
+      els.hpFill.className = 'hp-fill' + (pct < 30 ? ' low' : '');
+
+      // Gold + KDA
+      els.goldVal.textContent = r.myGold;
+      els.kdaK.textContent = r.myKills;
+      els.kdaD.textContent = r.myDeaths;
+      els.kdaCs.textContent = r.myCs;
+
+      // Cooldowns
+      if (r.cdQ > 0) { els.slotQ.classList.add('on-cd'); els.cdQ.textContent = cdFmt(r.cdQ); } else els.slotQ.classList.remove('on-cd');
+      if (r.cdE > 0) { els.slotE.classList.add('on-cd'); els.cdE.textContent = cdFmt(r.cdE); } else els.slotE.classList.remove('on-cd');
+      // Basic attack is instant; no CD overlay needed usually.
+      els.slotBasic.classList.remove('on-cd');
+
+      // Death overlay
+      if (!r.myAlive && r.phase !== 'ended') {
+        els.deathOverlay.classList.add('visible');
+        els.deathTimer.textContent = r.myRespawnIn;
+      } else {
+        els.deathOverlay.classList.remove('visible');
+      }
+
+      // Minimap dots
+      renderPlayersOnMap(r.players || []);
+    }
+
+    // Shop toggle
+    if (state && state._riftShopToggle) {
+      shopOpen = !shopOpen;
+      if (shopOpen) els.shopOverlay.classList.add('visible');
+      else els.shopOverlay.classList.remove('visible');
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>
