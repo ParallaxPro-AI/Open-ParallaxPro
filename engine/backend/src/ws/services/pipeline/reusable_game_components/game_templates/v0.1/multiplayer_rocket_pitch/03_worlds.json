@@ -1,0 +1,78 @@
+{
+  "worlds": [
+    {
+      "id": "rocket_arena",
+      "name": "Rocket Arena",
+      "environment": {
+        "ambientColor": [0.35, 0.4, 0.55],
+        "ambientIntensity": 0.6,
+        "sunColor": [1.0, 0.92, 0.8],
+        "sunIntensity": 0.85,
+        "fog": { "enabled": true, "color": [0.02, 0.03, 0.08], "near": 45, "far": 130 },
+        "gravity": [0, -14, 0]
+      },
+      "placements": [
+        { "ref": "sky_dome", "position": [0, 30, 0] },
+        { "ref": "pitch_floor", "position": [0, -0.2, 0] },
+        { "ref": "pitch_center_circle", "position": [0, 0.01, 0] },
+        { "ref": "pitch_midline", "position": [0, 0.02, 0] },
+
+        { "ref": "camera", "position": [0, 9, -18] },
+        { "name": "Player",  "ref": "player",  "position": [0, 1, -14] },
+        { "name": "BotCar",  "ref": "bot_car", "position": [0, 1,  14] },
+        { "name": "Ball",    "ref": "ball",    "position": [0, 3,   0] },
+
+        { "ref": "arena_wall_long",  "position": [0, 2.5,  30.3] },
+        { "ref": "arena_wall_long",  "position": [0, 2.5, -30.3] },
+        { "ref": "arena_wall_short", "position": [-44.3, 2.5, 0] },
+        { "ref": "arena_wall_short", "position": [ 44.3, 2.5, 0] },
+
+        { "name": "GoalRedBacking", "ref": "goal_red_backing", "position": [0, 3.6,  29.5] },
+        { "ref": "goal_post",       "position": [-7, 3.6,  28.8] },
+        { "ref": "goal_post",       "position": [ 7, 3.6,  28.8] },
+        { "ref": "goal_crossbar",   "position": [ 0, 7.0,  28.8] },
+
+        { "name": "GoalBlueBacking", "ref": "goal_blue_backing", "position": [0, 3.6, -29.5] },
+        { "ref": "goal_post",        "position": [-7, 3.6, -28.8] },
+        { "ref": "goal_post",        "position": [ 7, 3.6, -28.8] },
+        { "ref": "goal_crossbar",    "position": [ 0, 7.0, -28.8] },
+
+        { "ref": "boost_pad_small", "position": [-14, 0.2,  -8] },
+        { "ref": "boost_pad_small", "position": [ 14, 0.2,  -8] },
+        { "ref": "boost_pad_small", "position": [-14, 0.2,   8] },
+        { "ref": "boost_pad_small", "position": [ 14, 0.2,   8] },
+        { "ref": "boost_pad_small", "position": [ -6, 0.2,  -18] },
+        { "ref": "boost_pad_small", "position": [  6, 0.2,  -18] },
+        { "ref": "boost_pad_small", "position": [ -6, 0.2,   18] },
+        { "ref": "boost_pad_small", "position": [  6, 0.2,   18] },
+
+        { "ref": "boost_pad_big", "position": [-32, 0.25,   0] },
+        { "ref": "boost_pad_big", "position": [ 32, 0.25,   0] },
+        { "ref": "boost_pad_big", "position": [-32, 0.25,  22] },
+        { "ref": "boost_pad_big", "position": [ 32, 0.25,  22] },
+        { "ref": "boost_pad_big", "position": [-32, 0.25, -22] },
+        { "ref": "boost_pad_big", "position": [ 32, 0.25, -22] },
+
+        { "ref": "stadium_pillar", "position": [-46, 4, -32] },
+        { "ref": "stadium_pillar", "position": [ 46, 4, -32] },
+        { "ref": "stadium_pillar", "position": [-46, 4,  32] },
+        { "ref": "stadium_pillar", "position": [ 46, 4,  32] },
+        { "ref": "stadium_pillar", "position": [-46, 4,   0] },
+        { "ref": "stadium_pillar", "position": [ 46, 4,   0] },
+
+        { "ref": "crowd_fan", "position": [-46, 0.8, -26], "rotation": [0,  1.57, 0] },
+        { "ref": "crowd_fan", "position": [-46, 0.8, -18], "rotation": [0,  1.57, 0] },
+        { "ref": "crowd_fan", "position": [-46, 0.8,  -6], "rotation": [0,  1.57, 0] },
+        { "ref": "crowd_fan", "position": [-46, 0.8,   6], "rotation": [0,  1.57, 0] },
+        { "ref": "crowd_fan", "position": [-46, 0.8,  18], "rotation": [0,  1.57, 0] },
+        { "ref": "crowd_fan", "position": [-46, 0.8,  26], "rotation": [0,  1.57, 0] },
+        { "ref": "crowd_fan", "position": [ 46, 0.8, -26], "rotation": [0, -1.57, 0] },
+        { "ref": "crowd_fan", "position": [ 46, 0.8, -18], "rotation": [0, -1.57, 0] },
+        { "ref": "crowd_fan", "position": [ 46, 0.8,  -6], "rotation": [0, -1.57, 0] },
+        { "ref": "crowd_fan", "position": [ 46, 0.8,   6], "rotation": [0, -1.57, 0] },
+        { "ref": "crowd_fan", "position": [ 46, 0.8,  18], "rotation": [0, -1.57, 0] },
+        { "ref": "crowd_fan", "position": [ 46, 0.8,  26], "rotation": [0, -1.57, 0] }
+      ]
+    }
+  ]
+}
