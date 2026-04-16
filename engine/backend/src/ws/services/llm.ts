@@ -263,6 +263,8 @@ interface CLIInvocation {
     args: string[];
     /** Extract a text chunk from one JSONL event (or return null to skip). */
     extract: (event: any) => string | null;
+    /** Extract incremental USD cost from one JSONL event (or return 0). */
+    extractCost: (event: any) => number;
 }
 
 function buildCLIInvocation(cli: FallbackCLI, prompt: string): CLIInvocation {
@@ -286,6 +288,7 @@ function buildCLIInvocation(cli: FallbackCLI, prompt: string): CLIInvocation {
                 }
                 return out || null;
             },
+            extractCost: (event) => event.type === 'result' ? (event.total_cost_usd || 0) : 0,
         };
     }
     if (cli === 'codex') {
@@ -310,6 +313,7 @@ function buildCLIInvocation(cli: FallbackCLI, prompt: string): CLIInvocation {
                 if (item?.type !== 'agent_message' || typeof item.text !== 'string') return null;
                 return item.text;
             },
+            extractCost: () => 0, // Codex doesn't report cost
         };
     }
     if (cli === 'opencode') {
@@ -319,6 +323,13 @@ function buildCLIInvocation(cli: FallbackCLI, prompt: string): CLIInvocation {
                 if (event.type !== 'text') return null;
                 const t = event.part?.text;
                 return typeof t === 'string' ? t : null;
+            },
+            extractCost: (event) => {
+                if (event.type === 'step_finish') {
+                    const c = event.part?.cost;
+                    return typeof c === 'number' ? c : 0;
+                }
+                return 0;
             },
         };
     }
@@ -340,6 +351,7 @@ function buildCLIInvocation(cli: FallbackCLI, prompt: string): CLIInvocation {
             }
             return null;
         },
+        extractCost: () => 0, // Copilot doesn't report cost
     };
 }
 
@@ -348,19 +360,19 @@ async function runCLIForText(
     onChunk: (text: string) => void,
     abortSignal?: AbortSignal,
     preferredCLI?: string,
-): Promise<{ text: string; error?: string }> {
+): Promise<{ text: string; costUsd: number; error?: string }> {
     if (preferredCLI && VALID_FALLBACK_CLIS.has(preferredCLI as FallbackCLI)) {
         const installed = getAvailableAgents().some(a => a.id === preferredCLI);
         if (!installed) {
-            return { text: '', error: `Chat Agent "${preferredCLI}" is not installed on this server.` };
+            return { text: '', costUsd: 0, error: `Chat Agent "${preferredCLI}" is not installed on this server.` };
         }
     }
     const cli = pickFallbackCLI(preferredCLI);
     if (!cli) {
-        return { text: '', error: 'No LLM configured (AI_BASE_URL unset) and no fallback CLI installed.' };
+        return { text: '', costUsd: 0, error: 'No LLM configured (AI_BASE_URL unset) and no fallback CLI installed.' };
     }
     const prompt = flattenMessagesForCLI(messages);
-    const { args, extract } = buildCLIInvocation(cli, prompt);
+    const { args, extract, extractCost } = buildCLIInvocation(cli, prompt);
 
     // Empty temp dir so the agent has no project files to poke at.
     const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ppai-chat-'));
@@ -369,7 +381,7 @@ async function runCLIForText(
     const wrapped = wrapSpawn(cli as any, cli, args, sandboxDir);
 
     try {
-        return await new Promise<{ text: string; error?: string }>((resolve) => {
+        return await new Promise<{ text: string; costUsd: number; error?: string }>((resolve) => {
             const proc = spawn(wrapped.command, wrapped.args, {
                 cwd: sandboxDir,
                 stdio: ['ignore', 'pipe', 'pipe'],
@@ -377,6 +389,7 @@ async function runCLIForText(
             });
 
             let fullText = '';
+            let costUsd = 0;
             let stderr = '';
 
             if (abortSignal) {
@@ -398,6 +411,7 @@ async function runCLIForText(
                             fullText += chunk;
                             onChunk(chunk);
                         }
+                        costUsd += extractCost(event);
                     } catch { /* non-JSON line — ignore */ }
                 }
             });
@@ -406,15 +420,15 @@ async function runCLIForText(
 
             proc.on('close', (code) => {
                 if (code === 0 || code === null) {
-                    resolve({ text: fullText });
+                    resolve({ text: fullText, costUsd });
                 } else {
                     console.error(`[LLM] CLI fallback ${cli} exited ${code}. stderr: ${stderr.slice(0, 500)}`);
-                    resolve({ text: fullText, error: `CLI fallback ${cli} exited with code ${code}` });
+                    resolve({ text: fullText, costUsd, error: `CLI fallback ${cli} exited with code ${code}` });
                 }
             });
 
             proc.on('error', (err) => {
-                resolve({ text: '', error: `Failed to spawn ${cli}: ${err.message}` });
+                resolve({ text: '', costUsd: 0, error: `Failed to spawn ${cli}: ${err.message}` });
             });
         });
     } finally {
@@ -433,7 +447,13 @@ async function callCLIForTextStream(
         callbacks.onError(result.error);
         return;
     }
-    callbacks.onDone(result.text);
+    // Convert costUsd to a synthetic TokenUsage so onLLMUsage fires.
+    // CLIs don't report token counts, but costUsd lets the usage plugin
+    // estimate consumption for budget enforcement.
+    const usage: TokenUsage | undefined = result.costUsd > 0
+        ? { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: result.costUsd } as any
+        : undefined;
+    callbacks.onDone(result.text, usage);
 }
 
 /**
