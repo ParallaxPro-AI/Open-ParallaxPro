@@ -214,6 +214,19 @@ async function buildAssetEmbeddings(): Promise<void> {
 }
 
 /**
+ * Returns true if the given asset path is in the catalog. Accepts paths
+ * with or without the leading "/assets/" prefix. The catalog includes
+ * CDN-fetched entries for self-hosted instances with no local
+ * reusable_assets/ directory, so callers should not fall back to a raw
+ * filesystem check.
+ */
+export function assetExists(assetPath: string): boolean {
+    if (!assetPath) return false;
+    const rel = assetPath.replace(/^\/assets\//, '');
+    return assetCache.some(a => a.filePath === rel);
+}
+
+/**
  * Search assets programmatically (used by AI tool calls).
  * Uses semantic embedding search when available, falls back to substring matching.
  */

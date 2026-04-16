@@ -22,9 +22,7 @@
  */
 
 import vm from 'node:vm';
-import fs from 'fs';
-import path from 'path';
-import { config } from '../../../config.js';
+import { assetExists } from '../../../routes/assets.js';
 import { ProjectFiles } from './project_files.js';
 import { buildProject } from './project_builder.js';
 
@@ -140,8 +138,7 @@ export function runEditScript(
                 if (scale) def.mesh.scale = scale;
                 if (options.materialOverrides?.baseColor) def.mesh.color = options.materialOverrides.baseColor;
             } else if (type === 'custom' && options.meshAsset) {
-                const assetPath = options.meshAsset.replace(/^\/assets\//, '');
-                if (!fs.existsSync(path.join(config.assetsDir, assetPath))) {
+                if (!assetExists(options.meshAsset)) {
                     throw new Error(`addEntity("${name}"): meshAsset "${options.meshAsset}" not found.`);
                 }
                 def.mesh = { type: 'custom', asset: options.meshAsset };
