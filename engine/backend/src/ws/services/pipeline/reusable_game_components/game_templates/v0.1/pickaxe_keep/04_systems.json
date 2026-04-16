@@ -1,0 +1,36 @@
+{
+  "systems": {
+    "pickaxe_keep_game": {
+      "description": "Pickaxe Keep (Terraria-style 2.5D sidescroll mining + crafting + survival sandbox). Host generates the opening world (rolling surface, dirt + stone + ore pockets, scattered trees) and broadcasts it; per-peer mining and placement broadcast as deltas. Day/night cycle drives zombie spawning at night and burn-on-sun by day. Inventory, crafting, hotbar, and damage are tracked per-peer.",
+      "script": "mp/pickaxe_keep_game.ts",
+      "params": {
+        "worldHalfWidth": 32,
+        "worldHeight": 30,
+        "surfaceMid": 18,
+        "surfaceVar": 3,
+        "bedrockY": 1,
+        "hotbarSlots": 9,
+        "maxHealth": 100,
+        "enemyMaxHealth": 30,
+        "enemyDamage": 12,
+        "enemyContactRange": 1.6,
+        "enemySpeed": 2.4,
+        "maxEnemies": 8,
+        "nightSpawnInterval": 4.0,
+        "dayDurationSec": 180,
+        "nightDurationSec": 120,
+        "twilightDurationSec": 12,
+        "interactRange": 5,
+        "attackDamage": 18,
+        "respawnDelaySec": 4.0,
+        "treeChance": 0.06,
+        "torchLightRadius": 5,
+        "matchDurationSec": 1200,
+        "winScore": 5000,
+        "enemyUpdateInterval": 0.2,
+        "hudUpdateInterval": 0.15,
+        "timeSyncInterval": 1.0
+      }
+    }
+  }
+}
