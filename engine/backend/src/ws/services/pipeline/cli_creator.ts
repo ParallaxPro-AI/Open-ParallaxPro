@@ -50,7 +50,9 @@ export async function runCreator(
 ): Promise<CreatorResult> {
     await acquireCLISlot(cliOverride, sendStatus);
     const templateId = deriveTemplateId(description);
-    const sandboxDir = path.join('/tmp', `parallaxpro-create-${projectId}`);
+    // Random suffix per run so concurrent creates on the same projectId don't
+    // trample each other's sandbox. mkdtempSync guarantees a fresh empty dir.
+    const sandboxDir = fs.mkdtempSync(path.join('/tmp', 'parallaxpro-create-'));
 
     try {
         sendStatus?.('Setting up creation sandbox...');
@@ -122,8 +124,8 @@ function deriveTemplateId(description: string): string {
 // ─── Sandbox creation ──────────────────────────────────────────────────────
 
 function createSandbox(sandboxDir: string): void {
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
-    fs.mkdirSync(sandboxDir, { recursive: true });
+    // sandboxDir is freshly created by mkdtempSync in the caller — already
+    // exists and is empty, so no nuke-and-recreate needed here.
 
     // Project: starts as the empty 4-file scaffold + engine machinery so the
     // agent has working baseline files to edit.

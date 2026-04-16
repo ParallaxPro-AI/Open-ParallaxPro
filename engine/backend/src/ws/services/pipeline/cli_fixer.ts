@@ -49,7 +49,9 @@ export async function runFixer(
     cliOverride?: string,
 ): Promise<FixerResult> {
     await acquireCLISlot(cliOverride, sendStatus);
-    const sandboxDir = path.join('/tmp', `parallaxpro-fix-${projectId}`);
+    // Random suffix per run so concurrent fixes on the same projectId don't
+    // trample each other's sandbox. mkdtempSync guarantees a fresh empty dir.
+    const sandboxDir = fs.mkdtempSync(path.join('/tmp', 'parallaxpro-fix-'));
 
     try {
         sendStatus?.('Setting up sandbox...');
@@ -107,8 +109,8 @@ export async function runFixer(
 // ─── Sandbox creation ──────────────────────────────────────────────────────
 
 function createSandbox(sandboxDir: string, projectFiles: ProjectFiles): void {
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
-    fs.mkdirSync(sandboxDir, { recursive: true });
+    // sandboxDir is freshly created by mkdtempSync in the caller — already
+    // exists and is empty, so no nuke-and-recreate needed here.
 
     // Project: the user's actual file tree (template format).
     const projectDir = path.join(sandboxDir, 'project');
