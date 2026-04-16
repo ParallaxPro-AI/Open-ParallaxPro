@@ -8,6 +8,9 @@
     <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro/blob/main/LICENSE">
         <img src="https://img.shields.io/github/license/ParallaxPro-AI/Open-ParallaxPro?style=flat-square&color=blue" alt="License: Apache 2.0"/>
     </a>
+    <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro/actions/workflows/ci.yml">
+        <img src="https://img.shields.io/github/actions/workflow/status/ParallaxPro-AI/Open-ParallaxPro/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI" alt="CI"/>
+    </a>
     <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro/stargazers">
         <img src="https://img.shields.io/github/stars/ParallaxPro-AI/Open-ParallaxPro?style=flat-square&logo=github" alt="GitHub stars"/>
     </a>

@@ -269,8 +269,8 @@ function validateComponentObject(obj: any, errors: SceneScriptError[], line: num
             hasType = true;
             if (prop.value.type === 'Literal' && typeof prop.value.value === 'string') {
                 typeValue = prop.value.value;
-                if (!VALID_COMPONENT_TYPES.has(typeValue)) {
-                    errors.push({ line, message: `Component type "${typeValue}" is invalid`, hint: `Valid: ${[...VALID_COMPONENT_TYPES].join(', ')}` });
+                if (!VALID_COMPONENT_TYPES.has(prop.value.value)) {
+                    errors.push({ line, message: `Component type "${prop.value.value}" is invalid`, hint: `Valid: ${[...VALID_COMPONENT_TYPES].join(', ')}` });
                 }
             }
         }

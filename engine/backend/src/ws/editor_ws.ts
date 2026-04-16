@@ -698,7 +698,7 @@ async function runLLMWithRetry(
     attempt: number,
     retryContext: LLMMessage[],
     accumulatedFileChanges: any[],
-): void {
+): Promise<void> {
     const messages = buildMessages(client, retryContext);
 
     // Log: on first attempt just the user message (system prompt is always the same).

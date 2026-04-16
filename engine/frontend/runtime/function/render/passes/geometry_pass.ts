@@ -202,7 +202,7 @@ export class GeometryPass {
         // Create layer properties buffer if we have properties
         if (layerProps && this.resources) {
             this.buildingLayerPropsBuffer = this.resources.createUniformBuffer(layerProps.byteLength, 'building_layer_props');
-            this.device?.queue.writeBuffer(this.buildingLayerPropsBuffer, 0, layerProps);
+            this.device?.queue.writeBuffer(this.buildingLayerPropsBuffer, 0, layerProps as BufferSource);
         }
 
         this.rebuildBuildingMaterialBindGroup();

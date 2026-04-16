@@ -393,7 +393,7 @@ async function runCLIForText(
             let stderr = '';
 
             if (abortSignal) {
-                if (abortSignal.aborted) { proc.kill('SIGTERM'); resolve({ text: '', error: 'Aborted' }); return; }
+                if (abortSignal.aborted) { proc.kill('SIGTERM'); resolve({ text: '', costUsd: 0, error: 'Aborted' }); return; }
                 abortSignal.addEventListener('abort', () => proc.kill('SIGTERM'), { once: true });
             }
 
