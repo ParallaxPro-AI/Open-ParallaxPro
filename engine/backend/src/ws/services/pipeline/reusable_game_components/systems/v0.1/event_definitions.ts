@@ -78,6 +78,8 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     // ── Vehicle ──
     vehicle_entered:    { fields: { vehicleId: { type: 'number', optional: true } } },
     vehicle_exited:     { fields: {} },
+    enter_vehicle:      { fields: { vehicleId: { type: 'number', optional: true } } },
+    exit_vehicle:       { fields: {} },
 
     // ── AI ──
     spawn_enemy:        { fields: { count: { type: 'number', optional: true } } },
@@ -416,6 +418,214 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     ll_choice_wrong:       { fields: { reason: { type: 'string', optional: true } } },
     ll_exit_reached:       { fields: { exitNumber: { type: 'number', optional: true } } },
     ll_progress_changed:   { fields: { exitNumber: { type: 'number', optional: true }, target: { type: 'number', optional: true } } },
+
+    // ── Pirate Voyage (multiplayer treasure hunt) ──
+    // Treasure pickup synced from the claiming peer so every captain's
+    // scoreboard updates and the visual barrel disappears in the same
+    // frame. Host then spawns a fresh treasure elsewhere via
+    // net_treasure_spawned so the seas don't run dry mid-match.
+    net_treasure_collected: { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_treasure_spawned:   { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Ship sinking + respawn broadcasts so kill feeds + remote proxy
+    // animations can react. Carries victim/killer peer IDs in `data`.
+    net_ship_sunk:          { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_ship_respawn:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Pickaxe Keep (2.5D sidescroll mining + crafting sandbox) ──
+    // Local fanouts from block_interactor + pickaxe_keep_game so HUD + SFX
+    // + FX react the same frame the block grid changes. (x, y) are integer
+    // cells in the world's block map; blockType is "dirt"/"stone"/etc.
+    pk_block_mined:        { fields: { x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, blockType: { type: 'string', optional: true }, peerId: { type: 'string', optional: true } } },
+    pk_block_placed:       { fields: { x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, blockType: { type: 'string', optional: true }, peerId: { type: 'string', optional: true } } },
+    pk_item_collected:     { fields: { item: { type: 'string', optional: true }, count: { type: 'number', optional: true } } },
+    pk_craft_attempted:    { fields: { recipe: { type: 'string', optional: true } } },
+    pk_craft_succeeded:    { fields: { recipe: { type: 'string', optional: true } } },
+    pk_hotbar_selected:    { fields: { slot: { type: 'number', optional: true } } },
+    pk_inventory_changed:  { fields: {} },
+    pk_time_changed:       { fields: { time: { type: 'number', optional: true }, phase: { type: 'string', optional: true } } },
+    pk_enemy_spawned:      { fields: { enemyId: { type: 'number', optional: true }, enemyType: { type: 'string', optional: true } } },
+    pk_enemy_killed:       { fields: { enemyId: { type: 'number', optional: true } } },
+    pk_player_hurt:        { fields: { amount: { type: 'number', optional: true }, source: { type: 'string', optional: true } } },
+    // Intent events — block_interactor emits these on click/keypress,
+    // pickaxe_keep_game owns range + tier + cooldown checks. Splitting
+    // intents from application lets the same behavior drop into a
+    // creative-mode / PvP-mode / challenge-mode variant.
+    pk_intent_mine:        { fields: { x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, entityId: { type: 'number', optional: true } } },
+    pk_intent_place:       { fields: { x: { type: 'number', optional: true }, y: { type: 'number', optional: true } } },
+    pk_intent_attack:      { fields: { entityId: { type: 'number', optional: true }, x: { type: 'number', optional: true }, y: { type: 'number', optional: true } } },
+    pk_toggle_inventory:   { fields: {} },
+    // Host-authoritative broadcasts relayed via mp_bridge as net_*. World
+    // init carries the full opening block list; deltas broadcast single
+    // mutations; time sync keeps day/night aligned without dead reckoning.
+    net_pk_world_init:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pk_block_mined:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pk_block_placed:   { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pk_enemy_spawned:  { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pk_enemy_killed:   { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pk_enemy_update:   { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pk_time_sync:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pk_player_damaged: { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Jelly Jam (multiplayer party-elimination minigame bracket) ──
+    // Local fanouts from jelly_player + jelly_jam_game so HUD + SFX react
+    // without each piece poking at the others' internals. `jj_round_*` is
+    // the round-bracket lifecycle; `jj_player_*` is the qualify/eliminate
+    // axis; `jj_obstacle_hit` is a per-collision pulse used by camera
+    // shake + audio. Diving (Q) and grabbing (E) are echoed across peers
+    // so other proxies play the right animation in the same frame.
+    jj_round_starting:     { fields: { round: { type: 'number', optional: true }, totalRounds: { type: 'number', optional: true }, name: { type: 'string', optional: true } } },
+    jj_round_started:      { fields: { round: { type: 'number', optional: true } } },
+    jj_round_ended:        { fields: { round: { type: 'number', optional: true } } },
+    jj_player_qualified:   { fields: { peerId: { type: 'string', optional: true }, place: { type: 'number', optional: true } } },
+    jj_player_eliminated:  { fields: { peerId: { type: 'string', optional: true } } },
+    jj_obstacle_hit:       { fields: { peerId: { type: 'string', optional: true }, force: { type: 'number', optional: true } } },
+    jj_dive_started:       { fields: { peerId: { type: 'string', optional: true } } },
+    jj_dive_landed:        { fields: { peerId: { type: 'string', optional: true } } },
+    // Host-authoritative broadcasts relayed via mp_bridge as net_*. Course
+    // init carries the seeded obstacle layout for each round so all peers
+    // build the same arena. Qualify + eliminate fan in from the host's
+    // finish-line trigger.
+    net_jj_course_init:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_jj_qualify:        { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_jj_eliminate:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_jj_round_start:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_jj_round_end:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_jj_dive:           { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_jj_grab:           { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Lawn Defenders (single-player lane defense) ──
+    // Player + economy pulses fanned out by the engine. The HUD reads
+    // these straight off the bus instead of polling for sun / wave /
+    // armed-plant state every frame. Single-player so no net_* echoes.
+    sun_changed:          { fields: { sun: { type: 'number', optional: true }, delta: { type: 'number', optional: true } } },
+    sun_blob_spawned:     { fields: { x: { type: 'number', optional: true }, z: { type: 'number', optional: true }, fromSky: { type: 'boolean', optional: true } } },
+    sun_blob_collected:   { fields: { amount: { type: 'number', optional: true }, x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    plant_armed:          { fields: { plant: { type: 'string', optional: true }, cost: { type: 'number', optional: true } } },
+    plant_armed_cleared:  { fields: {} },
+    plant_placed:         { fields: { plant: { type: 'string', optional: true }, col: { type: 'number', optional: true }, row: { type: 'number', optional: true } } },
+    plant_destroyed:      { fields: { col: { type: 'number', optional: true }, row: { type: 'number', optional: true } } },
+    zombie_spawned:       { fields: { kind: { type: 'string', optional: true }, row: { type: 'number', optional: true } } },
+    zombie_killed:        { fields: { kind: { type: 'string', optional: true }, row: { type: 'number', optional: true } } },
+    zombie_reached_house: { fields: { row: { type: 'number', optional: true } } },
+    wave_progress:        { fields: { wave: { type: 'number', optional: true }, totalWaves: { type: 'number', optional: true }, alive: { type: 'number', optional: true }, remaining: { type: 'number', optional: true } } },
+    cherry_detonated:     { fields: { col: { type: 'number', optional: true }, row: { type: 'number', optional: true } } },
+
+    // ── Rocket Pitch (multiplayer_rocket_pitch — car football) ──
+    // Local fan-outs from the car + ball behaviours + match system so
+    // HUD/SFX can react without chaining through the wire.
+    rocket_jump_pressed:    { fields: {} },
+    rocket_boost_tick:      { fields: { amount: { type: 'number', optional: true }, peerId: { type: 'string', optional: true } } },
+    rocket_ball_reset:      { fields: { x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    rocket_ball_hit_local:  { fields: { byPeerId: { type: 'string', optional: true }, x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, z: { type: 'number', optional: true }, impulse: { type: 'number', optional: true } } },
+    rocket_match_reset:     { fields: {} },
+    // Host-authoritative broadcasts echoed via mp_bridge as net_* —
+    // kickoff flow, ball pose + hit fanout, goals, periodic score +
+    // boost sync, boost pad pickup, team assignment, match end.
+    net_rocket_kickoff:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rocket_go:           { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rocket_ball_state:   { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rocket_ball_hit:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rocket_goal:         { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rocket_score_update: { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rocket_boost_pickup: { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rocket_team_assign:  { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rocket_match_ended:  { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Lane Hopper (single-player endless lane-crossing) ──
+    // Single-player so no net_* mirror. tile_hopper + lane_hopper_game
+    // share these: hop start/land drives the procedural lane extension
+    // + stale-timer reset, reset snaps the chicken back to (0,0) on a
+    // new run, death carries run stats to the HUD + game-over panel,
+    // coin pings the counter bump.
+    hop_start:   { fields: { dx: { type: 'number', optional: true }, dz: { type: 'number', optional: true }, tx: { type: 'number', optional: true }, tz: { type: 'number', optional: true } } },
+    hop_landed:  { fields: { tx: { type: 'number', optional: true }, tz: { type: 'number', optional: true } } },
+    hop_reset:   { fields: { tx: { type: 'number', optional: true }, tz: { type: 'number', optional: true } } },
+    hop_death:   { fields: { reason: { type: 'string', optional: true }, score: { type: 'number', optional: true }, coins: { type: 'number', optional: true }, attempts: { type: 'number', optional: true } } },
+    hop_coin:    { fields: { total: { type: 'number', optional: true } } },
+
+    // ── Pipe Runner (single-player 2.5D side-scrolling platformer) ──
+    // Per-run pulses fanned out by pipe_runner_engine. The HUD reads
+    // these straight off the bus instead of polling the engine for
+    // lives / coins / time / score state every frame.
+    runner_jumped:        { fields: {} },
+    runner_stomped:       { fields: { enemyId: { type: 'number', optional: true }, combo: { type: 'number', optional: true } } },
+    runner_powered_up:    { fields: { kind: { type: 'string', optional: true } } },
+    runner_powered_down:  { fields: {} },
+    runner_coin_grabbed:  { fields: { total: { type: 'number', optional: true } } },
+    runner_life_lost:     { fields: { lives: { type: 'number', optional: true }, reason: { type: 'string', optional: true } } },
+    runner_extra_life:    { fields: { lives: { type: 'number', optional: true } } },
+    runner_block_hit:     { fields: { blockId: { type: 'number', optional: true }, kind: { type: 'string', optional: true } } },
+    runner_flag_reached:  { fields: { time: { type: 'number', optional: true }, score: { type: 'number', optional: true } } },
+    runner_time_warning:  { fields: { time: { type: 'number', optional: true } } },
+
+    // ── Noodle Jaunt (Human Fall Flat-style floppy puzzle platformer) ──
+    // Local fanouts from noodle_jaunt_game / grab_arms so the HUD + audio
+    // react to grab/climb/puzzle moments. `nj_grab_*` is per-hand intent
+    // from grab_arms; the system applies the climb/carry consequence.
+    nj_grab_started:       { fields: { peerId: { type: 'string', optional: true }, hand: { type: 'string', optional: true }, kind: { type: 'string', optional: true } } },
+    nj_grab_released:      { fields: { peerId: { type: 'string', optional: true }, hand: { type: 'string', optional: true } } },
+    nj_button_pressed:     { fields: { buttonId: { type: 'string', optional: true } } },
+    nj_button_released:    { fields: { buttonId: { type: 'string', optional: true } } },
+    nj_door_opened:        { fields: { doorId: { type: 'string', optional: true } } },
+    nj_door_closed:        { fields: { doorId: { type: 'string', optional: true } } },
+    nj_plate_pressed:      { fields: { plateId: { type: 'string', optional: true } } },
+    nj_plate_released:     { fields: { plateId: { type: 'string', optional: true } } },
+    nj_stage_completed:    { fields: { stage: { type: 'number', optional: true } } },
+    nj_player_finished:    { fields: { peerId: { type: 'string', optional: true }, place: { type: 'number', optional: true }, time: { type: 'number', optional: true } } },
+    nj_player_respawned:   { fields: { peerId: { type: 'string', optional: true }, x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    // Host-authoritative broadcasts relayed via mp_bridge as net_*. Door /
+    // plate / button state is host-authoritative so all peers' world stays
+    // in sync. Finish is host-decided so the leaderboard agrees.
+    net_nj_button_state:   { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_nj_door_state:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_nj_plate_state:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_nj_player_finished:{ fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_nj_match_ended:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Rift 1v1 (multiplayer mid-lane MOBA) ──
+    // Local input intents the master system consumes + a shop toggle
+    // for the B-key overlay. All validation/authority happens on the
+    // host; the behaviour just forwards the player's intent.
+    rift_move_order:      { fields: { x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    rift_ability_pressed: { fields: { slot: { type: 'string', optional: true }, aimX: { type: 'number', optional: true }, aimZ: { type: 'number', optional: true } } },
+    rift_basic_attack:    { fields: { aimX: { type: 'number', optional: true }, aimZ: { type: 'number', optional: true } } },
+    rift_shop_toggle:     { fields: {} },
+    // Host-authoritative broadcasts echoed via mp_bridge as net_* —
+    // periodic state sync (hp / gold / kda / minions / towers / nexus),
+    // damage pings, kill + respawn, minion spawn/despawn, projectile
+    // visuals + hits, ability cast fan-out, team assignment, match end.
+    net_rift_state_sync:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rift_damage:          { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rift_kill:            { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rift_minion_spawn:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rift_minion_despawn:  { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rift_projectile:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rift_ability_cast:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rift_teams:           { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_rift_match_ended:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Pin Pal (Wii Sports-style multiplayer turn-based bowling) ──
+    // Local fanouts from pin_pal_game so HUD + audio react to throws,
+    // pins falling, and frame results in the same frame they happen.
+    pp_aim_changed:        { fields: { peerId: { type: 'string', optional: true }, aim: { type: 'number', optional: true }, power: { type: 'number', optional: true } } },
+    pp_throw_taken:        { fields: { peerId: { type: 'string', optional: true }, power: { type: 'number', optional: true }, aim: { type: 'number', optional: true } } },
+    pp_pin_count:          { fields: { peerId: { type: 'string', optional: true }, count: { type: 'number', optional: true }, throwIdx: { type: 'number', optional: true } } },
+    pp_frame_complete:     { fields: { peerId: { type: 'string', optional: true }, frame: { type: 'number', optional: true }, frameScore: { type: 'number', optional: true }, total: { type: 'number', optional: true } } },
+    pp_strike:             { fields: { peerId: { type: 'string', optional: true }, frame: { type: 'number', optional: true } } },
+    pp_spare:              { fields: { peerId: { type: 'string', optional: true }, frame: { type: 'number', optional: true } } },
+    pp_gutter:             { fields: { peerId: { type: 'string', optional: true } } },
+    pp_turn_changed:       { fields: { peerId: { type: 'string', optional: true }, frame: { type: 'number', optional: true }, throwIdx: { type: 'number', optional: true } } },
+    pp_match_won:          { fields: { peerId: { type: 'string', optional: true }, score: { type: 'number', optional: true } } },
+    // Host-authoritative net broadcasts. Throw is broadcast so non-host
+    // peers play the SFX + see the cleared aim. Pin counts + turn rotation
+    // come from the host so all peers' scoresheets agree.
+    net_pp_aim:            { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pp_throw:          { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pp_pin_count:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pp_frame_score:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pp_turn:           { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pp_pins_reset:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_pp_match_ended:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
