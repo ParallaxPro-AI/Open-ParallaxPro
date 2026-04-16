@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { config } from '../../config.js';
 import { getAvailableAgents } from './pipeline/cli_availability.js';
+import { wrapSpawn } from './pipeline/docker_sandbox.js';
 
 export interface LLMMessage {
     role: 'system' | 'user' | 'assistant';
@@ -364,9 +365,12 @@ async function runCLIForText(
     // Empty temp dir so the agent has no project files to poke at.
     const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ppai-chat-'));
 
+    // Wrap in Docker if DOCKER_SANDBOX is enabled.
+    const wrapped = wrapSpawn(cli as any, cli, args, sandboxDir);
+
     try {
         return await new Promise<{ text: string; error?: string }>((resolve) => {
-            const proc = spawn(cli, args, {
+            const proc = spawn(wrapped.command, wrapped.args, {
                 cwd: sandboxDir,
                 stdio: ['ignore', 'pipe', 'pipe'],
                 env: { ...process.env, HOME: process.env.HOME || '/tmp' },
