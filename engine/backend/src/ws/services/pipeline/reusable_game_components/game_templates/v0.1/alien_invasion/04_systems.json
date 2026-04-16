@@ -1,0 +1,31 @@
+{
+  "systems": {
+    "invader_wave": {
+      "description": "Fixed-screen alien invasion — grid marching, firing, bunkers, UFO, waves, lives.",
+      "script": "gameplay/invader_wave.ts",
+      "params": {
+        "gridCols": 10,
+        "gridRows": 5,
+        "colSpacing": 2.6,
+        "rowSpacing": 2.2,
+        "gridStartZ": -15,
+        "playerRowZ": 9,
+        "marchStepX": 1.0,
+        "marchDropZ": 1.6,
+        "marchSpeedStart": 0.7,
+        "marchSpeedMin": 0.08,
+        "alienFireRateStart": 0.38,
+        "alienFireRateMax": 1.5,
+        "bulletSpeed": 28,
+        "playerBulletCap": 3,
+        "lives": 3,
+        "wavesToWin": 3,
+        "ufoChancePerSec": 0.01,
+        "ufoSpeed": 18,
+        "ufoScore": 150,
+        "bunkerCount": 4,
+        "bunkerStartZ": 2.2
+      }
+    }
+  }
+}

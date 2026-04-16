@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: rgba(2, 4, 10, 0.7);
+    --bg-strong: rgba(0, 1, 6, 0.94);
+    --border: rgba(52, 209, 177, 0.3);
+    --border-hot: rgba(52, 209, 177, 0.6);
+    --text: #8ee5c8;
+    --text-dim: #476c60;
+    --text-muted: #1f382f;
+    --green: #34d1b1;
+    --green-glow: rgba(52, 209, 177, 0.7);
+    --gold: #f5c542;
+    --gold-glow: rgba(245, 197, 66, 0.6);
+    --red: #e24545;
+    --red-glow: rgba(226, 69, 69, 0.7);
+    --magenta: #e44aa0;
+    --magenta-glow: rgba(228, 74, 160, 0.55);
+    --cyan: #56d9ff;
+    --cyan-glow: rgba(86, 217, 255, 0.55);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    font-family: 'Menlo', 'Consolas', 'Courier New', monospace;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    background: transparent;
+  }
+
+  /* Subtle CRT scanlines. */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(52, 209, 177, 0.04) 0,
+      rgba(52, 209, 177, 0.04) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ───── TOP BAR ───── */
+  .top {
+    position: fixed;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: stretch;
+  }
+
+  .cell {
+    background: var(--bg);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 18px;
+    text-align: center;
+    min-width: 120px;
+    box-shadow: 0 0 14px rgba(52, 209, 177, 0.15) inset;
+  }
+  .cell .lbl {
+    font-size: 9px; letter-spacing: 3px; font-weight: 800;
+    color: var(--text-dim); text-transform: uppercase;
+  }
+  .cell .val {
+    font-size: 26px; font-weight: 900;
+    color: var(--green);
+    text-shadow: 0 0 12px var(--green-glow);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .cell.gold .val { color: var(--gold); text-shadow: 0 0 12px var(--gold-glow); }
+  .cell.red .val { color: var(--red); text-shadow: 0 0 12px var(--red-glow); }
+  .cell.cyan .val { color: var(--cyan); text-shadow: 0 0 12px var(--cyan-glow); }
+
+  /* Lives row uses ship pips. */
+  .lives-pips {
+    display: flex; gap: 5px;
+    justify-content: center;
+    margin-top: 2px;
+  }
+  .ship-pip {
+    width: 18px; height: 10px;
+    background: var(--green);
+    clip-path: polygon(50% 0, 100% 70%, 80% 100%, 20% 100%, 0 70%);
+    box-shadow: 0 0 8px var(--green-glow);
+    transition: opacity 0.2s;
+  }
+  .ship-pip.lost {
+    background: var(--text-muted);
+    box-shadow: none;
+  }
+
+  /* ───── LEFT: ALIEN COUNTER ───── */
+  .alien-panel {
+    position: fixed;
+    top: 14px; left: 14px;
+    background: var(--bg);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 14px;
+    text-align: center;
+  }
+  .alien-panel .lbl { font-size: 9px; letter-spacing: 2.5px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; }
+  .alien-panel .val { font-size: 20px; font-weight: 900; color: var(--magenta); text-shadow: 0 0 10px var(--magenta-glow); font-variant-numeric: tabular-nums; }
+
+  /* ───── RIGHT: UFO WARNING ───── */
+  .ufo-warn {
+    position: fixed;
+    top: 14px; right: 14px;
+    background: linear-gradient(135deg, rgba(228, 74, 160, 0.35), rgba(228, 74, 160, 0.1));
+    border: 1px solid var(--magenta-glow);
+    border-radius: 4px;
+    padding: 8px 18px;
+    text-align: center;
+    display: none;
+    animation: ufoPulse 0.6s ease-in-out infinite alternate;
+  }
+  .ufo-warn.visible { display: block; }
+  .ufo-warn .lbl { font-size: 10px; letter-spacing: 3px; font-weight: 900; color: var(--magenta); text-shadow: 0 0 10px var(--magenta-glow); }
+  .ufo-warn .val { font-size: 16px; font-weight: 900; color: #fff; text-shadow: 0 0 12px var(--magenta-glow); margin-top: 2px; letter-spacing: 2px; }
+  @keyframes ufoPulse {
+    0% { box-shadow: 0 0 0 0 rgba(228, 74, 160, 0); }
+    100% { box-shadow: 0 0 28px 4px rgba(228, 74, 160, 0.35); }
+  }
+
+  /* ───── INTRO ───── */
+  .intro-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(4, 8, 18, 0.75), rgba(0, 0, 4, 0.98));
+    display: none;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .intro-overlay.visible { display: block; animation: fadeIn 0.6s ease-out; }
+  @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+  .intro-card {
+    position: absolute;
+    top: 40%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .intro-card .eyebrow {
+    font-size: 14px; letter-spacing: 8px; font-weight: 800;
+    color: var(--cyan); text-shadow: 0 0 18px var(--cyan-glow);
+    text-transform: uppercase;
+  }
+  .intro-card .big {
+    font-size: 96px; font-weight: 900;
+    letter-spacing: 10px;
+    color: var(--green); text-shadow: 0 0 40px var(--green-glow), 0 4px 24px rgba(0, 0, 0, 0.5);
+    text-transform: uppercase;
+    margin: 14px 0 6px;
+    line-height: 1;
+    font-family: 'Courier New', monospace;
+    animation: bigPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes bigPop {
+    0% { opacity: 0; transform: scale(0.5); }
+    60% { transform: scale(1.15); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .intro-card .tagline {
+    font-size: 13px; color: var(--text); letter-spacing: 3px;
+    font-weight: 700; margin-top: 6px;
+  }
+
+  /* ───── WAVE COMPLETE ───── */
+  .wave-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(10, 36, 28, 0.7), rgba(0, 0, 4, 0.94));
+    display: none;
+    pointer-events: none;
+    z-index: 18;
+  }
+  .wave-overlay.visible { display: block; animation: fadeIn 0.4s ease-out; }
+  .wave-card {
+    position: absolute;
+    top: 42%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .wave-card .eyebrow {
+    font-size: 14px; letter-spacing: 6px; font-weight: 800;
+    color: var(--gold); text-shadow: 0 0 18px var(--gold-glow);
+    text-transform: uppercase;
+  }
+  .wave-card .big {
+    font-size: 82px; font-weight: 900;
+    letter-spacing: 10px;
+    color: var(--green); text-shadow: 0 0 40px var(--green-glow);
+    margin: 14px 0 6px;
+    line-height: 1;
+    animation: bigPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .wave-card .sub {
+    font-size: 12px; color: var(--text); letter-spacing: 3px;
+    font-weight: 700;
+  }
+  .wave-card .sub .n { color: var(--gold); text-shadow: 0 0 10px var(--gold-glow); font-variant-numeric: tabular-nums; }
+
+  /* ───── DEATH ───── */
+  .death-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(50, 10, 10, 0.7), rgba(0, 0, 4, 0.92));
+    display: none;
+    pointer-events: none;
+    z-index: 15;
+  }
+  .death-overlay.visible { display: block; animation: flashRed 0.2s ease-out; }
+  @keyframes flashRed {
+    0% { background: rgba(226, 69, 69, 0.6); }
+    100% { background: radial-gradient(ellipse at center, rgba(50, 10, 10, 0.7), rgba(0, 0, 4, 0.92)); }
+  }
+  .death-card {
+    position: absolute;
+    top: 42%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .death-card .big {
+    font-size: 70px; font-weight: 900;
+    color: var(--red);
+    text-shadow: 0 0 34px var(--red-glow);
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .death-card .sub { font-size: 13px; color: var(--text); letter-spacing: 3px; margin-top: 8px; font-weight: 700; }
+  .death-card .sub .n { color: var(--gold); text-shadow: 0 0 8px var(--gold-glow); font-variant-numeric: tabular-nums; }
+
+  /* ───── CONTROLS ───── */
+  .controls {
+    position: fixed;
+    bottom: 16px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 18px;
+    font-size: 11px; font-weight: 600; color: var(--text-dim);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .controls kbd {
+    display: inline-block;
+    background: rgba(52, 209, 177, 0.1);
+    border: 1px solid var(--border-hot);
+    border-radius: 2px;
+    padding: 1px 6px;
+    font-size: 10px; font-weight: 800;
+    color: var(--green);
+    margin: 0 2px;
+    text-shadow: 0 0 8px var(--green-glow);
+  }
+</style>
+</head>
+<body>
+
+<!-- Intro -->
+<div class="intro-overlay visible" id="intro-overlay">
+  <div class="intro-card">
+    <div class="eyebrow">Prepare for Invasion</div>
+    <div class="big">ALIEN INVASION</div>
+    <div class="tagline">ARROW KEYS · SPACE FIRES · 3 LIVES</div>
+  </div>
+</div>
+
+<!-- Wave complete -->
+<div class="wave-overlay" id="wave-overlay">
+  <div class="wave-card">
+    <div class="eyebrow">Wave Cleared</div>
+    <div class="big">WAVE <span id="wave-cleared-num">1</span></div>
+    <div class="sub">Score <span class="n" id="wave-score">0</span> · Next wave incoming…</div>
+  </div>
+</div>
+
+<!-- Death -->
+<div class="death-overlay" id="death-overlay">
+  <div class="death-card">
+    <div class="big">HIT</div>
+    <div class="sub"><span class="n" id="death-lives">3</span> ships remaining</div>
+  </div>
+</div>
+
+<!-- Top bar -->
+<div class="top">
+  <div class="cell">
+    <div class="lbl">Score</div>
+    <div class="val" id="score-val">0</div>
+  </div>
+  <div class="cell gold">
+    <div class="lbl">High</div>
+    <div class="val" id="high-val">0</div>
+  </div>
+  <div class="cell cyan">
+    <div class="lbl">Wave</div>
+    <div class="val"><span id="wave-val">1</span>/<span id="wave-max">3</span></div>
+  </div>
+  <div class="cell">
+    <div class="lbl">Ships</div>
+    <div class="lives-pips" id="lives-pips"></div>
+  </div>
+</div>
+
+<!-- Alien counter -->
+<div class="alien-panel">
+  <div class="lbl">Aliens</div>
+  <div class="val"><span id="aliens-alive">50</span>/<span id="aliens-total">50</span></div>
+</div>
+
+<!-- UFO warning -->
+<div class="ufo-warn" id="ufo-warn">
+  <div class="lbl">UFO</div>
+  <div class="val">★ BONUS ★</div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <kbd>← →</kbd> Move &nbsp;·&nbsp; <kbd>Space</kbd> Fire
+</div>
+
+<script>
+(function() {
+  var els = {
+    scoreVal: document.getElementById('score-val'),
+    highVal: document.getElementById('high-val'),
+    waveVal: document.getElementById('wave-val'),
+    waveMax: document.getElementById('wave-max'),
+    livesPips: document.getElementById('lives-pips'),
+    aliensAlive: document.getElementById('aliens-alive'),
+    aliensTotal: document.getElementById('aliens-total'),
+    ufoWarn: document.getElementById('ufo-warn'),
+    introOverlay: document.getElementById('intro-overlay'),
+    waveOverlay: document.getElementById('wave-overlay'),
+    waveClearedNum: document.getElementById('wave-cleared-num'),
+    waveScore: document.getElementById('wave-score'),
+    deathOverlay: document.getElementById('death-overlay'),
+    deathLives: document.getElementById('death-lives'),
+  };
+
+  function renderPips(lives, max) {
+    var html = '';
+    for (var i = 0; i < max; i++) {
+      html += '<div class="ship-pip' + (i < lives ? '' : ' lost') + '"></div>';
+    }
+    els.livesPips.innerHTML = html;
+  }
+
+  function update(state) {
+    if (!state || !state._invader) return;
+    var s = state._invader;
+
+    els.scoreVal.textContent = s.score || 0;
+    els.highVal.textContent = Math.max(s.highScore || 0, s.score || 0);
+    els.waveVal.textContent = s.wave || 1;
+    els.waveMax.textContent = s.maxWave || 3;
+    renderPips(s.lives || 0, s.maxLives || 3);
+    els.aliensAlive.textContent = s.aliensAlive || 0;
+    els.aliensTotal.textContent = s.aliensTotal || 50;
+
+    if (s.ufoActive) els.ufoWarn.classList.add('visible');
+    else els.ufoWarn.classList.remove('visible');
+
+    if (s.intro) els.introOverlay.classList.add('visible');
+    else els.introOverlay.classList.remove('visible');
+
+    if (s.waveComplete) {
+      els.waveOverlay.classList.add('visible');
+      els.waveClearedNum.textContent = s.wave || 1;
+      els.waveScore.textContent = s.score || 0;
+    } else {
+      els.waveOverlay.classList.remove('visible');
+    }
+
+    if (s.dead && s.lives > 0) {
+      els.deathOverlay.classList.add('visible');
+      els.deathLives.textContent = s.lives;
+    } else {
+      els.deathOverlay.classList.remove('visible');
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

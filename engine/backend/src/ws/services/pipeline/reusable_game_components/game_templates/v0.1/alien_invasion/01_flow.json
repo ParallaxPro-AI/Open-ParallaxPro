@@ -1,0 +1,54 @@
+{
+  "id": "alien_invasion_flow",
+  "name": "Alien Invasion",
+  "description": "Single-player retro fixed-screen shooter. Hold the last line against a marching grid of aliens, shelter behind destructible bunkers, and blast the passing UFO for bonus points. Three ships, three waves, one high score.",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "ALIEN INVASION",
+      "gameSubtitle": "Hold the line · space fires"
+    }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize",
+      "active_systems": ["invader_wave"],
+      "active_behaviors": ["camera_invader_fixed"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing" }]
+    },
+    "playing": {
+      "description": "Defend Earth",
+      "active_systems": ["invader_wave"],
+      "active_behaviors": ["invader_ship", "camera_invader_fixed"],
+      "on_enter": [
+        "emit:game.game_ready",
+        "show_ui:hud/invader_hud",
+        "play_sound:/assets/kenney/audio/sci_fi_sounds/forceField_001.ogg"
+      ],
+      "on_exit": ["hide_ui:hud/invader_hud"],
+      "transitions": [
+        { "when": "game_event:game_over", "goto": "game_over" },
+        { "when": "game_event:game_won", "goto": "game_over" }
+      ]
+    },
+    "game_over": {
+      "description": "Run ended",
+      "active_behaviors": ["camera_invader_fixed"],
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit":  ["hide_ui:game_over", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "playing", "actions": ["emit:game.restart_game"] },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

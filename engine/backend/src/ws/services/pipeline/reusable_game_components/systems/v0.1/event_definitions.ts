@@ -332,6 +332,20 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     // segment so trails render as continuous polylines instead of jittering
     // around bike rotation. Also used by audio HUD to pulse a turn ping.
     bike_turned:           { fields: { peerId: { type: 'string', optional: true } } },
+
+    // ── Alien Invasion (single-player retro fixed-screen shooter) ──
+    // invader_ship fires "fire_pressed"; the wave system spawns the bullet,
+    // tracks hits, and emits the _killed / _died / _game_* fanouts the
+    // HUD + FX layer key off. All single-player so no net_* mirror.
+    invader_fire_pressed:  { fields: { x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    invader_fire_emitted:  { fields: {} },
+    invader_wave_reset:    { fields: { wave: { type: 'number', optional: true }, lives: { type: 'number', optional: true } } },
+    invader_alien_killed:  { fields: { row: { type: 'number', optional: true }, col: { type: 'number', optional: true }, score: { type: 'number', optional: true } } },
+    invader_ufo_killed:    { fields: { score: { type: 'number', optional: true } } },
+    invader_wave_cleared:  { fields: { wave: { type: 'number', optional: true } } },
+    invader_player_died:   { fields: { reason: { type: 'string', optional: true }, livesLeft: { type: 'number', optional: true }, score: { type: 'number', optional: true } } },
+    invader_game_over:     { fields: { score: { type: 'number', optional: true }, highScore: { type: 'number', optional: true }, wave: { type: 'number', optional: true } } },
+    invader_game_won:      { fields: { score: { type: 'number', optional: true }, highScore: { type: 'number', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));

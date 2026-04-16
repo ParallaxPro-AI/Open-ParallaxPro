@@ -1,0 +1,49 @@
+{
+  "worlds": [
+    {
+      "id": "invader_bridge",
+      "name": "Orbital Defense Line",
+      "environment": {
+        "ambientColor": [0.15, 0.18, 0.35],
+        "ambientIntensity": 0.4,
+        "sunColor": [0.8, 0.88, 1.0],
+        "sunIntensity": 0.5,
+        "fog": { "enabled": true, "color": [0.012, 0.015, 0.045], "near": 40, "far": 130 },
+        "gravity": [0, -9.81, 0]
+      },
+      "placements": [
+        { "ref": "sky_dome", "position": [0, 30, 0] },
+        { "ref": "playfield", "position": [0, -0.2, 0] },
+
+        { "ref": "camera", "position": [0, 26, 28] },
+        { "name": "Player", "ref": "player", "position": [0, 1, 9] },
+
+        { "ref": "player_baseline", "position": [0, 0.22, 10.4] },
+
+        { "ref": "playfield_grid_line", "position": [0, 0.1,  0] },
+        { "ref": "playfield_grid_line", "position": [0, 0.1, -5] },
+        { "ref": "playfield_grid_line", "position": [0, 0.1,  -10] },
+        { "ref": "playfield_grid_line", "position": [0, 0.1,  -15] },
+
+        { "ref": "playfield_side_wall", "position": [-20, 1, 0] },
+        { "ref": "playfield_side_wall", "position": [ 20, 1, 0] },
+
+        { "ref": "bg_star", "position": [-12, 16, -15] },
+        { "ref": "bg_star", "position": [-4, 18, -20] },
+        { "ref": "bg_star", "position": [ 8, 14, -18] },
+        { "ref": "bg_star", "position": [ 14, 19, -12] },
+        { "ref": "bg_star", "position": [ 18, 15, -28] },
+        { "ref": "bg_star", "position": [-18, 17, -25] },
+        { "ref": "bg_star", "position": [ 0, 22, -24] },
+        { "ref": "bg_star", "position": [-8, 14, -8] },
+        { "ref": "bg_star", "position": [ 4, 18, -6] },
+        { "ref": "bg_star", "position": [ 12, 16, -4] },
+        { "ref": "bg_star", "position": [-14, 16, -4] },
+        { "ref": "bg_star", "position": [ 6, 22, -30] },
+        { "ref": "bg_star", "position": [-6, 20, -30] },
+        { "ref": "bg_star", "position": [ 16, 18, -34] },
+        { "ref": "bg_star", "position": [-16, 18, -34] }
+      ]
+    }
+  ]
+}
