@@ -60,7 +60,8 @@ interface CustomizationPlan {
     name?: string;
     subtitle?: string;
     player?: {
-        mesh_type?: 'cube' | 'sphere' | 'capsule' | 'cylinder' | 'cone' | 'plane';
+        mesh_type?: 'cube' | 'sphere' | 'capsule' | 'cylinder' | 'cone' | 'plane' | 'custom';
+        mesh_asset?: string;        // /assets/... path; validated against disk
         mesh_color?: [number, number, number, number];
         mesh_scale?: [number, number, number];
     };
@@ -69,6 +70,21 @@ interface CustomizationPlan {
     behavior_swaps?: Array<{ entity?: string; from?: string; to: string; params?: Record<string, any> }>;
     systems_to_add?: string[];
     systems_to_remove?: string[];
+    world_changes?: Array<{
+        op: 'add' | 'remove';
+        ref?: string;                            // for "add"
+        name?: string;                           // for "remove"
+        position?: [number, number, number];
+        count?: number;                          // for "add" — defaults to 1
+        scatter?: 'random' | 'line' | 'grid';   // for count > 1
+        scatter_radius?: number;
+    }>;
+    multiplayer?: {
+        enabled: boolean;
+        minPlayers?: number;
+        maxPlayers?: number;
+        tickRate?: number;
+    };
     phases?: Array<{ name: string; implemented?: boolean }>;
 }
 
@@ -318,13 +334,27 @@ function buildSystemPrompt(templateId: string, catalog: LibraryCatalog): string 
         `\`${templateId}\` will be used as the seed. project/ will already contain its 4 JSONs and every behavior/system/UI it references.`,
         ``,
         `## Your job`,
-        `Output a JSON customization plan. Keep changes MINIMAL — Phase 1 only. The user can iterate via FIX_GAME for bigger changes.`,
+        `Output a JSON customization plan that makes the game feel like what the user asked for. Be opinionated about title, theme, player mesh/color, and which entities exist in the world. The assembler validates every reference against the library catalog and silently drops anything that doesn't match — so reference real names only.`,
         ``,
         `## Constraints`,
-        `- Reference ONLY these library names. Anything else is dropped silently.`,
-        `- Do not invent event names, behavior paths, system paths, or UI panel names.`,
-        `- mesh_type must be one of: cube, sphere, capsule, cylinder, cone, plane.`,
+        `- Reference ONLY library names listed below. Anything else is dropped silently.`,
+        `- Do NOT invent event names, behavior paths, system paths, UI panel names.`,
+        `- mesh_type must be one of: cube, sphere, capsule, cylinder, cone, plane, custom.`,
+        `- For mesh_asset, use the asset path conventions below. Bad paths are dropped.`,
         `- mesh_color is [r, g, b, a], each 0..1.`,
+        ``,
+        `## Asset path conventions (use these prefixes to compose mesh_asset)`,
+        `- Characters (humanoid): /assets/quaternius/characters/character-male-a.glb, .../character-female-a.glb, .../character-skeleton.glb, etc.`,
+        `- Blocky characters:     /assets/kenney/3d_models/blocky_characters/character-a.glb, character-b.glb, ... character-p.glb`,
+        `- Vehicles:              /assets/kenney/3d_models/vehicles/race.glb, race-future.glb, sedan.glb, tractor.glb, taxi.glb, police.glb, ambulance.glb, truck.glb, suv.glb, hatchback.glb`,
+        `- Tanks:                 /assets/kenney/3d_models/vehicles/tank.glb`,
+        `- Spaceships:            /assets/kenney/3d_models/space/craft_speederA.glb, craft_miner.glb, craft_racer.glb`,
+        `- Nature props:          /assets/kenney/3d_models/nature/tree-default.glb, rocks-large-a.glb, bush.glb, grass-leafs.glb`,
+        `- Urban props:           /assets/kenney/3d_models/urban/building-a.glb, lamp-double.glb, bench.glb`,
+        `- Survival props:        /assets/kenney/3d_models/survival/crate.glb, barrel.glb, lantern.glb`,
+        `- Detail props:          /assets/kenney/3d_models/platformer/crate.glb, spike.glb, coin-bronze.glb, coin-gold.glb`,
+        `- Generic textures:      /assets/kenney/textures/prototype_dark/dark_06.png  (for grounds and walls)`,
+        `If unsure, omit mesh_asset and use a primitive mesh_type.`,
         ``,
         `## JSON output schema (omit fields you don't need)`,
         '```',
@@ -332,18 +362,38 @@ function buildSystemPrompt(templateId: string, catalog: LibraryCatalog): string 
         '  "id":       "kebab-case-game-id",',
         '  "name":     "Human Title",',
         '  "subtitle": "short tagline (max 40 chars)",',
+        '',
         '  "player": {',
-        '    "mesh_type":  "cube|sphere|capsule|cylinder|cone|plane",',
-        '    "mesh_color": [r,g,b,a],',
+        '    "mesh_type":  "cube|sphere|capsule|cylinder|cone|plane|custom",',
+        '    "mesh_asset": "/assets/...",     // GLB or texture path; only meaningful when mesh_type is custom',
+        '    "mesh_color": [r,g,b,a],          // 0..1 each — used for primitives or as material override',
         '    "mesh_scale": [x,y,z]',
         '  },',
+        '',
         '  "behavior_swaps": [',
         '    { "entity": "<entity name in 02_entities.json>", "from": "<old script path>", "to": "movement/...", "params": {...} }',
         '  ],',
+        '',
         '  "systems_to_add":      [ "gameplay/scoring.ts", ... ],',
         '  "systems_to_remove":   [ "gameplay/race_manager.ts", ... ],',
+        '',
         '  "hud_panels_to_add":   [ "hud/health", ... ],',
         '  "hud_panels_to_remove":[ "hud/race_countdown", ... ],',
+        '',
+        '  "world_changes": [',
+        '    { "op": "add", "ref": "<entity name from 02_entities.json definitions>", "position": [x,y,z] },',
+        '    { "op": "add", "ref": "spike", "count": 12, "scatter": "line",   "scatter_radius": 30 },',
+        '    { "op": "add", "ref": "tree",  "count": 8,  "scatter": "random", "scatter_radius": 40 },',
+        '    { "op": "remove", "name": "<scene-level entity name>" }',
+        '  ],',
+        '',
+        '  "multiplayer": {                    // ONLY include if user asked for MP / online / multiplayer / co-op',
+        '    "enabled": true,',
+        '    "minPlayers": 2,',
+        '    "maxPlayers": 8,',
+        '    "tickRate": 30',
+        '  },',
+        '',
         '  "phases": [',
         '    { "name": "Phase 1: <one-line summary of what is playable now>", "implemented": true },',
         '    { "name": "Phase 2: <next feature>" },',
@@ -365,7 +415,7 @@ function applyPlan(baseline: ProjectFiles, plan: CustomizationPlan, catalog: Lib
     // 1. Title rename — always safe.
     files['01_flow.json'] = patchFlowMetadata(files['01_flow.json'], plan);
 
-    // 2. Player mesh tweaks (cube/sphere/etc. + color + scale) — safe primitives only.
+    // 2. Player mesh tweaks (primitive type, color, scale, GLB asset).
     if (plan.player) {
         files['02_entities.json'] = patchPlayerMesh(files['02_entities.json'], plan.player);
     }
@@ -375,7 +425,6 @@ function applyPlan(baseline: ProjectFiles, plan: CustomizationPlan, catalog: Lib
         for (const swap of plan.behavior_swaps) {
             if (!swap?.to || !isKnownBehavior(catalog, swap.to)) continue;
             files['02_entities.json'] = patchBehaviorSwap(files['02_entities.json'], swap);
-            // Pull the new behavior file in.
             const src = path.join(RGC_DIR, 'behaviors', 'v0.1', swap.to);
             if (fs.existsSync(src)) files['behaviors/' + swap.to] = fs.readFileSync(src, 'utf-8');
         }
@@ -414,6 +463,25 @@ function applyPlan(baseline: ProjectFiles, plan: CustomizationPlan, catalog: Lib
         }
     }
 
+    // 6. World changes (add/remove placements). Each op validated against
+    //    02_entities.json definitions / existing placement names; bad ops
+    //    are dropped silently.
+    if (Array.isArray(plan.world_changes)) {
+        files['03_worlds.json'] = applyWorldChanges(files['03_worlds.json'], files['02_entities.json'], plan.world_changes);
+    }
+
+    // 7. Multiplayer toggle — add the flow-level block, attach a network
+    //    block to the player entity, and ensure mp_bridge is in
+    //    active_systems for every state. Adding mp_bridge is safe — the
+    //    file is part of ENGINE_MACHINERY so it's always pre-staged in
+    //    project/systems/mp/mp_bridge.ts.
+    if (plan.multiplayer && plan.multiplayer.enabled) {
+        files['01_flow.json']    = patchMultiplayerBlock(files['01_flow.json'], plan.multiplayer);
+        files['02_entities.json'] = patchPlayerNetworkBlock(files['02_entities.json']);
+        files['04_systems.json'] = addSystem(files['04_systems.json'], 'mp/mp_bridge.ts');
+        files['01_flow.json']    = addToActiveSystemsAllStates(files['01_flow.json'], 'mp/mp_bridge.ts');
+    }
+
     return files;
 }
 
@@ -448,12 +516,19 @@ function patchPlayerMesh(entJson: string | undefined, p: NonNullable<Customizati
         if (!key) return entJson;
         const def = defs[key];
         def.mesh = def.mesh || {};
-        if (p.mesh_type) {
-            def.mesh.type = p.mesh_type;
-            // Switching to a primitive — strip the GLB asset path so the engine
-            // renders the primitive instead of trying to load both.
-            delete def.mesh.asset;
+
+        // mesh_asset takes precedence — if it's a real GLB on disk, use it
+        // and force mesh_type to "custom". Otherwise fall back to primitive.
+        if (p.mesh_asset && assetExistsOnDisk(p.mesh_asset)) {
+            def.mesh.type = 'custom';
+            def.mesh.asset = p.mesh_asset;
+        } else if (p.mesh_type) {
+            def.mesh.type = p.mesh_type === 'custom' ? 'cube' : p.mesh_type;
+            // Switching to a primitive — strip the GLB asset path so the
+            // engine renders the primitive instead of trying to load both.
+            if (def.mesh.type !== 'custom') delete def.mesh.asset;
         }
+
         if (Array.isArray(p.mesh_color) && p.mesh_color.length === 4) {
             def.mesh.materialOverrides = def.mesh.materialOverrides || {};
             def.mesh.materialOverrides.baseColor = p.mesh_color;
@@ -463,6 +538,13 @@ function patchPlayerMesh(entJson: string | undefined, p: NonNullable<Customizati
         }
         return JSON.stringify(entities, null, 2);
     } catch { return entJson; }
+}
+
+function assetExistsOnDisk(assetPath: string): boolean {
+    if (typeof assetPath !== 'string' || !assetPath.startsWith('/assets/')) return false;
+    const rel = assetPath.replace(/^\/assets\//, '');
+    try { return fs.existsSync(path.join(config.assetsDir, rel)); }
+    catch { return false; }
 }
 
 function patchBehaviorSwap(entJson: string | undefined, swap: NonNullable<CustomizationPlan['behavior_swaps']>[number]): string {
@@ -583,6 +665,136 @@ function mutateGameplayActions(flowJson: string | undefined, panel: string, add:
         for (const v of Object.values(flow.states || {})) visit(v);
         return JSON.stringify(flow, null, 2);
     } catch { return flowJson; }
+}
+
+// ─── World changes ────────────────────────────────────────────────────────
+
+function applyWorldChanges(
+    worldsJson: string | undefined,
+    entitiesJson: string | undefined,
+    changes: NonNullable<CustomizationPlan['world_changes']>,
+): string {
+    if (!worldsJson || !entitiesJson) return worldsJson || '';
+    let worlds: any;
+    let entities: any;
+    try {
+        worlds = JSON.parse(worldsJson);
+        entities = JSON.parse(entitiesJson);
+    } catch { return worldsJson; }
+
+    const definitions = entities.definitions || {};
+    const validRefs = new Set(Object.keys(definitions));
+
+    const firstWorld = Array.isArray(worlds.worlds) ? worlds.worlds[0] : null;
+    if (!firstWorld) return worldsJson;
+    firstWorld.placements = firstWorld.placements || [];
+
+    for (const change of changes) {
+        if (!change || typeof change !== 'object') continue;
+        if (change.op === 'remove') {
+            if (!change.name) continue;
+            firstWorld.placements = firstWorld.placements.filter((p: any) => p.name !== change.name && p.ref !== change.name);
+        } else if (change.op === 'add') {
+            if (!change.ref || !validRefs.has(change.ref)) continue;
+            const count = Math.min(Math.max(1, change.count || 1), 50);
+            for (let i = 0; i < count; i++) {
+                const pos = pickPosition(change, i);
+                const placement: any = { ref: change.ref, position: pos };
+                if (count > 1) placement.name = `${change.ref} ${i + 1}`;
+                firstWorld.placements.push(placement);
+            }
+        }
+    }
+    return JSON.stringify(worlds, null, 2);
+}
+
+function pickPosition(change: NonNullable<CustomizationPlan['world_changes']>[number], i: number): [number, number, number] {
+    if (change.position && change.position.length === 3) return change.position;
+    const r = Math.max(1, change.scatter_radius || 20);
+    if (change.scatter === 'line') {
+        // Spread along the negative-z axis in a single line — works well for
+        // courses, lanes, and obstacle paths.
+        const count = Math.max(1, change.count || 1);
+        const z = -((i + 1) * r) / count;
+        return [0, 1, z];
+    }
+    if (change.scatter === 'grid') {
+        const cols = Math.ceil(Math.sqrt(Math.max(1, change.count || 1)));
+        const cx = (i % cols) - Math.floor(cols / 2);
+        const cz = Math.floor(i / cols);
+        return [cx * (r / cols * 2), 1, -cz * (r / cols * 2) - 5];
+    }
+    // Default 'random'
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * r;
+    return [Math.cos(angle) * dist, 1, Math.sin(angle) * dist];
+}
+
+// ─── Multiplayer toggle ───────────────────────────────────────────────────
+
+function patchMultiplayerBlock(flowJson: string | undefined, mp: NonNullable<CustomizationPlan['multiplayer']>): string {
+    if (!flowJson) return flowJson || '';
+    try {
+        const flow = JSON.parse(flowJson);
+        flow.multiplayer = {
+            enabled: true,
+            minPlayers: clamp(mp.minPlayers ?? 2, 1, 16),
+            maxPlayers: clamp(mp.maxPlayers ?? 8, 1, 16),
+            tickRate:   clamp(mp.tickRate   ?? 30, 5, 60),
+            authority: 'host',
+            predictLocalPlayer: true,
+            hostPlaysGame: true,
+        };
+        return JSON.stringify(flow, null, 2);
+    } catch { return flowJson; }
+}
+
+function patchPlayerNetworkBlock(entJson: string | undefined): string {
+    if (!entJson) return entJson || '';
+    try {
+        const entities = JSON.parse(entJson);
+        const defs = entities.definitions || {};
+        let key: string | null = null;
+        for (const k of Object.keys(defs)) {
+            const d = defs[k];
+            if (Array.isArray(d.tags) && d.tags.includes('player')) { key = k; break; }
+            if (k.toLowerCase() === 'player') { key = k; break; }
+        }
+        if (!key) return entJson;
+        const def = defs[key];
+        def.network = def.network || {
+            syncTransform: true,
+            syncInterval: 33,
+            ownership: 'local_player',
+            predictLocally: true,
+            networkedVars: [],
+        };
+        return JSON.stringify(entities, null, 2);
+    } catch { return entJson; }
+}
+
+// Like addToActiveSystems but applies to EVERY state, not just gameplay-y
+// ones — mp_bridge needs to be alive in lobby + main_menu + game_over too.
+function addToActiveSystemsAllStates(flowJson: string | undefined, scriptPath: string): string {
+    if (!flowJson) return flowJson || '';
+    try {
+        const flow = JSON.parse(flowJson);
+        const key = path.basename(scriptPath, path.extname(scriptPath));
+        const visit = (node: any) => {
+            if (!node || typeof node !== 'object') return;
+            if (Array.isArray(node.active_systems) || node.on_enter || node.transitions) {
+                node.active_systems = node.active_systems || [];
+                if (!node.active_systems.includes(key)) node.active_systems.push(key);
+            }
+            if (node.substates) for (const v of Object.values(node.substates)) visit(v);
+        };
+        for (const v of Object.values(flow.states || {})) visit(v);
+        return JSON.stringify(flow, null, 2);
+    } catch { return flowJson; }
+}
+
+function clamp(n: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, n));
 }
 
 // ─── Validate-or-fallback ─────────────────────────────────────────────────
