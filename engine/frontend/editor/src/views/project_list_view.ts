@@ -3,6 +3,7 @@ import { showConfirmModal, showPromptModal, showModal } from '../widgets/modal.j
 import { showContextMenu } from '../widgets/context_menu.js';
 import { icon, MoreVertical, Check, FolderOpen, Plus, LogIn, LogOut, ExternalLink } from '../widgets/icons.js';
 import { ensureLoggedIn, getStoredToken, clearStoredToken, decodeToken } from '../backend/auth_session.js';
+import { formatServerTime } from '../utils/format_time.js';
 
 export class ProjectListView {
     readonly el: HTMLElement;
@@ -642,7 +643,7 @@ export class ProjectListView {
         if (project.updatedAt) {
             const modified = document.createElement('div');
             modified.className = 'project-card-date';
-            modified.textContent = `Modified: ${new Date(project.updatedAt.endsWith('Z') ? project.updatedAt : project.updatedAt + 'Z').toLocaleString()}`;
+            modified.textContent = `Modified: ${formatServerTime(project.updatedAt, '')}`;
             dates.appendChild(modified);
         }
 
@@ -798,7 +799,7 @@ export class ProjectListView {
             body.appendChild(row);
             const hint = document.createElement('div');
             hint.style.cssText = 'color:var(--text-secondary);';
-            hint.textContent = 'Run `git pull` in your Open-ParallaxPro checkout if you want to match the other version before opening.';
+            hint.innerHTML = 'Tip: <code>git checkout production</code> in your Open-ParallaxPro checkout to track the commit parallaxpro.ai runs (most stable). Or <code>git pull</code> on <code>main</code> for bleeding-edge.';
             body.appendChild(hint);
             let done = false;
             const { close } = showModal({
@@ -1306,12 +1307,21 @@ git checkout da571fe   # last commit before template unification`;
             await this.ctx.backend.renameProject(project.id, newName);
             project.name = newName;
             // Cloud project names live on prod too — mirror the rename
-            // so other machines don't keep showing the old name. Same
-            // signed-out-is-best-effort pattern as the thumbnail path:
-            // if sign-in is gone, skip silently.
-            if (project.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
-                try { await this.ctx.backend.renameProjectProd(project.id, newName); }
-                catch (e) { console.warn('Cloud rename push failed:', e); }
+            // so other machines don't keep showing the old name. Also
+            // roll the returned updatedAt into local's
+            // cloud_pulled_updated_at so the next push's OCC check
+            // uses the fresh value (otherwise a save right after a
+            // rename would 409 with a stale expectedUpdatedAt).
+            const userId = this.ctx.cloudSync.currentUserId();
+            if (project.isCloud && this.ctx.backend.isSelfHosted && userId) {
+                try {
+                    const res = await this.ctx.backend.renameProjectProd(project.id, newName);
+                    if (res?.updatedAt) {
+                        await this.ctx.backend.markCloudLocal(project.id, {
+                            cloudUserId: userId, cloudUpdatedAt: res.updatedAt,
+                        });
+                    }
+                } catch (e) { console.warn('Cloud rename push failed:', e); }
             }
             this.render();
         } catch (e) {
@@ -1415,13 +1425,19 @@ git checkout da571fe   # last commit before template unification`;
                 // the same thumbnail. Swallow the error — local already
                 // saved, so at worst the other laptops show the old
                 // image until the next successful sync.
-                if (project.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
+                const uid = this.ctx.cloudSync.currentUserId();
+                if (project.isCloud && this.ctx.backend.isSelfHosted && uid) {
                     try {
                         const prod = await this.ctx.backend.cloudThumbnailProd(project.id, file);
                         const abs = prod.thumbnail.startsWith('http')
                             ? prod.thumbnail
                             : `https://parallaxpro.ai${prod.thumbnail}`;
                         project.thumbnail = abs;
+                        // Sync prod's new updated_at into local's OCC
+                        // tracker so subsequent saves don't 409.
+                        await this.ctx.backend.markCloudLocal(project.id, {
+                            cloudUserId: uid, cloudUpdatedAt: prod.updatedAt, thumbnail: abs,
+                        });
                     } catch (e) {
                         console.warn('Cloud thumbnail push failed:', e);
                     }
@@ -1439,9 +1455,16 @@ git checkout da571fe   # last commit before template unification`;
             await this.ctx.backend.deleteThumbnail(project.id);
             // Mirror the delete to prod for cloud projects so the card
             // doesn't keep showing an orphan image elsewhere.
-            if (project.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
-                try { await this.ctx.backend.fetchProd(`/projects/${project.id}/thumbnail`, { method: 'DELETE' }); }
-                catch (e) { console.warn('Cloud thumbnail delete failed:', e); }
+            const uid = this.ctx.cloudSync.currentUserId();
+            if (project.isCloud && this.ctx.backend.isSelfHosted && uid) {
+                try {
+                    const res = await this.ctx.backend.fetchProd(`/projects/${project.id}/thumbnail`, { method: 'DELETE' });
+                    if (res?.updatedAt) {
+                        await this.ctx.backend.markCloudLocal(project.id, {
+                            cloudUserId: uid, cloudUpdatedAt: res.updatedAt,
+                        });
+                    }
+                } catch (e) { console.warn('Cloud thumbnail delete failed:', e); }
             }
             project.thumbnail = null;
             this.render();

@@ -446,7 +446,7 @@ export class PublishFlow {
 
         const tip = document.createElement('div');
         tip.style.cssText = 'color:var(--text-secondary);';
-        tip.innerHTML = 'The simplest fix: <code>git pull</code> in your Open-ParallaxPro checkout, restart the editor, and try Publish again.';
+        tip.innerHTML = 'The simplest fix: <code>git checkout production</code> in your Open-ParallaxPro checkout (tracks exactly what parallaxpro.ai runs), restart the editor, then try Publish again.';
         body.appendChild(tip);
 
         const { close } = showModal({

@@ -9,8 +9,8 @@ export function createSchema(db: Database.Database): void {
             thumbnail TEXT,
             status TEXT NOT NULL DEFAULT 'draft',
             project_data TEXT,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
+            created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f','now')),
+            updated_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f','now'))
         );
 
         CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
@@ -25,7 +25,7 @@ export function createSchema(db: Database.Database): void {
             file_changes TEXT,
             project_data_snapshot TEXT,
             project_data_before TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f','now'))
         );
 
         CREATE INDEX IF NOT EXISTS idx_chat_project ON chat_messages(project_id, chat_session_id);

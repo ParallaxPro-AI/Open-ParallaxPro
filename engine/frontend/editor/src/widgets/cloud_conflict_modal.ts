@@ -1,4 +1,5 @@
 import { showModal } from './modal.js';
+import { formatServerTime } from '../utils/format_time.js';
 
 export interface CloudConflictPayload {
     current: {
@@ -32,7 +33,7 @@ export function showCloudConflictModal(payload: CloudConflictPayload, actions: C
     meta.style.cssText = 'background:var(--bg-secondary);padding:10px 12px;border-radius:6px;font-size:11.5px;color:var(--text-secondary);display:flex;flex-direction:column;gap:4px;';
     meta.innerHTML =
         `<div>Remote name:&nbsp;<strong style="color:var(--text-primary);">${escapeHtml(payload.current.name)}</strong></div>` +
-        `<div>Remote updated:&nbsp;<strong style="color:var(--text-primary);">${escapeHtml(payload.current.updatedAt)}</strong></div>`;
+        `<div>Remote updated:&nbsp;<strong style="color:var(--text-primary);">${escapeHtml(formatServerTime(payload.current.updatedAt))}</strong></div>`;
     body.appendChild(meta);
 
     const choices = document.createElement('div');

@@ -2,6 +2,7 @@ import { EditorContext } from '../editor_context.js';
 import { showModal, showPromptModal, showConfirmModal } from '../widgets/modal.js';
 import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Settings, MousePointer2, Crosshair, Globe, Box } from '../widgets/icons.js';
 import { PublishFlow } from '../widgets/publish_flow.js';
+import { formatServerTime } from '../utils/format_time.js';
 
 interface CollabUser {
     clientId: string;
@@ -553,9 +554,17 @@ export class Toolbar {
             try {
                 await this.ctx.backend.renameProject(this.ctx.state.projectId, newName);
                 const pd: any = this.ctx.state.projectData;
-                if (pd?.isCloud && this.ctx.backend.isSelfHosted && this.ctx.cloudSync.currentUserId()) {
-                    try { await this.ctx.backend.renameProjectProd(this.ctx.state.projectId, newName); }
-                    catch (e) { console.warn('Cloud rename push failed:', e); }
+                const uid = this.ctx.cloudSync.currentUserId();
+                if (pd?.isCloud && this.ctx.backend.isSelfHosted && uid) {
+                    try {
+                        const res = await this.ctx.backend.renameProjectProd(this.ctx.state.projectId, newName);
+                        if (res?.updatedAt) {
+                            await this.ctx.backend.markCloudLocal(this.ctx.state.projectId, {
+                                cloudUserId: uid, cloudUpdatedAt: res.updatedAt,
+                            });
+                            pd.cloudPulledUpdatedAt = res.updatedAt;
+                        }
+                    } catch (e) { console.warn('Cloud rename push failed:', e); }
                 }
                 this.showToast('Project renamed', 'success');
             } catch (e) {
@@ -1139,7 +1148,7 @@ export class Toolbar {
             const localT = Date.parse(pd.updatedAt || 0);
             const lastSync = Date.parse(pd.cloudPulledUpdatedAt || 0);
             if (localT > lastSync) paint('unsynced', 'Local edits not yet on parallaxpro.ai.');
-            else paint('synced', `Last synced ${pd.cloudPulledUpdatedAt || 'unknown'}`);
+            else paint('synced', `Last synced ${formatServerTime(pd.cloudPulledUpdatedAt)}`);
         };
         refresh();
 
@@ -1153,7 +1162,7 @@ export class Toolbar {
             if (e.projectId === this.ctx.state.projectId) {
                 const pd: any = this.ctx.state.projectData;
                 if (pd) pd.cloudPulledUpdatedAt = e.updatedAt ?? pd.cloudPulledUpdatedAt;
-                paint('synced', `Synced at ${e.updatedAt || 'now'}`);
+                paint('synced', `Synced at ${formatServerTime(e.updatedAt, 'now')}`);
             }
         });
         this.ctx.cloudSync.on('pulled', (e: any) => {

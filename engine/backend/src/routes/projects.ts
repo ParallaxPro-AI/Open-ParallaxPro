@@ -60,8 +60,8 @@ const stmtList = db.prepare(`SELECT id, name, thumbnail, status, created_at, upd
     FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
 const stmtGet = db.prepare('SELECT * FROM projects WHERE id = ?');
 const stmtInsert = db.prepare('INSERT INTO projects (id, user_id, name, project_data) VALUES (?, ?, ?, ?)');
-const stmtUpdate = db.prepare('UPDATE projects SET name = ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?');
-const stmtUpdateData = db.prepare('UPDATE projects SET project_data = ?, updated_at = datetime(\'now\') WHERE id = ?');
+const stmtUpdate = db.prepare(`UPDATE projects SET name = ?, updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ? AND user_id = ?`);
+const stmtUpdateData = db.prepare(`UPDATE projects SET project_data = ?, updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ?`);
 const stmtDelete = db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?');
 
 // List projects
@@ -272,7 +272,8 @@ router.get('/:id', (req, res) => {
 router.put('/:id', (req, res) => {
     const result = stmtUpdate.run(req.body.name || 'Untitled Project', req.params.id, req.user!.id);
     if (result.changes === 0) { res.status(404).json({ error: 'Project not found' }); return; }
-    res.json({ success: true });
+    const row = stmtGet.get(req.params.id) as any;
+    res.json({ success: true, updatedAt: row?.updated_at });
 });
 
 // Save project files — accepts template paths, scene snapshots (translated into
@@ -428,9 +429,10 @@ router.post('/:id/thumbnail', thumbnailUpload.single('thumbnail'), (req, res) =>
         return;
     }
     const thumbnailUrl = `/uploads/thumbnails/${filename}`;
-    db.prepare(`UPDATE projects SET thumbnail = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`)
+    db.prepare(`UPDATE projects SET thumbnail = ?, updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ? AND user_id = ?`)
         .run(thumbnailUrl, req.params.id, req.user!.id);
-    res.json({ success: true, thumbnail: thumbnailUrl });
+    const fresh = stmtGet.get(req.params.id) as any;
+    res.json({ success: true, thumbnail: thumbnailUrl, updatedAt: fresh?.updated_at });
 });
 
 router.delete('/:id/thumbnail', (req, res) => {
@@ -442,9 +444,10 @@ router.delete('/:id/thumbnail', (req, res) => {
         const filePath = path.join(THUMBNAIL_DIR, path.basename(row.thumbnail));
         try { fs.unlinkSync(filePath); } catch {}
     }
-    db.prepare(`UPDATE projects SET thumbnail = NULL, updated_at = datetime('now') WHERE id = ? AND user_id = ?`)
+    db.prepare(`UPDATE projects SET thumbnail = NULL, updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ? AND user_id = ?`)
         .run(req.params.id, req.user!.id);
-    res.json({ success: true });
+    const fresh = stmtGet.get(req.params.id) as any;
+    res.json({ success: true, updatedAt: fresh?.updated_at });
 });
 
 // Explicit unmark (used by "Delete, keep cloud copy" choice).
