@@ -1,0 +1,84 @@
+{
+  "worlds": [
+    {
+      "id": "liminal_loop_corridor",
+      "name": "Underpass",
+      "environment": {
+        "ambientColor": [0.42, 0.46, 0.58],
+        "ambientIntensity": 0.35,
+        "sunColor": [0.85, 0.92, 1.0],
+        "sunIntensity": 0.20,
+        "fog": { "enabled": true, "color": [0.06, 0.07, 0.10], "near": 8, "far": 26 },
+        "gravity": [0, -22, 0]
+      },
+      "lighting": {
+        "sun_color": [0.85, 0.92, 1.0]
+      },
+      "placements": [
+        { "ref": "ll_floor",    "position": [0, 0,    0] },
+        { "ref": "ll_ceiling_panel", "name": "Ll Ceiling", "position": [0, 3.2, 0] },
+
+        { "ref": "ll_wall_long", "position": [0, 1.6,  2.4] },
+        { "ref": "ll_wall_long", "position": [0, 1.6, -2.4] },
+        { "ref": "ll_wall_end",  "position": [-16.0, 1.6, 0] },
+        { "ref": "ll_wall_end",  "position": [ 16.0, 1.6, 0] },
+
+        { "ref": "ll_baseboard", "position": [0, 0.18,  2.24] },
+        { "ref": "ll_baseboard", "position": [0, 0.18, -2.24] },
+
+        { "ref": "ll_lamp_housing", "position": [-12, 3.10, 0] },
+        { "ref": "ll_lamp_housing", "position": [ -8, 3.10, 0] },
+        { "ref": "ll_lamp_housing", "position": [ -4, 3.10, 0] },
+        { "ref": "ll_lamp_housing", "position": [  0, 3.10, 0] },
+        { "ref": "ll_lamp_housing", "position": [  4, 3.10, 0] },
+        { "ref": "ll_lamp_housing", "position": [  8, 3.10, 0] },
+        { "ref": "ll_lamp_housing", "position": [ 12, 3.10, 0] },
+
+        { "ref": "ll_lamp", "position": [-12, 3.06, 0] },
+        { "ref": "ll_lamp", "position": [ -8, 3.06, 0] },
+        { "ref": "ll_lamp", "position": [ -4, 3.06, 0] },
+        { "ref": "ll_lamp", "position": [  0, 3.06, 0] },
+        { "ref": "ll_lamp", "position": [  4, 3.06, 0] },
+        { "ref": "ll_lamp", "position": [  8, 3.06, 0] },
+        { "ref": "ll_lamp", "position": [ 12, 3.06, 0] },
+
+        { "ref": "ll_pipe", "position": [0, 2.95,  1.85], "rotation": [0, 0, 90] },
+        { "ref": "ll_pipe", "position": [0, 2.95, -1.85], "rotation": [0, 0, 90] },
+
+        { "ref": "ll_door_main", "position": [-15.7, 0,  0],  "rotation": [0,  90, 0] },
+        { "ref": "ll_door_main", "position": [ 15.7, 0,  0],  "rotation": [0, -90, 0] },
+
+        { "ref": "ll_side_door_pair", "name": "Ll Side Door", "position": [-2.0, 0,  2.30], "rotation": [0, 0, 0] },
+        { "ref": "ll_side_door_pair", "position": [ 4.5, 0,  2.30], "rotation": [0, 0, 0] },
+        { "ref": "ll_side_door_pair", "position": [-9.0, 0, -2.30], "rotation": [0, 180, 0] },
+        { "ref": "ll_side_door_pair", "position": [ 9.5, 0, -2.30], "rotation": [0, 180, 0] },
+
+        { "ref": "ll_trashcan", "name": "Ll Trashcan", "position": [-6.0, 0,  2.05] },
+        { "ref": "ll_trashcan", "position": [ 6.5, 0, -2.05] },
+        { "ref": "ll_bench", "position": [ 2.0, 0,  2.10] },
+        { "ref": "ll_bench", "position": [-4.5, 0, -2.10] },
+
+        { "ref": "ll_mirror_frame", "position": [ 7.5, 1.45,  2.34] },
+        { "ref": "ll_mirror",       "name": "Ll Mirror", "position": [ 7.5, 1.45,  2.32] },
+
+        { "ref": "ll_exit_sign_back", "position": [13.5, 2.45,  0] },
+        { "ref": "ll_exit_sign", "name": "Ll Exit Sign", "position": [13.55, 2.45,  0] },
+
+        { "ref": "ll_poster_a", "position": [-10.5, 1.7,  2.36] },
+        { "ref": "ll_poster_b", "position": [-7.5,  1.7, -2.36] },
+        { "ref": "ll_poster_c", "position": [ 0.5,  1.7,  2.36] },
+        { "ref": "ll_poster_a", "position": [ 5.5,  1.7, -2.36] },
+        { "ref": "ll_poster_b", "position": [ 10.5, 1.7,  2.36] },
+        { "ref": "ll_poster_c", "position": [ 11.5, 1.7, -2.36] },
+
+        { "ref": "ll_pillar", "position": [-12.5, 1.6,  2.20] },
+        { "ref": "ll_pillar", "position": [-12.5, 1.6, -2.20] },
+        { "ref": "ll_pillar", "position": [ 12.5, 1.6,  2.20] },
+        { "ref": "ll_pillar", "position": [ 12.5, 1.6, -2.20] },
+
+        { "ref": "camera", "position": [0, 1.65, 0] },
+        { "ref": "player", "position": [0, 1.0,  0] }
+      ]
+    }
+  ]
+}

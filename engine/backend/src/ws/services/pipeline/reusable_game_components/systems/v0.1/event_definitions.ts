@@ -404,6 +404,18 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     cp_floor_complete:     { fields: { floor: { type: 'number', optional: true } } },
     cp_boss_engaged:       { fields: { name: { type: 'string', optional: true } } },
     cp_boss_defeated:      { fields: { name: { type: 'string', optional: true } } },
+
+    // ── Liminal Loop (single-player anomaly-detection corridor walker) ──
+    // Local fanouts from liminal_loop_game so the HUD + audio + atmospheric
+    // FX can react to each iteration without poking at the system internals.
+    // All single-player so no net_* equivalents.
+    ll_iteration_started:  { fields: { iteration: { type: 'number', optional: true }, anomalyKind: { type: 'string', optional: true }, hasAnomaly: { type: 'boolean', optional: true } } },
+    ll_anomaly_appeared:   { fields: { kind: { type: 'string', optional: true } } },
+    ll_choice_committed:   { fields: { choice: { type: 'string', optional: true }, correct: { type: 'boolean', optional: true } } },
+    ll_choice_correct:     { fields: { newExitNumber: { type: 'number', optional: true } } },
+    ll_choice_wrong:       { fields: { reason: { type: 'string', optional: true } } },
+    ll_exit_reached:       { fields: { exitNumber: { type: 'number', optional: true } } },
+    ll_progress_changed:   { fields: { exitNumber: { type: 'number', optional: true }, target: { type: 'number', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
