@@ -68,7 +68,16 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // gets a 401 without any Access-Control-Allow-Origin header, and the
     // browser blocks the real request (self-hosted editors calling
     // publish-from-local are the common victim).
-    app.use(cors({ origin: config.corsOrigins, credentials: true }));
+    // Skip /assets — those are public files served either directly by
+    // express.static, by 302 to the CDN, or in prod by nginx/Cloudflare
+    // which add their own `Access-Control-Allow-Origin: *`. Letting cors()
+    // also echo the request Origin produces two ACAO header values in one
+    // response, which the browser rejects.
+    const corsMiddleware = cors({ origin: config.corsOrigins, credentials: true });
+    app.use((req, res, next) => {
+        if (req.path.startsWith('/assets')) return next();
+        return corsMiddleware(req, res, next);
+    });
     app.use(express.json({ limit: '10mb' }));
 
     // Auth middleware for project routes — applies to both core router and plugin routes
