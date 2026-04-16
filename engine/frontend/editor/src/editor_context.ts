@@ -1140,6 +1140,23 @@ export class EditorContext extends EventBus {
     }
 
     private lodCache: Map<string, { lod1: any; lod2: any }> = new Map();
+    // Server-side manifest of asset paths (relative) that have generated
+    // .lod1.bin/.lod2.bin sidecars. Lazily fetched once; gates LOD fetches
+    // so the browser console isn't spammed with 404s for small meshes.
+    private lodManifest: Set<string> | null = null;
+    private lodManifestPromise: Promise<Set<string>> | null = null;
+
+    private async getLODManifest(): Promise<Set<string>> {
+        if (this.lodManifest) return this.lodManifest;
+        if (!this.lodManifestPromise) {
+            this.lodManifestPromise = fetch('/api/engine/assets/lod-manifest')
+                .then(r => r.ok ? r.json() : { paths: [] })
+                .then((data: any) => new Set<string>(data?.paths ?? []))
+                .catch(() => new Set<string>());
+        }
+        this.lodManifest = await this.lodManifestPromise;
+        return this.lodManifest;
+    }
 
     private async loadLODSidecars(url: string, renderSystem: any): Promise<void> {
         if (this.lodCache.has(url)) {
@@ -1147,14 +1164,22 @@ export class EditorContext extends EventBus {
             this.applyLODsToEntities(url, cached.lod1, cached.lod2);
             return;
         }
+        // Only fetch LOD variants for assets the server reports as having them.
+        // URL typically looks like "/assets/<relative path>"; extract the
+        // relative path and check the manifest.
+        const m = url.match(/\/assets\/(.+)$/);
+        if (!m) return;
+        const relPath = m[1];
+        const manifest = await this.getLODManifest();
+        if (!manifest.has(relPath)) return;
         try {
             const [lod1Resp, lod2Resp] = await Promise.all([
                 fetch(url.replace(/\.glb$/i, '.lod1.bin')).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null),
                 fetch(url.replace(/\.glb$/i, '.lod2.bin')).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null),
             ]);
             let lod1Handle: any = null, lod2Handle: any = null;
-            if (lod1Resp && lod1Resp.byteLength > 24) { const m = this.parseLODBin(lod1Resp); if (m) lod1Handle = renderSystem.uploadMesh(m); }
-            if (lod2Resp && lod2Resp.byteLength > 24) { const m = this.parseLODBin(lod2Resp); if (m) lod2Handle = renderSystem.uploadMesh(m); }
+            if (lod1Resp && lod1Resp.byteLength > 24) { const m2 = this.parseLODBin(lod1Resp); if (m2) lod1Handle = renderSystem.uploadMesh(m2); }
+            if (lod2Resp && lod2Resp.byteLength > 24) { const m2 = this.parseLODBin(lod2Resp); if (m2) lod2Handle = renderSystem.uploadMesh(m2); }
             if (lod1Handle || lod2Handle) {
                 this.lodCache.set(url, { lod1: lod1Handle, lod2: lod2Handle });
                 this.applyLODsToEntities(url, lod1Handle, lod2Handle);

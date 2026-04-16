@@ -38,6 +38,10 @@ export class PhysicsSystem {
     private entityCenterOffset: Map<number, Vec3> = new Map();
 
     private warnedColliderOnly: Set<number> = new Set();
+    // Dedupe per-entity runtime warnings so physics hot paths don't spam
+    // the console every frame for the same broken/falling entity.
+    private warnedNaN: Set<number> = new Set();
+    private warnedFell: Set<number> = new Set();
 
     // Contact tracking for enter/stay/exit dispatch
     private activeContacts: Set<string> = new Set();
@@ -535,13 +539,19 @@ export class PhysicsSystem {
             let worldZ = pos.z - offset.z;
 
             if (isNaN(worldX) || isNaN(worldY) || isNaN(worldZ)) {
-                console.warn(`[PhysicsSystem] NaN position on entity ${entityId} (${entity.name}) - skipping sync`);
+                if (!this.warnedNaN.has(entityId)) {
+                    console.warn(`[PhysicsSystem] NaN position on entity ${entityId} (${entity.name}) - skipping sync`);
+                    this.warnedNaN.add(entityId);
+                }
                 continue;
             }
 
             // Respawn entities that fell through the world
             if (worldY < -100) {
-                console.warn(`[PhysicsSystem] Entity ${entity.name} fell to y=${worldY.toFixed(0)}, respawning at y=5`);
+                if (!this.warnedFell.has(entityId)) {
+                    console.warn(`[PhysicsSystem] Entity ${entity.name} fell to y=${worldY.toFixed(0)}, respawning at y=5`);
+                    this.warnedFell.add(entityId);
+                }
                 worldX = 0; worldY = 5; worldZ = 0;
                 body.setTranslation({ x: offset.x, y: 5 + offset.y, z: offset.z }, true);
                 body.setLinvel({ x: 0, y: 0, z: 0 }, true);

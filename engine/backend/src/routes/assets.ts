@@ -160,6 +160,20 @@ scanAttributions();
 assetCache = scanAssets();
 for (const asset of assetCache) asset.attribution = getAttribution(asset.filePath);
 
+// Build LOD manifest once: which GLB paths have generated .lod1.bin/.lod2.bin
+// companions on disk. Clients consult this before fetching LOD variants
+// so we don't spam the browser console with 404s for meshes too simple
+// to need decimation.
+const lodManifest: Set<string> = new Set();
+(function buildLODManifest() {
+    for (const a of assetCache) {
+        if (a.extension !== 'glb') continue;
+        const full = path.join(assetsDir, a.filePath);
+        const lod1 = full.replace(/\.glb$/i, '.lod1.bin');
+        if (fs.existsSync(lod1)) lodManifest.add(a.filePath);
+    }
+})();
+
 function getAssetText(asset: ScannedAsset): string {
     const parts = [asset.name.replace(/_/g, ' ')];
     if (asset.pack) parts.push(asset.pack.replace(/_/g, ' '));
@@ -377,6 +391,30 @@ router.get('/browse', async (req: Request, res: Response): Promise<void> => {
         for (const a of filtered) sourceCounts[a.source] = (sourceCounts[a.source] ?? 0) + 1;
         res.json({ sources: Object.entries(sourceCounts).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name)) });
     }
+});
+
+// LOD manifest — list of GLB asset paths that have .lod1.bin/.lod2.bin
+// companions generated on disk. Clients use this to gate LOD fetches
+// so browsers don't log 404s for meshes that were too simple to decimate.
+// In CDN mode, proxies the upstream CDN's manifest so self-hosted
+// backends still gate correctly against hosted assets.
+router.get('/lod-manifest', async (_req: Request, res: Response): Promise<void> => {
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    if (lodManifest.size > 0) {
+        res.json({ paths: Array.from(lodManifest) });
+        return;
+    }
+    if (_cdnBase) {
+        try {
+            const upstream = await fetch(`${_cdnBase}/api/engine/assets/lod-manifest`);
+            if (upstream.ok) {
+                const data = await upstream.json();
+                res.json(data);
+                return;
+            }
+        } catch {}
+    }
+    res.json({ paths: [] });
 });
 
 // GLB animation metadata
