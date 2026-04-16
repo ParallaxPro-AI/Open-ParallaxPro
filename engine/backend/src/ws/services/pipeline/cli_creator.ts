@@ -38,6 +38,7 @@ export interface CreatorResult {
     summary: string;
     templateId: string;
     files: ProjectFiles | null;
+    costUsd: number;
 }
 
 export async function runCreator(
@@ -70,14 +71,14 @@ export async function runCreator(
         );
 
         sendStatus?.('Creator agent is building the game...');
-        const cliOutput = await spawnCLI(sandboxDir, sendStatus, cliOverride);
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride);
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
         const files = readFilesFromDir(projectDir);
 
         if (!files['01_flow.json'] || !files['02_entities.json']) {
-            return { success: false, summary: 'Creator did not produce required template files.', templateId, files: null };
+            return { success: false, summary: 'Creator did not produce required template files.', templateId, files: null, costUsd: cliResult.costUsd };
         }
 
         sendStatus?.('Running final validation...');
@@ -88,14 +89,15 @@ export async function runCreator(
                 ui: path.join(projectDir, 'ui'),
             });
         } catch (e: any) {
-            return { success: false, summary: `Template validation failed: ${e.message}`, templateId, files: null };
+            return { success: false, summary: `Template validation failed: ${e.message}`, templateId, files: null, costUsd: cliResult.costUsd };
         }
 
         return {
             success: true,
-            summary: cliOutput || `Created "${templateId}".`,
+            summary: cliResult.text || `Created "${templateId}".`,
             templateId,
             files,
+            costUsd: cliResult.costUsd,
         };
     } finally {
         releaseCLISlot(cliOverride);
@@ -307,8 +309,8 @@ function creatorStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string): Promise<string> {
-    const { text } = await spawnCLIAgent({
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string): Promise<{ text: string; costUsd: number }> {
+    const { text, costUsd } = await spawnCLIAgent({
         sandboxDir,
         prompt: CREATOR_PROMPT,
         maxTurns: 50,
@@ -316,5 +318,5 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         sendStatus,
         cliOverride,
     });
-    return text || 'Template created.';
+    return { text: text || 'Template created.', costUsd };
 }

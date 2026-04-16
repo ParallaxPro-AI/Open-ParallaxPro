@@ -232,6 +232,8 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             try {
                 const createResult = await runCreator(ctx.projectId, description, sendStatus);
 
+                if (createResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(createResult.costUsd);
+
                 if (createResult.success && createResult.files) {
                     const built = ctx.replaceFiles(createResult.files);
                     if (!built || !built.success) {
