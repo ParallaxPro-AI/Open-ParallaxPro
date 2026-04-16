@@ -5,6 +5,24 @@
 </h1>
 
 <p align="center">
+    <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro/blob/main/LICENSE">
+        <img src="https://img.shields.io/github/license/ParallaxPro-AI/Open-ParallaxPro?style=flat-square&color=blue" alt="License: Apache 2.0"/>
+    </a>
+    <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro/stargazers">
+        <img src="https://img.shields.io/github/stars/ParallaxPro-AI/Open-ParallaxPro?style=flat-square&logo=github" alt="GitHub stars"/>
+    </a>
+    <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro/commits/main">
+        <img src="https://img.shields.io/github/last-commit/ParallaxPro-AI/Open-ParallaxPro?style=flat-square" alt="Last commit"/>
+    </a>
+    <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro/issues">
+        <img src="https://img.shields.io/github/issues/ParallaxPro-AI/Open-ParallaxPro?style=flat-square" alt="Open issues"/>
+    </a>
+    <a href="https://github.com/ParallaxPro-AI/Open-ParallaxPro/pulls">
+        <img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs welcome"/>
+    </a>
+</p>
+
+<p align="center">
     <a href="https://x.com/ParallaxPro_AI">
         <img src="https://img.shields.io/badge/Follow%20on%20X-000000?style=for-the-badge&logo=x&logoColor=white" alt="Follow on X"/>
     </a>
