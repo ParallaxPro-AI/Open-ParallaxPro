@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(20, 24, 36, 0.78);
+    --panel-border: rgba(255, 255, 255, 0.10);
+    --text: #f3f5fb;
+    --text-dim: #93a1c0;
+    --gold: #ffd166;
+    --azure: #4cc9f0;
+    --pink: #ef476f;
+    --green: #4ade80;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Top center: turn indicator ── */
+  .turn {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 10px 22px;
+    text-align: center;
+    min-width: 280px;
+    box-shadow: var(--shadow);
+  }
+  .turn-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+  .turn-name {
+    margin-top: 4px;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .turn-name.you { color: var(--gold); text-shadow: 0 0 12px rgba(255, 209, 102, 0.45); }
+  .turn-name.them { color: var(--azure); }
+  .turn-extra {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Top-right: pins standing ── */
+  .pins {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 110px;
+  }
+  .pins-num {
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+  }
+  .pins-num.low { color: var(--pink); }
+  .pins-label {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ── Top-left: frame indicator ── */
+  .frame {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 90px;
+  }
+  .frame-num {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+  }
+  .frame-label {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ── Bottom: scoresheet ── */
+  .scoresheet {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  .ss-table {
+    border-collapse: collapse;
+    font-family: 'Menlo', 'Consolas', monospace;
+  }
+  .ss-table th, .ss-table td {
+    padding: 4px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+    min-width: 38px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .ss-table th {
+    color: var(--text-dim);
+    background: rgba(0, 0, 0, 0.18);
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .ss-table th.fr10 { min-width: 56px; }
+  .ss-table .name {
+    font-weight: 900;
+    color: var(--text);
+    text-align: left;
+    min-width: 100px;
+    padding-left: 10px;
+  }
+  .ss-table .name.me { color: var(--gold); }
+  .ss-table .name.active::after {
+    content: ' ▶';
+    color: var(--azure);
+  }
+  .ss-table .total {
+    color: var(--gold);
+    font-weight: 900;
+    font-size: 13px;
+  }
+  .ss-frame {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .ss-throws {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text);
+  }
+  .ss-running {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .ss-throws .strike { color: var(--gold); font-weight: 900; }
+  .ss-throws .spare  { color: var(--azure); font-weight: 900; }
+
+  /* ── Bottom-center: power meter (only while charging) ── */
+  .power-wrap {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 360px;
+    opacity: 0;
+    transition: opacity 0.18s;
+  }
+  .power-wrap.show { opacity: 1; }
+  .power-label {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .power-bar {
+    height: 14px;
+    background: rgba(20, 24, 38, 0.7);
+    border: 1px solid var(--panel-border);
+    border-radius: 7px;
+    overflow: hidden;
+    position: relative;
+  }
+  .power-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--green), var(--gold), var(--pink));
+    border-radius: 7px;
+    transition: width 0.06s linear;
+  }
+
+  /* ── Aim slider hint ── */
+  .aim-hint {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20, 24, 38, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .aim-hint.show { opacity: 1; }
+  .aim-hint .aim-pos {
+    display: inline-block;
+    width: 80px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    position: relative;
+    margin: 0 8px;
+    vertical-align: middle;
+  }
+  .aim-pos::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    width: 4px;
+    height: 14px;
+    background: var(--azure);
+    border-radius: 2px;
+    box-shadow: 0 0 6px var(--azure);
+    transition: left 0.1s;
+  }
+
+  /* ── Strike / Spare flash ── */
+  .flash {
+    position: fixed;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.4s, transform 0.4s;
+    z-index: 50;
+    pointer-events: none;
+  }
+  .flash.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .flash-title {
+    font-size: 70px;
+    font-weight: 900;
+    letter-spacing: 14px;
+    text-transform: uppercase;
+    text-shadow: 0 0 38px currentColor;
+  }
+  .flash-title.strike { color: var(--gold); }
+  .flash-title.spare  { color: var(--azure); }
+  .flash-title.gutter { color: var(--pink); font-size: 50px; letter-spacing: 8px; }
+
+  /* ── Vignette ── */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 220px rgba(0, 0, 0, 0.40);
+  }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+
+<div class="frame">
+  <div class="frame-num" id="frame-num">1</div>
+  <div class="frame-label">FRAME / 10</div>
+</div>
+
+<div class="turn">
+  <div class="turn-label" id="turn-label">YOUR TURN</div>
+  <div class="turn-name you" id="turn-name">—</div>
+  <div class="turn-extra" id="turn-extra"></div>
+</div>
+
+<div class="pins">
+  <div class="pins-num" id="pins-num">10</div>
+  <div class="pins-label">PINS UP</div>
+</div>
+
+<div class="aim-hint" id="aim-hint">
+  AIM <span class="aim-pos" id="aim-pos"></span> CHARGE WITH <kbd style="font-family:inherit;font-size:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:3px;padding:0 5px">LMB</kbd>
+</div>
+
+<div class="scoresheet">
+  <table class="ss-table" id="ss-table"></table>
+</div>
+
+<div class="power-wrap" id="power-wrap">
+  <div class="power-label">POWER</div>
+  <div class="power-bar"><div class="power-fill" id="power-fill"></div></div>
+</div>
+
+<div class="flash" id="flash">
+  <div class="flash-title strike" id="flash-title">STRIKE</div>
+</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  var lastFrameByPeer = {};
+  var flashTimer = null;
+
+  function renderThrowSymbol(throws, frameIdx, throwIdx) {
+    if (throwIdx >= throws.length) return '·';
+    var v = throws[throwIdx];
+    if (v == null) return '·';
+    if (frameIdx < 9) {
+      if (throwIdx === 0 && v === 10) return '<span class="strike">X</span>';
+      if (throwIdx === 1 && (throws[0] + v) === 10) return '<span class="spare">/</span>';
+      if (v === 0) return '-';
+      return String(v);
+    }
+    // Frame 10
+    if (v === 10) return '<span class="strike">X</span>';
+    if (throwIdx > 0 && (throws[throwIdx - 1] + v) === 10 && throws[throwIdx - 1] !== 10) {
+      return '<span class="spare">/</span>';
+    }
+    if (v === 0) return '-';
+    return String(v);
+  }
+
+  function buildTable(rows) {
+    if (!rows || !rows.length) { $('ss-table').innerHTML = ''; return; }
+    var html = '<thead><tr><th class="name">PLAYER</th>';
+    for (var i = 1; i <= 9; i++) html += '<th>' + i + '</th>';
+    html += '<th class="fr10">10</th><th>TOT</th></tr></thead><tbody>';
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      var nameCls = 'name' + (row.isLocal ? ' me' : '') + (row.isActive ? ' active' : '');
+      html += '<tr><td class="' + nameCls + '">' + escape(row.name) + '</td>';
+      for (var f = 0; f < 10; f++) {
+        var throws = row.frames[f] || [];
+        var run = row.totals[f];
+        var slots = (f === 9) ? 3 : 2;
+        var symbols = '';
+        for (var t = 0; t < slots; t++) {
+          symbols += renderThrowSymbol(throws, f, t);
+          if (t < slots - 1) symbols += '&nbsp;';
+        }
+        var runDisp = (run != null) ? run : '';
+        html += '<td><div class="ss-frame"><div class="ss-throws">' + symbols + '</div>' +
+                '<div class="ss-running">' + runDisp + '</div></div></td>';
+      }
+      html += '<td class="total">' + (row.total || 0) + '</td></tr>';
+    }
+    html += '</tbody>';
+    $('ss-table').innerHTML = html;
+  }
+
+  function flash(kind, text) {
+    var el = $('flash');
+    var t  = $('flash-title');
+    t.className = 'flash-title ' + kind;
+    t.textContent = text;
+    el.classList.add('show');
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(function() { el.classList.remove('show'); }, 1600);
+  }
+
+  function render(s) {
+    if (!s) return;
+
+    // Frame
+    if (typeof s.frame === 'number') $('frame-num').textContent = s.frame;
+
+    // Turn
+    var lbl = s.youAreActive ? 'YOUR TURN' : "OPPONENT'S TURN";
+    $('turn-label').textContent = lbl;
+    $('turn-label').style.color = s.youAreActive ? 'var(--gold)' : 'var(--text-dim)';
+    var nm = $('turn-name');
+    nm.textContent = s.activeName || '—';
+    nm.className = 'turn-name ' + (s.youAreActive ? 'you' : 'them');
+    var extra = '';
+    if (s.phase === 'rolling') extra = 'BALL ROLLING…';
+    else if (s.phase === 'aiming')   extra = 'AIM WITH MOUSE';
+    else if (s.phase === 'charging') extra = 'CHARGING';
+    else if (s.phase === 'complete') extra = 'GAME OVER';
+    $('turn-extra').textContent = extra;
+
+    // Pins remaining
+    var pn = $('pins-num');
+    pn.textContent = (typeof s.pinsStanding === 'number') ? s.pinsStanding : '—';
+    pn.classList.toggle('low', s.pinsStanding != null && s.pinsStanding <= 3);
+
+    // Power meter
+    var pw = $('power-wrap');
+    if (s.charging || s.power > 0.02) {
+      pw.classList.add('show');
+      $('power-fill').style.width = Math.max(0, Math.min(100, (s.power || 0) * 100)) + '%';
+    } else {
+      pw.classList.remove('show');
+    }
+
+    // Aim hint
+    var ah = $('aim-hint');
+    if (s.youAreActive && (s.phase === 'aiming' || s.phase === 'charging')) {
+      ah.classList.add('show');
+      var pct = Math.max(0, Math.min(100, (s.aim + 1) * 50));
+      $('aim-pos').style.setProperty('--p', pct + '%');
+      $('aim-pos').style.cssText = 'display:inline-block;width:80px;height:8px;background:rgba(255,255,255,.08);border-radius:4px;position:relative;margin:0 8px;vertical-align:middle;';
+      // Rebuild dot via inline style.
+      var dot = $('aim-pos');
+      dot.innerHTML = '<span style="position:absolute;top:-3px;left:' + pct + '%;width:4px;height:14px;background:var(--azure);border-radius:2px;box-shadow:0 0 6px var(--azure);transform:translateX(-2px);"></span>';
+    } else {
+      ah.classList.remove('show');
+    }
+
+    // Scoresheet
+    if (Array.isArray(s.rows)) buildTable(s.rows);
+
+    // Flash strike/spare/gutter on transition.
+    if (Array.isArray(s.rows)) {
+      for (var r = 0; r < s.rows.length; r++) {
+        var row = s.rows[r];
+        var lf = lastFrameByPeer[row.peerId] || { frame: 0, throws: [] };
+        var curFrame = -1;
+        for (var f = 0; f < row.frames.length; f++) {
+          if (row.frames[f].length > 0) curFrame = f;
+        }
+        if (curFrame >= 0) {
+          var throws = row.frames[curFrame];
+          var newCount = throws.length;
+          if (curFrame !== lf.frame || newCount > lf.count) {
+            // New throw added.
+            var lastThrow = throws[newCount - 1];
+            if (curFrame < 9 && newCount === 1 && lastThrow === 10) {
+              if (row.isLocal) flash('strike', 'STRIKE');
+            } else if (curFrame < 9 && newCount === 2 && (throws[0] + throws[1]) === 10) {
+              if (row.isLocal) flash('spare', 'SPARE');
+            } else if (lastThrow === 0) {
+              if (row.isLocal) flash('gutter', 'GUTTER');
+            }
+            lastFrameByPeer[row.peerId] = { frame: curFrame, count: newCount };
+          }
+        }
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.pinPal) render(s.pinPal);
+  });
+})();
+</script>
+</body>
+</html>
