@@ -17,6 +17,7 @@ import { buildProject, cleanupBuildDir } from '../ws/services/pipeline/project_b
 import { applyIncomingFile } from '../ws/services/pipeline/project_save.js';
 import { generateProjectName } from '../ws/services/llm.js';
 import { broadcastProjectRenamed } from '../ws/editor_ws.js';
+import { tryConsumeEmbedBudget } from '../middleware/embed_rate_limit.js';
 
 let _plugins: EnginePlugin[] = [];
 export function setProjectPlugins(plugins: EnginePlugin[]) { _plugins = plugins; }
@@ -98,6 +99,21 @@ router.get('/templates', async (req, res) => {
             return;
         }
 
+        // Helper: substring match fallback, used on budget-exhaustion or error.
+        const substringMatch = () => {
+            const q = search.toLowerCase();
+            const filtered = catalog.filter(t =>
+                t.name.toLowerCase().includes(q) || t.id.includes(q) || t.description.toLowerCase().includes(q)
+            );
+            res.json({ templates: filtered.length > 0 ? filtered : catalog });
+        };
+
+        // Gate embedding search on per-user budget (hosted only).
+        if (!tryConsumeEmbedBudget(req.user?.id)) {
+            substringMatch();
+            return;
+        }
+
         // Semantic search using embedding model
         try {
             const { embedText, cosineSimilarity } = await import('../embedding_service.js');
@@ -111,12 +127,7 @@ router.get('/templates', async (req, res) => {
             scored.sort((a, b) => b.score - a.score);
             res.json({ templates: scored.map(s => s.template) });
         } catch {
-            // Fallback to substring match
-            const q = search.toLowerCase();
-            const filtered = catalog.filter(t =>
-                t.name.toLowerCase().includes(q) || t.id.includes(q) || t.description.toLowerCase().includes(q)
-            );
-            res.json({ templates: filtered.length > 0 ? filtered : catalog });
+            substringMatch();
         }
     } catch (e: any) {
         res.json({ templates: [] });

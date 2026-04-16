@@ -7,6 +7,7 @@ import {
     computeFingerprint, loadCachedEmbeddings, saveCachedEmbeddings,
     cosineSimilarity
 } from '../embedding_service.js';
+import { tryConsumeEmbedBudget } from '../middleware/embed_rate_limit.js';
 
 const router = Router();
 
@@ -302,7 +303,10 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     if (source) filtered = filtered.filter(a => a.source === source);
     if (pack) filtered = filtered.filter(a => a.pack === pack);
 
-    if (search && embeddingsReady) {
+    // Semantic search is expensive — gate per-user and fall back to
+    // substring matching when a user exceeds their embedding budget.
+    const canEmbed = search && embeddingsReady && tryConsumeEmbedBudget(req.user?.id);
+    if (canEmbed) {
         const queryVec = await embedText(search);
         const scored = filtered
             .map(a => ({ asset: a, score: cosineSimilarity(queryVec, assetEmbeddings.get(a.filePath) ?? []) }))
