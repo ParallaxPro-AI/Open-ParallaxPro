@@ -13,6 +13,8 @@
  */
 
 import { spawn } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { config } from '../../../config.js';
 import { getAvailableAgents } from './cli_availability.js';
 import { wrapSpawn } from './docker_sandbox.js';
@@ -369,6 +371,23 @@ function spawnOpenCode(opts: SpawnOptions): Promise<CLIRunResult> {
         // We deliberately don't pin a model — opencode's default (typically a
         // fast groq model like kimi-k2) is far snappier than `opencode/*`
         // hosted options, and users can swap it via their own opencode config.
+        //
+        // Drop an opencode.json in the sandbox that bumps the default `build`
+        // agent's step budget to 20. Default is ~15, which weaker models (e.g.
+        // gpt-oss-20b) exhaust while still planning — see projectId de549996:
+        // the agent spent 16 steps exploring and writing zero files before
+        // hitting the cap. 20 gives a modest extra headroom; relying on more
+        // budget to paper over weak models isn't the fix — the real lever is
+        // trimming exploration via AGENTS.md / template pre-seeding.
+        try {
+            fs.writeFileSync(
+                path.join(opts.sandboxDir, 'opencode.json'),
+                JSON.stringify({ agent: { build: { steps: 20 } } }),
+            );
+        } catch (e: any) {
+            console.warn(`[CLIRunner] Failed to write opencode.json: ${e.message}`);
+        }
+
         const args = [
             'run',
             '--format', 'json',
