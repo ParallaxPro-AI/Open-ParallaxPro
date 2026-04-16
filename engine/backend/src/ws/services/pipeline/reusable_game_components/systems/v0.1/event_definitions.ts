@@ -387,6 +387,23 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     net_cm_request_pass:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_cm_request_shoot:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_cm_request_steal:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Cellar Purge (single-player Isaac-style twin-stick roguelite) ──
+    // Local fanouts from cellar_purge_game so HUD + audio + room FX react
+    // in the same frame mechanics fire. All single-player so no net_*.
+    cp_room_entered:       { fields: { roomId: { type: 'string', optional: true }, kind: { type: 'string', optional: true } } },
+    cp_room_cleared:       { fields: { roomId: { type: 'string', optional: true } } },
+    cp_door_opened:        { fields: { doorId: { type: 'string', optional: true } } },
+    cp_enemy_spawned:      { fields: { enemyId: { type: 'number', optional: true }, kind: { type: 'string', optional: true } } },
+    cp_enemy_killed:       { fields: { enemyId: { type: 'number', optional: true }, kind: { type: 'string', optional: true } } },
+    cp_tear_fired:         { fields: { dirX: { type: 'number', optional: true }, dirZ: { type: 'number', optional: true } } },
+    cp_tear_hit:           { fields: { entityId: { type: 'number', optional: true } } },
+    cp_pickup_collected:   { fields: { kind: { type: 'string', optional: true }, amount: { type: 'number', optional: true } } },
+    cp_player_hurt:        { fields: { amount: { type: 'number', optional: true }, source: { type: 'string', optional: true } } },
+    cp_player_healed:      { fields: { amount: { type: 'number', optional: true } } },
+    cp_floor_complete:     { fields: { floor: { type: 'number', optional: true } } },
+    cp_boss_engaged:       { fields: { name: { type: 'string', optional: true } } },
+    cp_boss_defeated:      { fields: { name: { type: 'string', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
