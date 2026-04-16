@@ -1,0 +1,56 @@
+{
+  "id": "kitchen_master_flow",
+  "name": "Kitchen Master",
+  "description": "Single-player chef sim: race through 4 mouse-driven cooking mini-games (chop, mix, fry, plate) at a tilted top-down kitchen workstation. Each stage scores you on speed + accuracy; the run ends with a 1-3 star final dish reveal.",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "KITCHEN MASTER",
+      "gameSubtitle": "Chop. Mix. Fry. Plate."
+    }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "active_systems": ["kitchen_master_engine"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [
+        { "when": "boot_frames>=2", "goto": "main_menu" }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Cook the dish across 4 mini-games",
+      "active_systems": ["kitchen_master_engine"],
+      "on_enter": [
+        "show_ui:hud/kitchen_master_hud",
+        "show_cursor",
+        "emit:game.game_ready"
+      ],
+      "on_exit": [
+        "hide_ui:hud/kitchen_master_hud"
+      ],
+      "transitions": [
+        { "when": "game_event:game_won", "goto": "game_over" }
+      ]
+    },
+    "game_over": {
+      "description": "Final dish reveal",
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit": ["hide_ui:game_over", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "gameplay", "actions": ["emit:game.restart_game"] },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

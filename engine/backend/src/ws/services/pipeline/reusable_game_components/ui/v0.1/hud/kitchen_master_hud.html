@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Comic Neue', 'Comic Sans MS', 'Inter', system-ui, -apple-system, sans-serif;
+    color: #4a2f1a;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  /* Top bar — score on left, timer on right */
+  .topbar {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+  }
+  .pill {
+    background: linear-gradient(180deg, #fff8e6, #ffe8c0);
+    border: 3px solid #c08047;
+    border-radius: 999px;
+    padding: 6px 18px;
+    box-shadow: 0 4px 12px rgba(80, 50, 18, 0.3), inset 0 -3px 4px rgba(160, 100, 50, 0.18);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pill .label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #8a5a30;
+    text-transform: uppercase;
+  }
+  .pill .num {
+    font-size: 22px;
+    font-weight: 900;
+    color: #4a2f0a;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  .pill.timer .num {
+    color: #c8421a;
+  }
+
+  /* Stage breadcrumb — bottom-left */
+  .stages {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    background: rgba(255, 248, 230, 0.92);
+    border: 3px solid #c08047;
+    border-radius: 14px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 12px rgba(80, 50, 18, 0.3);
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+  }
+  .stages .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #8a5a30;
+    margin-bottom: 4px;
+  }
+  .stages .row:last-child { margin-bottom: 0; }
+  .stages .row.current {
+    color: #c8421a;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  .stages .row.done {
+    color: #5a8a3a;
+    text-decoration: line-through;
+    opacity: 0.7;
+  }
+  .stages .row .step-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #d4b88a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+  }
+  .stages .row.current .step-icon { background: #ff7b3a; box-shadow: 0 0 10px rgba(255, 130, 70, 0.7); }
+  .stages .row.done .step-icon { background: #6ec24a; }
+
+  /* Big instruction banner — center top */
+  .instruction {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 248, 230, 0.92);
+    border: 3px solid #c08047;
+    border-radius: 22px;
+    padding: 10px 22px;
+    pointer-events: none;
+    user-select: none;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(80, 50, 18, 0.3);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 0;
+    transform: translate(-50%, -8px);
+    z-index: 4;
+  }
+  .instruction.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .instruction .title {
+    font-size: 18px;
+    font-weight: 900;
+    color: #c8421a;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .instruction .sub {
+    font-size: 12px;
+    color: #6a4220;
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Stage progress bar — under instruction */
+  .progress-wrap {
+    position: fixed;
+    top: 158px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 320px;
+    pointer-events: none;
+    user-select: none;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .progress-wrap.show { opacity: 1; }
+  .progress-bar {
+    height: 16px;
+    background: rgba(80, 40, 18, 0.18);
+    border: 2px solid #c08047;
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    position: absolute;
+    inset: 0;
+    width: 0%;
+    background: linear-gradient(90deg, #ff9a5c, #ffd06a);
+    border-radius: 999px;
+    transition: width 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+    box-shadow: inset 0 -2px 3px rgba(180, 80, 30, 0.4);
+  }
+  .progress-text {
+    text-align: center;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #8a5a30;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  /* Frying meter — special slot under the progress bar */
+  .fry-meter {
+    position: fixed;
+    top: 200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 320px;
+    pointer-events: none;
+    user-select: none;
+    z-index: 4;
+    display: none;
+  }
+  .fry-meter.show { display: block; }
+  .fry-track {
+    height: 22px;
+    background: rgba(40, 20, 6, 0.6);
+    border: 2px solid #6c3010;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .fry-perfect-zone {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: rgba(120, 230, 80, 0.4);
+    border-left: 2px solid rgba(120, 230, 80, 0.8);
+    border-right: 2px solid rgba(120, 230, 80, 0.8);
+  }
+  .fry-needle {
+    position: absolute;
+    top: -2px; bottom: -2px;
+    width: 4px;
+    background: #fff;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.85);
+    border-radius: 2px;
+    transition: left 0.1s linear;
+  }
+  .fry-needle.in-zone { background: #c5fcd0; box-shadow: 0 0 12px rgba(120, 240, 80, 0.85); }
+  .fry-prompt {
+    text-align: center;
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #c8421a;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Click hint cursor pulse — gently nudges the player */
+  .click-hint {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(80, 40, 18, 0.85);
+    color: #fff8e6;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    pointer-events: none;
+    user-select: none;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 4;
+  }
+  .click-hint.show { opacity: 0.85; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="pill"><span class="label">Score</span><span class="num" id="scoreNum">0</span></div>
+  <div class="pill timer"><span class="label">Time</span><span class="num" id="timerNum">0.0s</span></div>
+</div>
+
+<div class="stages">
+  <div class="row" data-stage="chop"><span class="step-icon" data-icon="chop">1</span><span>Chop the carrots</span></div>
+  <div class="row" data-stage="mix"><span class="step-icon" data-icon="mix">2</span><span>Mix the batter</span></div>
+  <div class="row" data-stage="fry"><span class="step-icon" data-icon="fry">3</span><span>Fry the patty</span></div>
+  <div class="row" data-stage="plate"><span class="step-icon" data-icon="plate">4</span><span>Plate the dish</span></div>
+</div>
+
+<div class="instruction" id="instruction">
+  <div class="title" id="instructionTitle">Get Ready</div>
+  <div class="sub" id="instructionSub">Hover over the kitchen…</div>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-text" id="progressText">0 / 0</div>
+</div>
+
+<div class="fry-meter" id="fryMeter">
+  <div class="fry-track">
+    <div class="fry-perfect-zone" id="fryZone"></div>
+    <div class="fry-needle" id="fryNeedle"></div>
+  </div>
+  <div class="fry-prompt" id="fryPrompt">Wait for green…</div>
+</div>
+
+<div class="click-hint" id="clickHint">Click in the kitchen</div>
+<script>
+(function () {
+  var scoreNum = document.getElementById('scoreNum');
+  var timerNum = document.getElementById('timerNum');
+  var instruction = document.getElementById('instruction');
+  var instructionTitle = document.getElementById('instructionTitle');
+  var instructionSub = document.getElementById('instructionSub');
+  var progressWrap = document.getElementById('progressWrap');
+  var progressFill = document.getElementById('progressFill');
+  var progressText = document.getElementById('progressText');
+  var fryMeter = document.getElementById('fryMeter');
+  var fryZone = document.getElementById('fryZone');
+  var fryNeedle = document.getElementById('fryNeedle');
+  var fryPrompt = document.getElementById('fryPrompt');
+  var clickHint = document.getElementById('clickHint');
+  var stagesEl = document.getElementsByClassName('row');
+
+  var INSTRUCTIONS = {
+    chop:  { title: 'Chop! Chop!',     sub: 'Click on the cutting board to slice each carrot piece' },
+    mix:   { title: 'Mix the Batter',   sub: 'Move the mouse in circles around the bowl' },
+    fry:   { title: 'Watch the Sizzle', sub: 'Click on the pan when the meter hits the GREEN zone' },
+    plate: { title: 'Plate It Up',      sub: 'Click the plate to drop each ingredient' },
+  };
+  var HINTS = {
+    chop:  'Click the cutting board to chop',
+    mix:   'Drag the mouse in circles over the bowl',
+    fry:   'Click the pan in the green zone',
+    plate: 'Click the plate to lay each item',
+  };
+
+  function setStage(stageName, transition) {
+    for (var i = 0; i < stagesEl.length; i++) {
+      var el = stagesEl[i];
+      var key = el.getAttribute('data-stage');
+      el.classList.remove('current');
+      el.classList.remove('done');
+    }
+    var foundCurrent = false;
+    for (var j = 0; j < stagesEl.length; j++) {
+      var el2 = stagesEl[j];
+      var key2 = el2.getAttribute('data-stage');
+      if (key2 === stageName) {
+        el2.classList.add('current');
+        foundCurrent = true;
+      } else if (!foundCurrent) {
+        el2.classList.add('done');
+      }
+    }
+
+    if (transition) {
+      // Brief pause between stages — show "Ready…" panel.
+      instructionTitle.textContent = 'Up Next…';
+      instructionSub.textContent = INSTRUCTIONS[stageName] ? INSTRUCTIONS[stageName].title : '';
+    } else {
+      var ins = INSTRUCTIONS[stageName] || { title: '', sub: '' };
+      instructionTitle.textContent = ins.title;
+      instructionSub.textContent = ins.sub;
+    }
+    instruction.classList.add('show');
+
+    var hint = HINTS[stageName] || '';
+    if (hint && !transition) {
+      clickHint.textContent = hint;
+      clickHint.classList.add('show');
+    } else {
+      clickHint.classList.remove('show');
+    }
+
+    if (stageName === 'fry') {
+      fryMeter.classList.add('show');
+    } else {
+      fryMeter.classList.remove('show');
+    }
+  }
+
+  function render(state) {
+    if (!state) return;
+    var s = state.kitchenHud;
+    if (!s) return;
+
+    scoreNum.textContent = String(s.totalScore || 0);
+    timerNum.textContent = (s.remaining != null) ? s.remaining.toFixed(1) + 's' : '—';
+
+    if (s.stage) {
+      setStage(s.stage, !!s.transitionPause);
+    } else {
+      instruction.classList.remove('show');
+      clickHint.classList.remove('show');
+      fryMeter.classList.remove('show');
+    }
+
+    // Per-stage progress bar.
+    if (s.target > 0) {
+      progressWrap.classList.add('show');
+      var pct = Math.max(0, Math.min(1, s.progress || 0));
+      progressFill.style.width = (pct * 100).toFixed(1) + '%';
+      progressText.textContent = (s.current || 0) + ' / ' + (s.target || 0);
+    } else {
+      progressWrap.classList.remove('show');
+    }
+
+    // Frying meter. The cookness is 0..fryBurnAt; the perfect zone
+    // sits between fryPerfectMin and fryPerfectMax (in 0..1 normalised
+    // by fryBurnAt for layout purposes).
+    if (s.stage === 'fry') {
+      var burnAt = s.fryBurnAt || 1.05;
+      var pmin = (s.fryPerfectMin || 0.7) / burnAt;
+      var pmax = (s.fryPerfectMax || 0.93) / burnAt;
+      fryZone.style.left = (pmin * 100).toFixed(1) + '%';
+      fryZone.style.width = ((pmax - pmin) * 100).toFixed(1) + '%';
+      var needlePct = Math.min(1, (s.fryCook || 0) / burnAt);
+      fryNeedle.style.left = (needlePct * 100).toFixed(1) + '%';
+      fryNeedle.classList.toggle('in-zone', !!s.inSweetZone);
+      fryPrompt.textContent = s.inSweetZone ? 'CLICK NOW!' : 'wait for green…';
+      fryPrompt.style.color = s.inSweetZone ? '#3a8a30' : '#c8421a';
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    render(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

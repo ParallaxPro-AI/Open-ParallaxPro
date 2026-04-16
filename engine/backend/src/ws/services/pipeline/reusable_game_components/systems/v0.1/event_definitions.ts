@@ -346,6 +346,19 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     invader_player_died:   { fields: { reason: { type: 'string', optional: true }, livesLeft: { type: 'number', optional: true }, score: { type: 'number', optional: true } } },
     invader_game_over:     { fields: { score: { type: 'number', optional: true }, highScore: { type: 'number', optional: true }, wave: { type: 'number', optional: true } } },
     invader_game_won:      { fields: { score: { type: 'number', optional: true }, highScore: { type: 'number', optional: true } } },
+
+    // ── Kitchen Master (single-player cooking mini-game) ──
+    // Stage transitions + per-stage progress pulses fanned out by the
+    // engine. The HUD reads these directly so it can swap instructional
+    // panels and update the chop / mix / fry visualisation in lockstep.
+    recipe_stage_started:   { fields: { stage: { type: 'string', optional: true }, target: { type: 'number', optional: true }, durationSec: { type: 'number', optional: true } } },
+    recipe_stage_completed: { fields: { stage: { type: 'string', optional: true }, score: { type: 'number', optional: true }, perfect: { type: 'boolean', optional: true } } },
+    recipe_completed:       { fields: { totalScore: { type: 'number', optional: true }, stars: { type: 'number', optional: true } } },
+    chop_made:              { fields: { count: { type: 'number', optional: true }, target: { type: 'number', optional: true } } },
+    mix_progress:           { fields: { rotations: { type: 'number', optional: true }, target: { type: 'number', optional: true } } },
+    fry_flipped:            { fields: { successful: { type: 'boolean', optional: true }, count: { type: 'number', optional: true }, target: { type: 'number', optional: true } } },
+    fry_burnt:              { fields: {} },
+    plate_added:            { fields: { count: { type: 'number', optional: true }, target: { type: 'number', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));

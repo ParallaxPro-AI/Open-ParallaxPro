@@ -1,0 +1,51 @@
+{
+  "systems": {
+    "kitchen_master_engine": {
+      "description": "Single-player cooking-mini-game engine — owns the recipe state machine (chop → mix → fry → plate), mouse-driven mini-game logic, knife/spoon/spatula tool animations, ingredient spawn/cleanup, score with star reveal.",
+      "script": "gameplay/kitchen_master_engine.ts",
+      "params": {
+        "groundY": 0.05,
+        "stages": ["chop", "mix", "fry", "plate"],
+        "chopTarget": 8,
+        "chopDurationSec": 14,
+        "chopBoardCenterX": -5,
+        "chopBoardCenterZ": -1,
+        "chopBoardHalfWidth": 1.6,
+        "chopBoardHalfDepth": 1.2,
+        "mixTarget": 6,
+        "mixDurationSec": 16,
+        "mixBowlCenterX": 0,
+        "mixBowlCenterZ": -1,
+        "mixBowlRadius": 1.2,
+        "fryTarget": 3,
+        "fryDurationSec": 18,
+        "fryCookSpeed": 0.42,
+        "fryPerfectMin": 0.7,
+        "fryPerfectMax": 0.93,
+        "fryBurnAt": 1.05,
+        "fryEarlyMin": 0.3,
+        "frySpatulaCenterX": 5,
+        "frySpatulaCenterZ": -1,
+        "frySpatulaHalfRadius": 1.6,
+        "plateTarget": 4,
+        "plateDurationSec": 12,
+        "plateCenterX": 0,
+        "plateCenterZ": 2.6,
+        "plateRadius": 1.6,
+        "stageTransitionSec": 1.2,
+        "starThresholds": [350, 700, 1050],
+        "perfectBonus": 200,
+        "chopSound": "/assets/kenney/audio/rpg_audio/chop.ogg",
+        "mixSound": "/assets/kenney/audio/rpg_audio/cloth1.ogg",
+        "frySuccessSound": "/assets/kenney/audio/digital_audio/highUp.ogg",
+        "fryFailSound": "/assets/kenney/audio/digital_audio/lowDown.ogg",
+        "fryBurnSound": "/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_001.ogg",
+        "platePlaceSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg",
+        "stageStartSound": "/assets/kenney/audio/voiceover_pack/female/go.ogg",
+        "stageCompleteSound": "/assets/kenney/audio/voiceover_pack/female/correct.ogg",
+        "winSound": "/assets/kenney/audio/voiceover_pack/female/congratulations.ogg",
+        "loseSound": "/assets/kenney/audio/voiceover_pack/female/game_over.ogg"
+      }
+    }
+  }
+}
