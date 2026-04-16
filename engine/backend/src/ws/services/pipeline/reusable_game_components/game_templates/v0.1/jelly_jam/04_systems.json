@@ -1,0 +1,27 @@
+{
+  "systems": {
+    "jelly_jam_game": {
+      "description": "Jelly Jam (Fall Guys-style party-elimination minigame bracket). Three rounds of obstacle-course sprint races. Each round bumps the bottom 50% out; last jelly bouncing wins. Spinner beams rotate around their pivots and knock players away on contact; finish line auto-qualifies the first N to cross. Host owns round transitions, course generation, and qualify/eliminate authority.",
+      "script": "mp/jelly_jam_game.ts",
+      "params": {
+        "totalRounds": 3,
+        "roundDurationSec": 75,
+        "introDurationSec": 4.5,
+        "resultsDurationSec": 5.0,
+        "qualifierFraction": 0.5,
+        "minQualifiers": 1,
+        "winnerCount": 1,
+        "spinnerLength": 7,
+        "spinnerThickness": 0.4,
+        "spinnerHeight": 0.9,
+        "spinnerHitArcDeg": 35,
+        "spinnerKnockback": 14,
+        "spinnerKnockbackUp": 4,
+        "spinnerHitCooldownSec": 0.6,
+        "courseLength": 80,
+        "courseHalfWidth": 8,
+        "hudUpdateInterval": 0.15
+      }
+    }
+  }
+}

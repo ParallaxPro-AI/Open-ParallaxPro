@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(20, 16, 36, 0.78);
+    --panel-border: rgba(255, 255, 255, 0.10);
+    --panel-border-bright: rgba(255, 255, 255, 0.22);
+    --text: #fff7fb;
+    --text-dim: #c5b3d8;
+    --gold: #ffd166;
+    --pink: #ef476f;
+    --mint: #06d6a0;
+    --azure: #118ab2;
+    --violet: #a78bfa;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Top center: round + course name + countdown timer ── */
+  .round {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 10px 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: var(--shadow);
+    min-width: 320px;
+  }
+  .round-row {
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+  }
+  .round-num {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .course-name {
+    font-size: 16px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(255, 209, 102, 0.4);
+  }
+  .timer {
+    margin-top: 4px;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+  }
+  .timer.warn { color: var(--pink); animation: timerPulse 0.4s infinite alternate; }
+  @keyframes timerPulse { from { transform: scale(1); } to { transform: scale(1.1); } }
+
+  /* ── Left: qualified list ── */
+  .qual {
+    position: fixed;
+    top: 90px;
+    left: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    width: 220px;
+    box-shadow: var(--shadow);
+  }
+  .qual-title {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .qual-progress {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .qual-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--mint), var(--gold));
+    border-radius: 3px;
+    transition: width 0.2s ease-out;
+  }
+  .qual-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .qual-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .qual-row.me { background: rgba(255, 209, 102, 0.18); }
+  .qual-place {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--azure);
+    color: white;
+    font-size: 10px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qual-place.p1 { background: var(--gold); color: #2a1f00; }
+  .qual-place.p2 { background: #d8d8e0; color: #1f1f2a; }
+  .qual-place.p3 { background: #f97316; color: #2a1100; }
+  .qual-name {
+    flex: 1;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Right: leaderboard ── */
+  .lb {
+    position: fixed;
+    top: 90px;
+    right: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    width: 240px;
+    box-shadow: var(--shadow);
+  }
+  .lb-title {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .lb-row {
+    display: grid;
+    grid-template-columns: 18px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: 'Menlo', 'Consolas', monospace;
+  }
+  .lb-row.me { background: rgba(167, 139, 250, 0.16); }
+  .lb-row.elim { opacity: 0.4; }
+  .lb-rounds { color: var(--gold); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .lb-status { font-size: 10px; }
+
+  /* ── Bottom-left: status ── */
+  .status {
+    position: fixed;
+    bottom: 18px;
+    left: 18px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--mint);
+    box-shadow: 0 0 8px rgba(6, 214, 160, 0.6);
+  }
+  .status-dot.qualified { background: var(--gold); box-shadow: 0 0 12px rgba(255, 209, 102, 0.7); }
+  .status-dot.eliminated { background: var(--pink); box-shadow: 0 0 8px rgba(239, 71, 111, 0.6); }
+  .status-text {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .status-text.qualified { color: var(--gold); }
+  .status-text.eliminated { color: var(--pink); }
+
+  /* ── Bottom-right: controls ── */
+  .controls {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    background: rgba(20, 16, 36, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    display: flex;
+    gap: 12px;
+  }
+  .controls kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 3px;
+  }
+
+  /* ── Big banner (intro / results / podium) ── */
+  .banner {
+    position: fixed;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.94);
+    pointer-events: none;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .banner-text {
+    font-size: 56px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    color: white;
+    text-shadow: 0 0 40px rgba(255, 209, 102, 0.6),
+                 0 4px 18px rgba(0, 0, 0, 0.7);
+    background: linear-gradient(180deg, var(--gold), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .banner-sub {
+    margin-top: 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+  }
+
+  /* ── Pulse ring for "qualified" moment ── */
+  .qualify-pulse {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at center, rgba(255, 209, 102, 0.22), transparent 55%);
+    opacity: 0;
+  }
+  .qualify-pulse.active { animation: qpulse 0.8s ease-out; }
+  @keyframes qpulse {
+    0%   { opacity: 0;    }
+    25%  { opacity: 0.85; }
+    100% { opacity: 0;    }
+  }
+
+  /* ── Eliminated overlay ── */
+  .elim-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(135deg, rgba(239, 71, 111, 0.12), rgba(20, 16, 36, 0.18));
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .elim-overlay.show { opacity: 1; }
+  .elim-banner {
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(239, 71, 111, 0.18);
+    border: 1px solid var(--pink);
+    border-radius: 10px;
+    padding: 8px 22px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--pink);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .elim-banner.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="round">
+  <div class="round-row">
+    <span class="round-num" id="round-num">ROUND 1 / 3</span>
+    <span class="course-name" id="course-name">—</span>
+  </div>
+  <div class="timer" id="timer">—</div>
+</div>
+
+<div class="qual">
+  <div class="qual-title" id="qual-title">QUALIFY · 0/0</div>
+  <div class="qual-progress"><div class="qual-fill" id="qual-fill" style="width:0%"></div></div>
+  <div class="qual-list" id="qual-list"></div>
+</div>
+
+<div class="lb">
+  <div class="lb-title">JELLIES</div>
+  <div id="lb-rows"></div>
+</div>
+
+<div class="status">
+  <span class="status-dot" id="status-dot"></span>
+  <span class="status-text" id="status-text">RACING</span>
+</div>
+
+<div class="controls">
+  <span><kbd>WASD</kbd>Move</span>
+  <span><kbd>SPACE</kbd>Jump</span>
+  <span><kbd>SHIFT</kbd>Sprint</span>
+  <span><kbd>Q</kbd>Dive</span>
+  <span><kbd>RMB</kbd>Look</span>
+</div>
+
+<div class="banner" id="banner">
+  <div class="banner-text" id="banner-text"></div>
+  <div class="banner-sub" id="banner-sub"></div>
+</div>
+
+<div class="qualify-pulse" id="qualify-pulse"></div>
+<div class="elim-overlay" id="elim-overlay"></div>
+<div class="elim-banner" id="elim-banner">YOU WERE BUMPED OFF</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  var lastStatus = "";
+  var lastBanner = "";
+
+  function render(s) {
+    if (!s) return;
+
+    // Round + course
+    if (typeof s.round === 'number' && typeof s.totalRounds === 'number') {
+      $('round-num').textContent = 'ROUND ' + s.round + ' / ' + s.totalRounds;
+    }
+    if (s.courseName) $('course-name').textContent = s.courseName;
+
+    // Timer
+    var tEl = $('timer');
+    if (s.phase === 'live') {
+      var t = Math.max(0, Math.floor(s.timeRemaining || 0));
+      tEl.textContent = t + 's';
+      tEl.classList.toggle('warn', t <= 10);
+    } else {
+      tEl.textContent = s.phase ? s.phase.toUpperCase() : '—';
+      tEl.classList.remove('warn');
+    }
+
+    // Qualify progress
+    var qt = (s.qualifiedSoFar || 0) + ' / ' + (s.qualifyingThisRound || 0);
+    $('qual-title').textContent = 'QUALIFY · ' + qt;
+    var pct = (s.qualifyingThisRound > 0)
+      ? Math.min(100, 100 * (s.qualifiedSoFar || 0) / s.qualifyingThisRound)
+      : 0;
+    $('qual-fill').style.width = pct + '%';
+    var qlist = '';
+    var qarr = s.qualifiedList || [];
+    for (var i = 0; i < qarr.length; i++) {
+      var q = qarr[i];
+      var pclass = q.place === 1 ? 'p1' : q.place === 2 ? 'p2' : q.place === 3 ? 'p3' : '';
+      qlist += '<div class="qual-row' + (q.isLocal ? ' me' : '') + '">' +
+        '<span class="qual-place ' + pclass + '">' + q.place + '</span>' +
+        '<span class="qual-name">' + escape(q.name) + '</span>' +
+        '</div>';
+    }
+    $('qual-list').innerHTML = qlist;
+
+    // Leaderboard
+    var lb = s.leaderboard || [];
+    var lbHtml = '';
+    for (var k = 0; k < lb.length; k++) {
+      var p = lb[k];
+      var status = p.eliminated ? 'OUT' : (p.qualified ? 'Q' : '·');
+      lbHtml += '<div class="lb-row' + (p.isLocal ? ' me' : '') + (p.eliminated ? ' elim' : '') + '">' +
+        '<span class="lb-status">' + status + '</span>' +
+        '<span>' + escape(p.name) + '</span>' +
+        '<span class="lb-rounds">' + (p.rounds || 0) + '</span>' +
+        '</div>';
+    }
+    $('lb-rows').innerHTML = lbHtml;
+
+    // Status badge
+    var statusEl = $('status-text');
+    var dotEl = $('status-dot');
+    statusEl.textContent = (s.youStatus || 'racing').toUpperCase();
+    statusEl.className = 'status-text ' + (s.youStatus || '');
+    dotEl.className = 'status-dot ' + (s.youStatus || '');
+
+    // Pulse on qualify (status transition)
+    if (lastStatus !== 'qualified' && s.youStatus === 'qualified') {
+      var pulse = $('qualify-pulse');
+      pulse.classList.remove('active');
+      void pulse.offsetWidth;
+      pulse.classList.add('active');
+    }
+    lastStatus = s.youStatus || '';
+
+    // Eliminated overlay
+    if (s.youStatus === 'eliminated') {
+      $('elim-overlay').classList.add('show');
+      $('elim-banner').classList.add('show');
+      setTimeout(function() { $('elim-banner').classList.remove('show'); }, 2200);
+    } else {
+      $('elim-overlay').classList.remove('show');
+    }
+
+    // Big banner (intro / results / podium)
+    var banner = $('banner');
+    if (s.bigText && s.phase !== 'live') {
+      $('banner-text').textContent = s.bigText;
+      $('banner-sub').textContent = s.bigSub || '';
+      banner.classList.add('show');
+    } else {
+      banner.classList.remove('show');
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.jellyJam) render(s.jellyJam);
+  });
+})();
+</script>
+</body>
+</html>
