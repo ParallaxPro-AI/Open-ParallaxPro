@@ -139,11 +139,13 @@ function resolveCLI(cliOverride?: string): CLIName {
 
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     const cli = resolveCLI(opts.cliOverride);
+    const startedAt = Date.now();
+    let result: CLIRunResult;
     switch (cli) {
-        case 'claude':   return spawnClaude(opts);
-        case 'codex':    return spawnCodex(opts);
-        case 'opencode': return spawnOpenCode(opts);
-        case 'copilot':  return spawnCopilot(opts);
+        case 'claude':   result = await spawnClaude(opts);   break;
+        case 'codex':    result = await spawnCodex(opts);    break;
+        case 'opencode': result = await spawnOpenCode(opts); break;
+        case 'copilot':  result = await spawnCopilot(opts);  break;
         default: {
             // Exhaustiveness check — the assignment forces a compile error if
             // a new CLIName is added but no spawn case is wired here, instead
@@ -152,6 +154,17 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
             throw new Error(`No spawn implementation for CLI "${_exhaustive}".`);
         }
     }
+    // If the user pressed Stop mid-run, the CLI was killed before emitting
+    // its authoritative cost event (or codex/copilot never emit one at all),
+    // so most runners resolve with costUsd=0. Replace with a flat estimate:
+    // 20k tokens/minute against wall-clock runtime. At the usage plugin's
+    // $1 = 500k tokens conversion that's $0.04/min. Applied uniformly across
+    // all four CLIs so aborted runs always leave a trail in the usage
+    // dashboard — better a rough number than no number.
+    if (opts.abortSignal?.aborted) {
+        result.costUsd = 0.04 * ((Date.now() - startedAt) / 60_000);
+    }
+    return result;
 }
 
 // ─── Claude ─────────────────────────────────────────────────────────────────

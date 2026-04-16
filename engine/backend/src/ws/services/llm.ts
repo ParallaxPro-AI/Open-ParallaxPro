@@ -382,6 +382,7 @@ async function runCLIForText(
 
     try {
         return await new Promise<{ text: string; costUsd: number; error?: string }>((resolve) => {
+            const startedAt = Date.now();
             const proc = spawn(wrapped.command, wrapped.args, {
                 cwd: sandboxDir,
                 stdio: ['ignore', 'pipe', 'pipe'],
@@ -419,6 +420,14 @@ async function runCLIForText(
             proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); });
 
             proc.on('close', (code) => {
+                // If Stop was pressed mid-run, replace whatever partial cost
+                // was captured with a flat 20k tokens/min ($0.04/min at the
+                // usage plugin's $1=500k conversion) estimate against wall-
+                // clock runtime. Same rule as spawnCLIAgent — applied here
+                // for the chat-fallback path too.
+                if (abortSignal?.aborted) {
+                    costUsd = 0.04 * ((Date.now() - startedAt) / 60_000);
+                }
                 if (code === 0 || code === null) {
                     resolve({ text: fullText, costUsd });
                 } else {
