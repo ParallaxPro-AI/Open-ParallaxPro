@@ -180,6 +180,7 @@ router.post('/', async (req, res) => {
     const projectData = { projectConfig: { name }, files: seed.files };
 
     stmtInsert.run(id, req.user!.id, name, serializeProjectData(projectData));
+    for (const p of _plugins) { if (p.onProjectCreate) p.onProjectCreate(id, req.user!.id, req.user!.username ?? null); }
 
     res.json({ id, name });
 

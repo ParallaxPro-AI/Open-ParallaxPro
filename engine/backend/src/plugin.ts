@@ -56,6 +56,9 @@ export interface EnginePlugin {
     /** Hook: called when a project is deleted */
     onProjectDelete?: (projectId: string, userId: number) => void;
 
+    /** Hook: called when a project is created (prompt/template/empty) */
+    onProjectCreate?: (projectId: string, userId: number, username: string | null) => void;
+
     /** Hook: called on server shutdown */
     onShutdown?: () => void;
 }
