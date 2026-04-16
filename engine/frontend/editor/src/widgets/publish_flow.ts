@@ -468,6 +468,11 @@ export class PublishFlow {
             throw new Error("Cannot detect your editor's git commit. Clone Open-ParallaxPro via `git clone` so publish can tag the engine version.");
         }
 
+        // Flush any in-flight / debounced background cloud-push first —
+        // otherwise the publish flow's cloud-upsert can race with an
+        // auto-save push and OCC-reject with a stale cloudPulledUpdatedAt.
+        try { await this.ctx.cloudSync.flushNow(projectId); } catch { /* non-fatal */ }
+
         let project: any;
         try {
             project = await this.ctx.backend.loadProject(projectId);
@@ -488,17 +493,23 @@ export class PublishFlow {
                 force: !project.isCloud,
             });
 
+            // Track the freshest updatedAt through each server mutation so
+            // the final markCloudLocal matches what prod holds; otherwise
+            // the next push 409s on a stale OCC value.
+            let latestUpdatedAt = upsert.updatedAt;
+
             const thumbFile = await this.resolveThumbnail(project.thumbnail);
             if (thumbFile) {
                 const t = await this.ctx.backend.cloudThumbnailProd(projectId, thumbFile);
                 upsert.thumbnail = t.thumbnail;
+                if (t.updatedAt) latestUpdatedAt = t.updatedAt;
             }
 
             const userId = this.ctx.cloudSync.currentUserId();
             if (userId) {
                 await this.ctx.backend.markCloudLocal(projectId, {
                     cloudUserId: userId,
-                    cloudUpdatedAt: upsert.updatedAt,
+                    cloudUpdatedAt: latestUpdatedAt,
                     editedEngineHash: upsert.editedEngineHash,
                     thumbnail: upsert.thumbnail
                         ? (upsert.thumbnail.startsWith('http') ? upsert.thumbnail : `https://parallaxpro.ai${upsert.thumbnail}`)
