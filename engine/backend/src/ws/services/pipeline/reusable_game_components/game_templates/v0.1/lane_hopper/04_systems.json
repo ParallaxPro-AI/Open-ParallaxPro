@@ -1,0 +1,26 @@
+{
+  "systems": {
+    "lane_hopper_game": {
+      "description": "Endless lane-crossing game — procedural lane generation, car/log/train traffic, coin pickup, death + restart.",
+      "script": "gameplay/lane_hopper_game.ts",
+      "params": {
+        "tileSize": 2,
+        "laneAheadCount": 14,
+        "laneBehindKeep": 6,
+        "safeStartLanes": 3,
+        "laneHalfWidthTiles": 10,
+        "staleLaneSeconds": 8,
+        "deathFreezeSec": 1.2,
+        "introFreezeSec": 1.2,
+        "roadSpeedRange": [4, 9],
+        "riverSpeedRange": [2.5, 5],
+        "trainSpeedRange": [18, 24],
+        "roadCarsPerLane": [1, 3],
+        "riverLogsPerLane": [2, 3],
+        "trainCountdownRange": [4, 10],
+        "treesPerGrassRange": [1, 4],
+        "coinChance": 0.35
+      }
+    }
+  }
+}

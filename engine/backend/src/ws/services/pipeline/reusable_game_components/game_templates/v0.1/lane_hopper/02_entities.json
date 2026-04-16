@@ -1,0 +1,112 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 42 },
+      "tags": ["camera"],
+      "transform": { "position": [0, 14, 9] },
+      "behaviors": [
+        {
+          "name": "camera_tile_hopper",
+          "script": "camera/camera_tile_hopper.ts",
+          "params": { "distance": 9, "height": 14, "lookForward": 5, "xTrack": 0.55, "zLockBias": 0.8, "followSmooth": 5 }
+        }
+      ]
+    },
+
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Chicken.glb",
+        "scale": [1.4, 1.4, 1.4],
+        "modelRotationY": 180
+      },
+      "physics": false,
+      "tags": ["player"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "tile_hopper",
+          "script": "movement/tile_hopper.ts",
+          "params": {
+            "tileSize": 2,
+            "hopSeconds": 0.16,
+            "hopArcHeight": 0.7,
+            "restHeight": 0.6,
+            "turnSpeed": 24,
+            "queueWindow": 0.14
+          }
+        }
+      ]
+    },
+
+    "sky_dome": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.6, 0.78, 0.98, 1],
+        "scale": [300, 300, 300]
+      },
+      "physics": false,
+      "tags": ["sky"],
+      "label": false
+    },
+
+    "far_cloud": {
+      "mesh": {
+        "type": "sphere",
+        "color": [1, 1, 1, 1],
+        "scale": [4, 1.4, 2.5],
+        "emissive": [1, 1, 1],
+        "emissiveIntensity": 0.15
+      },
+      "physics": false,
+      "tags": ["cloud", "decor"],
+      "label": false
+    },
+
+    "distant_tree": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.18, 0.42, 0.22, 1],
+        "scale": [2.2, 6, 2.2]
+      },
+      "physics": false,
+      "tags": ["distant", "decor"],
+      "label": false
+    },
+
+    "distant_mountain": {
+      "mesh": {
+        "type": "cone",
+        "color": [0.22, 0.35, 0.45, 1],
+        "scale": [14, 10, 14]
+      },
+      "physics": false,
+      "tags": ["distant", "decor"],
+      "label": false
+    },
+
+    "distant_mountain_snow": {
+      "mesh": {
+        "type": "cone",
+        "color": [0.75, 0.78, 0.88, 1],
+        "scale": [10, 8, 10]
+      },
+      "physics": false,
+      "tags": ["distant", "decor"],
+      "label": false
+    },
+
+    "sun_disk": {
+      "mesh": {
+        "type": "sphere",
+        "color": [1, 0.9, 0.5, 1],
+        "scale": [6, 6, 6],
+        "emissive": [1, 0.85, 0.4],
+        "emissiveIntensity": 2.5
+      },
+      "physics": false,
+      "tags": ["sun", "decor"],
+      "label": false
+    }
+  }
+}

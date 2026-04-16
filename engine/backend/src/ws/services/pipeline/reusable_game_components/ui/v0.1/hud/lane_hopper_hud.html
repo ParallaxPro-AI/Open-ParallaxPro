@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: rgba(6, 8, 14, 0.65);
+    --bg-strong: rgba(2, 4, 10, 0.92);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hot: rgba(255, 255, 255, 0.18);
+    --text: #f4f6ff;
+    --text-dim: #908da0;
+    --text-muted: #4a4b62;
+    --gold: #fbbf24;
+    --gold-glow: rgba(251, 191, 36, 0.5);
+    --green: #4ade80;
+    --green-glow: rgba(74, 222, 128, 0.55);
+    --red: #ef4444;
+    --red-glow: rgba(239, 68, 68, 0.55);
+    --sky: #60a5fa;
+    --sky-glow: rgba(96, 165, 250, 0.45);
+    --violet: #a78bfa;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    background: transparent;
+  }
+
+  /* ───── TOP: SCORE ───── */
+  .score {
+    position: fixed;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 28px;
+    text-align: center;
+    min-width: 140px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  }
+  .score .eyebrow {
+    font-size: 9px; letter-spacing: 2.4px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+  .score .val {
+    font-size: 36px; font-weight: 900; color: #fff;
+    text-shadow: 0 0 14px rgba(255, 255, 255, 0.2);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .score .best {
+    font-size: 10px; color: var(--gold); margin-top: 3px;
+    font-weight: 700; letter-spacing: 1.5px;
+    text-shadow: 0 0 6px var(--gold-glow);
+  }
+
+  /* ───── TOP-LEFT: COINS ───── */
+  .coins {
+    position: fixed;
+    top: 14px; left: 14px;
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 14px;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+  .coins .icon {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, var(--gold), #b45309);
+    box-shadow: 0 0 12px var(--gold-glow);
+  }
+  .coins .val {
+    font-size: 22px; font-weight: 900; color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 10px var(--gold-glow);
+    line-height: 1;
+  }
+  .coins .lbl {
+    font-size: 9px; letter-spacing: 2px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+
+  /* ───── TOP-RIGHT: LANE BADGE ───── */
+  .lane-badge {
+    position: fixed;
+    top: 14px; right: 14px;
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 16px;
+    text-align: center;
+    min-width: 110px;
+  }
+  .lane-badge .lbl {
+    font-size: 9px; letter-spacing: 2px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+  .lane-badge .kind {
+    font-size: 15px; font-weight: 900; letter-spacing: 2px;
+    margin-top: 3px;
+    text-transform: uppercase;
+  }
+  .lane-badge.grass  .kind { color: var(--green); text-shadow: 0 0 10px var(--green-glow); }
+  .lane-badge.road   .kind { color: var(--gold); text-shadow: 0 0 10px var(--gold-glow); }
+  .lane-badge.river  .kind { color: var(--sky); text-shadow: 0 0 10px var(--sky-glow); }
+  .lane-badge.tracks .kind { color: var(--red); text-shadow: 0 0 10px var(--red-glow); }
+
+  /* ───── STALE WARNING ───── */
+  .stale-warn {
+    position: fixed;
+    top: 90px; left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.35), rgba(239, 68, 68, 0.08));
+    border: 1px solid var(--red-glow);
+    border-radius: 12px;
+    padding: 8px 22px;
+    text-align: center;
+    font-size: 11px; font-weight: 800;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--red);
+    text-shadow: 0 0 10px var(--red-glow);
+    display: none;
+    animation: staleBlink 0.35s ease-in-out infinite alternate;
+  }
+  .stale-warn.visible { display: block; }
+  @keyframes staleBlink {
+    0% { opacity: 0.55; }
+    100% { opacity: 1; }
+  }
+
+  /* ───── INTRO ───── */
+  .intro-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(12, 20, 36, 0.78), rgba(2, 4, 12, 0.96));
+    display: none;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .intro-overlay.visible { display: block; animation: fadeIn 0.5s ease-out; }
+  @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+  .intro-card {
+    position: absolute;
+    top: 42%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .intro-card .eyebrow {
+    font-size: 12px; letter-spacing: 7px; font-weight: 800;
+    color: var(--gold); text-shadow: 0 0 14px var(--gold-glow);
+    text-transform: uppercase;
+  }
+  .intro-card .big {
+    font-size: 100px; font-weight: 900;
+    letter-spacing: 8px;
+    color: var(--green); text-shadow: 0 0 40px var(--green-glow), 0 10px 40px rgba(0, 0, 0, 0.55);
+    line-height: 1;
+    margin: 14px 0 10px;
+    text-transform: uppercase;
+    animation: popIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes popIn {
+    0% { opacity: 0; transform: scale(0.6); }
+    60% { transform: scale(1.12); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .intro-card .tagline {
+    font-size: 15px; color: var(--text); font-weight: 600;
+    letter-spacing: 1.5px; max-width: 560px; margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* ───── DEATH ───── */
+  .death-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(60, 10, 10, 0.7), rgba(2, 2, 8, 0.95));
+    display: none;
+    pointer-events: none;
+    z-index: 15;
+  }
+  .death-overlay.visible { display: block; animation: deathFlash 0.2s ease-out; }
+  @keyframes deathFlash {
+    0% { background: rgba(239, 68, 68, 0.6); }
+    100% { background: radial-gradient(ellipse at center, rgba(60, 10, 10, 0.7), rgba(2, 2, 8, 0.95)); }
+  }
+  .death-card {
+    position: absolute;
+    top: 45%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .death-card .eyebrow {
+    font-size: 12px; letter-spacing: 6px; font-weight: 800;
+    color: var(--red); text-shadow: 0 0 12px var(--red-glow);
+    text-transform: uppercase;
+  }
+  .death-card .big {
+    font-size: 92px; font-weight: 900;
+    letter-spacing: 6px;
+    color: #fff; text-shadow: 0 0 40px var(--red-glow), 0 10px 40px rgba(0, 0, 0, 0.55);
+    margin: 10px 0;
+    line-height: 1;
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-transform: uppercase;
+  }
+  .death-card .stats {
+    display: inline-flex; gap: 22px; margin-top: 10px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 24px;
+  }
+  .death-card .stats .cell { text-align: center; }
+  .death-card .stats .n {
+    font-size: 22px; font-weight: 900; color: #fff;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .death-card .stats .l {
+    font-size: 9px; letter-spacing: 2px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .death-card .retry {
+    margin-top: 18px;
+    font-size: 13px; letter-spacing: 3px; font-weight: 800;
+    color: var(--text-dim); text-transform: uppercase;
+    animation: staleBlink 0.7s ease-in-out infinite alternate;
+  }
+
+  /* ───── CONTROLS ───── */
+  .controls {
+    position: fixed;
+    bottom: 14px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 11px; font-weight: 600; color: var(--text-dim);
+    letter-spacing: 0.4px;
+  }
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-hot);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px; font-weight: 800;
+    color: var(--text);
+    margin: 0 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Intro -->
+<div class="intro-overlay" id="intro-overlay">
+  <div class="intro-card">
+    <div class="eyebrow">Endless Lanes</div>
+    <div class="big">LANE HOPPER</div>
+    <div class="tagline">Tap to hop. Dodge cars. Ride logs. Outrun the eagle.</div>
+  </div>
+</div>
+
+<!-- Score -->
+<div class="score">
+  <div class="eyebrow">Score</div>
+  <div class="val" id="score-val">0</div>
+  <div class="best">Best <span id="best-val">0</span></div>
+</div>
+
+<!-- Coins -->
+<div class="coins">
+  <div class="icon"></div>
+  <div>
+    <div class="lbl">Coins</div>
+    <div class="val" id="coin-val">0</div>
+  </div>
+</div>
+
+<!-- Lane badge -->
+<div class="lane-badge grass" id="lane-badge">
+  <div class="lbl">Lane</div>
+  <div class="kind" id="lane-kind">GRASS</div>
+</div>
+
+<!-- Stale warning -->
+<div class="stale-warn" id="stale-warn">⚠ KEEP MOVING ⚠</div>
+
+<!-- Death -->
+<div class="death-overlay" id="death-overlay">
+  <div class="death-card">
+    <div class="eyebrow" id="death-reason">Squashed</div>
+    <div class="big">TRY AGAIN</div>
+    <div class="stats">
+      <div class="cell"><div class="n" id="death-score">0</div><div class="l">Score</div></div>
+      <div class="cell"><div class="n" id="death-best">0</div><div class="l">Best</div></div>
+      <div class="cell"><div class="n" id="death-coins">0</div><div class="l">Coins</div></div>
+      <div class="cell"><div class="n" id="death-attempts">1</div><div class="l">Attempts</div></div>
+    </div>
+    <div class="retry">Restarting…</div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Hop &nbsp;·&nbsp;
+  <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> Hop
+</div>
+
+<script>
+(function() {
+  var els = {
+    scoreVal: document.getElementById('score-val'),
+    bestVal: document.getElementById('best-val'),
+    coinVal: document.getElementById('coin-val'),
+    laneBadge: document.getElementById('lane-badge'),
+    laneKind: document.getElementById('lane-kind'),
+    staleWarn: document.getElementById('stale-warn'),
+    introOverlay: document.getElementById('intro-overlay'),
+    deathOverlay: document.getElementById('death-overlay'),
+    deathReason: document.getElementById('death-reason'),
+    deathScore: document.getElementById('death-score'),
+    deathBest: document.getElementById('death-best'),
+    deathCoins: document.getElementById('death-coins'),
+    deathAttempts: document.getElementById('death-attempts'),
+  };
+
+  var lastReason = '';
+
+  function update(state) {
+    if (!state || !state._hop) return;
+    var h = state._hop;
+
+    els.scoreVal.textContent = h.score || 0;
+    els.bestVal.textContent = h.highScore || 0;
+    els.coinVal.textContent = h.coins || 0;
+
+    // Lane badge
+    els.laneKind.textContent = (h.lane || 'grass').toUpperCase();
+    els.laneBadge.className = 'lane-badge ' + (h.lane || 'grass');
+
+    // Stale warning — last 3 seconds of stale timer
+    if ((h.staleTimer || 0) < 3 && !h.intro && !h.dead) {
+      els.staleWarn.classList.add('visible');
+    } else {
+      els.staleWarn.classList.remove('visible');
+    }
+
+    // Intro
+    if (h.intro && !h.dead) els.introOverlay.classList.add('visible');
+    else els.introOverlay.classList.remove('visible');
+
+    // Death
+    if (h.dead) {
+      els.deathOverlay.classList.add('visible');
+      els.deathScore.textContent = h.score || 0;
+      els.deathBest.textContent = h.highScore || 0;
+      els.deathCoins.textContent = h.coins || 0;
+      els.deathAttempts.textContent = h.attempts || 1;
+    } else {
+      els.deathOverlay.classList.remove('visible');
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>
