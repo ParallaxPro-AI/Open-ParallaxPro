@@ -1,0 +1,84 @@
+{
+  "worlds": [
+    {
+      "id": "clash_arena",
+      "name": "Court Clash Arena",
+      "environment": {
+        "ambientColor": [0.55, 0.58, 0.65],
+        "ambientIntensity": 0.7,
+        "sunColor": [1.00, 0.96, 0.88],
+        "sunIntensity": 1.10,
+        "fog": { "enabled": true, "color": [0.10, 0.10, 0.14], "near": 60, "far": 140 },
+        "gravity": [0, -9.81, 0]
+      },
+      "lighting": {
+        "ambient": [0.55, 0.58, 0.65],
+        "sun_direction": [0.0, -1.0, 0.0],
+        "sun_color": [1.00, 0.96, 0.88],
+        "shadowDistance": 90
+      },
+      "placements": [
+        { "ref": "court_apron", "position": [0, -0.05, 0] },
+        { "ref": "court_floor", "position": [0,  0.00, 0] },
+
+        { "ref": "court_line",       "position": [0, 0.05,  11.5] },
+        { "ref": "court_line",       "position": [0, 0.05, -11.5] },
+        { "ref": "court_line_short", "position": [-26, 0.05, 0] },
+        { "ref": "court_line_short", "position": [ 26, 0.05, 0] },
+        { "ref": "court_line_short", "position": [  0, 0.05, 0] },
+        { "ref": "center_circle",    "position": [  0, 0.05, 0] },
+
+        { "ref": "free_throw_arc",   "position": [-15, 0.06,  0] },
+        { "ref": "free_throw_arc",   "position": [ 15, 0.06,  0] },
+        { "ref": "three_point_arc",  "position": [-22, 0.06,  0] },
+        { "ref": "three_point_arc",  "position": [ 22, 0.06,  0] },
+
+        { "ref": "camera",           "position": [0, 14, 22] },
+        { "name": "Player",          "ref": "player", "position": [-3, 0.5, 0] },
+
+        { "ref": "hoop_post_home",   "position": [-22, 2.25,  0] },
+        { "ref": "hoop_back_home",   "position": [-22, 3.5,   0] },
+        { "ref": "hoop_rim_home",    "position": [-21.2, 3.05, 0] },
+        { "ref": "hoop_net_home",    "position": [-21.2, 2.5,  0] },
+
+        { "ref": "hoop_post_away",   "position": [ 22, 2.25,  0] },
+        { "ref": "hoop_back_away",   "position": [ 22, 3.5,   0] },
+        { "ref": "hoop_rim_away",    "position": [ 21.2, 3.05, 0] },
+        { "ref": "hoop_net_away",    "position": [ 21.2, 2.5,  0] },
+
+        { "ref": "stadium_wall", "position": [   0, 4,  16] },
+        { "ref": "stadium_wall", "position": [   0, 4, -16] },
+        { "ref": "stadium_wall", "position": [-30, 4,    0], "rotation": [0, 90, 0] },
+        { "ref": "stadium_wall", "position": [ 30, 4,    0], "rotation": [0, 90, 0] },
+
+        { "ref": "scoreboard_billboard", "position": [ 0, 8, -16] },
+
+        { "ref": "lobby_lamp_post", "position": [-26, 2.5,  16] },
+        { "ref": "lobby_lamp",      "position": [-26, 5.2,  16] },
+        { "ref": "lobby_lamp_post", "position": [ 26, 2.5,  16] },
+        { "ref": "lobby_lamp",      "position": [ 26, 5.2,  16] },
+        { "ref": "lobby_lamp_post", "position": [-26, 2.5, -16] },
+        { "ref": "lobby_lamp",      "position": [-26, 5.2, -16] },
+        { "ref": "lobby_lamp_post", "position": [ 26, 2.5, -16] },
+        { "ref": "lobby_lamp",      "position": [ 26, 5.2, -16] },
+
+        { "ref": "spectator_male",   "position": [-22, 0.5,  18], "rotation": [0,  20, 0] },
+        { "ref": "spectator_female", "position": [-15, 0.5,  18], "rotation": [0,   0, 0] },
+        { "ref": "spectator_bald",   "position": [ -8, 0.5,  18], "rotation": [0, -10, 0] },
+        { "ref": "spectator_male",   "position": [  0, 0.5,  18], "rotation": [0,   0, 0] },
+        { "ref": "spectator_female", "position": [  8, 0.5,  18], "rotation": [0,  10, 0] },
+        { "ref": "spectator_bald",   "position": [ 15, 0.5,  18], "rotation": [0,   0, 0] },
+        { "ref": "spectator_male",   "position": [ 22, 0.5,  18], "rotation": [0, -20, 0] },
+        { "ref": "spectator_male",   "position": [-22, 0.5, -18], "rotation": [0, 160, 0] },
+        { "ref": "spectator_female", "position": [-15, 0.5, -18], "rotation": [0, 180, 0] },
+        { "ref": "spectator_bald",   "position": [ -8, 0.5, -18], "rotation": [0, 170, 0] },
+        { "ref": "spectator_male",   "position": [  0, 0.5, -18], "rotation": [0, 180, 0] },
+        { "ref": "spectator_female", "position": [  8, 0.5, -18], "rotation": [0, 200, 0] },
+        { "ref": "spectator_bald",   "position": [ 15, 0.5, -18], "rotation": [0, 180, 0] },
+        { "ref": "spectator_male",   "position": [ 22, 0.5, -18], "rotation": [0, 200, 0] },
+
+        { "ref": "trophy_chest", "position": [ 0, 0.5, -14] }
+      ]
+    }
+  ]
+}

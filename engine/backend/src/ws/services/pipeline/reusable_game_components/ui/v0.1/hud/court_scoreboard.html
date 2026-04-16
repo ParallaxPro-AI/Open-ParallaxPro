@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #f0f4ff;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .strip {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: stretch;
+    background: rgba(8, 12, 18, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+    min-width: 380px;
+  }
+  .strip.hidden { display: none; }
+  .team-side {
+    padding: 8px 16px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 110px;
+    border-left: 6px solid #d54f3a;
+    transition: background 0.18s linear;
+  }
+  .team-side.away { border-left: none; border-right: 6px solid #4d8cf5; }
+  .team-side .label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 140, 0.5);
+    font-weight: 800;
+  }
+  .team-side .label.local {
+    color: #b6e36a;
+    text-shadow: 0 0 8px rgba(180, 220, 100, 0.5);
+  }
+  .team-side .score {
+    font-family: 'Cinzel', 'Georgia', serif;
+    font-weight: 800;
+    font-size: 36px;
+    line-height: 1;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .team-side.home .score { color: #ff8a8a; text-shadow: 0 0 12px rgba(213, 79, 58, 0.45); }
+  .team-side.away .score { color: #99c5ff; text-shadow: 0 0 12px rgba(77, 140, 245, 0.45); }
+  .center {
+    padding: 8px 14px 10px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+    min-width: 130px;
+  }
+  .center .quarter {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 140, 0.55);
+    font-weight: 800;
+  }
+  .center .timer {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-weight: 800;
+    font-size: 22px;
+    color: #ffd066;
+    text-shadow: 0 0 10px rgba(255, 200, 80, 0.4);
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .center .timer.urgent { color: #ff8a8a; animation: blink 0.6s infinite alternate; }
+  @keyframes blink { from { opacity: 0.55; } to { opacity: 1; } }
+  .center .phase-pill {
+    margin-top: 4px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 140, 0.55);
+  }
+  .center .phase-pill.intermission {
+    color: #b6e36a;
+  }
+
+  .banner {
+    position: fixed;
+    top: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(8, 12, 18, 0.95);
+    border: 2px solid #ffd066;
+    border-radius: 12px;
+    padding: 16px 28px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 24px rgba(255, 200, 80, 0.4);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+    min-width: 320px;
+  }
+  .banner.visible { opacity: 1; }
+  .banner-title {
+    font-family: 'Cinzel', 'Georgia', serif;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #ffd066;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
+  }
+  .banner-sub {
+    font-size: 12px;
+    color: rgba(255, 220, 140, 0.7);
+    letter-spacing: 1.5px;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="strip hidden" id="strip">
+  <div class="team-side home" id="homeSide">
+    <div class="label" id="homeLabel">HOME</div>
+    <div class="score" id="homeScore">0</div>
+  </div>
+  <div class="center">
+    <div class="quarter" id="quarter">Q1 / 4</div>
+    <div class="timer" id="timer">1:30</div>
+    <div class="phase-pill" id="phasePill">LIVE</div>
+  </div>
+  <div class="team-side away" id="awaySide">
+    <div class="label" id="awayLabel">AWAY</div>
+    <div class="score" id="awayScore">0</div>
+  </div>
+</div>
+<div class="banner" id="banner">
+  <div class="banner-title" id="bannerTitle">—</div>
+  <div class="banner-sub" id="bannerSub">—</div>
+</div>
+<script>
+(function () {
+  var strip = document.getElementById('strip');
+  var homeScore = document.getElementById('homeScore');
+  var awayScore = document.getElementById('awayScore');
+  var homeLabel = document.getElementById('homeLabel');
+  var awayLabel = document.getElementById('awayLabel');
+  var homeSide = document.getElementById('homeSide');
+  var awaySide = document.getElementById('awaySide');
+  var quarterEl = document.getElementById('quarter');
+  var timerEl = document.getElementById('timer');
+  var phasePill = document.getElementById('phasePill');
+  var banner = document.getElementById('banner');
+  var bannerTitle = document.getElementById('bannerTitle');
+  var bannerSub = document.getElementById('bannerSub');
+  var bannerHideTimer = null;
+  var lastBannerTs = 0;
+
+  function rgbToCss(c) {
+    if (!c || c.length < 3) return '#ffd066';
+    return 'rgb(' + Math.round(c[0]*255) + ',' + Math.round(c[1]*255) + ',' + Math.round(c[2]*255) + ')';
+  }
+  function fmtSec(s) {
+    s = Math.max(0, Math.round(s));
+    var m = Math.floor(s / 60), ss = s % 60;
+    return m + ':' + (ss < 10 ? '0' + ss : ss);
+  }
+
+  function render(c) {
+    if (!c) return;
+    strip.classList.remove('hidden');
+    if (c.homeColor) homeSide.style.borderLeftColor = rgbToCss(c.homeColor);
+    if (c.awayColor) awaySide.style.borderRightColor = rgbToCss(c.awayColor);
+    homeLabel.textContent = 'HOME';
+    awayLabel.textContent = 'AWAY';
+    homeLabel.classList.toggle('local', c.localTeam === 'home');
+    awayLabel.classList.toggle('local', c.localTeam === 'away');
+    homeScore.textContent = c.home || 0;
+    awayScore.textContent = c.away || 0;
+    quarterEl.textContent = 'Q' + (c.quarter || 1) + ' / ' + (c.quarters || 4);
+
+    if (c.intermission) {
+      timerEl.textContent = fmtSec(c.intermissionRemaining || 0);
+      phasePill.textContent = 'INTERMISSION';
+      phasePill.classList.add('intermission');
+      timerEl.classList.remove('urgent');
+    } else {
+      var sec = c.quarterRemaining || 0;
+      timerEl.textContent = fmtSec(sec);
+      phasePill.textContent = 'LIVE';
+      phasePill.classList.remove('intermission');
+      timerEl.classList.toggle('urgent', sec > 0 && sec <= 10);
+    }
+
+    if (c.banner && c.banner.tsMs && c.banner.tsMs !== lastBannerTs) {
+      lastBannerTs = c.banner.tsMs;
+      bannerTitle.textContent = c.banner.title || '';
+      bannerSub.textContent = c.banner.subtitle || '';
+      if (c.banner.color) banner.style.borderColor = rgbToCss(c.banner.color);
+      else banner.style.borderColor = '#ffd066';
+      banner.classList.add('visible');
+      if (bannerHideTimer) clearTimeout(bannerHideTimer);
+      bannerHideTimer = setTimeout(function () { banner.classList.remove('visible'); bannerHideTimer = null; }, 2400);
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.courtScoreboard) render(s.courtScoreboard);
+  });
+})();
+</script>
+</body>
+</html>

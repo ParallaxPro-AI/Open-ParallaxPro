@@ -372,6 +372,21 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     net_kr_hazard_hit:        { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_kr_lap_complete:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_kr_request_use:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Court Match (multiplayer NBA-style basketball) ──
+    // Authoritative state sync sent on every score / possession / phase
+    // change. Animation cues for shot arc + pass arc + made/missed/quarter
+    // banners ride alongside so visuals + audio fire in lockstep across
+    // peers. Client → host requests carry pass / shoot / steal intents.
+    net_cm_state_sync:        { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_cm_shot_anim:         { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_cm_pass_anim:         { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_cm_made:              { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_cm_missed:            { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_cm_quarter_change:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_cm_request_pass:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_cm_request_shoot:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_cm_request_steal:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
