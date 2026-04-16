@@ -84,6 +84,17 @@ export async function runCreator(
             return { success: false, summary: 'Creator did not produce required template files.', templateId, files: null, costUsd: cliResult.costUsd };
         }
 
+        // The CLI may exit "successfully" (exit code 0, valid cost event)
+        // without ever modifying the seeded scaffold — opencode in particular
+        // has been observed to terminate early with no file writes. Without
+        // this guard we'd commit the empty scaffold back to the user's
+        // project and cheerfully report "game created" — exactly what they
+        // got for projectId de549996 on 2026-04-16.
+        const seed = emptyTemplateFiles();
+        if (files['01_flow.json'] === seed['01_flow.json']) {
+            return { success: false, summary: 'Creator finished but did not modify 01_flow.json — the agent exited without writing any game content.', templateId, files: null, costUsd: cliResult.costUsd };
+        }
+
         sendStatus?.('Running final validation...');
         try {
             assembleGame(projectDir, {
