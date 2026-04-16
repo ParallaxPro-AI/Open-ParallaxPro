@@ -226,6 +226,15 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         ws.on('close', () => {
             clearInterval(pingInterval);
             clients.delete(clientId);
+            // Kill any in-flight CLI run. Without this, a user who closes
+            // their tab (or whose network drops, or whose browser crashes)
+            // leaves the spawned CLI agent billing tokens against a
+            // websocket that's gone. That's how multi-day zombie agents
+            // happen — see the 1.8-day opencode we cleaned up in ops.
+            if (client.abortController) {
+                client.abortController.abort();
+                client.abortController = null;
+            }
         });
 
         ws.on('error', (err) => {

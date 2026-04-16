@@ -578,12 +578,21 @@ function copilotToolToActivity(name: string): CLIActivity['kind'] {
 
 function wireAbort(proc: import('child_process').ChildProcess, signal: AbortSignal | undefined, reject: (e: Error) => void): void {
     if (!signal) return;
+    // SIGTERM → 5s grace window → SIGKILL. Some CLI agents ignore SIGTERM
+    // outright (opencode has been observed to) and some docker-wrapped
+    // processes drop the signal before it reaches the container's PID 1
+    // if run without --init. The escalation guarantees the process dies
+    // even when the polite signal is ignored.
+    const killEscalate = () => {
+        try { proc.kill('SIGTERM'); } catch {}
+        setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} }, 5000);
+    };
     if (signal.aborted) {
-        proc.kill('SIGTERM');
+        killEscalate();
         reject(new Error('Aborted'));
         return;
     }
-    const onAbort = () => { proc.kill('SIGTERM'); };
+    const onAbort = () => { killEscalate(); };
     signal.addEventListener('abort', onAbort, { once: true });
     proc.on('close', () => signal.removeEventListener('abort', onAbort));
 }

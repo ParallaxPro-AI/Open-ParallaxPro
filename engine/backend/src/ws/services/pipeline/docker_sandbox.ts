@@ -137,6 +137,11 @@ export function wrapSpawn(
         'run',
         '--rm',
         '-i',
+        // tini as PID 1 inside the container: proper signal forwarding to
+        // the agent process and zombie reaping. Without this, SIGTERM from
+        // an aborted Stop/close can fail to reach the agent reliably, and
+        // the container hangs until SIGKILL.
+        '--init',
         // Default bridge network: outbound yes, but no access to host
         // services. Add `--network=none` later if we add a proxy.
         '--network', 'bridge',

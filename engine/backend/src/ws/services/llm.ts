@@ -394,8 +394,14 @@ async function runCLIForText(
             let stderr = '';
 
             if (abortSignal) {
-                if (abortSignal.aborted) { proc.kill('SIGTERM'); resolve({ text: '', costUsd: 0, error: 'Aborted' }); return; }
-                abortSignal.addEventListener('abort', () => proc.kill('SIGTERM'), { once: true });
+                // Mirror wireAbort's SIGTERM → 5s → SIGKILL escalation so
+                // chat-fallback CLIs don't get stuck ignoring SIGTERM.
+                const killEscalate = () => {
+                    try { proc.kill('SIGTERM'); } catch {}
+                    setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} }, 5000);
+                };
+                if (abortSignal.aborted) { killEscalate(); resolve({ text: '', costUsd: 0, error: 'Aborted' }); return; }
+                abortSignal.addEventListener('abort', killEscalate, { once: true });
             }
 
             let buffer = '';
