@@ -359,6 +359,19 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     fry_flipped:            { fields: { successful: { type: 'boolean', optional: true }, count: { type: 'number', optional: true }, target: { type: 'number', optional: true } } },
     fry_burnt:              { fields: {} },
     plate_added:            { fields: { count: { type: 'number', optional: true }, target: { type: 'number', optional: true } } },
+
+    // ── Kart Race (multiplayer mario-kart style circuit racer) ──
+    // Authoritative state sync sent on every progress / power-up change.
+    // Item box pickups, power-up uses (boost/missile/banana/shield/bolt),
+    // hazard hits + lap completions ride alongside as separate net events
+    // so visuals/audio fire in lockstep across peers. Client → host
+    // requests carry "I want to use my held power-up" intents.
+    net_kr_state_sync:        { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_kr_item_pickup:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_kr_powerup_used:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_kr_hazard_hit:        { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_kr_lap_complete:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_kr_request_use:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));

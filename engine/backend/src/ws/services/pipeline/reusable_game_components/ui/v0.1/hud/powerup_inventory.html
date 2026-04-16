@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #f6efe2;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .panel {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    width: 220px;
+    background: rgba(20, 14, 8, 0.88);
+    border: 2px solid rgba(255, 200, 80, 0.45);
+    border-radius: 12px;
+    padding: 8px 10px 10px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+    transition: border-color 0.18s linear;
+  }
+  .panel.hidden { display: none; }
+  .panel.has-item { border-color: #ffd066; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), 0 0 18px rgba(255, 200, 80, 0.45); }
+  .panel.shielded { border-color: #6cc9ff; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), 0 0 18px rgba(108, 201, 255, 0.45); }
+  .panel.spun     { border-color: #f08484; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), 0 0 18px rgba(240, 132, 132, 0.6); animation: shake 0.2s linear infinite; }
+  @keyframes shake {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(-1px, 1px); }
+    50%  { transform: translate(1px, -1px); }
+    75%  { transform: translate(-1px, -1px); }
+    100% { transform: translate(0, 0); }
+  }
+
+  .label {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 160, 0.55);
+    font-weight: 800;
+  }
+  .item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid rgba(255, 200, 80, 0.4);
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.6);
+    transition: background 0.18s, border-color 0.18s;
+  }
+  .icon.has-item { background: rgba(255, 200, 80, 0.18); border-color: #ffd066; box-shadow: 0 0 14px rgba(255, 200, 80, 0.55); }
+  .item-meta {
+    flex: 1;
+  }
+  .item-name {
+    font-family: 'Cinzel', 'Georgia', serif;
+    font-weight: 700;
+    color: #ffe48a;
+    font-size: 16px;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  }
+  .item-desc {
+    font-size: 10px;
+    color: rgba(255, 220, 160, 0.55);
+    margin-top: 1px;
+  }
+  .pill-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 220, 160, 0.4);
+    color: rgba(255, 220, 160, 0.55);
+  }
+  .pill.shield { color: #6cc9ff; border-color: #6cc9ff; box-shadow: 0 0 6px rgba(108, 201, 255, 0.55); }
+  .pill.spun   { color: #f08484; border-color: #f08484; box-shadow: 0 0 6px rgba(240, 132, 132, 0.6); }
+  .pill.bolt   { color: #d8d8ff; border-color: #d8d8ff; box-shadow: 0 0 6px rgba(216, 216, 255, 0.5); }
+  .key-hint {
+    margin-top: 4px;
+    font-size: 9px;
+    color: rgba(255, 220, 160, 0.45);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .kbd {
+    display: inline-block;
+    background: rgba(255, 220, 160, 0.12);
+    border: 1px solid rgba(255, 220, 160, 0.4);
+    border-radius: 3px;
+    padding: 0 5px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    color: #ffd066;
+    font-size: 9px;
+  }
+</style>
+</head>
+<body>
+<div class="panel hidden" id="panel">
+  <div class="label">Power-up</div>
+  <div class="item-row">
+    <div class="icon" id="icon">·</div>
+    <div class="item-meta">
+      <div class="item-name" id="name">Empty</div>
+      <div class="item-desc" id="desc">Drive through an item box</div>
+    </div>
+  </div>
+  <div class="pill-row" id="pills"></div>
+  <div class="key-hint">
+    <span class="kbd">E</span> use · <span class="kbd">Space</span> drift
+  </div>
+</div>
+<script>
+(function () {
+  var panel = document.getElementById('panel');
+  var icon = document.getElementById('icon');
+  var nameEl = document.getElementById('name');
+  var descEl = document.getElementById('desc');
+  var pills = document.getElementById('pills');
+
+  var META = {
+    boost:   { glyph: '⚡', name: 'Boost',   desc: 'Instant speed surge.' },
+    missile: { glyph: '🎯', name: 'Missile', desc: 'Homes the racer ahead.' },
+    banana:  { glyph: '🍌', name: 'Banana',  desc: 'Drops behind you.' },
+    shield:  { glyph: '🛡', name: 'Shield',  desc: 'Blocks one hazard.' },
+    bolt:    { glyph: '⚡', name: 'Bolt',    desc: 'Slows everyone else.' },
+  };
+
+  function render(p) {
+    if (!p) return;
+    panel.classList.remove('hidden');
+    var holding = p.holding || '';
+    var meta = META[holding];
+    panel.classList.toggle('has-item', !!holding);
+    panel.classList.toggle('shielded', !!p.shielded);
+    panel.classList.toggle('spun', !!(p.spinUntil && Date.now() < p.spinUntil));
+    icon.classList.toggle('has-item', !!holding);
+    icon.textContent = meta ? meta.glyph : '·';
+    nameEl.textContent = meta ? meta.name : 'Empty';
+    descEl.textContent = meta ? meta.desc : 'Drive through an item box';
+
+    pills.innerHTML = '';
+    if (p.shielded) {
+      var sh = document.createElement('div');
+      sh.className = 'pill shield';
+      sh.textContent = 'Shield';
+      pills.appendChild(sh);
+    }
+    if (p.spinUntil && Date.now() < p.spinUntil) {
+      var sp = document.createElement('div');
+      sp.className = 'pill spun';
+      sp.textContent = 'Spun';
+      pills.appendChild(sp);
+    }
+    if (p.boltActive) {
+      var bo = document.createElement('div');
+      bo.className = 'pill bolt';
+      bo.textContent = 'Bolt';
+      pills.appendChild(bo);
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.powerupInventory) render(s.powerupInventory);
+  });
+})();
+</script>
+</body>
+</html>
