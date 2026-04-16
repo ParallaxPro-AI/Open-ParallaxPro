@@ -881,7 +881,7 @@ export class Toolbar {
             }
             const chatHint = document.createElement('span');
             chatHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
-            chatHint.textContent = 'Recommended: LLM API — faster (<1s vs 2-3s per message), cheaper, and produces cleaner output. CLI agents are a convenience when you don\'t have an API key, but they\'re agentic and may occasionally emit tool calls instead of chat replies.';
+            chatHint.textContent = 'Recommended: LLM API — faster (<1s vs 10-20s per message, because the CLI is relaunched on every turn), cheaper, and produces cleaner output. CLI agents are a convenience when you don\'t have an API key, but they run in agent mode rather than chat mode and may perform very poorly — occasionally emitting tool calls instead of chat replies.';
             chatRow.appendChild(chatLabel);
             chatRow.appendChild(chatSelect);
             chatRow.appendChild(chatHint);
