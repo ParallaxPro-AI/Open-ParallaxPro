@@ -28,7 +28,7 @@ LLMs can generate games, but without a real game engine behind them, those games
 [ParallaxPro](https://parallaxpro.ai/) is a browser-based 3D game engine where AI generates games that run on a real engine with real infrastructure -- WebGPU rendering, rigid body physics, skeletal animation, and an ECS architecture. The AI doesn't need to reinvent the wheel. It just places entities, attaches scripts, and the engine handles the rest.
 
 - **Fully open source** -- engine, editor, AI prompts, game templates, everything. No hidden black boxes.
-- **Royalty-free engine** -- the engine and your game code are yours to distribute. No engine royalties, no attribution required. Monetization tools (microtransactions, etc.) are coming soon — if you opt in to those we may take a cut on them, but the engine itself is always free.
+- **Royalty-free engine** -- the engine and your game code are yours to distribute. No engine royalties, no attribution required. The engine itself is always free.
 - **No vendor lock-in** -- bring your own LLM (Groq, OpenRouter, Ollama, or any OpenAI-compatible API). Host it yourself or use our cloud.
 - **Transparent AI** -- even the system prompts and LLM compiler are open source. See exactly how the AI builds your games.
 
@@ -141,7 +141,7 @@ To use your own local assets, set `ASSETS_DIR` in your `.env` to a directory con
 
 ### Publishing Games
 
-**We recommend publishing on [parallaxpro.ai](https://parallaxpro.ai/)** — it's the easiest way to get your game in front of players, with free hosting and a shareable `parallaxpro.ai/games/<you>/<game>` URL. Monetization tools are coming soon. Direct publishing from running locally (localhost) is in progress.
+**We recommend publishing on [parallaxpro.ai](https://parallaxpro.ai/)** — it's the easiest way to get your game in front of players, with free hosting and a shareable `parallaxpro.ai/games/<you>/<game>` URL. You can publish directly from [parallaxpro.ai/editor](https://parallaxpro.ai/editor/) or from a [self-hosted ParallaxPro](#run-locally).
 
 ### License
 
