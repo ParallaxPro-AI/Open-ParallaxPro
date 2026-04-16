@@ -9,7 +9,7 @@ import { ASTNode, MessageNode, EditNode, ToolCallNode } from './syntax_tree.js';
 import { EDIT_API_DOCS, getProjectSummary } from '../services/chat_protocol.js';
 import { loadTemplateCatalog, formatCatalogForLLM } from '../services/pipeline/template_loader.js';
 import { runFixer } from '../services/pipeline/cli_fixer.js';
-import { runCreator } from '../services/pipeline/cli_creator.js';
+import { runQaCreator } from '../services/pipeline/qa_creator.js';
 import { seedFromTemplate } from '../services/pipeline/project_seeder.js';
 import type { BuildResult } from '../services/pipeline/project_builder.js';
 import type { ProjectFiles } from '../services/pipeline/project_files.js';
@@ -239,7 +239,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             sendStatus('Creating game from scratch...');
 
             try {
-                const createResult = await runCreator(ctx.projectId, description, sendStatus, ctx.editingAgent, ctx.abortSignal);
+                const createResult = await runQaCreator(ctx.projectId, description, sendStatus, ctx.abortSignal);
 
                 if (createResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(createResult.costUsd);
 
