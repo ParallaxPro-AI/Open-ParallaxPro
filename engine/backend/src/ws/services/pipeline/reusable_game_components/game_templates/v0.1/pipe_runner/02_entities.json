@@ -1,0 +1,294 @@
+{
+  "definitions": {
+    "sky_dome": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.55, 0.78, 0.95, 1],
+        "scale": [400, 50, 1]
+      },
+      "physics": false,
+      "tags": ["sky"],
+      "label": false
+    },
+    "horizon_band": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.78, 0.86, 0.92, 1],
+        "scale": [400, 6, 1]
+      },
+      "physics": false,
+      "tags": ["sky"],
+      "label": false
+    },
+    "cloud_band": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.97, 0.97, 0.99, 1],
+        "scale": [10, 1.4, 1]
+      },
+      "physics": false,
+      "tags": ["sky"],
+      "label": false
+    },
+    "back_hill": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.30, 0.55, 0.30, 1],
+        "scale": [22, 8, 1]
+      },
+      "physics": false,
+      "tags": ["sky"],
+      "label": false
+    },
+    "ground_segment": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.62, 0.40, 0.22, 1],
+        "scale": [14, 1.6, 6]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [7, 0.8, 3] }
+      },
+      "tags": ["ground", "platform"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_07.png"
+      }
+    },
+    "ground_grass_strip": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.30, 0.65, 0.28, 1],
+        "scale": [14, 0.18, 6]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "brick_block": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.78, 0.36, 0.18, 1],
+        "scale": [1.2, 1.2, 1.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.6, 0.6, 0.6] }
+      },
+      "tags": ["platform", "brick"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_03.png"
+      }
+    },
+    "question_block": {
+      "mesh": {
+        "type": "cube",
+        "color": [1.0, 0.78, 0.20, 1],
+        "scale": [1.2, 1.2, 1.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.6, 0.6, 0.6] }
+      },
+      "tags": ["platform", "question_block"],
+      "label": false
+    },
+    "question_mark": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.30, 0.18, 0.04, 1],
+        "scale": [0.45, 0.20, 0.45]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "pipe_body": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.16, 0.62, 0.22, 1],
+        "scale": [1.6, 3, 1.6]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.8, 1.5, 0.8] }
+      },
+      "tags": ["platform", "pipe"],
+      "label": false
+    },
+    "pipe_top": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.20, 0.75, 0.28, 1],
+        "scale": [2.0, 0.6, 2.0]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "coin_disc": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [1.0, 0.85, 0.20, 1],
+        "scale": [0.6, 0.20, 0.6]
+      },
+      "physics": false,
+      "tags": ["coin", "pickup"],
+      "label": false
+    },
+    "mushroom_powerup": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.95, 0.30, 0.30, 1],
+        "scale": [0.7, 0.7, 0.7]
+      },
+      "physics": false,
+      "tags": ["powerup", "mushroom"],
+      "label": false
+    },
+    "flagpole_pole": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.90, 0.90, 0.90, 1],
+        "scale": [0.25, 8, 0.25]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "flagpole_top": {
+      "mesh": {
+        "type": "sphere",
+        "color": [1.0, 0.85, 0.20, 1],
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "flag_banner": {
+      "mesh": {
+        "type": "cube",
+        "color": [1.0, 0.20, 0.20, 1],
+        "scale": [1.4, 1.0, 0.04]
+      },
+      "physics": false,
+      "tags": ["flag"],
+      "label": false
+    },
+    "flag_castle": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.55, 0.40, 0.25, 1],
+        "scale": [4, 4, 4]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "flag_castle_door": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.18, 0.10, 0.05, 1],
+        "scale": [1.2, 2, 0.06]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "runner_player": {
+      "mesh": {
+        "type": "capsule",
+        "color": [0.95, 0.20, 0.20, 1],
+        "scale": [0.85, 1.0, 0.85]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": { "shape": "capsule", "halfHeight": 0.5, "radius": 0.4 }
+      },
+      "tags": ["player"],
+      "behaviors": [
+        {
+          "name": "sidescroll_runner",
+          "script": "movement/sidescroll_runner.ts",
+          "params": {
+            "moveSpeed": 7.0,
+            "runMultiplier": 1.55,
+            "jumpForce": 13,
+            "jumpHoldExtraSec": 0.18,
+            "jumpHoldExtraForce": 9,
+            "constrainZ": 0,
+            "fallKillY": -16,
+            "stompBouncePower": 8.5,
+            "hitInvincibleSec": 1.2,
+            "powerUpScale": 1.5,
+            "jumpSound": "/assets/kenney/audio/digital_audio/phaseJump1.ogg",
+            "stompSound": "/assets/kenney/audio/digital_audio/pepSound2.ogg",
+            "powerUpSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg",
+            "powerDownSound": "/assets/kenney/audio/digital_audio/lowDown.ogg",
+            "deathSound": "/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_001.ogg"
+          }
+        }
+      ]
+    },
+    "goomba_enemy": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/animated_monster_pack/Slime.glb",
+        "scale": [1.6, 1.6, 1.6]
+      },
+      "physics": {
+        "type": "kinematic",
+        "collider": { "shape": "capsule", "halfHeight": 0.4, "radius": 0.6 }
+      },
+      "tags": ["enemy", "stomper", "hostile"],
+      "behaviors": [
+        {
+          "name": "stomper_enemy",
+          "script": "ai/stomper_enemy.ts",
+          "params": {
+            "moveSpeed": 1.6,
+            "patrolRange": 4,
+            "constrainZ": 0,
+            "groundY": 1.4,
+            "stompTopMargin": 0.6,
+            "deathSound": "/assets/kenney/audio/rpg_audio/cloth4.ogg"
+          }
+        }
+      ]
+    },
+    "fireball_fx": {
+      "mesh": {
+        "type": "sphere",
+        "color": [1.0, 0.55, 0.18, 1],
+        "scale": [0.4, 0.4, 0.4]
+      },
+      "physics": false,
+      "tags": ["fx"],
+      "label": false
+    },
+    "camera": {
+      "camera": { "fov": 48, "near": 0.5, "far": 400 },
+      "tags": ["camera"],
+      "transform": { "position": [0, 6, 22] },
+      "behaviors": [
+        {
+          "name": "camera_side_scroll",
+          "script": "camera/camera_side_scroll.ts",
+          "params": {
+            "distance": 22,
+            "heightOffset": 4.4,
+            "lookAheadX": 5.5,
+            "smoothPos": 4.5,
+            "constrainMinX": -4,
+            "constrainMaxX": 116
+          }
+        }
+      ]
+    }
+  }
+}

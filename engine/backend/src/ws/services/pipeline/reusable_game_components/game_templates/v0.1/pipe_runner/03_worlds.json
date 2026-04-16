@@ -1,0 +1,122 @@
+{
+  "worlds": [
+    {
+      "id": "overworld",
+      "name": "Pipe Plains",
+      "environment": {
+        "ambientColor": [0.85, 0.92, 1.00],
+        "ambientIntensity": 0.95,
+        "sunColor": [1.0, 0.97, 0.92],
+        "sunIntensity": 1.20,
+        "fog": { "enabled": true, "color": [0.78, 0.86, 0.92], "near": 70, "far": 160 },
+        "gravity": [0, -32, 0]
+      },
+      "placements": [
+        { "ref": "sky_dome",          "position": [60, 24, -20] },
+        { "ref": "horizon_band",      "position": [60, 0.5, -18] },
+
+        { "ref": "cloud_band",        "position": [10, 14, -14] },
+        { "ref": "cloud_band",        "position": [40, 16, -14] },
+        { "ref": "cloud_band",        "position": [72, 13, -14] },
+        { "ref": "cloud_band",        "position": [98, 15, -14] },
+
+        { "ref": "back_hill",         "position": [12, 4, -12] },
+        { "ref": "back_hill",         "position": [38, 5, -12] },
+        { "ref": "back_hill",         "position": [66, 4, -12] },
+        { "ref": "back_hill",         "position": [92, 5, -12] },
+        { "ref": "back_hill",         "position": [114, 4, -12] },
+
+        { "ref": "ground_segment",    "position": [7, -0.8, 0] },
+        { "ref": "ground_grass_strip","position": [7, 0.09, 0] },
+        { "ref": "ground_segment",    "position": [25, -0.8, 0] },
+        { "ref": "ground_grass_strip","position": [25, 0.09, 0] },
+        { "ref": "ground_segment",    "position": [41, -0.8, 0] },
+        { "ref": "ground_grass_strip","position": [41, 0.09, 0] },
+        { "ref": "ground_segment",    "position": [59, -0.8, 0] },
+        { "ref": "ground_grass_strip","position": [59, 0.09, 0] },
+        { "ref": "ground_segment",    "position": [75, -0.8, 0] },
+        { "ref": "ground_grass_strip","position": [75, 0.09, 0] },
+        { "ref": "ground_segment",    "position": [93, -0.8, 0] },
+        { "ref": "ground_grass_strip","position": [93, 0.09, 0] },
+        { "ref": "ground_segment",    "position": [109, -0.8, 0] },
+        { "ref": "ground_grass_strip","position": [109, 0.09, 0] },
+
+        { "ref": "brick_block",       "position": [9,  4, 0] },
+        { "ref": "brick_block",       "position": [10.2, 4, 0] },
+        { "ref": "question_block",    "position": [11.4, 4, 0] },
+        { "ref": "question_mark",     "position": [11.4, 4.7, 0.5] },
+
+        { "ref": "pipe_body",         "position": [19, 1, 0] },
+        { "ref": "pipe_top",          "position": [19, 2.5, 0] },
+
+        { "ref": "brick_block",       "position": [25, 5, 0] },
+        { "ref": "question_block",    "position": [26.2, 5, 0] },
+        { "ref": "question_mark",     "position": [26.2, 5.7, 0.5] },
+        { "ref": "brick_block",       "position": [27.4, 5, 0] },
+
+        { "ref": "pipe_body",         "position": [44, 1.5, 0] },
+        { "ref": "pipe_top",          "position": [44, 3.0, 0] },
+
+        { "ref": "brick_block",       "position": [54, 4, 0] },
+        { "ref": "brick_block",       "position": [55.2, 4, 0] },
+        { "ref": "brick_block",       "position": [56.4, 4, 0] },
+
+        { "ref": "brick_block",       "position": [62, 6, 0] },
+        { "ref": "brick_block",       "position": [63.2, 6, 0] },
+        { "ref": "question_block",    "position": [64.4, 6, 0] },
+        { "ref": "question_mark",     "position": [64.4, 6.7, 0.5] },
+
+        { "ref": "pipe_body",         "position": [78, 1, 0] },
+        { "ref": "pipe_top",          "position": [78, 2.5, 0] },
+
+        { "ref": "brick_block",       "position": [88, 4, 0] },
+        { "ref": "brick_block",       "position": [89.2, 4, 0] },
+        { "ref": "brick_block",       "position": [88, 5.2, 0] },
+        { "ref": "brick_block",       "position": [89.2, 5.2, 0] },
+        { "ref": "brick_block",       "position": [88, 6.4, 0] },
+        { "ref": "brick_block",       "position": [89.2, 6.4, 0] },
+
+        { "ref": "brick_block",       "position": [99, 4, 0] },
+        { "ref": "brick_block",       "position": [100.2, 4, 0] },
+        { "ref": "brick_block",       "position": [101.4, 4, 0] },
+        { "ref": "question_block",    "position": [100.2, 5.2, 0] },
+        { "ref": "question_mark",     "position": [100.2, 5.9, 0.5] },
+
+        { "ref": "coin_disc",         "position": [4, 1.2, 0] },
+        { "ref": "coin_disc",         "position": [9, 5.5, 0] },
+        { "ref": "coin_disc",         "position": [10.2, 5.5, 0] },
+        { "ref": "coin_disc",         "position": [22, 1.2, 0] },
+        { "ref": "coin_disc",         "position": [25, 6.5, 0] },
+        { "ref": "coin_disc",         "position": [26.2, 6.5, 0] },
+        { "ref": "coin_disc",         "position": [38, 1.2, 0] },
+        { "ref": "coin_disc",         "position": [55, 5.5, 0] },
+        { "ref": "coin_disc",         "position": [55.2, 5.5, 0] },
+        { "ref": "coin_disc",         "position": [62, 7.5, 0] },
+        { "ref": "coin_disc",         "position": [63.2, 7.5, 0] },
+        { "ref": "coin_disc",         "position": [77, 1.2, 0] },
+        { "ref": "coin_disc",         "position": [88, 7.8, 0] },
+        { "ref": "coin_disc",         "position": [89.2, 7.8, 0] },
+        { "ref": "coin_disc",         "position": [99, 6.6, 0] },
+        { "ref": "coin_disc",         "position": [101.4, 6.6, 0] },
+        { "ref": "coin_disc",         "position": [108, 1.2, 0] },
+
+        { "ref": "goomba_enemy",      "position": [12, 1.4, 0] },
+        { "ref": "goomba_enemy",      "position": [22, 1.4, 0] },
+        { "ref": "goomba_enemy",      "position": [40, 1.4, 0] },
+        { "ref": "goomba_enemy",      "position": [56, 1.4, 0] },
+        { "ref": "goomba_enemy",      "position": [72, 1.4, 0] },
+        { "ref": "goomba_enemy",      "position": [88, 1.4, 0] },
+        { "ref": "goomba_enemy",      "position": [104, 1.4, 0] },
+
+        { "ref": "flag_castle",       "position": [118, 2, 0] },
+        { "ref": "flag_castle_door",  "position": [118, 1.5, 2.05] },
+        { "ref": "flagpole_pole",     "position": [114, 4, 0] },
+        { "ref": "flagpole_top",      "position": [114, 8.2, 0] },
+        { "ref": "flag_banner",       "position": [114.7, 7.4, 0] },
+
+        { "ref": "camera",            "position": [0, 6, 22] },
+        { "ref": "runner_player",     "position": [2, 2.5, 0] }
+      ]
+    }
+  ]
+}
