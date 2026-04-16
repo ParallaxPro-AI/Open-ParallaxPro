@@ -230,7 +230,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             sendStatus('Creating game from scratch...');
 
             try {
-                const createResult = await runCreator(ctx.projectId, description, sendStatus);
+                const createResult = await runCreator(ctx.projectId, description, sendStatus, ctx.editingAgent, ctx.abortSignal);
 
                 if (createResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(createResult.costUsd);
 

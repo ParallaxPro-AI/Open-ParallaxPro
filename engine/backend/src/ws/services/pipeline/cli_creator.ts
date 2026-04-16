@@ -46,6 +46,7 @@ export async function runCreator(
     description: string,
     sendStatus?: (msg: string) => void,
     cliOverride?: string,
+    abortSignal?: AbortSignal,
 ): Promise<CreatorResult> {
     await acquireCLISlot(cliOverride, sendStatus);
     const templateId = deriveTemplateId(description);
@@ -71,7 +72,7 @@ export async function runCreator(
         );
 
         sendStatus?.('Creator agent is building the game...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride);
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, abortSignal);
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
@@ -309,7 +310,7 @@ function creatorStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string): Promise<{ text: string; costUsd: number }> {
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal): Promise<{ text: string; costUsd: number }> {
     const { text, costUsd } = await spawnCLIAgent({
         sandboxDir,
         prompt: CREATOR_PROMPT,
@@ -317,6 +318,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         statusMapper: creatorStatus,
         sendStatus,
         cliOverride,
+        abortSignal,
     });
     return { text: text || 'Template created.', costUsd };
 }
