@@ -1,0 +1,48 @@
+{
+  "worlds": [
+    {
+      "id": "neon_arena",
+      "name": "Neon Grid",
+      "environment": {
+        "ambientColor": [0.18, 0.22, 0.35],
+        "ambientIntensity": 0.55,
+        "sunColor": [0.6, 0.8, 1.0],
+        "sunIntensity": 0.45,
+        "fog": { "enabled": true, "color": [0.02, 0.04, 0.08], "near": 35, "far": 90 },
+        "gravity": [0, -9.81, 0]
+      },
+      "placements": [
+        { "ref": "ground",         "position": [0, 0, 0] },
+
+        { "ref": "arena_wall_n",   "position": [0, 1.25, -40] },
+        { "ref": "arena_wall_s",   "position": [0, 1.25,  40] },
+        { "ref": "arena_wall_e",   "position": [ 40, 1.25, 0] },
+        { "ref": "arena_wall_w",   "position": [-40, 1.25, 0] },
+
+        { "ref": "corner_pylon",   "position": [-39.2, 3, -39.2] },
+        { "ref": "corner_pylon",   "position": [ 39.2, 3, -39.2] },
+        { "ref": "corner_pylon",   "position": [-39.2, 3,  39.2] },
+        { "ref": "corner_pylon",   "position": [ 39.2, 3,  39.2] },
+
+        { "ref": "grid_line_h",    "position": [0, 0.04, -30] },
+        { "ref": "grid_line_h",    "position": [0, 0.04, -20] },
+        { "ref": "grid_line_h",    "position": [0, 0.04, -10] },
+        { "ref": "grid_line_h",    "position": [0, 0.04,   0] },
+        { "ref": "grid_line_h",    "position": [0, 0.04,  10] },
+        { "ref": "grid_line_h",    "position": [0, 0.04,  20] },
+        { "ref": "grid_line_h",    "position": [0, 0.04,  30] },
+
+        { "ref": "grid_line_v",    "position": [-30, 0.04, 0] },
+        { "ref": "grid_line_v",    "position": [-20, 0.04, 0] },
+        { "ref": "grid_line_v",    "position": [-10, 0.04, 0] },
+        { "ref": "grid_line_v",    "position": [  0, 0.04, 0] },
+        { "ref": "grid_line_v",    "position": [ 10, 0.04, 0] },
+        { "ref": "grid_line_v",    "position": [ 20, 0.04, 0] },
+        { "ref": "grid_line_v",    "position": [ 30, 0.04, 0] },
+
+        { "ref": "camera",         "position": [0, 18, 22] },
+        { "ref": "bike_player",    "position": [0, 0.6, 0] }
+      ]
+    }
+  ]
+}

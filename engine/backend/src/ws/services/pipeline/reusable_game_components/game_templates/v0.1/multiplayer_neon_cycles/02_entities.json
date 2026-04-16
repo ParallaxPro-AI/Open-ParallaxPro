@@ -1,0 +1,173 @@
+{
+  "definitions": {
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.04, 0.05, 0.09, 1],
+        "scale": [80, 1, 80]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [40, 0.05, 40] }
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "arena_wall_n": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.2, 0.85, 1, 1],
+        "scale": [82, 2.5, 1]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [41, 1.25, 0.5] }
+      },
+      "tags": ["arena_wall"],
+      "label": false
+    },
+    "arena_wall_s": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.2, 0.85, 1, 1],
+        "scale": [82, 2.5, 1]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [41, 1.25, 0.5] }
+      },
+      "tags": ["arena_wall"],
+      "label": false
+    },
+    "arena_wall_e": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.2, 0.85, 1, 1],
+        "scale": [1, 2.5, 80]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 1.25, 40] }
+      },
+      "tags": ["arena_wall"],
+      "label": false
+    },
+    "arena_wall_w": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.2, 0.85, 1, 1],
+        "scale": [1, 2.5, 80]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 1.25, 40] }
+      },
+      "tags": ["arena_wall"],
+      "label": false
+    },
+    "grid_line_h": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.1, 0.45, 0.7, 0.6],
+        "scale": [80, 0.02, 0.08]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "grid_line_v": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.1, 0.45, 0.7, 0.6],
+        "scale": [0.08, 0.02, 80]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "corner_pylon": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.3, 0.95, 1, 1],
+        "scale": [1.6, 6, 1.6]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.8, 3, 0.8] }
+      },
+      "tags": ["decoration"],
+      "label": false
+    },
+    "bike_player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/race-future.glb",
+        "scale": [1.0, 1.0, 1.0],
+        "modelRotationY": 0
+      },
+      "physics": {
+        "type": "kinematic",
+        "collider": { "shape": "cuboid", "halfExtents": [0.6, 0.5, 1.0] }
+      },
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true,
+        "networkedVars": ["alive", "boost"]
+      },
+      "tags": ["player", "bike", "networked"],
+      "behaviors": [
+        {
+          "name": "bike_player_control",
+          "script": "mp/bike_player_control.ts",
+          "params": {
+            "baseSpeed": 12,
+            "boostMultiplier": 1.7,
+            "brakeMultiplier": 0.45,
+            "turnRateDeg": 180,
+            "boostMax": 100,
+            "boostDrainPerSec": 35,
+            "boostRegenPerSec": 18,
+            "engineSound": "/assets/kenney/audio/sci_fi_sounds/engineCircular_001.ogg",
+            "boostSound": "/assets/kenney/audio/sci_fi_sounds/forceField_002.ogg",
+            "turnSound": "/assets/kenney/audio/sci_fi_sounds/laserRetro_001.ogg",
+            "crashSound": "/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_000.ogg"
+          }
+        },
+        {
+          "name": "light_trail_emitter",
+          "script": "mp/light_trail_emitter.ts",
+          "params": {
+            "wallHeight": 1.6,
+            "wallThickness": 0.3,
+            "minSegmentLen": 0.4,
+            "renderOnly": true
+          }
+        }
+      ]
+    },
+    "camera": {
+      "camera": { "fov": 60, "near": 0.5, "far": 400 },
+      "tags": ["camera"],
+      "transform": { "position": [0, 18, 22] },
+      "behaviors": [
+        {
+          "name": "bike_chase_camera",
+          "script": "mp/bike_chase_camera.ts",
+          "params": {
+            "distance": 11,
+            "height": 8,
+            "lookHeight": 1.2,
+            "smoothPos": 5,
+            "smoothYaw": 7,
+            "fovBoost": 8
+          }
+        }
+      ]
+    }
+  }
+}

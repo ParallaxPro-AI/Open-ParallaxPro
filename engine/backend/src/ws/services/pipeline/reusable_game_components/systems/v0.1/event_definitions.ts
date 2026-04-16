@@ -315,6 +315,23 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     net_royale_heal:            { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_royale_armor:           { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_royale_match_ended:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Neon Cycles (light-bike combat) ──
+    // Bike collided with a light wall — emitted locally first by the host's
+    // collision check, then broadcast over net_bike_crashed so every peer's
+    // bike state stays consistent. Trail rendering / scoring keys off these.
+    bike_crashed:          { fields: { peerId: { type: 'string', optional: true }, killedBy: { type: 'string', optional: true } } },
+    net_bike_crashed:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Round lifecycle — distinct from match_started/ended because a single
+    // match contains multiple rounds (best-of-N). Host owns transitions.
+    round_started:         { fields: { round: { type: 'number', optional: true } } },
+    round_ended:           { fields: { round: { type: 'number', optional: true }, winner: { type: 'string', optional: true } } },
+    net_round_started:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_round_ended:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Bike turned — local event used by trail emitter to start a new wall
+    // segment so trails render as continuous polylines instead of jittering
+    // around bike rotation. Also used by audio HUD to pulse a turn ping.
+    bike_turned:           { fields: { peerId: { type: 'string', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
