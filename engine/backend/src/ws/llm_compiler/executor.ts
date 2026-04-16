@@ -196,6 +196,15 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
 
                 if (fixResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(fixResult.costUsd);
 
+                // If the user hit Stop while the CLI was running, don't
+                // commit partial changes to the project. The outer loop's
+                // post-execute abort check will surface the "Generation
+                // stopped" message to the user.
+                if (ctx.abortSignal?.aborted) {
+                    result.toolResults = '[FIX_GAME] Cancelled by user.';
+                    break;
+                }
+
                 if (fixResult.success && fixResult.filesChanged.length > 0) {
                     const updates: Record<string, string | null> = {};
                     for (const [k, v] of Object.entries(fixResult.changedFiles)) updates[k] = v;
@@ -233,6 +242,14 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 const createResult = await runCreator(ctx.projectId, description, sendStatus, ctx.editingAgent, ctx.abortSignal);
 
                 if (createResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(createResult.costUsd);
+
+                // If the user hit Stop while the CLI was running, don't
+                // replace the project with a partial scaffold. The outer
+                // loop's post-execute abort check handles the user message.
+                if (ctx.abortSignal?.aborted) {
+                    result.toolResults = '[CREATE_GAME] Cancelled by user.';
+                    break;
+                }
 
                 if (createResult.success && createResult.files) {
                     const built = ctx.replaceFiles(createResult.files);

@@ -566,12 +566,18 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
             cliOverride,
         );
 
-        client.abortController = null;
-
         if (fixResult.costUsd) {
             for (const p of _plugins) {
                 if (p.onFixerCost) p.onFixerCost(client, fixResult.costUsd);
             }
+        }
+
+        // If Stop fired while the CLI was running, don't commit the partial
+        // files to the project DB. The 20k-tokens/min estimate above still
+        // lands in the usage dashboard.
+        if (abortController.signal.aborted) {
+            finishChat(client, '*Generation stopped.*');
+            return;
         }
 
         const fileChanges: { path: string; type: string }[] = [];
@@ -686,6 +692,11 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
 }
 
 function finishChat(client: EditorClient, displayContent: string, fileChanges: any[] = []): void {
+    // Single terminal cleanup point for the in-flight abort handle. Nulling
+    // anywhere else (mid-chain, between LLM stream end and tool execute,
+    // etc.) breaks Stop mid-flow because the Stop handler short-circuits on
+    // a null client.abortController.
+    client.abortController = null;
     // Save assistant message with post-edit snapshot
     const snapshot = getProjectSnapshot(client.projectId);
     const fileChangesJson = fileChanges.length > 0 ? JSON.stringify(fileChanges) : null;
@@ -737,7 +748,19 @@ async function runLLMWithRetry(
     callLLMStream(messages, {
         onChunk: () => {},
         onDone: async (fullText, usage) => {
-            client.abortController = null;
+            // If the user pressed Stop while the LLM was streaming, bail
+            // now — don't compile, don't execute tools, don't recurse into
+            // the next turn. Token usage from the stream is still reported
+            // below so the user's dashboard reflects what was consumed.
+            if (abortController.signal.aborted) {
+                if (usage) {
+                    for (const p of _plugins) {
+                        if (p.onLLMUsage) p.onLLMUsage(client, usage);
+                    }
+                }
+                finishChat(client, '*Generation stopped.*');
+                return;
+            }
 
             // Report token usage to plugins
             if (usage) {
@@ -767,6 +790,15 @@ async function runLLMWithRetry(
             }
 
             const execResult = await execute(compiled.ast, buildExecContext(client, abortController.signal));
+
+            // Stop may have fired during tool execution (e.g. mid-CREATE_GAME
+            // CLI spawn). The CLI itself gets killed via abortSignal, but we
+            // still need to prevent the follow-up LLM turn and not announce
+            // success for the aborted tool call.
+            if (abortController.signal.aborted) {
+                finishChat(client, '*Generation stopped.*');
+                return;
+            }
 
             const allFileChanges = [...accumulatedFileChanges, ...execResult.fileChanges];
 
