@@ -48,7 +48,8 @@ export async function generateProjectName(prompt: string, timeoutMs: number = 10
         'Generate a short (1-4 words) kebab-case project name for a game based on the user\'s description. ' +
         'Reply with ONLY the name — no quotes, no punctuation, no explanation. ' +
         'Use lowercase letters, digits, and hyphens only. ' +
-        'Examples: "space-shooter", "zombie-survival", "block-world", "racing-game".';
+        'Examples: "space-shooter", "zombie-survival", "block-world", "racing-game". ' +
+        'If the user\'s message is not a meaningful game description (e.g. "hi", "hello", "asdf", "test", random words, greetings, or anything too vague to derive a game name from), reply with exactly SKIP.';
 
     if (!hasDirectApiConfig()) {
         const text = await callCLIForTextCollected(
@@ -97,6 +98,7 @@ export async function generateProjectName(prompt: string, timeoutMs: number = 10
 }
 
 function sanitizeProjectName(raw: string): string | null {
+    if (raw.trim().toLowerCase() === 'skip') return null;
     const cleaned = raw
         .toLowerCase()
         .replace(/["'`]/g, '')
