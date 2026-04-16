@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cinzel', 'Georgia', 'Times New Roman', serif;
+    color: #f5e6b8;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .purse {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    min-width: 170px;
+    background: linear-gradient(180deg, rgba(34, 22, 8, 0.92) 0%, rgba(60, 38, 14, 0.88) 100%);
+    border: 2px solid #8a6a2a;
+    border-radius: 8px;
+    box-shadow:
+      0 4px 18px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 220, 140, 0.15);
+    padding: 6px 12px 8px;
+    color: #f5e6b8;
+    transition: transform 0.18s ease-out;
+  }
+  .purse.hidden { display: none; }
+  .purse.bumped { transform: scale(1.07); }
+  .purse-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #a87a36;
+    margin-bottom: 2px;
+  }
+  .purse-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .purse-coin {
+    font-size: 22px;
+    line-height: 1;
+    color: #ffd066;
+    text-shadow: 0 1px 0 #000, 0 0 10px rgba(255, 200, 80, 0.55);
+  }
+  .purse-amount {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffe48a;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+    font-variant-numeric: tabular-nums;
+  }
+  .purse-target {
+    font-size: 12px;
+    color: #c2a662;
+    margin-left: 4px;
+  }
+  .progress {
+    height: 5px;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 3px;
+    margin-top: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(138, 106, 42, 0.5);
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #d4a04f, #ffd066, #ffe48a);
+    box-shadow: 0 0 8px rgba(255, 200, 80, 0.6);
+    transition: width 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @keyframes coinJingle {
+    0%   { transform: translateY(0)    rotate(0deg);  opacity: 1; }
+    50%  { transform: translateY(-12px) rotate(20deg); opacity: 1; }
+    100% { transform: translateY(-26px) rotate(0deg);  opacity: 0; }
+  }
+  .floater {
+    position: absolute;
+    top: -2px;
+    right: 14px;
+    color: #ffd066;
+    font-size: 16px;
+    font-weight: 700;
+    text-shadow: 0 1px 0 #000;
+    pointer-events: none;
+    animation: coinJingle 0.9s ease-out forwards;
+  }
+</style>
+</head>
+<body>
+<div class="purse hidden" id="purse">
+  <div class="purse-label">Plunder</div>
+  <div class="purse-row">
+    <span class="purse-coin">⚓</span>
+    <span class="purse-amount" id="amount">0</span>
+    <span class="purse-target" id="target">/ 200</span>
+  </div>
+  <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+<script>
+(function () {
+  var purse = document.getElementById('purse');
+  var amountEl = document.getElementById('amount');
+  var targetEl = document.getElementById('target');
+  var progressFill = document.getElementById('progressFill');
+  var lastGold = 0;
+  var bumpTimer = null;
+
+  function render(p) {
+    if (!p) return;
+    purse.classList.remove('hidden');
+    var gold = Math.max(0, Math.floor(p.gold || 0));
+    var target = Math.max(1, Math.floor(p.target || 200));
+    amountEl.textContent = gold;
+    targetEl.textContent = '/ ' + target;
+    var pct = Math.min(100, (gold / target) * 100);
+    progressFill.style.width = pct + '%';
+
+    if (gold > lastGold) {
+      // Bump animation + floating coin amount.
+      purse.classList.add('bumped');
+      if (bumpTimer) clearTimeout(bumpTimer);
+      bumpTimer = setTimeout(function () { purse.classList.remove('bumped'); bumpTimer = null; }, 180);
+
+      var diff = gold - lastGold;
+      var floater = document.createElement('div');
+      floater.className = 'floater';
+      floater.textContent = '+' + diff;
+      purse.appendChild(floater);
+      setTimeout(function () { if (floater.parentNode) floater.parentNode.removeChild(floater); }, 950);
+    }
+    lastGold = gold;
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.goldPurse) render(s.goldPurse);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cinzel', 'Georgia', serif;
+    color: #f5e6b8;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .compass {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 320px;
+    background: linear-gradient(180deg, rgba(34, 22, 8, 0.92), rgba(60, 38, 14, 0.85));
+    border: 2px solid #8a6a2a;
+    border-radius: 10px;
+    box-shadow:
+      0 5px 18px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 220, 140, 0.12);
+    padding: 8px 12px;
+  }
+  .compass.hidden { display: none; }
+  .topline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #a87a36;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .topline .clock {
+    color: #ffd066;
+    letter-spacing: 1.5px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+  }
+  .topline .stormy {
+    color: #ff7171;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    visibility: hidden;
+  }
+  .topline .stormy.visible { visibility: visible; animation: stormPulse 1.4s ease-in-out infinite; }
+  @keyframes stormPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+  .strip-frame {
+    position: relative;
+    height: 26px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 6px;
+    border: 1px solid rgba(138, 106, 42, 0.5);
+  }
+  .strip-frame::before, .strip-frame::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .strip-frame::before { left: 0;  background: linear-gradient(to right, rgba(34,22,8,0.95), rgba(34,22,8,0)); }
+  .strip-frame::after  { right: 0; background: linear-gradient(to left,  rgba(34,22,8,0.95), rgba(34,22,8,0)); }
+
+  .strip {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 200%;
+    display: flex;
+    align-items: center;
+    transition: transform 0.18s ease-out;
+  }
+  .tick {
+    flex: 0 0 auto;
+    color: #c2a662;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-align: center;
+    width: 40px;
+  }
+  .tick.cardinal { color: #ffd066; font-size: 13px; text-shadow: 0 0 6px rgba(255,200,80,0.4); }
+  .tick.minor { font-size: 9px; color: #816d3a; }
+
+  .pointer {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translate(-50%, -2px);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 10px solid #ffd066;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+  }
+
+  .target {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #c2a662;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  .target .arrow {
+    width: 0; height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 11px solid #ffd066;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+    transform-origin: 50% 70%;
+    transition: transform 0.2s ease-out;
+  }
+  .target .label {
+    color: #ffd066;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+  }
+</style>
+</head>
+<body>
+<div class="compass hidden" id="compass">
+  <div class="topline">
+    <div>Spyglass</div>
+    <div class="clock" id="clock">06:00</div>
+    <div class="stormy" id="stormy">⚠ Storm</div>
+  </div>
+  <div class="strip-frame">
+    <div class="strip" id="strip"></div>
+    <div class="pointer"></div>
+  </div>
+  <div class="target">
+    <div class="arrow" id="arrow"></div>
+    <div class="label" id="distance">—</div>
+    <div>to plunder</div>
+  </div>
+</div>
+<script>
+(function () {
+  var compass = document.getElementById('compass');
+  var strip = document.getElementById('strip');
+  var arrow = document.getElementById('arrow');
+  var distanceEl = document.getElementById('distance');
+  var clockEl = document.getElementById('clock');
+  var stormyEl = document.getElementById('stormy');
+
+  // Build a strip with major + minor ticks for two full circles so we can
+  // scroll without seam jumps. Major every 45°, minor every 15°.
+  var dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  function buildStrip() {
+    var html = '';
+    for (var loop = 0; loop < 2; loop++) {
+      for (var deg = 0; deg < 360; deg += 15) {
+        if (deg % 45 === 0) {
+          var name = dirs[(deg / 45) | 0];
+          html += '<div class="tick cardinal">' + name + '</div>';
+        } else {
+          html += '<div class="tick minor">·</div>';
+        }
+      }
+    }
+    strip.innerHTML = html;
+  }
+  buildStrip();
+
+  function setHeading(yawDeg) {
+    // The strip shows 360° across half its width (since width:200%).
+    // Convert yaw to a strip offset so the ship's facing sits under the
+    // pointer in the center.
+    var totalDegrees = 360;            // one revolution
+    var stripWidthPx = strip.offsetWidth || 640; // 2 revolutions = 200% of frame
+    var pxPerDeg = (stripWidthPx / 2) / totalDegrees;
+    var normalized = ((yawDeg % 360) + 360) % 360;
+    var offsetPx = -normalized * pxPerDeg + (compass.offsetWidth || 320) / 2 - 20;
+    strip.style.transform = 'translateX(' + offsetPx + 'px)';
+  }
+
+  function setTarget(angleFromBowDeg, distanceM) {
+    if (angleFromBowDeg == null) {
+      arrow.style.transform = 'rotate(0deg)';
+      distanceEl.textContent = '—';
+      return;
+    }
+    arrow.style.transform = 'rotate(' + angleFromBowDeg + 'deg)';
+    distanceEl.textContent = Math.round(distanceM) + 'm';
+  }
+
+  function setAtmosphere(a) {
+    if (!a) return;
+    var hh = String(a.hour || 0).padStart(2, '0');
+    var mm = String(a.minute || 0).padStart(2, '0');
+    clockEl.textContent = hh + ':' + mm;
+    stormyEl.classList.toggle('visible', !!a.stormy);
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    var sc = s.spyglassCompass;
+    if (sc) {
+      compass.classList.remove('hidden');
+      if (typeof sc.shipYawDeg === 'number') setHeading(sc.shipYawDeg);
+      setTarget(typeof sc.targetAngleDeg === 'number' ? sc.targetAngleDeg : null, sc.targetDistance || 0);
+    }
+    if (s.atmosphere) setAtmosphere(s.atmosphere);
+  });
+})();
+</script>
+</body>
+</html>

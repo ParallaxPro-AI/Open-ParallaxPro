@@ -1,0 +1,37 @@
+{
+  "systems": {
+    "pirate_voyage": {
+      "description": "Treasure-hunt match rules — host spawns floating loot, every captain claims gold by sailing through it. Wins on first to scoreToWin gold or highest plunder when round timer expires.",
+      "script": "mp/pirate_voyage.ts",
+      "params": {
+        "roundDurationSec": 360,
+        "scoreToWin": 200,
+        "pickupRadius": 4.0,
+        "treasureValue": 25,
+        "treasureCount": 8,
+        "treasureRadius": 90,
+        "spawnRingRadius": 22,
+        "treasurePickupSound": "/assets/kenney/audio/digital_audio/phaserUp1.ogg",
+        "voyageStartSound": "/assets/kenney/audio/interface_sounds/confirmation_004.ogg",
+        "winSound": "/assets/kenney/audio/voiceover_pack/male/you_win.ogg"
+      }
+    },
+    "ocean_atmosphere": {
+      "description": "Ambient lighting + fog cycle for a 6-min in-game day. Optional storms desaturate the scene and shrink fog distance for rough-seas mood.",
+      "script": "gameplay/ocean_atmosphere.ts",
+      "params": {
+        "dayLength": 360,
+        "ambientDay": [0.55, 0.65, 0.78],
+        "ambientDusk": [0.42, 0.30, 0.45],
+        "ambientNight": [0.10, 0.12, 0.22],
+        "sunDayColor": [1.00, 0.96, 0.86],
+        "sunDuskColor": [1.00, 0.55, 0.30],
+        "sunNightColor": [0.30, 0.35, 0.55],
+        "ambientPulseFreq": 0.12,
+        "ambientPulseAmp": 0.04,
+        "stormChancePerMinute": 0.15,
+        "stormDuration": 35
+      }
+    }
+  }
+}
