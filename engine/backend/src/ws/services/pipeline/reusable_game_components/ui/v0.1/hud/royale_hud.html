@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: rgba(4, 8, 14, 0.7);
+    --bg-strong: rgba(2, 4, 10, 0.88);
+    --border: rgba(255, 255, 255, 0.07);
+    --border-hot: rgba(255, 255, 255, 0.15);
+    --text: #eef2ff;
+    --text-dim: #8b93a8;
+    --text-muted: #464d60;
+    --hp: #34d399;
+    --hp-glow: rgba(52, 211, 153, 0.4);
+    --armor: #60a5fa;
+    --armor-glow: rgba(96, 165, 250, 0.4);
+    --ammo: #fbbf24;
+    --ammo-glow: rgba(251, 191, 36, 0.5);
+    --danger: #ef4444;
+    --danger-glow: rgba(239, 68, 68, 0.5);
+    --storm: #a855f7;
+    --storm-glow: rgba(168, 85, 247, 0.6);
+    --kill: #f97316;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    background: transparent;
+  }
+
+  /* ───── CROSSHAIR ───── */
+  /* Hidden — the virtual cursor sprite (rendered by ui_bridge while
+     show_cursor is active) is the aim indicator now. The static
+     screen-center cross was confusing because it didn't track aim. */
+  .crosshair {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 18px; height: 18px;
+    pointer-events: none;
+  }
+  .crosshair::before,
+  .crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(239, 68, 68, 0.85);
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+  }
+  .crosshair::before {
+    top: 50%; left: 0; right: 0; height: 2px;
+    transform: translateY(-50%);
+  }
+  .crosshair::after {
+    left: 50%; top: 0; bottom: 0; width: 2px;
+    transform: translateX(-50%);
+  }
+  .crosshair .dot {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px; height: 3px;
+    background: #fff; border-radius: 50%;
+    box-shadow: 0 0 4px var(--danger-glow);
+  }
+
+  /* ───── TOP-LEFT : HEALTH + ARMOR ───── */
+  .vitals {
+    position: fixed;
+    top: 14px; left: 14px;
+    width: 240px;
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  }
+  .bar-shell {
+    position: relative;
+    width: 100%; height: 14px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.05);
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .bar-fill {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    transition: width 0.2s ease;
+  }
+  .bar-label {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 9px; font-weight: 700; letter-spacing: 1.8px;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+  .bar-label .val {
+    color: var(--text); font-variant-numeric: tabular-nums;
+    font-size: 11px;
+  }
+  .bar-fill.hp {
+    background: linear-gradient(90deg, var(--hp), #10b981);
+    box-shadow: 0 0 10px var(--hp-glow);
+  }
+  .bar-fill.hp.low { background: linear-gradient(90deg, var(--danger), #dc2626); box-shadow: 0 0 10px var(--danger-glow); }
+  .bar-fill.armor { background: linear-gradient(90deg, var(--armor), #3b82f6); box-shadow: 0 0 10px var(--armor-glow); }
+
+  .hp-block { margin-bottom: 4px; }
+  .vitals .bar-label .val.low { color: var(--danger); text-shadow: 0 0 8px var(--danger-glow); }
+
+  /* ───── TOP-CENTER : ALIVE + STORM ───── */
+  .top-center {
+    position: fixed;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 10px;
+    align-items: stretch;
+  }
+  .badge {
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 18px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  }
+  .badge .lbl {
+    font-size: 8px; letter-spacing: 2px; font-weight: 700;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+  .badge .val {
+    font-size: 22px; font-weight: 900;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .badge.alive .val { color: var(--hp); text-shadow: 0 0 12px var(--hp-glow); }
+  .badge.storm .val { color: var(--storm); text-shadow: 0 0 12px var(--storm-glow); }
+  .badge.storm.shrinking { border-color: rgba(168,85,247,0.4); animation: stormPulse 1.5s ease-in-out infinite; }
+  .badge.storm.final .val { color: var(--danger); text-shadow: 0 0 16px var(--danger-glow); }
+  @keyframes stormPulse {
+    0%, 100% { box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 0 0 0 rgba(168,85,247,0.4); }
+    50% { box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 0 22px 2px rgba(168,85,247,0.15); }
+  }
+
+  /* ───── TOP-RIGHT : KILL FEED ───── */
+  .kill-feed {
+    position: fixed;
+    top: 14px; right: 14px;
+    width: 260px;
+    display: flex; flex-direction: column; gap: 4px;
+    pointer-events: none;
+  }
+  .kill-entry {
+    background: var(--bg);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px; font-weight: 700;
+    color: var(--text);
+    display: flex; align-items: center; gap: 6px;
+    animation: slideFromRight 0.25s ease-out;
+  }
+  .kill-entry .killer { color: var(--danger); text-shadow: 0 0 6px var(--danger-glow); }
+  .kill-entry .victim { color: var(--text-dim); }
+  .kill-entry .weapon {
+    font-size: 9px; color: var(--kill);
+    background: rgba(249,115,22,0.15);
+    padding: 1px 6px; border-radius: 4px;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .kill-entry.storm .weapon { color: var(--storm); background: rgba(168,85,247,0.15); }
+  @keyframes slideFromRight {
+    0% { opacity: 0; transform: translateX(24px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ───── BOTTOM-LEFT : MINIMAP ───── */
+  .minimap {
+    position: fixed;
+    bottom: 14px; left: 14px;
+    width: 200px; height: 200px;
+    background: rgba(2, 3, 8, 0.82);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border-hot);
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+    overflow: hidden;
+  }
+  .minimap .lbl {
+    position: absolute;
+    top: 6px; left: 8px;
+    font-size: 9px; font-weight: 700; letter-spacing: 2px;
+    color: var(--text-muted); text-transform: uppercase;
+    z-index: 2;
+  }
+  .mm-inner {
+    position: relative;
+    width: 100%; height: 100%;
+    background: radial-gradient(circle, rgba(34,197,94,0.06), rgba(0,0,0,0.6));
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .mm-storm {
+    position: absolute;
+    border: 2px solid var(--storm);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--storm-glow), inset 0 0 18px rgba(168,85,247,0.2);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .mm-dot {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 4px rgba(0,0,0,0.5);
+  }
+  .mm-dot.me {
+    width: 8px; height: 8px;
+    background: var(--hp);
+    box-shadow: 0 0 10px var(--hp-glow);
+  }
+  .mm-dot.storm {
+    background: var(--storm);
+    box-shadow: 0 0 6px var(--storm-glow);
+  }
+  .mm-tracer {
+    position: absolute;
+    background: rgba(251, 191, 36, 0.6);
+    height: 1px;
+    transform-origin: 0 50%;
+    pointer-events: none;
+    box-shadow: 0 0 4px var(--ammo-glow);
+  }
+
+  /* ───── BOTTOM-CENTER : WEAPON + AMMO ───── */
+  .weapon-panel {
+    position: fixed;
+    bottom: 14px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-strong);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border-hot);
+    border-radius: 14px;
+    padding: 12px 24px;
+    text-align: center;
+    min-width: 300px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  }
+  .weapon-name {
+    font-size: 10px; font-weight: 700; letter-spacing: 2.4px;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+  .weapon-ammo {
+    display: flex; align-items: baseline; gap: 4px;
+    justify-content: center;
+    font-family: 'Menlo', 'Consolas', monospace;
+    margin-top: 2px;
+  }
+  .weapon-ammo .cur {
+    font-size: 34px; font-weight: 900;
+    color: var(--ammo);
+    text-shadow: 0 0 14px var(--ammo-glow);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .weapon-ammo .cur.low { color: var(--danger); text-shadow: 0 0 14px var(--danger-glow); }
+  .weapon-ammo .sep { font-size: 16px; color: var(--text-muted); }
+  .weapon-ammo .res {
+    font-size: 18px; font-weight: 700;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .weapon-slots {
+    display: flex; gap: 6px; justify-content: center; margin-top: 8px;
+  }
+  .slot {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+    color: var(--text-dim);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .slot.active { border-color: var(--ammo); color: var(--ammo); box-shadow: 0 0 10px var(--ammo-glow); background: rgba(251,191,36,0.1); }
+  .slot .key {
+    font-size: 9px; background: rgba(255,255,255,0.08);
+    padding: 1px 4px; border-radius: 3px;
+    color: var(--text); font-weight: 800;
+  }
+  .reload-bar {
+    margin-top: 6px;
+    width: 100%; height: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px; overflow: hidden;
+    display: none;
+  }
+  .reload-bar.visible { display: block; }
+  .reload-fill { height: 100%; background: var(--ammo); transition: width 0.08s linear; box-shadow: 0 0 6px var(--ammo-glow); }
+
+  /* ───── BOTTOM-RIGHT : HEALS + STATS ───── */
+  .stats-panel {
+    position: fixed;
+    bottom: 14px; right: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    align-items: flex-end;
+  }
+  .stats-row {
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  }
+  .stats-row .lbl { font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--text-muted); text-transform: uppercase; }
+  .stats-row .val { font-size: 16px; font-weight: 900; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stats-row.heals .val { color: var(--hp); text-shadow: 0 0 10px var(--hp-glow); }
+  .stats-row.kills .val { color: var(--danger); text-shadow: 0 0 10px var(--danger-glow); }
+
+  /* ───── CONTROLS HINT ───── */
+  .controls {
+    position: fixed;
+    top: 50%; left: 14px;
+    transform: translateY(-50%);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 10px; font-weight: 600; color: var(--text-dim);
+    line-height: 1.7;
+    max-width: 160px;
+    display: none;
+  }
+  .controls.visible { display: block; }
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border-hot);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 9px; font-weight: 800;
+    color: var(--text);
+    margin-right: 3px;
+  }
+
+  /* ───── STORM VIGNETTE (outside zone) ───── */
+  .storm-vignette {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(168, 85, 247, 0.25) 90%);
+    pointer-events: none;
+    display: none;
+    animation: vignettePulse 1.2s ease-in-out infinite;
+    z-index: 5;
+  }
+  .storm-vignette.visible { display: block; }
+  @keyframes vignettePulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1.0; }
+  }
+  .storm-warning {
+    position: fixed;
+    top: 35%; left: 50%; transform: translateX(-50%);
+    font-size: 28px; font-weight: 900;
+    color: var(--storm); text-shadow: 0 0 20px var(--storm-glow);
+    letter-spacing: 4px; text-transform: uppercase;
+    display: none;
+    animation: vignettePulse 1s ease-in-out infinite;
+    z-index: 6;
+  }
+  .storm-warning.visible { display: block; }
+
+  /* ───── MATCH START BANNER ───── */
+  .match-banner {
+    position: fixed;
+    top: 38%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    display: none;
+    z-index: 10;
+  }
+  .match-banner.visible { display: block; }
+  .match-banner .title {
+    font-size: 58px; font-weight: 900;
+    color: var(--text); text-shadow: 0 0 30px rgba(251,191,36,0.45), 0 6px 24px rgba(0,0,0,0.7);
+    letter-spacing: 6px;
+    animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .match-banner .sub {
+    font-size: 14px; color: var(--ammo);
+    letter-spacing: 3px; margin-top: 8px;
+    text-transform: uppercase; font-weight: 700;
+  }
+  @keyframes popIn {
+    0% { opacity: 0; transform: scale(0.7); }
+    70% { transform: scale(1.08); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  /* ───── DEATH OVERLAY ───── */
+  .death-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(40, 0, 0, 0.7), rgba(2, 2, 5, 0.92));
+    display: none;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .death-overlay.visible { display: block; animation: deathFade 0.4s ease-out; }
+  .death-content {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .death-overlay .title {
+    font-size: 64px; font-weight: 900; color: var(--danger);
+    text-shadow: 0 0 28px var(--danger-glow);
+    letter-spacing: 4px;
+  }
+  .death-overlay .sub {
+    font-size: 18px; color: var(--text-dim); margin-top: 8px;
+    letter-spacing: 2px; font-weight: 600;
+  }
+  @keyframes deathFade {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Crosshair -->
+<div class="crosshair" id="crosshair"><div class="dot"></div></div>
+
+<!-- Storm warning vignette -->
+<div class="storm-vignette" id="storm-vignette"></div>
+<div class="storm-warning" id="storm-warning">⚠ OUTSIDE ZONE ⚠</div>
+
+<!-- Vitals -->
+<div class="vitals">
+  <div class="hp-block">
+    <div class="bar-label"><span>Health</span><span class="val" id="hp-val">100</span></div>
+    <div class="bar-shell"><div class="bar-fill hp" id="hp-fill" style="width:100%"></div></div>
+  </div>
+  <div class="armor-block">
+    <div class="bar-label"><span>Armor</span><span class="val" id="armor-val">0</span></div>
+    <div class="bar-shell"><div class="bar-fill armor" id="armor-fill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<!-- Top center -->
+<div class="top-center">
+  <div class="badge alive"><div class="lbl">Alive</div><div class="val" id="alive-val">0</div></div>
+  <div class="badge storm" id="storm-badge">
+    <div class="lbl" id="storm-lbl">Storm</div>
+    <div class="val" id="storm-val">—</div>
+  </div>
+  <div class="badge"><div class="lbl">Kills</div><div class="val" id="kill-val">0</div></div>
+</div>
+
+<!-- Kill feed -->
+<div class="kill-feed" id="kill-feed"></div>
+
+<!-- Minimap -->
+<div class="minimap">
+  <div class="lbl">Map</div>
+  <div class="mm-inner" id="mm-inner">
+    <div class="mm-storm" id="mm-storm"></div>
+    <div class="mm-dot me" id="mm-me" style="top:50%;left:50%"></div>
+  </div>
+</div>
+
+<!-- Weapon panel -->
+<div class="weapon-panel">
+  <div class="weapon-name" id="weapon-name">FISTS</div>
+  <div class="weapon-ammo">
+    <span class="cur" id="ammo-cur">—</span>
+    <span class="sep">/</span>
+    <span class="res" id="ammo-res">—</span>
+  </div>
+  <div class="weapon-slots" id="weapon-slots"></div>
+  <div class="reload-bar" id="reload-bar"><div class="reload-fill" id="reload-fill" style="width:0%"></div></div>
+</div>
+
+<!-- Stats panel -->
+<div class="stats-panel">
+  <div class="stats-row heals"><span class="lbl">Heals [H]</span><span class="val" id="heals-val">0</span></div>
+  <div class="stats-row"><span class="lbl">Damage</span><span class="val" id="dmg-val">0</span></div>
+</div>
+
+<!-- Controls -->
+<div class="controls visible">
+  <div><kbd>W A S D</kbd> Move</div>
+  <div><kbd>Shift</kbd> Sprint</div>
+  <div><kbd>Click</kbd> Fire</div>
+  <div><kbd>R</kbd> Reload</div>
+  <div><kbd>1</kbd>–<kbd>4</kbd> Swap</div>
+  <div><kbd>E</kbd>/<kbd>F</kbd> Pickup</div>
+  <div><kbd>H</kbd> Heal</div>
+</div>
+
+<!-- Match start banner -->
+<div class="match-banner" id="match-banner">
+  <div class="title">DROP IN</div>
+  <div class="sub" id="match-sub">SCAVENGE · SHOOT · SURVIVE</div>
+</div>
+
+<!-- Death overlay -->
+<div class="death-overlay" id="death-overlay">
+  <div class="death-content">
+    <div class="title">ELIMINATED</div>
+    <div class="sub" id="death-sub">Spectating the storm…</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var els = {
+    hpVal: document.getElementById('hp-val'),
+    hpFill: document.getElementById('hp-fill'),
+    armorVal: document.getElementById('armor-val'),
+    armorFill: document.getElementById('armor-fill'),
+    aliveVal: document.getElementById('alive-val'),
+    stormVal: document.getElementById('storm-val'),
+    stormLbl: document.getElementById('storm-lbl'),
+    stormBadge: document.getElementById('storm-badge'),
+    killVal: document.getElementById('kill-val'),
+    killFeed: document.getElementById('kill-feed'),
+    mmInner: document.getElementById('mm-inner'),
+    mmStorm: document.getElementById('mm-storm'),
+    mmMe: document.getElementById('mm-me'),
+    weaponName: document.getElementById('weapon-name'),
+    ammoCur: document.getElementById('ammo-cur'),
+    ammoRes: document.getElementById('ammo-res'),
+    weaponSlots: document.getElementById('weapon-slots'),
+    reloadBar: document.getElementById('reload-bar'),
+    reloadFill: document.getElementById('reload-fill'),
+    healsVal: document.getElementById('heals-val'),
+    dmgVal: document.getElementById('dmg-val'),
+    stormVignette: document.getElementById('storm-vignette'),
+    stormWarning: document.getElementById('storm-warning'),
+    matchBanner: document.getElementById('match-banner'),
+    deathOverlay: document.getElementById('death-overlay'),
+    deathSub: document.getElementById('death-sub'),
+  };
+
+  var prevShotKeys = {};
+  var phase = '';
+  var bannerShown = false;
+  var mapExtent = 58;  // world half-extent shown on minimap
+
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderKillFeed(feed) {
+    if (!feed) return;
+    // We trust the system to only prepend new lines so we can render
+    // bottom-up. Keep the last 5 for screen real estate.
+    var visible = feed.slice(0, 5);
+    var html = '';
+    for (var i = 0; i < visible.length; i++) {
+      var k = visible[i];
+      var wep = k.weapon ? '<span class="weapon">' + escape(k.weapon) + '</span>' : '';
+      var cls = 'kill-entry' + (k.weapon === 'storm' ? ' storm' : '');
+      var killerName = k.killer || '—';
+      html += '<div class="' + cls + '">' +
+              '<span class="killer">' + escape(killerName) + '</span>' +
+              '<span style="color:#666">▸</span>' +
+              '<span class="victim">' + escape(k.victim || '') + '</span>' +
+              wep + '</div>';
+    }
+    els.killFeed.innerHTML = html;
+  }
+
+  function renderSlots(loadout) {
+    if (!loadout) return;
+    var html = '';
+    var keys = ['1', '2', '3', '4'];
+    for (var i = 0; i < keys.length; i++) {
+      var s = loadout.slots[i];
+      if (!s) { html += '<div class="slot"><span class="key">' + keys[i] + '</span><span style="opacity:0.35">empty</span></div>'; continue; }
+      var cls = 'slot' + (loadout.active === i ? ' active' : '');
+      html += '<div class="' + cls + '"><span class="key">' + keys[i] + '</span>' + escape(s.label || s.id) + '</div>';
+    }
+    els.weaponSlots.innerHTML = html;
+  }
+
+  function renderMinimap(mm) {
+    if (!mm) return;
+    var size = els.mmInner.clientWidth || 184;
+    // World bounds shown on minimap — centered at world origin.
+    var scale = size / (mapExtent * 2);
+
+    // Storm ring
+    if (mm.storm && typeof mm.storm.r === 'number' && mm.storm.r > 0) {
+      var cx = (mapExtent + mm.storm.cx) * scale;
+      var cz = (mapExtent + mm.storm.cz) * scale;
+      var d  = mm.storm.r * 2 * scale;
+      els.mmStorm.style.left = cx + 'px';
+      els.mmStorm.style.top  = cz + 'px';
+      els.mmStorm.style.width  = d + 'px';
+      els.mmStorm.style.height = d + 'px';
+      els.mmStorm.style.display = '';
+    } else {
+      els.mmStorm.style.display = 'none';
+    }
+
+    // Local player dot
+    if (typeof mm.localX === 'number' && typeof mm.localZ === 'number') {
+      var mx = (mapExtent + mm.localX) * scale;
+      var mz = (mapExtent + mm.localZ) * scale;
+      els.mmMe.style.left = mx + 'px';
+      els.mmMe.style.top  = mz + 'px';
+    }
+  }
+
+  function renderShots(shots) {
+    if (!shots) return;
+    var inner = els.mmInner;
+    var size = inner.clientWidth || 184;
+    var scale = size / (mapExtent * 2);
+
+    // Remove stale tracers whose keys aren't in the new shot list.
+    var want = {};
+    for (var i = 0; i < shots.length; i++) {
+      var s = shots[i];
+      var key = Math.round(s.ox) + ',' + Math.round(s.oz) + ':' + Math.round(s.ex) + ',' + Math.round(s.ez);
+      want[key] = true;
+      if (prevShotKeys[key]) continue;
+      prevShotKeys[key] = true;
+      var ox = (mapExtent + s.ox) * scale;
+      var oz = (mapExtent + s.oz) * scale;
+      var ex = (mapExtent + s.ex) * scale;
+      var ez = (mapExtent + s.ez) * scale;
+      var dx = ex - ox, dz = ez - oz;
+      var len = Math.sqrt(dx * dx + dz * dz);
+      var ang = Math.atan2(dz, dx) * 180 / Math.PI;
+      var t = document.createElement('div');
+      t.className = 'mm-tracer';
+      t.style.left = ox + 'px';
+      t.style.top  = oz + 'px';
+      t.style.width = len + 'px';
+      t.style.transform = 'rotate(' + ang + 'deg)';
+      t.dataset.key = key;
+      t.style.opacity = '1';
+      inner.appendChild(t);
+      setTimeout((function(tt) { return function() { if (tt && tt.parentNode) tt.parentNode.removeChild(tt); }; })(t), 260);
+    }
+    // Stale key pruning is handled by the setTimeout above; we also
+    // clear the prevShotKeys slot so we don't leak forever.
+    var newKeys = {};
+    for (var k in prevShotKeys) if (want[k]) newKeys[k] = true;
+    prevShotKeys = newKeys;
+  }
+
+  function showBannerOnce(phase, sub) {
+    if (bannerShown) return;
+    if (phase !== 'warmup' && phase !== 'playing') return;
+    bannerShown = true;
+    els.matchBanner.classList.add('visible');
+    if (sub) document.getElementById('match-sub').textContent = sub;
+    setTimeout(function() { els.matchBanner.classList.remove('visible'); }, 2400);
+  }
+
+  function update(state) {
+    if (!state) return;
+    var s = state._royale;
+    var w = state._royaleWeapon;
+    if (!s && !w) return;
+
+    if (s) {
+      phase = s.phase;
+      showBannerOnce(phase);
+
+      // HP + armor
+      var hpPct = Math.max(0, Math.min(100, (s.myHealth / s.maxHealth) * 100));
+      els.hpFill.style.width = hpPct + '%';
+      els.hpFill.className = 'bar-fill hp' + (hpPct < 30 ? ' low' : '');
+      els.hpVal.textContent = Math.round(s.myHealth);
+      els.hpVal.className = 'val' + (hpPct < 30 ? ' low' : '');
+
+      var armorPct = Math.max(0, Math.min(100, (s.myArmor / s.maxArmor) * 100));
+      els.armorFill.style.width = armorPct + '%';
+      els.armorVal.textContent = Math.round(s.myArmor);
+
+      // Top center badges
+      els.aliveVal.textContent = s.aliveCount || 0;
+      els.killVal.textContent = s.myKills || 0;
+
+      var storm = s.storm || {};
+      els.stormBadge.className = 'badge storm' + (storm.phase === 'shrinking' ? ' shrinking' : '') + (storm.phase === 'final' ? ' final' : '');
+      if (storm.phase === 'warning') {
+        els.stormLbl.textContent = 'Storm in';
+        els.stormVal.textContent = (storm.countdown || 0) + 's';
+      } else if (storm.phase === 'shrinking') {
+        els.stormLbl.textContent = 'Shrinking';
+        els.stormVal.textContent = (storm.countdown || 0) + 's';
+      } else if (storm.phase === 'final') {
+        els.stormLbl.textContent = 'Zone Locked';
+        els.stormVal.textContent = Math.round(storm.radius || 0) + 'm';
+      } else {
+        els.stormLbl.textContent = 'Zone';
+        els.stormVal.textContent = '—';
+      }
+
+      // Kill feed
+      renderKillFeed(s.killFeed);
+
+      // Minimap
+      renderMinimap(s.minimap || {});
+      renderShots(s.shots || []);
+
+      // Heals + damage
+      els.healsVal.textContent = s.heals || 0;
+      els.dmgVal.textContent = s.myDamage || 0;
+
+      // Outside-zone vignette
+      var outside = false;
+      if (s.minimap && typeof s.minimap.localX === 'number' && typeof s.minimap.localZ === 'number' &&
+          storm.radius > 0 && storm.phase && storm.phase !== 'idle' && storm.phase !== 'warning') {
+        var dx = s.minimap.localX - (storm.center ? storm.center.x : 0);
+        var dz = s.minimap.localZ - (storm.center ? storm.center.z : 0);
+        outside = (dx * dx + dz * dz) > storm.radius * storm.radius;
+      }
+      if (outside && s.myAlive) {
+        els.stormVignette.classList.add('visible');
+        els.stormWarning.classList.add('visible');
+      } else {
+        els.stormVignette.classList.remove('visible');
+        els.stormWarning.classList.remove('visible');
+      }
+
+      // Death overlay
+      if (!s.myAlive && phase !== 'ended' && phase !== 'warmup') {
+        els.deathOverlay.classList.add('visible');
+      } else {
+        els.deathOverlay.classList.remove('visible');
+      }
+    }
+
+    if (w) {
+      els.weaponName.textContent = (w.currentLabel || 'FISTS').toUpperCase();
+      var slot = w.slots && w.slots[w.active];
+      if (slot && slot.magCapacity > 0) {
+        els.ammoCur.textContent = slot.ammo;
+        els.ammoCur.className = 'cur' + (slot.ammo <= Math.max(1, Math.round(slot.magCapacity * 0.2)) ? ' low' : '');
+        els.ammoRes.textContent = slot.reserve || 0;
+      } else {
+        els.ammoCur.textContent = '∞';
+        els.ammoCur.className = 'cur';
+        els.ammoRes.textContent = '—';
+      }
+      renderSlots(w);
+      if (w.reloading) {
+        els.reloadBar.classList.add('visible');
+        // reloadTimer counts DOWN; our bar fills 0→1 over the full cycle.
+        // We don't know the full duration from the payload, so just
+        // approximate via the inverse — below 1 is "mostly reloaded".
+        var pct = Math.max(0, Math.min(1, 1 - (w.reloadTimer || 0) / 2));
+        els.reloadFill.style.width = (pct * 100).toFixed(1) + '%';
+      } else {
+        els.reloadBar.classList.remove('visible');
+      }
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

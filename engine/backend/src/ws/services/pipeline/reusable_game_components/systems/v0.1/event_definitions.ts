@@ -287,6 +287,34 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     // Team assignment broadcast from host at match start so everyone
     // agrees on who's on which team (host is authoritative).
     net_team_assignment:   { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+
+    // ── Zone Royale (multiplayer_zone_royale) ──
+    // Input intents emitted by player_shooter_movement + mp_hitscan_weapon +
+    // loot_crate. The match system owns validation/authority — these are
+    // just a narrow input vocabulary a different top-down shooter can reuse.
+    royale_fire_start:          { fields: { aimX: { type: 'number', optional: true }, aimZ: { type: 'number', optional: true } } },
+    royale_fire_stop:           { fields: {} },
+    royale_reload_pressed:      { fields: {} },
+    royale_switch_slot:         { fields: { slot: { type: 'number', optional: true } } },
+    royale_heal_pressed:        { fields: {} },
+    royale_pickup_pressed:      { fields: { x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    royale_pickup_request:      { fields: { lootId: { type: 'string', optional: true }, lootKind: { type: 'string', optional: true }, kind: { type: 'string', optional: true }, payload: { type: 'any', optional: true }, x: { type: 'number', optional: true }, y: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    royale_loot_picked_local:   { fields: { lootId: { type: 'string', optional: true } } },
+    royale_loadout_set:         { fields: { slots: { type: 'any', optional: true }, index: { type: 'number', optional: true }, reserve: { type: 'any', optional: true } } },
+    royale_damage_local:        { fields: { victimPeerId: { type: 'string', optional: true }, damage: { type: 'number', optional: true }, weapon: { type: 'string', optional: true }, x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    royale_match_reset:         { fields: {} },
+    // Host-authoritative broadcasts echoed back via mp_bridge as net_* —
+    // initial loot layout, storm tick snapshots, loot pickups, shots,
+    // damage pings, death notices, heal/armor syncs, match-end summary.
+    net_royale_loot_layout:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_royale_storm_tick:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_royale_loot_picked:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_royale_shot:            { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_royale_damage:          { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_royale_player_died:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_royale_heal:            { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_royale_armor:           { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_royale_match_ended:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
