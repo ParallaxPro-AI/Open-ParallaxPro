@@ -364,6 +364,29 @@ export class AiChatPanel {
 
     // ── Agent picker ────────────────────────────────────────────────
 
+    /** localStorage 'chat_agent' may be stale (e.g. user picked LLM API on
+     *  one backend, then opens another with no AI_BASE_URL). Validate
+     *  against what the connected event advertised, falling back to the
+     *  same default the settings panel would show. */
+    private pickChatAgent(): string | undefined {
+        const cliIds = (this.ctx.state.availableAgents ?? []).map(a => a.id);
+        const valid = new Set<string>(cliIds);
+        if (this.ctx.state.llmApiAvailable) valid.add('llm_api');
+        if (valid.size === 0) return undefined;
+        const saved = localStorage.getItem('chat_agent');
+        if (saved && valid.has(saved)) return saved;
+        return this.ctx.state.llmApiAvailable ? 'llm_api' : cliIds[0];
+    }
+
+    /** Same idea for the editing-agent (FIX_GAME) preference. */
+    private pickEditingAgent(): string | undefined {
+        const cliIds = (this.ctx.state.availableAgents ?? []).map(a => a.id);
+        if (cliIds.length === 0) return undefined;
+        const saved = localStorage.getItem('editing_agent');
+        if (saved && cliIds.includes(saved)) return saved;
+        return cliIds.includes('claude') ? 'claude' : cliIds[0];
+    }
+
     /** Rebuild <option> nodes in the picker. Runs at startup + after the
      *  connected event gives us the backend's availableAgents list. */
     private rebuildAgentOptions(): void {
@@ -492,9 +515,7 @@ export class AiChatPanel {
         this.transitionTo(State.STREAMING);
         this.pendingChunks = '';
         this.showTypingIndicator();
-        const chatAgent = localStorage.getItem('chat_agent') ?? undefined;
-        const editingAgent = localStorage.getItem('editing_agent') ?? undefined;
-        this.ctx.backend.sendChatMessage(text, this.selectedAgent, chatAgent, editingAgent);
+        this.ctx.backend.sendChatMessage(text, this.selectedAgent, this.pickChatAgent(), this.pickEditingAgent());
         this.scrollToBottom();
     }
 
