@@ -198,6 +198,16 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     foul_committed:     { fields: {} },
     period_ended:       { fields: { period: { type: 'number', optional: true } } },
 
+    // ── Capture the Flag / Team Objective ──
+    // Emitted locally by flag_bearer / banner_siege_game when a banner
+    // transitions between states. `flagTeam` is which team the banner
+    // belongs to (red/blue); `team` is the team of the player acting on it.
+    flag_picked_up:     { fields: { peerId: { type: 'string', optional: true }, team: { type: 'string', optional: true }, flagTeam: { type: 'string', optional: true } } },
+    flag_dropped:       { fields: { peerId: { type: 'string', optional: true }, flagTeam: { type: 'string', optional: true }, x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    flag_returned:      { fields: { flagTeam: { type: 'string', optional: true }, reason: { type: 'string', optional: true } } },
+    flag_captured:      { fields: { peerId: { type: 'string', optional: true }, team: { type: 'string', optional: true }, flagTeam: { type: 'string', optional: true } } },
+    team_score_changed: { fields: { red: { type: 'number', optional: true }, blue: { type: 'number', optional: true } } },
+
     // ── Puzzle ──
     puzzle_solved:      { fields: {} },
     piece_placed:       { fields: { piece: { type: 'string', optional: true } } },
@@ -268,6 +278,15 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     net_player_shot:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_player_killed:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_player_respawn:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Banner Siege / CTF: flag state transitions need to sync so both
+    // peers see the banner follow its new owner or return to base.
+    net_flag_picked_up:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_flag_dropped:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_flag_returned:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    net_flag_captured:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Team assignment broadcast from host at match start so everyone
+    // agrees on who's on which team (host is authoritative).
+    net_team_assignment:   { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
 export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
