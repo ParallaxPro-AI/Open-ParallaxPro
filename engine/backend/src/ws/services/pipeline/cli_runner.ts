@@ -54,6 +54,15 @@ export function acquireCLISlot(cliOverride?: string, sendStatus?: (msg: string) 
     });
 }
 
+/** Snapshot of active/queued CLI slots for admin dashboards. */
+export function getCLISlotStats(): Record<string, { active: number; queued: number; max: number }> {
+    const result: Record<string, { active: number; queued: number; max: number }> = {};
+    for (const cli of Object.keys(MAX_PER_CLI) as CLIName[]) {
+        result[cli] = { active: activeCountByCLI[cli], queued: waitQueueByCLI[cli].length, max: MAX_PER_CLI[cli] };
+    }
+    return result;
+}
+
 export function releaseCLISlot(cliOverride?: string): void {
     const cli = resolveCLI(cliOverride);
     activeCountByCLI[cli]--;

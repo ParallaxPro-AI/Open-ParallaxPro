@@ -116,6 +116,12 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         res.json({ status: 'ok' });
     });
 
+    // CLI slot stats for admin dashboards
+    const { getCLISlotStats } = await import('./ws/services/pipeline/cli_runner.js');
+    app.get('/api/engine/cli-slots', (_req, res) => {
+        res.json(getCLISlotStats());
+    });
+
     // WS ticket exchange — trade a JWT for a short-lived one-time ticket
     // so the actual token never appears in WebSocket URLs
     const { createWsTicket } = await import('./ws/ws_tickets.js');
