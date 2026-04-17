@@ -84,12 +84,34 @@ export function templateIndexReady(): boolean {
     return templateEmbeddings !== null;
 }
 
+// Build the embedding corpus by concatenating each template's
+// hand-curated description with all of its keyword synonyms. Keywords
+// carry the named-franchise hits ("frogger", "tron", "surviv.io") that
+// descriptions phrase more generically, so folding them into the
+// embedded text lets a single cached vector answer both literal and
+// semantic queries.
+function buildCorpus(): Array<{ key: string; text: string }> {
+    const keywordsByTemplate = new Map<string, string[]>();
+    for (const [synonyms, id] of TEMPLATE_KEYWORDS) {
+        const bucket = keywordsByTemplate.get(id) ?? [];
+        bucket.push(...synonyms);
+        keywordsByTemplate.set(id, bucket);
+    }
+    return TEMPLATES.map(t => {
+        const kws = keywordsByTemplate.get(t.id);
+        const text = kws && kws.length > 0
+            ? `${t.description} ${kws.join(' ')}`
+            : t.description;
+        return { key: t.id, text };
+    });
+}
+
 // Idempotent — safe to call multiple times. Concurrent calls share the same
 // in-flight promise.
 export function initTemplateEmbeddings(): Promise<void> {
     if (initPromise) return initPromise;
     initPromise = (async () => {
-        const corpus = TEMPLATES.map(t => ({ key: t.id, text: t.description }));
+        const corpus = buildCorpus();
         const fingerprint = computeFingerprint(corpus);
 
         if (fs.existsSync(TEMPLATE_EMBEDDINGS_CACHE)) {
@@ -156,13 +178,30 @@ export async function pickClosestTemplate(description: string): Promise<Template
     return { id: null, score: 0, method: 'none' };
 }
 
+// Search-UI helper: returns all known template ids ranked by cosine
+// similarity against the cached embeddings. Throws if embeddings aren't
+// ready so the caller can fall back to keyword/substring matching.
+export async function rankTemplatesBySearch(query: string): Promise<Array<{ id: string; score: number }>> {
+    if (initPromise) {
+        try { await initPromise; } catch { /* fall through */ }
+    }
+    if (!templateEmbeddings) throw new Error('template embeddings not ready');
+    const queryVec = await embedText(query);
+    const ranked: Array<{ id: string; score: number }> = [];
+    for (const [id, vec] of templateEmbeddings) {
+        ranked.push({ id, score: cosineSimilarity(queryVec, vec) });
+    }
+    ranked.sort((a, b) => b.score - a.score);
+    return ranked;
+}
+
 // ─── Keyword fallback ──────────────────────────────────────────────────────
 //
 // Used while embeddings are still warming up at boot, or as a second-chance
 // after embedding misses. Order matters: more specific keywords come first
 // so e.g. "multiplayer fps shooter" matches fps_shooter before plain "fps".
 
-const TEMPLATE_KEYWORDS: Array<[string[], string]> = [
+export const TEMPLATE_KEYWORDS: Array<[string[], string]> = [
     [['squid game', 'red light green light', 'glass bridge', 'elimination round'], 'deadly_games'],
     [['among us', 'social deduction', 'impostor'], 'multiplayer_coin_grab'],
     [['battle royale', 'pubg', 'fortnite', 'shrinking zone', 'zone shrinks'], 'survival_zone'],

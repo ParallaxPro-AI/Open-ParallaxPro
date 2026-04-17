@@ -1178,13 +1178,20 @@ git checkout da571fe   # last commit before template unification`;
 
         let allTemplates: any[] = [];
         let selectedTemplateId = '';
+        // When allTemplates came back from the semantic search endpoint it
+        // is already ranked; re-filtering by substring would drop the
+        // matches whose relevance the embedder picked up. `isRanked` skips
+        // the client-side substring pass in that mode.
+        let isRanked = false;
 
         const renderTemplateList = (filter: string) => {
             templateList.innerHTML = '';
             const query = filter.toLowerCase();
-            const filtered = allTemplates.filter(t =>
-                !query || t.name.toLowerCase().includes(query) || t.id.toLowerCase().includes(query) || (t.description || '').toLowerCase().includes(query)
-            );
+            const filtered = (isRanked || !query)
+                ? allTemplates
+                : allTemplates.filter(t =>
+                    t.name.toLowerCase().includes(query) || t.id.toLowerCase().includes(query) || (t.description || '').toLowerCase().includes(query)
+                );
             if (filtered.length === 0) {
                 const empty = document.createElement('div');
                 empty.textContent = query ? 'No templates match your search' : 'Loading...';
@@ -1235,26 +1242,46 @@ git checkout da571fe   # last commit before template unification`;
             }
         };
 
-        // Load templates from backend
+        // Load templates from backend (catalog order)
         this.ctx.backend.listTemplates().then((data: any) => {
             allTemplates = data?.templates || [];
+            isRanked = false;
             renderTemplateList('');
         }).catch(() => {});
 
-        // Search: instant client-side filter + debounced semantic search
+        // Search: instant client-side substring filter while typing, then a
+        // debounced semantic search that replaces the list with the
+        // embedder's ranked results. Clearing the query restores catalog order.
         let searchTimer: any = null;
         searchInput.addEventListener('input', () => {
-            // Instant client-side filter
+            const query = searchInput.value.trim();
+
+            if (searchTimer) clearTimeout(searchTimer);
+
+            if (query.length === 0) {
+                // Restore catalog order and re-enable substring filter.
+                this.ctx.backend.listTemplates().then((data: any) => {
+                    allTemplates = data?.templates || allTemplates;
+                    isRanked = false;
+                    renderTemplateList('');
+                }).catch(() => {
+                    isRanked = false;
+                    renderTemplateList('');
+                });
+                return;
+            }
+
+            // Instant substring filter off whatever list we're currently
+            // showing. If the list is already ranked, the substring pass is
+            // skipped inside renderTemplateList so we don't hide semantic hits.
             renderTemplateList(searchInput.value);
 
-            // Debounced semantic search from backend
-            if (searchTimer) clearTimeout(searchTimer);
-            const query = searchInput.value.trim();
             if (query.length >= 2) {
                 searchTimer = setTimeout(() => {
                     this.ctx.backend.listTemplates(query).then((data: any) => {
                         if (searchInput.value.trim() === query) {
                             allTemplates = data?.templates || allTemplates;
+                            isRanked = true;
                             renderTemplateList(query);
                         }
                     }).catch(() => {});

@@ -99,35 +99,49 @@ router.get('/templates', async (req, res) => {
             return;
         }
 
-        // Helper: substring match fallback, used on budget-exhaustion or error.
-        const substringMatch = () => {
+        // Helper: keyword + substring match, used on budget-exhaustion or
+        // embedder error. Templates whose TEMPLATE_KEYWORDS synonyms match
+        // the query rank first (e.g. "frogger" → lane_hopper), then
+        // substring hits against name/id/description, then the rest.
+        const keywordMatch = async () => {
+            const { TEMPLATE_KEYWORDS } = await import('../ws/services/pipeline/template_index.js');
             const q = search.toLowerCase();
-            const filtered = catalog.filter(t =>
-                t.name.toLowerCase().includes(q) || t.id.includes(q) || t.description.toLowerCase().includes(q)
+            const keywordIds = new Set<string>();
+            for (const [synonyms, id] of TEMPLATE_KEYWORDS) {
+                if (synonyms.some(s => q.includes(s) || s.includes(q))) keywordIds.add(id);
+            }
+            const kwHits = catalog.filter(t => keywordIds.has(t.id));
+            const substringHits = catalog.filter(t =>
+                !keywordIds.has(t.id) && (
+                    t.name.toLowerCase().includes(q) || t.id.includes(q) || t.description.toLowerCase().includes(q)
+                )
             );
-            res.json({ templates: filtered.length > 0 ? filtered : catalog });
+            const ranked = [...kwHits, ...substringHits];
+            res.json({ templates: ranked.length > 0 ? ranked : catalog });
         };
 
         // Gate embedding search on per-user budget (hosted only).
         if (!tryConsumeEmbedBudget(req.user?.id)) {
-            substringMatch();
+            await keywordMatch();
             return;
         }
 
-        // Semantic search using embedding model
+        // Semantic search using the shared cached embeddings (description
+        // + keyword synonyms, one vector per template). One embedText call
+        // per request instead of one-per-template; ranking stays consistent
+        // with the pickClosestTemplate flow used by the AI creator.
         try {
-            const { embedText, cosineSimilarity } = await import('../embedding_service.js');
-            const queryVec = await embedText(search);
-            const scored: { template: any; score: number }[] = [];
-            for (const t of catalog) {
-                const text = `${t.name} ${t.description} ${t.id.replace(/_/g, ' ')}`;
-                const tVec = await embedText(text);
-                scored.push({ template: t, score: cosineSimilarity(queryVec, tVec) });
-            }
-            scored.sort((a, b) => b.score - a.score);
-            res.json({ templates: scored.map(s => s.template) });
+            const { rankTemplatesBySearch } = await import('../ws/services/pipeline/template_index.js');
+            const ranked = await rankTemplatesBySearch(search);
+            const byId = new Map(catalog.map(t => [t.id, t]));
+            const ordered = ranked.map(r => byId.get(r.id)).filter((t): t is any => !!t);
+            // Append catalog templates not covered by embeddings so newly-
+            // added directories still appear in search until the next boot.
+            const seen = new Set(ordered.map(t => t.id));
+            for (const t of catalog) if (!seen.has(t.id)) ordered.push(t);
+            res.json({ templates: ordered });
         } catch {
-            substringMatch();
+            await keywordMatch();
         }
     } catch (e: any) {
         res.json({ templates: [] });
