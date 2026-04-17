@@ -608,3 +608,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* ── Ops heads-up ─────────────────────────────────────────────────────── */
+/* Sticky, always-visible line below the header reminding users we may   */
+/* restart the servers while iterating. Small, warm, non-blocking.       */
+.project-list-notice {
+    padding: 8px 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 193, 102, 0.08);
+    color: #ffc266;
+    font-size: var(--font-size-sm, 12px);
+    line-height: 1.4;
+    text-align: center;
+}

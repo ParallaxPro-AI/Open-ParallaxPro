@@ -100,6 +100,18 @@ export class ProjectListView {
 
         this.el.appendChild(header);
 
+        // Heads-up banner — we restart the backend often while ironing
+        // out issues, and we want users to know up-front that their
+        // projects are safe but an in-flight AI build may be killed.
+        // Sits between the header and the toolbar so it's always in
+        // view without covering content.
+        const notice = document.createElement('div');
+        notice.className = 'project-list-notice';
+        notice.textContent =
+            'We may restart the servers at any time as we iterate and flush out issues — apologies for the bumps! ' +
+            'Your projects are always saved, but a long-running AI build (CREATE_GAME) could be killed mid-way and you\'ll need to retry it.';
+        this.el.appendChild(notice);
+
         this.toolbarEl = document.createElement('div');
         this.toolbarEl.className = 'project-list-toolbar';
         this.toolbarEl.style.display = 'none';
