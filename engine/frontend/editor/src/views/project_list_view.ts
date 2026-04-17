@@ -20,7 +20,11 @@ export class ProjectListView {
     private searchQuery: string = '';
     private statusFilter: 'all' | 'published' | 'draft' = 'all';
     private currentPage: number = 1;
-    private readonly pageSize: number = 10;
+    // pageSize grows with viewport so wide screens fill every visible row
+    // instead of leaving a "halo" of empty space below two rows. Recomputed
+    // from gridEl dimensions + the first card's measured height on resize.
+    private pageSize: number = 12;
+    private resizeObserver: ResizeObserver | null = null;
     private activeTab: 'all' | 'my' | 'cloud' = 'all';
     private tabBar!: HTMLElement;
     private statusFilterEl!: HTMLSelectElement;
@@ -186,7 +190,39 @@ export class ProjectListView {
         const pageParam = new URLSearchParams(window.location.search).get('page');
         if (pageParam) this.currentPage = Math.max(1, parseInt(pageParam) || 1);
 
+        this.resizeObserver = new ResizeObserver(() => this.recomputePageSize());
+        this.resizeObserver.observe(this.gridEl);
+
         this.loadProjects();
+    }
+
+    // Compute pageSize = cols × rows that fit in gridEl. Mirrors the CSS
+    // `minmax(260px, 1fr)` + 20px gap + 24px horizontal padding. Card
+    // height is measured off the first rendered card, or a 260px
+    // fallback when the grid is empty so the first render still looks full.
+    private recomputePageSize(): void {
+        const w = this.gridEl.clientWidth;
+        const h = this.gridEl.clientHeight;
+        if (w <= 0 || h <= 0) return;
+
+        const gap = 20;
+        const hPad = 48; // 24px left + 24px right
+        const vPad = 28; // 4px top + 24px bottom
+        const minCardW = 260;
+
+        const usableW = Math.max(minCardW, w - hPad);
+        const cols = Math.max(1, Math.floor((usableW + gap) / (minCardW + gap)));
+
+        const firstCard = this.gridEl.querySelector('.project-card') as HTMLElement | null;
+        const cardH = firstCard?.offsetHeight || 260;
+        const usableH = Math.max(cardH, h - vPad);
+        const rows = Math.max(1, Math.floor((usableH + gap) / (cardH + gap)));
+
+        const next = Math.max(cols * rows, 6);
+        if (next !== this.pageSize) {
+            this.pageSize = next;
+            this.render();
+        }
     }
 
     onOpen(callback: (projectId: string, initialPrompt?: string) => void): void {
@@ -466,6 +502,10 @@ export class ProjectListView {
         }
 
         this.renderPagination(totalPages, filtered.length);
+
+        // First render uses a 260px fallback for card height; now that a
+        // card is in the DOM, remeasure so rowCount matches reality.
+        requestAnimationFrame(() => this.recomputePageSize());
     }
 
     private renderPagination(totalPages: number, totalItems: number): void {
