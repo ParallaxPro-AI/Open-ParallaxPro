@@ -374,6 +374,9 @@ async function runJob(job: GenerationJob): Promise<void> {
     let summary = 'Build stopped.';
     let costUsd = 0;
     let files: ProjectFiles | null = null;
+    // Captured from runCreator and handed to the onGenerationComplete hook
+    // so the admin plugin can record it alongside the creator_snapshots row.
+    let sessionCapturePath: string | null = null;
 
     try {
         const result = await runCreator(
@@ -385,6 +388,7 @@ async function runJob(job: GenerationJob): Promise<void> {
             jobId,
         );
         costUsd = result.costUsd;
+        sessionCapturePath = result.sessionCapturePath ?? null;
         if (abortController.signal.aborted) {
             outcome = 'aborted';
             summary = 'Build stopped.';
@@ -492,6 +496,7 @@ async function runJob(job: GenerationJob): Promise<void> {
                     endedAt,
                     cli: cliName,
                     costUsd,
+                    sessionCapturePath,
                 });
             } catch (e: any) {
                 console.error(`[GenerationJobs] Plugin ${p.name} onGenerationComplete failed:`, e?.message);

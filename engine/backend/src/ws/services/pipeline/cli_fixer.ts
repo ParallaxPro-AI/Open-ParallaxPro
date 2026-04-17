@@ -85,7 +85,7 @@ export async function runFixer(
         );
 
         sendStatus?.('Editing Agent is analyzing and coding...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, abortSignal, cliOverride);
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, abortSignal, cliOverride, { jobId, projectId });
 
         sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectFiles);
@@ -311,7 +311,7 @@ function fixerStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string): Promise<{ text: string; costUsd: number }> {
+function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number }> {
     return spawnCLIAgent({
         sandboxDir,
         prompt: FIXER_PROMPT,
@@ -320,6 +320,7 @@ function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortS
         sendStatus,
         abortSignal,
         cliOverride,
+        capture: capture ? { ...capture, kind: 'fix' } : undefined,
     });
 }
 

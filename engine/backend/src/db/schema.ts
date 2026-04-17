@@ -67,4 +67,9 @@ export function createSchema(db: Database.Database): void {
     // user opens the project (auto-cleared on GET /:id) or dismisses it
     // with the inline X. Nulled on every new generation start.
     addColumn('projects', 'generation_last_success_at', 'TEXT');
+
+    // Absolute path to the per-run CLI session capture dir written by
+    // session_capture.ts. Updated on every new run (points to the latest
+    // capture). Admin-only — never exposed to user-facing routes.
+    addColumn('projects', 'session_capture_path', 'TEXT');
 }

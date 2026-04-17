@@ -86,6 +86,10 @@ export interface EnginePlugin {
         /** Which CLI agent actually ran (claude / codex / opencode / copilot). */
         cli: string;
         costUsd?: number;
+        /** Absolute path to the admin-side CLI session capture dir, or null
+         *  when capture was disabled/failed for this run. Admin-only — must
+         *  never be surfaced to user-visible routes. */
+        sessionCapturePath?: string | null;
     }) => void;
 
     /** Hook: called on server shutdown */

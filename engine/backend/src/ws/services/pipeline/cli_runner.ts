@@ -17,7 +17,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { config } from '../../../config.js';
 import { getAvailableAgents } from './cli_availability.js';
-import { wrapSpawn } from './docker_sandbox.js';
+import { wrapSpawn, isDockerSandboxEnabled } from './docker_sandbox.js';
+import { beginCapture, CaptureHandle } from './session_capture.js';
 
 // ─── Concurrency gate ───────────────────────────────────────────────────────
 //
@@ -106,6 +107,12 @@ export interface CLIRunResult {
     text: string;
     /** Dollar cost reported by the CLI, if available. Codex does not report it. */
     costUsd: number;
+    /**
+     * Absolute path to the session-capture dir on disk. Present only when
+     * the caller passed `capture` in SpawnOptions AND capture init succeeded.
+     * Admin-only — do NOT leak to user-facing routes or chat dialogue.
+     */
+    sessionCapturePath?: string | null;
 }
 
 export type StatusMapper = (activity: CLIActivity) => string | undefined;
@@ -141,6 +148,19 @@ export interface SpawnOptions {
      * SIGKILL) to the CLI agent.
      */
     timeout?: number;
+    /**
+     * Optional admin-side session capture. When provided, stdout/stderr and
+     * native session files are archived under engine/backend/cli_session_logs
+     * for later analysis. All failures are swallowed — capture never breaks
+     * the run. Leave unset to opt out.
+     */
+    capture?: {
+        jobId?: string;
+        projectId?: string;
+        userId?: number;
+        username?: string;
+        kind: 'fix' | 'create';
+    };
 }
 
 type CLIName = 'claude' | 'codex' | 'opencode' | 'copilot';
@@ -179,20 +199,51 @@ export function resolveCLI(cliOverride?: string): CLIName {
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     const cli = resolveCLI(opts.cliOverride);
     const startedAt = Date.now();
-    let result: CLIRunResult;
-    switch (cli) {
-        case 'claude':   result = await spawnClaude(opts);   break;
-        case 'codex':    result = await spawnCodex(opts);    break;
-        case 'opencode': result = await spawnOpenCode(opts); break;
-        case 'copilot':  result = await spawnCopilot(opts);  break;
-        default: {
-            // Exhaustiveness check — the assignment forces a compile error if
-            // a new CLIName is added but no spawn case is wired here, instead
-            // of silently falling through to a default.
-            const _exhaustive: never = cli;
-            throw new Error(`No spawn implementation for CLI "${_exhaustive}".`);
+
+    // Initialize session capture once per call. Wrapped so a bad init never
+    // propagates — the handle is a safe no-op when init fails (dir=null,
+    // taps drop, finalize is a noop). Capture is opt-in via opts.capture.
+    let captureHandle: CaptureHandle | null = null;
+    if (opts.capture) {
+        try {
+            captureHandle = beginCapture({
+                cli,
+                kind: opts.capture.kind,
+                sandboxDir: opts.sandboxDir,
+                jobId: opts.capture.jobId,
+                projectId: opts.capture.projectId,
+                userId: opts.capture.userId,
+                username: opts.capture.username,
+                prompt: opts.prompt,
+                dockerSandbox: isDockerSandboxEnabled(),
+            });
+        } catch (e: any) {
+            console.warn(`[CLIRunner] Session capture init threw (non-fatal): ${e?.message}`);
+            captureHandle = null;
         }
     }
+
+    let result: CLIRunResult;
+    let threw: unknown = null;
+    try {
+        switch (cli) {
+            case 'claude':   result = await spawnClaude(opts, captureHandle);   break;
+            case 'codex':    result = await spawnCodex(opts, captureHandle);    break;
+            case 'opencode': result = await spawnOpenCode(opts, captureHandle); break;
+            case 'copilot':  result = await spawnCopilot(opts, captureHandle);  break;
+            default: {
+                // Exhaustiveness check — the assignment forces a compile error if
+                // a new CLIName is added but no spawn case is wired here, instead
+                // of silently falling through to a default.
+                const _exhaustive: never = cli;
+                throw new Error(`No spawn implementation for CLI "${_exhaustive}".`);
+            }
+        }
+    } catch (e) {
+        threw = e;
+        result = { text: '', costUsd: 0 };
+    }
+
     // If the user pressed Stop mid-run, the CLI was killed before emitting
     // its authoritative cost event (or codex/copilot never emit one at all),
     // so most runners resolve with costUsd=0. Replace with a flat estimate:
@@ -203,12 +254,28 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     if (opts.abortSignal?.aborted) {
         result.costUsd = 0.04 * ((Date.now() - startedAt) / 60_000);
     }
+
+    if (captureHandle) {
+        try {
+            captureHandle.finalize({
+                exitCode: threw ? -1 : 0,
+                costUsd: result.costUsd,
+                text: result.text,
+                aborted: !!opts.abortSignal?.aborted,
+            });
+        } catch (e: any) {
+            console.warn(`[CLIRunner] Session capture finalize threw (non-fatal): ${e?.message}`);
+        }
+        result.sessionCapturePath = captureHandle.dir;
+    }
+
+    if (threw) throw threw;
     return result;
 }
 
 // ─── Claude ─────────────────────────────────────────────────────────────────
 
-function spawnClaude(opts: SpawnOptions): Promise<CLIRunResult> {
+function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise<CLIRunResult> {
     return new Promise((resolve, reject) => {
         const args = [
             '-p', opts.prompt,
@@ -248,9 +315,9 @@ function spawnClaude(opts: SpawnOptions): Promise<CLIRunResult> {
                 resultText = event.result || '';
                 costUsd = event.total_cost_usd || 0;
             }
-        });
+        }, capture);
 
-        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); });
+        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); capture?.tapStderr(c); });
 
         proc.on('close', (code) => {
             if (code === 0 || code === null) {
@@ -279,7 +346,7 @@ function claudeToolToActivity(name: string): CLIActivity['kind'] {
 
 // ─── Codex ──────────────────────────────────────────────────────────────────
 
-function spawnCodex(opts: SpawnOptions): Promise<CLIRunResult> {
+function spawnCodex(opts: SpawnOptions, capture: CaptureHandle | null): Promise<CLIRunResult> {
     return new Promise((resolve, reject) => {
         // Codex sandboxes shell commands by default; we already run inside a
         // /tmp project sandbox and need the agent to freely edit + run node,
@@ -362,9 +429,9 @@ function spawnCodex(opts: SpawnOptions): Promise<CLIRunResult> {
                 }
                 return;
             }
-        });
+        }, capture);
 
-        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); });
+        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); capture?.tapStderr(c); });
 
         proc.on('close', (code) => {
             if (code === 0 || code === null) {
@@ -401,7 +468,7 @@ function codexCommandToActivity(command: string): CLIActivity['kind'] {
 
 // ─── OpenCode ───────────────────────────────────────────────────────────────
 
-function spawnOpenCode(opts: SpawnOptions): Promise<CLIRunResult> {
+function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promise<CLIRunResult> {
     return new Promise((resolve, reject) => {
         // opencode auto-uses the user's ~/.opencode auth. `run` is the
         // non-interactive subcommand, `--format json` emits JSONL events.
@@ -485,9 +552,16 @@ function spawnOpenCode(opts: SpawnOptions): Promise<CLIRunResult> {
                 const m = event.error?.data?.message || event.error?.message;
                 if (typeof m === 'string') sawError = m;
             }
-        });
 
-        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); });
+            // Best-effort sessionID capture — opencode emits it under a few
+            // keys depending on version; tapStdout's regex scan covers the
+            // general case, but explicit keys are a touch more reliable.
+            const id = event.sessionID || event.sessionId || event.session_id
+                || event.part?.sessionID || event.part?.sessionId;
+            if (typeof id === 'string') capture?.noteOpencodeSessionID(id);
+        }, capture);
+
+        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); capture?.tapStderr(c); });
 
         proc.on('close', (code) => {
             if (code === 0 || code === null) {
@@ -525,7 +599,7 @@ function opencodeToolToActivity(name: string): CLIActivity['kind'] {
 
 // ─── Copilot ────────────────────────────────────────────────────────────────
 
-function spawnCopilot(opts: SpawnOptions): Promise<CLIRunResult> {
+function spawnCopilot(opts: SpawnOptions, capture: CaptureHandle | null): Promise<CLIRunResult> {
     return new Promise((resolve, reject) => {
         // GitHub Copilot CLI: -p runs a single prompt non-interactively,
         // --output-format json emits JSONL events. `--allow-all` is the
@@ -594,9 +668,9 @@ function spawnCopilot(opts: SpawnOptions): Promise<CLIRunResult> {
                     opts.sendStatus?.(firstSentence.length > 120 ? firstSentence.slice(0, 117) + '...' : firstSentence);
                 }
             }
-        });
+        }, capture);
 
-        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); });
+        proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); capture?.tapStderr(c); });
 
         proc.on('close', (code) => {
             if (code === 0 || code === null) {
@@ -657,9 +731,12 @@ function wireAbort(proc: import('child_process').ChildProcess, signal: AbortSign
  * Parse a stream of newline-delimited JSON objects. Holds onto the trailing
  * partial line across chunks and flushes on close.
  */
-function streamJSONL(stdout: NodeJS.ReadableStream, onEvent: (event: any) => void): void {
+function streamJSONL(stdout: NodeJS.ReadableStream, onEvent: (event: any) => void, capture?: CaptureHandle | null): void {
     let buffer = '';
     stdout.on('data', (chunk: Buffer) => {
+        // Tap the RAW bytes into the capture before any parsing so we keep
+        // the ground-truth transcript even if the JSON line is malformed.
+        capture?.tapStdout(chunk);
         buffer += chunk.toString();
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';

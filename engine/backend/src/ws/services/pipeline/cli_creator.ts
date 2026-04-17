@@ -42,6 +42,13 @@ export interface CreatorResult {
     templateId: string;
     files: ProjectFiles | null;
     costUsd: number;
+    /**
+     * Absolute path to the admin-side CLI session capture dir for this run,
+     * when capture is enabled. Propagated up so generation_jobs can pass it
+     * to the onGenerationComplete hook (admin plugin archives it in
+     * creator_snapshots). Never exposed to user-visible routes.
+     */
+    sessionCapturePath?: string | null;
 }
 
 export async function runCreator(
@@ -122,14 +129,14 @@ export async function runCreator(
         );
 
         sendStatus?.('Creator agent is building the game...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, abortSignal);
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, abortSignal, { jobId: registryJobId, projectId });
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
         let files = readFilesFromDir(projectDir);
 
         if (!files['01_flow.json'] || !files['02_entities.json']) {
-            return { success: false, summary: 'Creator did not produce required template files.', templateId, files: null, costUsd: cliResult.costUsd };
+            return { success: false, summary: 'Creator did not produce required template files.', templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
         }
 
         // The CLI may exit "successfully" (exit code 0, valid cost event)
@@ -140,7 +147,7 @@ export async function runCreator(
         // got for projectId de549996 on 2026-04-16.
         const seed = emptyTemplateFiles();
         if (files['01_flow.json'] === seed['01_flow.json']) {
-            return { success: false, summary: 'Creator finished but did not modify 01_flow.json — the agent exited without writing any game content.', templateId, files: null, costUsd: cliResult.costUsd };
+            return { success: false, summary: 'Creator finished but did not modify 01_flow.json — the agent exited without writing any game content.', templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
         }
 
         sendStatus?.('Running final validation...');
@@ -163,7 +170,7 @@ export async function runCreator(
             // fix it before we give up. Aborts are honored — if the
             // user hit Stop while we were waiting, don't re-spawn.
             if (abortSignal?.aborted) {
-                return { success: false, summary: 'Aborted before retry.', templateId, files: null, costUsd: cliResult.costUsd };
+                return { success: false, summary: 'Aborted before retry.', templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
             }
             sendStatus?.('Validation failed — feeding error back to the agent for one retry...');
             try {
@@ -178,30 +185,35 @@ export async function runCreator(
                 console.warn(`[CLICreator] Failed to append retry guidance to TASK.md: ${e?.message}`);
             }
 
-            let retryResult: { text: string; costUsd: number };
+            let retryResult: { text: string; costUsd: number; sessionCapturePath?: string | null };
             try {
-                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, abortSignal);
+                // Retry is a fresh CLI spawn, so session_capture opens a
+                // second capture dir (the first is still on disk under its
+                // own timestamped name). We swap cliResult's path to point
+                // at the retry's capture so admins land on the last run.
+                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, abortSignal, { jobId: registryJobId, projectId });
             } catch (e: any) {
                 return {
                     success: false,
                     summary: `Template validation failed and retry spawn errored: ${e?.message || e}\n\nOriginal error: ${assembleErr.message}`,
                     templateId,
                     files: null,
-                    costUsd: cliResult.costUsd,
+                    costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
                 };
             }
             // Accumulate cost so the retry isn't invisible to usage.
             cliResult.costUsd += retryResult.costUsd;
             if (retryResult.text) cliResult.text = retryResult.text;
+            if (retryResult.sessionCapturePath) cliResult.sessionCapturePath = retryResult.sessionCapturePath;
 
             if (abortSignal?.aborted) {
-                return { success: false, summary: 'Aborted during retry.', templateId, files: null, costUsd: cliResult.costUsd };
+                return { success: false, summary: 'Aborted during retry.', templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
             }
 
             sendStatus?.('Reading retried files...');
             files = readFilesFromDir(projectDir);
             if (!files['01_flow.json'] || !files['02_entities.json']) {
-                return { success: false, summary: `Retry removed required template files. Original error: ${assembleErr.message}`, templateId, files: null, costUsd: cliResult.costUsd };
+                return { success: false, summary: `Retry removed required template files. Original error: ${assembleErr.message}`, templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
             }
 
             sendStatus?.('Re-running final validation...');
@@ -217,7 +229,7 @@ export async function runCreator(
                     summary: `Template validation failed after retry.\n\nFirst: ${assembleErr.message}\nRetry: ${e2.message || e2}`,
                     templateId,
                     files: null,
-                    costUsd: cliResult.costUsd,
+                    costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
                 };
             }
         }
@@ -227,7 +239,7 @@ export async function runCreator(
             summary: cliResult.text || `Created "${templateId}".`,
             templateId,
             files,
-            costUsd: cliResult.costUsd,
+            costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
         };
     } finally {
         try { unregisterSandboxToken(validateToken); } catch {}
@@ -488,8 +500,8 @@ function creatorStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal): Promise<{ text: string; costUsd: number }> {
-    const { text, costUsd } = await spawnCLIAgent({
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }): Promise<{ text: string; costUsd: number; sessionCapturePath?: string | null }> {
+    const { text, costUsd, sessionCapturePath } = await spawnCLIAgent({
         sandboxDir,
         prompt: CREATOR_PROMPT,
         // 120 because CREATE_GAME writes 4 JSONs + N behaviors + M systems
@@ -506,6 +518,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         sendStatus,
         cliOverride,
         abortSignal,
+        capture: capture ? { ...capture, kind: 'create' } : undefined,
     });
-    return { text: text || 'Template created.', costUsd };
+    return { text: text || 'Template created.', costUsd, sessionCapturePath };
 }
