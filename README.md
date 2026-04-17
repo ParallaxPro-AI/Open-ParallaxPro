@@ -1,5 +1,5 @@
 <h1 align="center">
-    <a href="https://parallaxpro.ai/">
+    <a href="https://parallaxpro.ai/?ref=github">
         <img src="assets/solid_logos/main_logo_horizontal.png" alt="banner"/>
     </a>
 </h1>
@@ -46,7 +46,7 @@
 
 LLMs can generate games, but without a real game engine behind them, those games hit a wall fast -- no real physics, no efficient rendering, no entity-component system, no shadow maps, no collision detection. The AI ends up writing hundreds of lines of hacky code to approximate what any game engine gives you for free.
 
-[ParallaxPro](https://parallaxpro.ai/) is a browser-based 3D game engine where AI generates games that run on a real engine with real infrastructure -- WebGPU rendering, rigid body physics, skeletal animation, and an ECS architecture. The AI doesn't need to reinvent the wheel. It just places entities, attaches scripts, and the engine handles the rest.
+[ParallaxPro](https://parallaxpro.ai/?ref=github) is a browser-based 3D game engine where AI generates games that run on a real engine with real infrastructure -- WebGPU rendering, rigid body physics, skeletal animation, and an ECS architecture. The AI doesn't need to reinvent the wheel. It just places entities, attaches scripts, and the engine handles the rest.
 
 - **Fully open source** -- engine, editor, AI prompts, game templates, everything. No hidden black boxes.
 - **Royalty-free engine** -- the engine and your game code are yours to distribute. No engine royalties, no attribution required. The engine itself is always free.
@@ -55,7 +55,7 @@ LLMs can generate games, but without a real game engine behind them, those games
 
 ### Try It Online
 
-The easiest way to use ParallaxPro is at **[parallaxpro.ai](https://parallaxpro.ai/)** -- no setup required. You get the AI assistant, 5000+ 3D assets, game publishing, and everything else out of the box.
+The easiest way to use ParallaxPro is at **[parallaxpro.ai](https://parallaxpro.ai/?ref=github)** -- no setup required. You get the AI assistant, 5000+ 3D assets, game publishing, and everything else out of the box.
 
 https://github.com/user-attachments/assets/eba68cf6-724e-4225-a23e-8b385d5c598c
 
@@ -154,7 +154,7 @@ Ask the agent to study the existing templates (like `chess/` or `fps_shooter/`),
 
 ### 3D Assets
 
-The hosted version at [parallaxpro.ai](https://parallaxpro.ai/) includes 5000+ 3D models, textures, and audio files from [Kenney](https://kenney.nl/), [Poly Haven](https://polyhaven.com/), and more.
+The hosted version at [parallaxpro.ai](https://parallaxpro.ai/?ref=github) includes 5000+ 3D models, textures, and audio files from [Kenney](https://kenney.nl/), [Poly Haven](https://polyhaven.com/), and more.
 
 When running locally, assets are automatically loaded from the ParallaxPro CDN. The asset browser and 3D models work out of the box with no additional downloads.
 
@@ -162,7 +162,7 @@ To use your own local assets, set `ASSETS_DIR` in your `.env` to a directory con
 
 ### Publishing Games
 
-**We recommend publishing on [parallaxpro.ai](https://parallaxpro.ai/)** — it's the easiest way to get your game in front of players, with free hosting and a shareable `parallaxpro.ai/games/<you>/<game>` URL. You can publish directly from [parallaxpro.ai/editor](https://parallaxpro.ai/editor/) or from a [self-hosted ParallaxPro](#run-locally).
+**We recommend publishing on [parallaxpro.ai](https://parallaxpro.ai/?ref=github)** — it's the easiest way to get your game in front of players, with free hosting and a shareable `parallaxpro.ai/games/<you>/<game>` URL. You can publish directly from [parallaxpro.ai/editor](https://parallaxpro.ai/editor/) or from a [self-hosted ParallaxPro](#run-locally).
 
 ### License
 
