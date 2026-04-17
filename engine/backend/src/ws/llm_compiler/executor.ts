@@ -79,7 +79,7 @@ export async function execute(ast: ASTNode[], ctx: ExecutionContext): Promise<Ex
                 break;
 
             case 'edit':
-                if (!hasToolCalls) executeEditNode(node as EditNode, ctx, result);
+                if (!hasToolCalls) await executeEditNode(node as EditNode, ctx, result);
                 break;
 
             case 'tool_call':
@@ -91,12 +91,12 @@ export async function execute(ast: ASTNode[], ctx: ExecutionContext): Promise<Ex
     return result;
 }
 
-function executeEditNode(node: EditNode, ctx: ExecutionContext, result: ExecutionResult): void {
+async function executeEditNode(node: EditNode, ctx: ExecutionContext, result: ExecutionResult): Promise<void> {
     const view = ctx.getProjectData();
     const files = (view?.files || {}) as ProjectFiles;
 
     const session = runEditScript(ctx.projectId, files);
-    const mut = session.execute(node.code);
+    const mut = await session.execute(node.code);
 
     if (!mut.success) {
         result.errors.push(mut.error ?? 'Unknown error');

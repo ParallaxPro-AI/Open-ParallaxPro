@@ -21,7 +21,7 @@
  *   reparenting across placements) record a warning and skip.
  */
 
-import vm from 'node:vm';
+import ivm from 'isolated-vm';
 import { assetExists } from '../../../routes/assets.js';
 import { ProjectFiles } from './project_files.js';
 import { buildProject } from './project_builder.js';
@@ -48,7 +48,7 @@ export interface MutatorResult {
 export function runEditScript(
     projectId: string,
     files: ProjectFiles,
-): { execute: (code: string) => MutatorResult } {
+): { execute: (code: string) => Promise<MutatorResult> } {
     // Build once for read-only queries (findEntity, getEntities). The build
     // result is the source of truth for "what entities exist right now".
     const built = buildProject(projectId, files);
@@ -441,24 +441,75 @@ export function runEditScript(
     };
 
     return {
-        execute(code: string): MutatorResult {
-            const sandbox = {
-                scene: sceneAPI,
-                console: { log: () => {}, warn: () => {}, error: () => {} },
-                Math, parseInt, parseFloat, isNaN, isFinite,
-                Number, String, Boolean, Array, Object,
-                JSON: { parse: JSON.parse, stringify: JSON.stringify },
-                Map, Set,
-            };
+        /**
+         * Execute LLM-emitted `<<<EDIT>>>` code against the scene API.
+         *
+         * Security: the code runs in a fresh `isolated-vm` V8 isolate — a
+         * separate heap with no reference back to the host process. The
+         * previous `node:vm` implementation was escapable: user code could
+         * reach the host realm via `Object.constructor.constructor('return
+         * process')()` and execute `child_process.execSync(...)`. Under
+         * isolated-vm there is no bridge to the host except the one
+         * reference we explicitly hand the isolate (`__sceneCallRef`),
+         * which only dispatches to sceneAPI methods with JSON-serialized
+         * arguments.
+         */
+        async execute(code: string): Promise<MutatorResult> {
+            // 64 MB is generous for template mutations but still bounds a
+            // runaway allocation loop. The isolate is disposed after each
+            // execute() so there's no per-session leak.
+            const isolate = new ivm.Isolate({ memoryLimit: 64 });
             try {
-                const script = new vm.Script(code, { filename: 'edit_block.js' });
-                const context = vm.createContext(sandbox);
-                script.runInContext(context, { timeout: TIMEOUT_MS });
+                const context = await isolate.createContext();
+                const jail = context.global;
+                await jail.set('global', jail.derefInto());
+
+                // Single-callback bridge: the isolate calls
+                // `__sceneCallRef.applySync(undefined, [methodName, argsJson])`
+                // and receives a JSON string back. A Proxy in the isolate
+                // (installed in the bootstrap below) makes this look like
+                // normal method calls: `scene.addEntity(...)`.
+                const sceneCallRef = new ivm.Reference(
+                    (methodName: string, argsJson: string): string | undefined => {
+                        const args = argsJson ? JSON.parse(argsJson) : [];
+                        const fn = (sceneAPI as any)[methodName];
+                        if (typeof fn !== 'function') {
+                            throw new Error(`Unknown scene method: ${methodName}`);
+                        }
+                        const result = fn.apply(sceneAPI, args);
+                        return result === undefined ? undefined : JSON.stringify(result);
+                    },
+                );
+                await jail.set('__sceneCallRef', sceneCallRef);
+
+                // Bootstrap: build the `scene` proxy + shim `console`. Math,
+                // JSON, Array, Object, Map, Set, parseInt, etc. are V8
+                // intrinsics and already exist in the isolate's context.
+                const bootstrap = `
+                    const scene = new Proxy({}, {
+                        get(_, name) {
+                            return (...args) => {
+                                const r = __sceneCallRef.applySync(undefined, [name, JSON.stringify(args)]);
+                                return r === undefined ? undefined : JSON.parse(r);
+                            };
+                        }
+                    });
+                    globalThis.scene = scene;
+                    globalThis.console = { log(){}, warn(){}, error(){} };
+                `;
+                const bootScript = await isolate.compileScript(bootstrap);
+                await bootScript.run(context);
+
+                const userScript = await isolate.compileScript(code, { filename: 'edit_block.js' });
+                await userScript.run(context, { timeout: TIMEOUT_MS });
             } catch (err: any) {
-                const msg = err.code === 'ERR_SCRIPT_EXECUTION_TIMEOUT'
+                const raw = err?.message ?? String(err);
+                const msg = /script execution timed out/i.test(raw)
                     ? `Script execution timed out after ${TIMEOUT_MS / 1000}s (possible infinite loop)`
-                    : err.message;
+                    : raw;
                 return { success: false, error: msg, updatedFiles: {}, warnings, changes };
+            } finally {
+                isolate.dispose();
             }
 
             const updatedFiles: Record<string, string> = {};
