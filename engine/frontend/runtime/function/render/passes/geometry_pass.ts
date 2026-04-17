@@ -826,6 +826,17 @@ export class GeometryPass {
         this.normalDepthTexture = null;
         this.msaaNormalDepthTexture = null;
         this.msaaDepthTexture = null;
+        // Null the views too — the only-texture-null version left views
+        // pointing at freed textures, which the execute() dispatch truthy
+        // checks at lines 240/242 would then treat as still valid and try
+        // to render into. On LOW specifically this produced a viewport that
+        // rendered once (to the soon-to-be-destroyed MSAA view after a
+        // HIGH→LOW switch) and then went black on subsequent frames.
+        this.offscreenColorTextureView = null;
+        this.msaaColorTextureView = null;
+        this.normalDepthTextureView = null;
+        this.msaaNormalDepthTextureView = null;
+        this.msaaDepthTextureView = null;
 
         const rtUsage = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING;
 

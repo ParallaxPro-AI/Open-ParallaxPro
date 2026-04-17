@@ -134,8 +134,23 @@ export class RenderPipeline {
     }
 
     setGraphicsQuality(quality: GraphicsQuality): void {
+        if (this.quality === quality) return;
         this.quality = quality;
         this.geometryPass.setGraphicsQuality(quality);
+        // GeometryPass recreates its MRT / MSAA render targets on quality
+        // change, which produces brand-new GPUTextureViews for offscreen
+        // color and normal-depth. Downstream passes (skybox, FXAA, decal)
+        // key their cached bind groups off the input view references, so
+        // they auto-invalidate when we pass the new views in on the next
+        // frame — but any pass that holds onto its *own* output textures
+        // (skybox, SSR output) would otherwise keep rendering into stale
+        // resources. The user-visible bug was a black viewport on LOW
+        // graphics that only recovered after manually resizing the
+        // window. Re-running onResize propagates fresh state to every
+        // pass and guarantees caches are clean after a quality switch.
+        if (this.canvasWidth > 0 && this.canvasHeight > 0) {
+            this.onResize(this.canvasWidth, this.canvasHeight);
+        }
     }
 
     render(scene: RenderScene, particleRenderer?: ParticleRenderer, particleData?: ParticleRenderData[]): void {
