@@ -50,11 +50,17 @@ Must include search or pack — category alone is not enough.
 ### LOAD_TEMPLATE
 To create a complete new game from a template:
 <<<LOAD_TEMPLATE>>><<<END>>>
-This lists all available game templates. Then pick one:
+Returns a RANDOM sample of 20 templates (the full catalog is larger). Use this when you want to browse.
+
+If the user described something specific (e.g. "a frogger-style game", "tron bike combat", "stardew-valley farming"), narrow the list with a semantic query instead of browsing:
+<<<LOAD_TEMPLATE query="frogger endless hopping">>><<<END>>>
+This returns the top 10 templates ranked by embedding similarity across description + keyword synonyms.
+
+Then build the chosen one:
 <<<LOAD_TEMPLATE template="chess">>><<<END>>>
 This builds the full game (entities, scripts, UI) and loads it in the editor.
 
-Use this when the user asks to "create a game", "make chess", "build a racing game", etc.
+Use LOAD_TEMPLATE when the user asks to "create a game", "make chess", "build a racing game", etc.
 
 ### FIX_GAME
 Spawn a smart fixer agent that can read, analyze, and edit project scripts/scenes/UI:

@@ -145,9 +145,36 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 const catalog = loadTemplateCatalog();
                 if (catalog.length === 0) {
                     result.toolResults = '[LOAD_TEMPLATE] No game templates found.';
-                } else {
-                    result.toolResults = `[LOAD_TEMPLATE] Available game templates:\n${formatCatalogForLLM(catalog)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match, apologize and tell the user that game type is not available yet. Show them the list so they can pick one.`;
+                    break;
                 }
+
+                // query="..." → semantic ranking via shared template
+                // embeddings. Falls back to random sample if the embedder
+                // isn't ready so the tool never returns empty.
+                const query = (node.args.query || '').trim();
+                if (query) {
+                    try {
+                        const { rankTemplatesBySearch } = await import('../services/pipeline/template_index.js');
+                        const ranked = await rankTemplatesBySearch(query);
+                        const byId = new Map(catalog.map(t => [t.id, t]));
+                        const TOP_N = 10;
+                        const top = ranked.map(r => byId.get(r.id)).filter((t): t is any => !!t).slice(0, TOP_N);
+                        if (top.length > 0) {
+                            result.toolResults = `[LOAD_TEMPLATE] Top ${top.length} templates for "${query}" (of ${catalog.length}):\n${formatCatalogForLLM(top)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match, fall back to CREATE_GAME.`;
+                            break;
+                        }
+                    } catch {
+                        // embedder not ready — fall through to random sample
+                    }
+                }
+
+                // No query (or embedder unavailable): random sample so the
+                // LLM gets breadth across calls without flooding context.
+                const SAMPLE_SIZE = 20;
+                const sample = catalog.length <= SAMPLE_SIZE
+                    ? catalog
+                    : [...catalog].sort(() => Math.random() - 0.5).slice(0, SAMPLE_SIZE);
+                result.toolResults = `[LOAD_TEMPLATE] Random sample of ${sample.length} of ${catalog.length} game templates:\n${formatCatalogForLLM(sample)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match, fall back to CREATE_GAME.`;
                 break;
             }
 

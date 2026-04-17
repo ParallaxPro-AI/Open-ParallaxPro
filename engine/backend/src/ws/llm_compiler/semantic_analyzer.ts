@@ -17,17 +17,17 @@ export function analyze(ast: ASTNode[]): CompileError[] {
         if (node.kind === 'edit') {
             analyzeEditBlock(node as EditNode, errors);
         } else if (node.kind === 'tool_call' && node.name === 'LOAD_TEMPLATE') {
-            const validArgs = new Set(['template']);
+            const validArgs = new Set(['template', 'query']);
             for (const key of Object.keys(node.args)) {
                 if (!validArgs.has(key)) {
                     errors.push({
                         phase: 'semantic',
                         message: `LOAD_TEMPLATE: unknown argument "${key}"`,
-                        hint: 'Without args: lists templates. With template="name": builds the game.',
+                        hint: 'No args: random 20 templates. query="...": top matches by semantic search. template="name": builds the game.',
                     });
                 }
             }
-            // No args = list templates (valid). With template = build (valid). Both are fine.
+            // No args = random sample (valid). query = ranked search (valid). template = build (valid). All fine.
         } else if (node.kind === 'tool_call' && node.name === 'FIX_GAME') {
             const validArgs = new Set(['description']);
             for (const key of Object.keys(node.args)) {
