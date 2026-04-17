@@ -1809,7 +1809,7 @@ git checkout da571fe   # last commit before template unification`;
 
             const stopBtn = document.createElement('button');
             stopBtn.className = 'project-generation-stop';
-            stopBtn.title = 'Stop this build (the CLI process is killed and the project unlocks)';
+            stopBtn.title = 'Stop this build (the run is killed and the project unlocks)';
             stopBtn.appendChild(icon(Square, 12));
             const stopLabel = document.createElement('span');
             stopLabel.textContent = 'Stop';
@@ -1818,7 +1818,7 @@ git checkout da571fe   # last commit before template unification`;
                 e.stopPropagation();
                 const ok = await showConfirmModal(
                     'Stop this build?',
-                    'The CLI process will be killed and all progress from this run is discarded. The project will unlock — you can start again with a different prompt.',
+                    'The run will be stopped and all progress from this attempt is discarded. The project will unlock — you can start again with a different prompt.',
                 );
                 if (!ok) return;
                 try {
