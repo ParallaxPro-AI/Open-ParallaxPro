@@ -281,9 +281,52 @@ export function isProjectLocked(projectId: string): boolean {
  * orphan (its CLI child died with the previous process). Mark them
  * failed with a "server restarted" error so project cards stop showing
  * a live timer for jobs that aren't actually running anywhere.
+ *
+ * Also fires `onGenerationComplete` for each orphan so the same plugin
+ * chain that notifies users on normal completion runs here too —
+ * without this, a user whose build was interrupted by a deploy or crash
+ * never hears anything back. `authToken` is unavailable for orphans
+ * (it lived in-memory on the dead GenerationJob), so token-usage
+ * reporting no-ops; email still works since generation_notify looks up
+ * the address via the landing DB by userId.
  */
-export function cleanupOrphanedJobsOnBoot(): void {
+export function cleanupOrphanedJobsOnBoot(plugins: EnginePlugin[] = []): void {
     try {
+        const rows = db.prepare(`
+            SELECT id, user_id, name, generation_description, generation_started_at
+            FROM projects
+            WHERE generation_job_id IS NOT NULL
+        `).all() as any[];
+        if (rows.length === 0) return;
+
+        const summary = 'Our servers restarted while this build was running, so it didn\'t finish. Your project is unlocked — try again or pick a template.';
+        const endedAt = Date.now();
+
+        for (const r of rows) {
+            const startedAt = r.generation_started_at ? Date.parse(r.generation_started_at) : endedAt;
+            for (const p of plugins) {
+                if (!p.onGenerationComplete) continue;
+                try {
+                    p.onGenerationComplete({
+                        projectId: r.id,
+                        projectName: r.name || r.id,
+                        userId: r.user_id,
+                        // username + authToken unknown for orphans — plugins
+                        // that need them (usage reporting) should no-op.
+                        status: 'failed',
+                        summary,
+                        description: r.generation_description || '',
+                        startedAt: isNaN(startedAt) ? endedAt : startedAt,
+                        endedAt,
+                        cli: 'unknown',
+                        costUsd: 0,
+                    });
+                } catch (e: any) {
+                    console.error(`[GenerationJobs] Orphan hook ${p.name} failed for project ${r.id}:`, e?.message);
+                }
+            }
+        }
+
         const result = db.prepare(`
             UPDATE projects SET
                 generation_job_id = NULL,
@@ -294,7 +337,7 @@ export function cleanupOrphanedJobsOnBoot(): void {
             WHERE generation_job_id IS NOT NULL
         `).run();
         if (result.changes > 0) {
-            console.log(`[GenerationJobs] Cleared ${result.changes} orphaned generation job(s) from previous process.`);
+            console.log(`[GenerationJobs] Cleared ${result.changes} orphaned generation job(s) from previous process (email sent).`);
         }
     } catch (e: any) {
         console.error('[GenerationJobs] Failed to clear orphaned jobs on boot:', e?.message);

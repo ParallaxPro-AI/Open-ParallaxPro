@@ -55,8 +55,12 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // when this process starts came from a previous process that died
     // (restart, crash, kill -9). The CLI child is dead too; mark the row
     // failed so the UI stops showing a perpetually-spinning timer.
+    // Plugins are passed so onGenerationComplete fires for each orphan —
+    // the user gets the same "build failed" email they would've gotten
+    // had the CLI crashed normally, just with a "server restarted"
+    // summary so they know to retry.
     const { cleanupOrphanedJobsOnBoot } = await import('./ws/services/pipeline/generation_jobs.js');
-    cleanupOrphanedJobsOnBoot();
+    cleanupOrphanedJobsOnBoot(plugins);
 
     // Dynamic imports (after schema is ready, since routes prepare statements)
     const { default: projectRoutes, setProjectPlugins } = await import('./routes/projects.js');
