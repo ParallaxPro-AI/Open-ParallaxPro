@@ -54,6 +54,24 @@ const VOICE_RECONCILE_MS = 2000;
  */
 const DISCONNECTED_GRACE_MS = 10_000;
 
+/**
+ * Application-layer keepalive. WebRTC's `connectionState` can stay
+ * on 'connected' even when the data channel has silently stalled
+ * (SCTP buffer stuck, OS socket wedged, browser tab throttled in a
+ * deep background), which the user experiences as "stuck, can't
+ * move" — their inputs fire locally but the host never receives
+ * them and never sends snapshots back.
+ *
+ * We don't need a new wire message for this: during lobby + in-game
+ * the session's existing 1 Hz ping/pong plus the 30 Hz snap/input
+ * traffic means every live peer sends *something* at least once a
+ * second. Treat any peer we haven't heard from in KEEPALIVE_TIMEOUT_MS
+ * as zombie and tear them down, which routes through the normal
+ * onClose flow (session notices, peer leaves the roster cleanly).
+ */
+const KEEPALIVE_CHECK_INTERVAL_MS = 3_000;
+const KEEPALIVE_TIMEOUT_MS = 15_000;
+
 export type PeerId = string;
 
 export type RTCMessage =
@@ -77,6 +95,13 @@ interface PeerInfo {
     connectionTimeout: ReturnType<typeof setTimeout> | null;
     /** Active grace-period timer while connectionState is 'disconnected'. */
     disconnectGraceTimer: ReturnType<typeof setTimeout> | null;
+    /**
+     * Wall-clock (performance.now()) of the most recent inbound data-channel
+     * message, seeded to "now" at peer creation. Used by the keepalive
+     * sweep to detect zombie connections whose WebRTC state still looks
+     * healthy but whose data channel has stopped delivering.
+     */
+    lastRecvMs: number;
     // Voice bits
     remoteAudioStream: MediaStream | null;
     outgoingAudioSender: RTCRtpSender | null;
@@ -119,6 +144,7 @@ export class WebRTCManager {
      */
     private remoteMicState: Map<PeerId, boolean> = new Map();
     private voiceReconcileTimer: ReturnType<typeof setInterval> | null = null;
+    private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
 
     /**
      * Replace the default STUN+OpenRelay TURN list with server-issued
@@ -140,6 +166,8 @@ export class WebRTCManager {
         this.events = events;
         if (this.voiceReconcileTimer) clearInterval(this.voiceReconcileTimer);
         this.voiceReconcileTimer = setInterval(() => this._voiceReconcileTick(), VOICE_RECONCILE_MS);
+        if (this.keepaliveTimer) clearInterval(this.keepaliveTimer);
+        this.keepaliveTimer = setInterval(() => this._keepaliveSweep(), KEEPALIVE_CHECK_INTERVAL_MS);
     }
 
     /**
@@ -178,6 +206,7 @@ export class WebRTCManager {
             audioTransceiver: null,
             makingOffer: false,
             disconnectGraceTimer: null,
+            lastRecvMs: performance.now(),
         };
         this.peers.set(peerId, info);
 
@@ -372,6 +401,10 @@ export class WebRTCManager {
             clearInterval(this.voiceReconcileTimer);
             this.voiceReconcileTimer = null;
         }
+        if (this.keepaliveTimer) {
+            clearInterval(this.keepaliveTimer);
+            this.keepaliveTimer = null;
+        }
         this.remoteMicState.clear();
     }
 
@@ -528,6 +561,11 @@ export class WebRTCManager {
         };
 
         channel.onmessage = (e) => {
+            // Any inbound data-channel message counts as liveness — the
+            // keepalive sweep uses this to notice zombie connections whose
+            // WebRTC state still says 'connected' but whose SCTP / browser
+            // pipeline has quietly stalled.
+            info.lastRecvMs = performance.now();
             try {
                 const msg: RTCMessage = JSON.parse(typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data));
                 // Internal voice-reconcile messages are absorbed here; the
@@ -556,6 +594,28 @@ export class WebRTCManager {
         this.peers.delete(peerId);
         this.remoteMicState.delete(peerId);
         if (info.ready) this.events.onClose?.(peerId);
+    }
+
+    /**
+     * Sweep peers and tear down any we haven't received a message from
+     * in KEEPALIVE_TIMEOUT_MS. Only applies once the data channel is
+     * open (info.ready) — pre-open peers are covered by the stricter
+     * CONNECT_TIMEOUT_MS inside connect().
+     *
+     * Skipped while the disconnect grace period is active so we don't
+     * race the pc.onconnectionstatechange handler; that timer already
+     * owns this peer's fate.
+     */
+    private _keepaliveSweep(): void {
+        const now = performance.now();
+        for (const info of this.peers.values()) {
+            if (!info.ready) continue;
+            if (info.disconnectGraceTimer) continue;
+            if (now - info.lastRecvMs > KEEPALIVE_TIMEOUT_MS) {
+                console.warn(`[WebRTC] Peer ${info.peerId} silent for ${Math.round((now - info.lastRecvMs) / 1000)}s — tearing down (connectionState=${info.connection.connectionState})`);
+                this.teardown(info.peerId);
+            }
+        }
     }
 
     // ── Voice reconcile ─────────────────────────────────────────────────────
