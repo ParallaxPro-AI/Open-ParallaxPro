@@ -64,12 +64,9 @@
             "board_camera"
           ],
           "on_enter": [
-            "show_ui:hud",
             "show_cursor"
           ],
-          "on_exit": [
-            "hide_ui:hud"
-          ],
+          "on_exit": [],
           "transitions": [
             {
               "when": "game_event:move_made",
