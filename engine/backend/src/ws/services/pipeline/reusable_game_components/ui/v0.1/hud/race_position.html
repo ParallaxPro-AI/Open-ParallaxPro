@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #f6efe2;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .panel {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: 200px;
+    background: rgba(20, 14, 8, 0.9);
+    border: 2px solid #ff8a3d;
+    border-right: 6px solid #ff8a3d;
+    border-radius: 12px;
+    padding: 10px 12px 10px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), 0 0 14px rgba(255, 140, 60, 0.18);
+  }
+  .panel.hidden { display: none; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .rank-block {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+  .rank {
+    font-family: 'Cinzel', 'Georgia', serif;
+    font-size: 38px;
+    font-weight: 800;
+    color: #ffd066;
+    text-shadow: 0 0 14px rgba(255, 200, 80, 0.5);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .rank.gold   { color: #ffe48a; text-shadow: 0 0 14px rgba(255, 200, 80, 0.7); }
+  .rank.silver { color: #d8d8d8; text-shadow: 0 0 12px rgba(216, 216, 216, 0.5); }
+  .rank.bronze { color: #d8845a; text-shadow: 0 0 12px rgba(216, 132, 90, 0.5); }
+  .rank-suffix {
+    font-size: 14px;
+    color: rgba(255, 220, 160, 0.55);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .total {
+    font-size: 12px;
+    color: rgba(255, 220, 160, 0.55);
+    letter-spacing: 1.5px;
+    font-family: 'Menlo', 'Consolas', monospace;
+  }
+  .lap-row {
+    margin-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .lap-label {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 160, 0.55);
+    font-weight: 800;
+  }
+  .lap-num {
+    font-family: 'Cinzel', 'Georgia', serif;
+    font-weight: 800;
+    color: #ffe48a;
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+  }
+  .colors {
+    margin-top: 8px;
+    display: flex;
+    gap: 4px;
+  }
+  .color-pip {
+    flex: 1;
+    height: 6px;
+    border-radius: 2px;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .finished-pill {
+    margin-top: 8px;
+    padding: 4px 0;
+    text-align: center;
+    background: rgba(180, 220, 100, 0.18);
+    border: 1px solid #b6e36a;
+    border-radius: 6px;
+    color: #b6e36a;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    display: none;
+  }
+  .finished-pill.visible { display: block; }
+
+  .banner {
+    position: fixed;
+    top: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20, 14, 8, 0.94);
+    border: 2px solid #ffd066;
+    border-radius: 12px;
+    padding: 16px 28px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 24px rgba(255, 200, 80, 0.4);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+    min-width: 280px;
+  }
+  .banner.visible { opacity: 1; }
+  .banner-title {
+    font-family: 'Cinzel', 'Georgia', serif;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #ffd066;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
+  }
+  .banner-sub {
+    font-size: 12px;
+    color: rgba(255, 220, 140, 0.7);
+    letter-spacing: 1.5px;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="panel hidden" id="panel">
+  <div class="row">
+    <div class="rank-block">
+      <div class="rank" id="rank">1</div>
+      <div class="rank-suffix" id="rankSuffix">st</div>
+    </div>
+    <div class="total" id="total">/ 8</div>
+  </div>
+  <div class="lap-row">
+    <div class="lap-label">Lap</div>
+    <div class="lap-num" id="lap">1 / 3</div>
+  </div>
+  <div class="colors" id="colors"></div>
+  <div class="finished-pill" id="finishedPill">FINISHED</div>
+</div>
+<div class="banner" id="banner">
+  <div class="banner-title" id="bannerTitle">—</div>
+  <div class="banner-sub" id="bannerSub">—</div>
+</div>
+<script>
+(function () {
+  var panel = document.getElementById('panel');
+  var rank = document.getElementById('rank');
+  var rankSuffix = document.getElementById('rankSuffix');
+  var total = document.getElementById('total');
+  var lapEl = document.getElementById('lap');
+  var colors = document.getElementById('colors');
+  var finishedPill = document.getElementById('finishedPill');
+  var banner = document.getElementById('banner');
+  var bannerTitle = document.getElementById('bannerTitle');
+  var bannerSub = document.getElementById('bannerSub');
+  var bannerHideTimer = null;
+  var lastBannerTs = 0;
+
+  function suffixFor(n) {
+    var s = ['th', 'st', 'nd', 'rd'];
+    var v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  }
+
+  function rgbToCss(c) {
+    if (!c || c.length < 3) return '#ffd066';
+    return 'rgb(' + Math.round(c[0]*255) + ',' + Math.round(c[1]*255) + ',' + Math.round(c[2]*255) + ')';
+  }
+
+  function render(p) {
+    if (!p) return;
+    panel.classList.remove('hidden');
+    var r = Math.max(1, Math.floor(p.rank || 1));
+    rank.textContent = r;
+    rankSuffix.textContent = suffixFor(r);
+    rank.classList.remove('gold', 'silver', 'bronze');
+    if (r === 1) rank.classList.add('gold');
+    else if (r === 2) rank.classList.add('silver');
+    else if (r === 3) rank.classList.add('bronze');
+    total.textContent = '/ ' + (p.totalRacers || 1);
+    lapEl.textContent = (p.lap || 1) + ' / ' + (p.lapsToWin || 3);
+    if (p.colors) {
+      colors.innerHTML = '';
+      for (var i = 0; i < p.colors.length; i++) {
+        var d = document.createElement('div');
+        d.className = 'color-pip';
+        var c = rgbToCss(p.colors[i]);
+        d.style.background = c;
+        d.style.color = c;
+        colors.appendChild(d);
+      }
+    }
+    finishedPill.classList.toggle('visible', !!p.finished);
+    if (p.banner && p.banner.tsMs && p.banner.tsMs !== lastBannerTs) {
+      lastBannerTs = p.banner.tsMs;
+      bannerTitle.textContent = p.banner.title || '';
+      bannerSub.textContent = p.banner.subtitle || '';
+      if (p.banner.color) banner.style.borderColor = rgbToCss(p.banner.color);
+      else banner.style.borderColor = '#ffd066';
+      banner.classList.add('visible');
+      if (bannerHideTimer) clearTimeout(bannerHideTimer);
+      bannerHideTimer = setTimeout(function () { banner.classList.remove('visible'); bannerHideTimer = null; }, 2200);
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.racePosition) render(s.racePosition);
+  });
+})();
+</script>
+</body>
+</html>

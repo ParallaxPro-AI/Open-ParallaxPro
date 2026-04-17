@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(14, 16, 24, 0.78);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --panel-border-bright: rgba(255, 255, 255, 0.18);
+    --slot-bg: rgba(20, 22, 32, 0.85);
+    --slot-bg-active: rgba(255, 220, 130, 0.22);
+    --text: #f3f5f9;
+    --text-dim: #7a8197;
+    --gold: #fbbf24;
+    --accent: #3b82f6;
+  }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap.hidden { display: none; }
+  .wrap {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  }
+  .slot {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    background: var(--slot-bg);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .slot.active {
+    border-color: var(--gold);
+    background: var(--slot-bg-active);
+    transform: translateY(-3px);
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.3);
+  }
+  .slot-num {
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+  .slot-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .slot-icon.swatch {
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+  .slot-count {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+    font-variant-numeric: tabular-nums;
+  }
+  .slot-name {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text);
+    background: rgba(0, 0, 0, 0.7);
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .slot.active .slot-name { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <!-- 9 slots; populated by JS -->
+</div>
+
+<script>
+(function() {
+  var ITEM_ICON = {
+    dirt: '🟫', stone: '🪨', wood: '🪵', plank: '🟫', brick: '🧱',
+    coal: '⚫', iron: '🔩', gold: '🥇', diamond: '💎',
+    torch: '🕯', leaf: '🍃', grass: '🟩',
+    wood_pickaxe: '⛏', stone_pickaxe: '⛏', iron_pickaxe: '⛏', gold_pickaxe: '⛏', diamond_pickaxe: '⛏',
+    wood_sword: '🗡', stone_sword: '🗡', iron_sword: '🗡',
+  };
+  var ITEM_NAME = {
+    dirt: 'Dirt', stone: 'Stone', wood: 'Wood', plank: 'Plank', brick: 'Brick',
+    coal: 'Coal', iron: 'Iron', gold: 'Gold', diamond: 'Diamond',
+    torch: 'Torch', leaf: 'Leaves', grass: 'Grass',
+    wood_pickaxe: 'Wood Pickaxe', stone_pickaxe: 'Stone Pickaxe',
+    iron_pickaxe: 'Iron Pickaxe', gold_pickaxe: 'Gold Pickaxe', diamond_pickaxe: 'Diamond Pickaxe',
+    wood_sword: 'Wood Sword', stone_sword: 'Stone Sword', iron_sword: 'Iron Sword',
+  };
+  var ITEM_COLOR = {
+    dirt:    '#724A2D',
+    stone:   '#6b6b73',
+    wood:    '#7d4f30',
+    plank:   '#a07a48',
+    brick:   '#a64f44',
+    coal:    '#2c2c30',
+    iron:    '#c89870',
+    gold:    '#fbcd33',
+    diamond: '#5edcef',
+    torch:   '#f4c95d',
+    leaf:    '#3d8c3d',
+    grass:   '#56a644',
+  };
+
+  var wrap = document.getElementById('wrap');
+
+  // Build 9 empty slots once.
+  for (var i = 0; i < 9; i++) {
+    var slot = document.createElement('div');
+    slot.className = 'slot';
+    slot.id = 'slot-' + i;
+    slot.innerHTML =
+      '<span class="slot-num">' + (i + 1) + '</span>' +
+      '<div class="slot-icon" id="icon-' + i + '"></div>' +
+      '<span class="slot-count" id="count-' + i + '"></span>' +
+      '<span class="slot-name" id="name-' + i + '"></span>';
+    wrap.appendChild(slot);
+  }
+
+  function render(s) {
+    if (!s || !s.hotbar) return;
+    if (s.dead || s.inventoryOpen) {
+      // Hide while overlay is up — keeps the UI quiet.
+      // Actually keep visible during inventory so player sees their loadout.
+    }
+    for (var i = 0; i < 9; i++) {
+      var slot = s.hotbar[i];
+      var slotEl = document.getElementById('slot-' + i);
+      var iconEl = document.getElementById('icon-' + i);
+      var countEl = document.getElementById('count-' + i);
+      var nameEl = document.getElementById('name-' + i);
+
+      slotEl.classList.toggle('active', i === s.hotbarSelected);
+
+      if (!slot) {
+        iconEl.innerHTML = '';
+        iconEl.style.background = '';
+        iconEl.classList.remove('swatch');
+        countEl.textContent = '';
+        nameEl.textContent = '';
+        continue;
+      }
+
+      var color = ITEM_COLOR[slot.item];
+      if (color) {
+        iconEl.classList.add('swatch');
+        iconEl.style.background = color;
+        iconEl.innerHTML = '';
+      } else {
+        iconEl.classList.remove('swatch');
+        iconEl.style.background = '';
+        iconEl.innerHTML = ITEM_ICON[slot.item] || '·';
+      }
+      countEl.textContent = slot.count > 1 ? slot.count : '';
+      nameEl.textContent = ITEM_NAME[slot.item] || slot.item;
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.pickaxeKeep) render(s.pickaxeKeep);
+  });
+})();
+</script>
+</body>
+</html>
