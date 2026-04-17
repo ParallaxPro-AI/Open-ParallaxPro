@@ -598,10 +598,11 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
     // user comes back to the chat history later. Stored as "user: yes,
     // build it from scratch" + "assistant: starting the build" — without
     // this, the history reads "AI asked → (nothing) → jump to results".
+    const SYNTHETIC_USER_MSG = 'Yes — build it from scratch (via button).';
     const beforeSnapshot = getProjectSnapshot(client.projectId);
     stmtInsertMessage.run(
         client.projectId, client.chatSessionId, 'user',
-        'Yes — build it from scratch (via button).',
+        SYNTHETIC_USER_MSG,
         null, null, beforeSnapshot,
     );
 
@@ -628,6 +629,12 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
             client.projectId, client.chatSessionId, 'assistant',
             assistantMsg, null, snapshotAfter, null,
         );
+        // Mirror the synthetic turn into the JSONL log so the admin
+        // Chat Logs tab sees parity with DB-backed history. Append
+        // both entries together so sessions that start with the
+        // button click aren't empty files.
+        appendToLog(client.projectId, client.chatSessionId, { role: 'user', content: SYNTHETIC_USER_MSG });
+        appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: assistantMsg });
     } catch (e: any) {
         send(client, 'create_game_offer_error', { error: e?.message || 'Failed to start build.' });
         // Drop the synthetic user message — the fake "yes" is misleading
@@ -636,7 +643,7 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
         // first then delete by it.
         const row = db.prepare(
             `SELECT id FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND role = 'user' AND content = ? ORDER BY id DESC LIMIT 1`,
-        ).get(client.projectId, client.chatSessionId, 'Yes — build it from scratch (via button).') as { id: number } | undefined;
+        ).get(client.projectId, client.chatSessionId, SYNTHETIC_USER_MSG) as { id: number } | undefined;
         if (row?.id) {
             db.prepare('DELETE FROM chat_messages WHERE id = ?').run(row.id);
         }
@@ -735,6 +742,12 @@ function handleChatMessage(client: EditorClient, data: any): void {
  */
 async function runDirectFixer(client: EditorClient, description: string, cliOverride: string, abortController: AbortController): Promise<void> {
     const sendStatus = (msg: string) => send(client, 'fix_progress', { text: msg });
+    // Admin chat-logs parity with runLLMWithRetry: the direct-agent
+    // path previously skipped the .jsonl log entirely, so whole sessions
+    // were invisible to the Chat Logs tab. Log the prompt up-front; we
+    // log the result (summary or error) right before every finishChat
+    // call below so the transcript reads naturally end-to-end.
+    appendToLog(client.projectId, client.chatSessionId, { role: 'user', content: description });
     try {
         // Budget gate — the direct-agent path skips the chat LLM (which
         // normally enforces the cap), so the user could otherwise keep
@@ -742,13 +755,16 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
         // in the dropdown. Enforce the same check here.
         const blockedByBudget = await checkBudgetOrBlock(client);
         if (blockedByBudget) {
+            appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: blockedByBudget });
             finishChat(client, blockedByBudget);
             return;
         }
 
         const pd = readProjectData(client.projectId);
         if (!pd || isLegacyProjectData(pd)) {
-            finishChat(client, '*Project files unavailable — cannot run fixer.*');
+            const msg = '*Project files unavailable — cannot run fixer.*';
+            appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: msg });
+            finishChat(client, msg);
             return;
         }
 
@@ -772,7 +788,9 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
         // files to the project DB. The 20k-tokens/min estimate above still
         // lands in the usage dashboard.
         if (abortController.signal.aborted) {
-            finishChat(client, '*Generation stopped.*');
+            const msg = '*Generation stopped.*';
+            appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: msg });
+            finishChat(client, msg);
             return;
         }
 
@@ -803,14 +821,19 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
         const summary = fixResult.success
             ? (fixResult.summary || `${agentLabel} applied the fix.`)
             : `*${agentLabel} failed: ${fixResult.summary}*`;
+        appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: summary });
         finishChat(client, summary, fileChanges);
     } catch (e: any) {
         client.abortController = null;
         if (abortController.signal.aborted) {
-            finishChat(client, '*Generation stopped.*');
+            const msg = '*Generation stopped.*';
+            appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: msg });
+            finishChat(client, msg);
         } else {
             console.error('[DirectFixer] Error:', e?.message || e);
-            finishChat(client, `*Error: ${e?.message || 'Unknown error'}*`);
+            const msg = `*Error: ${e?.message || 'Unknown error'}*`;
+            appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: msg });
+            finishChat(client, msg);
         }
     }
 }
