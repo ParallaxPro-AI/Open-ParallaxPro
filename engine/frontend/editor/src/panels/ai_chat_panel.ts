@@ -298,7 +298,7 @@ export class AiChatPanel {
             const last = btns[btns.length - 1];
             if (last) {
                 last.disabled = false;
-                last.textContent = 'Create from scratch';
+                last.textContent = 'Create from scratch (20-30 min)';
             }
             const errMsg: ChatMessage = {
                 role: 'assistant',
@@ -660,7 +660,7 @@ export class AiChatPanel {
 
         const btn = document.createElement('button');
         btn.className = 'chat-create-scratch-btn';
-        btn.textContent = 'Create from scratch';
+        btn.textContent = 'Create from scratch (20-30 min)';
         btn.addEventListener('click', () => {
             if (btn.disabled) return;
             btn.disabled = true;
