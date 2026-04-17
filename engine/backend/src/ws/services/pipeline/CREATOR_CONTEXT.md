@@ -135,7 +135,10 @@ systems and UI panels.
 Create scripts inside `project/`:
 - `project/behaviors/{category}/{name}.ts` — per-entity behaviors
 - `project/systems/{category}/{name}.ts` — standalone manager systems
-- `project/ui/{name}.html` — HTML UI overlays (HUD panels, menus)
+- `project/ui/{name}.html` — HTML UI overlays (HUD panels, menus). In
+  `01_flow.json`, reference panels **without** the `.html` extension — e.g.
+  `show_ui:hud/health` (not `show_ui:hud/health.html`). The file on disk keeps
+  its `.html` suffix; the action string does not.
 - `project/scripts/{name}.ts` — anything else specific to this game
 
 If a behavior or system already exists in `reference/`, prefer copying it into

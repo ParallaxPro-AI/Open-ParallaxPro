@@ -487,6 +487,26 @@ function loadGameEventDefs(systemsDir?: string): { defs: Record<string, EventDef
 
 // ─── Main assembler ────────────────────────────────────────────────────────
 
+function normalizeFlowUIActions(states: Record<string, any>): void {
+  for (const state of Object.values(states) as any[]) {
+    for (const key of ['on_enter', 'on_exit', 'on_update', 'on_timeout'] as const) {
+      const list = state[key];
+      if (!Array.isArray(list)) continue;
+      for (let i = 0; i < list.length; i++) {
+        const a = list[i];
+        if (typeof a !== 'string') continue;
+        for (const verb of ['show_ui:', 'hide_ui:'] as const) {
+          if (a.startsWith(verb) && a.endsWith('.html')) {
+            list[i] = a.slice(0, -'.html'.length);
+            break;
+          }
+        }
+      }
+    }
+    if (state.substates) normalizeFlowUIActions(state.substates);
+  }
+}
+
 let _nameCounters: Record<string, number> = {};
 
 export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; systems: string; ui: string }): ConvertedScene {
@@ -497,6 +517,13 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   const entityDefs = loadJSON(gamePath, '02_entities.json');
   const worlds = loadJSON(gamePath, '03_worlds.json');
   const systemsDef = loadJSON(gamePath, '04_systems.json');
+
+  // Normalize `show_ui:`/`hide_ui:` action panels: convention is the panel name
+  // without `.html` (e.g. `show_ui:hud/health`). LLM-generated flows sometimes
+  // emit the extension, which breaks the runtime ui_bridge (its visibility flag
+  // is derived from the raw panel string) and defeats validation below. Must
+  // run before generateFSMDriver bakes the flow into the runtime script.
+  if (flow?.states) normalizeFlowUIActions(flow.states);
 
   const entities: any[] = [];
   const scripts: Record<string, string> = {};
