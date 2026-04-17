@@ -33,7 +33,34 @@ function waitForSplash(): Promise<void> {
 }
 
 function getSignupUrl(): string {
-    return `${window.location.origin}/signup?redirect=${encodeURIComponent(window.location.href)}`;
+    // When play.ts runs inside an iframe (e.g. the /everything-game wrapper
+    // or any third-party embed of /play/:owner/:slug) we want the signup
+    // flow to send the user back to the wrapper page they originally saw,
+    // not the bare /play URL — otherwise after signup they land inside a
+    // nested-iframe view of the same wrapper.
+    let redirectTo = window.location.href;
+    try {
+        if (window.top && window.top !== window) {
+            redirectTo = window.top.location.href;
+        }
+    } catch {
+        // Cross-origin parent (third-party embed) — redirect back to the
+        // play URL itself, which still works as a standalone page.
+    }
+    return `${window.location.origin}/signup?redirect=${encodeURIComponent(redirectTo)}`;
+}
+
+// Navigate the top window to `url` so the signup page replaces the whole
+// page rather than loading inside the iframe.
+function navigateTopToSignup(): void {
+    const url = getSignupUrl();
+    try {
+        if (window.top && window.top !== window) {
+            window.top.location.href = url;
+            return;
+        }
+    } catch { /* cross-origin parent — fall through */ }
+    window.location.href = url;
 }
 
 function showGuestBanner(): void {
@@ -82,7 +109,7 @@ async function boot(): Promise<void> {
     const isLoggedIn = !!token;
 
     if (isMultiplayerJoin && !isLoggedIn) {
-        window.location.href = getSignupUrl();
+        navigateTopToSignup();
         return;
     }
 
@@ -168,6 +195,7 @@ async function boot(): Promise<void> {
         if (homeLink) {
             homeLink.textContent = 'Sign up to play';
             homeLink.href = getSignupUrl();
+            homeLink.target = '_top';
         }
         return;
     }
