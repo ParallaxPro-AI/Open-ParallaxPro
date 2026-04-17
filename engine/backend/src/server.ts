@@ -136,6 +136,43 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         res.json({ status: 'ok' });
     });
 
+    // Internal assembler gate for sandboxed CLI runs. validate.sh inside
+    // the sandbox POSTs here with its per-run token; we look up the
+    // token → /tmp sandbox dir and run assembleGame against it, which
+    // is the same strict check used everywhere else in the engine.
+    // Without this, the sandbox's validate.sh only catches JSON parse
+    // errors and JS syntax — unknown event names, missing panel files,
+    // mesh paths that don't resolve, etc. silently pass and then blow
+    // up in runCreator's post-exit assembleGame, wasting a whole run.
+    //
+    // Token auth (random UUID per run, revoked at cleanup) is the only
+    // gate — the endpoint never writes and never leaks file contents,
+    // so unauthenticated exposure is low-risk, but the token ensures
+    // only the current sandbox's validate.sh can target its own dir.
+    app.post('/api/engine/internal/validate-sandbox/:token', async (req, res) => {
+        const { lookupSandboxToken } = await import('./ws/services/pipeline/sandbox_validator.js');
+        const { assembleGame } = await import('./ws/services/pipeline/level_assembler.js');
+        const path = await import('path');
+
+        const sandboxDir = lookupSandboxToken(req.params.token);
+        if (!sandboxDir) {
+            res.status(404).json({ ok: false, error: 'Unknown or expired sandbox token' });
+            return;
+        }
+
+        const projectDir = path.join(sandboxDir, 'project');
+        try {
+            assembleGame(projectDir, {
+                behaviors: path.join(projectDir, 'behaviors'),
+                systems:   path.join(projectDir, 'systems'),
+                ui:        path.join(projectDir, 'ui'),
+            });
+            res.json({ ok: true });
+        } catch (e: any) {
+            res.json({ ok: false, error: e?.message || String(e) });
+        }
+    });
+
 
     // WS ticket exchange — trade a JWT for a short-lived one-time ticket
     // so the actual token never appears in WebSocket URLs

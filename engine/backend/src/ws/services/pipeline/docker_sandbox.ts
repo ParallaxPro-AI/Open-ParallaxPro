@@ -145,6 +145,11 @@ export function wrapSpawn(
         // Default bridge network: outbound yes, but no access to host
         // services. Add `--network=none` later if we add a proxy.
         '--network', 'bridge',
+        // Linux's default bridge doesn't map `host.docker.internal`
+        // (Mac/Windows Docker Desktop does). Agents calling the engine's
+        // internal validator (http://host.docker.internal:<port>) need
+        // this — without it the hostname fails to resolve on prod.
+        '--add-host', 'host.docker.internal:host-gateway',
         // Match the host user so (a) claude-code accepts
         // --dangerously-skip-permissions (refuses to run as root), and
         // (b) files the agent writes into the mounted sandbox dir are

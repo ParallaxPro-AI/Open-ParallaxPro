@@ -28,6 +28,8 @@ import {
 } from './project_files.js';
 import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
 import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
+import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
+import { isDockerSandboxEnabled } from './docker_sandbox.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -56,6 +58,20 @@ export async function runCreator(
     // trample each other's sandbox. mkdtempSync guarantees a fresh empty dir.
     const sandboxDir = fs.mkdtempSync(path.join('/tmp', 'parallaxpro-create-'));
 
+    // Token that maps to this sandbox for the /validate-sandbox
+    // endpoint. validate.sh inside the sandbox POSTs with this token
+    // so the backend can run the real assembleGame against the
+    // sandbox's project/ dir. Revoked in the finally so a leftover
+    // token can't be used after the sandbox is cleaned up.
+    const validateToken = registerSandboxToken(sandboxDir);
+    // Inside docker we reach the host via the bridge's host-gateway
+    // mapping (see docker_sandbox wrapSpawn --add-host). Outside docker
+    // (local dev) the sandbox is on the host's own filesystem, so
+    // localhost works.
+    const validateBackendUrl = isDockerSandboxEnabled()
+        ? `http://host.docker.internal:${config.port}`
+        : `http://localhost:${config.port}`;
+
     // Mirror the fixer's registration into the shared active-jobs view
     // so the admin dashboard sees both kinds of runs in one table.
     // jobId is always passed by generation_jobs in the normal flow; fall
@@ -77,6 +93,14 @@ export async function runCreator(
     try {
         sendStatus?.('Setting up creation sandbox...');
         createSandbox(sandboxDir);
+
+        // Drop the config where validate_assembler.js can find it. Done
+        // after createSandbox (which rewrites assets) so we don't race
+        // with any sandbox seeding step that could clobber the file.
+        fs.writeFileSync(
+            path.join(sandboxDir, '.validate_config.json'),
+            JSON.stringify({ url: validateBackendUrl, token: validateToken }),
+        );
 
         // Seed TASK.md with the baseline event list so the agent knows
         // what's already defined. Agents may extend project/systems/
@@ -102,7 +126,7 @@ export async function runCreator(
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
-        const files = readFilesFromDir(projectDir);
+        let files = readFilesFromDir(projectDir);
 
         if (!files['01_flow.json'] || !files['02_entities.json']) {
             return { success: false, summary: 'Creator did not produce required template files.', templateId, files: null, costUsd: cliResult.costUsd };
@@ -120,6 +144,7 @@ export async function runCreator(
         }
 
         sendStatus?.('Running final validation...');
+        let assembleErr: any = null;
         try {
             assembleGame(projectDir, {
                 behaviors: path.join(projectDir, 'behaviors'),
@@ -127,7 +152,74 @@ export async function runCreator(
                 ui: path.join(projectDir, 'ui'),
             });
         } catch (e: any) {
-            return { success: false, summary: `Template validation failed: ${e.message}`, templateId, files: null, costUsd: cliResult.costUsd };
+            assembleErr = e;
+        }
+
+        if (assembleErr) {
+            // One retry: the CLI's own validate.sh can miss things the
+            // real assembler catches (unknown event refs, asset paths
+            // that don't resolve, FSM transition parse errors). Append
+            // the error to TASK.md and give the agent one more run to
+            // fix it before we give up. Aborts are honored — if the
+            // user hit Stop while we were waiting, don't re-spawn.
+            if (abortSignal?.aborted) {
+                return { success: false, summary: 'Aborted before retry.', templateId, files: null, costUsd: cliResult.costUsd };
+            }
+            sendStatus?.('Validation failed — feeding error back to the agent for one retry...');
+            try {
+                const taskPath = path.join(sandboxDir, 'TASK.md');
+                const existing = fs.readFileSync(taskPath, 'utf-8');
+                fs.writeFileSync(
+                    taskPath,
+                    existing +
+                        `\n\n# Previous attempt failed validation\n\nThe engine's assembler rejected your output with this error:\n\n\`\`\`\n${assembleErr.message || String(assembleErr)}\n\`\`\`\n\nRead the error, find which file caused it, fix just that, and run "bash validate.sh" again. Do NOT rewrite unrelated files — small targeted edits only. This is your FINAL attempt.`,
+                );
+            } catch (e: any) {
+                console.warn(`[CLICreator] Failed to append retry guidance to TASK.md: ${e?.message}`);
+            }
+
+            let retryResult: { text: string; costUsd: number };
+            try {
+                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, abortSignal);
+            } catch (e: any) {
+                return {
+                    success: false,
+                    summary: `Template validation failed and retry spawn errored: ${e?.message || e}\n\nOriginal error: ${assembleErr.message}`,
+                    templateId,
+                    files: null,
+                    costUsd: cliResult.costUsd,
+                };
+            }
+            // Accumulate cost so the retry isn't invisible to usage.
+            cliResult.costUsd += retryResult.costUsd;
+            if (retryResult.text) cliResult.text = retryResult.text;
+
+            if (abortSignal?.aborted) {
+                return { success: false, summary: 'Aborted during retry.', templateId, files: null, costUsd: cliResult.costUsd };
+            }
+
+            sendStatus?.('Reading retried files...');
+            files = readFilesFromDir(projectDir);
+            if (!files['01_flow.json'] || !files['02_entities.json']) {
+                return { success: false, summary: `Retry removed required template files. Original error: ${assembleErr.message}`, templateId, files: null, costUsd: cliResult.costUsd };
+            }
+
+            sendStatus?.('Re-running final validation...');
+            try {
+                assembleGame(projectDir, {
+                    behaviors: path.join(projectDir, 'behaviors'),
+                    systems: path.join(projectDir, 'systems'),
+                    ui: path.join(projectDir, 'ui'),
+                });
+            } catch (e2: any) {
+                return {
+                    success: false,
+                    summary: `Template validation failed after retry.\n\nFirst: ${assembleErr.message}\nRetry: ${e2.message || e2}`,
+                    templateId,
+                    files: null,
+                    costUsd: cliResult.costUsd,
+                };
+            }
         }
 
         return {
@@ -138,6 +230,7 @@ export async function runCreator(
             costUsd: cliResult.costUsd,
         };
     } finally {
+        try { unregisterSandboxToken(validateToken); } catch {}
         if (registered) {
             try { unregisterActiveJob(registryJobId); } catch {}
         }
@@ -263,6 +356,16 @@ echo "=== Headless Smoke Test ==="
 node validate_headless.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
+echo "=== Assembler Check (strict) ==="
+# Calls the engine's internal /validate-sandbox endpoint which runs the
+# real assembleGame against this project's files. Catches everything
+# the local checks miss: unknown event names, missing behavior/system/UI
+# refs, asset paths that don't resolve, bad FSM transitions, component
+# schema errors. Soft-fails on network unreachable so offline / self-
+# hosted dev with the backend down still runs the earlier checks.
+node validate_assembler.js 2>&1
+if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
+
 if [ $ERRORS -eq 0 ]; then
     echo "All checks passed."
 else
@@ -271,6 +374,41 @@ else
 fi
 `;
     fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), validateSh, { mode: 0o755 });
+
+    // Small Node helper that reads .validate_config.json (written by
+    // runCreator with {url, token}) and POSTs to the backend's internal
+    // assembler endpoint. Separated from validate.sh to avoid escaping
+    // a multi-line `node -e "..."` script through bash.
+    const assemblerJs = `
+const fs = require('fs');
+let cfg;
+try {
+    cfg = JSON.parse(fs.readFileSync('.validate_config.json', 'utf-8'));
+} catch (e) {
+    // No config = we can't run the strict check; don't block validate.sh.
+    console.warn('WARN: .validate_config.json missing or unreadable — skipping assembler check.');
+    process.exit(0);
+}
+fetch(cfg.url + '/api/engine/internal/validate-sandbox/' + cfg.token, { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(r) {
+        if (r && r.ok) {
+            console.log('Assembler check passed.');
+            process.exit(0);
+        } else {
+            console.error('ASSEMBLE ERROR: ' + (r && r.error ? r.error : 'unknown'));
+            process.exit(1);
+        }
+    })
+    .catch(function(e) {
+        // Soft-fail on network error — the sandbox may be offline / the
+        // backend may not be reachable. runCreator's post-exit
+        // assembleGame is still the authoritative gate either way.
+        console.warn('WARN: could not reach assembler endpoint: ' + e.message);
+        process.exit(0);
+    });
+`;
+    fs.writeFileSync(path.join(sandboxDir, 'validate_assembler.js'), assemblerJs);
 
     const headlessJs = `
 const fs = require('fs');
