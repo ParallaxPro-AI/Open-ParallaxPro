@@ -138,12 +138,17 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
             }
         }
 
-        // Authenticated users should never collapse to guest-xxx — if the
-        // JWT verified but carried an empty username field (data drift from
-        // an older signup path), fall back to a stable, user-specific label
-        // so remote peers see a real identity instead of "guest-abc123".
-        if (!username && userId !== null) username = `user-${userId}`;
-        if (!username) username = `guest-${Math.random().toString(36).slice(2, 8)}`;
+        if (!username) {
+            // Authed but username is somehow empty — that's a data bug in
+            // whatever signed this JWT. Log loud so we notice and fix it,
+            // but don't leak the DB user id in the broadcast roster. Fall
+            // through to a random guest suffix; userId is still recorded
+            // on the peer server-side for any audit lookups we need later.
+            if (userId !== null) {
+                console.error(`[lobby] authed peer (userId=${userId}) has empty username in JWT — fix sign path; broadcasting as guest`);
+            }
+            username = `guest-${Math.random().toString(36).slice(2, 8)}`;
+        }
 
         // Editor "+ Preview Client" tabs send an auth token + a disambiguating
         // suffix so two tabs of the same account don't collapse to one
