@@ -86,6 +86,11 @@ function checkLLMRateLimit(userId: number): boolean {
 
 const stmtGetProject = db.prepare('SELECT * FROM projects WHERE id = ?');
 const stmtUpdateData = db.prepare("UPDATE projects SET project_data = ?, updated_at = datetime('now') WHERE id = ?");
+// Touches updated_at so any chat turn bumps the project to the top of
+// the project list (which sorts updated_at DESC). Uses the same
+// subsecond-precision format as the rest of the codebase (see
+// routes/projects.ts) so chat-only bumps sort correctly against edits.
+const stmtTouchProject = db.prepare("UPDATE projects SET updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ?");
 const stmtInsertMessage = db.prepare("INSERT INTO chat_messages (project_id, chat_session_id, role, content, file_changes, project_data_snapshot, project_data_before) VALUES (?, ?, ?, ?, ?, ?, ?)");
 const stmtGetHistory = db.prepare("SELECT id, role, content, feedback, file_changes, created_at FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id ASC");
 const stmtSetFeedback = db.prepare("UPDATE chat_messages SET feedback = ? WHERE id = ? AND project_id = ?");
@@ -713,6 +718,10 @@ function handleChatMessage(client: EditorClient, data: any): void {
     // Save user message with current project state as "before" snapshot
     const beforeSnapshot = getProjectSnapshot(client.projectId);
     stmtInsertMessage.run(client.projectId, client.chatSessionId, 'user', content, null, null, beforeSnapshot);
+    // Bump updated_at on every chat turn — even ones that end up making
+    // no file changes — so the project moves to the top of the list as
+    // soon as the user starts a conversation.
+    stmtTouchProject.run(client.projectId);
     send(client, 'chat_response_start', {});
 
     const abortController = new AbortController();
