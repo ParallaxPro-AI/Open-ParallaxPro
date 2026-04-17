@@ -726,8 +726,14 @@ export class ProjectListView {
             }
         }
 
+        // Always render the published-link slot — an invisible placeholder
+        // when the project isn't published — so every card has the same
+        // natural height. Without this, published cards are ~20px taller
+        // than drafts, which causes recomputePageSize() to oscillate
+        // depending on which card happens to be first on the current page.
+        const linkRow = document.createElement('a');
+        linkRow.className = 'project-published-link';
         if (isPublished) {
-            const linkRow = document.createElement('a');
             // Published games always live on parallaxpro.ai — even when
             // we're rendering from localhost — so the link has to point
             // there, not at window.location.origin.
@@ -735,14 +741,20 @@ export class ProjectListView {
             const playUrl = `${origin}/games/${project.publishedOwner}/${project.publishedSlug}`;
             linkRow.href = playUrl;
             linkRow.target = '_blank';
-            linkRow.className = 'project-published-link';
             linkRow.addEventListener('click', (e) => e.stopPropagation());
             linkRow.appendChild(icon(ExternalLink, 12));
             const linkText = document.createElement('span');
             linkText.textContent = `/games/${project.publishedOwner}/${project.publishedSlug}`;
             linkRow.appendChild(linkText);
-            info.appendChild(linkRow);
+        } else {
+            linkRow.setAttribute('aria-hidden', 'true');
+            linkRow.style.visibility = 'hidden';
+            // nbsp so line-height applies and the row reserves its full height
+            const placeholder = document.createElement('span');
+            placeholder.textContent = '\u00A0';
+            linkRow.appendChild(placeholder);
         }
+        info.appendChild(linkRow);
 
         const bottom = document.createElement('div');
         bottom.className = 'project-card-bottom';

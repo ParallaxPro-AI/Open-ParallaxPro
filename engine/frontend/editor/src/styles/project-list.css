@@ -201,10 +201,10 @@
     cursor: pointer;
     transition: all var(--transition-normal);
     position: relative;
-    /* Uniform height across variants (published cards render an extra
-       link row) so recomputePageSize() measures a stable cardH and
-       pagination can't flip-flop between sizes. */
-    min-height: 240px;
+    /* Natural heights are uniform because project_list_view.ts always
+       renders the .project-published-link slot (visibility:hidden when
+       not published). That lets recomputePageSize() measure a stable
+       cardH without min-height padding out empty space. */
 }
 
 .project-card:hover {
