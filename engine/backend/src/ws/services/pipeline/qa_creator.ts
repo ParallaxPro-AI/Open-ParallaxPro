@@ -193,19 +193,32 @@ function extractReferencedFiles(files: ProjectFiles): Array<{ kind: 'behaviors' 
     try {
         const flow = JSON.parse(files['01_flow.json'] || '{}');
         const panels = new Set<string>();
-        const scan = (n: any): void => {
-            if (Array.isArray(n)) {
-                for (const item of n) {
-                    if (typeof item === 'string' && item.startsWith('show_ui:')) {
-                        panels.add(item.slice('show_ui:'.length));
+        // Panels are referenced three ways: show_ui:/hide_ui: in action lists,
+        // and ui_event:<panel>:<button> in transition `when` strings. The
+        // assembler validates all three, so we must pin all three — mirrors
+        // project_seeder.ts:pinReferencedUI.
+        const visit = (states: Record<string, any>) => {
+            for (const state of Object.values(states) as any[]) {
+                for (const list of [state.on_enter, state.on_exit, state.on_update, state.on_timeout]) {
+                    if (!Array.isArray(list)) continue;
+                    for (const action of list) {
+                        if (typeof action !== 'string') continue;
+                        if (action.startsWith('show_ui:')) panels.add(action.slice('show_ui:'.length));
+                        else if (action.startsWith('hide_ui:')) panels.add(action.slice('hide_ui:'.length));
                     }
                 }
-            } else if (n && typeof n === 'object') {
-                for (const v of Object.values(n)) scan(v);
+                for (const t of state.transitions || []) {
+                    const when = t?.when || '';
+                    if (when.startsWith('ui_event:')) {
+                        const parts = when.slice('ui_event:'.length).split(':');
+                        if (parts[0]) panels.add(parts[0]);
+                    }
+                }
+                if (state.substates) visit(state.substates);
             }
         };
-        scan(flow);
-        for (const p of panels) out.push({ kind: 'ui', relPath: p + '.html' });
+        if (flow?.states) visit(flow.states);
+        for (const p of panels) out.push({ kind: 'ui', relPath: p.replace(/\.html$/, '') + '.html' });
     } catch {}
     const seen = new Set<string>();
     return out.filter(r => {
