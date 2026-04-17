@@ -37,7 +37,7 @@ import db from '../../../db/connection.js';
 import { config } from '../../../config.js';
 import { parseProjectData, serializeProjectData, isLegacyProjectData, ProjectFiles } from './project_files.js';
 import { runCreator } from './cli_creator.js';
-import { getQueuePosition } from './cli_runner.js';
+import { getQueuePosition, resolveCLI } from './cli_runner.js';
 import type { EnginePlugin } from '../../../plugin.js';
 
 export interface QueuePosition {
@@ -414,6 +414,14 @@ async function runJob(job: GenerationJob): Promise<void> {
 
     broadcast(job, { type: 'complete', status: outcome, summary, costUsd });
 
+    // Resolve the CLI once — if the process unknowns what's installed it
+    // throws, but we're past acquireCLISlot which would've failed first,
+    // so wrap defensively and fall back to the override value verbatim.
+    let cliName: string;
+    try { cliName = resolveCLI(job.cliOverride); }
+    catch { cliName = job.cliOverride || 'unknown'; }
+    const endedAt = Date.now();
+
     for (const p of _plugins) {
         if (p.onGenerationComplete) {
             try {
@@ -425,6 +433,10 @@ async function runJob(job: GenerationJob): Promise<void> {
                     authToken: job.authToken,
                     status: outcome,
                     summary,
+                    description: job.description,
+                    startedAt: job.startedAt,
+                    endedAt,
+                    cli: cliName,
                     costUsd,
                 });
             } catch (e: any) {

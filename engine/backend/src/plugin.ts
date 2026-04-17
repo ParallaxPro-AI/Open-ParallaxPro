@@ -61,8 +61,9 @@ export interface EnginePlugin {
 
     /** Hook: called when a background CREATE_GAME job settles (success, failure,
      *  abort). Hosted deployments use this to email the user, report token
-     *  usage against their monthly cap, and emit admin events. Self-hosted
-     *  plugins can ignore it.
+     *  usage against their monthly cap, and archive a snapshot so admins
+     *  can later clone the exact build that ran. Self-hosted plugins can
+     *  ignore it.
      *
      *  `authToken` is the JWT captured when the job was started — valid for
      *  the whole 20–30 min run (JWTs are 7-day lived). When absent (self-
@@ -76,6 +77,14 @@ export interface EnginePlugin {
         authToken?: string;
         status: 'success' | 'failed' | 'aborted';
         summary: string;
+        /** The original user-supplied build brief (prompt). */
+        description: string;
+        /** Epoch ms — when the job was accepted by generation_jobs. */
+        startedAt: number;
+        /** Epoch ms — when the hook fires (≈ end of the run). */
+        endedAt: number;
+        /** Which CLI agent actually ran (claude / codex / opencode / copilot). */
+        cli: string;
         costUsd?: number;
     }) => void;
 
