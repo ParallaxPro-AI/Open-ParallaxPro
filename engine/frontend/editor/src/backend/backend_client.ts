@@ -92,6 +92,19 @@ export class BackendClient {
         await this.fetch(`/projects/${projectId}`, { method: 'DELETE' });
     }
 
+    /** Abort the running background CREATE_GAME build for this project.
+     *  Throws ApiError with status 404 when there's no live job. */
+    async stopGeneration(projectId: string): Promise<void> {
+        await this.fetch(`/projects/${projectId}/generation`, { method: 'DELETE' });
+    }
+
+    /** Clear the "BUILD FAILED" notice stamped on a project row after a
+     *  previous generation failed. Persistent — dismissing in-browser
+     *  alone re-shows the notice on next list refresh. */
+    async dismissGenerationError(projectId: string): Promise<void> {
+        await this.fetch(`/projects/${projectId}/generation-error`, { method: 'DELETE' });
+    }
+
     async renameProject(projectId: string, newName: string): Promise<any> {
         return this.fetch(`/projects/${projectId}`, {
             method: 'PUT',

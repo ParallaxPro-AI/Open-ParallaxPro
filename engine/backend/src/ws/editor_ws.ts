@@ -25,9 +25,22 @@ import {
 } from './services/pipeline/project_files.js';
 import { buildProject, type BuildResult } from './services/pipeline/project_builder.js';
 import { applyIncomingFile } from './services/pipeline/project_save.js';
+import {
+    abortJob,
+    isProjectLocked,
+    readGenerationState,
+    subscribeToJob,
+    setGenerationJobsPlugins,
+    startGenerationJob,
+} from './services/pipeline/generation_jobs.js';
 
 let _plugins: EnginePlugin[] = [];
-export function setPlugins(plugins: EnginePlugin[]): void { _plugins = plugins; }
+export function setPlugins(plugins: EnginePlugin[]): void {
+    _plugins = plugins;
+    // generation_jobs also needs the plugin list so it can fire
+    // onGenerationComplete hooks (used by the hosted email plugin).
+    setGenerationJobsPlugins(plugins);
+}
 
 interface EditorClient {
     ws: WebSocket;
@@ -39,6 +52,12 @@ interface EditorClient {
     chatSessionId: string;
     activeSceneKey: string;
     abortController: AbortController | null;
+    /** Unsubscribe from the active CREATE_GAME job's progress stream.
+     *  Nulled when no job is active for this project, or when the client
+     *  disconnects. NOTE: this only unsubscribes from notifications — it
+     *  deliberately does NOT abort the job, since generation outlives
+     *  the WebSocket. Use stop_generation to actually kill the build. */
+    jobUnsubscribe: (() => void) | null;
     /** User prefs forwarded from the frontend's localStorage on each chat
      *  message. Remembered so retries in the same turn re-use the same
      *  routing (chat LLM provider and fixer CLI). */
@@ -166,9 +185,36 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             chatSessionId,
             activeSceneKey: firstSceneKey,
             abortController: null,
+            jobUnsubscribe: null,
         };
 
         clients.set(clientId, client);
+
+        // Project is locked by an active generation job. Tell the frontend
+        // to bounce back to the project list (that's where the user will
+        // watch progress) and subscribe this client to live status events
+        // so any still-open tab updates before it navigates away.
+        const genState = readGenerationState(projectId);
+        if (genState.active) {
+            send(client, 'editor_locked', {
+                projectId,
+                reason: 'generation',
+                jobId: genState.jobId,
+                startedAt: genState.startedAt,
+                description: genState.description,
+                lastStatus: genState.lastStatus,
+            });
+            const unsub = subscribeToJob(projectId, (event) => {
+                if (event.type === 'status') {
+                    send(client, 'generation_status', { text: event.text });
+                } else if (event.type === 'queue_position') {
+                    send(client, 'generation_queue', event.queuePosition);
+                } else if (event.type === 'complete') {
+                    send(client, 'generation_complete', { status: event.status, summary: event.summary });
+                }
+            });
+            if (unsub) client.jobUnsubscribe = unsub;
+        }
 
         // Plugin connection hooks
         for (const p of _plugins) {
@@ -231,9 +277,24 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             // leaves the spawned CLI agent billing tokens against a
             // websocket that's gone. That's how multi-day zombie agents
             // happen — see the 1.8-day opencode we cleaned up in ops.
+            //
+            // This AbortController only covers per-request work bound to
+            // THIS WS client (fixer, chat streaming, direct-fixer). A
+            // CREATE_GAME background job lives in generation_jobs with
+            // its own AbortController and is deliberately immune here —
+            // the whole point of the new flow is that it outlives the
+            // tab.
             if (client.abortController) {
                 client.abortController.abort();
                 client.abortController = null;
+            }
+            // Unsubscribe from the generation job's progress stream (if
+            // any) — but do NOT abort the job itself. The only way to
+            // kill a generation is the explicit `stop_generation` message
+            // or the project-list STOP button.
+            if (client.jobUnsubscribe) {
+                client.jobUnsubscribe();
+                client.jobUnsubscribe = null;
             }
         });
 
@@ -417,11 +478,40 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             send(client, 'chat_generation_stopped', {});
             break;
 
+        // Kill the background CREATE_GAME job for this project. Distinct
+        // from `stop_generation` (which aborts only the per-client chat
+        // stream) — this reaches into generation_jobs and SIGTERMs the
+        // CLI process behind the build, regardless of which client
+        // started it. Exposed so the project-list STOP button works.
+        case 'stop_generation_job': {
+            const aborted = abortJob(client.projectId);
+            send(client, 'generation_job_stop_ack', { aborted });
+            break;
+        }
+
+        // User clicked the "Create from scratch" button the AI offered
+        // with OFFER_CREATE_GAME. Kick off the background build directly
+        // — no extra AI turn needed. Same shape as the executor's
+        // CREATE_GAME path: start the job, persist synthetic chat
+        // history entries so the turn reads naturally when the user
+        // returns, then tell the client to bounce to the project list.
+        case 'confirm_create_game':
+            handleConfirmCreateGame(client, data);
+            break;
+
         case 'file_save':
+            if (isProjectLocked(client.projectId)) {
+                send(client, 'file_save_error', { path: data?.path, error: 'Project is locked — a CREATE_GAME build is in progress.' });
+                break;
+            }
             handleFileSave(client, data);
             break;
 
         case 'project_save':
+            if (isProjectLocked(client.projectId)) {
+                send(client, 'project_saved', { success: false, error: 'Project is locked — a CREATE_GAME build is in progress.' });
+                break;
+            }
             handleProjectSave(client, data);
             break;
 
@@ -469,6 +559,62 @@ function handleProjectSave(client: EditorClient, data: any): void {
     send(client, 'project_saved', { success: true });
 }
 
+async function handleConfirmCreateGame(client: EditorClient, data: any): Promise<void> {
+    const description = typeof data?.description === 'string' ? data.description.trim() : '';
+    if (!description) {
+        send(client, 'create_game_offer_error', { error: 'Missing description — the button click had no game brief attached.' });
+        return;
+    }
+
+    // Stash synthetic chat messages so the turn reads naturally when the
+    // user comes back to the chat history later. Stored as "user: yes,
+    // build it from scratch" + "assistant: starting the build" — without
+    // this, the history reads "AI asked → (nothing) → jump to results".
+    const beforeSnapshot = getProjectSnapshot(client.projectId);
+    stmtInsertMessage.run(
+        client.projectId, client.chatSessionId, 'user',
+        'Yes — build it from scratch (via button).',
+        null, null, beforeSnapshot,
+    );
+
+    try {
+        const jobId = await startGenerationJob({
+            projectId: client.projectId,
+            userId: client.userId,
+            username: client.username,
+            authToken: client.authToken,
+            description,
+            cliOverride: client.editingAgent,
+        });
+        send(client, 'generation_started', {
+            jobId,
+            projectId: client.projectId,
+            startedAt: new Date().toISOString(),
+            description,
+        });
+        // Persist a friendly confirmation message so the chat history
+        // looks intentional on return.
+        const assistantMsg = 'Starting the background build. You can safely close your browser — we\'ll let you know when it\'s ready.';
+        const snapshotAfter = getProjectSnapshot(client.projectId);
+        stmtInsertMessage.run(
+            client.projectId, client.chatSessionId, 'assistant',
+            assistantMsg, null, snapshotAfter, null,
+        );
+    } catch (e: any) {
+        send(client, 'create_game_offer_error', { error: e?.message || 'Failed to start build.' });
+        // Drop the synthetic user message — the fake "yes" is misleading
+        // history if the job never actually started. DELETE with
+        // ORDER BY + LIMIT isn't portable in SQLite, so look up the id
+        // first then delete by it.
+        const row = db.prepare(
+            `SELECT id FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND role = 'user' AND content = ? ORDER BY id DESC LIMIT 1`,
+        ).get(client.projectId, client.chatSessionId, 'Yes — build it from scratch (via button).') as { id: number } | undefined;
+        if (row?.id) {
+            db.prepare('DELETE FROM chat_messages WHERE id = ?').run(row.id);
+        }
+    }
+}
+
 /** Read parsed project data from DB. Returns null if project missing. */
 function readProjectData(projectId: string): ProjectData | null {
     const row = stmtGetProject.get(projectId) as any;
@@ -506,6 +652,18 @@ const MAX_RETRIES = 3;
 function handleChatMessage(client: EditorClient, data: any): void {
     const content = data?.content;
     if (!content || typeof content !== 'string') return;
+
+    // Refuse any chat work while the project is being rebuilt from
+    // scratch — the CLI creator owns the whole file tree for the
+    // duration, and an interleaved FIX_GAME or EDIT would race it.
+    if (isProjectLocked(client.projectId)) {
+        send(client, 'chat_response_start', {});
+        finishChat(
+            client,
+            '*A CREATE_GAME build is currently running for this project. Wait for it to finish — you\'ll be notified — or stop it from the project list before editing.*',
+        );
+        return;
+    }
 
     // Cache the frontend's localStorage prefs for this turn. Retries within
     // the same turn (runLLMWithRetry, FIX_GAME escalation) re-read these.
@@ -686,6 +844,9 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
             }
         },
         projectId: client.projectId,
+        userId: client.userId,
+        username: client.username,
+        authToken: client.authToken,
         activeSceneKey: client.activeSceneKey,
         editingAgent: client.editingAgent,
     };

@@ -26,7 +26,8 @@ import {
     emptyTemplateFiles,
     ENGINE_MACHINERY,
 } from './project_files.js';
-import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
+import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -47,12 +48,31 @@ export async function runCreator(
     sendStatus?: (msg: string) => void,
     cliOverride?: string,
     abortSignal?: AbortSignal,
+    jobId?: string,
 ): Promise<CreatorResult> {
-    await acquireCLISlot(cliOverride, sendStatus);
+    await acquireCLISlot({ cliOverride, sendStatus, jobId });
     const templateId = deriveTemplateId(description);
     // Random suffix per run so concurrent creates on the same projectId don't
     // trample each other's sandbox. mkdtempSync guarantees a fresh empty dir.
     const sandboxDir = fs.mkdtempSync(path.join('/tmp', 'parallaxpro-create-'));
+
+    // Mirror the fixer's registration into the shared active-jobs view
+    // so the admin dashboard sees both kinds of runs in one table.
+    // jobId is always passed by generation_jobs in the normal flow; fall
+    // back to a synthetic one for any direct runCreator callers.
+    const registryJobId = jobId || `create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    let registered = false;
+    try {
+        registerActiveJob({
+            jobId: registryJobId,
+            cli: resolveCLI(cliOverride),
+            kind: 'create',
+            projectId,
+            description,
+            startedAt: Date.now(),
+        });
+        registered = true;
+    } catch { /* observability only — don't let it break the run */ }
 
     try {
         sendStatus?.('Setting up creation sandbox...');
@@ -114,6 +134,9 @@ export async function runCreator(
             costUsd: cliResult.costUsd,
         };
     } finally {
+        if (registered) {
+            try { unregisterActiveJob(registryJobId); } catch {}
+        }
         releaseCLISlot(cliOverride);
         try { fs.rmSync(sandboxDir, { recursive: true, force: true }); } catch {}
     }

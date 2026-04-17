@@ -48,4 +48,18 @@ export function createSchema(db: Database.Database): void {
     addColumn('projects', 'cloud_user_id', 'INTEGER');
     addColumn('projects', 'cloud_pulled_updated_at', 'TEXT');
     addColumn('projects', 'edited_engine_hash', 'TEXT');
+
+    // Background CREATE_GAME jobs: when non-null, the project is locked.
+    // Other edits (chat, file save, replace-project-data) refuse until the
+    // job settles. `generation_job_id` is the in-memory registry key; a DB
+    // row with this column set but no matching registry entry means the
+    // backend restarted mid-run and the job is orphaned (cleaned up on
+    // startup). `generation_last_heartbeat_at` is bumped on every status
+    // tick so the project list can flag silent jobs.
+    addColumn('projects', 'generation_job_id', 'TEXT');
+    addColumn('projects', 'generation_started_at', 'TEXT');
+    addColumn('projects', 'generation_description', 'TEXT');
+    addColumn('projects', 'generation_last_status', 'TEXT');
+    addColumn('projects', 'generation_last_heartbeat_at', 'TEXT');
+    addColumn('projects', 'generation_last_error', 'TEXT');
 }

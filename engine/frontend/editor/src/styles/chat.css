@@ -682,3 +682,41 @@
     cursor: default;
     user-select: text;
 }
+
+/* ── OFFER_CREATE_GAME button ─────────────────────────────────────────── */
+/* Rendered below an assistant message when the AI emits               */
+/* OFFER_CREATE_GAME — clicking it fires confirm_create_game and kicks  */
+/* off the long-running background build. Users can still answer in    */
+/* text instead; the button is a shortcut.                              */
+.chat-create-scratch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 7px 14px;
+    font-size: var(--font-size-sm, 12px);
+    font-weight: 600;
+    color: #0d2541;
+    background: #69bbf3;
+    border: 1px solid #69bbf3;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.05s ease;
+}
+
+.chat-create-scratch-btn:hover:not(:disabled) {
+    background: #8fcdf8;
+    border-color: #8fcdf8;
+}
+
+.chat-create-scratch-btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.chat-create-scratch-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+    background: #4a7fa1;
+    border-color: #4a7fa1;
+    color: #cfe4f5;
+}

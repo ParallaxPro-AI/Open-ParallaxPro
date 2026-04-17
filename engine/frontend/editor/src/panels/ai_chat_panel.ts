@@ -74,6 +74,12 @@ export class AiChatPanel {
     private agentSelect: HTMLSelectElement | null = null;
     private agentCaption: HTMLElement | null = null;
     private regenMenu: HTMLElement | null = null;
+    // When the AI emits <<<OFFER_CREATE_GAME description="...">>> the
+    // backend fires a `create_game_offer` event *before* the matching
+    // chat_response_end arrives. We stash the description here and
+    // attach a button once the assistant message renders. Cleared at
+    // chat_response_start (new turn = stale offer).
+    private pendingCreateFromScratchDescription: string | null = null;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -225,6 +231,9 @@ export class AiChatPanel {
         ws.onWsMessage('chat_response_start', () => {
             this.transitionTo(State.STREAMING);
             this.pendingChunks = '';
+            // Stale offer from an older turn — drop it. A fresh turn
+            // that wants the button will fire create_game_offer again.
+            this.pendingCreateFromScratchDescription = null;
             this.showTypingIndicator();
             this.scrollToBottom();
         });
@@ -254,6 +263,50 @@ export class AiChatPanel {
         ws.onWsMessage('dialogue_done', () => {
             this.transitionTo(State.IDLE);
             this.hideTypingIndicator();
+        });
+
+        // Background CREATE_GAME build kicked off. The project is locked
+        // for ~15–20 minutes; the rest of the editor is useless in this
+        // state, so kick the user back to the project list where the
+        // card shows a live timer + STOP + the build's current status.
+        // Completion is announced via email on hosted / by the card
+        // flipping back to normal on self-hosted.
+        //
+        // `editor_locked` fires when the user opens an ALREADY-locked
+        // project via URL (e.g. refreshing the tab mid-build) — same
+        // bounce. Drop the ?project= param so the back button doesn't
+        // round-trip us into the locked editor.
+        const bounceToList = () => {
+            window.location.href = window.location.pathname;
+        };
+        ws.onWsMessage('generation_started', bounceToList);
+        ws.onWsMessage('editor_locked', bounceToList);
+
+        // AI suggested a from-scratch build. Stash the description; the
+        // matching `chat_response_end` will render the message, and we
+        // attach the button to it in `handleResponseEnd`.
+        ws.onWsMessage('create_game_offer', (data: any) => {
+            const desc = typeof data?.description === 'string' ? data.description.trim() : '';
+            if (desc) this.pendingCreateFromScratchDescription = desc;
+        });
+
+        // The confirm-via-button path — backend tried to start the job
+        // and failed. Re-enable the button and surface the error inline
+        // so the user can retry or ask something else.
+        ws.onWsMessage('create_game_offer_error', (data: any) => {
+            const btns = this.messagesContainer.querySelectorAll<HTMLButtonElement>('.chat-create-scratch-btn');
+            const last = btns[btns.length - 1];
+            if (last) {
+                last.disabled = false;
+                last.textContent = 'Create from scratch';
+            }
+            const errMsg: ChatMessage = {
+                role: 'assistant',
+                content: `*Couldn't start the build: ${data?.error || 'unknown error'}*`,
+            };
+            this.messages.push(errMsg);
+            this.renderMessageEl(errMsg);
+            this.scrollToBottom();
         });
 
         ws.onWsMessage('__ws_disconnected', () => {
@@ -577,11 +630,45 @@ export class AiChatPanel {
             this.scrollToBottom();
         }
 
+        // A matching OFFER_CREATE_GAME tool call came in earlier this
+        // turn — attach the button to the assistant message we just
+        // rendered. We use "last" rather than threading the element
+        // through so the sync paths (chat_user_message_sync, etc.) keep
+        // working without changes.
+        if (this.pendingCreateFromScratchDescription) {
+            this.appendCreateFromScratchButton(this.pendingCreateFromScratchDescription);
+            this.pendingCreateFromScratchDescription = null;
+        }
+
         // Re-show typing indicator if still generating (pipeline sends multiple chat_response_end)
         if (this.state === State.STREAMING) {
             this.showTypingIndicator();
             this.scrollToBottom();
         }
+    }
+
+    /** Attach a "Create from scratch" button to the latest assistant
+     *  message. Clicking sends confirm_create_game to the backend which
+     *  kicks off the long-running CLI build + bounces the editor back to
+     *  the project list. Disabled after click so double-click is a no-op. */
+    private appendCreateFromScratchButton(description: string): void {
+        const assistants = this.messagesContainer.querySelectorAll<HTMLElement>('.chat-message.assistant');
+        const last = assistants[assistants.length - 1];
+        if (!last) return;
+        // Idempotent: if we've already attached a button here, skip.
+        if (last.querySelector('.chat-create-scratch-btn')) return;
+
+        const btn = document.createElement('button');
+        btn.className = 'chat-create-scratch-btn';
+        btn.textContent = 'Create from scratch';
+        btn.addEventListener('click', () => {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+            this.ctx.backend.sendWsMessage('confirm_create_game', { description });
+        });
+        last.appendChild(btn);
+        this.scrollToBottom();
     }
 
     private handleGenerationStopped(): void {

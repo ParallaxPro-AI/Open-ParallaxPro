@@ -19,9 +19,11 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { assembleGame } from './level_assembler.js';
-import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
+import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
@@ -48,10 +50,29 @@ export async function runFixer(
     abortSignal?: AbortSignal,
     cliOverride?: string,
 ): Promise<FixerResult> {
-    await acquireCLISlot(cliOverride, sendStatus);
+    const jobId = randomUUID();
+    await acquireCLISlot({ cliOverride, sendStatus, jobId });
     // Random suffix per run so concurrent fixes on the same projectId don't
     // trample each other's sandbox. mkdtempSync guarantees a fresh empty dir.
     const sandboxDir = fs.mkdtempSync(path.join('/tmp', 'parallaxpro-fix-'));
+
+    // Register in the shared active-jobs view so the admin dashboard can
+    // see which CLIs are currently fixing what (mirrors what generation
+    // jobs do from the other side). Unregistered in finally, paired with
+    // the slot release — a throw before register is fine since the
+    // finally only runs code that was set up.
+    let registered = false;
+    try {
+        registerActiveJob({
+            jobId,
+            cli: resolveCLI(cliOverride),
+            kind: 'fix',
+            projectId,
+            description,
+            startedAt: Date.now(),
+        });
+        registered = true;
+    } catch { /* best-effort — don't let observability break the run */ }
 
     try {
         sendStatus?.('Setting up sandbox...');
@@ -101,6 +122,9 @@ export async function runFixer(
             costUsd: cliResult.costUsd,
         };
     } finally {
+        if (registered) {
+            try { unregisterActiveJob(jobId); } catch {}
+        }
         releaseCLISlot(cliOverride);
         try { fs.rmSync(sandboxDir, { recursive: true, force: true }); } catch {}
     }

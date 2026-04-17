@@ -83,7 +83,7 @@ class App {
         });
 
         this.appRoot.appendChild(view.el);
-        this.currentView = { el: view.el };
+        this.currentView = { el: view.el, destroy: () => view.destroy() };
     }
 
     private async showEditor(projectId: string, initialPrompt?: string): Promise<void> {

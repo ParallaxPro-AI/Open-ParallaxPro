@@ -1,7 +1,7 @@
 import { EditorContext } from '../editor_context.js';
 import { showConfirmModal, showPromptModal, showModal } from '../widgets/modal.js';
 import { showContextMenu } from '../widgets/context_menu.js';
-import { icon, MoreVertical, Check, FolderOpen, Plus, LogIn, LogOut, ExternalLink } from '../widgets/icons.js';
+import { icon, MoreVertical, Check, FolderOpen, Plus, LogIn, LogOut, ExternalLink, Square, X } from '../widgets/icons.js';
 import { ensureLoggedIn, getStoredToken, clearStoredToken, decodeToken } from '../backend/auth_session.js';
 import { formatServerTime } from '../utils/format_time.js';
 
@@ -29,6 +29,13 @@ export class ProjectListView {
     private tabBar!: HTMLElement;
     private statusFilterEl!: HTMLSelectElement;
     private authSlot!: HTMLElement;
+    // Poll /projects every 10s while any card is generating so the elapsed
+    // timer and live status stay fresh without a WS subscription from the
+    // list view. 0 when idle.
+    private generationPollTimer: number = 0;
+    // Re-tick the GENERATING badge's elapsed time every second without
+    // re-fetching. 0 when no running cards.
+    private generationTickTimer: number = 0;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -252,6 +259,49 @@ export class ProjectListView {
             this.projects = [];
         }
         this.render();
+        this.refreshGenerationTimers();
+    }
+
+    /** Start/stop the polling + per-second tick timers based on whether
+     *  any loaded card is currently generating. Invoked after every
+     *  loadProjects + after the render that follows. */
+    private refreshGenerationTimers(): void {
+        const anyActive = this.projects.some((p: any) => p?.generation?.active);
+
+        if (anyActive && !this.generationPollTimer) {
+            // 10s is the project-list poll cadence agreed with the
+            // backend: cheap SQL, enough latency to feel live without
+            // hammering the server.
+            this.generationPollTimer = window.setInterval(() => {
+                this.loadProjects();
+            }, 10000);
+        } else if (!anyActive && this.generationPollTimer) {
+            clearInterval(this.generationPollTimer);
+            this.generationPollTimer = 0;
+        }
+
+        if (anyActive && !this.generationTickTimer) {
+            // Per-second redraw of just the elapsed-time spans so the
+            // timer ticks visibly between 10s polls. We DON'T re-render
+            // the whole grid — this just mutates textContent on the
+            // timer nodes we stamped with data-generation-started-at.
+            this.generationTickTimer = window.setInterval(() => {
+                this.tickGenerationTimers();
+            }, 1000);
+        } else if (!anyActive && this.generationTickTimer) {
+            clearInterval(this.generationTickTimer);
+            this.generationTickTimer = 0;
+        }
+    }
+
+    private tickGenerationTimers(): void {
+        const nodes = this.gridEl.querySelectorAll<HTMLElement>('[data-generation-started-at]');
+        const now = Date.now();
+        for (const node of Array.from(nodes)) {
+            const startedAt = Number(node.dataset.generationStartedAt || '0');
+            if (!startedAt) continue;
+            node.textContent = formatElapsed(now - startedAt);
+        }
     }
 
     /** Local-only projects (cloud ones are exclusively under the Cloud
@@ -649,6 +699,19 @@ export class ProjectListView {
             card.classList.add('legacy');
         }
 
+        // Generation state block (background CREATE_GAME build). Active
+        // runs show an elapsed timer + live status + STOP button; the
+        // post-run `lastError` sticks around as a dismissible "Build
+        // failed" row until the next generation attempt.
+        if (project.generation) {
+            card.appendChild(this.createGenerationBlock(project));
+            if (project.generation.active) {
+                card.classList.add('generating');
+            } else if (project.generation.lastError) {
+                card.classList.add('generation-failed');
+            }
+        }
+
         if (isPublished) {
             const linkRow = document.createElement('a');
             // Published games always live on parallaxpro.ai — even when
@@ -711,6 +774,10 @@ export class ProjectListView {
                 this.showDeprecatedModal(project);
                 return;
             }
+            // Locked by a background generation — don't even attempt to
+            // open. The editor would just bounce back, which is visually
+            // worse than doing nothing here.
+            if (project.generation?.active) return;
             await this.openProjectWithChecks(project, card);
         });
 
@@ -1673,6 +1740,177 @@ git checkout da571fe   # last commit before template unification`;
         av.style.cssText = `width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;background:hsl(${hue},55%,45%);`;
         return av;
     }
+
+    /** Called by main.ts's clearView when swapping to the editor. Without
+     *  this, our generation poll + tick timers keep firing against an
+     *  orphaned DOM — harmless but wasteful (and the console gets noisy
+     *  if the backend starts 401ing after sign-out). */
+    destroy(): void {
+        if (this.generationPollTimer) {
+            clearInterval(this.generationPollTimer);
+            this.generationPollTimer = 0;
+        }
+        if (this.generationTickTimer) {
+            clearInterval(this.generationTickTimer);
+            this.generationTickTimer = 0;
+        }
+        if (this.resizeObserver) {
+            try { this.resizeObserver.disconnect(); } catch {}
+            this.resizeObserver = null;
+        }
+    }
+
+    /**
+     * Build the generation-state block for a project card. Shows the
+     * live elapsed timer + current status + STOP while a job is active,
+     * or a "Build failed" row with the error when the last run failed.
+     */
+    private createGenerationBlock(project: any): HTMLElement {
+        const block = document.createElement('div');
+        block.className = 'project-generation-block';
+        const gen = project.generation || {};
+
+        if (gen.active) {
+            const queued = gen.queuePosition && gen.queuePosition.position > 0;
+
+            const header = document.createElement('div');
+            header.className = 'project-generation-header';
+
+            const badge = document.createElement('span');
+            badge.className = queued ? 'project-generation-badge queued' : 'project-generation-badge running';
+            badge.textContent = queued
+                ? `QUEUED #${gen.queuePosition.position}`
+                : 'GENERATING';
+            header.appendChild(badge);
+
+            // Elapsed: live-ticking span. The per-second tick timer finds
+            // these by `data-generation-started-at` and mutates their
+            // textContent — no re-render needed.
+            const startedMs = gen.startedAt ? Date.parse(gen.startedAt) : Date.now();
+            const timer = document.createElement('span');
+            timer.className = 'project-generation-elapsed';
+            timer.dataset.generationStartedAt = String(startedMs);
+            timer.textContent = formatElapsed(Date.now() - startedMs);
+            header.appendChild(timer);
+
+            const stopBtn = document.createElement('button');
+            stopBtn.className = 'project-generation-stop';
+            stopBtn.title = 'Stop this build (the CLI process is killed and the project unlocks)';
+            stopBtn.appendChild(icon(Square, 12));
+            const stopLabel = document.createElement('span');
+            stopLabel.textContent = 'Stop';
+            stopBtn.appendChild(stopLabel);
+            stopBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const ok = await showConfirmModal(
+                    'Stop this build?',
+                    'The CLI process will be killed and all progress from this run is discarded. The project will unlock — you can start again with a different prompt.',
+                );
+                if (!ok) return;
+                try {
+                    await this.ctx.backend.stopGeneration(project.id);
+                } catch (err: any) {
+                    // 404 just means the job finished between click and
+                    // request — treat as a no-op.
+                    if (err?.status !== 404) {
+                        alert(err?.message || 'Failed to stop the build.');
+                    }
+                }
+                this.loadProjects();
+            });
+            header.appendChild(stopBtn);
+
+            block.appendChild(header);
+
+            if (gen.lastStatus) {
+                const status = document.createElement('div');
+                status.className = 'project-generation-status';
+                status.textContent = gen.lastStatus;
+                block.appendChild(status);
+            }
+
+            if (gen.description) {
+                const desc = document.createElement('div');
+                desc.className = 'project-generation-desc';
+                desc.textContent = gen.description.length > 140
+                    ? gen.description.slice(0, 137) + '\u2026'
+                    : gen.description;
+                desc.title = gen.description;
+                block.appendChild(desc);
+            }
+
+            // Stale-heartbeat warning: if the last status update was >60s
+            // ago, something is wrong (slow CLI, hung process, or we've
+            // lost the event stream). Surface it so the user knows the
+            // timer isn't lying about progress.
+            if (gen.lastHeartbeatAt) {
+                const since = Date.now() - Date.parse(gen.lastHeartbeatAt);
+                if (since > 60000) {
+                    const warn = document.createElement('div');
+                    warn.className = 'project-generation-warn';
+                    warn.textContent = `No progress in ${formatElapsed(since)} — build may be stuck.`;
+                    block.appendChild(warn);
+                }
+            }
+        } else if (gen.lastError) {
+            const header = document.createElement('div');
+            header.className = 'project-generation-header';
+
+            const badge = document.createElement('span');
+            badge.className = 'project-generation-badge failed';
+            badge.textContent = 'BUILD FAILED';
+            header.appendChild(badge);
+
+            const dismiss = document.createElement('button');
+            dismiss.className = 'project-generation-stop';
+            dismiss.title = 'Dismiss (will clear next time a build runs)';
+            dismiss.appendChild(icon(X, 12));
+            dismiss.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Optimistic UI first — clear locally so the tile
+                // disappears immediately. Then ask the backend to wipe
+                // generation_last_error so the notice doesn't come back
+                // the next time the list re-fetches (opening a project
+                // then returning would otherwise re-render it).
+                if (project.generation) project.generation = null;
+                this.render();
+                this.refreshGenerationTimers();
+                this.ctx.backend.dismissGenerationError(project.id).catch((err: any) => {
+                    console.warn('[projects] dismissGenerationError failed:', err?.message);
+                });
+            });
+            header.appendChild(dismiss);
+
+            block.appendChild(header);
+
+            const err = document.createElement('div');
+            err.className = 'project-generation-error';
+            err.textContent = gen.lastError;
+            // The strip truncates long errors — full text on hover.
+            err.title = gen.lastError;
+            block.appendChild(err);
+        }
+
+        // Clicks inside the block shouldn't fall through to the card
+        // click handler (which opens the editor) — the user is
+        // interacting with generation UI, not trying to open a project.
+        block.addEventListener('click', (e) => e.stopPropagation());
+
+        return block;
+    }
+}
+
+/** Elapsed duration in ms → "3m 22s" / "45s" / "1h 3m". */
+function formatElapsed(ms: number): string {
+    if (!isFinite(ms) || ms < 0) return '0s';
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    if (m < 60) return `${m}m ${rs}s`;
+    const h = Math.floor(m / 60);
+    const rm = m % 60;
+    return `${h}h ${rm}m`;
 }
 
 function escapeHtml(s: string): string {

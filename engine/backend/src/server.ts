@@ -51,6 +51,13 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         }
     }
 
+    // Sweep orphaned generation jobs. Any project row marked as mid-build
+    // when this process starts came from a previous process that died
+    // (restart, crash, kill -9). The CLI child is dead too; mark the row
+    // failed so the UI stops showing a perpetually-spinning timer.
+    const { cleanupOrphanedJobsOnBoot } = await import('./ws/services/pipeline/generation_jobs.js');
+    cleanupOrphanedJobsOnBoot();
+
     // Dynamic imports (after schema is ready, since routes prepare statements)
     const { default: projectRoutes, setProjectPlugins } = await import('./routes/projects.js');
     const { default: assetRoutes } = await import('./routes/assets.js');

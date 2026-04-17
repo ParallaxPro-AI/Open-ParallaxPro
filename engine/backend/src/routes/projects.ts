@@ -18,6 +18,11 @@ import { applyIncomingFile } from '../ws/services/pipeline/project_save.js';
 import { generateProjectName } from '../ws/services/llm.js';
 import { broadcastProjectRenamed } from '../ws/editor_ws.js';
 import { tryConsumeEmbedBudget } from '../middleware/embed_rate_limit.js';
+import {
+    abortJob,
+    readGenerationState,
+    isProjectLocked,
+} from '../ws/services/pipeline/generation_jobs.js';
 
 let _plugins: EnginePlugin[] = [];
 export function setProjectPlugins(plugins: EnginePlugin[]) { _plugins = plugins; }
@@ -57,6 +62,7 @@ router.use(requireAuth);
 // query cheap.
 const stmtList = db.prepare(`SELECT id, name, thumbnail, status, created_at, updated_at,
     is_cloud, cloud_user_id, cloud_pulled_updated_at, edited_engine_hash,
+    generation_job_id, generation_last_error,
     instr(substr(project_data, 1, 500), '"files"') AS has_files
     FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
 const stmtGet = db.prepare('SELECT * FROM projects WHERE id = ?');
@@ -71,19 +77,30 @@ router.get('/', (req, res) => {
     const limit = Math.min(100, parseInt(req.query.limit as string) || 100);
     const offset = (page - 1) * limit;
     const rows = stmtList.all(req.user!.id, limit, offset) as any[];
-    const projects = rows.map(r => ({
-        id: r.id,
-        name: r.name,
-        thumbnail: r.thumbnail,
-        status: r.status,
-        createdAt: r.created_at,
-        updatedAt: r.updated_at,
-        legacy: !r.has_files,
-        isCloud: !!r.is_cloud,
-        cloudUserId: r.cloud_user_id,
-        cloudPulledUpdatedAt: r.cloud_pulled_updated_at,
-        editedEngineHash: r.edited_engine_hash,
-    }));
+    const projects = rows.map(r => {
+        // Compute generation state per row so the card can show an
+        // accurate timer + STOP. `readGenerationState` is the
+        // authoritative view (lazy-heals orphaned rows); we only gate
+        // the call on rows that actually have a lock or a post-run
+        // error to avoid doing it for every row on large lists.
+        const gen = r.generation_job_id || r.generation_last_error
+            ? readGenerationState(r.id)
+            : null;
+        return {
+            id: r.id,
+            name: r.name,
+            thumbnail: r.thumbnail,
+            status: r.status,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+            legacy: !r.has_files,
+            isCloud: !!r.is_cloud,
+            cloudUserId: r.cloud_user_id,
+            cloudPulledUpdatedAt: r.cloud_pulled_updated_at,
+            editedEngineHash: r.edited_engine_hash,
+            generation: gen && (gen.active || gen.lastError) ? gen : null,
+        };
+    });
     res.json({ projects });
 });
 
@@ -272,6 +289,7 @@ router.get('/:id', (req, res) => {
         return;
     }
 
+    const gen = readGenerationState(row.id);
     res.json({
         id: row.id,
         name: row.name,
@@ -291,6 +309,10 @@ router.get('/:id', (req, res) => {
         cloudUserId: row.cloud_user_id,
         cloudPulledUpdatedAt: row.cloud_pulled_updated_at,
         editedEngineHash: row.edited_engine_hash,
+        // Locked or recently-failed generation? Surface it so the editor
+        // can bounce the user back to the project list on open rather
+        // than render a stale/empty scene over a project being rebuilt.
+        generation: gen.active || gen.lastError ? gen : null,
     });
 });
 
@@ -316,6 +338,11 @@ router.put('/:id/files', (req, res) => {
         return;
     }
 
+    if (isProjectLocked(req.params.id)) {
+        res.status(409).json({ error: 'Project is locked — a CREATE_GAME build is in progress.' });
+        return;
+    }
+
     const incoming = req.body.files || {};
     for (const [filePath, content] of Object.entries(incoming)) {
         const result = applyIncomingFile(data, row.id, filePath, content);
@@ -323,6 +350,34 @@ router.put('/:id/files', (req, res) => {
     }
 
     stmtUpdateData.run(serializeProjectData(data), req.params.id);
+    res.json({ success: true });
+});
+
+// Abort a running CREATE_GAME job for this project. Backs the STOP button
+// on the project-list card. 404 when there's no live job (already done /
+// never started); 200 with aborted=true on success.
+router.delete('/:id/generation', (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+
+    const aborted = abortJob(req.params.id);
+    if (!aborted) {
+        res.status(404).json({ error: 'No active generation job for this project.' });
+        return;
+    }
+    res.json({ success: true, aborted: true });
+});
+
+// Clear a lingering generation_last_error stamp so the card drops its
+// "BUILD FAILED" tile. Without this the post-run error re-appears every
+// time the list re-fetches (open a project, come back, and it's there
+// again because only the row in memory was cleared).
+router.delete('/:id/generation-error', (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+    db.prepare('UPDATE projects SET generation_last_error = NULL WHERE id = ?').run(req.params.id);
     res.json({ success: true });
 });
 
@@ -360,6 +415,11 @@ router.post('/:id/replace-project-data', (req, res) => {
     const row = stmtGet.get(req.params.id) as any;
     if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
     if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+
+    if (isProjectLocked(req.params.id)) {
+        res.status(409).json({ error: 'Project is locked — a CREATE_GAME build is in progress.' });
+        return;
+    }
 
     const { projectConfig, files } = req.body;
     if (!files || typeof files !== 'object') {

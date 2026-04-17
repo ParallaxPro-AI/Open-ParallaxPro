@@ -89,6 +89,16 @@ export class EditorView {
             window.location.href = base;
             return;
         }
+        // Project is mid-CREATE_GAME-build. The editor can't do anything
+        // useful with a locked project (writes return 409, chat is
+        // rejected); kick back to the list where the card has the live
+        // timer + STOP. This beats waiting for the WS `editor_locked`
+        // event to race in — we already know from the HTTP GET.
+        if (projectData?.generation?.active) {
+            const base = window.location.pathname.replace(/\?.*/, '');
+            window.location.href = base;
+            return;
+        }
         this.ctx.state.projectId = projectId;
         this.ctx.state.projectData = projectData;
 

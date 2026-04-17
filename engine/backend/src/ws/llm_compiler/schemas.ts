@@ -26,4 +26,9 @@ export const VALID_BLOCK_NAMES = new Set([
     'LOAD_TEMPLATE',
     'FIX_GAME',
     'CREATE_GAME',
+    // Offers a "Create from scratch" button on the chat alongside the AI's
+    // { } question. Unlike other tool calls this one does NOT steal a
+    // follow-up turn — the AI emits it in the same response as the text
+    // so the user sees both at once.
+    'OFFER_CREATE_GAME',
 ]);

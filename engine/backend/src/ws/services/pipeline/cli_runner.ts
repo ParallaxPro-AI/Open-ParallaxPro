@@ -22,10 +22,10 @@ import { wrapSpawn } from './docker_sandbox.js';
 // ─── Concurrency gate ───────────────────────────────────────────────────────
 //
 // Per-CLI in-flight caps, shared across `runFixer` and `runCreator`. Callers
-// await acquireCLISlot(cliOverride) before spawning and must call
-// releaseCLISlot(cliOverride) in a finally block — critically, both calls
-// must use the same cliOverride value so the same bucket is incremented and
-// then decremented.
+// await acquireCLISlot({ cliOverride, sendStatus, jobId }) before spawning
+// and must call releaseCLISlot(cliOverride) in a finally block — critically,
+// both calls must use the same cliOverride value so the same bucket is
+// incremented and then decremented.
 //
 // opencode gets a much higher cap because it's usually routed at a
 // hosted-provider API (Groq, Anthropic, etc.) — lots of cheap, fast
@@ -40,9 +40,24 @@ const MAX_PER_CLI: Record<CLIName, number> = {
 };
 
 const activeCountByCLI: Record<CLIName, number> = { claude: 0, codex: 0, opencode: 0, copilot: 0 };
-const waitQueueByCLI: Record<CLIName, Array<() => void>> = { claude: [], codex: [], opencode: [], copilot: [] };
+// Queue entries carry the caller's jobId so consumers (e.g. generation_jobs)
+// can look up their position while waiting. A stable jobId makes this a
+// one-liner; without it we'd need to thread the same Promise reference
+// through the caller just to find "am I still queued?".
+interface QueueEntry { jobId: string; resolve: () => void; }
+const waitQueueByCLI: Record<CLIName, QueueEntry[]> = { claude: [], codex: [], opencode: [], copilot: [] };
 
-export function acquireCLISlot(cliOverride?: string, sendStatus?: (msg: string) => void): Promise<void> {
+export interface AcquireOpts {
+    /** Caller-provided identifier used for queue position lookups. Anonymous
+     *  callers (fixers, legacy runQaCreator removal, etc.) can pass a random
+     *  uuid — anything unique will do. */
+    jobId?: string;
+    cliOverride?: string;
+    sendStatus?: (msg: string) => void;
+}
+
+export function acquireCLISlot(opts: AcquireOpts = {}): Promise<void> {
+    const { jobId, cliOverride, sendStatus } = opts;
     const cli = resolveCLI(cliOverride);
     const cap = MAX_PER_CLI[cli];
     if (activeCountByCLI[cli] < cap) {
@@ -52,8 +67,22 @@ export function acquireCLISlot(cliOverride?: string, sendStatus?: (msg: string) 
     const queue = waitQueueByCLI[cli];
     sendStatus?.(`Queued — ${queue.length + 1} in line for ${cli}, waiting for a slot...`);
     return new Promise<void>((resolve) => {
-        queue.push(() => { activeCountByCLI[cli]++; resolve(); });
+        queue.push({ jobId: jobId || '', resolve: () => { activeCountByCLI[cli]++; resolve(); } });
     });
+}
+
+/**
+ * Current 1-indexed queue position for a given jobId + cli, or null if the
+ * job is not currently queued (already running, or already released).
+ * Callers poll this while the slot-acquire promise is pending to keep the
+ * user-facing status fresh (e.g. "Queued — position 2 of 3").
+ */
+export function getQueuePosition(cliOverride: string | undefined, jobId: string): { position: number; total: number; cli: CLIName } | null {
+    const cli = resolveCLI(cliOverride);
+    const queue = waitQueueByCLI[cli];
+    const idx = queue.findIndex(e => e.jobId === jobId);
+    if (idx < 0) return null;
+    return { position: idx + 1, total: queue.length, cli };
 }
 
 /** Snapshot of active/queued CLI slots for admin dashboards. */
@@ -69,7 +98,7 @@ export function releaseCLISlot(cliOverride?: string): void {
     const cli = resolveCLI(cliOverride);
     activeCountByCLI[cli]--;
     const next = waitQueueByCLI[cli].shift();
-    if (next) next();
+    if (next) next.resolve();
 }
 
 export interface CLIRunResult {
@@ -123,7 +152,7 @@ const VALID_CLI_NAMES: ReadonlySet<CLIName> = new Set(['claude', 'codex', 'openc
  *     order: claude → codex → opencode → copilot).
  *   - Nothing installed → throw.
  */
-function resolveCLI(cliOverride?: string): CLIName {
+export function resolveCLI(cliOverride?: string): CLIName {
     if (cliOverride) {
         if (!VALID_CLI_NAMES.has(cliOverride as CLIName)) {
             throw new Error(`Unknown editing agent "${cliOverride}". Valid values: ${Array.from(VALID_CLI_NAMES).join(', ')}.`);

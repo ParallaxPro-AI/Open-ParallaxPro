@@ -6,10 +6,11 @@
  */
 
 import { ASTNode, MessageNode, EditNode, ToolCallNode } from './syntax_tree.js';
+import { config } from '../../config.js';
 import { EDIT_API_DOCS, getProjectSummary } from '../services/chat_protocol.js';
 import { loadTemplateCatalog, formatCatalogForLLM } from '../services/pipeline/template_loader.js';
 import { runFixer } from '../services/pipeline/cli_fixer.js';
-import { runQaCreator } from '../services/pipeline/qa_creator.js';
+import { startGenerationJob } from '../services/pipeline/generation_jobs.js';
 import { seedFromTemplate } from '../services/pipeline/project_seeder.js';
 import type { BuildResult } from '../services/pipeline/project_builder.js';
 import type { ProjectFiles } from '../services/pipeline/project_files.js';
@@ -32,6 +33,15 @@ export interface ExecutionContext {
     onFixerCost?: (costUsd: number) => void;
     abortSignal?: AbortSignal;
     projectId: string;
+    /** Owner of the project; needed by CREATE_GAME to enforce the hosted
+     *  per-user job cap and to attribute email notifications on
+     *  completion. */
+    userId: number;
+    /** Cached on the executor so CREATE_GAME can stash them on the
+     *  background job — they're how plugins attribute cost + emit
+     *  admin events after the WS has disconnected. */
+    username?: string;
+    authToken?: string;
     activeSceneKey: string;
     /**
      * Which CLI fixer agent runs when FIX_GAME escalates. Passed through
@@ -160,7 +170,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                         const TOP_N = 10;
                         const top = ranked.map(r => byId.get(r.id)).filter((t): t is any => !!t).slice(0, TOP_N);
                         if (top.length > 0) {
-                            result.toolResults = `[LOAD_TEMPLATE] Top ${top.length} templates for "${query}" (of ${catalog.length}):\n${formatCatalogForLLM(top)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match, fall back to CREATE_GAME.`;
+                            result.toolResults = `[LOAD_TEMPLATE] Top ${top.length} templates for "${query}" (of ${catalog.length}):\n${formatCatalogForLLM(top)}\n\nIf one looks close, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>. If NONE fit, apologize in a { } block and ask whether they want a build from scratch (20–30 min, project locked) — AND in the SAME response emit <<<OFFER_CREATE_GAME description="full game brief">>><<<END>>> so a "Create from scratch" button appears beside your message. Do not call CREATE_GAME until the user confirms (the button kicks it off for them).`;
                             break;
                         }
                     } catch {
@@ -174,7 +184,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 const sample = catalog.length <= SAMPLE_SIZE
                     ? catalog
                     : [...catalog].sort(() => Math.random() - 0.5).slice(0, SAMPLE_SIZE);
-                result.toolResults = `[LOAD_TEMPLATE] Random sample of ${sample.length} of ${catalog.length} game templates:\n${formatCatalogForLLM(sample)}\n\nIf one matches, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>\nIf NONE match, fall back to CREATE_GAME.`;
+                result.toolResults = `[LOAD_TEMPLATE] Random sample of ${sample.length} of ${catalog.length} game templates:\n${formatCatalogForLLM(sample)}\n\nIf one looks close, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>. If NONE fit, apologize in a { } block and ask whether they want a build from scratch (20–30 min, project locked) — AND in the SAME response emit <<<OFFER_CREATE_GAME description="full game brief">>><<<END>>> so a "Create from scratch" button appears beside your message. Do not call CREATE_GAME until the user confirms (the button kicks it off for them).`;
                 break;
             }
 
@@ -195,7 +205,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
 
             const entityCount = built.scenes[built.activeSceneKey]?.entities?.length ?? 0;
             const warnMsg = seed.warnings.length > 0 ? `\n(Warnings: ${seed.warnings.slice(0, 3).join('; ')})` : '';
-            result.toolResults = `[LOAD_TEMPLATE] Successfully built "${seed.templateId}" with ${entityCount} entities. The game is now loaded in the editor.${warnMsg}\n\nTell the user: the game was generated from the "${seed.templateId}" template. Ask if they want you to incorporate any customizations, or if they'd prefer to start from an empty template and build from scratch.`;
+            result.toolResults = `[LOAD_TEMPLATE] Successfully built "${seed.templateId}" with ${entityCount} entities. The game is now loaded in the editor.${warnMsg}\n\nIn your next message: (1) tell the user the game was loaded from the "${seed.templateId}" template, (2) in a { } block ask whether they'd prefer a fresh build from scratch (20–30 min, project locked, runs in the background), and (3) in the SAME response emit <<<OFFER_CREATE_GAME description="full game brief matching the user's request">>><<<END>>> so a "Create from scratch" button appears beside your message. Do NOT call CREATE_GAME yourself — clicking the button or a typed "yes" reply next turn will trigger it.`;
             break;
         }
 
@@ -255,43 +265,69 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             break;
         }
 
+        case 'OFFER_CREATE_GAME': {
+            // Surface a "Create from scratch" button on the chat alongside
+            // the AI's { } question. Intentionally NOT a confirmation —
+            // clicking the button is what actually kicks off CREATE_GAME;
+            // this tool just makes the button appear. No toolResults so
+            // the AI's same-response text ends the chat turn (else we'd
+            // preempt the user's answer with another AI turn).
+            const description = node.args.description;
+            if (!description) {
+                // Silently drop — AI goofed. The { } text still renders,
+                // user just won't see a button and can reply in text.
+                break;
+            }
+            ctx.sendToFrontend('create_game_offer', { description });
+            break;
+        }
+
         case 'CREATE_GAME': {
             const description = node.args.description;
             if (!description) {
-                result.toolResults = '[CREATE_GAME] Missing description.';
+                result.toolResults = '[CREATE_GAME] Missing description — include the user\'s full game idea.';
                 break;
             }
 
-            const sendStatus = (msg: string) => ctx.sendToFrontend('fix_progress', { text: msg });
-            sendStatus('Creating game from scratch...');
-
+            // CREATE_GAME is fire-and-forget from the chat's point of view.
+            // `startGenerationJob` writes the DB lock synchronously then
+            // returns; the CLI runs in the background for ~20–30 min even
+            // after the WebSocket closes. Completion is reported via the
+            // generation_complete WS event (if a client is still watching)
+            // and the hosted email plugin's onGenerationComplete hook.
             try {
-                const createResult = await runQaCreator(ctx.projectId, description, sendStatus, ctx.abortSignal);
-
-                if (createResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(createResult.costUsd);
-
-                // If the user hit Stop while the CLI was running, don't
-                // replace the project with a partial scaffold. The outer
-                // loop's post-execute abort check handles the user message.
-                if (ctx.abortSignal?.aborted) {
-                    result.toolResults = '[CREATE_GAME] Cancelled by user.';
-                    break;
-                }
-
-                if (createResult.success && createResult.files) {
-                    const built = ctx.replaceFiles(createResult.files);
-                    if (!built || !built.success) {
-                        result.toolResults = `[CREATE_GAME] Created files but the build failed: ${built?.error}\n\nDo NOT retry CREATE_GAME. Tell the user that creating this game from scratch was not possible right now, and suggest using an existing template instead.`;
-                        break;
-                    }
-                    result.madeChanges = true;
-                    result.fileChanges.push({ path: built.activeSceneKey, type: 'modified' });
-                    result.toolResults = `[CREATE_GAME] ${createResult.summary}. The game "${createResult.templateId}" has been created and loaded. Tell the user to press Play to try it.`;
-                } else {
-                    result.toolResults = `[CREATE_GAME] Failed: ${createResult.summary}\n\nDo NOT retry CREATE_GAME. Tell the user that creating this game from scratch was not possible right now, and suggest using an existing template instead.`;
-                }
+                const jobId = await startGenerationJob({
+                    projectId: ctx.projectId,
+                    userId: ctx.userId,
+                    username: ctx.username,
+                    authToken: ctx.authToken,
+                    description,
+                    cliOverride: ctx.editingAgent,
+                });
+                // Tell the editor frontend to bounce to the project list —
+                // the user will watch progress on the card, not in the
+                // chat. editor_ws translates this into a WS event.
+                ctx.sendToFrontend('generation_started', {
+                    jobId,
+                    projectId: ctx.projectId,
+                    startedAt: new Date().toISOString(),
+                    description,
+                });
+                // Tailor the "how you'll be notified" bit to the deploy
+                // target — hosted deployments have the user's email and
+                // will actually send a message; self-hosted ones don't,
+                // so we tell the user to check back on the list.
+                const notifyBit = config.isHosted
+                    ? 'We\'ll send you an email the moment it\'s ready.'
+                    : 'Just check back on the project list when you\'re ready — the card will update on its own.';
+                result.toolResults =
+                    `[CREATE_GAME] Background build started (job ${jobId.slice(0, 8)}). ` +
+                    `Reply with a single warm, reassuring { } text block to the user — no tool call. It should say, in your own words: ` +
+                    `"You can safely close your browser while we work on your custom game (takes ~20–30 minutes). ${notifyBit} ` +
+                    `The project is locked for now — you can watch progress or stop the build from the project list." ` +
+                    `Keep it to 1–2 short sentences, friendly and direct. Do NOT promise a preview, a Play button, or any specific generated content.`;
             } catch (e: any) {
-                result.toolResults = `[CREATE_GAME] Error: ${e.message}`;
+                result.toolResults = `[CREATE_GAME] Could not start: ${e?.message || 'unknown error'}. Tell the user what went wrong — don't retry automatically.`;
             }
             break;
         }
