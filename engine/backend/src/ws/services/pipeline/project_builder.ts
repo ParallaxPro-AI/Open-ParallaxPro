@@ -16,7 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { ProjectFiles } from './project_files.js';
-import { assembleGame, ConvertedScene, MultiplayerConfig } from './level_assembler.js';
+import { assembleGame, ConvertedScene, MultiplayerConfig, invalidateEventDefsCache } from './level_assembler.js';
 import { refreshEngineMachinery } from './project_seeder.js';
 
 export interface BuildResult {
@@ -78,6 +78,13 @@ export function buildProject(
     } catch (e: any) {
         return errorResult(`Failed to hydrate project files: ${e.message}`, opts?.activeSceneKey);
     }
+
+    // event_definitions.ts is now user-editable (CREATE_GAME agent can
+    // append game events). The assembler caches parsed defs per-dir for
+    // the process lifetime, so after a rebuild that changed the file we
+    // must drop the stale cache or the validator keeps rejecting the
+    // newly-added events.
+    invalidateEventDefsCache(path.join(dir, 'systems'));
 
     let assembled: ConvertedScene;
     try {

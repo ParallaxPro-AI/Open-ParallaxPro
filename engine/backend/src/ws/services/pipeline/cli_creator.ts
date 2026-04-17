@@ -78,14 +78,18 @@ export async function runCreator(
         sendStatus?.('Setting up creation sandbox...');
         createSandbox(sandboxDir);
 
-        // Build a list of valid event names so the agent doesn't invent new ones.
+        // Seed TASK.md with the baseline event list so the agent knows
+        // what's already defined. Agents may extend project/systems/
+        // event_definitions.ts with game-specific events (see
+        // CONTEXT.md → "Event Definitions") — so this is a starting
+        // reference, not a hard allowlist.
         let validEventsList = '';
         try {
             const evtSrc = fs.readFileSync(path.join(RGC_DIR, 'systems', 'v0.1', 'event_definitions.ts'), 'utf-8');
             const nameMatches = evtSrc.matchAll(/^\s+(\w+)\s*:/gm);
             const names: string[] = [];
             for (const m of nameMatches) if (!['fields', 'type', 'optional'].includes(m[1])) names.push(m[1]);
-            validEventsList = `\n\n# CRITICAL: Valid Game Events\n\nYou MUST only use these event names with events.game.on/emit. Using any other name will cause validation to fail.\n\n${names.map(n => `- ${n}`).join('\n')}\n\nDo NOT invent new event names.`;
+            validEventsList = `\n\n# Baseline Game Events\n\nThese events already exist in project/systems/event_definitions.ts — prefer them when a reasonable match is available:\n\n${names.map(n => `- ${n}`).join('\n')}\n\nIf your game's mechanic genuinely needs a new event (e.g. a game-specific phase like \`tornado_spawned\`), you MAY append it to project/systems/event_definitions.ts using the same format as the existing entries. Do NOT rename or remove any existing event.`;
         } catch {}
 
         fs.writeFileSync(
@@ -350,7 +354,16 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
     const { text, costUsd } = await spawnCLIAgent({
         sandboxDir,
         prompt: CREATOR_PROMPT,
-        maxTurns: 50,
+        // 120 because CREATE_GAME writes 4 JSONs + N behaviors + M systems
+        // + K UI panels + validates + fixes. 50 turns (the fixer default)
+        // was starving ambitious games — agents ran out mid-build with
+        // scripts still unwritten. 120 gives the creator room to
+        // breathe without being infinite.
+        maxTurns: 120,
+        // 45 min — comfortably above the "20–30 min" we promise in chat,
+        // so ambitious builds that take longer than expected still get
+        // to finish instead of being SIGKILL'd with partial files.
+        timeout: 45 * 60 * 1000,
         statusMapper: creatorStatus,
         sendStatus,
         cliOverride,

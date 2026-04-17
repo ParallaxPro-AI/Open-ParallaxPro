@@ -371,16 +371,22 @@ Read files in the `assets/` directory:
 - `assets/AUDIO.md` — all audio files with paths
 - `assets/TEXTURES.md` — all texture files with paths
 
-## Event Definitions — STRICT
+## Event Definitions
 Read `project/systems/event_definitions.ts` (the project's pinned copy — there is also `reference/systems/event_definitions.ts` if needed).
 
-**CRITICAL**: You MUST ONLY use event names that exist in event_definitions.ts. The assembler will REJECT any scripts that use unknown events. Do NOT invent new event names like "enemy_killed" or "wave_cleared" — use the existing ones:
-- Use `entity_killed` (not `enemy_killed`)
-- Use `wave_started` (not `wave_cleared` or `wave_complete`)
-- Use `entity_damaged` (not `enemy_damaged`)
-- Use `entity_destroyed` (not `enemy_reached_base`)
+**Default to the existing events** when a reasonable one already covers what you need — it keeps your game compatible with future engine features. Prefer:
+- `entity_killed` over a new `enemy_killed`
+- `wave_started` over a new `wave_cleared` / `wave_complete`
+- `entity_damaged` over a new `enemy_damaged`
+- `entity_destroyed` over a new `enemy_reached_base`
 
-The full list is in TASK.md and in `reference/event_definitions.ts`.
+**But you MAY extend `project/systems/event_definitions.ts`** with game-specific events when the mechanic genuinely needs them (e.g. `tornado_spawned` for a disaster game, `quest_accepted` for an RPG, `combo_broken` for a fighting game). Rules when adding:
+1. Match the existing format exactly — `event_name: { fields: { fieldA: { type: 'number' }, fieldB: { type: 'string', optional: true } } }`.
+2. Supported field types: `number`, `string`, `boolean`, `object`, `any`.
+3. **Do NOT rename or remove any existing event** — other engine code and reference behaviors rely on them; renames break projects silently.
+4. Keep new event names lowercase snake_case and scoped to your game (`rocket_launched`, not `event1` or `myEvent`).
+
+Any script that emits/listens for an event NOT in `project/systems/event_definitions.ts` after your run will fail validation. The full baseline list is in TASK.md + `reference/event_definitions.ts`.
 
 ## Reference Templates
 Look at `reference/game_templates/` for working examples of complete templates.

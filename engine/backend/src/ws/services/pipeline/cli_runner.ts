@@ -133,6 +133,14 @@ export interface SpawnOptions {
      * at startup (probe order: claude → codex → opencode → copilot).
      */
     cliOverride?: string;
+    /**
+     * Wall-clock cap in ms. Defaults to `config.fixer.timeout` (20 min) —
+     * fine for fixer runs, but cli_creator bumps this to 45 min because
+     * CREATE_GAME is expected to take 20–30 min and ambitious prompts
+     * push higher. After this elapses child_process sends SIGTERM (then
+     * SIGKILL) to the CLI agent.
+     */
+    timeout?: number;
 }
 
 type CLIName = 'claude' | 'codex' | 'opencode' | 'copilot';
@@ -214,7 +222,7 @@ function spawnClaude(opts: SpawnOptions): Promise<CLIRunResult> {
         const { command, args: spawnArgs } = wrapSpawn('claude', 'claude', args, opts.sandboxDir);
         const proc = spawn(command, spawnArgs, {
             cwd: opts.sandboxDir,
-            timeout: config.fixer.timeout,
+            timeout: opts.timeout ?? config.fixer.timeout,
             stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });
@@ -295,7 +303,7 @@ function spawnCodex(opts: SpawnOptions): Promise<CLIRunResult> {
         const { command, args: spawnArgs } = wrapSpawn('codex', 'codex', args, opts.sandboxDir);
         const proc = spawn(command, spawnArgs, {
             cwd: opts.sandboxDir,
-            timeout: config.fixer.timeout,
+            timeout: opts.timeout ?? config.fixer.timeout,
             stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });
@@ -427,7 +435,7 @@ function spawnOpenCode(opts: SpawnOptions): Promise<CLIRunResult> {
         const { command, args: spawnArgs } = wrapSpawn('opencode', 'opencode', args, opts.sandboxDir);
         const proc = spawn(command, spawnArgs, {
             cwd: opts.sandboxDir,
-            timeout: config.fixer.timeout,
+            timeout: opts.timeout ?? config.fixer.timeout,
             stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });
@@ -541,7 +549,7 @@ function spawnCopilot(opts: SpawnOptions): Promise<CLIRunResult> {
         const { command, args: spawnArgs } = wrapSpawn('copilot', 'copilot', args, opts.sandboxDir);
         const proc = spawn(command, spawnArgs, {
             cwd: opts.sandboxDir,
-            timeout: config.fixer.timeout,
+            timeout: opts.timeout ?? config.fixer.timeout,
             stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, HOME: process.env.HOME || '/tmp' },
         });

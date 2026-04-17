@@ -41,6 +41,22 @@ export const ENGINE_MACHINERY = [
 ] as const;
 
 /**
+ * Machinery files that are seeded at project creation but NOT overwritten
+ * on subsequent builds. `event_definitions.ts` is the only member: the
+ * CREATE_GAME agent is allowed to extend this file with game-specific
+ * events (e.g. `tornado_spawned` for a disaster game), and the
+ * refreshEngineMachinery step would otherwise clobber those additions on
+ * the next build and break every script that uses them.
+ *
+ * Everything else in ENGINE_MACHINERY is strictly engine-owned and DOES
+ * get refreshed so projects pick up fsm_driver / ui_bridge / mp_bridge
+ * bug-fixes automatically.
+ */
+export const ENGINE_MACHINERY_USER_EXTENSIBLE: ReadonlySet<string> = new Set([
+    'systems/event_definitions.ts',
+]);
+
+/**
  * Engine-owned reusable UI panels. Like ENGINE_MACHINERY these are refreshed
  * from the shared library on every build so fixes to the lobby / HUD UIs land
  * in existing projects. User custom UI (e.g. `ui/my_hud.html`) is untouched.

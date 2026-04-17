@@ -445,6 +445,18 @@ interface EventDef { fields: Record<string, EventFieldDef>; }
 
 const _eventDefsCache = new Map<string, { defs: Record<string, EventDef>; names: Set<string> }>();
 
+/**
+ * Drop the cached event-definition parse for a given systems dir. Called
+ * by project_builder right after hydrating the project files — now that
+ * event_definitions.ts is user-editable (CREATE_GAME agent can append
+ * game-specific events), we can't assume the on-disk content matches
+ * the parse from the previous build.
+ */
+export function invalidateEventDefsCache(systemsDir?: string): void {
+    if (systemsDir) _eventDefsCache.delete(systemsDir);
+    else _eventDefsCache.clear();
+}
+
 function loadGameEventDefs(systemsDir?: string): { defs: Record<string, EventDef>; names: Set<string> } | null {
   const dir = systemsDir || SYSTEMS_DIR;
   const cached = _eventDefsCache.get(dir);

@@ -14,7 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { ProjectFiles, ENGINE_MACHINERY, ENGINE_UI, emptyTemplateFiles } from './project_files.js';
+import { ProjectFiles, ENGINE_MACHINERY, ENGINE_MACHINERY_USER_EXTENSIBLE, ENGINE_UI, emptyTemplateFiles } from './project_files.js';
 import { loadTemplate } from './template_loader.js';
 
 const __dirname_seeder = path.dirname(fileURLToPath(import.meta.url));
@@ -80,12 +80,17 @@ function copyDirInto(srcDir: string, files: ProjectFiles, prefix: string): void 
  * Always-pinned engine files — copied fresh from the shared library.
  *
  * We overwrite any existing copy so engine-owned pieces (fsm_driver,
- * ui_bridge, mp_bridge, event_definitions, _entity_label) track library
- * updates. These files are not user-editable by convention; a stale copy
- * pinned at project creation shouldn't lock a project to an old engine.
+ * ui_bridge, mp_bridge, _entity_label) track library updates. Files in
+ * ENGINE_MACHINERY_USER_EXTENSIBLE (currently just event_definitions.ts)
+ * are treated as seed-only: we copy them in on first seed, then leave
+ * them alone on subsequent refreshes so the CREATE_GAME agent's
+ * game-specific event additions survive.
  */
 function copyEngineMachinery(files: ProjectFiles): void {
     for (const rel of ENGINE_MACHINERY) {
+        if (ENGINE_MACHINERY_USER_EXTENSIBLE.has(rel) && files[rel] !== undefined) {
+            continue;
+        }
         const sub = rel.replace(/^systems\//, '');
         const src = path.join(SYSTEMS_DIR, sub);
         if (fs.existsSync(src)) files[rel] = fs.readFileSync(src, 'utf-8');
