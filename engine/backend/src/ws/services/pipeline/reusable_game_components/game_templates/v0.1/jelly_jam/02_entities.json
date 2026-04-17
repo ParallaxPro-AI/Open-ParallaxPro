@@ -1,0 +1,211 @@
+{
+  "definitions": {
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Character_Female_2.glb",
+        "scale": [1.1, 1.1, 1.1],
+        "modelRotationY": 0
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true,
+        "networkedVars": ["health"]
+      },
+      "tags": ["player", "networked"],
+      "behaviors": [
+        {
+          "name": "jelly_player",
+          "script": "movement/jelly_player.ts",
+          "params": {
+            "speed": 7.5,
+            "sprintSpeed": 11,
+            "acceleration": 24,
+            "airAcceleration": 8,
+            "jumpForce": 10,
+            "diveForwardImpulse": 12,
+            "diveUpImpulse": 4.0,
+            "diveCooldown": 1.2,
+            "diveStunDuration": 0.55,
+            "coyoteTime": 0.12,
+            "jumpBufferTime": 0.12
+          }
+        }
+      ]
+    },
+
+    "camera": {
+      "camera": { "fov": 65 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_party_chase",
+          "script": "camera/camera_party_chase.ts",
+          "params": {
+            "distance": 8.5,
+            "height": 4.0,
+            "lookHeight": 1.5,
+            "smoothSpeed": 6,
+            "sensitivity": 0.16,
+            "autoOrbitSpeed": 90,
+            "minPitch": -25,
+            "maxPitch": 60
+          }
+        }
+      ]
+    },
+
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.55, 0.78, 0.95, 1],
+        "scale": [180, 1, 80]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
+    },
+
+    "course_floor": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.95, 0.78, 0.85, 1],
+        "scale": [90, 1, 18]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 0.05, 0.5] }
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_08.png"
+      }
+    },
+
+    "stage_pillar": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
+        "scale": [3.5, 5.0, 3.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "stage_arch": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.95, 0.4, 0.55, 1],
+        "scale": [3, 6, 1]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 0.5, 0.5] }
+      },
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "stage_banner": {
+      "mesh": {
+        "type": "cube",
+        "color": [1.0, 0.83, 0.4, 1],
+        "scale": [10, 1.2, 0.2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "stand_audience": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.45, 0.42, 0.55, 1],
+        "scale": [50, 4, 4]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 0.5, 0.5] }
+      },
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+      }
+    },
+
+    "fan_pink": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Pig.glb",
+        "scale": [1.4, 1.4, 1.4]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "fan_white": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Sheep.glb",
+        "scale": [1.4, 1.4, 1.4]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "fan_orange": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Cat.glb",
+        "scale": [1.4, 1.4, 1.4]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "tree_party": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Tree_1.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_party_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Tree_2.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "flowers": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Flowers_1.glb",
+        "scale": [2.0, 2.0, 2.0]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    }
+  }
+}

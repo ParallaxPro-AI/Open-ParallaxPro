@@ -1,0 +1,181 @@
+{
+  "systems": {
+    "shooter_royale_game": {
+      "description": "Battle royale rules — shrinking storm, loot, hitscan combat, last-player-standing.",
+      "script": "mp/shooter_royale_game.ts",
+      "params": {
+        "warmupSec": 2.0,
+        "maxMatchSec": 420,
+        "stormStartDelaySec": 22,
+        "stormShrinkSec": 160,
+        "stormMinRadius": 7,
+        "stormStartRadius": 55,
+        "stormDamagePerTick": 8,
+        "stormTickInterval": 1.0,
+        "maxHealth": 100,
+        "maxArmor": 100,
+        "spawnRadius": 48,
+        "killFeedMaxLines": 8,
+        "bandageHeal": 22,
+        "medkitHeal": 60,
+        "armorVestValue": 50,
+        "lootCount": 60,
+        "fistLoadout": {
+          "id": "fists",
+          "label": "Fists",
+          "rpm": 150,
+          "damage": 12,
+          "spread": 1,
+          "range": 2.8,
+          "magCapacity": 0,
+          "caliber": "",
+          "fireSound": "/assets/kenney/audio/rpg_audio/cloth1.ogg",
+          "fireVolume": 0.3
+        },
+        "startingWeapon": null,
+        "lootPool": [
+          {
+            "kind": "weapon_pistol",
+            "label": "9mm Pistol",
+            "payload": {
+              "id": "pistol",
+              "label": "9mm Pistol",
+              "rpm": 360,
+              "damage": 16,
+              "spread": 2.5,
+              "range": 24,
+              "magCapacity": 12,
+              "ammo": 12,
+              "caliber": "9mm",
+              "reloadSeconds": 1.3,
+              "fireSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_001.ogg",
+              "reloadSound": "/assets/kenney/audio/rpg_audio/drawKnife1.ogg",
+              "swapSound": "/assets/kenney/audio/interface_sounds/click_002.ogg",
+              "fireVolume": 0.4
+            }
+          },
+          {
+            "kind": "weapon_smg",
+            "label": "SMG",
+            "payload": {
+              "id": "smg",
+              "label": "SMG",
+              "rpm": 720,
+              "damage": 11,
+              "spread": 6,
+              "range": 20,
+              "magCapacity": 30,
+              "ammo": 30,
+              "caliber": "9mm",
+              "reloadSeconds": 2.0,
+              "fireSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_002.ogg",
+              "reloadSound": "/assets/kenney/audio/rpg_audio/metalClick.ogg",
+              "swapSound": "/assets/kenney/audio/interface_sounds/click_003.ogg",
+              "fireVolume": 0.38
+            }
+          },
+          {
+            "kind": "weapon_shotgun",
+            "label": "Shotgun",
+            "payload": {
+              "id": "shotgun",
+              "label": "Shotgun",
+              "rpm": 90,
+              "damage": 58,
+              "spread": 14,
+              "range": 12,
+              "magCapacity": 6,
+              "ammo": 6,
+              "caliber": "12g",
+              "reloadSeconds": 2.6,
+              "fireSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_000.ogg",
+              "reloadSound": "/assets/kenney/audio/rpg_audio/doorClose_1.ogg",
+              "swapSound": "/assets/kenney/audio/interface_sounds/click_004.ogg",
+              "fireVolume": 0.55
+            }
+          },
+          {
+            "kind": "weapon_rifle",
+            "label": "Assault Rifle",
+            "payload": {
+              "id": "rifle",
+              "label": "Rifle",
+              "rpm": 500,
+              "damage": 22,
+              "spread": 3.5,
+              "range": 32,
+              "magCapacity": 25,
+              "ammo": 25,
+              "caliber": "5.56",
+              "reloadSeconds": 2.2,
+              "fireSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_001.ogg",
+              "reloadSound": "/assets/kenney/audio/rpg_audio/metalLatch.ogg",
+              "swapSound": "/assets/kenney/audio/interface_sounds/click_002.ogg",
+              "fireVolume": 0.45
+            }
+          },
+          {
+            "kind": "weapon_sniper",
+            "label": "Sniper Rifle",
+            "payload": {
+              "id": "sniper",
+              "label": "Sniper",
+              "rpm": 45,
+              "damage": 85,
+              "spread": 0.3,
+              "range": 60,
+              "magCapacity": 5,
+              "ammo": 5,
+              "caliber": ".308",
+              "reloadSeconds": 3.0,
+              "fireSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_003.ogg",
+              "reloadSound": "/assets/kenney/audio/rpg_audio/metalLatch.ogg",
+              "swapSound": "/assets/kenney/audio/interface_sounds/click_001.ogg",
+              "fireVolume": 0.6
+            }
+          },
+          {
+            "kind": "ammo",
+            "label": "9mm Ammo",
+            "payload": { "caliber": "9mm", "amount": 30 }
+          },
+          {
+            "kind": "ammo",
+            "label": "5.56 Ammo",
+            "payload": { "caliber": "5.56", "amount": 30 }
+          },
+          {
+            "kind": "ammo",
+            "label": "12-gauge",
+            "payload": { "caliber": "12g", "amount": 12 }
+          },
+          {
+            "kind": "ammo",
+            "label": ".308 Ammo",
+            "payload": { "caliber": ".308", "amount": 10 }
+          },
+          {
+            "kind": "bandage",
+            "label": "Bandage",
+            "payload": { "heal": 22 }
+          },
+          {
+            "kind": "medkit",
+            "label": "Medkit",
+            "payload": { "heal": 60 }
+          },
+          {
+            "kind": "armor",
+            "label": "Tactical Vest",
+            "payload": { "amount": 50 }
+          },
+          {
+            "kind": "armor",
+            "label": "Heavy Vest",
+            "payload": { "amount": 80 }
+          }
+        ]
+      }
+    }
+  }
+}

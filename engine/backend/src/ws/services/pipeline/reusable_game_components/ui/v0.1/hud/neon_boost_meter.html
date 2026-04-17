@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #cdeaff;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .wrap {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 320px;
+    pointer-events: none;
+    user-select: none;
+  }
+  .wrap.hidden { display: none; }
+  .label {
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: #5d8db4;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 4px;
+    font-weight: 700;
+  }
+  .label.boosting {
+    color: #2ed3ff;
+    text-shadow: 0 0 12px rgba(46, 211, 255, 0.6);
+  }
+  .meter {
+    position: relative;
+    height: 14px;
+    background: rgba(2, 6, 18, 0.65);
+    border: 1px solid rgba(80, 180, 255, 0.20);
+    border-radius: 999px;
+    overflow: hidden;
+    backdrop-filter: blur(6px);
+  }
+  .fill {
+    position: absolute;
+    inset: 0;
+    width: 0%;
+    background: linear-gradient(90deg, #2ed3ff 0%, #66f0ff 50%, #b1f4ff 100%);
+    box-shadow: 0 0 16px rgba(46, 211, 255, 0.55) inset;
+    border-radius: 999px;
+    transition: width 0.12s linear, opacity 0.2s ease, background 0.2s ease;
+  }
+  .fill.low {
+    background: linear-gradient(90deg, #ff6c2e 0%, #ffa066 100%);
+    box-shadow: 0 0 18px rgba(255, 130, 60, 0.55) inset;
+  }
+  .fill.boosting {
+    background: linear-gradient(90deg, #44ffd1 0%, #c5fff2 100%);
+    box-shadow: 0 0 22px rgba(80, 255, 200, 0.65) inset;
+  }
+  .ticks {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+  .tick {
+    width: 1px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .crashed {
+    text-align: center;
+    margin-top: 4px;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #ff7766;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(255, 80, 80, 0.55);
+    display: none;
+  }
+  .crashed.show { display: block; animation: flash 0.5s ease; }
+  @keyframes flash {
+    0% { opacity: 0; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap hidden" id="wrap">
+  <div class="label" id="label">Boost</div>
+  <div class="meter">
+    <div class="fill" id="fill"></div>
+    <div class="ticks">
+      <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+      <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+      <div class="tick"></div>
+    </div>
+  </div>
+  <div class="crashed" id="crashed">Crashed — spectating</div>
+</div>
+
+<script>
+(function () {
+  var wrap = document.getElementById('wrap');
+  var label = document.getElementById('label');
+  var fill = document.getElementById('fill');
+  var crashed = document.getElementById('crashed');
+
+  function render(state) {
+    if (!state) return;
+    var b = state.neonBoost;
+    if (!b) return;
+    wrap.classList.remove('hidden');
+
+    var pct = Math.max(0, Math.min(1, b.pct || 0));
+    fill.style.width = (pct * 100).toFixed(1) + '%';
+    fill.classList.toggle('low', pct < 0.25 && !b.boosting);
+    fill.classList.toggle('boosting', !!b.boosting);
+    label.textContent = b.boosting ? '— Boosting —' : 'Boost';
+    label.classList.toggle('boosting', !!b.boosting);
+
+    if (b.alive === false) {
+      crashed.classList.add('show');
+    } else {
+      crashed.classList.remove('show');
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    render(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

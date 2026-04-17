@@ -1,0 +1,35 @@
+{
+  "systems": {
+    "kart_race": {
+      "description": "Mario-kart style match rules — discovers ordered checkpoints + item box anchors from world tags, runs lap progression per peer, spawns + respawns item boxes, host-validates power-up uses (boost/missile/banana/shield/bolt), missiles seek the racer ahead, bananas spin out anyone who touches one, shield blocks the next hazard, bolt slows everyone but the user. Win on first to lapsToWin laps or highest progress at timer.",
+      "script": "mp/kart_race.ts",
+      "params": {
+        "lapsToWin": 3,
+        "maxRoundDurationSec": 360,
+        "itemBoxRespawnSec": 6,
+        "itemBoxPickupRange": 3.0,
+        "checkpointHitRange": 8.0,
+        "missileSpeed": 30,
+        "missileLifeSec": 4,
+        "bananaLifeSec": 60,
+        "bananaHitRange": 1.6,
+        "hazardHitFreezeSec": 1.4,
+        "shieldDurationSec": 12,
+        "boltDurationSec": 3,
+        "boltSpeedMultiplier": 0.55,
+        "spawnRingRadius": 6,
+        "itemBoxSound": "/assets/kenney/audio/digital_audio/highUp.ogg",
+        "powerupGetSound": "/assets/kenney/audio/digital_audio/phaserUp1.ogg",
+        "missileFireSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_001.ogg",
+        "missileHitSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_002.ogg",
+        "bananaDropSound": "/assets/kenney/audio/casino_audio/chip-lay-1.ogg",
+        "bananaHitSound": "/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_001.ogg",
+        "shieldUseSound": "/assets/kenney/audio/sci_fi_sounds/forceField_002.ogg",
+        "boltUseSound": "/assets/kenney/audio/digital_audio/lowThreeTone.ogg",
+        "lapCompleteSound": "/assets/kenney/audio/voiceover_pack/male/round.ogg",
+        "winSound": "/assets/kenney/audio/voiceover_pack/male/you_win.ogg",
+        "loseSound": "/assets/kenney/audio/voiceover_pack/male/you_lose.ogg"
+      }
+    }
+  }
+}

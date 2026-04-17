@@ -1,0 +1,62 @@
+{
+  "id": "pipe_runner_flow",
+  "name": "Pipe Runner",
+  "description": "Single-player 2.5D side-scrolling arcade platformer. Race a sky-blue overworld of brick blocks, question blocks, walking goombas, and warp pipes to a flagpole 120 metres away. Stomp enemies (jump on top), grab coins, collect a mushroom for a one-hit shield. 3 lives, 300-second timer.",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "PIPE RUNNER",
+      "gameSubtitle": "Stomp. Grab. Reach the Flag."
+    }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "active_systems": ["pipe_runner_engine"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [
+        { "when": "boot_frames>=2", "goto": "main_menu" }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Run, jump, stomp, reach the flag",
+      "active_systems": ["pipe_runner_engine"],
+      "active_behaviors": [
+        "sidescroll_runner",
+        "stomper_enemy",
+        "camera_side_scroll"
+      ],
+      "on_enter": [
+        "show_ui:hud/runner_hud",
+        "hide_cursor",
+        "emit:game.game_ready"
+      ],
+      "on_exit": [
+        "hide_ui:hud/runner_hud"
+      ],
+      "transitions": [
+        { "when": "game_event:game_over", "goto": "game_over" },
+        { "when": "game_event:game_won", "goto": "game_over" }
+      ]
+    },
+    "game_over": {
+      "description": "Run ended — flag reached or lives exhausted",
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit": ["hide_ui:game_over", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "gameplay", "actions": ["emit:game.restart_game"] },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

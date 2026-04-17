@@ -1,0 +1,91 @@
+{
+  "worlds": [
+    {
+      "id": "royale_island",
+      "name": "Royale Island",
+      "environment": {
+        "ambientColor": [0.55, 0.6, 0.7],
+        "ambientIntensity": 0.65,
+        "sunColor": [1.0, 0.92, 0.78],
+        "sunIntensity": 1.0,
+        "fog": { "enabled": true, "color": [0.05, 0.08, 0.12], "near": 55, "far": 130 },
+        "gravity": [0, -9.81, 0]
+      },
+      "placements": [
+        { "ref": "camera", "position": [0, 26, 8] },
+        { "ref": "player", "position": [0, 1, 0] },
+        { "ref": "sky_dome", "position": [0, 40, 0] },
+        { "ref": "ground", "position": [0, -0.1, 0] },
+
+        { "name": "StormRing", "ref": "storm_ring", "position": [0, 6, 0] },
+
+        { "ref": "ground_path", "position": [0, 0.03, 0], "scale": [8, 1, 60] },
+        { "ref": "ground_path", "position": [0, 0.03, 0], "scale": [60, 1, 8] },
+
+        { "name": "Center_Supply", "ref": "supply_drop_marker", "position": [0, 0.2, 0] },
+        { "ref": "weapon_display_rifle", "position": [0, 0.7, 0], "rotation": [0, 0.7, 0] },
+
+        { "name": "Bldg_NorthShop", "ref": "shop_building",   "position": [-22, 0.1, 24] },
+        { "name": "Bldg_EastHouse", "ref": "house_1",         "position": [30, 0.1, 6]   },
+        { "name": "Bldg_SouthMini", "ref": "building_small",  "position": [-14, 0.1, -28] },
+        { "name": "Bldg_WestHouse", "ref": "house_1",         "position": [-32, 0.1, -8], "rotation": [0, 1.57, 0] },
+
+        { "ref": "weapon_display_pistol",  "position": [-22, 0.6, 20] },
+        { "ref": "weapon_display_sniper",  "position": [30, 0.6, 4] },
+        { "ref": "weapon_display_shotgun", "position": [-14, 0.6, -26] },
+
+        { "ref": "tree_1", "position": [-10, 0, 15] },
+        { "ref": "tree_2", "position": [12, 0, 20] },
+        { "ref": "tree_3", "position": [-26, 0, 10] },
+        { "ref": "tree_4", "position": [24, 0, -16] },
+        { "ref": "tree_1", "position": [-20, 0, -22] },
+        { "ref": "tree_2", "position": [8, 0, -24] },
+        { "ref": "tree_3", "position": [36, 0, 28] },
+        { "ref": "tree_4", "position": [-36, 0, 30] },
+        { "ref": "tree_1", "position": [40, 0, -30] },
+        { "ref": "tree_2", "position": [-40, 0, -32] },
+        { "ref": "tree_3", "position": [-6, 0, 36] },
+        { "ref": "tree_4", "position": [6, 0, -38] },
+        { "ref": "tree_1", "position": [28, 0, 38] },
+        { "ref": "tree_2", "position": [-28, 0, -38] },
+        { "ref": "tree_3", "position": [18, 0, 32] },
+        { "ref": "tree_4", "position": [-18, 0, -30] },
+
+        { "ref": "rock_1", "position": [14, 0, 8] },
+        { "ref": "rock_2", "position": [-12, 0, -10] },
+        { "ref": "rock_3", "position": [22, 0, -6] },
+        { "ref": "rock_1", "position": [-24, 0, 2] },
+        { "ref": "rock_2", "position": [6, 0, 26] },
+        { "ref": "rock_3", "position": [-6, 0, -18] },
+        { "ref": "rock_1", "position": [34, 0, 14] },
+        { "ref": "rock_2", "position": [-34, 0, 18] },
+        { "ref": "rock_3", "position": [10, 0, -34] },
+        { "ref": "rock_1", "position": [-10, 0, 34] },
+
+        { "ref": "bush_1", "position": [3, 0, 8] },
+        { "ref": "bush_2", "position": [-4, 0, 6] },
+        { "ref": "bush_3", "position": [8, 0, -4] },
+        { "ref": "bush_1", "position": [-8, 0, -4] },
+        { "ref": "bush_2", "position": [16, 0, 16] },
+        { "ref": "bush_3", "position": [-16, 0, -16] },
+        { "ref": "bush_1", "position": [22, 0, -22] },
+        { "ref": "bush_2", "position": [-22, 0, 22] },
+        { "ref": "bush_3", "position": [2, 0, -12] },
+        { "ref": "bush_1", "position": [-2, 0, 12] },
+
+        { "ref": "grass_1", "position": [4, 0, 4] },
+        { "ref": "grass_1", "position": [-5, 0, -3] },
+        { "ref": "grass_1", "position": [18, 0, -18] },
+        { "ref": "grass_1", "position": [-18, 0, 18] },
+        { "ref": "grass_1", "position": [26, 0, 20] },
+        { "ref": "grass_1", "position": [-26, 0, -20] },
+        { "ref": "grass_1", "position": [32, 0, -20] },
+        { "ref": "grass_1", "position": [-32, 0, 20] },
+        { "ref": "grass_1", "position": [14, 0, 32] },
+        { "ref": "grass_1", "position": [-14, 0, -32] },
+        { "ref": "grass_1", "position": [38, 0, 8] },
+        { "ref": "grass_1", "position": [-38, 0, -8] }
+      ]
+    }
+  ]
+}

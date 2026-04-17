@@ -1,0 +1,44 @@
+{
+  "worlds": [
+    {
+      "id": "kitchen",
+      "name": "Mama's Kitchen",
+      "environment": {
+        "ambientColor": [0.95, 0.92, 0.88],
+        "ambientIntensity": 0.95,
+        "sunColor": [1.0, 0.97, 0.92],
+        "sunIntensity": 1.10,
+        "fog": { "enabled": false },
+        "gravity": [0, -9.81, 0]
+      },
+      "placements": [
+        { "ref": "back_wall",     "position": [0, 7, -4.6] },
+        { "ref": "tile_band",     "position": [0, 0.3, -4.0] },
+
+        { "ref": "counter",       "position": [0, -0.5, 0] },
+        { "ref": "counter_edge",  "position": [0, 0.0, 4] },
+
+        { "ref": "cutting_board", "position": [-5, 0.09, -1] },
+
+        { "ref": "bowl_outer",    "position": [0, 0.45, -1] },
+        { "ref": "bowl_inner",    "position": [0, 0.40, -1] },
+
+        { "ref": "stove_burner",  "position": [5, 0.20, -1] },
+        { "ref": "stove_glow",    "position": [5, 0.45, -1] },
+        { "ref": "pan_outer",     "position": [5, 0.65, -1] },
+        { "ref": "pan_handle",    "position": [5, 0.65, 0.6] },
+
+        { "ref": "plate_disc",   "position": [0, 0.08, 2.6] },
+        { "ref": "plate_inner",  "position": [0, 0.16, 2.6] },
+
+        { "ref": "knife_handle", "position": [-5, 1.6, -2.2] },
+        { "ref": "knife_blade",  "position": [-5, 1.6, -0.6] },
+
+        { "ref": "spoon_handle", "position": [0, 1.4, 0.4] },
+        { "ref": "spoon_head",   "position": [0, 1.4, -0.6] },
+
+        { "ref": "camera",       "position": [0, 8, 6], "rotation": [-55, 0, 0] }
+      ]
+    }
+  ]
+}

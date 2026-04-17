@@ -1,0 +1,98 @@
+{
+  "id": "multiplayer_rift_1v1_flow",
+  "name": "Rift 1v1",
+  "description": "1v1 mid-lane MOBA for 1 or 2 players. Click to move, press Q/E to cast, auto-attack creeps for gold, push the lane through two turrets and smash the enemy Nexus. Solo spawns an AI champion opponent.",
+  "start": "boot",
+  "multiplayer": {
+    "enabled": true,
+    "minPlayers": 2,
+    "maxPlayers": 2,
+    "tickRate": 30,
+    "authority": "host",
+    "predictLocalPlayer": true,
+    "hostPlaysGame": true,
+    "remotePlayerPrefab": "player"
+  },
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "RIFT 1v1",
+      "gameSubtitle": "Mid lane. Two towers. One Nexus."
+    }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize",
+      "active_systems": ["mp_bridge", "rift_1v1_game"],
+      "active_behaviors": ["camera_moba_1v1"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+    },
+    "main_menu": {
+      "description": "Title",
+      "active_systems": ["mp_bridge"],
+      "on_enter": [
+        "mp:leave_lobby",
+        "hide_ui:hud/voice_chat",
+        "hide_ui:hud/text_chat",
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "lobby_browser" }]
+    },
+    "lobby_browser": {
+      "description": "Browse lobbies",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:lobby_browser", "show_cursor", "mp:refresh_lobbies"],
+      "on_exit":  ["hide_ui:lobby_browser", "hide_ui:lobby_host_config"],
+      "transitions": [
+        { "when": "mp_event:phase_in_lobby", "goto": "lobby_room" },
+        { "when": "mp_event:back_to_menu", "goto": "main_menu" }
+      ]
+    },
+    "lobby_room": {
+      "description": "Pre-match roster",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:lobby_room", "show_ui:hud/text_chat", "show_ui:hud/voice_chat", "show_cursor"],
+      "on_exit":  ["hide_ui:lobby_room"],
+      "transitions": [
+        { "when": "mp_event:phase_in_game", "goto": "gameplay" },
+        { "when": "mp_event:phase_browsing", "goto": "lobby_browser" },
+        { "when": "mp_event:phase_disconnected", "goto": "main_menu" }
+      ]
+    },
+    "gameplay": {
+      "description": "Match — mid lane, two towers, destroy the nexus",
+      "active_systems": ["mp_bridge", "rift_1v1_game"],
+      "active_behaviors": ["player_moba_champion", "camera_moba_1v1"],
+      "on_enter": [
+        "show_ui:hud/ping",
+        "show_ui:hud/text_chat",
+        "show_ui:hud/voice_chat",
+        "show_ui:hud/rift_hud",
+        "show_cursor",
+        "emit:game.match_started"
+      ],
+      "on_exit": [
+        "hide_ui:hud/ping",
+        "hide_ui:hud/rift_hud"
+      ],
+      "transitions": [
+        { "when": "mp_event:phase_disconnected", "goto": "main_menu" },
+        { "when": "game_event:match_ended", "goto": "game_over" }
+      ]
+    },
+    "game_over": {
+      "description": "Match summary",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit":  ["hide_ui:game_over", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "lobby_room" },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

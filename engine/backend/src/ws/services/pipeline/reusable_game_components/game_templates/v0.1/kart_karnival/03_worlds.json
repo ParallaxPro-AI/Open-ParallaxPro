@@ -1,0 +1,104 @@
+{
+  "worlds": [
+    {
+      "id": "kart_karnival_circuit",
+      "name": "Karnival Circuit",
+      "environment": {
+        "ambientColor": [0.62, 0.65, 0.72],
+        "ambientIntensity": 0.85,
+        "sunColor": [1.00, 0.95, 0.85],
+        "sunIntensity": 1.10,
+        "fog": { "enabled": true, "color": [0.70, 0.78, 0.85], "near": 100, "far": 300 },
+        "gravity": [0, -9.81, 0]
+      },
+      "lighting": {
+        "ambient": [0.62, 0.65, 0.72],
+        "sun_direction": [0.3, -0.7, 0.4],
+        "sun_color": [1.00, 0.95, 0.85],
+        "shadowDistance": 250
+      },
+      "placements": [
+        { "ref": "ground_grass", "position": [0, 0, 0] },
+
+        { "ref": "track_strip_long",  "position": [   0, 0.05, -35] },
+        { "ref": "track_strip_long",  "position": [   0, 0.05,  35] },
+        { "ref": "track_strip_short", "position": [ -50, 0.05,   0], "rotation": [0, 90, 0] },
+        { "ref": "track_strip_short", "position": [  50, 0.05,   0], "rotation": [0, 90, 0] },
+
+        { "ref": "track_kerb", "position": [ -10, 0.10, -28] },
+        { "ref": "track_kerb", "position": [  10, 0.10, -28] },
+        { "ref": "track_kerb", "position": [ -10, 0.10,  28] },
+        { "ref": "track_kerb", "position": [  10, 0.10,  28] },
+        { "ref": "track_kerb", "position": [ -42, 0.10,  10], "rotation": [0, 90, 0] },
+        { "ref": "track_kerb", "position": [ -42, 0.10, -10], "rotation": [0, 90, 0] },
+        { "ref": "track_kerb", "position": [  42, 0.10,  10], "rotation": [0, 90, 0] },
+        { "ref": "track_kerb", "position": [  42, 0.10, -10], "rotation": [0, 90, 0] },
+
+        { "ref": "start_finish_pad", "position": [0, 0.10, -35] },
+
+        { "ref": "camera",       "position": [ 0, 4, -30] },
+        { "name": "Player",      "ref": "player", "position": [0, 0.6, -35] },
+
+        { "name": "Checkpoint_0", "ref": "checkpoint_marker", "position": [   0, 2, -35] },
+        { "name": "Checkpoint_1", "ref": "checkpoint_marker", "position": [  35, 2, -35] },
+        { "name": "Checkpoint_2", "ref": "checkpoint_marker", "position": [  50, 2, -10], "rotation": [0, 90, 0] },
+        { "name": "Checkpoint_3", "ref": "checkpoint_marker", "position": [  50, 2,  10], "rotation": [0, 90, 0] },
+        { "name": "Checkpoint_4", "ref": "checkpoint_marker", "position": [  35, 2,  35] },
+        { "name": "Checkpoint_5", "ref": "checkpoint_marker", "position": [   0, 2,  35] },
+        { "name": "Checkpoint_6", "ref": "checkpoint_marker", "position": [ -35, 2,  35] },
+        { "name": "Checkpoint_7", "ref": "checkpoint_marker", "position": [ -50, 2,  10], "rotation": [0, 90, 0] },
+        { "name": "Checkpoint_8", "ref": "checkpoint_marker", "position": [ -50, 2, -10], "rotation": [0, 90, 0] },
+        { "name": "Checkpoint_9", "ref": "checkpoint_marker", "position": [ -35, 2, -35] },
+
+        { "ref": "item_box_anchor", "position": [  20, 1, -35] },
+        { "ref": "item_box_anchor", "position": [  50, 1, -25] },
+        { "ref": "item_box_anchor", "position": [  50, 1,  20] },
+        { "ref": "item_box_anchor", "position": [  20, 1,  35] },
+        { "ref": "item_box_anchor", "position": [ -20, 1,  35] },
+        { "ref": "item_box_anchor", "position": [ -50, 1,  20] },
+        { "ref": "item_box_anchor", "position": [ -50, 1, -25] },
+        { "ref": "item_box_anchor", "position": [ -20, 1, -35] },
+
+        { "ref": "festival_arch",   "position": [0, 5,  -35], "scale": [16, 1, 1] },
+        { "ref": "festival_pillar", "position": [-9, 2.5, -35] },
+        { "ref": "festival_pillar", "position": [ 9, 2.5, -35] },
+
+        { "ref": "stand_billboard", "position": [-60, 4, -50] },
+        { "ref": "stand_billboard", "position": [ 60, 4, -50] },
+        { "ref": "stand_billboard", "position": [  0, 4,  55] },
+
+        { "ref": "park_tree", "position": [-70, 0,  -50] },
+        { "ref": "park_tree", "position": [ 70, 0,  -50] },
+        { "ref": "park_tree", "position": [-70, 0,   50] },
+        { "ref": "park_tree", "position": [ 70, 0,   50] },
+        { "ref": "park_pine", "position": [-80, 0,    0] },
+        { "ref": "park_pine", "position": [ 80, 0,    0] },
+        { "ref": "park_pine", "position": [-90, 0,  -30] },
+        { "ref": "park_pine", "position": [ 90, 0,  -30] },
+        { "ref": "park_pine", "position": [-90, 0,   30] },
+        { "ref": "park_pine", "position": [ 90, 0,   30] },
+        { "ref": "park_bush", "position": [-60, 0,  -28] },
+        { "ref": "park_bush", "position": [ 60, 0,  -28] },
+        { "ref": "park_bush", "position": [-60, 0,   28] },
+        { "ref": "park_bush", "position": [ 60, 0,   28] },
+        { "ref": "park_rock", "position": [-66, 0,    0] },
+        { "ref": "park_rock", "position": [ 66, 0,    0] },
+
+        { "ref": "park_tree", "position": [   0, 0, 70] },
+        { "ref": "park_tree", "position": [  20, 0, 72] },
+        { "ref": "park_tree", "position": [ -20, 0, 72] },
+        { "ref": "park_pine", "position": [  40, 0, 68] },
+        { "ref": "park_pine", "position": [ -40, 0, 68] },
+
+        { "ref": "spectator_male",   "position": [-50, 0, -50], "rotation": [0,  35, 0] },
+        { "ref": "spectator_female", "position": [-30, 0, -52], "rotation": [0,   0, 0] },
+        { "ref": "spectator_male",   "position": [ 30, 0, -52], "rotation": [0,   0, 0] },
+        { "ref": "spectator_female", "position": [ 50, 0, -50], "rotation": [0, -35, 0] },
+        { "ref": "spectator_male",   "position": [-50, 0,  50], "rotation": [0, 145, 0] },
+        { "ref": "spectator_female", "position": [-30, 0,  52], "rotation": [0, 180, 0] },
+        { "ref": "spectator_male",   "position": [ 30, 0,  52], "rotation": [0, 180, 0] },
+        { "ref": "spectator_female", "position": [ 50, 0,  50], "rotation": [0, 215, 0] }
+      ]
+    }
+  ]
+}

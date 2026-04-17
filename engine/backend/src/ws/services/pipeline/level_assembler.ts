@@ -169,9 +169,11 @@ function loadSystemScript(
   usedKeys: Set<string>,
   behaviorsDir?: string,
   systemsDir?: string,
+  missingScripts?: Set<string>,
 ): string | null {
   let code = tryLoadScript(sys.script, behaviorsDir, systemsDir);
   if (!code) {
+    missingScripts?.add(sys.script);
     const className = safeName(path.basename(sys.script, '.ts'))
       .replace(/(^|_)([a-z])/g, (_m: string, _p: string, c: string) => c.toUpperCase());
     code = `class ${className || 'GeneratedScript'} extends GameScript {\n    onStart() {}\n    onUpdate(dt) {}\n}\n`;
@@ -242,6 +244,7 @@ interface EntityBuildConfig {
   scripts: Record<string, string>;
   usedKeys: Set<string>;
   baseDirs?: { behaviors?: string; systems?: string };
+  missingScripts?: Set<string>;
   placementMeta?: Record<string, any>;
   /** Per-instance overrides emitted by the editor mutator (placement-level). */
   placementOverrides?: {
@@ -253,7 +256,7 @@ interface EntityBuildConfig {
 }
 
 function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[] {
-  const { def, entityName, position, parentId, parentTags, scripts, usedKeys, baseDirs, placementMeta, placementOverrides } = config;
+  const { def, entityName, position, parentId, parentTags, scripts, usedKeys, baseDirs, missingScripts, placementMeta, placementOverrides } = config;
   const rotation = config.rotation || [0, 0, 0];
   const entities: any[] = [];
 
@@ -330,7 +333,7 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
   if (def.behaviors) {
     for (const beh of def.behaviors) {
       const behWithName = { ...beh, params: { ...beh.params, behaviorName: (beh as any).name || '' } };
-      const key = loadSystemScript(behWithName as SystemDef, entityName, scripts, usedKeys, baseDirs?.behaviors, baseDirs?.systems);
+      const key = loadSystemScript(behWithName as SystemDef, entityName, scripts, usedKeys, baseDirs?.behaviors, baseDirs?.systems, missingScripts);
       if (key) scriptURLs.push(key);
     }
   }
@@ -499,6 +502,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   const scripts: Record<string, string> = {};
   const uiFiles: Record<string, string> = {};
   const usedKeys = new Set<string>();
+  const missingScripts = new Set<string>();
   const nextId = { value: 1 };
 
   const defs: Record<string, any> = entityDefs?.definitions || {};
@@ -583,7 +587,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   // One entity per system from 04_systems.json
   for (const [sysName, sys] of Object.entries(systems)) {
     const entityName = sysName.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') + ' Manager';
-    const key = loadSystemScript(sys, entityName, scripts, usedKeys, baseDirs?.behaviors, baseDirs?.systems);
+    const key = loadSystemScript(sys, entityName, scripts, usedKeys, baseDirs?.behaviors, baseDirs?.systems, missingScripts);
 
     const sysEntity: any = {
       id: nextId.value++,
@@ -645,6 +649,7 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
       scripts,
       usedKeys,
       baseDirs: baseDirs ? { behaviors: baseDirs.behaviors, systems: baseDirs.systems } : undefined,
+      missingScripts,
       placementMeta: placement.meta,
       placementOverrides: {
         materialOverrides: placement.material_overrides,
@@ -819,6 +824,40 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     if (errors.length > 0) {
       console.error(`[Assembler] Event validation errors:\n  ${errors.join('\n  ')}`);
       throw new Error(`Event validation failed: ${errors.length} invalid event name(s). ${errors[0]}`);
+    }
+  }
+
+  // Reference validation — missing behavior/system script files + missing UI panels
+  {
+    const refErrors: string[] = [];
+
+    for (const scriptPath of missingScripts) {
+      refErrors.push(`missing behavior/system file: ${scriptPath}`);
+    }
+
+    const uiPanelKeys = new Set(Object.keys(uiFiles));
+    const validateUIRefs = (states: Record<string, any>, prefix: string = '') => {
+      for (const [stateName, state] of Object.entries(states) as [string, any][]) {
+        for (const actionList of [state.on_enter, state.on_exit, state.on_update, state.on_timeout]) {
+          if (!Array.isArray(actionList)) continue;
+          for (const action of actionList) {
+            if (typeof action !== 'string') continue;
+            let panel: string | null = null;
+            if (action.startsWith('show_ui:')) panel = action.substring('show_ui:'.length);
+            else if (action.startsWith('hide_ui:')) panel = action.substring('hide_ui:'.length);
+            if (panel && !uiPanelKeys.has(`ui/${panel}.html`)) {
+              refErrors.push(`01_flow.json ${prefix}${stateName}: missing UI panel "${panel}" (expected ui/${panel}.html)`);
+            }
+          }
+        }
+        if (state.substates) validateUIRefs(state.substates, `${prefix}${stateName}/`);
+      }
+    };
+    if (flow?.states) validateUIRefs(flow.states);
+
+    if (refErrors.length > 0) {
+      console.error(`[Assembler] Reference validation errors:\n  ${refErrors.join('\n  ')}`);
+      throw new Error(`Reference validation failed: ${refErrors.length} missing reference(s). ${refErrors[0]}`);
     }
   }
 

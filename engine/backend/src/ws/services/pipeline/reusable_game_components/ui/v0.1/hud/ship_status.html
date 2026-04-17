@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #f5e6b8;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .panel {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 480px;
+    background: linear-gradient(180deg, rgba(34, 22, 8, 0.92), rgba(60, 38, 14, 0.85));
+    border: 2px solid #8a6a2a;
+    border-radius: 10px;
+    box-shadow:
+      0 6px 22px rgba(0, 0, 0, 0.65),
+      inset 0 1px 0 rgba(255, 220, 140, 0.12);
+    padding: 8px 14px 10px;
+  }
+  .panel.hidden { display: none; }
+  .row {
+    display: grid;
+    grid-template-columns: 88px 1fr 88px;
+    gap: 8px;
+    align-items: center;
+  }
+  .row + .row { margin-top: 8px; }
+  .label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    color: #a87a36;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .label.right { text-align: right; }
+  .label.left  { text-align: left; }
+
+  .hull-bar-bg {
+    height: 14px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(138, 106, 42, 0.5);
+    border-radius: 7px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hull-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6b9b3a, #b6e36a);
+    transition: width 0.25s ease-out, background 0.25s linear;
+    border-radius: 6px 0 0 6px;
+  }
+  .hull-text {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 1px;
+  }
+
+  .cannons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .cannon-block {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(138, 106, 42, 0.5);
+    border-radius: 8px;
+    padding: 6px 8px;
+  }
+  .cannon-title {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #a87a36;
+    margin-bottom: 4px;
+  }
+  .cannon-balls {
+    display: flex;
+    gap: 5px;
+    height: 14px;
+    align-items: center;
+  }
+  .ball {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #9a7a2e, #2c1d0a);
+    border: 1px solid #6c5320;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), inset 0 0 4px rgba(0, 0, 0, 0.6);
+  }
+  .ball.empty {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(138, 106, 42, 0.3);
+    box-shadow: none;
+  }
+  .reload {
+    height: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  .reload-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #b65a25, #f08440);
+    transition: width 0.2s linear;
+  }
+
+  .sail-bar {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 88px 1fr 60px;
+    gap: 8px;
+    align-items: center;
+  }
+  .sail-bg {
+    height: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(138, 106, 42, 0.5);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .sail-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #5588cc, #8ec6ff, #ffffff);
+    transition: width 0.18s ease-out;
+  }
+  .sail-fill.reverse {
+    background: linear-gradient(90deg, #cc5555, #ff8e8e);
+  }
+  .speed {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-weight: 700;
+    text-align: right;
+    color: #ffd066;
+    font-size: 12px;
+  }
+
+  .helm-warning {
+    position: absolute;
+    top: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(180, 30, 30, 0.92);
+    color: #ffd9d9;
+    border: 1px solid #f08484;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    display: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+  }
+  .helm-warning.visible { display: block; animation: pulseRed 1s ease-in-out infinite; }
+  @keyframes pulseRed {
+    0%, 100% { background: rgba(180, 30, 30, 0.92); }
+    50%      { background: rgba(220, 60, 60, 0.95); }
+  }
+</style>
+</head>
+<body>
+<div class="panel hidden" id="panel">
+  <div class="helm-warning" id="warn">SHIP SUNK</div>
+  <div class="row">
+    <div class="label left">Hull</div>
+    <div class="hull-bar-bg">
+      <div class="hull-bar" id="hullBar"></div>
+      <div class="hull-text" id="hullText">200 / 200</div>
+    </div>
+    <div class="label right" id="hullPct">100%</div>
+  </div>
+
+  <div class="cannons">
+    <div class="cannon-block">
+      <div class="cannon-title">Port (LMB)</div>
+      <div class="cannon-balls" id="portBalls"></div>
+      <div class="reload"><div class="reload-fill" id="portReload"></div></div>
+    </div>
+    <div class="cannon-block">
+      <div class="cannon-title">Starboard (RMB)</div>
+      <div class="cannon-balls" id="starBalls"></div>
+      <div class="reload"><div class="reload-fill" id="starReload"></div></div>
+    </div>
+  </div>
+
+  <div class="sail-bar">
+    <div class="label left">Sails</div>
+    <div class="sail-bg"><div class="sail-fill" id="sailFill"></div></div>
+    <div class="speed" id="speed">0 kn</div>
+  </div>
+</div>
+<script>
+(function () {
+  var panel = document.getElementById('panel');
+  var hullBar = document.getElementById('hullBar');
+  var hullText = document.getElementById('hullText');
+  var hullPct = document.getElementById('hullPct');
+  var portBalls = document.getElementById('portBalls');
+  var starBalls = document.getElementById('starBalls');
+  var portReload = document.getElementById('portReload');
+  var starReload = document.getElementById('starReload');
+  var sailFill = document.getElementById('sailFill');
+  var speedEl = document.getElementById('speed');
+  var warn = document.getElementById('warn');
+
+  var lastPortMax = -1;
+  var lastStarMax = -1;
+
+  function buildBalls(container, count) {
+    container.innerHTML = '';
+    for (var i = 0; i < count; i++) {
+      var b = document.createElement('div');
+      b.className = 'ball';
+      container.appendChild(b);
+    }
+  }
+
+  function updateBalls(container, ammo) {
+    var children = container.children;
+    for (var i = 0; i < children.length; i++) {
+      if (i < ammo) children[i].classList.remove('empty');
+      else children[i].classList.add('empty');
+    }
+  }
+
+  function render(s) {
+    if (!s) return;
+    panel.classList.remove('hidden');
+    var hull = Math.max(0, Math.floor(s.hull != null ? s.hull : 200));
+    var maxHull = Math.max(1, Math.floor(s.maxHull || 200));
+    var pct = Math.max(0, Math.min(100, (hull / maxHull) * 100));
+    hullBar.style.width = pct + '%';
+    if (pct < 30) hullBar.style.background = 'linear-gradient(90deg,#b22929,#ec5b5b)';
+    else if (pct < 60) hullBar.style.background = 'linear-gradient(90deg,#cc8d22,#f5c44a)';
+    else hullBar.style.background = 'linear-gradient(90deg,#6b9b3a,#b6e36a)';
+    hullText.textContent = hull + ' / ' + maxHull;
+    hullPct.textContent = Math.round(pct) + '%';
+
+    if (s.sunk) warn.classList.add('visible');
+    else warn.classList.remove('visible');
+
+    if (s.portMax != null && s.portMax !== lastPortMax) {
+      buildBalls(portBalls, s.portMax);
+      lastPortMax = s.portMax;
+    }
+    if (s.starMax != null && s.starMax !== lastStarMax) {
+      buildBalls(starBalls, s.starMax);
+      lastStarMax = s.starMax;
+    }
+    if (s.portAmmo != null) updateBalls(portBalls, s.portAmmo);
+    if (s.starAmmo != null) updateBalls(starBalls, s.starAmmo);
+    if (s.portReloading) {
+      portReload.style.width = (s.portReloadPct || 0) + '%';
+    } else {
+      portReload.style.width = '0%';
+    }
+    if (s.starReloading) {
+      starReload.style.width = (s.starReloadPct || 0) + '%';
+    } else {
+      starReload.style.width = '0%';
+    }
+
+    if (s.sailPct != null) {
+      sailFill.classList.toggle('reverse', !!s.reverse);
+      sailFill.style.width = Math.abs(s.sailPct) + '%';
+    }
+    if (s.speedKmh != null) {
+      // 1 km/h ≈ 0.54 knots — show knots for nautical flair.
+      var kn = Math.round(s.speedKmh * 0.54);
+      speedEl.textContent = kn + ' kn';
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.shipStatus) render(s.shipStatus);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    color: #fff;
+    background: transparent;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* Pixelated black bar at the top — classic SMB-feel scoreboard */
+  .scoreboard {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.78);
+    border: 3px solid #fff;
+    border-radius: 6px;
+    padding: 8px 18px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    color: #fff;
+    pointer-events: none;
+    user-select: none;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    z-index: 5;
+  }
+  .stat {
+    text-align: center;
+    line-height: 1;
+  }
+  .stat .lbl {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: #ffd166;
+    margin-bottom: 4px;
+  }
+  .stat .val {
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    text-shadow: 2px 2px 0 #c01818;
+  }
+  .stat.coins .val { color: #ffd166; text-shadow: 2px 2px 0 #6b4f15; }
+  .stat.coins .lbl { color: #ffd166; }
+  .stat.coins .val::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background: radial-gradient(circle at 35% 35%, #fff5cc, #f0c95c 60%, #6b4f15 100%);
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .stat.lives .val { color: #c5fcd0; text-shadow: 2px 2px 0 #2a8a3c; }
+  .stat.lives .val::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background: radial-gradient(circle at 30% 30%, #ff7b66, #c01818 60%, #4a0808 100%);
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .stat.time .val.fast {
+    color: #ff7b66;
+    text-shadow: 2px 2px 0 #6b1018;
+    animation: timeFlash 0.7s infinite alternate;
+  }
+  @keyframes timeFlash {
+    from { transform: scale(1); }
+    to { transform: scale(1.08); }
+  }
+
+  /* Bottom horizontal progress bar — tracks player x toward the flag */
+  .distance {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 380px;
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+  }
+  .distance .label {
+    text-align: center;
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 2px;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+    margin-bottom: 4px;
+  }
+  .distance .track {
+    height: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid #fff;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .distance .fill {
+    position: absolute;
+    inset: 0;
+    width: 0%;
+    background: linear-gradient(90deg, #2c6dc6 0%, #5288e6 60%, #aedaff 100%);
+    transition: width 0.18s linear;
+  }
+  .distance .flag-marker {
+    position: absolute;
+    right: -2px;
+    top: -8px;
+    width: 4px;
+    height: 26px;
+    background: #fff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  }
+  .distance .flag-marker::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 0;
+    width: 8px;
+    height: 6px;
+    background: #c01818;
+  }
+  .distance .runner-pip {
+    position: absolute;
+    top: -6px;
+    left: 0;
+    width: 12px;
+    height: 12px;
+    background: radial-gradient(circle at 30% 30%, #ff7b66, #c01818 60%, #4a0808 100%);
+    border-radius: 50%;
+    border: 2px solid #fff;
+    transform: translateX(-50%);
+    transition: left 0.18s linear;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Power-up badge — top-left */
+  .power-badge {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    width: 48px;
+    height: 48px;
+    background: radial-gradient(circle at 30% 30%, #ff7b66, #c01818 60%, #4a0808 100%);
+    border: 3px solid #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), 0 0 14px rgba(255, 100, 80, 0.5);
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 0;
+    transform: scale(0.6);
+    z-index: 5;
+  }
+  .power-badge.show {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .power-badge::before {
+    content: 'BIG';
+  }
+
+  /* Combo counter — top right when stomping enemies in quick succession */
+  .combo-pop {
+    position: fixed;
+    top: 56px;
+    right: 16px;
+    background: rgba(0, 0, 0, 0.78);
+    border: 2px solid #ffd166;
+    border-radius: 6px;
+    padding: 4px 12px;
+    color: #ffd166;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    pointer-events: none;
+    user-select: none;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    text-shadow: 2px 2px 0 #6b4f15;
+    z-index: 5;
+  }
+  .combo-pop.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Controls hint — bottom right */
+  .controls-hint {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    pointer-events: none;
+    user-select: none;
+    line-height: 1.4;
+  }
+  .controls-hint .key {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 3px;
+    padding: 1px 5px;
+    margin-right: 2px;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+<div class="scoreboard">
+  <div class="stat coins"><div class="lbl">Coins</div><div class="val" id="coinNum">0</div></div>
+  <div class="stat"><div class="lbl">Score</div><div class="val" id="scoreNum">0</div></div>
+  <div class="stat time"><div class="lbl">Time</div><div class="val" id="timeNum">300</div></div>
+  <div class="stat lives"><div class="lbl">Lives</div><div class="val" id="livesNum">3</div></div>
+</div>
+
+<div class="power-badge" id="powerBadge"></div>
+
+<div class="combo-pop" id="comboPop">×2 STOMP</div>
+
+<div class="distance">
+  <div class="label">Goal</div>
+  <div class="track">
+    <div class="fill" id="distFill"></div>
+    <div class="runner-pip" id="runnerPip"></div>
+    <div class="flag-marker"></div>
+  </div>
+</div>
+
+<div class="controls-hint">
+  <div><span class="key">A</span><span class="key">D</span> Move</div>
+  <div><span class="key">Space</span> Jump (hold = higher)</div>
+  <div><span class="key">Shift</span> Run</div>
+</div>
+
+<script>
+(function () {
+  var coinNum = document.getElementById('coinNum');
+  var scoreNum = document.getElementById('scoreNum');
+  var timeNum = document.getElementById('timeNum');
+  var livesNum = document.getElementById('livesNum');
+  var distFill = document.getElementById('distFill');
+  var runnerPip = document.getElementById('runnerPip');
+  var powerBadge = document.getElementById('powerBadge');
+  var comboPop = document.getElementById('comboPop');
+
+  var lastCombo = 0;
+  function render(state) {
+    if (!state) return;
+    var s = state.runnerHud;
+    if (!s) return;
+    coinNum.textContent = String(s.coins || 0);
+    scoreNum.textContent = String(s.score || 0).padStart(6, '0');
+    timeNum.textContent = String(s.time || 0).padStart(3, '0');
+    timeNum.classList.toggle('fast', !!s.fastTime);
+    livesNum.textContent = '×' + Math.max(0, s.lives || 0);
+
+    var pct = Math.max(0, Math.min(1, s.distancePct || 0));
+    distFill.style.width = (pct * 100).toFixed(1) + '%';
+    runnerPip.style.left = (pct * 100).toFixed(1) + '%';
+
+    powerBadge.classList.toggle('show', !!s.poweredUp);
+
+    if (s.stompCombo > 1) {
+      comboPop.textContent = '×' + s.stompCombo + ' STOMP';
+      comboPop.classList.add('show');
+      lastCombo = s.stompCombo;
+      // Auto-hide after a beat — render is called every frame so this
+      // is essentially debounced by the engine clearing combo to 0.
+    } else {
+      comboPop.classList.remove('show');
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    render(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+{
+  "id": "cellar_purge_flow",
+  "name": "Cellar Purge",
+  "description": "Single-player Isaac-style top-down twin-stick roguelite. Move with WASD, fire tear projectiles in cardinal directions with the arrow keys, clear each room of zombies, then push into the boss room and step on the green exit pad to escape. Pick up coins, hearts, keys, and stat-boost shards in the shop and after each kill. Death = run over.",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "CELLAR PURGE",
+      "gameSubtitle": "Tears, hearts, and the dark below."
+    },
+    "pause_menu": {
+      "pauseTitle": "PAUSED",
+      "pauseHint": "Press <span class=\"pm-kbd\">P</span> to resume",
+      "pauseButtons": [
+        { "action": "resume",      "label": "Resume", "primary": true },
+        { "action": "leave_match", "label": "Quit Run", "danger": true }
+      ]
+    }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "active_systems": ["cellar_purge_game"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [
+        { "when": "boot_frames>=2", "goto": "main_menu" }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Run the cellar",
+      "active_systems": ["cellar_purge_game"],
+      "start": "playing",
+      "on_enter": [
+        "show_ui:hud/cellar_purge_hud",
+        "emit:game.match_started"
+      ],
+      "on_exit": [
+        "hide_ui:hud/cellar_purge_hud",
+        "hide_ui:pause_menu"
+      ],
+      "substates": {
+        "playing": {
+          "active_behaviors": ["topdown_walker", "topdown_tear_shooter", "arena_camera"],
+          "transitions": [
+            { "when": "keyboard:pause", "goto": "paused" }
+          ]
+        },
+        "paused": {
+          "active_behaviors": [],
+          "on_enter": ["show_ui:pause_menu", "show_cursor"],
+          "on_exit":  ["hide_ui:pause_menu", "hide_cursor"],
+          "transitions": [
+            { "when": "keyboard:resume",            "goto": "playing" },
+            { "when": "ui_event:pause_menu:resume", "goto": "playing" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "game_event:match_ended",          "goto": "game_over" },
+        { "when": "ui_event:pause_menu:leave_match", "goto": "main_menu" }
+      ]
+    },
+    "game_over": {
+      "description": "Run summary",
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit":  ["hide_ui:game_over", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "gameplay" },
+        { "when": "ui_event:game_over:main_menu",  "goto": "main_menu" }
+      ]
+    }
+  }
+}

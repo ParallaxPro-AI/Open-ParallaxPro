@@ -1,0 +1,23 @@
+{
+  "systems": {
+    "liminal_loop_game": {
+      "description": "Liminal Loop (Exit-8 style) anomaly-detection corridor walker. Each iteration the system rolls for an anomaly and (if hit) mutates one named prop in the corridor — tipping a trashcan, opening a side door, reddening the lights, etc. Player commits a choice by walking out the FAR door (continue) or the NEAR door (turn back). Wrong choice resets the exit number to 0; right choice advances toward the win threshold.",
+      "script": "mp/liminal_loop_game.ts",
+      "params": {
+        "corridorHalfLength": 14,
+        "corridorHalfWidth": 1.8,
+        "spawnX": 0,
+        "spawnY": 1.0,
+        "spawnZ": 0,
+        "farEndX": 11.0,
+        "nearEndX": -11.0,
+        "decisionCooldownSec": 1.0,
+        "targetExitNumber": 8,
+        "anomalyChance": 0.55,
+        "hudUpdateInterval": 0.15,
+        "resetFlashSec": 1.6,
+        "winFlashSec": 4.0
+      }
+    }
+  }
+}

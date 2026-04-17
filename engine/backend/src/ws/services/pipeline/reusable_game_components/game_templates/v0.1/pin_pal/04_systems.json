@@ -1,0 +1,31 @@
+{
+  "systems": {
+    "pin_pal_game": {
+      "description": "Pin Pal (Wii Sports-style ten-pin bowling) — 1-4 player turn-based match. Aim with the cursor sliding the spawn position along the throw line, hold LMB to charge a power meter, release to fire. Standard 10-frame scoring with strikes (X), spares (/), and a bonus throw on the 10th frame for strike or spare. Host owns scoring, pin reset, and turn rotation; throws are read locally by the active player and broadcast.",
+      "script": "mp/pin_pal_game.ts",
+      "params": {
+        "laneAxisX": 1,
+        "laneAxisZ": 0,
+        "laneStartX": -10,
+        "laneStartZ": 0,
+        "laneEndX": 12,
+        "laneEndZ": 0,
+        "laneHalfWidth": 1.0,
+        "aimRange": 0.85,
+        "ballRadius": 0.18,
+        "ballMass": 7.0,
+        "maxThrowSpeed": 22,
+        "minThrowSpeed": 8,
+        "ballRestY": 0.20,
+        "restThresholdSpeed": 0.10,
+        "restWaitFrames": 30,
+        "pinFallTiltDeg": 30,
+        "hudUpdateInterval": 0.15,
+        "aimUpdateInterval": 0.06,
+        "pinResetDelay": 0.7,
+        "turnFrames": 10,
+        "winnerHoldSec": 5
+      }
+    }
+  }
+}

@@ -1,0 +1,319 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 62 },
+      "tags": ["camera"],
+      "transform": { "position": [0, 9, -18] },
+      "behaviors": [
+        {
+          "name": "camera_rocket_chase",
+          "script": "camera/camera_rocket_chase.ts",
+          "params": { "distance": 9, "height": 4.5, "lookHeight": 1.4, "speedZoomMax": 4, "ballBias": 0, "smoothSpeed": 7 }
+        }
+      ]
+    },
+
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/realistic_car_pack/SportsCar.glb",
+        "scale": [1.1, 1.1, 1.1],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 180,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true,
+        "networkedVars": ["health"]
+      },
+      "tags": ["player", "car", "networked"],
+      "label": true,
+      "behaviors": [
+        {
+          "name": "rocket_car_control",
+          "script": "movement/rocket_car_control.ts",
+          "params": {
+            "maxSpeed": 22,
+            "accel": 28,
+            "reverseMult": 0.55,
+            "brakeForce": 46,
+            "steerRate": 2.6,
+            "airSteerRate": 1.8,
+            "jumpImpulse": 9,
+            "doubleJumpImpulse": 7,
+            "boostForce": 18
+          }
+        }
+      ]
+    },
+
+    "bot_car": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/realistic_car_pack/SportsCar2.glb",
+        "scale": [1.1, 1.1, 1.1],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 180,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["car", "bot"],
+      "label": true,
+      "behaviors": [
+        {
+          "name": "rocket_bot_ai",
+          "script": "ai/rocket_bot_ai.ts",
+          "params": {
+            "maxSpeed": 20,
+            "boostForce": 16,
+            "steerRate": 2.4,
+            "aggressiveness": 0.75,
+            "jumpWindow": 3.4,
+            "boostMin": 12,
+            "ownGoalZ": 28,
+            "oppGoalZ": -28
+          }
+        }
+      ]
+    },
+
+    "ball": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.95, 0.95, 1.0, 1],
+        "scale": [2.0, 2.0, 2.0],
+        "emissive": [0.9, 0.9, 1.0],
+        "emissiveIntensity": 0.9
+      },
+      "physics": false,
+      "tags": ["ball", "networked"],
+      "label": false,
+      "behaviors": [
+        {
+          "name": "rocket_ball",
+          "script": "gameplay/rocket_ball.ts",
+          "params": {
+            "gravity": -14,
+            "drag": 0.25,
+            "bounce": 0.78,
+            "impactFactor": 1.15,
+            "impactLift": 0.4,
+            "arenaHalfX": 42,
+            "arenaHalfZ": 28,
+            "wallBounce": 0.82,
+            "floorY": 1,
+            "maxSpeed": 42,
+            "syncInterval": 0.05,
+            "hitRadius": 3.2
+          }
+        }
+      ]
+    },
+
+    "pitch_floor": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.04, 0.12, 0.06, 1],
+        "scale": [88, 0.4, 60]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["ground", "pitch"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_04.png"
+      }
+    },
+
+    "pitch_midline": {
+      "mesh": {
+        "type": "cube",
+        "color": [1.0, 1.0, 1.0, 1],
+        "scale": [88, 0.02, 0.3],
+        "emissive": [1.0, 1.0, 1.0],
+        "emissiveIntensity": 1.4
+      },
+      "physics": false,
+      "tags": ["marking", "decor"],
+      "label": false
+    },
+
+    "pitch_center_circle": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.1, 0.22, 0.15, 1],
+        "scale": [14, 0.02, 14],
+        "emissive": [0.1, 0.22, 0.15],
+        "emissiveIntensity": 0.2
+      },
+      "physics": false,
+      "tags": ["marking", "decor"],
+      "label": false
+    },
+
+    "arena_wall_long": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.12, 0.15, 0.2, 1],
+        "scale": [90, 5, 0.6]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+      }
+    },
+
+    "arena_wall_short": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.12, 0.15, 0.2, 1],
+        "scale": [0.6, 5, 20]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+      }
+    },
+
+    "goal_red_backing": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.95, 0.25, 0.28, 1],
+        "scale": [14, 7, 0.4],
+        "emissive": [1.0, 0.25, 0.3],
+        "emissiveIntensity": 1.6
+      },
+      "physics": false,
+      "tags": ["goal_backing", "goal_red", "decor"],
+      "label": false
+    },
+
+    "goal_blue_backing": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.25, 0.45, 1.0, 1],
+        "scale": [14, 7, 0.4],
+        "emissive": [0.25, 0.5, 1.0],
+        "emissiveIntensity": 1.6
+      },
+      "physics": false,
+      "tags": ["goal_backing", "goal_blue", "decor"],
+      "label": false
+    },
+
+    "goal_post": {
+      "mesh": {
+        "type": "cube",
+        "color": [1.0, 1.0, 1.0, 1],
+        "scale": [0.4, 7, 0.4],
+        "emissive": [1.0, 1.0, 1.0],
+        "emissiveIntensity": 1.8
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["goal_post", "decor"],
+      "label": false
+    },
+
+    "goal_crossbar": {
+      "mesh": {
+        "type": "cube",
+        "color": [1.0, 1.0, 1.0, 1],
+        "scale": [14, 0.35, 0.35],
+        "emissive": [1.0, 1.0, 1.0],
+        "emissiveIntensity": 1.8
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["goal_crossbar", "decor"],
+      "label": false
+    },
+
+    "boost_pad_small": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [1.0, 0.8, 0.3, 1],
+        "scale": [1.4, 0.12, 1.4],
+        "emissive": [1.0, 0.7, 0.25],
+        "emissiveIntensity": 1.8
+      },
+      "physics": false,
+      "tags": ["boost_pad", "decor"],
+      "label": false
+    },
+
+    "boost_pad_big": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [1.0, 0.55, 0.12, 1],
+        "scale": [2.2, 0.15, 2.2],
+        "emissive": [1.0, 0.55, 0.12],
+        "emissiveIntensity": 2.4
+      },
+      "physics": false,
+      "tags": ["boost_pad", "boost_big", "decor"],
+      "label": false
+    },
+
+    "stadium_pillar": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.85, 0.95, 1],
+        "scale": [0.4, 8, 0.4],
+        "emissive": [0.35, 0.9, 1.0],
+        "emissiveIntensity": 2.4
+      },
+      "physics": false,
+      "tags": ["neon", "decor"],
+      "label": false
+    },
+
+    "crowd_fan": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Cowboy_Male.glb",
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "physics": false,
+      "tags": ["crowd", "decor"],
+      "label": false
+    },
+
+    "sky_dome": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.02, 0.04, 0.09, 1],
+        "scale": [220, 220, 220]
+      },
+      "physics": false,
+      "tags": ["sky"],
+      "label": false
+    }
+  }
+}

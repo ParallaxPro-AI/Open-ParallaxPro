@@ -1,0 +1,243 @@
+{
+  "definitions": {
+    "camera": {
+      "camera": { "fov": 52 },
+      "tags": ["camera"],
+      "transform": { "position": [0, 22, 14] },
+      "behaviors": [
+        {
+          "name": "camera_moba_1v1",
+          "script": "mp/camera_moba_1v1.ts",
+          "params": { "height": 22, "tiltOffsetZ": 14, "cursorLean": 3, "followSmooth": 6, "boundsHalfX": 64, "boundsHalfZ": 64 }
+        }
+      ]
+    },
+
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Wizard.glb",
+        "scale": [1.1, 1.1, 1.1],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "kinematic",
+        "collider": { "shape": "capsule", "halfHeight": 0.7, "radius": 0.5 }
+      },
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true,
+        "networkedVars": ["health"]
+      },
+      "tags": ["player", "champion", "networked"],
+      "label": true,
+      "behaviors": [
+        {
+          "name": "player_moba_champion",
+          "script": "mp/player_moba_champion.ts",
+          "params": {
+            "moveSpeed": 6.2,
+            "turnSpeed": 12,
+            "attackRange": 5.5,
+            "attackCooldown": 0.55,
+            "cameraHeight": 22,
+            "cameraDepth": 14
+          }
+        }
+      ]
+    },
+
+    "bot_champion": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Male.glb",
+        "scale": [1.1, 1.1, 1.1],
+        "modelRotationY": 0
+      },
+      "physics": {
+        "type": "kinematic",
+        "collider": { "shape": "capsule", "halfHeight": 0.7, "radius": 0.5 }
+      },
+      "tags": ["champion", "bot"],
+      "label": true
+    },
+
+    "rift_ground": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.1, 0.18, 0.08, 1],
+        "scale": [60, 0.3, 100]
+      },
+      "physics": false,
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_05.png"
+      }
+    },
+
+    "rift_lane": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.42, 0.3, 0.16, 1],
+        "scale": [10, 0.2, 90]
+      },
+      "physics": false,
+      "tags": ["lane", "decor"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_04.png"
+      }
+    },
+
+    "rift_lane_glow": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.95, 0.8, 0.3, 1],
+        "scale": [10, 0.04, 90],
+        "emissive": [1.0, 0.82, 0.3],
+        "emissiveIntensity": 0.4
+      },
+      "physics": false,
+      "tags": ["lane_glow", "decor"],
+      "label": false
+    },
+
+    "rift_side_wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.18, 0.15, 0.12, 1],
+        "scale": [0.6, 4, 100]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_04.png"
+      }
+    },
+
+    "rift_base_plate_blue": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.25, 0.4, 0.9, 1],
+        "scale": [10, 0.3, 10],
+        "emissive": [0.3, 0.5, 1.0],
+        "emissiveIntensity": 0.8
+      },
+      "physics": false,
+      "tags": ["base_plate", "decor"],
+      "label": false
+    },
+
+    "rift_base_plate_red": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.95, 0.3, 0.35, 1],
+        "scale": [10, 0.3, 10],
+        "emissive": [1.0, 0.35, 0.35],
+        "emissiveIntensity": 0.8
+      },
+      "physics": false,
+      "tags": ["base_plate", "decor"],
+      "label": false
+    },
+
+    "rift_decor_tree": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree2.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": false,
+      "tags": ["tree", "decor"],
+      "label": false
+    },
+
+    "rift_decor_bush": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Bush2.glb",
+        "scale": [1.8, 1.8, 1.8]
+      },
+      "physics": false,
+      "tags": ["bush", "decor"],
+      "label": false
+    },
+
+    "rift_decor_rock": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/simple_nature_pack/Rock2.glb",
+        "scale": [2.4, 2.4, 2.4]
+      },
+      "physics": false,
+      "tags": ["rock", "decor"],
+      "label": false
+    },
+
+    "rift_shop_kiosk_blue": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.85, 0.78, 0.35, 1],
+        "scale": [2, 2.5, 2],
+        "emissive": [0.95, 0.82, 0.35],
+        "emissiveIntensity": 1.6
+      },
+      "physics": false,
+      "tags": ["shop", "decor"],
+      "label": false
+    },
+
+    "rift_shop_kiosk_red": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.85, 0.78, 0.35, 1],
+        "scale": [2, 2.5, 2],
+        "emissive": [0.95, 0.82, 0.35],
+        "emissiveIntensity": 1.6
+      },
+      "physics": false,
+      "tags": ["shop", "decor"],
+      "label": false
+    },
+
+    "rift_banner_blue": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_modular_ruins_pack/Flag_Wall.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["banner", "decor"],
+      "label": false
+    },
+
+    "rift_banner_red": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_modular_ruins_pack/Flag_Wall2.glb",
+        "scale": [2, 2, 2]
+      },
+      "physics": false,
+      "tags": ["banner", "decor"],
+      "label": false
+    },
+
+    "sky_dome": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.05, 0.08, 0.16, 1],
+        "scale": [260, 260, 260]
+      },
+      "physics": false,
+      "tags": ["sky"],
+      "label": false
+    }
+  }
+}

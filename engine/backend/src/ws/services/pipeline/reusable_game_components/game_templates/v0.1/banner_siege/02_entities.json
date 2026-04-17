@@ -1,0 +1,363 @@
+{
+  "definitions": {
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [0.4, 0.4, 0.4],
+        "modelRotationY": 180
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true,
+        "networkedVars": ["health"]
+      },
+      "tags": ["player", "networked"],
+      "behaviors": [
+        {
+          "name": "fps_movement",
+          "script": "movement/fps_movement.ts",
+          "params": {
+            "speed": 6.5,
+            "sprintSpeed": 10,
+            "jumpForce": 7
+          }
+        },
+        {
+          "name": "fps_combat",
+          "script": "combat/fps_combat.ts",
+          "params": {
+            "damage": 28,
+            "ammo": 30,
+            "maxAmmo": 30,
+            "reserve": 120,
+            "fireRate": 0.1,
+            "reloadTime": 2.0,
+            "weaponName": "Assault Rifle",
+            "shootSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_000.ogg"
+          }
+        },
+        {
+          "name": "player_health",
+          "script": "status/player_health.ts",
+          "params": {
+            "maxHealth": 100,
+            "regenDelay": 6,
+            "regenRate": 15,
+            "respawnDelay": 3
+          }
+        }
+      ]
+    },
+
+    "camera": {
+      "camera": { "fov": 75 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "fps_camera",
+          "script": "camera/camera_fps.ts",
+          "params": {
+            "sensitivity": 0.15,
+            "eyeHeight": 1.6
+          }
+        }
+      ]
+    },
+
+    "ground": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.38, 0.42, 0.36, 1],
+        "scale": [80, 1, 50]
+      },
+      "tags": ["ground"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
+    },
+
+    "ground_strip_red": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.55, 0.22, 0.22, 1],
+        "scale": [16, 1, 24]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png"
+      }
+    },
+    "ground_strip_blue": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.22, 0.32, 0.55, 1],
+        "scale": [16, 1, 24]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_04.png"
+      }
+    },
+
+    "wall_long": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.45, 0.42, 0.4, 1],
+        "scale": [10, 3, 0.3]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.45, 0.42, 0.4, 1],
+        "scale": [4, 3, 0.3]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
+    },
+    "wall_low": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.5, 0.46, 0.4, 1],
+        "scale": [4, 1.2, 0.4]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+      }
+    },
+    "wall_perimeter": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.3, 0.32, 1],
+        "scale": [80, 5, 0.4]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+      }
+    },
+    "wall_perimeter_side": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.3, 0.3, 0.32, 1],
+        "scale": [0.4, 5, 50]
+      },
+      "tags": ["wall"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+      }
+    },
+
+    "crate": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/pirate_kit/crate.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.7, 0.7, 0.7] }
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+    "barrel": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/pirate_kit/barrel.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 0.8, 0.5] }
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+
+    "castle_wall": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/pirate_kit/castle-wall.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [2.0, 2.0, 0.4] }
+      },
+      "tags": ["wall"],
+      "label": false
+    },
+    "castle_gate": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/pirate_kit/castle-gate.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [2.0, 2.2, 0.4] }
+      },
+      "tags": ["wall"],
+      "label": false
+    },
+
+    "pedestal_red": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.9, 0.25, 0.3, 1],
+        "scale": [1.4, 0.25, 1.4]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.7, 0.125, 0.7] }
+      },
+      "tags": ["base_red"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_07.png"
+      }
+    },
+    "pedestal_blue": {
+      "mesh": {
+        "type": "cylinder",
+        "color": [0.25, 0.45, 1, 1],
+        "scale": [1.4, 0.25, 1.4]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.7, 0.125, 0.7] }
+      },
+      "tags": ["base_blue"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_07.png"
+      }
+    },
+
+    "capture_marker_red": {
+      "mesh": {
+        "type": "plane",
+        "color": [1, 0.3, 0.35, 0.85],
+        "scale": [5, 0.02, 5]
+      },
+      "physics": false,
+      "tags": ["decoration", "capture_zone_red"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_10.png"
+      }
+    },
+    "capture_marker_blue": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.3, 0.55, 1, 0.85],
+        "scale": [5, 0.02, 5]
+      },
+      "physics": false,
+      "tags": ["decoration", "capture_zone_blue"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_10.png"
+      }
+    },
+
+    "banner_red": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/minigolf_kit/flag-large-red.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["flag", "flag_red", "networked"],
+      "label": false
+    },
+    "banner_blue": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/minigolf_kit/flag-large-blue.glb",
+        "scale": [2.5, 2.5, 2.5]
+      },
+      "physics": false,
+      "tags": ["flag", "flag_blue", "networked"],
+      "label": false
+    },
+
+    "tree_large": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/tree-large.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.35, 1.5, 0.35] }
+      },
+      "tags": ["decoration"],
+      "label": false
+    },
+    "tree_small": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/tree-small.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.3, 1, 0.3] }
+      },
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "rocks_large": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-rocks-large.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.7, 0.4, 0.7] }
+      },
+      "tags": ["cover"],
+      "label": false
+    },
+    "crystal": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal.glb",
+        "scale": [2.2, 2.2, 2.2]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    }
+  }
+}

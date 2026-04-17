@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: rgba(6, 8, 16, 0.72);
+    --bg-strong: rgba(2, 4, 10, 0.9);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hot: rgba(255, 255, 255, 0.18);
+    --text: #eef2ff;
+    --text-dim: #8e95ac;
+    --text-muted: #464d66;
+    --red: #ef4444;
+    --red-glow: rgba(239, 68, 68, 0.55);
+    --blue: #3b82f6;
+    --blue-glow: rgba(59, 130, 246, 0.55);
+    --boost: #fbbf24;
+    --boost-glow: rgba(251, 191, 36, 0.55);
+    --gold: #f3c677;
+    --cyan: #22d3ee;
+    --cyan-glow: rgba(34, 211, 238, 0.5);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    background: transparent;
+  }
+
+  /* ───── TOP SCORE BANNER ───── */
+  .score-banner {
+    position: fixed;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; align-items: stretch; gap: 0;
+    background: var(--bg-strong);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-hot);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+    min-width: 440px;
+  }
+  .side {
+    padding: 12px 22px;
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 140px;
+    position: relative;
+  }
+  .side .label {
+    font-size: 10px; letter-spacing: 3px; font-weight: 800;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .side.red .label { color: var(--red); text-shadow: 0 0 10px var(--red-glow); }
+  .side.blue .label { color: var(--blue); text-shadow: 0 0 10px var(--blue-glow); }
+  .side .score {
+    font-size: 52px; font-weight: 900;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    transition: transform 0.15s ease;
+  }
+  .side.red .score { color: var(--red); text-shadow: 0 0 24px var(--red-glow); }
+  .side.blue .score { color: var(--blue); text-shadow: 0 0 24px var(--blue-glow); }
+  .side.local::before {
+    content: '';
+    position: absolute;
+    top: 6px; left: 50%; transform: translateX(-50%);
+    width: 24px; height: 3px; border-radius: 2px;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--boost-glow);
+  }
+
+  .middle {
+    padding: 8px 18px;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    min-width: 110px;
+  }
+  .middle .mlbl {
+    font-size: 9px; letter-spacing: 2px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+  .middle .clock {
+    font-size: 32px; font-weight: 900;
+    color: var(--text); text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .middle .clock.warn { color: var(--red); text-shadow: 0 0 14px var(--red-glow); animation: warnPulse 0.8s ease-in-out infinite; }
+  @keyframes warnPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  /* ───── BOOST DIAL (bottom-right) ───── */
+  .boost-dial {
+    position: fixed;
+    bottom: 22px; right: 22px;
+    width: 160px; height: 160px;
+    pointer-events: none;
+  }
+  .boost-ring-bg {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.8) 60%);
+    border: 3px solid rgba(251, 191, 36, 0.15);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.1), inset 0 0 30px rgba(0,0,0,0.6);
+  }
+  .boost-svg { position: absolute; inset: 0; }
+  .boost-text {
+    position: absolute;
+    inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  .boost-text .val {
+    font-size: 48px; font-weight: 900;
+    color: var(--boost);
+    text-shadow: 0 0 16px var(--boost-glow);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .boost-text .lbl {
+    font-size: 9px; letter-spacing: 2.5px; font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .boost-dial.boosting .boost-text .val { color: #fff; text-shadow: 0 0 24px var(--boost-glow); animation: boostFlash 0.4s ease-in-out infinite; }
+  @keyframes boostFlash {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  /* ───── SPEEDOMETER (bottom-left) ───── */
+  .speed {
+    position: fixed;
+    bottom: 22px; left: 22px;
+    background: var(--bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 18px;
+    text-align: center;
+    min-width: 140px;
+  }
+  .speed .val {
+    font-size: 32px; font-weight: 900;
+    color: var(--cyan);
+    text-shadow: 0 0 14px var(--cyan-glow);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .speed .unit {
+    font-size: 12px; color: var(--text-dim); margin-left: 4px;
+    font-weight: 700;
+  }
+  .speed .lbl {
+    font-size: 9px; letter-spacing: 2px; font-weight: 800;
+    color: var(--text-muted); text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  /* ───── CONTROLS HINT (top-left small) ───── */
+  .controls {
+    position: fixed;
+    top: 14px; left: 14px;
+    background: var(--bg);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 10px; font-weight: 600; color: var(--text-dim);
+    line-height: 1.7;
+  }
+  .controls kbd {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-hot);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 9px; font-weight: 800;
+    color: var(--text);
+    margin: 0 2px;
+  }
+
+  /* ───── KICKOFF COUNTDOWN ───── */
+  .kickoff {
+    position: fixed;
+    top: 44%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    display: none;
+    pointer-events: none;
+  }
+  .kickoff.visible { display: block; }
+  .kickoff .eyebrow {
+    font-size: 14px; letter-spacing: 6px; font-weight: 800;
+    color: var(--boost); text-shadow: 0 0 14px var(--boost-glow);
+    text-transform: uppercase;
+  }
+  .kickoff .num {
+    font-size: 172px; font-weight: 900;
+    color: #fff; text-shadow: 0 0 40px var(--cyan-glow), 0 10px 40px rgba(0,0,0,0.6);
+    letter-spacing: -4px;
+    line-height: 1;
+    animation: countdownPop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-variant-numeric: tabular-nums;
+  }
+  @keyframes countdownPop {
+    0% { opacity: 0; transform: scale(0.5); }
+    60% { transform: scale(1.15); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .kickoff.go .num { color: var(--boost); text-shadow: 0 0 50px var(--boost-glow); font-size: 120px; letter-spacing: 10px; }
+
+  /* ───── GOAL CELEBRATION ───── */
+  .goal-overlay {
+    position: fixed; inset: 0;
+    display: none;
+    pointer-events: none;
+  }
+  .goal-overlay.visible { display: block; animation: goalFade 0.35s ease-out; }
+  .goal-overlay .flash {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.35) 0%, transparent 70%);
+  }
+  .goal-overlay.blue .flash { background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.35) 0%, transparent 70%); }
+  @keyframes goalFade {
+    0% { opacity: 0; }
+    15% { opacity: 1; }
+    100% { opacity: 0.85; }
+  }
+  .goal-banner {
+    position: fixed;
+    top: 38%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .goal-banner .eyebrow {
+    font-size: 18px; letter-spacing: 8px; font-weight: 800;
+    color: var(--text);
+    text-shadow: 0 0 14px rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+  }
+  .goal-banner .big {
+    font-size: 172px; font-weight: 900;
+    letter-spacing: 12px;
+    line-height: 1;
+    margin-top: 6px;
+    text-transform: uppercase;
+    animation: goalPop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .goal-overlay.red .big { color: var(--red); text-shadow: 0 0 50px var(--red-glow), 0 10px 50px rgba(0,0,0,0.6); }
+  .goal-overlay.blue .big { color: var(--blue); text-shadow: 0 0 50px var(--blue-glow), 0 10px 50px rgba(0,0,0,0.6); }
+  @keyframes goalPop {
+    0% { opacity: 0; transform: scale(0.5) rotate(-2deg); }
+    60% { transform: scale(1.1) rotate(1deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+  }
+  .goal-subtitle {
+    font-size: 20px; color: var(--text-dim); margin-top: 14px;
+    letter-spacing: 3px; font-weight: 700;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<!-- Goal celebration (shown during 'goal' phase) -->
+<div class="goal-overlay" id="goal-overlay">
+  <div class="flash"></div>
+  <div class="goal-banner">
+    <div class="eyebrow">⚽ Goal</div>
+    <div class="big" id="goal-big">RED</div>
+    <div class="goal-subtitle" id="goal-subtitle">scored!</div>
+  </div>
+</div>
+
+<!-- Kickoff countdown (shown during 'kickoff' phase) -->
+<div class="kickoff" id="kickoff">
+  <div class="eyebrow">Kickoff</div>
+  <div class="num" id="kickoff-num">3</div>
+</div>
+
+<!-- Top-left controls -->
+<div class="controls">
+  <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Drive</div>
+  <div><kbd>Space</kbd> Jump / double-jump</div>
+  <div><kbd>Shift</kbd> Boost</div>
+  <div><kbd>Q</kbd> Handbrake</div>
+</div>
+
+<!-- Score banner -->
+<div class="score-banner">
+  <div class="side red" id="side-red">
+    <div class="label">RED</div>
+    <div class="score" id="score-red">0</div>
+  </div>
+  <div class="middle">
+    <div class="mlbl">Match</div>
+    <div class="clock" id="clock">4:00</div>
+  </div>
+  <div class="side blue" id="side-blue">
+    <div class="label">BLUE</div>
+    <div class="score" id="score-blue">0</div>
+  </div>
+</div>
+
+<!-- Speedometer -->
+<div class="speed">
+  <div class="lbl">Speed</div>
+  <div><span class="val" id="speed-val">0</span><span class="unit">KPH</span></div>
+</div>
+
+<!-- Boost dial -->
+<div class="boost-dial" id="boost-dial">
+  <div class="boost-ring-bg"></div>
+  <svg class="boost-svg" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(251,191,36,0.12)" stroke-width="6"/>
+    <circle id="boost-arc" cx="60" cy="60" r="48" fill="none" stroke="url(#boostGrad)" stroke-width="6"
+            stroke-dasharray="301.6" stroke-dashoffset="301.6" stroke-linecap="round"
+            transform="rotate(-90 60 60)"/>
+    <defs>
+      <linearGradient id="boostGrad" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0" stop-color="#fbbf24"/>
+        <stop offset="1" stop-color="#f97316"/>
+      </linearGradient>
+    </defs>
+  </svg>
+  <div class="boost-text">
+    <div class="val" id="boost-val">0</div>
+    <div class="lbl">Boost</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var els = {
+    scoreRed: document.getElementById('score-red'),
+    scoreBlue: document.getElementById('score-blue'),
+    sideRed: document.getElementById('side-red'),
+    sideBlue: document.getElementById('side-blue'),
+    clock: document.getElementById('clock'),
+    boostVal: document.getElementById('boost-val'),
+    boostArc: document.getElementById('boost-arc'),
+    boostDial: document.getElementById('boost-dial'),
+    speedVal: document.getElementById('speed-val'),
+    kickoff: document.getElementById('kickoff'),
+    kickoffNum: document.getElementById('kickoff-num'),
+    goalOverlay: document.getElementById('goal-overlay'),
+    goalBig: document.getElementById('goal-big'),
+    goalSubtitle: document.getElementById('goal-subtitle'),
+  };
+
+  var lastScoreRed = 0, lastScoreBlue = 0;
+  var prevPhase = '';
+  var prevKickoff = -1;
+  var goalShownAt = 0;
+
+  function scoreBump(el) {
+    if (!el) return;
+    el.style.transform = 'scale(1.25)';
+    setTimeout(function() { el.style.transform = 'scale(1)'; }, 220);
+  }
+
+  function update(state) {
+    if (!state || !state._rocket) return;
+    var r = state._rocket;
+
+    // Scores with celebration bump
+    if ((r.scoreRed || 0) !== lastScoreRed) {
+      scoreBump(els.scoreRed);
+      lastScoreRed = r.scoreRed || 0;
+    }
+    if ((r.scoreBlue || 0) !== lastScoreBlue) {
+      scoreBump(els.scoreBlue);
+      lastScoreBlue = r.scoreBlue || 0;
+    }
+    els.scoreRed.textContent = r.scoreRed || 0;
+    els.scoreBlue.textContent = r.scoreBlue || 0;
+
+    // Highlight local player's team
+    if (r.myTeam === 'red') {
+      els.sideRed.classList.add('local');
+      els.sideBlue.classList.remove('local');
+    } else {
+      els.sideBlue.classList.add('local');
+      els.sideRed.classList.remove('local');
+    }
+
+    // Match clock
+    els.clock.textContent = r.clock || '0:00';
+    if ((r.clockSec || 0) > 0 && (r.clockSec || 0) <= 30) els.clock.classList.add('warn');
+    else els.clock.classList.remove('warn');
+
+    // Boost dial
+    var boost = Math.max(0, Math.min(r.boostMax || 100, r.boost || 0));
+    var pct = boost / (r.boostMax || 100);
+    els.boostVal.textContent = Math.round(boost);
+    els.boostArc.setAttribute('stroke-dashoffset', (301.6 * (1 - pct)).toFixed(1));
+    if (r.boosting) els.boostDial.classList.add('boosting');
+    else els.boostDial.classList.remove('boosting');
+
+    // Speedometer
+    els.speedVal.textContent = r.speedKph || 0;
+
+    // Kickoff countdown
+    if (r.phase === 'kickoff') {
+      els.kickoff.classList.add('visible');
+      els.kickoff.classList.remove('go');
+      var n = r.kickoffCountdown || 0;
+      if (n !== prevKickoff) {
+        prevKickoff = n;
+        els.kickoffNum.textContent = n > 0 ? String(n) : 'GO';
+        // Force reflow to replay the animation
+        els.kickoffNum.style.animation = 'none';
+        void els.kickoffNum.offsetHeight;
+        els.kickoffNum.style.animation = null;
+        if (n === 0) els.kickoff.classList.add('go');
+      }
+    } else {
+      els.kickoff.classList.remove('visible');
+      prevKickoff = -1;
+    }
+
+    // Goal celebration
+    if (r.phase === 'goal') {
+      els.goalOverlay.classList.remove('red', 'blue');
+      els.goalOverlay.classList.add('visible');
+      if (r.lastGoalTeam === 'red') {
+        els.goalOverlay.classList.add('red');
+        els.goalBig.textContent = 'RED';
+        els.goalSubtitle.textContent = 'Red takes the lead';
+      } else {
+        els.goalOverlay.classList.add('blue');
+        els.goalBig.textContent = 'BLUE';
+        els.goalSubtitle.textContent = 'Blue scores!';
+      }
+    } else {
+      els.goalOverlay.classList.remove('visible');
+    }
+
+    prevPhase = r.phase;
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

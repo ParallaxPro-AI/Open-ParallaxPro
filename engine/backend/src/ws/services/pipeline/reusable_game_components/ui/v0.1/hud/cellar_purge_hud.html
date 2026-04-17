@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(14, 12, 18, 0.78);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #f4ecd9;
+    --text-dim: #948272;
+    --gold: #f5c518;
+    --red: #d33946;
+    --red-dark: #8a1a26;
+    --azure: #4cc9f0;
+    --green: #4ade80;
+    --plum: #6b3a8c;
+    --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Top-left: hearts ── */
+  .hp {
+    position: fixed;
+    top: 14px;
+    left: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    gap: 6px;
+    box-shadow: var(--shadow);
+  }
+  .heart {
+    width: 26px;
+    height: 24px;
+    position: relative;
+    display: inline-block;
+  }
+  .heart::before, .heart::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 22px;
+    background: var(--red-dark);
+    border-radius: 7px 7px 0 0;
+    transition: background 0.15s;
+  }
+  .heart::before { left: 6px;  transform: rotate(-45deg); transform-origin: 0 100%; }
+  .heart::after  { left: 13px; transform: rotate(45deg);  transform-origin: 100% 100%; }
+  .heart.full::before, .heart.full::after { background: var(--red); }
+  .heart.half::before { background: var(--red); }
+  .heart.half::after  { background: var(--red-dark); }
+
+  /* ── Top-right: pickups (coins / bombs / keys) ── */
+  .stash {
+    position: fixed;
+    top: 14px;
+    right: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    display: flex;
+    gap: 14px;
+    box-shadow: var(--shadow);
+  }
+  .stash-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .stash-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+  }
+  .stash-icon.coin { background: radial-gradient(circle at 35% 30%, #ffe28a, var(--gold)); }
+  .stash-icon.bomb { background: radial-gradient(circle at 35% 30%, #6b6b73, #1a1a1e); }
+  .stash-icon.key  { background: linear-gradient(135deg, #ffd97a, #d8a23a); border-radius: 4px; }
+
+  /* ── Top-center: room hint banner ── */
+  .room-hint {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 18px;
+    text-align: center;
+    min-width: 260px;
+    box-shadow: var(--shadow);
+  }
+  .room-kind {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+  .room-kind.boss { color: var(--red); }
+  .room-kind.shop { color: var(--azure); }
+  .room-kind.combat { color: var(--gold); }
+  .room-kind.start  { color: var(--green); }
+  .room-text {
+    margin-top: 3px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+
+  /* ── Boss bar (bottom-center, only when boss active) ── */
+  .boss {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 420px;
+    max-width: 80vw;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .boss.show { opacity: 1; }
+  .boss-name {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--red);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    text-shadow: 0 0 12px rgba(211, 57, 70, 0.45);
+  }
+  .boss-bar {
+    height: 14px;
+    background: rgba(20, 24, 38, 0.8);
+    border: 1px solid var(--red-dark);
+    border-radius: 7px;
+    overflow: hidden;
+    box-shadow: 0 0 12px rgba(211, 57, 70, 0.18);
+  }
+  .boss-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red-dark), var(--red), #ff7280);
+    border-radius: 7px;
+    transition: width 0.18s ease-out;
+  }
+
+  /* ── Bottom-left: stats (fire rate, damage) ── */
+  .stats {
+    position: fixed;
+    bottom: 14px;
+    left: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .stat-row .v { color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  /* ── Bottom-right: controls hint ── */
+  .controls {
+    position: fixed;
+    bottom: 14px;
+    right: 18px;
+    background: rgba(14, 12, 18, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    display: flex;
+    gap: 12px;
+  }
+  .controls kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 3px;
+  }
+
+  /* ── Pickup banner (transient toast) ── */
+  .pickup-toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(245, 197, 24, 0.18);
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    padding: 6px 18px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--gold);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.25s;
+    pointer-events: none;
+  }
+  .pickup-toast.show { opacity: 1; }
+
+  /* ── Hurt flash ── */
+  .hurt-flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at center, transparent 40%, rgba(211, 57, 70, 0.34) 100%);
+    opacity: 0;
+    z-index: 40;
+  }
+  .hurt-flash.active { animation: hurtFx 0.32s ease-out; }
+  @keyframes hurtFx {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── Death overlay ── */
+  .death {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    background: radial-gradient(circle at center, rgba(211, 57, 70, 0.20), rgba(8, 4, 6, 0.90) 70%);
+    opacity: 0;
+    transition: opacity 0.35s;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .death.show { opacity: 1; }
+  .death-title {
+    font-size: 60px;
+    font-weight: 900;
+    color: var(--red);
+    letter-spacing: 14px;
+    text-transform: uppercase;
+    text-shadow: 0 0 38px rgba(211, 57, 70, 0.7);
+  }
+  .death-sub {
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  /* ── Win overlay ── */
+  .win {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    background: radial-gradient(circle at center, rgba(74, 222, 128, 0.22), rgba(6, 14, 8, 0.92) 70%);
+    opacity: 0;
+    transition: opacity 0.5s;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .win.show { opacity: 1; }
+  .win-title {
+    font-size: 56px;
+    font-weight: 900;
+    color: var(--green);
+    letter-spacing: 14px;
+    text-transform: uppercase;
+    text-shadow: 0 0 36px rgba(74, 222, 128, 0.7);
+  }
+  .win-sub {
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  /* ── Vignette atmosphere (always on, subtle) ── */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 220px rgba(0, 0, 0, 0.55);
+  }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+
+<div class="hp" id="hp"></div>
+
+<div class="room-hint">
+  <div class="room-kind" id="room-kind">CELLAR</div>
+  <div class="room-text" id="room-text">—</div>
+</div>
+
+<div class="stash">
+  <div class="stash-row"><span class="stash-icon coin"></span><span id="stash-coins">0</span></div>
+  <div class="stash-row"><span class="stash-icon bomb"></span><span id="stash-bombs">0</span></div>
+  <div class="stash-row"><span class="stash-icon key"></span><span id="stash-keys">0</span></div>
+</div>
+
+<div class="boss" id="boss">
+  <div class="boss-name" id="boss-name">— THE CELLAR WRETCH —</div>
+  <div class="boss-bar"><div class="boss-fill" id="boss-fill"></div></div>
+</div>
+
+<div class="stats">
+  <div class="stat-row"><span>FIRE RATE</span><span class="v" id="stat-fr">—</span></div>
+  <div class="stat-row"><span>TEAR DMG</span><span class="v" id="stat-dmg">—</span></div>
+  <div class="stat-row"><span>FOES LEFT</span><span class="v" id="stat-foes">0</span></div>
+</div>
+
+<div class="controls">
+  <span><kbd>WASD</kbd>Move</span>
+  <span><kbd>↑↓←→</kbd>Shoot</span>
+</div>
+
+<div class="pickup-toast" id="pickup-toast">+1 COIN</div>
+<div class="hurt-flash" id="hurt-flash"></div>
+
+<div class="death" id="death">
+  <div class="death-title">FELLED</div>
+  <div class="death-sub">The cellar keeps you</div>
+</div>
+
+<div class="win" id="win">
+  <div class="win-title">PURGED</div>
+  <div class="win-sub">You escaped the dark</div>
+</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderHearts(health, maxHealth) {
+    var hp = $('hp');
+    hp.innerHTML = '';
+    var totalHearts = Math.ceil(maxHealth / 2);
+    for (var i = 0; i < totalHearts; i++) {
+      var halves = health - i * 2;
+      var cls = 'heart';
+      if (halves >= 2) cls += ' full';
+      else if (halves === 1) cls += ' half';
+      var div = document.createElement('div');
+      div.className = cls;
+      hp.appendChild(div);
+    }
+  }
+
+  var lastHealth = -1;
+  var lastPhase = '';
+  var lastPickupCount = -1;
+  var pickupTimer = null;
+
+  function flashPickup(text) {
+    var el = $('pickup-toast');
+    el.textContent = text;
+    el.classList.add('show');
+    if (pickupTimer) clearTimeout(pickupTimer);
+    pickupTimer = setTimeout(function() { el.classList.remove('show'); }, 1500);
+  }
+
+  function render(s) {
+    if (!s) return;
+
+    if (typeof s.health === 'number') {
+      renderHearts(s.health, s.maxHealth || 6);
+      if (lastHealth >= 0 && s.health < lastHealth) {
+        var fl = $('hurt-flash');
+        fl.classList.remove('active');
+        void fl.offsetWidth;
+        fl.classList.add('active');
+      }
+      lastHealth = s.health;
+    }
+
+    if (typeof s.coins === 'number') $('stash-coins').textContent = s.coins;
+    if (typeof s.bombs === 'number') $('stash-bombs').textContent = s.bombs;
+    if (typeof s.keys === 'number')  $('stash-keys').textContent  = s.keys;
+
+    var rk = $('room-kind');
+    rk.textContent = (s.roomKind || '—').toUpperCase();
+    rk.className = 'room-kind ' + (s.roomKind || '');
+    $('room-text').textContent = s.roomHint || '—';
+
+    if (typeof s.fireRate === 'number') {
+      var fr = (1 / Math.max(0.05, s.fireRate)).toFixed(1) + '/s';
+      $('stat-fr').textContent = fr;
+    }
+    if (typeof s.tearDamage === 'number') $('stat-dmg').textContent = s.tearDamage.toFixed(0);
+    if (typeof s.aliveEnemies === 'number') $('stat-foes').textContent = s.aliveEnemies;
+
+    // Boss bar
+    if (s.bossActive && s.bossMaxHp > 0) {
+      $('boss').classList.add('show');
+      var pct = Math.max(0, Math.min(100, 100 * (s.bossHp || 0) / s.bossMaxHp));
+      $('boss-fill').style.width = pct + '%';
+    } else {
+      $('boss').classList.remove('show');
+    }
+
+    // Phase overlays
+    var phase = s.phase || 'playing';
+    if (phase !== lastPhase) {
+      $('death').classList.toggle('show', phase === 'defeat');
+      $('win').classList.toggle('show', phase === 'victory');
+    }
+    lastPhase = phase;
+  }
+
+  // Listen for explicit pickup-collected events to flash a toast.
+  // The match system also pushes the new totals on the next HUD tick;
+  // we just mirror the recent count to keep the toast specific to a
+  // single pickup, not a delta over many.
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.cellarPurge) render(s.cellarPurge);
+  });
+})();
+</script>
+</body>
+</html>

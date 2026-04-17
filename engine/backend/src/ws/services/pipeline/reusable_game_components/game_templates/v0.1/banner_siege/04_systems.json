@@ -1,0 +1,21 @@
+{
+  "systems": {
+    "banner_siege_game": {
+      "description": "Banner Siege (capture-the-flag) match rules — two teams, two banners. First team to capture the enemy banner N times or higher score when the round timer expires wins. Host-authoritative for scoring and timer; every peer runs local pickup/capture detection for instant feedback.",
+      "script": "mp/banner_siege_game.ts",
+      "params": {
+        "roundDurationSec": 300,
+        "capturesToWin": 3,
+        "flagReturnTimeoutSec": 30,
+        "captureRadius": 2.5,
+        "pickupRadius": 1.8,
+        "flagCarryHeight": 2.2,
+        "flagBaseY": 1.2,
+        "redBaseX": -25,
+        "redBaseZ": 0,
+        "blueBaseX": 25,
+        "blueBaseZ": 0
+      }
+    }
+  }
+}

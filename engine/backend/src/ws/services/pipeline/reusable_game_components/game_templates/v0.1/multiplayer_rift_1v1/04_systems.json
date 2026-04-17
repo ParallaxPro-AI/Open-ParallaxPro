@@ -1,0 +1,39 @@
+{
+  "systems": {
+    "rift_1v1_game": {
+      "description": "1v1 mid-lane MOBA — champion stats, abilities (Q skillshot + E blink), minion waves, towers, nexus, gold + shop items, solo vs bot.",
+      "script": "mp/rift_1v1_game.ts",
+      "params": {
+        "warmupSec": 2.0,
+        "championHp": 520,
+        "championRegenPerSec": 3,
+        "championAttackRange": 5.5,
+        "championAttackCd": 0.55,
+        "championAttackDamage": 24,
+        "abilityQCd": 6,
+        "abilityQDamage": 90,
+        "abilityQRange": 12,
+        "abilityQSpeed": 22,
+        "abilityECd": 12,
+        "abilityEDash": 5,
+        "abilityEDamage": 50,
+        "respawnSec": 8,
+        "championKillGold": 250,
+        "waveIntervalSec": 28,
+        "minionsPerWave": 3,
+        "minionHp": 120,
+        "minionDamage": 12,
+        "minionMoveSpeed": 3.2,
+        "minionAttackRange": 2.0,
+        "minionAttackCd": 0.8,
+        "minionGoldReward": 18,
+        "towerHp": 900,
+        "towerDamage": 60,
+        "towerAttackCd": 0.9,
+        "towerRange": 7.5,
+        "towerGoldReward": 150,
+        "nexusHp": 1500
+      }
+    }
+  }
+}

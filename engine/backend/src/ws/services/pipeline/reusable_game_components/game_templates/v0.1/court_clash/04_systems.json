@@ -1,0 +1,33 @@
+{
+  "systems": {
+    "court_match": {
+      "description": "NBA-style basketball match rules — host owns team assignment, ball possession, shot resolution (with green/yellow zone make-rates falling off by distance, 2pt vs 3pt by distance), pass routing, steal cooldowns, quarter timing with intermission, and full state-sync. Reuses world tags hoop_home / hoop_away to discover the basket positions.",
+      "script": "mp/court_match.ts",
+      "params": {
+        "quarters": 4,
+        "quarterDurationSec": 90,
+        "intermissionSec": 4,
+        "shotResolveSec": 1.4,
+        "stealRange": 1.6,
+        "stealCooldownMs": 700,
+        "passSpeed": 18,
+        "passMaxRange": 28,
+        "threePointDistance": 7.5,
+        "maxShotDistance": 18,
+        "greenMakeRate": 0.95,
+        "yellowMakeRate": 0.55,
+        "missMakeRate": 0.10,
+        "distanceFalloffStart": 6,
+        "spawnRingRadius": 6,
+        "shotMakeSound": "/assets/kenney/audio/casino_audio/chips-stack-2.ogg",
+        "shotMissSound": "/assets/kenney/audio/impact_sounds/impactPlate_light_002.ogg",
+        "bucketFanfareSound": "/assets/kenney/audio/voiceover_pack/male/objective_achieved.ogg",
+        "passSound": "/assets/kenney/audio/digital_audio/pepSound1.ogg",
+        "stealSound": "/assets/kenney/audio/sci_fi_sounds/forceField_002.ogg",
+        "bounceSound": "/assets/kenney/audio/impact_sounds/impactGeneric_light_002.ogg",
+        "quarterEndSound": "/assets/kenney/audio/voiceover_pack/male/round.ogg",
+        "matchEndSound": "/assets/kenney/audio/voiceover_pack/male/you_win.ogg"
+      }
+    }
+  }
+}

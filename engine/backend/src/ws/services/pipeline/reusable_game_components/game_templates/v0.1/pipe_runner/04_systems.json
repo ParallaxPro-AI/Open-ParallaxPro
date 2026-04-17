@@ -1,0 +1,35 @@
+{
+  "systems": {
+    "pipe_runner_engine": {
+      "description": "Single-player 2.5D arcade-platformer engine — owns lives, coins, time, score, power-up state, fall-kill detection, question-block hit resolution (spawns coin or mushroom), flagpole win, full-restart on play-again.",
+      "script": "gameplay/pipe_runner_engine.ts",
+      "params": {
+        "startingLives": 3,
+        "matchTimeoutSec": 300,
+        "killPlaneY": -16,
+        "coinPickupRadius": 1.0,
+        "mushroomPickupRadius": 1.2,
+        "questionBlockHitMargin": 0.65,
+        "questionBlockSpentColor": [0.45, 0.32, 0.18, 1],
+        "questionBlockItemSequence": ["coin", "mushroom", "coin", "coin", "mushroom"],
+        "flagReachX": 113.5,
+        "spawnX": 2,
+        "spawnY": 2.5,
+        "scorePerCoin": 200,
+        "scorePerStomp": 100,
+        "scorePerSecondLeft": 50,
+        "extraLifeAtCoins": 50,
+        "timeWarningAt": 60,
+        "fastTimeBelow": 60,
+        "coinSound": "/assets/kenney/audio/digital_audio/highUp.ogg",
+        "blockHitSound": "/assets/kenney/audio/rpg_audio/metalClick.ogg",
+        "blockBumpSound": "/assets/kenney/audio/rpg_audio/cloth1.ogg",
+        "extraLifeSound": "/assets/kenney/audio/digital_audio/powerUp4.ogg",
+        "flagSound": "/assets/kenney/audio/voiceover_pack/female/correct.ogg",
+        "winSound": "/assets/kenney/audio/voiceover_pack/female/congratulations.ogg",
+        "loseSound": "/assets/kenney/audio/voiceover_pack/female/game_over.ogg",
+        "timeWarningSound": "/assets/kenney/audio/voiceover_pack/female/hurry_up.ogg"
+      }
+    }
+  }
+}

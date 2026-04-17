@@ -1,0 +1,59 @@
+{
+  "id": "lawn_defenders_flow",
+  "name": "Lawn Defenders",
+  "description": "Single-player lane-based defense. A 5-lane garden faces an undead horde marching from the right. Click the falling sun (or harvested by sunflowers) to bank currency, then drop peashooters, walnuts, and cherry bombs from the plant palette to hold the line. Survive five waves to win — let any zombie reach the leftmost column and the run ends.",
+  "start": "boot",
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "LAWN DEFENDERS",
+      "gameSubtitle": "The Garden Holds The Line"
+    }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "active_systems": ["lawn_defenders_engine"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [
+        { "when": "boot_frames>=2", "goto": "main_menu" }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "active_behaviors": ["board_camera"],
+      "on_enter": ["show_ui:main_menu", "show_cursor"],
+      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+      ]
+    },
+    "gameplay": {
+      "description": "Defend the garden across five waves",
+      "active_systems": ["lawn_defenders_engine"],
+      "active_behaviors": ["board_camera"],
+      "on_enter": [
+        "show_ui:hud/lawn_defenders_hud",
+        "show_cursor",
+        "emit:game.game_ready"
+      ],
+      "on_exit": [
+        "hide_ui:hud/lawn_defenders_hud"
+      ],
+      "transitions": [
+        { "when": "game_event:game_over", "goto": "game_over" },
+        { "when": "game_event:game_won", "goto": "game_over" }
+      ]
+    },
+    "game_over": {
+      "description": "Run ended — overrun or victorious",
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit": ["hide_ui:game_over", "hide_cursor"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "gameplay", "actions": ["emit:game.restart_game"] },
+        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+      ]
+    }
+  }
+}

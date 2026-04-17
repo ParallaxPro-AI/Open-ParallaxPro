@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(14, 16, 24, 0.92);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --panel-border-bright: rgba(255, 255, 255, 0.18);
+    --slot-bg: rgba(20, 22, 32, 0.85);
+    --slot-bg-hover: rgba(40, 46, 64, 0.9);
+    --text: #f3f5f9;
+    --text-dim: #7a8197;
+    --gold: #fbbf24;
+    --accent: #6366f1;
+    --ok: #4ade80;
+    --bad: #ef4444;
+  }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .root {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0);
+    transition: background 0.2s;
+    pointer-events: none;
+  }
+  .root.open {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    pointer-events: auto;
+  }
+  .root.hidden { display: none; }
+  .panel {
+    transform: scale(0.94);
+    opacity: 0;
+    transition: transform 0.18s, opacity 0.18s;
+    background: var(--panel);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--panel-border-bright);
+    border-radius: 14px;
+    padding: 18px;
+    width: min(820px, 95vw);
+    max-height: 90vh;
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 18px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  }
+  .root.open .panel { transform: scale(1); opacity: 1; }
+
+  .panel-title {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--panel-border);
+    margin-bottom: 4px;
+  }
+  .panel-title h1 {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .panel-title button.close {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .panel-title button.close:hover { color: var(--text); border-color: var(--panel-border-bright); }
+
+  .section-title {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* ── Inventory grid ── */
+  .inv-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 4px;
+  }
+  .slot {
+    position: relative;
+    aspect-ratio: 1;
+    background: var(--slot-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+  }
+  .slot.has { border-color: var(--panel-border-bright); }
+  .slot-icon {
+    width: 60%;
+    height: 60%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .slot-icon.swatch {
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+  .slot-count {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Crafting list ── */
+  .craft-list {
+    overflow-y: auto;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 4px;
+  }
+  .craft-list::-webkit-scrollbar { width: 6px; }
+  .craft-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+  .recipe {
+    background: var(--slot-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    transition: border-color 0.12s, transform 0.08s;
+    cursor: pointer;
+  }
+  .recipe.available:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .recipe.unavailable { opacity: 0.45; cursor: not-allowed; }
+
+  .recipe-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--slot-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .recipe-icon.swatch {
+    border-radius: 4px;
+  }
+
+  .recipe-info { display: flex; flex-direction: column; gap: 2px; }
+  .recipe-name {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: var(--text);
+  }
+  .recipe-yields {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gold);
+    margin-left: 4px;
+  }
+  .recipe-ingredients {
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .ing.ok  { color: var(--ok);  }
+  .ing.bad { color: var(--bad); }
+
+  .recipe-action {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .recipe-action:hover { background: #4f46e5; }
+  .recipe.unavailable .recipe-action {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-dim);
+    cursor: not-allowed;
+  }
+
+  .footer-hint {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="root hidden" id="root">
+  <div class="panel">
+    <div class="panel-title">
+      <h1>Inventory · Workbench</h1>
+      <button class="close" id="btn-close">CLOSE [E]</button>
+    </div>
+
+    <div>
+      <div class="section-title">Backpack</div>
+      <div class="inv-grid" id="bag-grid"></div>
+
+      <div class="section-title" style="margin-top:14px">Hotbar</div>
+      <div class="inv-grid" id="hotbar-grid"></div>
+    </div>
+
+    <div>
+      <div class="section-title">Recipes</div>
+      <div class="craft-list" id="recipes"></div>
+    </div>
+
+    <div class="footer-hint">Click a recipe to craft · ingredients are consumed from your inventory</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  function emit(action, extra) {
+    var msg = { type: 'game_command', action: action };
+    if (extra) for (var k in extra) msg[k] = extra[k];
+    window.parent.postMessage(msg, '*');
+  }
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var ITEM_ICON = {
+    dirt: '🟫', stone: '🪨', wood: '🪵', plank: '🟫', brick: '🧱',
+    coal: '⚫', iron: '🔩', gold: '🥇', diamond: '💎',
+    torch: '🕯', leaf: '🍃', grass: '🟩',
+    wood_pickaxe: '⛏', stone_pickaxe: '⛏', iron_pickaxe: '⛏', gold_pickaxe: '⛏', diamond_pickaxe: '⛏',
+    wood_sword: '🗡', stone_sword: '🗡', iron_sword: '🗡',
+  };
+  var ITEM_NAME = {
+    dirt: 'Dirt', stone: 'Stone', wood: 'Wood', plank: 'Plank', brick: 'Brick',
+    coal: 'Coal', iron: 'Iron', gold: 'Gold', diamond: 'Diamond',
+    torch: 'Torch', leaf: 'Leaves', grass: 'Grass',
+    wood_pickaxe: 'Wood Pickaxe', stone_pickaxe: 'Stone Pickaxe',
+    iron_pickaxe: 'Iron Pickaxe', gold_pickaxe: 'Gold Pickaxe', diamond_pickaxe: 'Diamond Pickaxe',
+    wood_sword: 'Wood Sword', stone_sword: 'Stone Sword', iron_sword: 'Iron Sword',
+  };
+  var ITEM_COLOR = {
+    dirt:    '#724A2D',
+    stone:   '#6b6b73',
+    wood:    '#7d4f30',
+    plank:   '#a07a48',
+    brick:   '#a64f44',
+    coal:    '#2c2c30',
+    iron:    '#c89870',
+    gold:    '#fbcd33',
+    diamond: '#5edcef',
+    torch:   '#f4c95d',
+    leaf:    '#3d8c3d',
+    grass:   '#56a644',
+  };
+
+  function iconHTML(item) {
+    var color = ITEM_COLOR[item];
+    if (color) return '<div class="slot-icon swatch" style="background:' + color + '"></div>';
+    return '<div class="slot-icon">' + (ITEM_ICON[item] || '·') + '</div>';
+  }
+
+  function renderGrid(elId, slots) {
+    var container = $(elId);
+    container.innerHTML = '';
+    for (var i = 0; i < slots.length; i++) {
+      var slot = slots[i];
+      var cell = document.createElement('div');
+      cell.className = 'slot' + (slot ? ' has' : '');
+      if (slot) {
+        cell.innerHTML = iconHTML(slot.item) +
+          (slot.count > 1 ? '<span class="slot-count">' + slot.count + '</span>' : '');
+        cell.title = (ITEM_NAME[slot.item] || slot.item) + (slot.count > 1 ? ' x' + slot.count : '');
+      }
+      container.appendChild(cell);
+    }
+  }
+
+  function renderRecipes(recipes) {
+    var box = $('recipes');
+    if (!recipes || !recipes.length) { box.innerHTML = ''; return; }
+    var html = '';
+    for (var i = 0; i < recipes.length; i++) {
+      var r = recipes[i];
+      var ingHtml = '';
+      for (var j = 0; j < r.ingredients.length; j++) {
+        var ing = r.ingredients[j];
+        var ok = ing.have >= ing.need;
+        ingHtml += '<span class="ing ' + (ok ? 'ok' : 'bad') + '">' +
+          ing.have + '/' + ing.need + ' ' + escape(ITEM_NAME[ing.item] || ing.item) +
+          '</span>';
+      }
+      var iconBox = ITEM_COLOR[r.name]
+        ? '<div class="recipe-icon swatch" style="background:' + ITEM_COLOR[r.name] + '"></div>'
+        : '<div class="recipe-icon">' + (ITEM_ICON[r.name] || '·') + '</div>';
+      html += '<div class="recipe ' + (r.available ? 'available' : 'unavailable') + '" data-recipe="' +
+        escape(r.name) + '">' +
+        iconBox +
+        '<div class="recipe-info">' +
+        '<div class="recipe-name">' + escape(ITEM_NAME[r.name] || r.name) +
+        '<span class="recipe-yields">×' + (r.yields || 1) + '</span></div>' +
+        '<div class="recipe-ingredients">' + ingHtml + '</div>' +
+        '</div>' +
+        '<button class="recipe-action">CRAFT</button>' +
+        '</div>';
+    }
+    box.innerHTML = html;
+    var recipeEls = box.querySelectorAll('.recipe.available');
+    for (var k = 0; k < recipeEls.length; k++) {
+      recipeEls[k].addEventListener('click', function(e) {
+        var name = this.getAttribute('data-recipe');
+        emit('craft', { recipe: name });
+      });
+    }
+  }
+
+  function render(s) {
+    if (!s) return;
+    var root = $('root');
+    if (!s.inventoryOpen) {
+      root.classList.remove('open');
+      root.classList.add('hidden');
+      return;
+    }
+    root.classList.remove('hidden');
+    requestAnimationFrame(function() { root.classList.add('open'); });
+
+    renderGrid('hotbar-grid', s.hotbar || []);
+    renderGrid('bag-grid', s.inventory || []);
+    renderRecipes(s.recipes || []);
+  }
+
+  document.getElementById('btn-close').addEventListener('click', function() {
+    emit('close');
+  });
+
+  // Press E inside the iframe also closes (escape hatch — the global E
+  // toggle is owned by block_interactor and lives outside this frame).
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'e' || e.key === 'E' || e.key === 'Escape') emit('close');
+  });
+
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.pickaxeKeep) render(s.pickaxeKeep);
+  });
+})();
+</script>
+</body>
+</html>

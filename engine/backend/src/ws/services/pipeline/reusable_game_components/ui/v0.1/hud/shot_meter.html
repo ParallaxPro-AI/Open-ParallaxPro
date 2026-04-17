@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #f0f4ff;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .panel {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    width: 80px;
+    height: 220px;
+    background: rgba(8, 12, 18, 0.85);
+    border: 2px solid rgba(255, 200, 80, 0.45);
+    border-radius: 12px;
+    padding: 10px 8px 10px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+    transition: opacity 0.18s, transform 0.18s;
+    opacity: 0.45;
+  }
+  .panel.has-ball {
+    opacity: 1;
+    border-color: #ffd066;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), 0 0 14px rgba(255, 200, 80, 0.4);
+  }
+  .panel.charging {
+    border-color: #b6e36a;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), 0 0 18px rgba(180, 220, 100, 0.55);
+  }
+  .panel.hidden { display: none; }
+  .label {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 140, 0.55);
+    font-weight: 800;
+    text-align: center;
+  }
+  .panel.has-ball .label { color: #ffd066; }
+  .frame {
+    margin: 8px auto 6px;
+    height: 160px;
+    width: 30px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 220, 140, 0.4);
+    border-radius: 6px;
+    position: relative;
+    overflow: visible;
+  }
+  .zone {
+    position: absolute;
+    left: 0;
+    right: 0;
+  }
+  .zone.yellow {
+    background: rgba(255, 200, 80, 0.18);
+    border-top: 1px solid rgba(255, 200, 80, 0.4);
+    border-bottom: 1px solid rgba(255, 200, 80, 0.4);
+  }
+  .zone.green {
+    background: rgba(180, 220, 100, 0.32);
+    border-top: 1px solid #b6e36a;
+    border-bottom: 1px solid #b6e36a;
+  }
+  .needle {
+    position: absolute;
+    left: -8px;
+    right: -8px;
+    height: 4px;
+    background: #fff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.7);
+    border-radius: 2px;
+    transition: bottom 0.05s linear;
+  }
+  .panel.charging .needle { background: #ffd066; box-shadow: 0 0 8px rgba(255, 200, 80, 0.85); }
+  .final {
+    margin-top: 6px;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 140, 0.55);
+    font-weight: 800;
+    min-height: 14px;
+  }
+  .final.perfect { color: #b6e36a; text-shadow: 0 0 10px rgba(180, 220, 100, 0.55); }
+  .final.good { color: #ffd066; }
+  .final.miss { color: #ff8a8a; }
+  .key-hint {
+    margin-top: 4px;
+    text-align: center;
+    font-size: 9px;
+    color: rgba(255, 220, 140, 0.45);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .kbd {
+    display: inline-block;
+    background: rgba(255, 220, 140, 0.12);
+    border: 1px solid rgba(255, 220, 140, 0.4);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    color: #ffd066;
+    font-size: 9px;
+  }
+</style>
+</head>
+<body>
+<div class="panel hidden" id="panel">
+  <div class="label">Shot Meter</div>
+  <div class="frame" id="frame">
+    <div class="zone yellow" id="zoneYellow"></div>
+    <div class="zone green"  id="zoneGreen"></div>
+    <div class="needle" id="needle" style="bottom:0%"></div>
+  </div>
+  <div class="final" id="final">—</div>
+  <div class="key-hint">Hold <span class="kbd">Space</span></div>
+</div>
+<script>
+(function () {
+  var panel = document.getElementById('panel');
+  var needle = document.getElementById('needle');
+  var zoneYellow = document.getElementById('zoneYellow');
+  var zoneGreen = document.getElementById('zoneGreen');
+  var finalEl = document.getElementById('final');
+  var lastFinal = '';
+
+  function render(s) {
+    if (!s) return;
+    panel.classList.remove('hidden');
+    panel.classList.toggle('has-ball', !!s.hasBall);
+    panel.classList.toggle('charging', !!s.charging);
+    var v = Math.max(0, Math.min(1, s.value || 0));
+    needle.style.bottom = (v * 100) + '%';
+    var yLow = Math.max(0, Math.min(1, s.yellowLow || 0.55));
+    var yHigh = Math.max(0, Math.min(1, s.yellowHigh || 0.97));
+    var gLow = Math.max(0, Math.min(1, s.greenLow || 0.78));
+    var gHigh = Math.max(0, Math.min(1, s.greenHigh || 0.92));
+    zoneYellow.style.bottom = (yLow * 100) + '%';
+    zoneYellow.style.height = ((yHigh - yLow) * 100) + '%';
+    zoneGreen.style.bottom = (gLow * 100) + '%';
+    zoneGreen.style.height = ((gHigh - gLow) * 100) + '%';
+    if (s.finalZone && s.finalZone !== lastFinal && !s.charging) {
+      lastFinal = s.finalZone;
+      finalEl.classList.remove('perfect', 'good', 'miss');
+      finalEl.classList.add(s.finalZone === 'perfect' ? 'perfect' : (s.finalZone === 'good' ? 'good' : 'miss'));
+      finalEl.textContent = s.finalZone === 'perfect' ? 'GREEN!' : (s.finalZone === 'good' ? 'Good' : 'Bad');
+      // Clear after a moment.
+      setTimeout(function () { if (lastFinal === s.finalZone) { finalEl.textContent = '—'; finalEl.classList.remove('perfect', 'good', 'miss'); lastFinal = ''; } }, 1400);
+    }
+    if (s.charging) {
+      finalEl.textContent = 'Release!';
+      finalEl.classList.remove('perfect', 'good', 'miss');
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.shotMeter) render(s.shotMeter);
+  });
+})();
+</script>
+</body>
+</html>

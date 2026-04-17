@@ -1,0 +1,25 @@
+{
+  "systems": {
+    "noodle_jaunt_game": {
+      "description": "Noodle Jaunt (Human Fall Flat-style) — 1-4 player co-op physics-puzzle platformer. A linear obstacle course with stages (start pad → bridge → button room → cube + plate room → climb wall → goal flag). Host owns puzzle state (button/plate/door); each peer's floppy ragdoll is dynamic and synced via the standard transform pathway. Falls off the edge auto-respawn at the last checkpoint reached. First to the goal flag wins; everyone gets a finish time.",
+      "script": "mp/noodle_jaunt_game.ts",
+      "params": {
+        "stageCount": 4,
+        "fallY": -8,
+        "respawnDelaySec": 1.2,
+        "doorOpenY": 4.0,
+        "doorSpeed": 5.0,
+        "buttonPressRadius": 1.2,
+        "plateActivationRadius": 1.0,
+        "checkpointRadius": 2.5,
+        "goalRadius": 2.0,
+        "carryHoldHeight": 1.1,
+        "carryHoldDistance": 1.3,
+        "carryFollowSpeed": 14,
+        "hudUpdateInterval": 0.15,
+        "matchDurationSec": 600,
+        "winnerHoldSec": 6
+      }
+    }
+  }
+}

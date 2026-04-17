@@ -1,0 +1,27 @@
+{
+  "systems": {
+    "rocket_pitch_game": {
+      "description": "Car-football rules — team assignment, kickoff flow, goal detection, boost pads, bot AI for solo.",
+      "script": "mp/rocket_pitch_game.ts",
+      "params": {
+        "warmupSec": 1.2,
+        "kickoffCountdownSec": 3,
+        "matchDurationSec": 240,
+        "goalCelebrationSec": 3.5,
+        "boostMax": 100,
+        "boostStart": 33,
+        "boostRefillBig": 100,
+        "boostRefillSmall": 12,
+        "boostRegenPerSec": 0,
+        "ballCenter": { "x": 0, "y": 3, "z": 0 },
+        "goalPosZ": 27,
+        "goalHalfWidth": 7,
+        "goalHeight": 6,
+        "padPickupRadius": 1.6,
+        "padRespawnSec": 5,
+        "redSpawn": { "x": 0, "y": 1, "z": -14 },
+        "blueSpawn": { "x": 0, "y": 1, "z": 14 }
+      }
+    }
+  }
+}

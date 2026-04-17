@@ -1,0 +1,111 @@
+{
+  "worlds": [
+    {
+      "id": "banner_siege_arena",
+      "name": "Dawn Pass Arena",
+      "environment": {
+        "ambientColor": [0.52, 0.58, 0.72],
+        "ambientIntensity": 0.55,
+        "sunColor": [1.0, 0.92, 0.78],
+        "sunIntensity": 1.0,
+        "fog": { "enabled": true, "color": [0.65, 0.68, 0.78], "near": 35, "far": 110 },
+        "gravity": [0, -9.81, 0]
+      },
+      "lighting": {
+        "sun_color": [1.0, 0.92, 0.78]
+      },
+      "placements": [
+        { "ref": "ground", "position": [0, 0, 0] },
+        { "ref": "camera", "position": [0, 1.6, 0] },
+        { "ref": "player", "position": [0, 1, 0] },
+
+        { "ref": "ground_strip_red",  "position": [-26, 0.01, 0] },
+        { "ref": "ground_strip_blue", "position": [ 26, 0.01, 0] },
+
+        { "ref": "pedestal_red",   "position": [-25, 0.12, 0] },
+        { "ref": "pedestal_blue",  "position": [ 25, 0.12, 0] },
+
+        { "ref": "capture_marker_red",  "position": [-25, 0.03, 0] },
+        { "ref": "capture_marker_blue", "position": [ 25, 0.03, 0] },
+
+        { "ref": "banner_red",  "position": [-25, 1.2, 0] },
+        { "ref": "banner_blue", "position": [ 25, 1.2, 0] },
+
+        { "ref": "castle_wall", "position": [-30, 2.2, -5], "rotation": [0, 90, 0] },
+        { "ref": "castle_wall", "position": [-30, 2.2,  5], "rotation": [0, 90, 0] },
+        { "ref": "castle_wall", "position": [-28, 2.2,  8], "rotation": [0, 45, 0] },
+        { "ref": "castle_wall", "position": [-28, 2.2, -8], "rotation": [0, -45, 0] },
+        { "ref": "castle_wall", "position": [-22, 2.2,  10], "rotation": [0, 0, 0] },
+        { "ref": "castle_wall", "position": [-22, 2.2, -10], "rotation": [0, 0, 0] },
+
+        { "ref": "castle_wall", "position": [ 30, 2.2, -5], "rotation": [0, 90, 0] },
+        { "ref": "castle_wall", "position": [ 30, 2.2,  5], "rotation": [0, 90, 0] },
+        { "ref": "castle_wall", "position": [ 28, 2.2,  8], "rotation": [0, -45, 0] },
+        { "ref": "castle_wall", "position": [ 28, 2.2, -8], "rotation": [0, 45, 0] },
+        { "ref": "castle_wall", "position": [ 22, 2.2,  10], "rotation": [0, 0, 0] },
+        { "ref": "castle_wall", "position": [ 22, 2.2, -10], "rotation": [0, 0, 0] },
+
+        { "ref": "crate",  "position": [-20, 0.7, -4] },
+        { "ref": "crate",  "position": [-20, 0.7,  4] },
+        { "ref": "barrel", "position": [-18, 0.8, -6] },
+        { "ref": "barrel", "position": [-18, 0.8,  6] },
+        { "ref": "crate",  "position": [ 20, 0.7, -4] },
+        { "ref": "crate",  "position": [ 20, 0.7,  4] },
+        { "ref": "barrel", "position": [ 18, 0.8, -6] },
+        { "ref": "barrel", "position": [ 18, 0.8,  6] },
+
+        { "ref": "wall_long", "position": [0, 1.5, 0], "rotation": [0, 0, 0] },
+        { "ref": "wall",      "position": [-6, 1.5, -8], "rotation": [0, 30, 0] },
+        { "ref": "wall",      "position": [ 6, 1.5, -8], "rotation": [0, -30, 0] },
+        { "ref": "wall",      "position": [-6, 1.5,  8], "rotation": [0, -30, 0] },
+        { "ref": "wall",      "position": [ 6, 1.5,  8], "rotation": [0,  30, 0] },
+        { "ref": "wall_low",  "position": [-3, 0.6, -3], "rotation": [0, 45, 0] },
+        { "ref": "wall_low",  "position": [ 3, 0.6,  3], "rotation": [0, 45, 0] },
+        { "ref": "wall_low",  "position": [-3, 0.6,  3], "rotation": [0,-45, 0] },
+        { "ref": "wall_low",  "position": [ 3, 0.6, -3], "rotation": [0,-45, 0] },
+
+        { "ref": "wall",      "position": [-12, 1.5,  12], "rotation": [0, 90, 0] },
+        { "ref": "wall",      "position": [ 12, 1.5,  12], "rotation": [0, 90, 0] },
+        { "ref": "wall",      "position": [-12, 1.5, -12], "rotation": [0, 90, 0] },
+        { "ref": "wall",      "position": [ 12, 1.5, -12], "rotation": [0, 90, 0] },
+
+        { "ref": "crate",  "position": [-10, 0.7,  -2] },
+        { "ref": "crate",  "position": [-10, 2.1,  -2] },
+        { "ref": "crate",  "position": [ 10, 0.7,   2] },
+        { "ref": "crate",  "position": [ 10, 2.1,   2] },
+        { "ref": "crate",  "position": [-8,  0.7,  10] },
+        { "ref": "crate",  "position": [ 8,  0.7, -10] },
+        { "ref": "barrel", "position": [-14, 0.8,  0] },
+        { "ref": "barrel", "position": [ 14, 0.8,  0] },
+        { "ref": "barrel", "position": [ 0,  0.8, -14] },
+        { "ref": "barrel", "position": [ 0,  0.8,  14] },
+
+        { "ref": "rocks_large", "position": [-14, 0.4, -14] },
+        { "ref": "rocks_large", "position": [ 14, 0.4,  14] },
+        { "ref": "rocks_large", "position": [-14, 0.4,  14] },
+        { "ref": "rocks_large", "position": [ 14, 0.4, -14] },
+
+        { "ref": "crystal", "position": [-32, 0.6,  18] },
+        { "ref": "crystal", "position": [ 32, 0.6,  18] },
+        { "ref": "crystal", "position": [-32, 0.6, -18] },
+        { "ref": "crystal", "position": [ 32, 0.6, -18] },
+
+        { "ref": "tree_large", "position": [-36, 0, -18] },
+        { "ref": "tree_large", "position": [-36, 0,  18] },
+        { "ref": "tree_large", "position": [ 36, 0, -18] },
+        { "ref": "tree_large", "position": [ 36, 0,  18] },
+        { "ref": "tree_small", "position": [-32, 0,  22] },
+        { "ref": "tree_small", "position": [ 32, 0,  22] },
+        { "ref": "tree_small", "position": [-32, 0, -22] },
+        { "ref": "tree_small", "position": [ 32, 0, -22] },
+        { "ref": "tree_small", "position": [  0, 0,  22] },
+        { "ref": "tree_small", "position": [  0, 0, -22] },
+
+        { "ref": "wall_perimeter",      "position": [0, 2.5,  25] },
+        { "ref": "wall_perimeter",      "position": [0, 2.5, -25] },
+        { "ref": "wall_perimeter_side", "position": [ 40, 2.5, 0] },
+        { "ref": "wall_perimeter_side", "position": [-40, 2.5, 0] }
+      ]
+    }
+  ]
+}

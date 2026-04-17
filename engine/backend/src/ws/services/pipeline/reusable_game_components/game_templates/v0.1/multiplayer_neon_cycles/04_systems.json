@@ -1,0 +1,19 @@
+{
+  "systems": {
+    "neon_cycles_match": {
+      "description": "Light-bike combat — host-authoritative round timer, collision detection against trail walls, and best-of-N round scoring.",
+      "script": "mp/neon_cycles_match.ts",
+      "params": {
+        "roundsToWin": 3,
+        "maxRounds": 9,
+        "roundCountdownSec": 3,
+        "roundIntermissionSec": 4,
+        "matchTimeoutSec": 540,
+        "bikeRadius": 0.7,
+        "selfImmuneSec": 0.6,
+        "speedRampPerSec": 0.04,
+        "spawnRingRadius": 22
+      }
+    }
+  }
+}

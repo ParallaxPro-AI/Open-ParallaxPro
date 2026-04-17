@@ -1,0 +1,70 @@
+{
+  "worlds": [
+    {
+      "id": "noodle_jaunt_course",
+      "name": "Wobble Yard",
+      "environment": {
+        "ambientColor": [0.62, 0.72, 0.86],
+        "ambientIntensity": 0.65,
+        "sunColor": [1.0, 0.95, 0.86],
+        "sunIntensity": 1.0,
+        "fog": { "enabled": true, "color": [0.66, 0.72, 0.85], "near": 50, "far": 130 },
+        "gravity": [0, -22, 0]
+      },
+      "lighting": {
+        "sun_color": [1.0, 0.95, 0.86]
+      },
+      "placements": [
+        { "ref": "nj_world_floor", "position": [40, -8, 0] },
+
+        { "ref": "camera", "position": [0, 4, 8] },
+        { "ref": "player", "position": [0, 1.5, 0] },
+
+        { "ref": "nj_floor_pad",      "position": [ 0,  0, 0] },
+        { "ref": "nj_checkpoint_pad", "name": "Cp_1", "position": [0, 0.27, 0] },
+        { "ref": "nj_arch",           "position": [-3.5, 2.0, 0], "rotation": [0, 0, 0] },
+        { "ref": "nj_pillar_decor",   "position": [-2,   1.2,  4] },
+        { "ref": "nj_pillar_decor",   "position": [-2,   1.2, -4] },
+        { "ref": "nj_tree",           "position": [-6,   0.0,  6] },
+        { "ref": "nj_tree",           "position": [-6,   0.0, -6] },
+
+        { "ref": "nj_bridge_plank", "position": [ 9.0,  0.2, 0] },
+        { "ref": "nj_bridge_plank", "position": [12.6,  0.2, 0] },
+        { "ref": "nj_bridge_plank", "position": [16.2,  0.2, 0] },
+        { "ref": "nj_bridge_plank", "position": [19.8,  0.2, 0] },
+
+        { "ref": "nj_floor_pad",      "position": [25,  0, 0] },
+        { "ref": "nj_checkpoint_pad", "name": "Cp_2", "position": [25, 0.27, 0] },
+        { "ref": "nj_button",         "name": "Btn_1", "position": [25, 0.30, 2.4] },
+        { "ref": "nj_door",           "name": "Door_1", "position": [29.6, 2.0, 0], "rotation": [0, 90, 0] },
+
+        { "ref": "nj_floor_pad_long", "position": [40,  0, 0] },
+        { "ref": "nj_checkpoint_pad", "name": "Cp_3", "position": [38, 0.27, 0] },
+        { "ref": "nj_carry_cube",     "position": [40, 0.7, -2.4] },
+        { "ref": "nj_plate",          "name": "Plate_2", "position": [42, 0.30, 2.4] },
+        { "ref": "nj_door_side",      "name": "Door_2", "position": [49.0, 2.0, 0], "rotation": [0, 0, 0] },
+
+        { "ref": "nj_floor_pad",      "position": [55,  0, 0] },
+        { "ref": "nj_checkpoint_pad", "name": "Cp_4", "position": [55, 0.27, 0] },
+
+        { "ref": "nj_wall_block",     "position": [62, 2.5, 0], "rotation": [0, 90, 0] },
+        { "ref": "nj_climb_ledge",    "position": [63.4, 5.0, 0], "rotation": [0, 90, 0] },
+        { "ref": "nj_climb_ledge",    "position": [66.0, 5.4, 0], "rotation": [0, 90, 0] },
+
+        { "ref": "nj_floor_pad",      "position": [72, 5.5, 0] },
+        { "ref": "nj_floor_pad",      "position": [78, 5.5, 0] },
+        { "ref": "nj_goal_pad",       "name": "Nj Goal", "position": [78, 5.85, 0] },
+        { "ref": "nj_goal_flag",      "position": [78, 5.9,  0] },
+
+        { "ref": "nj_pillar_decor",   "position": [78,  6.5, -4] },
+        { "ref": "nj_pillar_decor",   "position": [78,  6.5,  4] },
+        { "ref": "nj_arch",           "position": [82,  7.5, 0] },
+
+        { "ref": "nj_tree",           "position": [55,  0,  -8] },
+        { "ref": "nj_tree",           "position": [55,  0,   8] },
+        { "ref": "nj_tree",           "position": [40,  0,  -8] },
+        { "ref": "nj_tree",           "position": [40,  0,   8] }
+      ]
+    }
+  ]
+}

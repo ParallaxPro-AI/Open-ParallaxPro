@@ -1,0 +1,165 @@
+{
+  "definitions": {
+    "player": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/cube_world/Character_Male_1.glb",
+        "scale": [1.0, 1.0, 1.0],
+        "modelRotationY": 0
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 70,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "network": {
+        "syncTransform": true,
+        "syncInterval": 33,
+        "ownership": "local_player",
+        "predictLocally": true,
+        "networkedVars": ["health"]
+      },
+      "tags": ["player", "networked"],
+      "behaviors": [
+        {
+          "name": "sidescroll_platformer",
+          "script": "movement/sidescroll_platformer.ts",
+          "params": {
+            "speed": 5.5,
+            "jumpForce": 9.0,
+            "airControl": 0.8,
+            "zLockAtValue": 0,
+            "facingDeg": 90
+          }
+        },
+        {
+          "name": "block_interactor",
+          "script": "interaction/block_interactor.ts",
+          "params": {
+            "interactRange": 5,
+            "attackRange": 2.5,
+            "planeAxis": "z",
+            "planeValue": 0
+          }
+        }
+      ]
+    },
+
+    "camera": {
+      "camera": { "fov": 55 },
+      "tags": ["camera"],
+      "behaviors": [
+        {
+          "name": "camera_sidescroll",
+          "script": "camera/camera_sidescroll.ts",
+          "params": {
+            "distance": 16,
+            "smoothSpeed": 5.0,
+            "lookAhead": 2.5,
+            "verticalOffset": 1.5,
+            "tiltDegrees": 6,
+            "zLockAtValue": 0
+          }
+        }
+      ]
+    },
+
+    "sky_back": {
+      "mesh": {
+        "type": "plane",
+        "color": [0.42, 0.55, 0.78, 1],
+        "scale": [200, 1, 80]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_06.png"
+      }
+    },
+
+    "background_hill": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.20, 0.32, 0.45, 1],
+        "scale": [40, 18, 1]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "background_hill_far": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.30, 0.38, 0.52, 1],
+        "scale": [60, 22, 1]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "cloud_a": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.92, 0.95, 1.0, 1],
+        "scale": [4, 1.2, 0.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+    "cloud_b": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.95, 0.96, 1.0, 1],
+        "scale": [6, 1.6, 0.5]
+      },
+      "physics": false,
+      "tags": ["decoration"],
+      "label": false
+    },
+
+    "world_floor_plate": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.10, 0.10, 0.14, 1],
+        "scale": [120, 1, 1]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [60, 0.5, 0.5] }
+      },
+      "tags": ["wall"],
+      "label": false
+    },
+
+    "world_left_wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.12, 0.12, 0.18, 1],
+        "scale": [1, 60, 1]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 30, 0.5] }
+      },
+      "tags": ["wall"],
+      "label": false
+    },
+    "world_right_wall": {
+      "mesh": {
+        "type": "cube",
+        "color": [0.12, 0.12, 0.18, 1],
+        "scale": [1, 60, 1]
+      },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 30, 0.5] }
+      },
+      "tags": ["wall"],
+      "label": false
+    }
+  }
+}

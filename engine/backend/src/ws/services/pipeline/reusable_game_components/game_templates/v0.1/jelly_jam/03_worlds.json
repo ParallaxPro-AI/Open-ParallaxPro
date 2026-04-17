@@ -1,0 +1,74 @@
+{
+  "worlds": [
+    {
+      "id": "jelly_jam_arena",
+      "name": "Frosting Field",
+      "environment": {
+        "ambientColor": [0.66, 0.72, 0.85],
+        "ambientIntensity": 0.7,
+        "sunColor": [1.0, 0.95, 0.86],
+        "sunIntensity": 1.05,
+        "fog": { "enabled": true, "color": [0.78, 0.82, 0.95], "near": 50, "far": 140 },
+        "gravity": [0, -22, 0]
+      },
+      "lighting": {
+        "sun_color": [1.0, 0.95, 0.86]
+      },
+      "placements": [
+        { "ref": "ground",       "position": [0, 0, 0] },
+        { "ref": "course_floor", "position": [0, 0.02, 0] },
+
+        { "ref": "camera", "position": [0, 5, 12] },
+        { "ref": "player", "position": [-38, 1, 0] },
+
+        { "ref": "stage_arch", "position": [-44, 3, -5], "rotation": [0, 0, 0] },
+        { "ref": "stage_arch", "position": [-44, 3,  5], "rotation": [0, 0, 0] },
+        { "ref": "stage_banner", "position": [-44, 6, 0], "rotation": [0, 0, 0] },
+
+        { "ref": "stage_arch", "position": [ 44, 3, -5], "rotation": [0, 0, 0] },
+        { "ref": "stage_arch", "position": [ 44, 3,  5], "rotation": [0, 0, 0] },
+        { "ref": "stage_banner", "position": [ 44, 6, 0], "rotation": [0, 0, 0] },
+
+        { "ref": "stage_pillar", "position": [-46, 2.5,  10] },
+        { "ref": "stage_pillar", "position": [-46, 2.5, -10] },
+        { "ref": "stage_pillar", "position": [ 46, 2.5,  10] },
+        { "ref": "stage_pillar", "position": [ 46, 2.5, -10] },
+
+        { "ref": "stand_audience", "position": [0, 2,  14], "rotation": [0, 0, 0] },
+        { "ref": "stand_audience", "position": [0, 2, -14], "rotation": [0, 0, 0] },
+
+        { "ref": "fan_pink",   "position": [-30, 4.2,  14] },
+        { "ref": "fan_white",  "position": [-20, 4.2,  14] },
+        { "ref": "fan_orange", "position": [-10, 4.2,  14] },
+        { "ref": "fan_pink",   "position": [  0, 4.2,  14] },
+        { "ref": "fan_white",  "position": [ 10, 4.2,  14] },
+        { "ref": "fan_orange", "position": [ 20, 4.2,  14] },
+        { "ref": "fan_pink",   "position": [ 30, 4.2,  14] },
+
+        { "ref": "fan_orange", "position": [-30, 4.2, -14] },
+        { "ref": "fan_pink",   "position": [-20, 4.2, -14] },
+        { "ref": "fan_white",  "position": [-10, 4.2, -14] },
+        { "ref": "fan_orange", "position": [  0, 4.2, -14] },
+        { "ref": "fan_pink",   "position": [ 10, 4.2, -14] },
+        { "ref": "fan_white",  "position": [ 20, 4.2, -14] },
+        { "ref": "fan_orange", "position": [ 30, 4.2, -14] },
+
+        { "ref": "tree_party",   "position": [-55, 0,  20] },
+        { "ref": "tree_party_b", "position": [ 55, 0,  20] },
+        { "ref": "tree_party",   "position": [-55, 0, -20] },
+        { "ref": "tree_party_b", "position": [ 55, 0, -20] },
+        { "ref": "tree_party_b", "position": [-30, 0,  22] },
+        { "ref": "tree_party",   "position": [ 30, 0,  22] },
+        { "ref": "tree_party_b", "position": [-30, 0, -22] },
+        { "ref": "tree_party",   "position": [ 30, 0, -22] },
+
+        { "ref": "flowers", "position": [-42, 0.05,  18] },
+        { "ref": "flowers", "position": [-42, 0.05, -18] },
+        { "ref": "flowers", "position": [ 42, 0.05,  18] },
+        { "ref": "flowers", "position": [ 42, 0.05, -18] },
+        { "ref": "flowers", "position": [  0, 0.05,  20] },
+        { "ref": "flowers", "position": [  0, 0.05, -20] }
+      ]
+    }
+  ]
+}

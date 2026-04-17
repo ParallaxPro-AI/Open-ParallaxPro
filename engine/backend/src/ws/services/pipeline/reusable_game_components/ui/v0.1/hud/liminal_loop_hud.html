@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-overlay: rgba(8, 12, 18, 0.65);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #e9eef5;
+    --text-dim: #8b95a6;
+    --green: #4ade80;
+    --red: #ef4444;
+    --amber: #fbbf24;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Top-center: exit number sign — looks like a subway placard ── */
+  .exit-card {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #14302a, #0c1f1a);
+    border: 1px solid rgba(74, 222, 128, 0.45);
+    border-radius: 8px;
+    padding: 10px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5),
+                0 0 24px rgba(74, 222, 128, 0.18);
+  }
+  .exit-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--green);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+  }
+  .exit-num {
+    font-size: 30px;
+    font-weight: 900;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-shadow: 0 0 14px rgba(74, 222, 128, 0.6);
+  }
+  .exit-arrow {
+    font-size: 22px;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+  }
+  .exit-target {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Top-right: iteration counter (small, faded) ── */
+  .iter {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    background: var(--bg-overlay);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+  }
+
+  /* ── Bottom-center: hint text ── */
+  .hint {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-overlay);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    max-width: 80vw;
+    text-align: center;
+  }
+
+  /* ── Controls hint ── */
+  .controls {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .controls kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    padding: 0 5px;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 2px;
+  }
+
+  /* ── Vignette (always on, light) ── */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 220px rgba(0, 0, 0, 0.65);
+  }
+
+  /* ── Reset flash (red wipe) ── */
+  .reset-flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at center, rgba(239, 68, 68, 0.45), rgba(15, 8, 8, 0.85) 80%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 50;
+  }
+  .reset-flash.show { opacity: 1; }
+  .reset-text {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 51;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .reset-text.show { opacity: 1; }
+  .reset-title {
+    font-size: 56px;
+    font-weight: 900;
+    color: var(--red);
+    letter-spacing: 12px;
+    text-transform: uppercase;
+    text-shadow: 0 0 32px rgba(239, 68, 68, 0.7);
+  }
+  .reset-sub {
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  /* ── Win flash (green) ── */
+  .win-flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at center, rgba(74, 222, 128, 0.30), rgba(8, 22, 14, 0.95) 80%);
+    opacity: 0;
+    transition: opacity 0.6s;
+    z-index: 50;
+  }
+  .win-flash.show { opacity: 1; }
+  .win-text {
+    position: fixed;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 51;
+    opacity: 0;
+    transition: opacity 0.6s;
+    pointer-events: none;
+  }
+  .win-text.show { opacity: 1; }
+  .win-title {
+    font-size: 64px;
+    font-weight: 900;
+    color: var(--green);
+    letter-spacing: 14px;
+    text-transform: uppercase;
+    text-shadow: 0 0 36px rgba(74, 222, 128, 0.7);
+  }
+  .win-sub {
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  /* ── Choice flash (corner of HUD when choice committed) ── */
+  .choice-tag {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-overlay);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 4px 14px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--amber);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .choice-tag.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+
+<div class="exit-card">
+  <span class="exit-label">EXIT</span>
+  <span class="exit-num" id="exit-num">0</span>
+  <span class="exit-arrow">›</span>
+  <span class="exit-target" id="exit-target">/ 8</span>
+</div>
+
+<div class="iter">Loop <span id="iter-num">1</span></div>
+
+<div class="hint" id="hint">Walk forward — turn back if something feels off.</div>
+
+<div class="controls">
+  <kbd>WASD</kbd>Move <kbd>MOUSE</kbd>Look
+</div>
+
+<div class="choice-tag" id="choice-tag">CONTINUING…</div>
+
+<div class="reset-flash" id="reset-flash"></div>
+<div class="reset-text" id="reset-text">
+  <div class="reset-title">RESET</div>
+  <div class="reset-sub" id="reset-sub">Exit 0</div>
+</div>
+
+<div class="win-flash" id="win-flash"></div>
+<div class="win-text" id="win-text">
+  <div class="win-title">EXIT 8</div>
+  <div class="win-sub">You found the way out</div>
+</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  var lastChoice = "";
+  var lastReset = false;
+  var lastWin = false;
+  var choiceTimer = null;
+
+  function flashChoice(choice) {
+    var el = $('choice-tag');
+    el.textContent = choice === 'continue' ? 'CONTINUING…' :
+                     choice === 'turn_back' ? 'TURNED BACK…' : '';
+    el.classList.add('show');
+    if (choiceTimer) clearTimeout(choiceTimer);
+    choiceTimer = setTimeout(function() { el.classList.remove('show'); }, 1500);
+  }
+
+  function render(s) {
+    if (!s) return;
+    if (typeof s.exitNumber === 'number') $('exit-num').textContent = s.exitNumber;
+    if (typeof s.target === 'number')     $('exit-target').textContent = '/ ' + s.target;
+    if (typeof s.iteration === 'number')  $('iter-num').textContent = s.iteration;
+    if (s.hint)                           $('hint').textContent = s.hint;
+
+    if (s.lastChoice && s.lastChoice !== lastChoice) {
+      flashChoice(s.lastChoice);
+    }
+    lastChoice = s.lastChoice || "";
+
+    // Reset overlay
+    var resetOn = !!s.resetFlash;
+    if (resetOn !== lastReset) {
+      $('reset-flash').classList.toggle('show', resetOn);
+      $('reset-text').classList.toggle('show', resetOn);
+      if (resetOn) $('reset-sub').textContent = 'Exit 0';
+    }
+    lastReset = resetOn;
+
+    // Win overlay
+    var winOn = !!s.winFlash;
+    if (winOn !== lastWin) {
+      $('win-flash').classList.toggle('show', winOn);
+      $('win-text').classList.toggle('show', winOn);
+    }
+    lastWin = winOn;
+  }
+
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.liminalLoop) render(s.liminalLoop);
+  });
+})();
+</script>
+</body>
+</html>

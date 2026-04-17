@@ -1,0 +1,45 @@
+{
+  "worlds": [
+    {
+      "id": "lane_hopper_world",
+      "name": "The Lanes",
+      "environment": {
+        "ambientColor": [0.75, 0.82, 0.95],
+        "ambientIntensity": 0.85,
+        "sunColor": [1.0, 0.95, 0.85],
+        "sunIntensity": 1.0,
+        "fog": { "enabled": true, "color": [0.6, 0.78, 0.98], "near": 40, "far": 120 },
+        "gravity": [0, -9.81, 0]
+      },
+      "placements": [
+        { "ref": "sky_dome", "position": [0, 30, 0] },
+        { "ref": "sun_disk", "position": [-20, 40, -80] },
+
+        { "ref": "camera", "position": [0, 14, 9] },
+        { "name": "Player", "ref": "player", "position": [0, 0.6, 0] },
+
+        { "ref": "distant_mountain",      "position": [-40, 5, -60] },
+        { "ref": "distant_mountain_snow", "position": [-20, 4, -80] },
+        { "ref": "distant_mountain",      "position": [ 20, 5, -70] },
+        { "ref": "distant_mountain_snow", "position": [ 40, 4, -90] },
+        { "ref": "distant_mountain",      "position": [-30, 5, -120] },
+        { "ref": "distant_mountain",      "position": [ 30, 5, -130] },
+
+        { "ref": "distant_tree", "position": [-32, 3, -20] },
+        { "ref": "distant_tree", "position": [ 32, 3, -20] },
+        { "ref": "distant_tree", "position": [-34, 3, -40] },
+        { "ref": "distant_tree", "position": [ 34, 3, -40] },
+        { "ref": "distant_tree", "position": [-32, 3, -60] },
+        { "ref": "distant_tree", "position": [ 32, 3, -60] },
+        { "ref": "distant_tree", "position": [-34, 3, -100] },
+        { "ref": "distant_tree", "position": [ 34, 3, -100] },
+
+        { "ref": "far_cloud", "position": [-15, 22, -50] },
+        { "ref": "far_cloud", "position": [ 18, 24, -70] },
+        { "ref": "far_cloud", "position": [  0, 26, -100] },
+        { "ref": "far_cloud", "position": [-25, 20, -30] },
+        { "ref": "far_cloud", "position": [ 22, 23, -110] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "worlds": [
+    {
+      "id": "pickaxe_keep_world",
+      "name": "Verdant Hollow",
+      "environment": {
+        "ambientColor": [0.55, 0.62, 0.78],
+        "ambientIntensity": 0.7,
+        "sunColor": [1.0, 0.96, 0.85],
+        "sunIntensity": 1.05,
+        "fog": { "enabled": true, "color": [0.55, 0.65, 0.85], "near": 25, "far": 80 },
+        "gravity": [0, -22, 0]
+      },
+      "lighting": {
+        "sun_color": [1.0, 0.96, 0.85]
+      },
+      "placements": [
+        { "ref": "camera", "position": [0, 22, 16] },
+        { "ref": "player", "position": [0, 24, 0] },
+
+        { "ref": "sky_back",          "position": [0, 22, -22], "rotation": [90, 0, 0] },
+        { "ref": "background_hill_far", "position": [-22, 12, -16] },
+        { "ref": "background_hill_far", "position": [ 18, 12, -16] },
+        { "ref": "background_hill",     "position": [-10, 9,  -12] },
+        { "ref": "background_hill",     "position": [  8, 9,  -12] },
+
+        { "ref": "cloud_a", "position": [-18, 28, -10] },
+        { "ref": "cloud_b", "position": [  6, 30, -10] },
+        { "ref": "cloud_a", "position": [ 22, 26, -10] },
+        { "ref": "cloud_b", "position": [-26, 32, -10] },
+
+        { "ref": "world_floor_plate", "position": [0, 0, 0] },
+        { "ref": "world_left_wall",   "position": [-33, 30, 0] },
+        { "ref": "world_right_wall",  "position": [ 33, 30, 0] }
+      ]
+    }
+  ]
+}

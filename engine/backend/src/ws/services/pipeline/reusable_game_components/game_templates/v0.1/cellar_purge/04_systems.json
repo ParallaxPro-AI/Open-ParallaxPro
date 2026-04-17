@@ -1,0 +1,28 @@
+{
+  "systems": {
+    "cellar_purge_game": {
+      "description": "Cellar Purge (Isaac-style) — single-player top-down twin-stick roguelite. WASD moves; arrow keys fire tear projectiles in cardinal directions. Five rooms in a cross layout (start → combat → shop / east-combat / boss). Combat rooms spawn zombies on entry; boss room spawns the Cellar Wretch. Loot drops on clear: coin, heart, key, fire-rate shard. Step on the green exit pad after the boss to escape.",
+      "script": "mp/cellar_purge_game.ts",
+      "params": {
+        "maxHealth": 6,
+        "startCoins": 0,
+        "startBombs": 1,
+        "startKeys": 0,
+        "tearLifetime": 0.65,
+        "tearSpeed": 14,
+        "tearDamage": 4,
+        "tearRadius": 0.20,
+        "initialFireRate": 0.32,
+        "pickupRadius": 0.85,
+        "doorOpenY": 4.0,
+        "doorSpeed": 6.0,
+        "hudUpdateInterval": 0.12,
+        "enemiesPerCombatRoom": 4,
+        "enemiesPerBossRoom": 1,
+        "hurtInvincibleSec": 1.2,
+        "bossMaxHp": 80,
+        "bossDamage": 2
+      }
+    }
+  }
+}

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(10, 10, 18, 0.75);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #f0f0f0;
+    --text-dim: #8d93a3;
+    --red: #ff5965;
+    --red-bg: rgba(255, 89, 101, 0.18);
+    --red-glow: rgba(255, 89, 101, 0.55);
+    --blue: #4da6ff;
+    --blue-bg: rgba(77, 166, 255, 0.18);
+    --blue-glow: rgba(77, 166, 255, 0.55);
+    --gold: #fbbf24;
+  }
+
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== TOP SCOREBOARD ===== */
+  .scoreboard {
+    position: fixed;
+    top: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: stretch;
+    border-radius: 14px;
+    overflow: hidden;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .team-panel {
+    padding: 8px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+  }
+
+  .team-panel.red  { background: var(--red-bg);  border-right: 1px solid var(--panel-border); }
+  .team-panel.blue { background: var(--blue-bg); border-left:  1px solid var(--panel-border); }
+
+  .team-label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .team-label.red-label  { color: var(--red);  }
+  .team-label.blue-label { color: var(--blue); }
+
+  .team-score {
+    font-size: 32px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .flag-indicator {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .flag-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .flag-dot.red  { background: var(--red);  box-shadow: 0 0 6px var(--red-glow); }
+  .flag-dot.blue { background: var(--blue); box-shadow: 0 0 6px var(--blue-glow); }
+
+  .flag-dot.carried { animation: flagBlink 0.7s ease-in-out infinite alternate; }
+  .flag-dot.dropped { opacity: 0.45; }
+
+  @keyframes flagBlink {
+    from { transform: scale(1);   opacity: 1;   }
+    to   { transform: scale(1.4); opacity: 0.4; }
+  }
+
+  .flag-status-text { color: var(--text-dim); }
+  .flag-status-text.warn { color: var(--gold); }
+
+  .score-center {
+    background: var(--panel);
+    padding: 6px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+  }
+  .match-time {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .captures-to-win {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ===== CARRIER BADGE (bottom) ===== */
+  .carrier-badge {
+    position: fixed;
+    left: 50%;
+    bottom: 110px;
+    transform: translateX(-50%);
+    background: rgba(20, 20, 30, 0.86);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .carrier-badge.visible { opacity: 1; }
+
+  .carrier-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    animation: flagPulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes flagPulse {
+    from { transform: scale(0.9); box-shadow: 0 0 6px currentColor; }
+    to   { transform: scale(1.15); box-shadow: 0 0 14px currentColor; }
+  }
+
+  /* ===== ANNOUNCE BANNER (top center, below scoreboard) ===== */
+  .announce {
+    position: fixed;
+    left: 50%;
+    top: 140px;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 6px 18px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .announce.visible { opacity: 1; }
+
+  /* ===== CAPTURE FLASH (fullscreen) ===== */
+  .capture-flash {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .capture-flash.active { animation: captureAnim 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+  @keyframes captureAnim {
+    0%   { opacity: 0;   }
+    12%  { opacity: 1;   }
+    75%  { opacity: 1;   }
+    100% { opacity: 0;   }
+  }
+
+  .capture-text {
+    font-size: 120px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 14px;
+    color: #fff;
+    text-shadow:
+      0 0 60px currentColor,
+      0 0 30px currentColor,
+      0 4px 20px rgba(0, 0, 0, 0.7);
+    transform: scale(2);
+    animation: capturePop 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .capture-text.red  { color: var(--red);  }
+  .capture-text.blue { color: var(--blue); }
+
+  @keyframes capturePop {
+    0%   { transform: scale(2.2); opacity: 0; filter: blur(10px); }
+    100% { transform: scale(1);   opacity: 1; filter: blur(0);    }
+  }
+
+  .capture-sub {
+    position: absolute;
+    bottom: 36%;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    opacity: 0;
+    animation: capSubFade 0.5s ease 0.25s forwards;
+  }
+
+  @keyframes capSubFade {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 0.8; transform: translateY(0); }
+  }
+
+  /* ===== CONTROLS HINT ===== */
+  .controls-hint {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    display: flex;
+    gap: 14px;
+  }
+  .controls-hint kbd {
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 3px;
+  }
+
+  /* ===== TEAM STRIPE (subtle edge glow for own team) ===== */
+  .team-stripe {
+    position: fixed;
+    top: 0; bottom: 0;
+    width: 4px;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .team-stripe.left  { left: 0;  }
+  .team-stripe.right { right: 0; }
+  .team-stripe.red  { background: linear-gradient(to bottom, transparent, var(--red),  transparent); }
+  .team-stripe.blue { background: linear-gradient(to bottom, transparent, var(--blue), transparent); }
+  .team-stripe.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="team-stripe left hidden"  id="stripe-l"></div>
+<div class="team-stripe right hidden" id="stripe-r"></div>
+
+<div class="scoreboard">
+  <div class="team-panel red">
+    <div class="team-label red-label">RED</div>
+    <div class="team-score" id="score-red">0</div>
+    <div class="flag-indicator">
+      <span class="flag-dot red" id="dot-red"></span>
+      <span class="flag-status-text" id="flag-red-text">BASE</span>
+    </div>
+  </div>
+  <div class="score-center">
+    <div class="match-time" id="match-time">5:00</div>
+    <div class="captures-to-win" id="caps-to-win">FIRST TO 3</div>
+  </div>
+  <div class="team-panel blue">
+    <div class="team-label blue-label">BLUE</div>
+    <div class="team-score" id="score-blue">0</div>
+    <div class="flag-indicator">
+      <span class="flag-dot blue" id="dot-blue"></span>
+      <span class="flag-status-text" id="flag-blue-text">BASE</span>
+    </div>
+  </div>
+</div>
+
+<div class="announce" id="announce"></div>
+
+<div class="carrier-badge" id="carrier-badge">
+  <span class="carrier-dot" id="carrier-dot"></span>
+  <span id="carrier-text">CARRYING RED BANNER</span>
+</div>
+
+<div class="capture-flash" id="capture-flash">
+  <div class="capture-text" id="capture-text">CAPTURE!</div>
+  <div class="capture-sub" id="capture-sub"></div>
+</div>
+
+<div class="controls-hint">
+  <span><kbd>WASD</kbd>Move</span>
+  <span><kbd>MOUSE</kbd>Look</span>
+  <span><kbd>LMB</kbd>Shoot</span>
+  <span><kbd>R</kbd>Reload</span>
+  <span><kbd>SHIFT</kbd>Sprint</span>
+  <span><kbd>SPACE</kbd>Jump</span>
+</div>
+
+<script>
+(function() {
+  var flashTimer = null;
+  var lastFlashTeam = "";
+
+  function $(id) { return document.getElementById(id); }
+
+  function setFlagStatus(team, status, localTeam) {
+    var dot = $('dot-' + team);
+    var label = $('flag-' + team + '-text');
+    dot.classList.remove('carried', 'dropped');
+    if (status === 'carried') {
+      dot.classList.add('carried');
+      label.textContent = 'TAKEN';
+      label.classList.toggle('warn', team === localTeam);
+    } else if (status === 'dropped') {
+      dot.classList.add('dropped');
+      label.textContent = 'DROPPED';
+      label.classList.toggle('warn', team === localTeam);
+    } else {
+      label.textContent = 'BASE';
+      label.classList.remove('warn');
+    }
+  }
+
+  function setCarrier(carrying) {
+    var badge = $('carrier-badge');
+    if (!carrying) {
+      badge.classList.remove('visible');
+      return;
+    }
+    var colorVar = (carrying === 'red') ? 'var(--red)' : 'var(--blue)';
+    $('carrier-dot').style.color = colorVar;
+    $('carrier-dot').style.background = colorVar;
+    $('carrier-text').textContent = 'CARRYING ' + carrying.toUpperCase() + ' BANNER';
+    badge.classList.add('visible');
+  }
+
+  function setAnnounce(text) {
+    var el = $('announce');
+    if (!text) {
+      el.classList.remove('visible');
+      return;
+    }
+    el.textContent = text;
+    el.classList.add('visible');
+  }
+
+  function triggerCaptureFlash(team) {
+    if (!team || team === lastFlashTeam) return;
+    lastFlashTeam = team;
+    var flash = $('capture-flash');
+    var text  = $('capture-text');
+    var sub   = $('capture-sub');
+    text.className = 'capture-text ' + team;
+    text.textContent = team.toUpperCase() + ' SCORES!';
+    sub.textContent  = '';
+    flash.classList.remove('active');
+    void flash.offsetWidth;
+    flash.classList.add('active');
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(function() {
+      flash.classList.remove('active');
+      lastFlashTeam = "";
+    }, 2500);
+  }
+
+  function setTeamStripe(team) {
+    var l = $('stripe-l'), r = $('stripe-r');
+    l.classList.remove('red', 'blue', 'hidden');
+    r.classList.remove('red', 'blue', 'hidden');
+    if (team === 'red' || team === 'blue') {
+      l.classList.add(team);
+      r.classList.add(team);
+    } else {
+      l.classList.add('hidden');
+      r.classList.add('hidden');
+    }
+  }
+
+  function update(state) {
+    if (!state || !state.bannerSiege) return;
+    var s = state.bannerSiege;
+
+    if (typeof s.redScore  === 'number') $('score-red').textContent  = s.redScore;
+    if (typeof s.blueScore === 'number') $('score-blue').textContent = s.blueScore;
+    if (s.matchTime)                     $('match-time').textContent = s.matchTime;
+    if (typeof s.capturesToWin === 'number') {
+      $('caps-to-win').textContent = 'FIRST TO ' + s.capturesToWin;
+    }
+
+    setFlagStatus('red',  s.redFlag  || 'base', s.myTeam);
+    setFlagStatus('blue', s.blueFlag || 'base', s.myTeam);
+    setCarrier(s.carrying || '');
+    setAnnounce(s.announce || '');
+    setTeamStripe(s.myTeam || '');
+    if (s.captureFlash) triggerCaptureFlash(s.captureFlash);
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>

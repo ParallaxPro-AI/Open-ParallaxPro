@@ -1,0 +1,123 @@
+{
+  "id": "pin_pal_flow",
+  "name": "Pin Pal",
+  "description": "1-4 player Wii Sports-style turn-based ten-pin bowling. Aim with the cursor, hold LMB to charge a power meter, release to fire. Standard 10-frame scoring with strikes, spares, and a bonus throw on a 10th-frame strike or spare. The lane has gutters and a fully-physics ball + pins, so split-conversion shots feel like the real thing. Single-player works as a practice rack.",
+  "start": "boot",
+  "multiplayer": {
+    "enabled": true,
+    "minPlayers": 1,
+    "maxPlayers": 4,
+    "tickRate": 30,
+    "authority": "host",
+    "predictLocalPlayer": true,
+    "hostPlaysGame": true,
+    "remotePlayerPrefab": null,
+    "allowJoinInProgress": false
+  },
+  "ui_params": {
+    "main_menu": {
+      "gameTitle": "PIN PAL",
+      "gameSubtitle": "Strike. Spare. Cheer."
+    },
+    "pause_menu": {
+      "pauseTitle": "PAUSED",
+      "pauseHint": "Press <span class=\"pm-kbd\">P</span> to resume",
+      "pauseButtons": [
+        { "action": "resume",      "label": "Resume", "primary": true },
+        { "action": "leave_match", "label": "Leave Match", "danger": true }
+      ]
+    }
+  },
+  "states": {
+    "boot": {
+      "description": "Initialize systems",
+      "active_systems": ["mp_bridge"],
+      "duration": -1,
+      "on_enter": ["set:boot_frames=0"],
+      "on_update": ["increment:boot_frames"],
+      "transitions": [
+        { "when": "boot_frames>=2", "goto": "main_menu" }
+      ]
+    },
+    "main_menu": {
+      "description": "Title screen",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["mp:leave_lobby", "hide_ui:hud/voice_chat", "hide_ui:hud/text_chat", "show_ui:main_menu", "show_cursor"],
+      "on_exit":  ["hide_ui:main_menu"],
+      "transitions": [
+        { "when": "ui_event:main_menu:start_game", "goto": "lobby_browser" }
+      ]
+    },
+    "lobby_browser": {
+      "description": "Browse open lobbies or host a new one",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:lobby_browser", "show_cursor", "mp:refresh_lobbies"],
+      "on_exit":  ["hide_ui:lobby_browser", "hide_ui:lobby_host_config"],
+      "transitions": [
+        { "when": "mp_event:phase_in_lobby", "goto": "lobby_room" },
+        { "when": "mp_event:back_to_menu",   "goto": "main_menu" }
+      ]
+    },
+    "lobby_room": {
+      "description": "Pre-match lobby with roster, chat, voice",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:lobby_room", "show_ui:hud/text_chat", "show_ui:hud/voice_chat", "show_cursor"],
+      "on_exit":  ["hide_ui:lobby_room"],
+      "transitions": [
+        { "when": "mp_event:phase_in_game",      "goto": "gameplay"       },
+        { "when": "mp_event:phase_browsing",     "goto": "lobby_browser"  },
+        { "when": "mp_event:phase_disconnected", "goto": "main_menu"      }
+      ]
+    },
+    "gameplay": {
+      "description": "Match in progress",
+      "active_systems": ["mp_bridge", "pin_pal_game"],
+      "start": "playing",
+      "on_enter": [
+        "show_ui:hud/ping",
+        "show_ui:hud/text_chat",
+        "show_ui:hud/voice_chat",
+        "show_ui:hud/pin_pal_hud",
+        "show_cursor",
+        "emit:game.match_started"
+      ],
+      "on_exit": [
+        "hide_ui:hud/ping",
+        "hide_ui:hud/pin_pal_hud",
+        "hide_ui:pause_menu"
+      ],
+      "substates": {
+        "playing": {
+          "active_behaviors": ["camera_lane_view"],
+          "transitions": [
+            { "when": "keyboard:pause", "goto": "paused" }
+          ]
+        },
+        "paused": {
+          "active_behaviors": [],
+          "on_enter": ["show_ui:pause_menu"],
+          "on_exit":  ["hide_ui:pause_menu"],
+          "transitions": [
+            { "when": "keyboard:resume",            "goto": "playing" },
+            { "when": "ui_event:pause_menu:resume", "goto": "playing" }
+          ]
+        }
+      },
+      "transitions": [
+        { "when": "mp_event:phase_disconnected",     "goto": "main_menu" },
+        { "when": "game_event:match_ended",          "goto": "game_over" },
+        { "when": "ui_event:pause_menu:leave_match", "goto": "main_menu" }
+      ]
+    },
+    "game_over": {
+      "description": "Match summary",
+      "active_systems": ["mp_bridge"],
+      "on_enter": ["show_ui:game_over", "show_cursor"],
+      "on_exit":  ["hide_ui:game_over"],
+      "transitions": [
+        { "when": "ui_event:game_over:play_again", "goto": "lobby_room" },
+        { "when": "ui_event:game_over:main_menu",  "goto": "main_menu"  }
+      ]
+    }
+  }
+}

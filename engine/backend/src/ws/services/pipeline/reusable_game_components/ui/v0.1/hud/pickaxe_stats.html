@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(14, 16, 24, 0.78);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #f3f5f9;
+    --text-dim: #7a8197;
+    --gold: #fbbf24;
+    --hp: #ef4444;
+    --hp-glow: rgba(239, 68, 68, 0.6);
+    --xp: #22d3ee;
+  }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HEALTH (top-left) ── */
+  .hp-card {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    min-width: 200px;
+  }
+  .hp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .hp-icon {
+    width: 18px;
+    height: 18px;
+    background: var(--hp);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--hp-glow);
+  }
+  .hp-text {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .hp-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--hp), #fb7185);
+    border-radius: 3px;
+    transition: width 0.18s ease-out;
+  }
+
+  /* ── DAY/NIGHT + DEPTH (top-center) ── */
+  .clock {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 280px;
+  }
+  .phase-icon {
+    font-size: 22px;
+    line-height: 1;
+    transition: opacity 0.3s;
+  }
+  .clock-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .clock-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .phase-name { color: var(--text); }
+  .phase-name.night { color: #6366f1; }
+  .phase-bar {
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .phase-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), #fde68a);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+  .phase-fill.night {
+    background: linear-gradient(90deg, #6366f1, #c4b5fd);
+  }
+
+  /* ── SCORE / DEPTH (top-right) ── */
+  .stats {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 160px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .stat-row .v { color: var(--gold); font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .stat-row .v.depth { color: #22d3ee; }
+  .stat-row .v.threat { color: var(--hp); }
+
+  /* ── DEATH ── */
+  .death {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    background: radial-gradient(circle at center, rgba(239, 68, 68, 0.18), transparent 65%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .death.visible { opacity: 1; }
+  .death-title {
+    font-size: 56px;
+    font-weight: 900;
+    color: var(--hp);
+    letter-spacing: 12px;
+    text-transform: uppercase;
+    text-shadow: 0 0 28px rgba(239, 68, 68, 0.55);
+  }
+  .death-sub {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 4px;
+    margin-top: 12px;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+
+  /* ── HURT FLASH ── */
+  .hurt-flash {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at center, transparent 40%, rgba(239, 68, 68, 0.28) 100%);
+    opacity: 0;
+    z-index: 40;
+  }
+  .hurt-flash.active { animation: hurt 0.35s ease-out; }
+  @keyframes hurt {
+    0% { opacity: 0; }
+    25% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── CONTROLS HINT ── */
+  .hint {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(8, 12, 22, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    display: flex;
+    gap: 14px;
+  }
+  .hint kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 3px;
+  }
+</style>
+</head>
+<body>
+
+<div class="hp-card">
+  <div class="hp-row">
+    <span class="hp-icon"></span>
+    <span class="hp-text" id="hp-text">100 / 100</span>
+  </div>
+  <div class="hp-bar"><div class="hp-fill" id="hp-fill" style="width:100%"></div></div>
+</div>
+
+<div class="clock">
+  <span class="phase-icon" id="phase-icon">☀</span>
+  <div class="clock-info">
+    <div class="clock-row">
+      <span class="phase-name" id="phase-name">DAY</span>
+      <span id="phase-pct">0%</span>
+    </div>
+    <div class="phase-bar"><div class="phase-fill" id="phase-fill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat-row"><span>Score</span><span class="v" id="stat-score">0</span></div>
+  <div class="stat-row"><span>Depth</span><span class="v depth" id="stat-depth">0m</span></div>
+  <div class="stat-row"><span>Threats</span><span class="v threat" id="stat-threats">0</span></div>
+</div>
+
+<div class="death" id="death">
+  <div class="death-title">DEFEATED</div>
+  <div class="death-sub" id="death-sub">Respawning…</div>
+</div>
+
+<div class="hurt-flash" id="hurt-flash"></div>
+
+<div class="hint">
+  <span><kbd>WASD</kbd>Move</span>
+  <span><kbd>LMB</kbd>Mine</span>
+  <span><kbd>RMB</kbd>Place</span>
+  <span><kbd>1-9</kbd>Hotbar</span>
+  <span><kbd>E</kbd>Inventory</span>
+  <span><kbd>SPACE</kbd>Jump</span>
+</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  var lastHP = 100;
+
+  function render(s) {
+    if (!s) return;
+    // Health
+    if (typeof s.health === 'number' && typeof s.maxHealth === 'number') {
+      var pct = Math.max(0, Math.min(100, 100 * s.health / s.maxHealth));
+      $('hp-text').textContent = s.health + ' / ' + s.maxHealth;
+      $('hp-fill').style.width = pct + '%';
+      if (s.health < lastHP) {
+        var f = $('hurt-flash');
+        f.classList.remove('active');
+        void f.offsetWidth;
+        f.classList.add('active');
+      }
+      lastHP = s.health;
+    }
+    // Phase
+    if (s.phase) {
+      var isNight = s.phase === 'night';
+      $('phase-icon').textContent = isNight ? '🌙' : '☀';
+      $('phase-name').textContent = isNight ? 'NIGHT' : 'DAY';
+      $('phase-name').classList.toggle('night', isNight);
+      $('phase-fill').classList.toggle('night', isNight);
+      var pp = Math.max(0, Math.min(1, s.phaseProgress || 0));
+      $('phase-fill').style.width = (pp * 100) + '%';
+      $('phase-pct').textContent = Math.round(pp * 100) + '%';
+    }
+    if (typeof s.score === 'number')      $('stat-score').textContent = s.score.toLocaleString();
+    if (typeof s.depth === 'number')      $('stat-depth').textContent = s.depth + 'm';
+    if (typeof s.enemyCount === 'number') $('stat-threats').textContent = s.enemyCount;
+
+    // Death overlay
+    if (s.dead) {
+      $('death').classList.add('visible');
+      $('death-sub').textContent = 'Respawning in ' + Math.max(0, Math.ceil(s.respawnIn || 0)) + 's…';
+    } else {
+      $('death').classList.remove('visible');
+    }
+  }
+
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.pickaxeKeep) render(s.pickaxeKeep);
+  });
+})();
+</script>
+</body>
+</html>

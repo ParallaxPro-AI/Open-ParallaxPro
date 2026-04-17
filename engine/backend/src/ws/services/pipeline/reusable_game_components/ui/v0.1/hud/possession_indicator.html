@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #f0f4ff;
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .panel {
+    position: fixed;
+    bottom: 18px;
+    left: 18px;
+    width: 240px;
+    background: rgba(8, 12, 18, 0.85);
+    border: 2px solid rgba(255, 220, 140, 0.45);
+    border-left: 6px solid rgba(255, 220, 140, 0.75);
+    border-radius: 10px;
+    padding: 8px 12px 10px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+    transition: border-color 0.18s linear;
+  }
+  .panel.hidden { display: none; }
+  .panel.is-local {
+    border-color: #b6e36a;
+    border-left-color: #b6e36a;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), 0 0 14px rgba(180, 220, 100, 0.45);
+  }
+  .label {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 140, 0.55);
+    font-weight: 800;
+  }
+  .name {
+    font-family: 'Cinzel', 'Georgia', serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffe48a;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+  }
+  .panel.is-local .name { color: #b6e36a; text-shadow: 0 0 10px rgba(180, 220, 100, 0.55); }
+  .meta {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255, 220, 140, 0.55);
+  }
+  .pip {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: #ffd066;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .ball-state {
+    margin-left: auto;
+    color: #ffd066;
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-weight: 700;
+  }
+  .ball-state.flight { color: #ff8a8a; animation: blink 0.5s infinite alternate; }
+  @keyframes blink { from { opacity: 0.6; } to { opacity: 1; } }
+  .key-hint {
+    margin-top: 6px;
+    font-size: 9px;
+    color: rgba(255, 220, 140, 0.45);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .kbd {
+    display: inline-block;
+    background: rgba(255, 220, 140, 0.12);
+    border: 1px solid rgba(255, 220, 140, 0.4);
+    border-radius: 3px;
+    padding: 0 5px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    color: #ffd066;
+    font-size: 9px;
+  }
+</style>
+</head>
+<body>
+<div class="panel hidden" id="panel">
+  <div class="label">Possession</div>
+  <div class="name" id="name">—</div>
+  <div class="meta">
+    <div class="pip" id="pip"></div>
+    <div id="teamLabel">TEAM</div>
+    <div class="ball-state" id="ballState">HOLD</div>
+  </div>
+  <div class="key-hint">
+    <span class="kbd">Space</span> shoot · <span class="kbd">E</span> pass · <span class="kbd">F</span> steal
+  </div>
+</div>
+<script>
+(function () {
+  var panel = document.getElementById('panel');
+  var nameEl = document.getElementById('name');
+  var pip = document.getElementById('pip');
+  var teamLabel = document.getElementById('teamLabel');
+  var ballState = document.getElementById('ballState');
+
+  function rgbToCss(c) {
+    if (!c || c.length < 3) return '#ffd066';
+    return 'rgb(' + Math.round(c[0]*255) + ',' + Math.round(c[1]*255) + ',' + Math.round(c[2]*255) + ')';
+  }
+
+  function render(p) {
+    if (!p) return;
+    panel.classList.remove('hidden');
+    panel.classList.toggle('is-local', !!p.isLocal);
+    nameEl.textContent = p.holderName || '—';
+    teamLabel.textContent = (p.team || '—').toUpperCase();
+    if (p.teamColor) pip.style.background = rgbToCss(p.teamColor);
+    var mode = p.ballMode || 'held';
+    if (mode === 'shooting') {
+      ballState.textContent = 'SHOT IN AIR';
+      ballState.classList.add('flight');
+    } else if (mode === 'passing') {
+      ballState.textContent = 'PASSING';
+      ballState.classList.add('flight');
+    } else {
+      ballState.textContent = p.isLocal ? 'YOURS' : 'HELD';
+      ballState.classList.remove('flight');
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.possessionIndicator) render(s.possessionIndicator);
+  });
+})();
+</script>
+</body>
+</html>

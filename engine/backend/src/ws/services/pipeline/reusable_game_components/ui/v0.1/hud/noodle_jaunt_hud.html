@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --panel: rgba(20, 22, 32, 0.78);
+    --panel-border: rgba(255, 255, 255, 0.10);
+    --text: #f0f4fb;
+    --text-dim: #8995ad;
+    --gold: #ffd166;
+    --green: #4ade80;
+    --pink: #ef476f;
+    --azure: #4cc9f0;
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: transparent;
+    pointer-events: none;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Top-center: stage progress + hint ── */
+  .stage {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 10px 22px;
+    text-align: center;
+    min-width: 280px;
+    box-shadow: var(--shadow);
+  }
+  .stage-row {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .stage-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+  .stage-num {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+  }
+  .stage-hint {
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ── Top-left: clock ── */
+  .clock {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    box-shadow: var(--shadow);
+  }
+  .clock-time {
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+  }
+  .clock-label {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 2px;
+    text-align: center;
+  }
+
+  /* ── Top-right: leaderboard ── */
+  .lb {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    min-width: 180px;
+    box-shadow: var(--shadow);
+  }
+  .lb-title {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .lb-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .lb-row.me { background: rgba(255, 209, 102, 0.18); }
+  .lb-row.fin { color: var(--green); }
+  .lb-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb-status {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .lb-row.fin .lb-status { color: var(--green); }
+
+  /* ── Bottom-left: hands status ── */
+  .hands {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .hand-slot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .hand-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .hand-slot.gripping .hand-dot {
+    background: var(--azure);
+    box-shadow: 0 0 12px rgba(76, 201, 240, 0.5);
+  }
+  .hand-key {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* ── Bottom-right: controls hint ── */
+  .controls {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background: rgba(20, 22, 32, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    display: flex;
+    gap: 12px;
+  }
+  .controls kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 3px;
+  }
+
+  /* ── Respawning overlay ── */
+  .respawn {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(239, 71, 111, 0.18);
+    border: 1px solid var(--pink);
+    border-radius: 10px;
+    padding: 10px 22px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .respawn.show { opacity: 1; }
+  .respawn-title {
+    font-size: 16px;
+    font-weight: 900;
+    color: var(--pink);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+  .respawn-sub {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text);
+    letter-spacing: 2px;
+    opacity: 0.85;
+  }
+
+  /* ── Finish overlay (banner across the screen) ── */
+  .finish {
+    position: fixed;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    background: rgba(255, 209, 102, 0.18);
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    padding: 14px 36px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.4s, transform 0.4s;
+    z-index: 50;
+  }
+  .finish.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .finish-title {
+    font-size: 38px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    text-shadow: 0 0 22px rgba(255, 209, 102, 0.55);
+  }
+  .finish-sub {
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  /* ── Vignette ── */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 220px rgba(0, 0, 0, 0.40);
+  }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+
+<div class="clock">
+  <div class="clock-time" id="clock-time">0:00</div>
+  <div class="clock-label">RUN</div>
+</div>
+
+<div class="stage">
+  <div class="stage-row">
+    <span class="stage-label">STAGE</span>
+    <span class="stage-num" id="stage-num">1</span>
+    <span class="stage-label" id="stage-of">/ 4</span>
+  </div>
+  <div class="stage-hint" id="stage-hint">Get to the flag.</div>
+</div>
+
+<div class="lb">
+  <div class="lb-title">RUNNERS</div>
+  <div id="lb-rows"></div>
+</div>
+
+<div class="hands">
+  <div class="hand-slot" id="hand-l"><span class="hand-dot"></span><span class="hand-key">LMB</span><span>L HAND</span></div>
+  <div class="hand-slot" id="hand-r"><span class="hand-dot"></span><span class="hand-key">RMB</span><span>R HAND</span></div>
+</div>
+
+<div class="controls">
+  <span><kbd>WASD</kbd>Walk</span>
+  <span><kbd>SPACE</kbd>Jump</span>
+  <span><kbd>MOUSE</kbd>Look</span>
+</div>
+
+<div class="respawn" id="respawn">
+  <div class="respawn-title">RESPAWNING</div>
+  <div class="respawn-sub" id="respawn-sub">2s</div>
+</div>
+
+<div class="finish" id="finish">
+  <div class="finish-title" id="finish-title">FINISHED!</div>
+  <div class="finish-sub" id="finish-sub">Wait for the others…</div>
+</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  function escape(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  var lastFinished = false;
+
+  function render(s) {
+    if (!s) return;
+    if (typeof s.stage === 'number')      $('stage-num').textContent = s.stage;
+    if (typeof s.totalStages === 'number')$('stage-of').textContent = '/ ' + s.totalStages;
+    if (s.hint)                           $('stage-hint').textContent = s.hint;
+    if (s.elapsed)                        $('clock-time').textContent = s.elapsed;
+
+    // Hands — both light up under one flag because grab_arms shares
+    // the global "_njGrabbing" state. Keeps the HUD honest.
+    $('hand-l').classList.toggle('gripping', !!s.grabbing);
+    $('hand-r').classList.toggle('gripping', !!s.grabbing);
+
+    // Leaderboard
+    var lb = s.leaderboard || [];
+    var html = '';
+    for (var i = 0; i < lb.length; i++) {
+      var p = lb[i];
+      html += '<div class="lb-row' + (p.isLocal ? ' me' : '') + (p.finished ? ' fin' : '') + '">' +
+        '<span class="lb-name">' + escape(p.name) + '</span>' +
+        '<span class="lb-status">' + (p.finished ? p.finishTime : ('S' + p.stage)) + '</span>' +
+        '</div>';
+    }
+    $('lb-rows').innerHTML = html;
+
+    // Respawn overlay
+    if (s.respawnIn && s.respawnIn > 0.05) {
+      $('respawn').classList.add('show');
+      $('respawn-sub').textContent = (Math.ceil(s.respawnIn * 10) / 10).toFixed(1) + 's';
+    } else {
+      $('respawn').classList.remove('show');
+    }
+
+    // Finish overlay — show when local player finishes, or when phase
+    // is "finished".
+    var localFinished = lb.find(function(p) { return p.isLocal && p.finished; });
+    var fin = !!localFinished || s.phase === 'finished';
+    if (fin && !lastFinished) {
+      $('finish').classList.add('show');
+      if (localFinished && lb[0] && lb[0].isLocal) {
+        $('finish-title').textContent = 'FIRST!';
+        $('finish-sub').textContent   = 'You hit the flag first.';
+      } else if (localFinished) {
+        $('finish-title').textContent = 'FINISHED';
+        $('finish-sub').textContent   = 'Nice run.';
+      } else {
+        $('finish-title').textContent = 'WRAPPING UP';
+        $('finish-sub').textContent   = 'Loading the leaderboard…';
+      }
+    } else if (!fin && lastFinished) {
+      $('finish').classList.remove('show');
+    }
+    lastFinished = fin;
+  }
+
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state || {};
+    if (s.noodleJaunt) render(s.noodleJaunt);
+  });
+})();
+</script>
+</body>
+</html>

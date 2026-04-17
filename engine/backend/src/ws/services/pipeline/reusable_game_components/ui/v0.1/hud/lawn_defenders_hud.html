@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a2a18;
+    background: transparent;
+    overflow: hidden;
+  }
+  body.armed { cursor: crosshair; }
+
+  /* Sun counter top-left */
+  .sun-counter {
+    position: fixed;
+    top: 14px;
+    left: 18px;
+    background: linear-gradient(135deg, #fff8d8 0%, #ffe07a 60%, #d99b16 100%);
+    border-radius: 12px;
+    padding: 8px 14px 8px 12px;
+    border: 3px solid #b07016;
+    box-shadow: 0 4px 12px rgba(60, 40, 0, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.18), inset 0 2px 4px rgba(255, 255, 255, 0.55);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+  }
+  .sun-counter .sun-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff8d8, #f0c95c 60%, #6b4f15 100%);
+    box-shadow: 0 0 12px rgba(255, 200, 80, 0.65);
+    flex-shrink: 0;
+  }
+  .sun-counter .sun-num {
+    font-size: 20px;
+    font-weight: 800;
+    color: #4a2f08;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Plant palette top-center */
+  .palette {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    background: rgba(60, 40, 18, 0.65);
+    padding: 6px;
+    border-radius: 10px;
+    border: 2px solid rgba(110, 80, 30, 0.6);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    z-index: 5;
+  }
+  .card {
+    width: 78px;
+    height: 96px;
+    background: linear-gradient(180deg, #f4e9c8, #d8c690);
+    border: 2px solid #8a6720;
+    border-radius: 8px;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.12s ease, filter 0.12s ease;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25), inset 0 -2px 4px rgba(80, 60, 20, 0.18);
+    user-select: none;
+  }
+  .card:hover { transform: translateY(-3px); }
+  .card.disabled { filter: grayscale(0.7) brightness(0.85); cursor: not-allowed; }
+  .card.disabled:hover { transform: none; }
+  .card.armed {
+    border-color: #ffe066;
+    box-shadow: 0 0 14px rgba(255, 220, 80, 0.85), 0 3px 6px rgba(0, 0, 0, 0.25);
+  }
+  .card .icon-wrap {
+    width: 100%;
+    height: 64px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card .icon {
+    width: 46px;
+    height: 46px;
+    position: relative;
+  }
+  /* Plant icons drawn with CSS for crisp consistent feel. */
+  .icon.sunflower {
+    background: radial-gradient(circle at 35% 35%, #fff5cc, #f5c83c 55%, #c08c10 100%);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(245, 200, 60, 0.6), inset 0 -3px 4px rgba(80, 50, 0, 0.4);
+  }
+  .icon.peashooter {
+    background: linear-gradient(135deg, #4dd16a 30%, #2a8a3c);
+    border-radius: 50%;
+    box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.35);
+  }
+  .icon.peashooter::after {
+    content: ''; position: absolute; right: -4px; top: 18px;
+    width: 10px; height: 10px; background: #1a5a26;
+    border-radius: 50%;
+  }
+  .icon.wallnut {
+    background: radial-gradient(circle at 30% 30%, #d8a268, #8b5a2c 60%, #4d2f12 100%);
+    border-radius: 50%;
+    box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.35);
+  }
+  .icon.cherry {
+    background: radial-gradient(circle at 30% 30%, #ff7070, #d61b1b 55%, #6b0a0a 100%);
+    border-radius: 50%;
+    box-shadow: inset 0 -3px 5px rgba(0, 0, 0, 0.4), 0 0 10px rgba(255, 80, 80, 0.55);
+    position: relative;
+  }
+  .icon.cherry::before {
+    content: ''; position: absolute; right: 4px; bottom: 30px;
+    width: 4px; height: 14px; background: #2c4f1a;
+    transform: rotate(20deg); border-radius: 1px;
+  }
+  .card .cost {
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: #4a2f08;
+  }
+  .card .cooldown-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 10, 0, 0.7);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    font-weight: 800;
+    border-radius: 7px;
+    transform-origin: bottom;
+    transition: transform 0.18s linear;
+  }
+  .card .key-hint {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #6b4f15;
+    background: rgba(255, 255, 255, 0.6);
+    padding: 1px 4px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+
+  /* Wave indicator top-right */
+  .wave-indicator {
+    position: fixed;
+    top: 14px;
+    right: 18px;
+    background: rgba(40, 25, 10, 0.78);
+    color: #f3eccd;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 2px solid rgba(110, 80, 30, 0.7);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+  }
+  .wave-indicator .wave-line {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .wave-indicator .wave-line .num { color: #ffd16a; }
+  .wave-indicator .alive {
+    margin-top: 3px;
+    font-size: 10px;
+    color: #ddc78c;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Bottom info bar — armed plant prompt */
+  .armed-bar {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40, 25, 10, 0.85);
+    color: #ffe07a;
+    padding: 7px 16px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 200, 80, 0.5);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 5;
+  }
+  .armed-bar.show { opacity: 1; }
+  .armed-bar .esc-hint {
+    color: #b09060;
+    font-size: 10px;
+    margin-left: 10px;
+    letter-spacing: 0.5px;
+    text-transform: none;
+  }
+</style>
+</head>
+<body>
+<div class="sun-counter" id="sunCounter">
+  <div class="sun-icon"></div>
+  <div class="sun-num" id="sunNum">0</div>
+</div>
+
+<div class="palette" id="palette">
+  <div class="card" data-kind="sunflower">
+    <span class="key-hint">1</span>
+    <div class="icon-wrap"><div class="icon sunflower"></div></div>
+    <div class="cost" id="cost-sunflower">50</div>
+    <div class="cooldown-overlay" id="cd-sunflower" style="display:none">0</div>
+  </div>
+  <div class="card" data-kind="peashooter">
+    <span class="key-hint">2</span>
+    <div class="icon-wrap"><div class="icon peashooter"></div></div>
+    <div class="cost" id="cost-peashooter">100</div>
+    <div class="cooldown-overlay" id="cd-peashooter" style="display:none">0</div>
+  </div>
+  <div class="card" data-kind="wallnut">
+    <span class="key-hint">3</span>
+    <div class="icon-wrap"><div class="icon wallnut"></div></div>
+    <div class="cost" id="cost-wallnut">50</div>
+    <div class="cooldown-overlay" id="cd-wallnut" style="display:none">0</div>
+  </div>
+  <div class="card" data-kind="cherry">
+    <span class="key-hint">4</span>
+    <div class="icon-wrap"><div class="icon cherry"></div></div>
+    <div class="cost" id="cost-cherry">150</div>
+    <div class="cooldown-overlay" id="cd-cherry" style="display:none">0</div>
+  </div>
+</div>
+
+<div class="wave-indicator">
+  <div class="wave-line">Wave <span class="num" id="waveNum">0</span> / <span id="totalNum">5</span></div>
+  <div class="alive" id="aliveNum">— still incoming —</div>
+</div>
+
+<div class="armed-bar" id="armedBar">Click an empty cell to plant <span class="esc-hint">[Esc / right-click to cancel]</span></div>
+
+<script>
+(function () {
+  var sunNum = document.getElementById('sunNum');
+  var waveNum = document.getElementById('waveNum');
+  var totalNum = document.getElementById('totalNum');
+  var aliveNum = document.getElementById('aliveNum');
+  var armedBar = document.getElementById('armedBar');
+  var palette = document.getElementById('palette');
+
+  var cardEls = {};
+  var cardCostEls = {};
+  var cardCdEls = {};
+  ['sunflower', 'peashooter', 'wallnut', 'cherry'].forEach(function (k) {
+    cardEls[k] = palette.querySelector('.card[data-kind="' + k + '"]');
+    cardCostEls[k] = document.getElementById('cost-' + k);
+    cardCdEls[k] = document.getElementById('cd-' + k);
+  });
+
+  // Card click → emit ui_command. The engine listens for
+  // ui_event:hud/lawn_defenders_hud:select_plant via the standard
+  // UIBridge plumbing, same shape as every other lobby + HUD button.
+  Object.keys(cardEls).forEach(function (kind) {
+    cardEls[kind].addEventListener('click', function () {
+      window.parent.postMessage({
+        type: 'ui_command',
+        action: 'select_plant',
+        panel: 'hud/lawn_defenders_hud',
+        payload: { plant: kind },
+      }, '*');
+    });
+  });
+  // Right-click anywhere (when over palette) cancels the armed plant.
+  palette.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    window.parent.postMessage({
+      type: 'ui_command',
+      action: 'cancel_plant',
+      panel: 'hud/lawn_defenders_hud',
+      payload: {},
+    }, '*');
+  });
+
+  function render(state) {
+    if (!state) return;
+    var s = state.lawnHud;
+    if (!s) return;
+    sunNum.textContent = String(s.sun || 0);
+    waveNum.textContent = String(s.wave || 0);
+    totalNum.textContent = String(s.totalWaves || 5);
+    if (s.queueRemaining > 0 || s.aliveZombies > 0) {
+      aliveNum.textContent = (s.aliveZombies || 0) + ' undead afield · ' + (s.queueRemaining || 0) + ' incoming';
+    } else if (s.wave > 0) {
+      aliveNum.textContent = 'lull before the next wave…';
+    } else {
+      aliveNum.textContent = 'wave 1 incoming';
+    }
+
+    // Per-card affordability + cooldown overlay.
+    var cards = s.cards || [];
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      var el = cardEls[c.kind];
+      if (!el) continue;
+      cardCostEls[c.kind].textContent = String(c.cost || 0);
+      el.classList.toggle('disabled', !c.affordable);
+      el.classList.toggle('armed', s.armed === c.kind);
+      var cd = cardCdEls[c.kind];
+      if (c.cooldown > 0.05) {
+        cd.style.display = '';
+        cd.textContent = c.cooldown.toFixed(1);
+      } else {
+        cd.style.display = 'none';
+      }
+    }
+
+    if (s.armed) {
+      armedBar.classList.add('show');
+      document.body.classList.add('armed');
+    } else {
+      armedBar.classList.remove('show');
+      document.body.classList.remove('armed');
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    render(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>
