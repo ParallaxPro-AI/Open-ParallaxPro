@@ -109,7 +109,7 @@ export class ProjectListView {
         notice.className = 'project-list-notice';
         notice.textContent =
             'We may restart the servers at any time as we iterate and flush out issues — apologies for the bumps! ' +
-            'Your projects are always saved, but a long-running AI build (CREATE_GAME) could be killed mid-way and you\'ll need to retry it.';
+            'Your projects are always saved, but a long-running AI build could be killed mid-way and you\'ll need to retry it.';
         this.el.appendChild(notice);
 
         this.toolbarEl = document.createElement('div');
