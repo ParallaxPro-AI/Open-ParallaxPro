@@ -39,6 +39,20 @@ const RTC_CONFIG: RTCConfiguration = {
 const DATA_CHANNEL_LABEL = 'gamedata';
 const CONNECT_TIMEOUT_MS = 15_000;
 const VOICE_RECONCILE_MS = 2000;
+/**
+ * Grace period before we tear down a peer whose connection went
+ * 'disconnected'. That state is almost always transient on the public
+ * internet — brief packet loss or a Wi-Fi handoff flips ICE into
+ * disconnected and the browser's keepalive will usually pull it back
+ * to 'connected' within a few seconds. Tearing down immediately (as
+ * we did before) killed any cross-country / cross-continent match
+ * the moment a single burst of packet loss hit, which the user saw
+ * as "game goes back to main menu" mid-play.
+ *
+ * Only 'failed' or 'closed' are truly terminal; give 'disconnected'
+ * this long to recover on its own before giving up.
+ */
+const DISCONNECTED_GRACE_MS = 10_000;
 
 export type PeerId = string;
 
@@ -61,6 +75,8 @@ interface PeerInfo {
     pendingIce: RTCIceCandidateInit[];
     remoteDescSet: boolean;
     connectionTimeout: ReturnType<typeof setTimeout> | null;
+    /** Active grace-period timer while connectionState is 'disconnected'. */
+    disconnectGraceTimer: ReturnType<typeof setTimeout> | null;
     // Voice bits
     remoteAudioStream: MediaStream | null;
     outgoingAudioSender: RTCRtpSender | null;
@@ -161,6 +177,7 @@ export class WebRTCManager {
             outgoingAudioSender: null,
             audioTransceiver: null,
             makingOffer: false,
+            disconnectGraceTimer: null,
         };
         this.peers.set(peerId, info);
 
@@ -172,8 +189,34 @@ export class WebRTCManager {
 
         pc.onconnectionstatechange = () => {
             const state = pc.connectionState;
-            if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+            if (state === 'failed' || state === 'closed') {
+                if (info.disconnectGraceTimer) {
+                    clearTimeout(info.disconnectGraceTimer);
+                    info.disconnectGraceTimer = null;
+                }
                 this.teardown(peerId);
+                return;
+            }
+            if (state === 'disconnected') {
+                // Hold off — most 'disconnected' events recover on their own
+                // when the next ICE keepalive arrives. Only tear down if the
+                // peer is still disconnected after the grace window.
+                if (info.disconnectGraceTimer) return;
+                info.disconnectGraceTimer = setTimeout(() => {
+                    info.disconnectGraceTimer = null;
+                    if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                        console.warn(`[WebRTC] Peer ${peerId} still disconnected after ${DISCONNECTED_GRACE_MS}ms — tearing down`);
+                        this.teardown(peerId);
+                    }
+                }, DISCONNECTED_GRACE_MS);
+                return;
+            }
+            if (state === 'connected') {
+                // Recovered — cancel any pending teardown.
+                if (info.disconnectGraceTimer) {
+                    clearTimeout(info.disconnectGraceTimer);
+                    info.disconnectGraceTimer = null;
+                }
             }
         };
 
@@ -507,6 +550,7 @@ export class WebRTCManager {
         const info = this.peers.get(peerId);
         if (!info) return;
         if (info.connectionTimeout) { clearTimeout(info.connectionTimeout); info.connectionTimeout = null; }
+        if (info.disconnectGraceTimer) { clearTimeout(info.disconnectGraceTimer); info.disconnectGraceTimer = null; }
         try { info.channel?.close(); } catch { /* ignored */ }
         try { info.connection.close(); } catch { /* ignored */ }
         this.peers.delete(peerId);
