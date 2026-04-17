@@ -559,10 +559,38 @@ function handleProjectSave(client: EditorClient, data: any): void {
     send(client, 'project_saved', { success: true });
 }
 
+/**
+ * Runs every plugin's checkLLMBudget hook (hosted usage plugin is the
+ * only one that implements it today) and returns the refusal message
+ * if the user is over their cap. Null when everyone allows. Used to
+ * gate all the paths that actually cost money: LLM chat, direct
+ * fixer, CREATE_GAME via LLM tool, CREATE_GAME via button.
+ */
+async function checkBudgetOrBlock(client: EditorClient): Promise<string | null> {
+    for (const p of _plugins) {
+        if (!p.checkLLMBudget) continue;
+        const budget = await p.checkLLMBudget(client);
+        if (!budget.allowed) {
+            return budget.error || 'Token usage limit reached. Upgrade your plan or wait until next month.';
+        }
+    }
+    return null;
+}
+
 async function handleConfirmCreateGame(client: EditorClient, data: any): Promise<void> {
     const description = typeof data?.description === 'string' ? data.description.trim() : '';
     if (!description) {
         send(client, 'create_game_offer_error', { error: 'Missing description — the button click had no game brief attached.' });
+        return;
+    }
+
+    // Budget gate — button-click path bypasses the chat LLM which
+    // normally gates usage, so enforce here too. Refuses before we
+    // insert synthetic history entries (don't want a fake "yes" sitting
+    // in the log for a build that never started).
+    const blockedByBudget = await checkBudgetOrBlock(client);
+    if (blockedByBudget) {
+        send(client, 'create_game_offer_error', { error: blockedByBudget });
         return;
     }
 
@@ -708,6 +736,16 @@ function handleChatMessage(client: EditorClient, data: any): void {
 async function runDirectFixer(client: EditorClient, description: string, cliOverride: string, abortController: AbortController): Promise<void> {
     const sendStatus = (msg: string) => send(client, 'fix_progress', { text: msg });
     try {
+        // Budget gate — the direct-agent path skips the chat LLM (which
+        // normally enforces the cap), so the user could otherwise keep
+        // running the fixer indefinitely for free by picking an agent
+        // in the dropdown. Enforce the same check here.
+        const blockedByBudget = await checkBudgetOrBlock(client);
+        if (blockedByBudget) {
+            finishChat(client, blockedByBudget);
+            return;
+        }
+
         const pd = readProjectData(client.projectId);
         if (!pd || isLegacyProjectData(pd)) {
             finishChat(client, '*Project files unavailable — cannot run fixer.*');
@@ -895,15 +933,10 @@ async function runLLMWithRetry(
         }
     }
 
-    // Check budget before LLM call
-    for (const p of _plugins) {
-        if (p.checkLLMBudget) {
-            const budget = await p.checkLLMBudget(client);
-            if (!budget.allowed) {
-                finishChat(client, budget.error || 'Token usage limit reached. Please upgrade your plan.');
-                return;
-            }
-        }
+    const blockedByBudget = await checkBudgetOrBlock(client);
+    if (blockedByBudget) {
+        finishChat(client, blockedByBudget);
+        return;
     }
 
     callLLMStream(messages, {
