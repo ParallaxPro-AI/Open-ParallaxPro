@@ -60,18 +60,30 @@ class MpBridge extends GameScript {
             // protocol they shipped against when we eventually ship /v2.
             url = proto + "//" + window.location.host + "/ws/multiplayer/v1";
         }
-        // Forward the user's auth token if present so the lobby server can
-        // surface the real username (instead of guest-xxx) and gate
-        // protected resources like Cloudflare TURN credentials behind a
-        // verified account.
+        // Forward an auth credential so the lobby server can surface the
+        // real username (instead of guest-xxx) and gate protected
+        // resources like Cloudflare TURN credentials behind a verified
+        // account.
+        //
+        // Prefer the postMessage bootstrap ticket when we're inside the
+        // parallaxpro.ai /games/:owner/:slug wrapper — the iframe runs
+        // sandboxed without allow-same-origin, so localStorage is
+        // unreadable there. Fall back to localStorage for direct
+        // navigation + the editor preview tabs.
         try {
-            if (typeof localStorage !== "undefined" && url) {
+            if (!url) throw new Error('no signaling url');
+            var getBootstrap = (typeof window !== "undefined") && (window as any).__ppPlayBootstrap;
+            var bootstrap = getBootstrap ? getBootstrap() : null;
+            var ticket = bootstrap && bootstrap.mpTicket;
+            if (ticket) {
+                url += (url.indexOf("?") >= 0 ? "&" : "?") + "ticket=" + encodeURIComponent(ticket);
+            } else if (typeof localStorage !== "undefined") {
                 var token = localStorage.getItem("auth_token") || localStorage.getItem("token") || "";
                 if (token) {
                     url += (url.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(token);
                 }
             }
-        } catch (e) { /* localStorage unavailable */ }
+        } catch (e) { /* localStorage unavailable or no url */ }
         // Editor multiplayer preview: both the host tab and any "+ Preview
         // Client" tabs send the same auth token and would otherwise show
         // up as the same username. Tag preview tabs with a stable per-tab

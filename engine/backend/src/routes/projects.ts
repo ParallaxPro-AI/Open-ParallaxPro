@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
+import { createWsTicket } from '../ws/ws_tickets.js';
 import db from '../db/connection.js';
 import type { EnginePlugin } from '../plugin.js';
 import {
@@ -37,11 +38,27 @@ if (!fs.existsSync(FEEDBACKS_DIR)) fs.mkdirSync(FEEDBACKS_DIR, { recursive: true
 export const THUMBNAIL_DIR = path.resolve(__dirname_proj, '../../uploads/thumbnails');
 if (!fs.existsSync(THUMBNAIL_DIR)) fs.mkdirSync(THUMBNAIL_DIR, { recursive: true });
 
+// Canonical image mimetype → on-disk extension. The stored file is
+// served by express.static, which derives Content-Type from the
+// extension — so trusting `originalname` would let a caller store an
+// `.html` blob under /uploads/thumbnails/ and XSS it back to viewers.
+// This map is the only source of truth for the extension server-side.
+const IMAGE_MIME_EXT: Record<string, string> = {
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+};
+export function extForImageMime(mime: string): string {
+    return IMAGE_MIME_EXT[mime] ?? '.png';
+}
+
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024, files: 5 },
     fileFilter: (_req, file, cb) => {
-        cb(null, file.mimetype.startsWith('image/'));
+        // Only accept mimetypes we know how to render safely.
+        cb(null, file.mimetype in IMAGE_MIME_EXT);
     },
 });
 
@@ -49,7 +66,7 @@ const thumbnailUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
-        cb(null, ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.mimetype));
+        cb(null, file.mimetype in IMAGE_MIME_EXT);
     },
 });
 
@@ -528,7 +545,10 @@ router.post('/:id/thumbnail', thumbnailUpload.single('thumbnail'), (req, res) =>
     if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
     if (!req.file) { res.status(400).json({ error: 'No valid image file provided.' }); return; }
 
-    const ext = path.extname(req.file.originalname).toLowerCase() || '.png';
+    // Extension is derived from the mimetype that passed the multer filter,
+    // not from the client-supplied filename. Prevents `.html` / `.svg` uploads
+    // from being served with an HTML content-type by express.static.
+    const ext = extForImageMime(req.file.mimetype);
     const filename = `${req.params.id}${ext}`;
     try {
         fs.writeFileSync(path.join(THUMBNAIL_DIR, filename), req.file.buffer);
@@ -582,17 +602,34 @@ router.post('/:id/feedback', upload.array('images', 5), (req, res) => {
     // Save message
     fs.writeFileSync(path.join(feedbackDir, 'message.txt'), `User: ${req.user!.username} (id: ${req.user!.id})\nProject: ${req.params.id}\nTime: ${new Date().toISOString()}\n\n${message}`);
 
-    // Save images
+    // Save images. Use mimetype → extension (not originalname) so a
+    // caller can't store `.html` / `.svg` that the admin endpoint would
+    // later serve with an HTML/SVG content-type.
     const files = req.files as Express.Multer.File[];
     if (files && files.length > 0) {
         for (let i = 0; i < files.length; i++) {
-            const ext = path.extname(files[i].originalname) || '.png';
+            const ext = extForImageMime(files[i].mimetype);
             fs.writeFileSync(path.join(feedbackDir, `image_${i + 1}${ext}`), files[i].buffer);
         }
     }
 
     console.log(`[Feedback] Saved to ${feedbackDir} (${files?.length || 0} images)`);
     res.json({ success: true });
+});
+
+// Short-lived (30s), one-time-use ticket that the /play iframe uses to
+// authenticate to the multiplayer WebSocket. The iframe is now sandboxed
+// without `allow-same-origin`, so it can't read the user's JWT from
+// localStorage — we mint a narrowly-scoped ticket here on the parent's
+// behalf, the parent postMessages it into the iframe, and the WS handler
+// consumes it. Blast radius if an attacker-authored game exfiltrates the
+// ticket: one multiplayer session join as this user, not the full 7-day
+// JWT that backs every account action.
+router.post('/ws-ticket', (req, res) => {
+    const authHeader = req.headers.authorization;
+    const authToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const ticket = createWsTicket(req.user!, authToken);
+    res.json({ ticket, expiresInSec: 30 });
 });
 
 /**

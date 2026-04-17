@@ -79,6 +79,51 @@ function showGuestBanner(): void {
 const scrollKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'PageUp', 'PageDown']);
 window.addEventListener('keydown', (e) => { if (scrollKeys.has(e.key)) e.preventDefault(); });
 
+/**
+ * When /play/... is embedded in the parallaxpro.ai PlayGamePage iframe, the
+ * iframe is sandboxed *without* allow-same-origin — so localStorage is
+ * unreadable and the 7-day JWT that used to live there is unreachable. The
+ * parent posts us a bootstrap payload containing the game data (pre-fetched
+ * with auth, so private games still load) and a short-lived multiplayer WS
+ * ticket. When running as a top-level document (or in an older build that
+ * still has allow-same-origin), no bootstrap arrives and we fall back to
+ * the original localStorage + fetch path.
+ */
+interface PlayBootstrap {
+    game: any;
+    user: { id: number; username: string; email: string } | null;
+    mpTicket: string | null;
+}
+let _cachedBootstrap: PlayBootstrap | null = null;
+function waitForBootstrap(timeoutMs: number): Promise<PlayBootstrap | null> {
+    // Only worth waiting when we're actually in an iframe — otherwise we'd
+    // just stall the boot for no reason.
+    if (window.parent === window) return Promise.resolve(null);
+    if (_cachedBootstrap) return Promise.resolve(_cachedBootstrap);
+    return new Promise((resolve) => {
+        let settled = false;
+        const onMsg = (e: MessageEvent) => {
+            const d = e.data;
+            if (!d || d.type !== 'pp-play-bootstrap') return;
+            settled = true;
+            window.removeEventListener('message', onMsg);
+            _cachedBootstrap = { game: d.game, user: d.user, mpTicket: d.mpTicket };
+            resolve(_cachedBootstrap);
+        };
+        window.addEventListener('message', onMsg);
+        setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            window.removeEventListener('message', onMsg);
+            resolve(null);
+        }, timeoutMs);
+    });
+}
+
+// Publicize for multiplayer_manager.ts etc. so they can use the ticket
+// rather than trying (and failing) to read localStorage in the sandbox.
+(window as any).__ppPlayBootstrap = () => _cachedBootstrap;
+
 async function boot(): Promise<void> {
     const pathParts = window.location.pathname.replace(/^\/play\/?/, '').split('/').filter(Boolean);
 
@@ -105,8 +150,18 @@ async function boot(): Promise<void> {
         return;
     }
 
-    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-    const isLoggedIn = !!token;
+    // In a sandboxed iframe (the /games/:owner/:slug wrapper), the parent
+    // posts a bootstrap with pre-fetched gameData + mp ticket. Outside an
+    // iframe this returns null quickly.
+    const bootstrap = await waitForBootstrap(1500);
+
+    // localStorage is unreadable in an opaque-origin sandbox (throws or
+    // returns empty). Guard it so we degrade gracefully rather than crash.
+    let token: string | null = null;
+    try {
+        token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+    } catch { token = null; }
+    const isLoggedIn = !!token || !!bootstrap?.user;
 
     if (isMultiplayerJoin && !isLoggedIn) {
         navigateTopToSignup();
@@ -130,6 +185,11 @@ async function boot(): Promise<void> {
             showError('Network error. Please try again.');
             return;
         }
+    } else if (bootstrap?.game) {
+        // Parent already fetched (with auth, so private games work) and
+        // handed us the game data. Skip our own fetch — in the sandbox it
+        // would be CORS-blocked anyway now that the iframe is opaque-origin.
+        gameData = bootstrap.game;
     } else {
         const owner = queryOwner || pathParts[0];
         const slug = querySlug || pathParts[1];
@@ -239,7 +299,10 @@ async function boot(): Promise<void> {
 
     if (gameData.id) ctx.state.projectId = gameData.id;
 
-    const quality = (localStorage.getItem('graphics_quality') as 'low' | 'medium' | 'high') ?? 'medium';
+    // Sandboxed opaque-origin iframes make localStorage throw — guard so
+    // the game still boots with the default quality instead of dying.
+    let quality: 'low' | 'medium' | 'high' = 'medium';
+    try { quality = (localStorage.getItem('graphics_quality') as any) ?? 'medium'; } catch {}
     ctx.setGraphicsQuality(quality);
 
     ctx.ensurePrimitiveMeshes();
@@ -296,7 +359,8 @@ async function boot(): Promise<void> {
     });
     settingsPanel.addEventListener('click', (e) => e.stopPropagation());
 
-    const currentQuality = localStorage.getItem('graphics_quality') || 'medium';
+    let currentQuality = 'medium';
+    try { currentQuality = localStorage.getItem('graphics_quality') || 'medium'; } catch {}
     const qualityBtns = settingsPanel.querySelectorAll('.quality-btn');
     qualityBtns.forEach((btn) => {
         if ((btn as HTMLElement).dataset.quality === currentQuality) {
@@ -304,7 +368,7 @@ async function boot(): Promise<void> {
         }
         btn.addEventListener('click', () => {
             const q = (btn as HTMLElement).dataset.quality as 'low' | 'medium' | 'high';
-            localStorage.setItem('graphics_quality', q);
+            try { localStorage.setItem('graphics_quality', q); } catch {}
             ctx.setGraphicsQuality(q);
             qualityBtns.forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');

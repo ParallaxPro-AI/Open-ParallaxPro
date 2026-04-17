@@ -102,7 +102,12 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // resolve at /uploads/thumbnails/<id>.<ext>. Import lazily so the
     // routes module has already initialised the directory.
     const { THUMBNAIL_DIR } = await import('./routes/projects.js');
-    app.use('/uploads/thumbnails', express.static(THUMBNAIL_DIR, { maxAge: '1d' }));
+    app.use('/uploads/thumbnails', express.static(THUMBNAIL_DIR, {
+        maxAge: '1d',
+        // Defense-in-depth: even if a non-image somehow lands in the
+        // thumbnail dir, browsers won't sniff it into HTML/JS.
+        setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff'); },
+    }));
 
     // Static asset serving — local files first, fallback to CDN redirect for self-hosted
     app.use('/assets', express.static(config.assetsDir, { maxAge: '1y', immutable: true }));

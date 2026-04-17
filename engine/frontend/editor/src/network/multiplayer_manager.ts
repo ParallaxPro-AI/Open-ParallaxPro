@@ -112,9 +112,21 @@ export class MultiplayerManager {
 
     private _connectWs(onOpen: (resolve: (v: any) => void) => void): Promise<string> {
         return new Promise((resolve, reject) => {
-            const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token') ?? '';
+            // Prefer the postMessage bootstrap ticket when we're running in
+            // the sandboxed /play iframe — that's the only credential we
+            // have there, since localStorage is unreadable. Outside the
+            // iframe, fall back to the JWT in localStorage.
+            const bootstrap = (window as any).__ppPlayBootstrap?.();
+            const ticket: string | null = bootstrap?.mpTicket ?? null;
+            let token = '';
+            if (!ticket) {
+                try {
+                    token = localStorage.getItem('auth_token') ?? localStorage.getItem('token') ?? '';
+                } catch { token = ''; }
+            }
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const url = `${protocol}//${window.location.host}/ws/multiplayer?token=${token}`;
+            const authParam = ticket ? `ticket=${encodeURIComponent(ticket)}` : `token=${encodeURIComponent(token)}`;
+            const url = `${protocol}//${window.location.host}/ws/multiplayer?${authParam}`;
 
             this.ws = new WebSocket(url);
             let resolved = false;
