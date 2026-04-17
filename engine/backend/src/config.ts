@@ -22,11 +22,13 @@ function envInt(key: string, fallback: number): number {
     return v ? parseInt(v, 10) : fallback;
 }
 
+const DEV_JWT_SECRET = 'dev-secret';
+
 export const config = {
     port: envInt('PORT', 3003),
     nodeEnv: envString('NODE_ENV', 'development'),
     isDev: envString('NODE_ENV', 'development') !== 'production',
-    jwtSecret: envString('JWT_SECRET', 'dev-secret'),
+    jwtSecret: envString('JWT_SECRET', DEV_JWT_SECRET),
     corsOrigins: process.env.CORS_ORIGINS
         ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
         : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
@@ -47,3 +49,13 @@ export const config = {
         timeout: envInt('FIXER_TIMEOUT', 1200000),
     },
 };
+
+// Fail closed if a prod deploy forgot to set JWT_SECRET. Without this, the
+// fallback above would silently keep using the public dev-secret and every
+// issued JWT would be forgeable by anyone who read this file on GitHub.
+if (!config.isDev && config.jwtSecret === DEV_JWT_SECRET) {
+    throw new Error(
+        'JWT_SECRET is unset in a NODE_ENV=production process. Refusing to boot. ' +
+        'Set JWT_SECRET in the pm2 env to a long random string.'
+    );
+}
