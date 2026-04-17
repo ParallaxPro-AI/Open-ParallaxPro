@@ -201,6 +201,10 @@
     cursor: pointer;
     transition: all var(--transition-normal);
     position: relative;
+    /* Uniform height across variants (published cards render an extra
+       link row) so recomputePageSize() measures a stable cardH and
+       pagination can't flip-flop between sizes. */
+    min-height: 240px;
 }
 
 .project-card:hover {
