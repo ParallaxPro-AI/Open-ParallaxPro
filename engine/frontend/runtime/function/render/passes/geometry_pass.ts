@@ -19,6 +19,11 @@ export class GeometryPass {
     private resources: GPUResourceManager | null = null;
     private canvasFormat: GPUTextureFormat = 'bgra8unorm';
 
+    // Pass variant currently being executed. Set by each execute*() method
+    // before drawMeshes runs so pipeline selection matches the pass's
+    // attachment state rather than being guessed from `quality`.
+    private activePassVariant: 'standard' | 'mrt' | 'msaa' = 'standard';
+
     // Opaque pipelines (one per quality mode)
     private pipelineStandard: GPURenderPipeline | null = null;
     private pipelineMRT: GPURenderPipeline | null = null;
@@ -866,6 +871,7 @@ export class GeometryPass {
             depthStencilAttachment: { view: depthView, depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' },
         });
 
+        this.activePassVariant = 'standard';
         this.modelPoolIndex = 0;
         renderPass.setPipeline(this.pipelineStandard!);
         renderPass.setBindGroup(0, this.cameraBindGroup!);
@@ -896,6 +902,7 @@ export class GeometryPass {
             depthStencilAttachment: { view: this.depthTextureView!, depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' },
         });
 
+        this.activePassVariant = 'mrt';
         this.modelPoolIndex = 0;
         renderPass.setPipeline(this.pipelineMRT!);
         renderPass.setBindGroup(0, this.cameraBindGroup!);
@@ -926,6 +933,7 @@ export class GeometryPass {
             depthStencilAttachment: { view: this.msaaDepthTextureView!, depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'discard' },
         });
 
+        this.activePassVariant = 'msaa';
         this.modelPoolIndex = 0;
         renderPass.setPipeline(this.pipelineMSAA!);
         renderPass.setBindGroup(0, this.cameraBindGroup!);
@@ -1000,27 +1008,34 @@ export class GeometryPass {
         }
     }
 
+    // Pipeline selection is keyed off the variant of the pass currently
+    // being executed (set by execute*() just before calling drawMeshes),
+    // not off `quality` directly. Earlier versions selected by quality,
+    // which gave LOW the standard pipeline while it was routed through
+    // the MRT pass — an attachment-state mismatch WebGPU rejected, which
+    // showed up as a blue screen on LOW graphics.
+
     private getSkinnedPipeline(): GPURenderPipeline {
-        if (this.quality === 'high') return this.skinnedPipelineMSAA!;
-        if (this.quality === 'medium') return this.skinnedPipelineMRT!;
+        if (this.activePassVariant === 'msaa') return this.skinnedPipelineMSAA!;
+        if (this.activePassVariant === 'mrt') return this.skinnedPipelineMRT!;
         return this.skinnedPipelineStandard!;
     }
 
     private getActivePipeline(): GPURenderPipeline {
-        if (this.quality === 'high') return this.pipelineMSAA!;
-        if (this.quality === 'medium') return this.pipelineMRT!;
+        if (this.activePassVariant === 'msaa') return this.pipelineMSAA!;
+        if (this.activePassVariant === 'mrt') return this.pipelineMRT!;
         return this.pipelineStandard!;
     }
 
     private getBuildingPipeline(): GPURenderPipeline {
-        if (this.quality === 'high') return this.buildingPipelineMSAA!;
-        if (this.quality === 'medium') return this.buildingPipelineMRT!;
+        if (this.activePassVariant === 'msaa') return this.buildingPipelineMSAA!;
+        if (this.activePassVariant === 'mrt') return this.buildingPipelineMRT!;
         return this.buildingPipelineStandard!;
     }
 
     private getTerrainPipeline(): GPURenderPipeline {
-        if (this.quality === 'high') return this.terrainPipelineMSAA!;
-        if (this.quality === 'medium') return this.terrainPipelineMRT!;
+        if (this.activePassVariant === 'msaa') return this.terrainPipelineMSAA!;
+        if (this.activePassVariant === 'mrt') return this.terrainPipelineMRT!;
         return this.terrainPipelineStandard!;
     }
 
