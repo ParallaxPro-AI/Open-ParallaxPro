@@ -30,6 +30,7 @@ import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI 
 import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
+import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -99,7 +100,7 @@ export async function runCreator(
 
     try {
         sendStatus?.('Setting up creation sandbox...');
-        createSandbox(sandboxDir);
+        await createSandbox(sandboxDir, description);
 
         // Drop the config where validate_assembler.js can find it. Done
         // after createSandbox (which rewrites assets) so we don't race
@@ -266,7 +267,7 @@ function deriveTemplateId(description: string): string {
 
 // ─── Sandbox creation ──────────────────────────────────────────────────────
 
-function createSandbox(sandboxDir: string): void {
+async function createSandbox(sandboxDir: string, description: string): Promise<void> {
     // sandboxDir is freshly created by mkdtempSync in the caller — already
     // exists and is empty, so no nuke-and-recreate needed here.
 
@@ -281,15 +282,24 @@ function createSandbox(sandboxDir: string): void {
     }
     writeFilesToDir(seed, projectDir);
 
-    // Reference: read-only library for the agent to inspect/copy from.
+    // Reference: game_templates kept whole (40 templates × 4 small JSONs —
+    // cheap and the agent picks one by name). behaviors/systems/ui are
+    // filtered by semantic similarity to the game description so the agent
+    // isn't swimming through hundreds of irrelevant files.
     const refDir = path.join(sandboxDir, 'reference');
     copyDirRecursive(path.join(RGC_DIR, 'game_templates', 'v0.1'), path.join(refDir, 'game_templates'));
-    copyDirRecursive(path.join(RGC_DIR, 'behaviors', 'v0.1'), path.join(refDir, 'behaviors'));
-    copyDirRecursive(path.join(RGC_DIR, 'systems', 'v0.1'), path.join(refDir, 'systems'));
-    copyDirRecursive(path.join(RGC_DIR, 'ui', 'v0.1'), path.join(refDir, 'ui'));
 
+    const picks = await pickRelevantLibrary(description);
+    copyPickedLibraryFiles(picks, refDir);
+
+    // Auto-loaded agent instructions. Each CLI picks up its own convention
+    // (claude → CLAUDE.md, codex/opencode/copilot → AGENTS.md) without a
+    // tool-call Read, saving a turn per run and letting Claude's prompt
+    // cache hit across sessions.
     if (fs.existsSync(CREATOR_CONTEXT_PATH)) {
-        fs.copyFileSync(CREATOR_CONTEXT_PATH, path.join(sandboxDir, 'CONTEXT.md'));
+        const ctx = fs.readFileSync(CREATOR_CONTEXT_PATH, 'utf-8');
+        fs.writeFileSync(path.join(sandboxDir, 'CLAUDE.md'), ctx);
+        fs.writeFileSync(path.join(sandboxDir, 'AGENTS.md'), ctx);
     }
 
     // Asset catalogs.
@@ -487,7 +497,9 @@ if (errors.length === 0) {
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
-const CREATOR_PROMPT = `Read TASK.md for the game description AND the list of valid game events — you MUST only use events from that list. Read CONTEXT.md for template format docs. Browse assets/ for available 3D models, audio, textures. Look at reference/game_templates/ for examples. The project lives in project/ — fill in 01-04 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ directly there. After creating, run "bash validate.sh" and fix any errors.`;
+// Template-format docs + rules live in CLAUDE.md / AGENTS.md, which each CLI
+// auto-loads into its system prompt — no Read call needed.
+const CREATOR_PROMPT = `Read TASK.md for the game description and baseline event list — use those events unless you add a new one to project/systems/event_definitions.ts. Browse assets/ for 3D models, audio, textures. reference/game_templates/ has working examples; reference/behaviors|systems|ui/ has library files to copy into project/. Fill in the 4 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ under project/. Run "bash validate.sh" when done and fix any errors.`;
 
 function creatorStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {

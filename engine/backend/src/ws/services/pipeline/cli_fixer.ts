@@ -24,6 +24,7 @@ import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files
 import { assembleGame } from './level_assembler.js';
 import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
 import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
+import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
@@ -76,7 +77,7 @@ export async function runFixer(
 
     try {
         sendStatus?.('Setting up sandbox...');
-        createSandbox(sandboxDir, projectFiles);
+        await createSandbox(sandboxDir, projectFiles, description);
 
         const projectSummary = buildProjectSummary(sandboxDir, projectFiles, activeSceneKey);
         fs.writeFileSync(
@@ -132,7 +133,11 @@ export async function runFixer(
 
 // ─── Sandbox creation ──────────────────────────────────────────────────────
 
-function createSandbox(sandboxDir: string, projectFiles: ProjectFiles): void {
+async function createSandbox(
+    sandboxDir: string,
+    projectFiles: ProjectFiles,
+    description: string,
+): Promise<void> {
     // sandboxDir is freshly created by mkdtempSync in the caller — already
     // exists and is empty, so no nuke-and-recreate needed here.
 
@@ -140,39 +145,31 @@ function createSandbox(sandboxDir: string, projectFiles: ProjectFiles): void {
     const projectDir = path.join(sandboxDir, 'project');
     writeFilesToDir(projectFiles, projectDir);
 
-    // Reference: read-only copies of the shared library so the fixer can
-    // discover behaviors/systems/UI panels not yet pinned to the project.
+    // Reference: filtered by semantic similarity to the bug report. Instead
+    // of dumping 276 library files for every fix, we ship only the top
+    // candidates — the agent still has escape hatches to pull more in, but
+    // its default exploration surface is tiny.
     const refDir = path.join(sandboxDir, 'reference');
     fs.mkdirSync(refDir, { recursive: true });
 
-    const behaviorsDir = path.join(RGC_DIR, 'behaviors', 'v0.1');
-    if (fs.existsSync(behaviorsDir)) copyDirRecursive(behaviorsDir, path.join(refDir, 'behaviors'));
-
-    const systemsDir = path.join(RGC_DIR, 'systems', 'v0.1');
-    if (fs.existsSync(systemsDir)) copyDirRecursive(systemsDir, path.join(refDir, 'systems'));
-
-    const uiDir = path.join(RGC_DIR, 'ui', 'v0.1');
-    if (fs.existsSync(uiDir)) copyDirRecursive(uiDir, path.join(refDir, 'ui'));
+    const picks = await pickRelevantLibrary(description);
+    copyPickedLibraryFiles(picks, refDir);
 
     // Convenience: top-level event_definitions.ts pointer.
-    const evtDefs = path.join(systemsDir, 'event_definitions.ts');
+    const evtDefs = path.join(RGC_DIR, 'systems', 'v0.1', 'event_definitions.ts');
     if (fs.existsSync(evtDefs)) fs.copyFileSync(evtDefs, path.join(refDir, 'event_definitions.ts'));
 
+    // Auto-loaded agent instructions. Each CLI picks up its own convention
+    // (claude → CLAUDE.md, codex/opencode/copilot → AGENTS.md) without a
+    // tool-call Read, which saves a turn per run and lets Claude's prompt
+    // cache hit across sessions since the system prefix becomes stable.
     if (fs.existsSync(FIXER_CONTEXT_PATH)) {
-        fs.copyFileSync(FIXER_CONTEXT_PATH, path.join(sandboxDir, 'CONTEXT.md'));
+        const ctx = fs.readFileSync(FIXER_CONTEXT_PATH, 'utf-8');
+        fs.writeFileSync(path.join(sandboxDir, 'CLAUDE.md'), ctx);
+        fs.writeFileSync(path.join(sandboxDir, 'AGENTS.md'), ctx);
     }
 
     writeValidateScripts(sandboxDir);
-}
-
-function copyDirRecursive(src: string, dest: string): void {
-    fs.mkdirSync(dest, { recursive: true });
-    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-        const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
-        if (entry.isDirectory()) copyDirRecursive(srcPath, destPath);
-        else fs.copyFileSync(srcPath, destPath);
-    }
 }
 
 function writeValidateScripts(sandboxDir: string): void {
@@ -298,7 +295,10 @@ if (errors.length === 0) {
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
-const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Read CONTEXT.md for engine docs and rules. The project lives in project/ — its 4 template files (01_flow.json, 02_entities.json, 03_worlds.json, 04_systems.json) plus pinned behaviors/, systems/, ui/, and any user scripts/. Edit template files (NOT generated artifacts) to fix the bug. If you need a behavior or system from reference/ that isn't in project/, copy it into project/ first and reference it from the template JSON. After fixing, run "bash validate.sh". Be concise — fix the bug, don't refactor.`;
+// Engine docs + rules live in CLAUDE.md / AGENTS.md, which each CLI auto-loads
+// into its system prompt — no Read call needed. Keep this prompt to the
+// per-run instructions only.
+const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Edit template files in project/ to fix the bug (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/ — never assembled output). To use a behavior/system not yet in project/, copy it from reference/ into project/ and reference its path from the template JSON. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor.`;
 
 function fixerStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {
