@@ -62,7 +62,7 @@ router.use(requireAuth);
 // query cheap.
 const stmtList = db.prepare(`SELECT id, name, thumbnail, status, created_at, updated_at,
     is_cloud, cloud_user_id, cloud_pulled_updated_at, edited_engine_hash,
-    generation_job_id, generation_last_error,
+    generation_job_id, generation_last_error, generation_last_success_at,
     instr(substr(project_data, 1, 500), '"files"') AS has_files
     FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
 const stmtGet = db.prepare('SELECT * FROM projects WHERE id = ?');
@@ -81,9 +81,10 @@ router.get('/', (req, res) => {
         // Compute generation state per row so the card can show an
         // accurate timer + STOP. `readGenerationState` is the
         // authoritative view (lazy-heals orphaned rows); we only gate
-        // the call on rows that actually have a lock or a post-run
-        // error to avoid doing it for every row on large lists.
-        const gen = r.generation_job_id || r.generation_last_error
+        // the call on rows that actually have a lock, post-run error,
+        // or a pending "✓ Just built" notice to avoid doing it for
+        // every row on large lists.
+        const gen = r.generation_job_id || r.generation_last_error || r.generation_last_success_at
             ? readGenerationState(r.id)
             : null;
         return {
@@ -98,7 +99,7 @@ router.get('/', (req, res) => {
             cloudUserId: r.cloud_user_id,
             cloudPulledUpdatedAt: r.cloud_pulled_updated_at,
             editedEngineHash: r.edited_engine_hash,
-            generation: gen && (gen.active || gen.lastError) ? gen : null,
+            generation: gen && (gen.active || gen.lastError || gen.lastSuccessAt) ? gen : null,
         };
     });
     res.json({ projects });
@@ -290,6 +291,16 @@ router.get('/:id', (req, res) => {
     }
 
     const gen = readGenerationState(row.id);
+
+    // The "✓ Just built" strip on the project list is only meaningful
+    // until the user actually opens the project. Clear it here so
+    // bouncing back to the list hides the banner immediately without
+    // needing a dismiss click. Active/failed states are untouched —
+    // those are still relevant inside the editor flow.
+    if (gen.lastSuccessAt && !gen.active) {
+        db.prepare('UPDATE projects SET generation_last_success_at = NULL WHERE id = ?').run(row.id);
+    }
+
     res.json({
         id: row.id,
         name: row.name,
@@ -378,6 +389,17 @@ router.delete('/:id/generation-error', (req, res) => {
     if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
     if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
     db.prepare('UPDATE projects SET generation_last_error = NULL WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
+// Manual dismiss of the "✓ Just built" strip. Opening the project via
+// GET /:id auto-clears this too — this endpoint is for the inline X on
+// the card when the user wants to acknowledge without opening.
+router.delete('/:id/generation-success', (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+    db.prepare('UPDATE projects SET generation_last_success_at = NULL WHERE id = ?').run(req.params.id);
     res.json({ success: true });
 });
 

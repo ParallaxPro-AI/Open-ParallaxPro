@@ -709,6 +709,8 @@ export class ProjectListView {
                 card.classList.add('generating');
             } else if (project.generation.lastError) {
                 card.classList.add('generation-failed');
+            } else if (project.generation.lastSuccessAt) {
+                card.classList.add('generation-success');
             }
         }
 
@@ -1839,13 +1841,16 @@ git checkout da571fe   # last commit before template unification`;
                 block.appendChild(desc);
             }
 
-            // Stale-heartbeat warning: if the last status update was >60s
-            // ago, something is wrong (slow CLI, hung process, or we've
-            // lost the event stream). Surface it so the user knows the
-            // timer isn't lying about progress.
+            // Stale-heartbeat warning: fires when the CLI hasn't emitted
+            // a tool-use event in a while. The threshold is 10 min
+            // because healthy runs regularly pause for several minutes
+            // during model reasoning or long bash calls (validate.sh
+            // runs a 180-frame headless smoke test, and agents
+            // commonly chain 3-4 minute thinking passes between
+            // edits) — tighter thresholds cried wolf on good runs.
             if (gen.lastHeartbeatAt) {
                 const since = Date.now() - Date.parse(gen.lastHeartbeatAt);
-                if (since > 60000) {
+                if (since > 10 * 60 * 1000) {
                     const warn = document.createElement('div');
                     warn.className = 'project-generation-warn';
                     warn.textContent = `No progress in ${formatElapsed(since)} — build may be stuck.`;
@@ -1889,12 +1894,49 @@ git checkout da571fe   # last commit before template unification`;
             // The strip truncates long errors — full text on hover.
             err.title = gen.lastError;
             block.appendChild(err);
+        } else if (gen.lastSuccessAt) {
+            // Compact green strip, mirrors the failed variant.
+            // Auto-cleared server-side the next time the user opens
+            // the project (GET /:id nulls generation_last_success_at).
+            // Click anywhere outside the X still opens the project —
+            // the top-level card click handler takes it from there.
+            const header = document.createElement('div');
+            header.className = 'project-generation-header';
+
+            const badge = document.createElement('span');
+            badge.className = 'project-generation-badge success';
+            badge.textContent = '\u2713 JUST BUILT';
+            header.appendChild(badge);
+
+            const hint = document.createElement('span');
+            hint.className = 'project-generation-status';
+            hint.textContent = 'Click the card to open';
+            header.appendChild(hint);
+
+            const dismiss = document.createElement('button');
+            dismiss.className = 'project-generation-stop';
+            dismiss.title = 'Dismiss';
+            dismiss.appendChild(icon(X, 12));
+            dismiss.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (project.generation) project.generation = null;
+                this.render();
+                this.refreshGenerationTimers();
+                this.ctx.backend.dismissGenerationSuccess(project.id).catch((err: any) => {
+                    console.warn('[projects] dismissGenerationSuccess failed:', err?.message);
+                });
+            });
+            header.appendChild(dismiss);
+
+            block.appendChild(header);
         }
 
-        // Clicks inside the block shouldn't fall through to the card
-        // click handler (which opens the editor) — the user is
-        // interacting with generation UI, not trying to open a project.
-        block.addEventListener('click', (e) => e.stopPropagation());
+        // Individual interactive children (STOP, dismiss X) already
+        // stopPropagation on their own click handlers. Clicks on the
+        // rest of the block are allowed to bubble to the card so the
+        // user can click anywhere on a just-built / failed card to
+        // open the project. The running-state card's top-level handler
+        // is a no-op while gen.active anyway.
 
         return block;
     }

@@ -105,6 +105,14 @@ export class BackendClient {
         await this.fetch(`/projects/${projectId}/generation-error`, { method: 'DELETE' });
     }
 
+    /** Clear the "✓ Just built" strip after a successful CREATE_GAME
+     *  completion. Opening the project auto-clears it server-side too;
+     *  this endpoint is the inline X path when the user wants to
+     *  acknowledge without opening. */
+    async dismissGenerationSuccess(projectId: string): Promise<void> {
+        await this.fetch(`/projects/${projectId}/generation-success`, { method: 'DELETE' });
+    }
+
     async renameProject(projectId: string, newName: string): Promise<any> {
         return this.fetch(`/projects/${projectId}`, {
             method: 'PUT',

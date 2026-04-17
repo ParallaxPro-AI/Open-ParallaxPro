@@ -497,6 +497,16 @@
     gap: 4px;
 }
 
+/* Success: same shape as failed, but green. Auto-clears when the user  */
+/* opens the project; manual dismiss via the inline X.                  */
+.project-card.generation-success .project-generation-block {
+    bottom: auto;
+    background: rgba(16, 60, 30, 0.94);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 8px 12px;
+    gap: 4px;
+}
+
 .project-card.generating {
     cursor: default;
 }
@@ -529,6 +539,11 @@
 .project-generation-badge.failed {
     background: #8a1b1b;
     color: #ffd3d3;
+}
+
+.project-generation-badge.success {
+    background: #1f6f43;
+    color: #cdeedc;
 }
 
 @keyframes pp-gen-pulse {

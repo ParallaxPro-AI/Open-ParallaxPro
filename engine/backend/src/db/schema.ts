@@ -62,4 +62,9 @@ export function createSchema(db: Database.Database): void {
     addColumn('projects', 'generation_last_status', 'TEXT');
     addColumn('projects', 'generation_last_heartbeat_at', 'TEXT');
     addColumn('projects', 'generation_last_error', 'TEXT');
+    // Timestamp stamped on a successful CREATE_GAME completion so the
+    // project-list card can show a green "✓ Just built" strip until the
+    // user opens the project (auto-cleared on GET /:id) or dismisses it
+    // with the inline X. Nulled on every new generation start.
+    addColumn('projects', 'generation_last_success_at', 'TEXT');
 }

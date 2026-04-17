@@ -144,7 +144,8 @@ export async function startGenerationJob(args: StartJobArgs): Promise<string> {
             generation_description = ?,
             generation_last_status = ?,
             generation_last_heartbeat_at = ?,
-            generation_last_error = NULL
+            generation_last_error = NULL,
+            generation_last_success_at = NULL
         WHERE id = ?
     `).run(jobId, startedAtIso, description, 'Queued...', startedAtIso, projectId);
 
@@ -212,6 +213,11 @@ export interface GenerationState {
     /** ISO */
     lastHeartbeatAt?: string;
     lastError?: string;
+    /** ISO — stamped on the last successful completion, cleared when
+     *  the user opens the project or dismisses the "✓ Just built" strip.
+     *  When set, the card renders a green notice; a subsequent run
+     *  start nulls this out first. */
+    lastSuccessAt?: string;
     queuePosition?: QueuePosition;
 }
 
@@ -225,7 +231,8 @@ export interface GenerationState {
 export function readGenerationState(projectId: string): GenerationState {
     const row = db.prepare(`
         SELECT generation_job_id, generation_started_at, generation_description,
-               generation_last_status, generation_last_heartbeat_at, generation_last_error
+               generation_last_status, generation_last_heartbeat_at, generation_last_error,
+               generation_last_success_at
         FROM projects WHERE id = ?
     `).get(projectId) as any;
     if (!row) return { active: false };
@@ -257,6 +264,9 @@ export function readGenerationState(projectId: string): GenerationState {
     }
     if (row.generation_last_error) {
         return { active: false, lastError: row.generation_last_error };
+    }
+    if (row.generation_last_success_at) {
+        return { active: false, lastSuccessAt: row.generation_last_success_at };
     }
     return { active: false };
 }
@@ -392,9 +402,10 @@ async function runJob(job: GenerationJob): Promise<void> {
                     generation_description = NULL,
                     generation_last_status = NULL,
                     generation_last_heartbeat_at = NULL,
-                    generation_last_error = NULL
+                    generation_last_error = NULL,
+                    generation_last_success_at = ?
                 WHERE id = ?
-            `).run(projectId);
+            `).run(new Date().toISOString(), projectId);
         } else {
             db.prepare(`
                 UPDATE projects SET
