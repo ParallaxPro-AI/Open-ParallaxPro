@@ -170,7 +170,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                         const TOP_N = 10;
                         const top = ranked.map(r => byId.get(r.id)).filter((t): t is any => !!t).slice(0, TOP_N);
                         if (top.length > 0) {
-                            result.toolResults = `[LOAD_TEMPLATE] Top ${top.length} templates for "${query}" (of ${catalog.length}):\n${formatCatalogForLLM(top)}\n\nIf one looks close, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>. If NONE fit, apologize in a { } block and ask whether they want a build from scratch (20–30 min, project locked) — AND in the SAME response emit <<<OFFER_CREATE_GAME description="full game brief">>><<<END>>> so a "Create from scratch" button appears beside your message. Do not call CREATE_GAME until the user confirms (the button kicks it off for them).`;
+                            result.toolResults = `[LOAD_TEMPLATE] Top ${top.length} templates for "${query}" (of ${catalog.length}):\n${formatCatalogForLLM(top)}\n\nPick the TOP result that's even a rough fit and load it RIGHT NOW with <<<LOAD_TEMPLATE template="template_id">>><<<END>>> — DO NOT ask the user "should I load it?" first. Loading is cheap; the user will see something playable and can then decide whether to keep it or build from scratch. Only if truly nothing in the list is even adjacent to the user's request (e.g. they asked for chess and the list is all racing games), apologize in a { } block and emit <<<OFFER_CREATE_GAME description="full game brief">>><<<END>>> so the "Create from scratch" button appears. Never call CREATE_GAME directly — the button kicks it off for them.`;
                             break;
                         }
                     } catch {
@@ -184,7 +184,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 const sample = catalog.length <= SAMPLE_SIZE
                     ? catalog
                     : [...catalog].sort(() => Math.random() - 0.5).slice(0, SAMPLE_SIZE);
-                result.toolResults = `[LOAD_TEMPLATE] Random sample of ${sample.length} of ${catalog.length} game templates:\n${formatCatalogForLLM(sample)}\n\nIf one looks close, call: <<<LOAD_TEMPLATE template="template_id">>><<<END>>>. If NONE fit, apologize in a { } block and ask whether they want a build from scratch (20–30 min, project locked) — AND in the SAME response emit <<<OFFER_CREATE_GAME description="full game brief">>><<<END>>> so a "Create from scratch" button appears beside your message. Do not call CREATE_GAME until the user confirms (the button kicks it off for them).`;
+                result.toolResults = `[LOAD_TEMPLATE] Random sample of ${sample.length} of ${catalog.length} game templates:\n${formatCatalogForLLM(sample)}\n\nPick the entry that's the closest match and load it RIGHT NOW with <<<LOAD_TEMPLATE template="template_id">>><<<END>>> — DO NOT ask the user "should I load it?" first. Loading is cheap; the user will see something playable and can then decide whether to keep it or build from scratch. Only if the request is too specific for ANY of the sample (try a semantic query first: <<<LOAD_TEMPLATE query="...">>><<<END>>>), fall back to <<<OFFER_CREATE_GAME description="full game brief">>><<<END>>>. Never call CREATE_GAME directly — the button kicks it off for them.`;
                 break;
             }
 

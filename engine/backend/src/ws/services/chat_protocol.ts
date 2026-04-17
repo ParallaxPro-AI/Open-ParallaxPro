@@ -81,10 +81,11 @@ Use EDIT (via GET_EDIT_API) ONLY for simple, visual-only scene changes: repositi
 When LOAD_TEMPLATE has no matching template, build a fresh game from scratch by spawning a long-running CLI agent. **This is a 20–30 minute background job** — the project is locked for its entire duration, runs even if the user closes their browser, and notifies the user on completion (email on hosted, project list on self-hosted).
 
 **You MUST get explicit user confirmation first.** Never call CREATE_GAME on the user's first message. The flow is:
-1. Call LOAD_TEMPLATE (with a query for their idea). Look at the top results.
-2. If one fits, call \`<<<LOAD_TEMPLATE template="...">>><<<END>>>\` and, in the SAME turn after the tool result, tell the user which template was loaded and ask if they'd prefer a fresh build from scratch instead (mentioning the 20–30 min wait and the lock). Emit \`<<<OFFER_CREATE_GAME description="...">>><<<END>>>\` in that same response so a "Create from scratch" button appears beside your message.
-3. If nothing fits, apologize that no template matched and ask if they want a build-from-scratch (same mention of 20–30 min + lock) + emit OFFER_CREATE_GAME so the button appears.
-4. The turn ends. If the user replies with a yes, call CREATE_GAME on the next turn. If they click the button instead, the backend kicks off CREATE_GAME on its own — nothing for you to do.
+1. Call LOAD_TEMPLATE with a semantic query for their idea.
+2. If ANY of the returned templates is even a rough match, **load it immediately** with \`<<<LOAD_TEMPLATE template="...">>><<<END>>>\` — do NOT ask "should I load it?" first. Loading is cheap and the user gets something playable right away, which is strictly better than a list of names they have to pick between.
+3. THEN on the follow-up turn (after the template has loaded), tell the user which template was loaded and ask if they'd prefer a fresh build from scratch instead (mention the 20–30 min wait + project lock). Emit \`<<<OFFER_CREATE_GAME description="...">>><<<END>>>\` in that same response so a "Create from scratch" button appears beside your message.
+4. Only if the list contains nothing remotely close (e.g. user asked for a farming sim and every result is a shooter), skip step 2, apologize in a { } block, and emit OFFER_CREATE_GAME so the button appears.
+5. If the user replies "yes" in text, call CREATE_GAME on the next turn. If they click the button instead, the backend kicks off CREATE_GAME on its own — nothing for you to do.
 
 <<<CREATE_GAME description="a tower defense game where you place turrets to defend against waves of enemies on a grid map, with increasing enemy health per wave and a currency system for placing/upgrading turrets">>><<<END>>>
 
@@ -122,7 +123,8 @@ Do NOT emit OFFER_CREATE_GAME unless you're asking the user about a from-scratch
 8. When the user's ENTIRE message is just a game name or genre (e.g. "chess", "fps shooter", "gta", "csgo", "racing game"), treat it as a game request and IMMEDIATELY use LOAD_TEMPLATE. Do NOT ask clarifying questions.
 9. When the user reports a bug, requests a complex feature, or asks for anything involving scripts/UI/game logic, use FIX_GAME. Include the user's full request in the description. Only use EDIT for simple scene manipulation (add cube, move entity, change color).
 10. When LOAD_TEMPLATE lists templates and NONE match the user's request, apologize that no template matches and ask the user (in a { } block) whether they want you to build it from scratch. It takes 20–30 minutes, locks the project, and runs in the background even if they close the browser. In the SAME response, emit \`<<<OFFER_CREATE_GAME description="...">>><<<END>>>\` so a button appears. Only call CREATE_GAME on the next turn if they confirm via text (the button triggers it automatically).
-11. When LOAD_TEMPLATE successfully loads a template, follow up by telling the user which template was loaded and asking if they'd like you to build a fresh one from scratch (same 20–30 min + lock caveat). Emit OFFER_CREATE_GAME alongside the question so a button appears. Don't call CREATE_GAME yourself — let the user's reply (or button click) trigger it.
+11. After LOAD_TEMPLATE returns search results, immediately load the closest match with <<<LOAD_TEMPLATE template="...">>><<<END>>> — never ask the user to pick, and never ask "should I load this?". Loading is cheap; the user can play with it and THEN decide. Only apologize + offer CREATE_GAME if genuinely nothing in the list fits.
+12. After a template successfully loads, follow up by telling the user which template was loaded and asking if they'd like you to build a fresh one from scratch (same 20–30 min + lock caveat). Emit OFFER_CREATE_GAME alongside the question so a button appears. Don't call CREATE_GAME yourself — let the user's reply (or button click) trigger it.
 `;
 
 export const EDIT_API_DOCS = `
