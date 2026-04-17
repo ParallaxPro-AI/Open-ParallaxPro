@@ -235,7 +235,12 @@ export class ProjectListView {
         const firstCard = this.gridEl.querySelector('.project-card') as HTMLElement | null;
         const cardH = firstCard?.offsetHeight || 260;
         const usableH = Math.max(cardH, h - vPad);
-        const rows = Math.max(1, Math.floor((usableH + gap) / (cardH + gap)));
+        // Round instead of floor so a near-miss (e.g. grid is 500px tall and
+        // two rows want 508px) rounds up to fit both rows. The grid's own
+        // overflow-y:auto handles the tiny overshoot cleanly, and this
+        // prevents visible "halo" empty space when the viewport is barely
+        // short of a whole row.
+        const rows = Math.max(1, Math.round((usableH + gap) / (cardH + gap)));
 
         const next = Math.max(cols * rows, 6);
         if (next !== this.pageSize) {
