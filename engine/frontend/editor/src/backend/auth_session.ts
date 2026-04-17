@@ -4,15 +4,18 @@
  * token is already in localStorage and `ensureLoggedIn()` short-circuits.
  *
  * Popup flow:
- *   editor → window.open('parallaxpro.ai/cli-login?callback=http://localhost:5174/auth/callback&state=…')
- *   landing → (login if needed) → 302 to callback URL with ?token=…&state=…
- *   callback page → postMessage to opener → closes itself
- *   editor → validates state, persists token, resolves promise
+ *   editor → window.open('parallaxpro.ai/cli-login?callback=http://localhost:5174&state=…')
+ *   landing → (login if needed) → postMessage({token, state}) directly to
+ *     window.opener with targetOrigin = callback origin → closes itself
+ *   editor → validates origin/state, persists token, resolves promise
+ *
+ * The token never lands in a URL query string — previously it was placed
+ * on the callback URL, which leaked it to browser history and the local
+ * dev-server's access log.
  */
 
 const LOGIN_ORIGIN = 'https://parallaxpro.ai';
 const CLI_LOGIN_PATH = '/cli-login';
-const CALLBACK_PATH = '/auth/callback';
 const MESSAGE_TYPE = 'parallaxpro-auth';
 
 // Dedicated storage key for the prod JWT acquired via the cli-login
@@ -72,7 +75,9 @@ export async function ensureLoggedIn(): Promise<string> {
 function loginViaPopup(): Promise<string> {
     return new Promise((resolve, reject) => {
         const state = `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-        const callbackUrl = `${window.location.origin}${CALLBACK_PATH}`;
+        // callback is now just the editor's origin — parallaxpro.ai uses it
+        // as the postMessage targetOrigin, not a redirect target.
+        const callbackUrl = window.location.origin;
         const loginUrl = `${LOGIN_ORIGIN}${CLI_LOGIN_PATH}?callback=${encodeURIComponent(callbackUrl)}&state=${encodeURIComponent(state)}`;
 
         const popup = window.open(loginUrl, 'parallaxpro-cli-login', 'width=520,height=680,noopener=no');
@@ -90,7 +95,10 @@ function loginViaPopup(): Promise<string> {
 
         const onMessage = (e: MessageEvent) => {
             if (settled) return;
-            if (e.origin !== window.location.origin) return;
+            // Only accept messages from the login origin — the popup is
+            // navigated there after any OAuth hop, so that's the origin
+            // the hand-off postMessage arrives from.
+            if (e.origin !== LOGIN_ORIGIN) return;
             const data = e.data as { type?: string; token?: string | null; state?: string | null; error?: string | null } | null;
             if (!data || data.type !== MESSAGE_TYPE) return;
             if (data.state !== state) return;

@@ -649,8 +649,15 @@ export class Toolbar {
                     avatar.textContent = share.email[0].toUpperCase();
                     infoDiv.appendChild(avatar);
 
+                    // share.email is user-authored (invitee typed it into
+                    // the Share dialog). Use textContent so a malicious
+                    // address like `<img src=x onerror=…>@x` can't XSS the
+                    // project owner when they open the Share list.
                     const textDiv = document.createElement('div');
-                    textDiv.innerHTML = `<div style="font-size:13px;font-weight:500;color:var(--text);">${share.email}</div>`;
+                    const emailEl = document.createElement('div');
+                    emailEl.style.cssText = 'font-size:13px;font-weight:500;color:var(--text);';
+                    emailEl.textContent = share.email;
+                    textDiv.appendChild(emailEl);
                     infoDiv.appendChild(textDiv);
                     row.appendChild(infoDiv);
 

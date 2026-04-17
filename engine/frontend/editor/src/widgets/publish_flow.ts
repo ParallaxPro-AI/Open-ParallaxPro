@@ -227,9 +227,29 @@ export class PublishFlow {
         infoSection.style.cssText = 'padding:12px;background:var(--bg-secondary);border-radius:6px;';
         const origin = this.ctx.backend.isSelfHosted ? 'https://parallaxpro.ai' : window.location.origin;
         const gameUrl = `${origin}/games/${pubData.owner}/${pubData.slug}`;
-        infoSection.innerHTML = `<div style="font-weight:600;font-size:14px;">${pubData.name}</div>
-            <div style="font-size:11px;color:var(--text-disabled);margin-top:4px;">Live: v${pubData.liveVersion} &middot; ${pubData.versions.length} version(s) &middot; ${pubData.visibility}</div>
-            <a href="${gameUrl}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;">${gameUrl}</a>`;
+
+        // pubData.name / owner / slug / visibility are user-authored strings
+        // and must never be interpolated into innerHTML. Build the tree with
+        // textContent so a project name like `<img src=x onerror=…>` renders
+        // as literal text.
+        const nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-weight:600;font-size:14px;';
+        nameEl.textContent = pubData.name;
+        infoSection.appendChild(nameEl);
+
+        const metaEl = document.createElement('div');
+        metaEl.style.cssText = 'font-size:11px;color:var(--text-disabled);margin-top:4px;';
+        metaEl.textContent = `Live: v${pubData.liveVersion} · ${pubData.versions.length} version(s) · ${pubData.visibility}`;
+        infoSection.appendChild(metaEl);
+
+        const linkEl = document.createElement('a');
+        linkEl.href = gameUrl;
+        linkEl.target = '_blank';
+        linkEl.rel = 'noopener noreferrer';
+        linkEl.style.cssText = 'font-size:11px;color:var(--accent);text-decoration:none;';
+        linkEl.textContent = gameUrl;
+        infoSection.appendChild(linkEl);
+
         body.appendChild(infoSection);
 
         const list = document.createElement('div');
