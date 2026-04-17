@@ -117,12 +117,32 @@ export function setupLobbyWebSocket(wss: WebSocketServer): void {
 
         if (ticket) {
             const t = consumeWsTicket(ticket);
-            if (t) { username = t.user.username || username; userId = t.user.id; }
+            if (t) {
+                username = t.user.username || username;
+                userId = t.user.id;
+            } else {
+                console.warn('[lobby] ws ticket rejected (expired or already consumed) — client will appear as guest');
+            }
         } else if (token) {
             const u = verifyToken(token);
-            if (u) { username = u.username || username; userId = u.id; }
+            if (u) {
+                username = u.username || username;
+                userId = u.id;
+            } else {
+                // Most common causes: (a) token past its 7-day TTL, (b) client
+                // read a stale token from localStorage after server-side
+                // JWT_SECRET rotation, (c) truncated query param. Logging here
+                // turns "mystery guest-xxx in multiplayer" into something
+                // grep-able.
+                console.warn('[lobby] ws token failed to verify — client will appear as guest');
+            }
         }
 
+        // Authenticated users should never collapse to guest-xxx — if the
+        // JWT verified but carried an empty username field (data drift from
+        // an older signup path), fall back to a stable, user-specific label
+        // so remote peers see a real identity instead of "guest-abc123".
+        if (!username && userId !== null) username = `user-${userId}`;
         if (!username) username = `guest-${Math.random().toString(36).slice(2, 8)}`;
 
         // Editor "+ Preview Client" tabs send an auth token + a disambiguating
