@@ -365,6 +365,12 @@
       "tags": [
         "decoration"
       ]
+    },
+    "selection": {
+      "tags": ["interaction_indicator"]
+    },
+    "highlight": {
+      "tags": ["interaction_indicator"]
     }
   }
 }

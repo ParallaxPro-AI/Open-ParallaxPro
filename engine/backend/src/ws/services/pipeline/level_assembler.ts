@@ -971,6 +971,43 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // spawnEntity reference validation
+  // ══════════════════════════════════════════════════════════════════════
+  // Mirror of the events.game.emit("literal") check above: every literal
+  // string passed to scene.spawnEntity(...) must match an entity key in
+  // 02_entities.json, otherwise the runtime would throw at first call.
+  // Catches the silent class where a CLI agent writes spawnEntity with a
+  // typo or a name that was never declared (lawn-mower-survival 2026-04-18:
+  // "spawnEntity('enemy_slime')" looked fine but no entities ever appeared).
+  // Dynamic calls like spawnEntity(this._enemyTypes[i]) are invisible to
+  // this regex — those need a __validatorManifest() stub that lists every
+  // possible name as a literal call. See CREATOR_CONTEXT.md
+  // § "Spawn entity — validator rule".
+  {
+    const validPrefabs = new Set(Object.keys(defs));
+    const spawnErrors: string[] = [];
+    for (const [scriptKey, source] of Object.entries(scripts)) {
+      for (const m of source.matchAll(/\.spawnEntity\s*\(\s*['"]([^'"]+)['"]/g)) {
+        const refName = m[1];
+        if (!validPrefabs.has(refName)) {
+          const valid = [...validPrefabs].sort().join(', ') || '(none — add entities to 02_entities.json definitions)';
+          spawnErrors.push(
+            `${scriptKey}: spawnEntity("${refName}") references unknown entity definition. ` +
+              `Names must match a key in 02_entities.json "definitions" exactly. ` +
+              `Valid names: ${valid}. ` +
+              `For dynamic spawn pools, declare every possible name as a literal in a __validatorManifest() stub. ` +
+              `See CREATOR_CONTEXT.md § "Spawn entity — validator rule".`,
+          );
+        }
+      }
+    }
+    if (spawnErrors.length > 0) {
+      console.error(`[Assembler] spawnEntity validation errors:\n  ${spawnErrors.join('\n  ')}`);
+      throw new Error(`spawnEntity validation failed: ${spawnErrors.length} error(s). ${spawnErrors[0]}`);
+    }
+  }
+
   // UI button validation
   {
     const panelButtons = new Map<string, Set<string>>();

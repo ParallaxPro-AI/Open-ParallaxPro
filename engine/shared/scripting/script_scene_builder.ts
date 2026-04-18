@@ -392,17 +392,34 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
       return e ? makeScriptEntity(e) : null;
     },
 
-    // Entity creation
+    // Entity creation — instantiates a prefab from `02_entities.json` by its
+    // definition key (the same key used in world placements via `ref:`).
+    // Returns a fully-built entity with mesh, physics, behaviors, components.
+    //
+    // Throws on unknown name. The previous behavior — silently creating a
+    // bare entity with only a TransformComponent — was the root cause of
+    // the lawn-mower-survival "0 score, 0 kills, 0:00, nothing to do" class
+    // of bugs: spawnEntity("enemy_slime") would succeed but the spawned
+    // enemy had no mesh, no AI behavior, no collider. The throw is loud
+    // and tells the script author exactly what went wrong.
+    //
+    // For genuinely blank entities (rare — usually you want a prefab),
+    // use createEntity(name) which is intentionally bare-create.
     spawnEntity: (name: string) => {
-      const e = scene.createEntity(name);
-      if (!e.getComponent('TransformComponent')) {
-        e.addComponent('TransformComponent', {
-          position: { x: 0, y: 0, z: 0 },
-          rotation: { x: 0, y: 0, z: 0, w: 1 },
-          scale: { x: 1, y: 1, z: 1 },
-        });
+      if (typeof scene.hasPrefab === 'function' && scene.hasPrefab(name)) {
+        const e = scene.instantiatePrefab(name);
+        if (!e) {
+          throw new Error(
+            `spawnEntity("${name}") failed: prefab registered but instantiation returned null. This is an engine bug — please report.`,
+          );
+        }
+        return makeScriptEntity(e)!;
       }
-      return makeScriptEntity(e)!;
+      throw new Error(
+        `spawnEntity("${name}") references unknown entity definition. ` +
+          `Names must match a key in 02_entities.json "definitions" exactly. ` +
+          `Use scene.createEntity(name) instead if you intentionally want a bare entity.`,
+      );
     },
 
     createEntity: (nameOrSpec: string | any): any => {

@@ -517,6 +517,10 @@ and the game appears to run, but the broken piece never activates:
   listening.** See "System vs behavior activation" above. Result: the
   system's gameplay loop never starts and the HUD stays at defaults.
   Always do first-time init directly in `onStart`.
+- **`spawnEntity(variable)` with names not declared as literals anywhere.**
+  The static validator only sees `spawnEntity('literal')` calls. Dynamic
+  pools must declare every possible name in a `__validatorManifest()` stub
+  (parallel to the button-action rule). See "Spawn entity — validator rule".
 
 ## Multiplayer (peer-to-peer, opt-in)
 
@@ -779,6 +783,43 @@ function renderChoices(choices) {
 The `__validatorManifest` stub is never called at runtime but ensures every action name is present as `emit('literal')` for the assembler's static check. Without it, the validator reports **"no buttons found in <panel>.html"** even though the UI works fine in the browser.
 
 Every `ui_event:panel:action` transition in `01_flow.json` must correspond to an `emit('action')` literal call in that panel's HTML — 1:1. Actions declared in the manifest but never used by the FSM are harmless; FSM transitions with no matching literal are a hard failure.
+
+### Spawn entity — validator rule
+
+`scene.spawnEntity(name)` instantiates a prefab from `02_entities.json` `definitions` by its key. The assembler statically scans every script for `spawnEntity('literal')` calls and rejects any name that isn't a declared key — same shape as the `emit('literal')` rule above. The runtime engine also throws on unknown names, so a typo here is a hard failure either way.
+
+Required pattern — pass a **string literal** matching a definition key:
+
+```js
+// 02_entities.json declares "enemy_slime", "enemy_bat", "xp_gem"
+this.scene.spawnEntity("enemy_slime");   // visible to validator — OK
+this.scene.spawnEntity("xp_gem");        // visible to validator — OK
+```
+
+**Dynamic spawn pools** (e.g. a wave spawner that picks 1 of N enemy types at runtime). The *call* may pass a variable, but every possible name MUST appear as a literal somewhere in the script so the validator can see it. Same `__validatorManifest` shape as the button rule:
+
+```ts
+class WaveSpawnerSystem extends GameScript {
+    _enemyTypes = ["enemy_slime", "enemy_skeleton", "enemy_bat"];
+
+    onUpdate(dt) {
+        var type = this._enemyTypes[Math.floor(Math.random() * this._enemyTypes.length)];
+        this.scene.spawnEntity(type);  // variable — invisible to the validator
+    }
+
+    // Static manifest so the validator sees every possible name. Never
+    // called at runtime — just a parse-visible declaration.
+    __validatorManifest() {
+        this.scene.spawnEntity("enemy_slime");
+        this.scene.spawnEntity("enemy_skeleton");
+        this.scene.spawnEntity("enemy_bat");
+    }
+}
+```
+
+Without the manifest, the validator can't see the dynamic names — but the runtime still throws if any of them turn out to be unknown. The manifest moves that catch from "first wave at runtime in the browser" to "validate.sh fails before the CLI ships."
+
+For genuinely blank entities (rare — usually you want a prefab), use `scene.createEntity(name)` instead. That's the bare-create path and isn't validated.
 
 ## Available Assets
 Read files in the `assets/` directory:
