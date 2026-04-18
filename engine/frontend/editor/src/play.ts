@@ -221,20 +221,12 @@ function showSignInToPlayBanner(owner: string, slug: string): Promise<boolean> {
         banner.innerHTML = `
             <div style="background:#1a1a2e;border:1px solid rgba(134,72,230,0.4);border-radius:12px;padding:28px 32px;max-width:420px;text-align:center;color:#fff;">
                 <h2 style="margin:0 0 8px;font-size:20px;">Sign in to play multiplayer</h2>
-                <p style="margin:0 0 20px;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.5;">This game uses your ParallaxPro account to show your username to other players.</p>
+                <p style="margin:0 0 20px;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.5;">Multiplayer games need a ParallaxPro account so other players can see your username.</p>
                 <button id="pp-signin-btn" style="padding:10px 24px;background:#8648e6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Sign in</button>
-                <div style="margin-top:14px;font-size:12px;color:rgba(255,255,255,0.5);">
-                    <a id="pp-guest-btn" href="#" style="color:rgba(255,255,255,0.6);text-decoration:underline;">Continue as guest</a>
-                </div>
             </div>
         `;
         document.body.appendChild(banner);
         const cleanup = () => { try { banner.remove(); } catch {} };
-        document.getElementById('pp-guest-btn')!.addEventListener('click', (e) => {
-            e.preventDefault();
-            cleanup();
-            resolve(false);
-        });
         document.getElementById('pp-signin-btn')!.addEventListener('click', () => {
             const popupUrl = `${MAIN_ORIGIN}/play-auth?owner=${encodeURIComponent(owner)}&slug=${encodeURIComponent(slug)}&origin=${encodeURIComponent(window.location.origin)}`;
             const popup = window.open(popupUrl, 'pp-play-auth', 'width=520,height=680');
