@@ -57,7 +57,7 @@ LLMs can generate games, but without a real game engine behind them, those games
 
 The easiest way to use ParallaxPro is at **[parallaxpro.ai](https://parallaxpro.ai/?ref=github)** -- no setup required. You get the AI assistant, 5000+ 3D assets, game publishing, and everything else out of the box.
 
-[![Watch the demo](https://img.youtube.com/vi/4TTbJ4x8sRU/maxresdefault.jpg)](https://www.youtube.com/watch?v=4TTbJ4x8sRU)
+https://github.com/user-attachments/assets/ad0da586-957c-4389-85e3-a2884921c08a
 
 ### Run Locally
 
