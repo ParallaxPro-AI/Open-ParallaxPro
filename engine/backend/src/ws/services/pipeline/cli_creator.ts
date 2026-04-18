@@ -31,6 +31,7 @@ import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
+import { archiveCreatorSandbox } from './sandbox_archive.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -98,7 +99,15 @@ export async function runCreator(
         registered = true;
     } catch { /* observability only — don't let it break the run */ }
 
+    // Collected so the finally block can archive the sandbox with the right
+    // status (success vs. failed) + summary + cost regardless of which exit
+    // path we took. Stays null if the body throws — archive treats that as
+    // failed, which matches the caller's view.
+    let finalResult: CreatorResult | null = null;
+    const runStartedAt = Date.now();
+
     try {
+      finalResult = await (async (): Promise<CreatorResult> => {
         sendStatus?.('Setting up creation sandbox...');
         await createSandbox(sandboxDir, description);
 
@@ -242,7 +251,26 @@ export async function runCreator(
             files,
             costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
         };
+      })();
+      return finalResult;
     } finally {
+        // Admin-only snapshot of the sandbox's project/ tree + TASK.md.
+        // Runs for both success AND failure so we can diff broken outputs
+        // against working ones later. Best-effort — a failed archive must
+        // never break the run, so errors are swallowed inside the helper.
+        try {
+            archiveCreatorSandbox(sandboxDir, {
+                jobId: registryJobId,
+                projectId,
+                description,
+                templateId,
+                status: finalResult?.success ? 'success' : 'failed',
+                summary: finalResult?.summary,
+                costUsd: finalResult?.costUsd,
+                durationMs: Date.now() - runStartedAt,
+                sessionCapturePath: finalResult?.sessionCapturePath,
+            });
+        } catch {}
         try { unregisterSandboxToken(validateToken); } catch {}
         if (registered) {
             try { unregisterActiveJob(registryJobId); } catch {}

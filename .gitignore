@@ -27,6 +27,7 @@ engine/backend/uploads/
 engine/backend/chat_logs/
 engine/backend/feedbacks/
 engine/backend/cli_session_logs/
+engine/backend/cli_sandbox_archives/
 
 # IDE
 .vscode/
