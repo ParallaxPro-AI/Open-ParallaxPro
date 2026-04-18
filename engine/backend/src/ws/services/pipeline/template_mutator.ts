@@ -21,7 +21,7 @@
  *   reparenting across placements) record a warning and skip.
  */
 
-import vm from 'node:vm';
+import { getQuickJS } from 'quickjs-emscripten';
 import { assetExists } from '../../../routes/assets.js';
 import { ProjectFiles } from './project_files.js';
 import { buildProject } from './project_builder.js';
@@ -442,38 +442,114 @@ export function runEditScript(
 
     return {
         /**
-         * Execute LLM-emitted `<<<EDIT>>>` code against the scene API.
+         * Execute an LLM-emitted EDIT block against the scene API.
          *
-         * Security caveat (see C2 in the security review): node:vm is NOT
-         * a real sandbox. User code can reach the host realm via
-         * `Object.constructor.constructor('return process')()` and run
-         * arbitrary host code. We tried isolated-vm as a real boundary but
-         * it was segfaulting the engine process on certain LLM-emitted
-         * EDIT blocks (exit code 139 in pm2 logs) — availability beat
-         * defense-in-depth. Follow-up: run the isolate in a subprocess so
-         * a segfault kills the child, not the engine.
+         * Ran in a QuickJS (WebAssembly) sandbox — the script's realm has
+         * no access to `process`, `require`, `import`, `child_process`,
+         * `fs`, the filesystem, or the network. Every sceneAPI method
+         * call goes through a JSON-envelope bridge (`__sceneCall`) so the
+         * host controls the inputs and outputs at the boundary.
          *
-         * Keeps an `async` signature so the call site (executor.ts)
-         * doesn't need to change when we do the subprocess upgrade.
+         * Previous attempts:
+         *   - `node:vm`: not a sandbox — user code could reach the host
+         *     realm via `Object.constructor.constructor('return process')()`.
+         *   - `isolated-vm` (in-process): real isolation, but the native
+         *     C++ addon segfaulted the engine (exit 139) on certain
+         *     LLM-emitted code — reverted after taking prod down.
+         *   - `isolated-vm` (subprocess): isolation works, but ivm itself
+         *     fails `2+2` on our node version. Stashed on
+         *     wip/subprocess-isolated-vm.
+         *
+         * QuickJS is a WASM interpreter — there's no native crash class
+         * to worry about, a misbehaving script at worst throws or hits
+         * the timeout/memory cap.
          */
         async execute(code: string): Promise<MutatorResult> {
-            const sandbox = {
-                scene: sceneAPI,
-                console: { log: () => {}, warn: () => {}, error: () => {} },
-                Math, parseInt, parseFloat, isNaN, isFinite,
-                Number, String, Boolean, Array, Object,
-                JSON: { parse: JSON.parse, stringify: JSON.stringify },
-                Map, Set,
-            };
+            const QuickJS = await getQuickJS();
+            const runtime = QuickJS.newRuntime();
+            runtime.setMemoryLimit(64 * 1024 * 1024);
+            const ctx = runtime.newContext();
+
             try {
-                const script = new vm.Script(code, { filename: 'edit_block.js' });
-                const context = vm.createContext(sandbox);
-                script.runInContext(context, { timeout: TIMEOUT_MS });
-            } catch (err: any) {
-                const msg = err.code === 'ERR_SCRIPT_EXECUTION_TIMEOUT'
-                    ? `Script execution timed out after ${TIMEOUT_MS / 1000}s (possible infinite loop)`
-                    : err.message;
-                return { success: false, error: msg, updatedFiles: {}, warnings, changes };
+                // Host bridge. User code doesn't call this directly — the
+                // Proxy in the bootstrap below intercepts `scene.foo(...)`
+                // and marshals to `__sceneCall('foo', JSON.stringify(args))`.
+                //
+                // Return shape is a JSON envelope, never a thrown error —
+                // quickjs-emscripten's rules for throwing from host
+                // callbacks are finicky, and an envelope keeps the
+                // success/error paths symmetric on the sandbox side.
+                const bridge = ctx.newFunction('__sceneCall', (nameH, argsH) => {
+                    const name = ctx.getString(nameH);
+                    const argsJson = ctx.getString(argsH);
+                    let envelope: { ok: true; value: any } | { ok: false; error: string };
+                    try {
+                        const args = argsJson ? JSON.parse(argsJson) : [];
+                        const fn = (sceneAPI as any)[name];
+                        if (typeof fn !== 'function') {
+                            throw new Error(`Unknown scene method: ${name}`);
+                        }
+                        const result = fn.apply(sceneAPI, args);
+                        envelope = { ok: true, value: result === undefined ? null : result };
+                    } catch (err: any) {
+                        envelope = { ok: false, error: err?.message ?? String(err) };
+                    }
+                    return ctx.newString(JSON.stringify(envelope));
+                });
+                ctx.setProp(ctx.global, '__sceneCall', bridge);
+                bridge.dispose();
+
+                // Install the sandbox-side shims:
+                //   - `scene` is a Proxy that forwards every property access
+                //     into a JSON marshal-through-the-bridge call.
+                //   - `console` is a silent no-op; user code that logs
+                //     shouldn't pollute engine stdout.
+                const bootstrap = `
+                    const scene = new Proxy({}, {
+                        get(_, name) {
+                            return (...args) => {
+                                const env = JSON.parse(__sceneCall(name, JSON.stringify(args)));
+                                if (!env.ok) throw new Error(env.error);
+                                return env.value;
+                            };
+                        }
+                    });
+                    globalThis.scene = scene;
+                    globalThis.console = { log(){}, warn(){}, error(){} };
+                `;
+                const boot = ctx.evalCode(bootstrap);
+                if (boot.error) {
+                    const err = ctx.dump(boot.error);
+                    boot.error.dispose();
+                    return {
+                        success: false,
+                        error: `Sandbox bootstrap failed: ${err?.message || String(err)}`,
+                        updatedFiles: {}, warnings, changes,
+                    };
+                }
+                boot.value.dispose();
+
+                // Timeout: QuickJS calls the interrupt handler periodically
+                // during script execution. Returning true raises a catchable
+                // InternalError("interrupted") in the VM.
+                const startTime = Date.now();
+                runtime.setInterruptHandler(() => Date.now() - startTime > TIMEOUT_MS);
+
+                const result = ctx.evalCode(code, 'edit_block.js');
+                if (result.error) {
+                    const err = ctx.dump(result.error);
+                    result.error.dispose();
+                    const raw = err?.message ?? String(err);
+                    const interrupted = err?.name === 'InternalError' && /interrupted/i.test(raw);
+                    const msg = interrupted
+                        ? `Script execution timed out after ${TIMEOUT_MS / 1000}s (possible infinite loop)`
+                        : raw;
+                    return { success: false, error: msg, updatedFiles: {}, warnings, changes };
+                }
+                result.value.dispose();
+            } finally {
+                try { ctx.dispose(); } catch { /* already disposed */ }
+                try { runtime.dispose(); } catch { /* already disposed */ }
             }
 
             const updatedFiles: Record<string, string> = {};

@@ -18,6 +18,7 @@
     "isolated-vm": "^5.0.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
+    "quickjs-emscripten": "^0.32.0",
     "ws": "^8.17.0"
   },
   "devDependencies": {
