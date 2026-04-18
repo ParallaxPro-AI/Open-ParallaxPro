@@ -287,24 +287,21 @@ export async function startEngine(server: http.Server, plugins: EnginePlugin[] =
                 else console.warn(`[Sandbox] DOCKER_SANDBOX=1 but sandbox unavailable: ${r.reason}. Falling back to unsandboxed spawns.`);
             });
 
-            // Validate all game templates at startup
-            import('./ws/services/pipeline/template_loader.js').then(({ loadTemplateCatalog, loadTemplate }) => {
-                import('./ws/services/pipeline/level_assembler.js').then(({ assembleGame }) => {
-                    const catalog = loadTemplateCatalog();
-                    let passed = 0, failed = 0;
-                    for (const t of catalog) {
-                        const template = loadTemplate(t.id);
-                        if (!template?._folderPath) { failed++; continue; }
-                        try {
-                            assembleGame(template._folderPath);
-                            passed++;
-                        } catch (e: any) {
-                            console.error(`[Templates] FAILED: ${t.id} — ${e.message}`);
-                            failed++;
-                        }
-                    }
-                    console.log(`[Templates] ${passed}/${catalog.length} templates validated${failed > 0 ? `, ${failed} failed` : ''}`);
-                });
+            // Validate all shipped game templates at startup. Two stages per
+            // template: assembler + headless script smoke (see
+            // template_health.ts for details). Failures are logged + cached
+            // so the admin dashboard can surface them; they never crash boot.
+            Promise.all([
+                import('./ws/services/pipeline/template_loader.js'),
+                import('./ws/services/pipeline/level_assembler.js'),
+                import('./ws/services/pipeline/template_health.js'),
+            ]).then(([{ loadTemplateCatalog, loadTemplate }, { assembleGame }, { runTemplateHealthChecks }]) => {
+                const catalog = loadTemplateCatalog();
+                const result = runTemplateHealthChecks(catalog, loadTemplate, assembleGame);
+                for (const f of result.failures) {
+                    console.error(`[Templates] ${f.stage.toUpperCase()} FAILED: ${f.templateId} — ${f.error}`);
+                }
+                console.log(`[Templates] ${result.passedCount}/${result.totalCount} templates healthy${result.failedCount > 0 ? `, ${result.failedCount} failed` : ''}`);
             });
 
             // Asset generators (non-blocking)
