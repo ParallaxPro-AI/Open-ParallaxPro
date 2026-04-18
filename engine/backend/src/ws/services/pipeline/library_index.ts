@@ -138,6 +138,11 @@ export interface LibraryPickOpts {
  * (embedder not ready, embed error) returns the full catalog so the caller's
  * behavior is strictly no-worse than the current "ship everything" baseline.
  */
+// Set to true to bypass semantic filtering and ship the full library to the
+// creator/fixer sandbox. Kept as a flag so the embedding path can be
+// re-enabled later without re-plumbing.
+const DISABLE_SEMANTIC_FILTER = true;
+
 export async function pickRelevantLibrary(
     description: string,
     opts: LibraryPickOpts = {},
@@ -146,7 +151,7 @@ export async function pickRelevantLibrary(
     const topSystems  = opts.topSystems  ?? 15;
     const topUi       = opts.topUi       ?? 15;
 
-    if (initPromise) {
+    if (initPromise && !DISABLE_SEMANTIC_FILTER) {
         try { await initPromise; } catch { /* fall through to all */ }
     }
 
@@ -156,7 +161,7 @@ export async function pickRelevantLibrary(
     const allUi        = cat.ui.map(u => u.relPath);
     const alwaysUi     = allUi.filter(r => ALWAYS_INCLUDE_UI.has(r));
 
-    if (!entries) {
+    if (DISABLE_SEMANTIC_FILTER || !entries) {
         return { behaviors: allBehaviors, systems: allSystems, ui: allUi, method: 'all-fallback' };
     }
 
