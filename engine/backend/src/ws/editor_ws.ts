@@ -687,7 +687,7 @@ function rebuildAndPush(client: EditorClient, pd: ProjectData, opts: { sceneKey:
     return built;
 }
 
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 7;
 
 function handleChatMessage(client: EditorClient, data: any): void {
     const content = data?.content;
@@ -928,6 +928,12 @@ function finishChat(client: EditorClient, displayContent: string, fileChanges: a
     // etc.) breaks Stop mid-flow because the Stop handler short-circuits on
     // a null client.abortController.
     client.abortController = null;
+    // Persist the terminal message to the admin chat-log jsonl. Without
+    // this, fallback strings like the Sorry-we-failed message and the
+    // Stop-pressed message only land in the DB + WebSocket — the chat
+    // log would dead-end at the last raw LLM response, making sessions
+    // that exhausted MAX_RETRIES look truncated in admin review.
+    appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: displayContent });
     // Save assistant message with post-edit snapshot
     const snapshot = getProjectSnapshot(client.projectId);
     const fileChangesJson = fileChanges.length > 0 ? JSON.stringify(fileChanges) : null;
