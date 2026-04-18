@@ -22,10 +22,15 @@ setInterval(() => {
     }
 }, 60000);
 
-/** Create a ticket that expires in 30 seconds. */
+/**
+ * Create a ticket that expires in 2 minutes. Long enough to cover a slow
+ * game boot (asset decode, wasm instantiate, networked room handshake)
+ * on a poor connection, still short enough that a leaked ticket can only
+ * be replayed within the same session window.
+ */
 export function createWsTicket(user: AuthUser, authToken: string): string {
     const id = randomUUID();
-    tickets.set(id, { user, authToken, expiresAt: Date.now() + 30000 });
+    tickets.set(id, { user, authToken, expiresAt: Date.now() + 120_000 });
     return id;
 }
 

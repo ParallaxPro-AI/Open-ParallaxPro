@@ -95,35 +95,42 @@ interface PlayBootstrap {
     mpTicket: string | null;
 }
 let _cachedBootstrap: PlayBootstrap | null = null;
-// Attach the listener + announce readiness synchronously at module load
-// rather than inside waitForBootstrap(). If we wait for the boot() async
-// chain to reach waitForBootstrap before attaching, the parent's
-// 'pp-play-bootstrap' message can arrive in between and be missed — the
-// parent's `iframe.load` listener fires as soon as the iframe document
-// loads, which can beat the listener attachment when the boot path is
-// slow (asset decode, wasm instantiate, etc.).
+// Attach the listener + ping the parent synchronously at module load.
+// The listener stays attached for the life of the document so a later
+// bootstrap (e.g. after the parent re-navigates to a different game)
+// still updates _cachedBootstrap. A periodic retry is necessary because
+// the parent's message handler is inside a React useEffect gated on
+// game data being fetched — if our first ping lands before that effect
+// runs, the parent drops it. We keep pinging until we get a bootstrap
+// back, or give up after a cap so we don't ping forever on genuinely
+// orphaned iframes (preview clients, detached tabs).
 const _bootstrapListenerPromise: Promise<PlayBootstrap | null> = (() => {
     if (window.parent === window) return Promise.resolve(null);
     return new Promise((resolve) => {
-        const onMsg = (e: MessageEvent) => {
+        let resolved = false;
+        window.addEventListener('message', (e: MessageEvent) => {
             const d = e.data;
             if (!d || d.type !== 'pp-play-bootstrap') return;
-            window.removeEventListener('message', onMsg);
             _cachedBootstrap = { game: d.game, user: d.user, mpTicket: d.mpTicket };
-            resolve(_cachedBootstrap);
+            if (!resolved) {
+                resolved = true;
+                resolve(_cachedBootstrap);
+            }
+        });
+        let attempts = 0;
+        const ping = () => {
+            if (resolved) return;
+            attempts++;
+            try { window.parent.postMessage({ type: 'pp-play-ready' }, '*'); } catch {}
+            // 15 attempts × 400ms ≈ 6s total retry window. Beyond that we
+            // stop pinging (the waitForBootstrap timeout will fall through).
+            if (attempts < 15) setTimeout(ping, 400);
         };
-        window.addEventListener('message', onMsg);
-        // Tell the parent we're ready to receive the bootstrap. Handles the
-        // race where the parent's iframe.onload fired before React's
-        // useEffect attached its handler — without this cue the bootstrap
-        // never arrives and the game boots without a ticket (appearing as
-        // "guest-XXXX" in multiplayer).
-        try { window.parent.postMessage({ type: 'pp-play-ready' }, '*'); } catch {}
+        ping();
     });
 })();
 function waitForBootstrap(timeoutMs: number): Promise<PlayBootstrap | null> {
     if (_cachedBootstrap) return Promise.resolve(_cachedBootstrap);
-    // Race the already-listening promise against a timeout.
     return Promise.race([
         _bootstrapListenerPromise,
         new Promise<null>(resolve => setTimeout(() => resolve(null), timeoutMs)),
@@ -135,24 +142,12 @@ function waitForBootstrap(timeoutMs: number): Promise<PlayBootstrap | null> {
 (window as any).__ppPlayBootstrap = () => _cachedBootstrap;
 
 async function boot(): Promise<void> {
-    // Top-level visit to games.parallaxpro.ai has no auth context (different
-    // origin from parallaxpro.ai where the JWT lives). Bounce to the main-
-    // site wrapper so the user's session carries through the iframe
-    // bootstrap path. Skipped when embedded in an iframe (that's the
-    // wrapper itself) or when on localhost / archived bundle paths on the
-    // main site.
-    if (window.parent === window
-        && (window.location.hostname === 'games.parallaxpro.ai'
-            || window.location.hostname === 'www.games.parallaxpro.ai')) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const pathOwnerSlug = window.location.pathname.replace(/^\/play\/?/, '').split('/').filter(Boolean);
-        const owner = urlParams.get('owner') || pathOwnerSlug[0];
-        const slug = urlParams.get('slug') || pathOwnerSlug[1];
-        if (owner && slug) {
-            window.location.replace(`https://parallaxpro.ai/games/${owner}/${slug}`);
-            return;
-        }
-    }
+    // Direct visits to games.parallaxpro.ai/play/... are allowed — single-
+    // player public games just work, multiplayer falls through to the
+    // "sign up to play" gate because there's no auth context on this
+    // origin. Users who want multiplayer should start from
+    // parallaxpro.ai/games/<owner>/<slug> (the main-site wrapper) where
+    // the iframe bootstrap carries their session across the boundary.
 
     const pathParts = window.location.pathname.replace(/^\/play\/?/, '').split('/').filter(Boolean);
 
@@ -182,7 +177,10 @@ async function boot(): Promise<void> {
     // In a sandboxed iframe (the /games/:owner/:slug wrapper), the parent
     // posts a bootstrap with pre-fetched gameData + mp ticket. Outside an
     // iframe this returns null quickly.
-    const bootstrap = await waitForBootstrap(1500);
+    // 6s window: matches the periodic ping loop (15 × 400ms) so the boot
+    // path doesn't time out before the last retry has had a chance to
+    // land. Outside an iframe this returns immediately.
+    const bootstrap = await waitForBootstrap(6000);
 
     // localStorage is unreadable in an opaque-origin sandbox (throws or
     // returns empty). Guard it so we degrade gracefully rather than crash.
