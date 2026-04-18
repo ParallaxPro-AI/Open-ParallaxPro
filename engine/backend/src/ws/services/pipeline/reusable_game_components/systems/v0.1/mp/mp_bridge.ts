@@ -72,7 +72,12 @@ class MpBridge extends GameScript {
         // navigation + the editor preview tabs.
         try {
             if (!url) throw new Error('no signaling url');
-            var getBootstrap = (typeof window !== "undefined") && (window as any).__ppPlayBootstrap;
+            // Plain JS access — this file is loaded into new Function() at
+            // play time, not compiled by tsc, so TypeScript type assertions
+            // like `(window as any)` break the parser. Property access on
+            // the plain window object does the right thing: undefined when
+            // not set, the function when set.
+            var getBootstrap = (typeof window !== "undefined") && window.__ppPlayBootstrap;
             var bootstrap = getBootstrap ? getBootstrap() : null;
             var ticket = bootstrap && bootstrap.mpTicket;
             if (ticket) {
