@@ -149,6 +149,12 @@ export interface SpawnOptions {
      */
     timeout?: number;
     /**
+     * Claude only — override the `--model` flag. Accepts any alias Claude
+     * CLI understands (e.g. 'sonnet', 'opus', 'haiku', or a full model ID).
+     * Defaults to 'sonnet'. Ignored for other CLIs.
+     */
+    claudeModel?: string;
+    /**
      * Optional admin-side session capture. When provided, stdout/stderr and
      * native session files are archived under engine/backend/cli_session_logs
      * for later analysis. All failures are swallowed — capture never breaks
@@ -281,7 +287,7 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
             '-p', opts.prompt,
             '--output-format', 'stream-json',
             '--verbose',
-            '--model', 'sonnet',
+            '--model', opts.claudeModel ?? 'sonnet',
             '--dangerously-skip-permissions',
             '--max-turns', String(opts.maxTurns),
         ];
