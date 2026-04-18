@@ -81,10 +81,29 @@ export class AiChatPanel {
     // chat_response_start (new turn = stale offer).
     private pendingCreateFromScratchDescription: string | null = null;
 
+    /** beforeunload guard — warns the user if they try to close / refresh /
+     *  navigate away while the assistant is mid-response. Without this, a
+     *  closed tab kills the chat stream and the user loses their in-flight
+     *  LLM turn (the backend keeps running but their prompt disappears from
+     *  the UI). Bound as a class field so `this` stays correct and
+     *  removeEventListener would match if we ever need to detach. */
+    private onBeforeUnload = (e: BeforeUnloadEvent) => {
+        if (this.state !== State.STREAMING) return;
+        e.preventDefault();
+        // Most modern browsers ignore the custom string and show their own
+        // generic "Leave site? Changes you made may not be saved." prompt,
+        // but setting returnValue is still required to trigger the prompt.
+        const msg = 'The AI Assistant is still responding. Leave anyway?';
+        e.returnValue = msg;
+        return msg;
+    };
+
     constructor() {
         this.ctx = EditorContext.instance;
         this.el = document.createElement('div');
         this.el.className = 'panel chat-panel';
+
+        window.addEventListener('beforeunload', this.onBeforeUnload);
 
         // Header
         const header = document.createElement('div');
