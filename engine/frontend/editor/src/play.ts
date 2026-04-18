@@ -33,21 +33,32 @@ function waitForSplash(): Promise<void> {
 }
 
 function getSignupUrl(): string {
-    // When play.ts runs inside an iframe (e.g. the /everything-game wrapper
-    // or any third-party embed of /play/:owner/:slug) we want the signup
-    // flow to send the user back to the wrapper page they originally saw,
-    // not the bare /play URL — otherwise after signup they land inside a
-    // nested-iframe view of the same wrapper.
-    let redirectTo = window.location.href;
+    // Signup always lives on the main site (parallaxpro.ai), never on the
+    // games subdomain — games.parallaxpro.ai has no /signup route and
+    // previously 404'd. When we're embedded in an iframe under
+    // parallaxpro.ai/games/..., prefer the top URL so after signup the
+    // user lands back on that wrapper page; otherwise rebuild a best-
+    // guess wrapper URL from our own path so the redirect target is
+    // always somewhere that HAS auth context.
+    let redirectTo = '';
     try {
         if (window.top && window.top !== window) {
             redirectTo = window.top.location.href;
         }
-    } catch {
-        // Cross-origin parent (third-party embed) — redirect back to the
-        // play URL itself, which still works as a standalone page.
+    } catch { /* cross-origin parent — fall through */ }
+    if (!redirectTo) {
+        // Derive /games/<owner>/<slug> from URL so post-signup we come
+        // back to the main-site wrapper, not the bare games.parallaxpro.ai
+        // URL (which has no session).
+        const p = new URLSearchParams(window.location.search);
+        const parts = window.location.pathname.replace(/^\/play\/?/, '').split('/').filter(Boolean);
+        const owner = p.get('owner') || parts[0];
+        const slug = p.get('slug') || parts[1];
+        redirectTo = owner && slug
+            ? `https://parallaxpro.ai/games/${owner}/${slug}`
+            : 'https://parallaxpro.ai/';
     }
-    return `${window.location.origin}/signup?redirect=${encodeURIComponent(redirectTo)}`;
+    return `https://parallaxpro.ai/signup?redirect=${encodeURIComponent(redirectTo)}`;
 }
 
 // Navigate the top window to `url` so the signup page replaces the whole
@@ -247,10 +258,18 @@ async function boot(): Promise<void> {
         // exists on prod for the target hash. A HEAD probe isn't
         // trustworthy because nginx falls through to the landing-page
         // SPA for unknown paths, so we consult the registry directly.
+        //
+        // Also skipped when we're in an iframe (wrapped by
+        // parallaxpro.ai/games/...) — the archived bundles don't have
+        // the cross-origin bootstrap handshake code, so redirecting into
+        // them loses the auth ticket and drops the user to guest. Current
+        // engine is backward-compatible with recent game data shapes; if
+        // that ever breaks we'll revisit with a more targeted fix.
         const ourHash = typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : 'unknown';
         const wantHash: string | null = gameData.engineGitHash || null;
         const alreadyInArchive = /^\/engine-bundles\//.test(window.location.pathname);
-        if (wantHash && ourHash && ourHash !== 'unknown' && wantHash !== ourHash && !alreadyInArchive) {
+        const inIframe = window.parent !== window;
+        if (wantHash && ourHash && ourHash !== 'unknown' && wantHash !== ourHash && !alreadyInArchive && !inIframe) {
             let shouldRedirect = false;
             try {
                 const regRes = await fetch('/api/engine/engine-bundles');
