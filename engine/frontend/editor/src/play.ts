@@ -152,6 +152,131 @@ function waitForBootstrap(timeoutMs: number): Promise<PlayBootstrap | null> {
 // rather than trying (and failing) to read localStorage in the sandbox.
 (window as any).__ppPlayBootstrap = () => _cachedBootstrap;
 
+/**
+ * Direct-visit auth handoff for top-level loads on games.parallaxpro.ai.
+ * The games subdomain has no session cookie / localStorage because it's
+ * a different origin from parallaxpro.ai where JWTs live — we bridge the
+ * gap two ways, silent-first then user-initiated:
+ *
+ * 1. Silent: hidden iframe to https://parallaxpro.ai/auth-bridge.html
+ *    which reads the main-origin JWT, mints a WS ticket, fetches the
+ *    authed gameData, and postMessages the lot back here. The JWT itself
+ *    never crosses origins.
+ *
+ * 2. Popup: if the silent bridge reports no session, show a "Sign in to
+ *    play" banner whose button opens parallaxpro.ai/play-auth in a
+ *    popup; the popup prompts login if needed, then does the same
+ *    handoff as the bridge and closes itself.
+ *
+ * Both paths feed into `_cachedBootstrap` so the rest of the boot path
+ * (gameData, mpTicket consumption in mp_bridge/lobby_client) is
+ * identical to the iframe-wrapper case.
+ */
+const MAIN_ORIGIN = 'https://parallaxpro.ai';
+function isTopLevelOnGamesOrigin(): boolean {
+    return window.parent === window
+        && (window.location.hostname === 'games.parallaxpro.ai'
+            || window.location.hostname === 'www.games.parallaxpro.ai');
+}
+function trySilentAuthBridge(owner: string, slug: string, timeoutMs = 5000): Promise<boolean> {
+    return new Promise((resolve) => {
+        let settled = false;
+        const frame = document.createElement('iframe');
+        frame.style.display = 'none';
+        frame.setAttribute('aria-hidden', 'true');
+        const onMsg = (e: MessageEvent) => {
+            if (e.origin !== MAIN_ORIGIN) return;
+            if (!e.data || e.data.type !== 'pp-auth-bridge') return;
+            if (settled) return;
+            settled = true;
+            window.removeEventListener('message', onMsg);
+            try { frame.remove(); } catch {}
+            if (e.data.loggedIn) {
+                _cachedBootstrap = {
+                    game: e.data.game || null,
+                    user: e.data.user || null,
+                    mpTicket: e.data.mpTicket || null,
+                };
+                resolve(true);
+            } else {
+                resolve(false);
+            }
+        };
+        window.addEventListener('message', onMsg);
+        setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            window.removeEventListener('message', onMsg);
+            try { frame.remove(); } catch {}
+            resolve(false);
+        }, timeoutMs);
+        frame.src = `${MAIN_ORIGIN}/auth-bridge.html?owner=${encodeURIComponent(owner)}&slug=${encodeURIComponent(slug)}`;
+        document.body.appendChild(frame);
+    });
+}
+function showSignInToPlayBanner(owner: string, slug: string): Promise<boolean> {
+    return new Promise((resolve) => {
+        const banner = document.createElement('div');
+        banner.style.cssText = 'position:fixed;inset:0;z-index:300000;background:rgba(10,10,20,0.92);display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;';
+        banner.innerHTML = `
+            <div style="background:#1a1a2e;border:1px solid rgba(134,72,230,0.4);border-radius:12px;padding:28px 32px;max-width:420px;text-align:center;color:#fff;">
+                <h2 style="margin:0 0 8px;font-size:20px;">Sign in to play multiplayer</h2>
+                <p style="margin:0 0 20px;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.5;">This game uses your ParallaxPro account to show your username to other players.</p>
+                <button id="pp-signin-btn" style="padding:10px 24px;background:#8648e6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Sign in</button>
+                <div style="margin-top:14px;font-size:12px;color:rgba(255,255,255,0.5);">
+                    <a id="pp-guest-btn" href="#" style="color:rgba(255,255,255,0.6);text-decoration:underline;">Continue as guest</a>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(banner);
+        const cleanup = () => { try { banner.remove(); } catch {} };
+        document.getElementById('pp-guest-btn')!.addEventListener('click', (e) => {
+            e.preventDefault();
+            cleanup();
+            resolve(false);
+        });
+        document.getElementById('pp-signin-btn')!.addEventListener('click', () => {
+            const popupUrl = `${MAIN_ORIGIN}/play-auth?owner=${encodeURIComponent(owner)}&slug=${encodeURIComponent(slug)}&origin=${encodeURIComponent(window.location.origin)}`;
+            const popup = window.open(popupUrl, 'pp-play-auth', 'width=520,height=680');
+            if (!popup) {
+                cleanup();
+                // Popup blocked — last resort, fall through to guest path.
+                resolve(false);
+                return;
+            }
+            const onMsg = (e: MessageEvent) => {
+                if (e.origin !== MAIN_ORIGIN) return;
+                if (!e.data || e.data.type !== 'pp-play-auth') return;
+                window.removeEventListener('message', onMsg);
+                clearInterval(poll);
+                cleanup();
+                if (e.data.loggedIn) {
+                    _cachedBootstrap = {
+                        game: e.data.game || null,
+                        user: e.data.user || null,
+                        mpTicket: e.data.mpTicket || null,
+                    };
+                    resolve(true);
+                } else {
+                    resolve(false);
+                }
+            };
+            window.addEventListener('message', onMsg);
+            // Detect the user closing the popup without completing.
+            const poll = setInterval(() => {
+                let closed = false;
+                try { closed = popup.closed; } catch { closed = true; }
+                if (closed) {
+                    clearInterval(poll);
+                    window.removeEventListener('message', onMsg);
+                    cleanup();
+                    resolve(false);
+                }
+            }, 500);
+        });
+    });
+}
+
 async function boot(): Promise<void> {
     // Direct visits to games.parallaxpro.ai/play/... are allowed — single-
     // player public games just work, multiplayer falls through to the
@@ -191,7 +316,44 @@ async function boot(): Promise<void> {
     // 6s window: matches the periodic ping loop (15 × 400ms) so the boot
     // path doesn't time out before the last retry has had a chance to
     // land. Outside an iframe this returns immediately.
-    const bootstrap = await waitForBootstrap(6000);
+    let bootstrap = await waitForBootstrap(6000);
+
+    // Direct top-level visit to games.parallaxpro.ai: no parent bootstrap.
+    // Step 1 — silent auth-bridge. If the user is logged in on the main
+    //          site, this returns gameData + mp ticket with no UI.
+    // Step 2 — if silent said "not logged in", peek at gameData via an
+    //          unauth GET (works for public games) to decide whether we
+    //          even need to prompt. Multiplayer → show "Sign in to play"
+    //          banner → popup. Single-player public → just play as guest.
+    if (!bootstrap && isTopLevelOnGamesOrigin()) {
+        const owner = queryOwner || pathParts[0] || '';
+        const slug  = querySlug  || pathParts[1] || '';
+        if (owner && slug) {
+            await trySilentAuthBridge(owner, slug);
+            if (!_cachedBootstrap) {
+                let gd: any = null;
+                try {
+                    const res = await fetch(`/api/engine/games/${encodeURIComponent(owner)}/${encodeURIComponent(slug)}`);
+                    if (res.ok) gd = await res.json();
+                } catch { /* private game or network fail — existing fetch path below will error out */ }
+                if (gd) {
+                    const mpCfg = gd.multiplayerConfig || gd.projectConfig?.multiplayerConfig;
+                    const scripts = gd.scripts || {};
+                    const isMP = !!mpCfg?.enabled
+                        || Object.keys(scripts).some(k => k.includes('network_sync'));
+                    if (isMP) await showSignInToPlayBanner(owner, slug);
+                    // Seed bootstrap.game with the data we already fetched
+                    // so the existing gameData branch below uses it instead
+                    // of refetching. Popup handoff (if taken) already
+                    // populated _cachedBootstrap with authed data.
+                    if (!_cachedBootstrap) {
+                        _cachedBootstrap = { game: gd, user: null, mpTicket: null };
+                    }
+                }
+            }
+            bootstrap = _cachedBootstrap;
+        }
+    }
 
     // localStorage is unreadable in an opaque-origin sandbox (throws or
     // returns empty). Guard it so we degrade gracefully rather than crash.
