@@ -22,8 +22,8 @@ project/                           — EDIT THESE
   systems/fsm_driver.ts            — Engine driver (already pinned)
   systems/_entity_label.ts         — (already pinned)
   systems/event_definitions.ts     — Valid event schemas (already pinned)
-  systems/ui/ui_bridge.ts          — UI bridge (already pinned)
-  systems/mp/mp_bridge.ts          — Multiplayer session bridge (pinned; activate when multiplayer is enabled)
+  systems/ui/ui_bridge.ts          — UI bridge (already pinned, always auto-active — do NOT list in active_systems)
+  systems/mp/mp_bridge.ts          — Multiplayer session bridge (already pinned; the assembler auto-activates it whenever 01_flow.json has a multiplayer block — do NOT list it in active_systems)
   ui/{name}.html                   — UI panels
   scripts/{name}.ts                — Custom user scripts (optional)
 reference/                         — Read-only library to copy from
@@ -190,14 +190,123 @@ The engine reserves these keys globally. Never bind them for game actions
 Pick other keys for gameplay bindings. Common free keys: `KeyE`, `KeyF`,
 `KeyQ`, `KeyR`, `KeyT`, `KeyG`, `KeyC`, `KeyX`, `KeyZ`, `Tab`, digit keys.
 
-## Transition Formats
-- `ui_event:panel:action` — UI button (e.g., `ui_event:main_menu:start_game`)
-- `game_event:name` — game event (e.g., `game_event:player_died`)
-- `keyboard:action` — key press (e.g., `keyboard:pause`)
-- `mp_event:phase_in_game` — multiplayer session phase change
-- `net_event:match_ended` — networked game event received from a peer
-- `score>=100` — variable comparison
-- `timer_expired` — state duration elapsed
+## Transitions & FSM actions
+
+### Transition `when` formats
+
+A transition fires when its `when` condition matches. Supported forms:
+
+- `ui_event:panel:action` — a button click (e.g. `ui_event:main_menu:start_game`).
+  The `action` must appear as a literal `emit('action')` in `panel.html` — see
+  "Button actions — validator rule" below.
+- `game_event:name` — a `scene.events.game.emit("name", ...)` fired by any
+  script or by an `emit:game.name` flow action. `name` must be declared in
+  `project/systems/event_definitions.ts`.
+- `keyboard:pause` / `keyboard:resume` — the only built-in keyboard transition
+  tokens. They fire from `KeyP`. Custom key presses should be handled inside
+  a behavior (check `this.input.isKeyPressed("KeyE")`) and forwarded as a
+  `scene.events.game.emit("your_event", ...)`, then used as `game_event:your_event`
+  in the flow.
+- `mp_event:phase_in_lobby` / `mp_event:phase_in_game` /
+  `mp_event:phase_browsing` / `mp_event:phase_disconnected` — session phase
+  changes emitted by `mp_bridge`. These are the **only** four valid phases;
+  anything else never fires.
+- `net_event:<event>` — a networked event received from a peer. Broadcast
+  them with the `emit:net.<event>` flow action (or `scene.events.game.emit`
+  inside a script routed through `mp_bridge`). `event` should be declared
+  in `event_definitions.ts` with the `net_` prefix.
+- `score>=100` — variable comparison against a flow variable (set via
+  `set:` / `increment:` / arithmetic actions). Operators: `>`, `<`, `>=`,
+  `<=`, `==`, `!=`.
+- `timer_expired` — the current state's wall-clock timer has passed its
+  `duration` (seconds). Requires the state to declare a positive `duration`;
+  `duration: -1` (or omitted) means never expire, so `timer_expired` never
+  fires from that state.
+- `random` — fire immediately with no condition. Use with an array `goto`
+  to pick uniformly at random: `{ "when": "random", "goto": ["a", "b", "c"] }`.
+- `random:0.3` — probabilistic per-frame fire (≈ `0.3` probability per
+  second). Good for rare idle events.
+
+### Transition-level `actions`
+
+Any transition may include an `actions` array that runs **before** entering
+the target state:
+
+```json
+{ "when": "ui_event:game_over:play_again", "goto": "playing",
+  "actions": ["emit:game.restart_game", "set:score=0"] }
+```
+
+This is how restart/reset behavior is wired in the shipped templates — see
+`reference/game_templates/v0.1/alien_invasion/01_flow.json`.
+
+### Flow action verbs
+
+Every string inside `on_enter`, `on_exit`, `on_update`, `actions`, or the
+per-event `on` handlers is one of these verbs. Unknown verbs are silently
+ignored — typos fail quietly.
+
+Variables (per-flow state, survive across states):
+- `set:<var>=<value>` — assign a literal, e.g. `set:score=0`. `<value>` can
+  also be `$<field>` to pull from the current event payload, e.g.
+  `set:last_damage=$amount` inside an `on: { entity_damaged: [...] }` handler.
+- `increment:<var>` — `<var> += 1`.
+- `<var>+<num>` / `<var>-<num>` — arithmetic, e.g. `score+10`, `health-5`.
+  RHS can also be `$<field>`, e.g. `health-$amount`.
+
+UI:
+- `show_ui:<panel>` / `hide_ui:<panel>` — show/hide a panel from `project/ui/`.
+  Use the path without `.html` (e.g. `show_ui:hud/health`).
+- `show_cursor` / `hide_cursor` — toggle the virtual cursor + pointer lock.
+- `notify:<text>` — fire a `show_notification` event carrying `{text}`.
+
+Audio:
+- `play_sound:<path>` — one-shot SFX (e.g. `play_sound:/assets/kenney/audio/...`).
+- `play_music:<path>` — loopable music track.
+- `stop_music` — stops whatever music is playing.
+- `stop_sound` — stops all currently-playing SFX.
+
+Events:
+- `emit:game.<event>` — emit on the game bus. `<event>` must be declared.
+- `emit:ui.<event>` — emit on the ui bus (mainly for HUD updates).
+- `emit:net.<event>` — broadcast to all peers (multiplayer only). Peers
+  receive it as `game_event:net_<event>`.
+
+Multiplayer lobby shortcuts:
+- `mp:show_browser` / `mp:hide_browser` — open/close the lobby browser UI.
+- `mp:show_room` / `mp:hide_room` — open/close the current lobby room UI.
+- `mp:refresh_lobbies` — re-poll the lobby list.
+- `mp:<anything_else>` — forwarded to `mp_bridge` as `ui_event:mp:<rest>`.
+
+Randomness:
+- `random_action:a,b,c` — pick one of the comma-separated actions and run it.
+
+### FSM structure — required fields
+
+- The top level must have `start: "<stateName>"` pointing at the initial
+  state. There is no default.
+- Every compound state (one with a `substates` block) must also declare
+  `start: "<substateName>"`. Without it, the substate never runs.
+- Parent-state transitions can exit while a substate is active (useful for
+  a global pause/quit); substate-only transitions live inside their substate.
+
+### Silent-failure watch-list
+
+These are NOT caught by `validate.sh` — the assembler happily ships them
+and the game appears to run, but the broken piece never activates:
+
+- **`active_behaviors` / `active_systems` name typos.** Every string in
+  these arrays must exactly match a `behaviors[].name` in `02_entities.json`
+  or a key in `04_systems.json`. A misspelled name (`"movemnt"` vs
+  `"movement"`) is silently ignored — the behavior never turns on.
+- **Unknown flow-action verbs.** Anything inside `on_enter` / `on_exit` /
+  `on_update` / `actions` that doesn't match the verbs listed above is
+  dropped silently. Check spelling against the list.
+- **`emit:` with no dot.** `emit:game.player_died` works; bare `emit:player_died`
+  is silently ignored (the parser expects `<bus>.<event>`).
+- **`mp_event:` with a phase name other than the four valid ones.** The
+  assembler accepts any string; only `phase_in_lobby` / `phase_in_game` /
+  `phase_browsing` / `phase_disconnected` actually fire.
 
 ## Multiplayer (peer-to-peer, opt-in)
 
@@ -234,13 +343,11 @@ Mark entities that should sync across the network with a `network` block in `02_
 Only entities with a `network` block are transmitted; everything else is
 strictly local per peer.
 
-### Multiplayer flow actions (FSM shortcuts)
+### Multiplayer flow actions
 
-- `mp:show_browser` / `mp:show_room` — open the lobby browser / lobby room UI
-- `mp:hide_browser` / `mp:hide_room`
-- `mp:refresh_lobbies` — request the current lobby list
-- `emit:net.<event>` — broadcast a networked event to all peers
-  (arrives on peers as `net_<event>` on the game bus; transition with `net_event:<event>`)
+See the "Flow action verbs" section above (`mp:show_browser`, `emit:net.<event>`,
+etc.). Peers receive a broadcast on the game bus as `net_<event>`, so the
+matching transition is `net_event:<event>`.
 
 ### Reusable lobby + HUD UI panels
 
@@ -257,11 +364,18 @@ Pin these from `reference/ui/` — do not rewrite them:
 - `ui/hud/voice_chat.html` — mic toggle + per-peer speaking indicators
 - `ui/pause_menu.html` — reusable pause overlay (see "Pause menu" below)
 
-### Required pinned system
+### Engine-owned system bridges (auto-active — do NOT list)
 
-Every multiplayer game needs `systems/mp/mp_bridge.ts` active (list it in
-`active_systems` for every state). Without it, the lobby/HUD UIs won't receive
-state and the session won't drive phase transitions.
+Two system bridges are injected + kept always-active by the assembler:
+
+- `systems/ui/ui_bridge.ts` — every game (HUD, menu, cursor, notifications).
+- `systems/mp/mp_bridge.ts` — any game with a `"multiplayer"` block in
+  `01_flow.json` (even if `enabled` is unset).
+
+Do **NOT** list either of these in any state's `active_systems`. Listing
+them is redundant (the assembler already activated them) and just wastes
+JSON. `active_systems` is for your own game-logic systems from
+`04_systems.json` (scoring, wave spawners, enemy AI, etc.).
 
 ### Typical multiplayer flow skeleton
 
@@ -347,7 +461,30 @@ Notes:
 - `kinematic` + `setPosition()` for scripted movers (enemies, platforms)
 - `static` for walls, ground
 - `freeze_rotation: true` for all characters
-- `"collider": "capsule"` for humanoids, box for everything else
+
+### Collider shape
+
+Default: every entity gets a unit box collider unless you override. The
+override goes on `physics.collider`:
+
+- **String form** — uses sensible defaults. `"collider": "capsule"` (humanoids),
+  `"collider": "sphere"`, `"collider": "box"`, `"collider": "mesh"` (exact
+  hull from the GLB — slow, only for static world geometry).
+- **Object form** — custom dimensions:
+  ```json
+  "physics": {
+    "type": "static",
+    "collider": { "shape": "cuboid", "halfExtents": [5, 1, 20] }
+  }
+  ```
+  Supported shapes in object form: `cuboid` (uses `halfExtents`), `sphere`
+  (uses `radius`), `capsule` (uses `radius` + `height`). See
+  `reference/game_templates/v0.1/multiplayer_coin_grab/02_entities.json` and
+  `banner_siege/02_entities.json` for real usage.
+- **Trigger zones** — add `"is_trigger": true` inside the `physics` block
+  to turn the collider into a non-blocking trigger. Scripts see
+  `onTriggerEnter(otherId) / onTriggerStay / onTriggerExit`. Used for pickups,
+  goal lines, damage volumes.
 
 ## UI Panels
 HTML files in `project/ui/` receive game state via postMessage. Example HUD:
