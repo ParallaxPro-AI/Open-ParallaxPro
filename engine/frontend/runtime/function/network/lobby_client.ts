@@ -79,6 +79,24 @@ export class LobbyClient {
     setEvents(events: LobbyClientEvents): void { this.events = events; }
 
     async connect(url: string): Promise<void> {
+        // Retrofit auth for games published before the cross-origin move:
+        // their baked-in mp_bridge only reads localStorage, which is empty
+        // on the games.parallaxpro.ai origin the iframe now lives on. If
+        // the wrapper page posted us a bootstrap with an mpTicket, splice
+        // it into the URL here so the lobby server sees the authed
+        // identity instead of dropping us to guest-XXXX.
+        try {
+            const bootstrap = (window as any).__ppPlayBootstrap?.();
+            const ticket: string | undefined = bootstrap?.mpTicket;
+            if (ticket && !/[?&]ticket=/.test(url)) {
+                // Strip any empty `token=` query the old mp_bridge may
+                // have appended, then add the ticket. Server prefers
+                // ticket over token when both are present, but cleaning
+                // the empty one up keeps the URL readable in logs.
+                url = url.replace(/([?&])token=(?=&|$)/g, '$1').replace(/[?&]$/, '');
+                url += (url.includes('?') ? '&' : '?') + 'ticket=' + encodeURIComponent(ticket);
+            }
+        } catch { /* no window / no bootstrap — fall through */ }
         return new Promise<void>((resolve, reject) => {
             let resolved = false;
             try {
