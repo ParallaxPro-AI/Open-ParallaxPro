@@ -296,6 +296,12 @@ export class AiChatPanel {
         // bounce. Drop the ?project= param so the back button doesn't
         // round-trip us into the locked editor.
         const bounceToList = () => {
+            // This navigation is intentional (we're sending the user to
+            // the project list so they can watch the build). The
+            // beforeunload guard would otherwise intercept it and prompt
+            // "leaving will stop the response" — which is technically
+            // true but confusing here because we're the ones leaving.
+            window.removeEventListener('beforeunload', this.onBeforeUnload);
             window.location.href = window.location.pathname;
         };
         ws.onWsMessage('generation_started', bounceToList);
