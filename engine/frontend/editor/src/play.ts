@@ -95,29 +95,39 @@ interface PlayBootstrap {
     mpTicket: string | null;
 }
 let _cachedBootstrap: PlayBootstrap | null = null;
-function waitForBootstrap(timeoutMs: number): Promise<PlayBootstrap | null> {
-    // Only worth waiting when we're actually in an iframe — otherwise we'd
-    // just stall the boot for no reason.
+// Attach the listener + announce readiness synchronously at module load
+// rather than inside waitForBootstrap(). If we wait for the boot() async
+// chain to reach waitForBootstrap before attaching, the parent's
+// 'pp-play-bootstrap' message can arrive in between and be missed — the
+// parent's `iframe.load` listener fires as soon as the iframe document
+// loads, which can beat the listener attachment when the boot path is
+// slow (asset decode, wasm instantiate, etc.).
+const _bootstrapListenerPromise: Promise<PlayBootstrap | null> = (() => {
     if (window.parent === window) return Promise.resolve(null);
-    if (_cachedBootstrap) return Promise.resolve(_cachedBootstrap);
     return new Promise((resolve) => {
-        let settled = false;
         const onMsg = (e: MessageEvent) => {
             const d = e.data;
             if (!d || d.type !== 'pp-play-bootstrap') return;
-            settled = true;
             window.removeEventListener('message', onMsg);
             _cachedBootstrap = { game: d.game, user: d.user, mpTicket: d.mpTicket };
             resolve(_cachedBootstrap);
         };
         window.addEventListener('message', onMsg);
-        setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            window.removeEventListener('message', onMsg);
-            resolve(null);
-        }, timeoutMs);
+        // Tell the parent we're ready to receive the bootstrap. Handles the
+        // race where the parent's iframe.onload fired before React's
+        // useEffect attached its handler — without this cue the bootstrap
+        // never arrives and the game boots without a ticket (appearing as
+        // "guest-XXXX" in multiplayer).
+        try { window.parent.postMessage({ type: 'pp-play-ready' }, '*'); } catch {}
     });
+})();
+function waitForBootstrap(timeoutMs: number): Promise<PlayBootstrap | null> {
+    if (_cachedBootstrap) return Promise.resolve(_cachedBootstrap);
+    // Race the already-listening promise against a timeout.
+    return Promise.race([
+        _bootstrapListenerPromise,
+        new Promise<null>(resolve => setTimeout(() => resolve(null), timeoutMs)),
+    ]);
 }
 
 // Publicize for multiplayer_manager.ts etc. so they can use the ticket
@@ -125,6 +135,25 @@ function waitForBootstrap(timeoutMs: number): Promise<PlayBootstrap | null> {
 (window as any).__ppPlayBootstrap = () => _cachedBootstrap;
 
 async function boot(): Promise<void> {
+    // Top-level visit to games.parallaxpro.ai has no auth context (different
+    // origin from parallaxpro.ai where the JWT lives). Bounce to the main-
+    // site wrapper so the user's session carries through the iframe
+    // bootstrap path. Skipped when embedded in an iframe (that's the
+    // wrapper itself) or when on localhost / archived bundle paths on the
+    // main site.
+    if (window.parent === window
+        && (window.location.hostname === 'games.parallaxpro.ai'
+            || window.location.hostname === 'www.games.parallaxpro.ai')) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const pathOwnerSlug = window.location.pathname.replace(/^\/play\/?/, '').split('/').filter(Boolean);
+        const owner = urlParams.get('owner') || pathOwnerSlug[0];
+        const slug = urlParams.get('slug') || pathOwnerSlug[1];
+        if (owner && slug) {
+            window.location.replace(`https://parallaxpro.ai/games/${owner}/${slug}`);
+            return;
+        }
+    }
+
     const pathParts = window.location.pathname.replace(/^\/play\/?/, '').split('/').filter(Boolean);
 
     const urlParams = new URLSearchParams(window.location.search);
