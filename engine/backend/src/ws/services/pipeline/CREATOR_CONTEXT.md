@@ -363,7 +363,55 @@ window.addEventListener('message', function(e) { if (e.data && e.data.type === '
 
 Scripts push state via: `this.scene.events.ui.emit("hud_update", { health: 75 })`
 
-Buttons emit commands: `window.parent.postMessage({ type: 'game_command', action: 'start_game', panel: 'main_menu' }, '*')`
+### Button actions — validator rule
+
+Buttons emit commands via `window.parent.postMessage`, but the assembler's static validator only recognizes a button if a matching `emit('literal_action')` call appears somewhere in the panel's `<script>`. It does NOT scan `postMessage(...)` calls or dynamic `emit(variable)` calls.
+
+Required pattern — define an `emit()` wrapper and call it with a **string literal** for each distinct action:
+
+```html
+<script>
+function emit(action) {
+  window.parent.postMessage({ type: 'game_command', action: action, panel: 'main_menu' }, '*');
+}
+document.getElementById('start-btn').onclick = function() { emit('start_game'); };
+document.getElementById('settings-btn').onclick = function() { emit('open_settings'); };
+</script>
+```
+
+Here `emit('start_game')` and `emit('open_settings')` are visible to the validator — it will count 2 buttons on this panel.
+
+**Dynamic card / pool UIs** (e.g. a level-up screen that picks 3 of 6 upgrades at runtime). The *rendered* buttons may be dynamic, but every possible action name MUST still appear as `emit('literal')` somewhere in the script so the validator can see them. Typical shape:
+
+```html
+<script>
+function emit(action) {
+  window.parent.postMessage({ type: 'game_command', action: action, panel: 'level_up' }, '*');
+}
+// Declare ALL possible actions as literal calls the validator can see.
+// These are unreachable at runtime but serve as a static manifest:
+// eslint-disable-next-line no-unused-expressions
+function __validatorManifest() {
+  emit('damage_up'); emit('attack_speed'); emit('range_up');
+  emit('move_speed'); emit('max_health'); emit('multi_hit');
+}
+// Actual runtime rendering can still be fully dynamic:
+function renderChoices(choices) {
+  for (var i = 0; i < choices.length; i++) {
+    (function(choice) {
+      var card = document.createElement('div');
+      card.textContent = choice.label;
+      card.onclick = function() { emit(choice.type); };  // variable — invisible to the validator
+      document.getElementById('cards').appendChild(card);
+    })(choices[i]);
+  }
+}
+</script>
+```
+
+The `__validatorManifest` stub is never called at runtime but ensures every action name is present as `emit('literal')` for the assembler's static check. Without it, the validator reports **"no buttons found in <panel>.html"** even though the UI works fine in the browser.
+
+Every `ui_event:panel:action` transition in `01_flow.json` must correspond to an `emit('action')` literal call in that panel's HTML — 1:1. Actions declared in the manifest but never used by the FSM are harmless; FSM transitions with no matching literal are a hard failure.
 
 ## Available Assets
 Read files in the `assets/` directory:
