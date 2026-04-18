@@ -93,7 +93,7 @@ export class AiChatPanel {
         // Most modern browsers ignore the custom string and show their own
         // generic "Leave site? Changes you made may not be saved." prompt,
         // but setting returnValue is still required to trigger the prompt.
-        const msg = 'The AI Assistant is still responding. Leave anyway?';
+        const msg = 'The AI Assistant is still responding — leaving this page will stop it. Leave anyway?';
         e.returnValue = msg;
         return msg;
     };
