@@ -163,14 +163,28 @@ function seedScriptFields(inst: any): void {
         _fpsYaw: 0, _tpYaw: 0,
         reloadScene() {},
     };
+    // Mirror of the real InputSystem (shared/input/input_system.ts). Phantom
+    // methods like getKey / getKeyDown / getMouseButton are intentionally
+    // omitted so a script that calls them blows up the smoke test rather
+    // than passing here and TypeError-ing in the browser.
     inst.input = {
-        isKeyDown() { return false; }, isKeyPressed() { return false; }, isKeyReleased() { return false; },
-        getKey() { return false; }, getKeyDown() { return false; }, getKeyUp() { return false; },
-        getMouseDelta() { return { x: 0, y: 0 }; },
+        isKeyDown() { return false; },
+        isKeyJustPressed() { return false; },
+        isKeyPressed() { return false; },
+        isKeyJustReleased() { return false; },
+        isKeyReleased() { return false; },
+        isMouseButtonDown() { return false; },
+        isMouseButtonJustPressed() { return false; },
+        isMouseButtonJustReleased() { return false; },
         getMousePosition() { return { x: 0, y: 0 }; },
-        getMouseButton() { return false; }, getMouseButtonDown() { return false; }, getMouseButtonUp() { return false; },
-        getMouseScroll() { return 0; },
-        requestPointerLock() {},
+        getMouseX() { return 0; }, getMouseY() { return 0; },
+        getMouseDelta() { return { x: 0, y: 0 }; },
+        getMouseDeltaX() { return 0; }, getMouseDeltaY() { return 0; },
+        getScrollDelta() { return { x: 0, y: 0 }; },
+        getModifiers() { return {}; },
+        getGamepadAxis() { return 0; },
+        isGamepadButtonDown() { return false; },
+        requestPointerLock() {}, exitPointerLock() {}, isPointerLocked() { return false; },
     };
     inst.ui = {
         createText() { return { text: '', remove() {}, x: 0, y: 0 }; },
@@ -283,7 +297,7 @@ class GameScript {
     constructor() {
         this.entity = { id: 0, name: '', active: true, tags: new Set(), transform: { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 }, lookAt() {}, setRotationEuler() {} }, getComponent() { return null; }, playAnimation() {}, setActive() {}, setMaterialColor() {}, addTag() {}, removeTag() {}, getScript() { return null; } };
         this.scene = { events: { game: { on() {}, emit() {} }, ui: { on() {}, emit() {} } }, findEntityByName() { return null; }, findEntitiesByName() { return []; }, findEntitiesByTag() { return []; }, setPosition() {}, setScale() {}, setRotationEuler() {}, setVelocity() {}, destroyEntity() {}, createEntity() { return 0; }, spawnEntity() { return null; }, raycast() { return null; }, screenRaycast() { return null; }, screenPointToGround() { return null; }, getAllEntities() { return []; }, setFog() {}, setTimeOfDay() {}, loadScene() {}, saveData() {}, loadData() { return null; }, deleteData() {}, listSaveKeys() { return []; }, getTerrainHeight() { return 0; }, getTerrainNormal() { return { x: 0, y: 1, z: 0 }; }, _fpsYaw: 0, _tpYaw: 0, reloadScene() {} };
-        this.input = { isKeyDown() { return false; }, isKeyPressed() { return false; }, isKeyReleased() { return false; }, getKey() { return false; }, getKeyDown() { return false; }, getKeyUp() { return false; }, getMouseDelta() { return { x: 0, y: 0 }; }, getMousePosition() { return { x: 0, y: 0 }; }, getMouseButton() { return false; }, getMouseButtonDown() { return false; }, getMouseButtonUp() { return false; }, getMouseScroll() { return 0; }, requestPointerLock() {} };
+        this.input = { isKeyDown() { return false; }, isKeyJustPressed() { return false; }, isKeyPressed() { return false; }, isKeyJustReleased() { return false; }, isKeyReleased() { return false; }, isMouseButtonDown() { return false; }, isMouseButtonJustPressed() { return false; }, isMouseButtonJustReleased() { return false; }, getMousePosition() { return { x: 0, y: 0 }; }, getMouseX() { return 0; }, getMouseY() { return 0; }, getMouseDelta() { return { x: 0, y: 0 }; }, getMouseDeltaX() { return 0; }, getMouseDeltaY() { return 0; }, getScrollDelta() { return { x: 0, y: 0 }; }, getModifiers() { return {}; }, getGamepadAxis() { return 0; }, isGamepadButtonDown() { return false; }, requestPointerLock() {}, exitPointerLock() {}, isPointerLocked() { return false; } };
         this.ui = { createText() { return { text: '', remove() {}, x: 0, y: 0 }; }, createPanel() { return { remove() {} }; }, createButton() { return { remove() {} }; }, createImage() { return { remove() {} }; }, sendState() {} };
         this.audio = { playSound() {}, playMusic() {}, stopMusic() {}, setGroupVolume() {}, getGroupVolume() { return 1; }, preload() {} };
         this.time = { time: 0, deltaTime: 1/60, frameCount: 0 };

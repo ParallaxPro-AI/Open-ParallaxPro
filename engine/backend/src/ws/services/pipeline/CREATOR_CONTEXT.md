@@ -345,18 +345,32 @@ this.scene.events.ui.emit("hud_update", { health: 75, score: 100 })
 
 ### `this.input`
 
-```js
-this.input.getKey("KeyW")              // held this frame
-this.input.getKeyDown("Space")         // just pressed
-this.input.getKeyUp("KeyE")            // just released
-this.input.getMouseDelta()             // { x, y }
-this.input.getMousePosition()          // screen-space { x, y }
-this.input.getMouseButton(0)           // 0=left, 1=middle, 2=right
-this.input.getMouseButtonDown(0)
-this.input.getMouseScroll()            // signed amount this frame
-```
+These are the only methods on the real InputSystem. There are NO `getKey`,
+`getKeyDown`, `getKeyUp`, `getMouseButton`, or `getMouseScroll` methods — they
+do not exist at runtime, calling them throws TypeError, and the throw kills
+the rest of `onUpdate`.
 
-(Aliases `isKeyDown` / `isKeyPressed` / `isKeyReleased` / `getMouseDelta` also exist for back-compat.)
+```js
+// Keyboard (use KeyboardEvent.code values: "KeyW", "Space", "ArrowUp", ...)
+this.input.isKeyDown("KeyW")           // held this frame
+this.input.isKeyPressed("Space")       // first frame the key went down
+this.input.isKeyReleased("KeyE")       // first frame the key came up
+
+// Mouse buttons (number: 0=left, 1=middle, 2=right; OR strings "MouseLeft" / "MouseMiddle" / "MouseRight")
+this.input.isMouseButtonDown(0)
+this.input.isMouseButtonJustPressed(0)
+this.input.isMouseButtonJustReleased(0)
+
+// Mouse position / movement / scroll
+this.input.getMousePosition()          // { x, y } in screen pixels
+this.input.getMouseDelta()             // { x, y } since last frame
+this.input.getScrollDelta()            // { x, y } wheel delta this frame
+
+// Pointer lock (FPS / mouse-look games)
+this.input.requestPointerLock()
+this.input.exitPointerLock()
+this.input.isPointerLocked()
+```
 
 ### `this.audio`
 
