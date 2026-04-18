@@ -73,7 +73,19 @@ export class InputDevice {
         };
 
         this.boundKeyUp = (e: KeyboardEvent) => {
-            if (isEditorTextInput(e.target as HTMLElement)) return;
+            // Intentionally NOT filtering on isEditorTextInput here (unlike
+            // keydown). If the user presses W on the canvas, then focuses
+            // the chat input and releases W, the keyup target is the chat
+            // input — filtering would swallow it and the engine's
+            // keysDown set would think W is still held forever, leaving
+            // the character stuck walking forward until a fresh W
+            // keydown+keyup pair fires on the canvas.
+            //
+            // Forwarding every keyup unconditionally is safe: injectKeyUp
+            // for a key that was never injectKeyDown'd is a no-op
+            // (Set.delete on a missing member), and no game scripts in the
+            // codebase subscribe to onKeyUp directly — they all poll
+            // isKeyDown/isKeyPressed, which only reads the keysDown set.
             if (this.suppressGameInput) return;
             for (const cb of this.keyUpCallbacks) {
                 cb(e.key, e.code, extractModifiers(e));
