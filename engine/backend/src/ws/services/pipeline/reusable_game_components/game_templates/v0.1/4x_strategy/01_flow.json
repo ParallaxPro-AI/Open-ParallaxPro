@@ -41,7 +41,7 @@
             "city_manager",
             "unit_control",
             "ai_city",
-            "ai_unit_idle"
+            "ai_unit_control"
           ],
           "on_enter": [
             "show_ui:hud/resource_bar",

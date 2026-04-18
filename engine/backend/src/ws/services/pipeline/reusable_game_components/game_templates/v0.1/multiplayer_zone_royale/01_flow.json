@@ -70,7 +70,7 @@
     "gameplay": {
       "description": "Battle royale match",
       "active_systems": ["mp_bridge", "shooter_royale_game"],
-      "active_behaviors": ["player_shooter_movement", "topdown_shooter_camera", "mp_hitscan_weapon", "loot_crate"],
+      "active_behaviors": ["player_shooter_movement", "topdown_shooter_camera", "mp_hitscan_weapon"],
       "on_enter": [
         "show_ui:hud/ping",
         "show_ui:hud/text_chat",

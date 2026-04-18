@@ -900,6 +900,77 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // FSM structural validation
+  // ══════════════════════════════════════════════════════════════════════
+  // Catches the silent-failure class where a CLI agent writes plausible-
+  // looking `active_behaviors` / `active_systems` names that don't match
+  // anything declared — the engine drops the reference and the game runs
+  // with dead code (player can't move, enemies don't chase, etc.). Without
+  // this check, validate.sh reports "all good" and the creator ships a
+  // broken game. Surfaced by lawn-mower-survival 2026-04-18.
+  {
+    const validBehaviorNames = new Set<string>();
+    for (const def of Object.values(defs)) {
+      if (def?.behaviors) {
+        for (const b of def.behaviors) {
+          if (b?.name) validBehaviorNames.add(String(b.name));
+        }
+      }
+    }
+    // Valid system names = every key in `systems` (already includes auto-
+    // injected `ui` and `mp_bridge` from earlier in this function).
+    const validSystemNames = new Set<string>(Object.keys(systems));
+
+    const structuralErrors: string[] = [];
+
+    if (flow && flow.states) {
+      if (!flow.start) {
+        structuralErrors.push(
+          `01_flow.json: missing required top-level "start" field — every flow needs an initial state name (e.g. "start": "boot"). See CREATOR_CONTEXT.md § "FSM structure — required fields".`,
+        );
+      }
+
+      const walk = (states: Record<string, any>, prefix: string): void => {
+        for (const [name, st] of Object.entries(states) as [string, any][]) {
+          const path = prefix ? `${prefix}.${name}` : name;
+          if (st?.substates && !st?.start) {
+            structuralErrors.push(
+              `01_flow.json state "${path}" is compound (has substates) but missing "start" — every compound state needs a starting substate name. See CREATOR_CONTEXT.md § "FSM structure — required fields".`,
+            );
+          }
+          if (Array.isArray(st?.active_behaviors)) {
+            for (const b of st.active_behaviors) {
+              if (!validBehaviorNames.has(String(b))) {
+                const valid = [...validBehaviorNames].sort().join(', ') || '(none declared — add behaviors with a `name` field in 02_entities.json)';
+                structuralErrors.push(
+                  `01_flow.json state "${path}" active_behaviors references unknown behavior "${b}". Every name here must match a behaviors[].name in 02_entities.json exactly. Valid names: ${valid}. See CREATOR_CONTEXT.md § "Silent-failure watch-list".`,
+                );
+              }
+            }
+          }
+          if (Array.isArray(st?.active_systems)) {
+            for (const s of st.active_systems) {
+              if (!validSystemNames.has(String(s))) {
+                const valid = [...validSystemNames].sort().join(', ');
+                structuralErrors.push(
+                  `01_flow.json state "${path}" active_systems references unknown system "${s}". Every name here must match a key in 04_systems.json (auto-injected "ui" and "mp_bridge" are always available). Valid names: ${valid}. See CREATOR_CONTEXT.md § "Silent-failure watch-list".`,
+                );
+              }
+            }
+          }
+          if (st?.substates) walk(st.substates, path);
+        }
+      };
+      walk(flow.states, '');
+    }
+
+    if (structuralErrors.length > 0) {
+      console.error(`[Assembler] FSM structural validation errors:\n  ${structuralErrors.join('\n  ')}`);
+      throw new Error(`FSM structural validation failed: ${structuralErrors.length} error(s). ${structuralErrors[0]}`);
+    }
+  }
+
   // UI button validation
   {
     const panelButtons = new Map<string, Set<string>>();
