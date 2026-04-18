@@ -148,6 +148,17 @@
     hint.style.display = '';
     justClosedAt = Date.now();
     try { input.blur(); } catch (e) {}
+    // Handing focus back to the parent canvas is critical: blurring our
+    // own input only moves focus off it within THIS sub-iframe, the
+    // sub-iframe itself still holds document focus. Any WASD keydown the
+    // user presses next fires inside this iframe and never reaches the
+    // game's window-level listeners — the character would refuse to move
+    // until the user clicked the canvas manually.
+    try {
+      var canvas = window.parent && window.parent.document && window.parent.document.querySelector('canvas');
+      if (canvas && canvas.focus) canvas.focus();
+      else if (window.parent && window.parent.focus) window.parent.focus();
+    } catch (e) { /* cross-origin parent — nothing we can do */ }
     emit('chat_focus', { focus: false });
   }
 

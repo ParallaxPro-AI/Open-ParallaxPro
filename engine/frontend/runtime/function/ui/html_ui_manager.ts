@@ -321,11 +321,18 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
                 target.dispatchEvent(new MouseEvent('mouseup', opts));
                 target.click();
 
-                // Focus input elements so keyboard input works
+                // Focus input elements so keyboard input works — but
+                // leave pointer lock + iframe.pointer-events alone. The
+                // virtual cursor stays engaged, the real OS cursor stays
+                // hidden, and keyboard events still route to the focused
+                // input because focus is independent of pointer lock.
+                // Previously we exited pointer lock and flipped the
+                // iframe to pointer-events: auto, which made clicking the
+                // lobby-name textbox feel like the game had just "let go
+                // of" the cursor — the whole point of virtual cursor is
+                // to stay in-game.
                 const tag = target.tagName?.toUpperCase();
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-                    try { document.exitPointerLock(); } catch { /* may not be locked */ }
-                    iframe.style.pointerEvents = 'auto';
                     iframe.focus();
                     setTimeout(() => { target.focus(); }, 0);
                     this.focusedIframe = iframe;
