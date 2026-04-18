@@ -836,7 +836,16 @@ export class AssetsPanel {
                 const cfgMatch = src.match(/_fsmConfigs\s*=\s*'((?:[^'\\]|\\.)*)'/s);
                 if (!cfgMatch) continue;
                 try {
-                    const configs = JSON.parse(cfgMatch[1].replace(/\\'/g, "'"));
+                    // Reverse the JS single-quoted-string escape that the
+                    // assembler applies when embedding the JSON payload into
+                    // source. Two escapes are added: `\` → `\\` and `'` → `\'`.
+                    // Reversing just `\'` (as we used to) left the doubled
+                    // backslashes intact, which broke JSON.parse whenever the
+                    // config contained JSON-escaped quotes — e.g.
+                    // ui_params.pause_menu.pauseHint with HTML like
+                    // `class="pm-kbd"` produced `\\"` in the source, which
+                    // JSON.parse reads as backslash + string-terminator.
+                    const configs = JSON.parse(cfgMatch[1].replace(/\\([\\'])/g, '$1'));
                     if (!Array.isArray(configs) || configs.length === 0) continue;
                     const entityName = key.replace(/^scripts\/fsm_driver_/, '').replace(/\.ts$/, '').replace(/_/g, '/');
                     const expandedConfigs = [...configs];
