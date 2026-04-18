@@ -55,10 +55,14 @@ class CarControlBehavior extends GameScript {
             }
         }
 
-        // Steering — only effective when moving
+        // Steering — only effective when moving. Flip sign in reverse so
+        // pressing D/A always rotates the car toward the camera-relative
+        // right/left, matching arcade-driving expectations (see also
+        // tank_control / kart_drive / rocket_car_control / ship_sail).
         var speedFactor = Math.abs(this._currentSpeed) / this._maxSpeed;
         if (speedFactor > 0.05) {
-            this._yawDeg += steer * this._turnSpeed * dt * Math.min(speedFactor * 2, 1);
+            var reverseSign = this._currentSpeed < 0 ? -1 : 1;
+            this._yawDeg += steer * this._turnSpeed * dt * Math.min(speedFactor * 2, 1) * reverseSign;
         }
 
         // Convert to world-space velocity
