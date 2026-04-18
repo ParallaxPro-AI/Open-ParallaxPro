@@ -90,7 +90,8 @@ systems and UI panels.
 {
   "definitions": {
     "player": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/...", "scale": [0.4, 0.4, 0.4] },
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/...", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
+      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png" },
       "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
       "tags": ["player"],
       "behaviors": [
@@ -106,20 +107,72 @@ systems and UI panels.
 }
 ```
 
+### Mesh options
+
+`mesh.type`: `custom` (GLB/GLTF from `asset`), `plane`, `cube`, `sphere`, `cylinder`, `cone`, `capsule`, `empty` (no geometry).
+
+For `custom` meshes:
+- `asset`: path from the asset catalog (see `assets/3D_MODELS.md`).
+- `scale`: `[x, y, z]` — uniform usually.
+- `modelRotationY` / `modelRotationX` / `modelRotationZ`: bake a rotation into the loaded mesh (**degrees**). Use `modelRotationY: 180` when the asset's "forward" faces the wrong way (common for Quaternius character packs).
+
+For primitive meshes:
+- `color`: `[r, g, b, a]` 0–1. Applied to the mesh's default material.
+- `scale`: same as above.
+
+### Material overrides
+
+`mesh_override` on the def merges with `material_overrides` on the placement; placement wins. Currently supports:
+- `textureBundle`: path to a prototype-grid or tileable texture asset.
+
+### Labels
+
+Every non-camera, non-manager, non-custom-mesh entity gets a floating name label above it for debug/editor visibility. Set `"label": false` to suppress (common on ground/walls/decorations to reduce clutter). Cameras and `manager` / `managers_root`-tagged entities are auto-suppressed.
+
 **03_worlds.json** — Scene layout
 ```json
 {
   "worlds": [{
     "id": "main",
     "name": "Main",
-    "lighting": { "sun_color": [1, 0.95, 0.9] },
+    "environment": {
+      "ambientColor": [0.52, 0.58, 0.72],
+      "ambientIntensity": 0.55,
+      "sunColor": [1.0, 0.92, 0.78],
+      "sunIntensity": 1.0,
+      "fog": { "enabled": true, "color": [0.65, 0.68, 0.78], "near": 35, "far": 110 },
+      "gravity": [0, -9.81, 0]
+    },
     "placements": [
       { "ref": "ground", "position": [0, 0, 0] },
-      { "ref": "player", "position": [0, 0, 0] }
+      { "name": "Player", "ref": "player", "position": [0, 1, 0] },
+      { "ref": "camera", "position": [0, 6, 10] },
+      { "ref": "castle_wall", "position": [-30, 2.2, -5], "rotation": [0, 90, 0] }
     ]
   }]
 }
 ```
+
+### Lighting / `environment` block
+
+Preferred (newer, camelCase) keys:
+- `ambientColor: [r, g, b]` and `ambientIntensity: number` — global fill.
+- `sunColor: [r, g, b]` and `sunIntensity: number` — directional key light.
+- `fog: { enabled: bool, color: [r,g,b], near: number, far: number }` — distance fog.
+- `gravity: [x, y, z]` — physics gravity vector, e.g. `[0, -9.81, 0]`.
+
+Legacy keys (also recognized, snake_case): `lighting.sun_color`, `lighting.ambient`. Either works; `environment` is preferred.
+
+### Placement fields
+
+- `ref` (required) — entity def key in `02_entities.json`.
+- `position` — `[x, y, z]`.
+- `rotation` — `[x, y, z]` euler degrees OR `[x, y, z, w]` quaternion.
+- `scale` — `[x, y, z]`; overrides `mesh.scale` on the def.
+- **`name`** — entity instance name. This is what `scene.findEntityByName("Player")` looks up at runtime. Give your player, camera, and any script-targeted entities explicit names. If omitted, auto-generated (often `Player (1)` etc. — unreliable for lookup).
+- `tags` — additional tags merged onto the def's tags.
+- `material_overrides` — same shape as `mesh_override` on the def; placement wins on conflict.
+- `active` — `false` to spawn inactive.
 
 **04_systems.json** — Manager systems (global game logic)
 ```json
@@ -160,22 +213,128 @@ class MyScript extends GameScript {
 4. Params are injected by matching `_paramName` fields (prepend underscore)
 5. Behaviors have `_behaviorName` — the engine auto-activates them based on FSM's `active_behaviors`
 
-## Script API (same as FIXER_CONTEXT.md — key parts)
+## Script API
+
+### Lifecycle
+
+Every script extends `GameScript`. Available hooks (all optional):
+- `onStart()` — once when the behavior/system becomes active.
+- `onUpdate(dt)` — every rendered frame.
+- `onLateUpdate(dt)` — every frame after all `onUpdate`s (cameras, UI follow logic).
+- `onFixedUpdate(fixedDt)` — fixed-timestep tick for physics-sensitive work.
+- `onDestroy()` — once when the entity or behavior is removed.
+- `onCollisionEnter(otherId)` / `onCollisionStay(otherId)` / `onCollisionExit(otherId)` — solid-body contacts.
+- `onTriggerEnter(otherId)` / `onTriggerStay(otherId)` / `onTriggerExit(otherId)` — fire only on colliders marked `is_trigger: true`.
+
+### `this.entity` (own entity)
 
 ```js
-this.entity.transform.position    // Vec3
+this.entity.id                             // number
+this.entity.name                           // string
+this.entity.active                         // boolean
+this.entity.setActive(false)               // toggle
+this.entity.transform.position             // { x, y, z }
+this.entity.transform.rotation             // { x, y, z, w } quaternion
+this.entity.transform.scale                // { x, y, z }
+this.entity.transform.lookAt(x, y, z)
+this.entity.transform.setRotationEuler(x, y, z)  // degrees
+this.entity.getComponent("RigidbodyComponent")
+this.entity.playAnimation("Run", { loop: true })
+this.entity.setMaterialColor(r, g, b, a)
+this.entity.addTag("foo") / removeTag("foo")
+this.entity.getScript("SiblingClassName")  // fetch a sibling script instance
+```
+
+### `this.scene`
+
+Entity lookup + lifecycle:
+```js
+this.scene.findEntityByName("Player")          // single match or null
+this.scene.findEntitiesByTag("enemy")          // array
+this.scene.getAllEntities()                    // [{ id, name }]
+this.scene.createEntity("TempMarker")          // returns id
+this.scene.spawnEntity("bullet")               // instantiate prefab by def name
+this.scene.destroyEntity(id)
+```
+
+Transform (for OTHER entities by id):
+```js
 this.scene.setPosition(id, x, y, z)
-this.scene.setVelocity(id, {x, y, z})  // for dynamic bodies
-this.scene.findEntityByName("Player")
-this.scene.findEntitiesByTag("enemy")
+this.scene.setScale(id, x, y, z)
+this.scene.setRotationEuler(id, x, y, z)       // degrees
+this.scene.setVelocity(id, { x, y, z })        // dynamic bodies only
+```
+
+Queries:
+```js
+this.scene.raycast(ox, oy, oz, dx, dy, dz, maxDist)   // world ray
+this.scene.screenRaycast(screenX, screenY)            // from camera through pixel
+this.scene.screenPointToGround(screenX, screenY, 0)   // project onto Y-plane
+this.scene.getTerrainHeight(x, z)
+```
+
+Environment:
+```js
+this.scene.setFog(enabled, color, near, far)
+this.scene.setTimeOfDay(hour)                  // 0–24
+this.scene.loadScene("other_scene")
+```
+
+Persistence:
+```js
+this.scene.saveData("highscore", 42)
+this.scene.loadData("highscore")
+```
+
+### Events
+
+Two buses. `game` is for gameplay events (validated against `event_definitions.ts`). `ui` is for HUD/menu state push (no validation).
+
+```js
 this.scene.events.game.emit("entity_damaged", { entityId: 5, amount: 10 })
 this.scene.events.game.on("entity_damaged", function(data) { ... })
 this.scene.events.ui.emit("hud_update", { health: 75, score: 100 })
-this.input.isKeyDown("KeyW")
-this.input.isKeyPressed("Space")
-this.input.getMouseDelta()
-this.audio.playSound("/assets/kenney/audio/...", 0.5)
-this.entity.playAnimation("Run", { loop: true })
+```
+
+### `this.input`
+
+```js
+this.input.getKey("KeyW")              // held this frame
+this.input.getKeyDown("Space")         // just pressed
+this.input.getKeyUp("KeyE")            // just released
+this.input.getMouseDelta()             // { x, y }
+this.input.getMousePosition()          // screen-space { x, y }
+this.input.getMouseButton(0)           // 0=left, 1=middle, 2=right
+this.input.getMouseButtonDown(0)
+this.input.getMouseScroll()            // signed amount this frame
+```
+
+(Aliases `isKeyDown` / `isKeyPressed` / `isKeyReleased` / `getMouseDelta` also exist for back-compat.)
+
+### `this.audio`
+
+```js
+this.audio.playSound("/assets/.../laser.ogg")
+this.audio.playMusic("/assets/.../music.ogg")
+this.audio.stopMusic()
+```
+
+### `this.ui`
+
+```js
+var t = this.ui.createText({ text: "Hello", x: 20, y: 20, color: "#fff" })
+t.text = "Updated"
+t.remove()
+```
+
+Most games should drive UI via HTML panels + `events.ui.emit("hud_update", …)` instead of `this.ui.createText`. Use `createText` / `createButton` only for quick, code-only overlays.
+
+### `this.time`
+
+```js
+this.time.time          // seconds since scene start
+this.time.deltaTime     // last frame delta (seconds)
+this.time.frameCount
 ```
 
 ### Reserved keys — DO NOT use for gameplay
@@ -316,13 +475,16 @@ Set this block in `01_flow.json` to make the game multiplayer. Omit it for singl
 "multiplayer": {
   "enabled": true,
   "minPlayers": 2,
-  "maxPlayers": 8,         // cap 16, star topology does not scale past that
+  "maxPlayers": 8,              // cap 16, star topology does not scale past that
   "tickRate": 30,
-  "authority": "host",     // host runs the sim, clients predict + reconcile
+  "authority": "host",          // host runs the sim, clients predict + reconcile
   "predictLocalPlayer": true,
-  "hostPlaysGame": true
+  "hostPlaysGame": true,
+  "remotePlayerPrefab": "player" // prefab name from 02_entities.json auto-spawned for remote peers; set to null to opt out and spawn them yourself
 }
 ```
+
+**`remotePlayerPrefab`** is important: when a peer joins, the engine auto-spawns an entity using the prefab name you give here. Usually set to `"player"` (the same prefab the local player uses). Set to `null` if your game needs to spawn remote proxies manually from a gameplay system. Omitting the field entirely falls back to a default blue capsule — don't rely on that; set it explicitly.
 
 Mark entities that should sync across the network with a `network` block in `02_entities.json`:
 
@@ -498,7 +660,24 @@ window.addEventListener('message', function(e) { if (e.data && e.data.type === '
 </script>
 ```
 
-Scripts push state via: `this.scene.events.ui.emit("hud_update", { health: 75 })`
+Scripts push state via: `this.scene.events.ui.emit("hud_update", { health: 75, maxHealth: 100, score: 42 })`
+
+The `state` object is merged — every emit adds/updates keys; nothing clears them. Each panel's `update(state)` should tolerate missing keys (use `if (state.foo !== undefined)` guards).
+
+### State keys the reusable HUDs expect
+
+When you pin a reusable HUD from `reference/ui/hud/`, your game system must emit the keys that panel reads. Mismatched/missing keys = blank display.
+
+| Panel | Required state keys |
+| --- | --- |
+| `hud/health.html` | `health`, `maxHealth` |
+| `hud/ability_bar.html` | `health`, `maxHealth`, `mana`, `maxMana`, `qCooldown`, `qMaxCooldown`, `eCooldown`, `eMaxCooldown`, `spaceCooldown`, `spaceMaxCooldown`, `heroDead` |
+| `hud/ping.html` | `multiplayer.enabled`, `multiplayer.ping`, `multiplayer.connected` |
+| `hud/scoreboard.html` | `scoreboard.players` (array of `{ username, score, isLocal }`), `scoreboard.scoreLabel`, `scoreboard.scoreToWin` |
+| `hud/text_chat.html` | `username`, `multiplayer.chatHistory` (array of `{ fromUsername, body }`), `multiplayer.openChat` |
+| `hud/voice_chat.html` | `multiplayer.micOn`, `multiplayer.muted`, `multiplayer.voicePeers` (array of `{ username, level }`) |
+
+If you're writing a **custom** HUD, you get to pick your own key names — just stay consistent between your emitter and your panel.
 
 ### Button actions — validator rule
 
@@ -576,17 +755,50 @@ Any script that emits/listens for an event NOT in `project/systems/event_definit
 ## Reference Templates
 Look at `reference/game_templates/` for working examples of complete templates.
 
+## Sharing state across behaviors (`scene._*` convention)
+
+Behaviors that need to exchange runtime data with no formal API attach properties
+directly to the `scene` object, prefixed with underscore:
+
+```js
+// Camera writes its yaw every frame
+this.scene._tpYaw = newYaw;
+
+// Grab-arms behavior reads it to align the grab direction
+var yaw = this.scene._tpYaw || 0;
+```
+
+This is a convention, not a formal contract — the engine doesn't enforce types
+or ordering. Treat them as hints, not authoritative state. Examples in the
+library: `scene._fpsYaw` (fps_combat ↔ block_interact), `scene._tpYaw`
+(camera_platformer ↔ grab_arms), `scene._heroDead` (hero_combat ↔ ability_bar
+HUD), `scene._riftMouseAim` (MOBA cursor `{ x, z }`). Use when two cooperating
+scripts need to share per-frame context without growing a plumbing layer.
+
 ## Validation
 After creating all files, run `bash validate.sh`. Fix any errors before finishing.
 
+The assembler's checks are strict — see the "Silent-failure watch-list" above
+for what it now rejects (typos in `active_behaviors`/`active_systems`, missing
+`start`, button-wiring gaps).
+
 ## Quality Checklist
-- [ ] Flow has boot → main_menu → gameplay → game_over path
-- [ ] Player entity with movement behavior
-- [ ] Camera entity with camera behavior
-- [ ] At least one gameplay mechanic (enemies, objectives, etc.)
-- [ ] HUD shows relevant info (health, score, timer, etc.)
-- [ ] Game over condition exists
-- [ ] All behavior scripts referenced in 02_entities.json exist in project/behaviors/
-- [ ] All system scripts referenced in 04_systems.json exist in project/systems/
-- [ ] All UI panels referenced in 01_flow.json exist in project/ui/
-- [ ] validate.sh passes
+
+**Validator-enforced** — `validate.sh` will fail if any of these is missing:
+- [ ] All four template JSONs parse and are well-formed.
+- [ ] Every behavior script referenced in `02_entities.json` exists in `project/behaviors/` (or was copied from `reference/`).
+- [ ] Every system script referenced in `04_systems.json` exists in `project/systems/`.
+- [ ] Every `show_ui:<panel>` action points at a file that exists in `project/ui/`.
+- [ ] Every `active_behaviors` entry matches a behavior `name` declared in `02_entities.json`.
+- [ ] Every `active_systems` entry matches a key in `04_systems.json` (or is `ui`/`mp_bridge`).
+- [ ] Every `ui_event:panel:action` transition matches an `emit('action')` literal in that panel's HTML.
+- [ ] Every `game_event:<name>` matches an event declared in `project/systems/event_definitions.ts`.
+- [ ] The root flow has `start`, and every compound state has its own `start`.
+
+**Aspirational (good games have these, but validator won't fail without them):**
+- [ ] Flow has boot → main_menu → gameplay → game_over.
+- [ ] Player entity with movement behavior.
+- [ ] Camera entity with camera behavior.
+- [ ] At least one gameplay mechanic (enemies, objectives, etc.).
+- [ ] HUD shows relevant info (health, score, timer, etc.).
+- [ ] Game-over condition exists.
