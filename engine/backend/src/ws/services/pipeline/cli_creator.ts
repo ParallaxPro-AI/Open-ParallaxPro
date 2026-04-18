@@ -415,9 +415,9 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         // so ambitious builds that take longer than expected still get
         // to finish instead of being SIGKILL'd with partial files.
         timeout: 45 * 60 * 1000,
-        // Creator runs Opus for stronger planning on greenfield builds;
-        // Fixer stays on Sonnet (default) since edits are narrower.
-        claudeModel: 'opus',
+        // Creator + Fixer both run Sonnet — Opus didn't move the needle
+        // on greenfield builds enough to justify the cost / latency.
+        claudeModel: 'sonnet',
         statusMapper: creatorStatus,
         sendStatus,
         cliOverride,
