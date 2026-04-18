@@ -32,6 +32,7 @@ import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validato
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
 import { archiveCreatorSandbox } from './sandbox_archive.js';
+import { writeValidateScripts } from './sandbox_validate.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -378,150 +379,10 @@ function generateAssetCatalog(assetsDir: string): void {
     fs.writeFileSync(path.join(assetsDir, 'TEXTURES.md'), textures.join('\n'));
 }
 
-// ─── Validation scripts ────────────────────────────────────────────────────
-
-function writeValidateScripts(sandboxDir: string): void {
-    const validateSh = `#!/bin/bash
-ERRORS=0
-
-echo "=== Template JSON Check ==="
-for f in project/01_flow.json project/02_entities.json project/03_worlds.json project/04_systems.json; do
-    [ -f "$f" ] || { echo "MISSING $f"; ERRORS=$((ERRORS+1)); continue; }
-    node -e "JSON.parse(require('fs').readFileSync('$f','utf-8'))" 2>&1
-    if [ $? -ne 0 ]; then echo "JSON ERROR in $f"; ERRORS=$((ERRORS+1)); fi
-done
-
-echo "=== Script Syntax Check ==="
-for f in $(find project/behaviors project/systems project/scripts -name '*.ts' 2>/dev/null); do
-    node -e "
-        const fs = require('fs');
-        const src = fs.readFileSync('$f', 'utf-8');
-        try { new Function('GameScript', 'Vec3', 'Quat', src + '\\n;'); }
-        catch(e) { console.error('SYNTAX ERROR in $f: ' + e.message); process.exit(1); }
-    " 2>&1
-    if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
-done
-
-echo "=== Headless Smoke Test ==="
-node validate_headless.js 2>&1
-if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
-
-echo "=== Assembler Check (strict) ==="
-# Calls the engine's internal /validate-sandbox endpoint which runs the
-# real assembleGame against this project's files. Catches everything
-# the local checks miss: unknown event names, missing behavior/system/UI
-# refs, asset paths that don't resolve, bad FSM transitions, component
-# schema errors. Soft-fails on network unreachable so offline / self-
-# hosted dev with the backend down still runs the earlier checks.
-node validate_assembler.js 2>&1
-if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
-
-if [ $ERRORS -eq 0 ]; then
-    echo "All checks passed."
-else
-    echo "$ERRORS check(s) failed."
-    exit 1
-fi
-`;
-    fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), validateSh, { mode: 0o755 });
-
-    // Small Node helper that reads .validate_config.json (written by
-    // runCreator with {url, token}) and POSTs to the backend's internal
-    // assembler endpoint. Separated from validate.sh to avoid escaping
-    // a multi-line `node -e "..."` script through bash.
-    const assemblerJs = `
-const fs = require('fs');
-let cfg;
-try {
-    cfg = JSON.parse(fs.readFileSync('.validate_config.json', 'utf-8'));
-} catch (e) {
-    // No config = we can't run the strict check; don't block validate.sh.
-    console.warn('WARN: .validate_config.json missing or unreadable — skipping assembler check.');
-    process.exit(0);
-}
-fetch(cfg.url + '/api/engine/internal/validate-sandbox/' + cfg.token, { method: 'POST' })
-    .then(function(r) { return r.json(); })
-    .then(function(r) {
-        if (r && r.ok) {
-            console.log('Assembler check passed.');
-            process.exit(0);
-        } else {
-            console.error('ASSEMBLE ERROR: ' + (r && r.error ? r.error : 'unknown'));
-            process.exit(1);
-        }
-    })
-    .catch(function(e) {
-        // Soft-fail on network error — the sandbox may be offline / the
-        // backend may not be reachable. runCreator's post-exit
-        // assembleGame is still the authoritative gate either way.
-        console.warn('WARN: could not reach assembler endpoint: ' + e.message);
-        process.exit(0);
-    });
-`;
-    fs.writeFileSync(path.join(sandboxDir, 'validate_assembler.js'), assemblerJs);
-
-    const headlessJs = `
-const fs = require('fs');
-const path = require('path');
-
-class GameScript {
-    constructor() {
-        this.entity = { id: 0, name: '', active: true, transform: { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 }, lookAt() {}, setRotationEuler() {} }, getComponent() { return null; }, playAnimation() {}, tags: new Set() };
-        this.scene = { events: { game: { on() {}, emit() {} }, ui: { on() {}, emit() {} } }, findEntityByName() { return null; }, findEntitiesByTag() { return []; }, setPosition() {}, setVelocity() {}, destroyEntity() {}, createEntity() { return 0; }, raycast() { return null; }, screenRaycast() { return null; }, screenPointToGround() { return null; }, getAllEntities() { return []; }, _fpsYaw: 0, reloadScene() {} };
-        this.input = { isKeyDown() { return false; }, isKeyPressed() { return false; }, isKeyReleased() { return false; }, getMouseDelta() { return { x: 0, y: 0 }; }, requestPointerLock() {} };
-        this.ui = { createText() { return { text: '', remove() {}, x: 0, y: 0 }; }, sendState() {} };
-        this.audio = { playSound() {}, playMusic() {}, stopMusic() {} };
-        this.time = { time: 0, deltaTime: 1/60, frameCount: 0 };
-    }
-    onStart() {} onUpdate() {} onLateUpdate() {} onDestroy() {}
-}
-class Vec3 { constructor(x,y,z) { this.x=x||0; this.y=y||0; this.z=z||0; } }
-class Quat { constructor(x,y,z,w) { this.x=x||0; this.y=y||0; this.z=z||0; this.w=w||1; } }
-
-const errors = [];
-const scripts = {};
-
-function loadScripts(dir, prefix) {
-    if (!fs.existsSync(dir)) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) loadScripts(full, prefix + entry.name + '/');
-        else if (entry.name.endsWith('.ts')) scripts[prefix + entry.name] = fs.readFileSync(full, 'utf-8');
-    }
-}
-loadScripts('project/behaviors', 'behaviors/');
-loadScripts('project/systems', 'systems/');
-loadScripts('project/scripts', 'scripts/');
-
-for (const [key, source] of Object.entries(scripts)) {
-    try {
-        const m = source.match(/class\\s+(\\w+)/);
-        if (!m) continue;
-        const fn = new Function('GameScript', 'Vec3', 'Quat', source + '\\nreturn ' + m[1] + ';');
-        const Cls = fn(GameScript, Vec3, Quat);
-        const inst = new Cls();
-        inst.onStart();
-        for (let i = 0; i < 60; i++) {
-            inst.time = { time: i/60, deltaTime: 1/60, frameCount: i };
-            if (typeof inst.onUpdate === 'function') inst.onUpdate(1/60);
-        }
-    } catch (e) {
-        const msg = e.message || '';
-        if (!/document|window|canvas|AudioContext|WebSocket|fetch|pointerLock/i.test(msg)) {
-            errors.push(key + ': ' + msg);
-        }
-    }
-}
-
-if (errors.length === 0) {
-    console.log('Headless smoke test passed (' + Object.keys(scripts).length + ' scripts).');
-} else {
-    for (const e of errors) console.error(e);
-    process.exit(1);
-}
-`;
-    fs.writeFileSync(path.join(sandboxDir, 'validate_headless.js'), headlessJs);
-}
+// Validation scripts (validate.sh, validate_headless.js, validate_assembler.js)
+// live in ./sandbox_validate.ts — shared between creator + fixer to avoid
+// drift. The previous hand-rolled copies had silently diverged; the fixer
+// was missing the strict assembler check entirely.
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
 
