@@ -226,6 +226,53 @@ Every script extends `GameScript`. Available hooks (all optional):
 - `onCollisionEnter(otherId)` / `onCollisionStay(otherId)` / `onCollisionExit(otherId)` — solid-body contacts.
 - `onTriggerEnter(otherId)` / `onTriggerStay(otherId)` / `onTriggerExit(otherId)` — fire only on colliders marked `is_trigger: true`.
 
+### System vs behavior activation — timing gotcha
+
+Behaviors and systems activate differently, and it matters for event wiring:
+
+- **Behaviors** live on entities that are active at scene load. Their `onStart`
+  runs up front, before any FSM transition. The FSM later flips a per-behavior
+  `_behaviorActive` flag via the `active_behaviors` event — but the `on(...)`
+  listeners inside `onStart` are already registered by then.
+- **Systems** live on entities that start `active=false` (except the two auto-
+  active bridges, `ui` and `mp_bridge`). Their `onStart` only runs *after*
+  the FSM enters a state whose `active_systems` includes them.
+
+The trap: if an FSM state's `on_enter` emits an event *and* that same state
+(or its substate) is what activates the system, the system's `onStart`
+hasn't run yet — its `on(...)` listener isn't registered, and the emit
+is lost. Events are fire-and-forget; they don't queue. Real-world failure
+mode: a `game_ready` / `match_start` event emitted from `gameplay.on_enter`
+never triggers the system's `_resetGame()`, so `_gameActive` stays false,
+`onUpdate` early-returns forever, and the HUD reads `0 score, wave 1, 0:00`
+while the player walks around an empty arena.
+
+**Rule**: a system's first-time initialization must live **in `onStart`
+itself**, not in an `on("some_event", ...)` that fires from the state that
+activates it. Use events only for things that happen *after* the system is
+already running (like `restart_game` triggered from a game-over button).
+
+Correct shape for a gameplay system:
+
+```js
+class MyGameSystem extends GameScript {
+    _active = false;
+    onStart() {
+        var self = this;
+        this._startMatch();                                   // first-time init
+        this.scene.events.game.on("restart_game", function() { self._startMatch(); });
+    }
+    _startMatch() {
+        this._active = true;
+        // reset counters, clear spawned entities, etc.
+    }
+    onUpdate(dt) {
+        if (!this._active) return;
+        // wave spawning, timers, …
+    }
+}
+```
+
 ### `this.entity` (own entity)
 
 ```js
@@ -466,6 +513,10 @@ and the game appears to run, but the broken piece never activates:
 - **`mp_event:` with a phase name other than the four valid ones.** The
   assembler accepts any string; only `phase_in_lobby` / `phase_in_game` /
   `phase_browsing` / `phase_disconnected` actually fire.
+- **Systems that init from an `on_enter` event fire BEFORE the system is
+  listening.** See "System vs behavior activation" above. Result: the
+  system's gameplay loop never starts and the HUD stays at defaults.
+  Always do first-time init directly in `onStart`.
 
 ## Multiplayer (peer-to-peer, opt-in)
 
