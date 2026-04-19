@@ -1239,6 +1239,36 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
             }
         }
 
+        if (validationRolledBack || !fixResult.success) {
+            try {
+                const reason = validationRolledBack
+                    ? `Validation rollback: ${rollbackError}`
+                    : (fixResult.summary || 'Fix failed');
+                let failedAfter: string | null = null;
+                if (fixBeforeSnapshot && fixResult.changedFiles && Object.keys(fixResult.changedFiles).length > 0) {
+                    try {
+                        const pd = parseProjectData(fixBeforeSnapshot);
+                        if (!isLegacyProjectData(pd)) {
+                            for (const [k, v] of Object.entries(fixResult.changedFiles)) setFile(pd, k, v);
+                            for (const d of fixResult.deletedFiles) delete pd.files[d];
+                            failedAfter = serializeProjectData(pd);
+                        }
+                    } catch {}
+                }
+                const fid = recordPendingFeedback({
+                    userId: client.userId,
+                    projectId: client.projectId,
+                    kind: 'fix_game',
+                    prompt: description,
+                    projectBefore: fixBeforeSnapshot,
+                    projectAfter: failedAfter,
+                });
+                resolveFeedback(fid, 'submitted', 'down', `[auto] ${reason}`);
+            } catch (e: any) {
+                console.error('[FIX_GAME] failed feedback record failed:', e?.message);
+            }
+        }
+
         const agentLabel = cliOverride === 'codex' ? 'Codex'
             : cliOverride === 'opencode' ? 'OpenCode'
             : cliOverride === 'copilot' ? 'GitHub Copilot'

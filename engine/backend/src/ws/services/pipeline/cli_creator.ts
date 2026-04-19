@@ -184,7 +184,7 @@ export async function runCreator(
         let files = readFilesFromDir(projectDir);
 
         if (!files['01_flow.json'] || !files['02_entities.json']) {
-            return { success: false, summary: 'Creator did not produce required template files.', templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
+            return { success: false, summary: 'Creator did not produce required template files.', templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
         }
 
         // The CLI may exit "successfully" (exit code 0, valid cost event)
@@ -195,7 +195,7 @@ export async function runCreator(
         // got for projectId de549996 on 2026-04-16.
         const seed = emptyTemplateFiles();
         if (files['01_flow.json'] === seed['01_flow.json']) {
-            return { success: false, summary: 'Creator finished but did not modify 01_flow.json — the agent exited without writing any game content.', templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
+            return { success: false, summary: 'Creator finished but did not modify 01_flow.json — the agent exited without writing any game content.', templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
         }
 
         sendStatus?.('Running final validation...');
@@ -245,7 +245,7 @@ export async function runCreator(
                     success: false,
                     summary: `Template validation failed and retry spawn errored: ${e?.message || e}\n\nOriginal error: ${assembleErr.message}`,
                     templateId,
-                    files: null,
+                    files,
                     costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
                 };
             }
@@ -261,7 +261,7 @@ export async function runCreator(
             sendStatus?.('Reading retried files...');
             files = readFilesFromDir(projectDir);
             if (!files['01_flow.json'] || !files['02_entities.json']) {
-                return { success: false, summary: `Retry removed required template files. Original error: ${assembleErr.message}`, templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
+                return { success: false, summary: `Retry removed required template files. Original error: ${assembleErr.message}`, templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
             }
 
             sendStatus?.('Re-running final validation...');
@@ -276,7 +276,7 @@ export async function runCreator(
                     success: false,
                     summary: `Template validation failed after retry.\n\nFirst: ${assembleErr.message}\nRetry: ${e2.message || e2}`,
                     templateId,
-                    files: null,
+                    files,
                     costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
                 };
             }

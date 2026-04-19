@@ -37,7 +37,7 @@ import db from '../../../db/connection.js';
 import { config } from '../../../config.js';
 import { parseProjectData, serializeProjectData, isLegacyProjectData, ProjectFiles } from './project_files.js';
 import { runCreator } from './cli_creator.js';
-import { recordPendingFeedback } from '../feedback.js';
+import { recordPendingFeedback, resolveFeedback } from '../feedback.js';
 import { getQueuePosition, resolveCLI } from './cli_runner.js';
 import { preemptProjectJob } from './cli_active_jobs.js';
 import type { EnginePlugin } from '../../../plugin.js';
@@ -493,6 +493,36 @@ async function runJob(job: GenerationJob): Promise<void> {
             });
         } catch (e: any) {
             console.error(`[GenerationJobs] Failed to record CREATE_GAME feedback row: ${e?.message}`);
+        }
+    }
+
+    if (outcome === 'failed') {
+        try {
+            let failedAfter: string | null = null;
+            if (files) {
+                try {
+                    const pd = parseProjectData(projectBeforeSnapshot);
+                    if (!isLegacyProjectData(pd)) {
+                        pd.files = { ...files };
+                        failedAfter = serializeProjectData(pd);
+                    }
+                } catch {
+                    failedAfter = JSON.stringify(files);
+                }
+            }
+            const fid = recordPendingFeedback({
+                userId: job.userId,
+                projectId,
+                kind: 'create_game',
+                jobId,
+                cliSessionPath: sessionCapturePath,
+                prompt: job.description,
+                projectBefore: projectBeforeSnapshot,
+                projectAfter: failedAfter,
+            });
+            resolveFeedback(fid, 'submitted', 'down', `[auto] ${summary}`);
+        } catch (e: any) {
+            console.error(`[GenerationJobs] Failed to record failed CREATE_GAME feedback: ${e?.message}`);
         }
     }
 
