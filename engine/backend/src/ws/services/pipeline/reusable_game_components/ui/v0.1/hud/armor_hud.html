@@ -491,7 +491,7 @@
     if (state.enemiesAlive !== undefined) {
       var ep = document.getElementById('enemy-panel');
       var ec = document.getElementById('enemy-count');
-      if (state.phase === 'battle' && state.enemiesAlive > 0) {
+      if (state.battlePhase === 'battle' && state.enemiesAlive > 0) {
         if (ep) ep.classList.add('visible');
         if (ec) ec.textContent = state.enemiesAlive;
       } else {

@@ -755,7 +755,7 @@ class DeadlyGamesSystem extends GameScript {
             round: this._round,
             totalRounds: this._totalRounds,
             roundName: this._round > 0 ? this._roundNames[this._round - 1] : "",
-            phase: this._phase,
+            battlePhase: this._phase,
             announce: announce,
             subtext: subtext,
             timer: timer,

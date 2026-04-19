@@ -385,7 +385,7 @@
     if (state.timer !== undefined) {
       var tp = document.getElementById('timer-panel');
       var tv = document.getElementById('timer-val');
-      if (state.timer >= 0 && state.phase === 'minigame') {
+      if (state.timer >= 0 && state.battlePhase === 'minigame') {
         if (tp) tp.classList.add('visible');
         if (tv) {
           tv.textContent = state.timer;
@@ -415,7 +415,7 @@
     }
 
     // Round data panel
-    if (state.phase === 'minigame' && state.currentMG !== undefined && state.currentMG >= 0) {
+    if (state.battlePhase === 'minigame' && state.currentMG !== undefined && state.currentMG >= 0) {
       var dp = document.getElementById('data-panel');
       if (dp) dp.classList.add('visible');
       var dt = document.getElementById('data-title');

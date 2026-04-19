@@ -396,7 +396,7 @@
     if (state.timer !== undefined) {
       var tp = document.getElementById('timer-panel');
       var tv = document.getElementById('timer-val');
-      if (state.timer >= 0 && state.phase === 'round_active') {
+      if (state.timer >= 0 && state.battlePhase === 'round_active') {
         if (tp) tp.classList.add('visible');
         if (tv) {
           tv.textContent = state.timer;
@@ -417,7 +417,7 @@
     if (bp) bp.classList.remove('visible');
     if (wb) wb.classList.remove('visible');
 
-    if (state.phase === 'round_active' && state.round === 1 && state.lightState) {
+    if (state.battlePhase === 'round_active' && state.round === 1 && state.lightState) {
       if (lp) {
         lp.classList.add('visible');
         if (state.lightState === 'red') lp.classList.add('red-active');
@@ -432,14 +432,14 @@
     }
 
     // Bridge info
-    if (state.phase === 'round_active' && state.round === 2) {
+    if (state.battlePhase === 'round_active' && state.round === 2) {
       if (bp) bp.classList.add('visible');
       var bv = document.getElementById('bridge-val');
       if (bv) bv.textContent = state.currentPanel + ' / ' + state.totalPanels;
     }
 
     // Warning badge (Floor Collapse)
-    if (state.phase === 'round_active' && state.round === 3 && state.warningTiles > 0) {
+    if (state.battlePhase === 'round_active' && state.round === 3 && state.warningTiles > 0) {
       if (wb) wb.classList.add('visible');
     }
 

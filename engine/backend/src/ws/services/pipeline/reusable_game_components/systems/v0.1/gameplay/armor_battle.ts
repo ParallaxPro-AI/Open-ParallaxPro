@@ -392,7 +392,7 @@ class ArmorBattleSystem extends GameScript {
             totalWaves: this._totalWaves,
             kills: this._kills,
             enemiesAlive: this._enemies.length,
-            phase: this._phase,
+            battlePhase: this._phase,
             announce: announce,
             subtext: subtext
         });

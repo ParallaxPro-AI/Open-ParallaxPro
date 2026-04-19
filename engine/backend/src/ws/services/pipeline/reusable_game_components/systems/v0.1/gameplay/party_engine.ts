@@ -695,7 +695,7 @@ class PartyEngineSystem extends GameScript {
             round: this._round,
             totalRounds: this._totalRounds,
             minigameName: this._currentMG >= 0 ? this._mgNames[this._currentMG] : "",
-            phase: this._phase,
+            battlePhase: this._phase,
             announce: announce,
             subtext: subtext,
             timer: timer,

@@ -76,10 +76,7 @@
           "when": "ui_event:game_over:play_again",
           "goto": "countdown",
           "actions": [
-            "emit:game.restart_game",
-            "set:score=0",
-            "set:coins=0",
-            "set:distance=0"
+            "emit:game.restart_game"
           ]
         },
         { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
