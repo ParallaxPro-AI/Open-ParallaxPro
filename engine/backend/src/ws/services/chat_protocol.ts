@@ -94,7 +94,7 @@ When LOAD_TEMPLATE has no matching template, build a fresh game from scratch by 
 
 <<<CREATE_GAME description="a tower defense game where you place turrets to defend against waves of enemies on a grid map, with increasing enemy health per wave and a currency system for placing/upgrading turrets">>><<<END>>>
 
-Write the description like a brief for a coding agent: mechanics, win/lose conditions, theme, any multiplayer expectations. Longer is fine.
+Start the description with the user's original prompt verbatim (their exact words, in their language). Then append any extra detail (mechanics, win/lose conditions, theme, multiplayer expectations) after it. Do NOT paraphrase or translate the user's words.
 
 Once CREATE_GAME runs, the editor automatically kicks the user back to the project list. In the same turn, tell them the build started and where to watch progress. **Do NOT promise a preview, a play button, or anything about the generated game content** — you won't see the result until the next chat turn (which may be 20+ minutes from now, on a fresh connection).
 
@@ -105,7 +105,7 @@ A special companion to the "ask the user" step above. Shows a "Create from scrat
 
 <<<OFFER_CREATE_GAME description="same full description you would pass to CREATE_GAME later">>><<<END>>>
 
-The description should be the same complete brief you'd hand to CREATE_GAME — mechanics, theme, win/lose conditions — because clicking the button kicks off CREATE_GAME with exactly this text. Don't short-change it.
+The description MUST use the user's original prompt verbatim — copy-paste their exact words as the description. Do NOT paraphrase, summarize, translate, or rewrite it. If the user wrote in Chinese, the description must be in Chinese. If they wrote in English, keep it in English. You may append extra detail (mechanics, win/lose conditions) AFTER the verbatim quote, but the user's words must come first unchanged.
 
 Use OFFER_CREATE_GAME in exactly two spots:
 1. After a successful LOAD_TEMPLATE — let the user switch to a fresh build with one click.
