@@ -85,9 +85,26 @@ class UIBridge extends GameScript {
 
         // Virtual cursor
         if (this._cursorVisible) {
-            var delta = this.input.getMouseDelta();
-            this._cursorX += delta.x;
-            this._cursorY += delta.y;
+            var isTouchDevice = (typeof window !== "undefined") && ("ontouchstart" in window);
+            if (isTouchDevice) {
+                // On touch devices, jump the cursor to the touch position
+                // directly. Delta-based movement doesn't work because a
+                // tap gives (0,0) delta — the cursor would stay wherever
+                // it was last, not where the user tapped. getMousePosition
+                // returns canvas-relative coords from the touch-to-mouse
+                // sim, so add the canvas offset for screen-relative.
+                var absPos = this.input.getMousePosition();
+                if (absPos.x !== 0 || absPos.y !== 0) {
+                    var canvasOff = (typeof document !== "undefined") ? document.querySelector(".viewport-canvas-container") : null;
+                    var cRect = canvasOff ? canvasOff.getBoundingClientRect() : { left: 0, top: 0 };
+                    this._cursorX = absPos.x + cRect.left;
+                    this._cursorY = absPos.y + cRect.top;
+                }
+            } else {
+                var delta = this.input.getMouseDelta();
+                this._cursorX += delta.x;
+                this._cursorY += delta.y;
+            }
             var vc = (typeof document !== "undefined") ? document.querySelector(".viewport-canvas-container") : null;
             if (vc) {
                 var vr = vc.getBoundingClientRect();
