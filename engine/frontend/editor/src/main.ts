@@ -2,6 +2,7 @@ if ((window as any).__mobileBlocked) throw new Error('Mobile blocked');
 
 import './utils/error_tracker.js';
 import { checkForUpdates } from './utils/version_check.js';
+import { initI18n } from './i18n/index.js';
 
 import './styles/theme.css';
 import './styles/editor.css';
@@ -148,6 +149,7 @@ if (document.getElementById('app')) {
     });
 
     checkForUpdates();
+    initI18n();
 
     const app = new App();
     app.start().catch(e => {

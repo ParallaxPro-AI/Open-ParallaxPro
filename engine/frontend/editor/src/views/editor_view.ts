@@ -8,6 +8,7 @@ import { ViewportPanel } from '../panels/viewport_panel.js';
 import { AssetsPanel } from '../panels/assets_panel.js';
 import { AiChatPanel } from '../panels/ai_chat_panel.js';
 import { ShortcutManager } from '../input/shortcut_manager.js';
+import { t } from '../i18n/index.js';
 
 export class EditorView {
     readonly el: HTMLElement;
@@ -61,7 +62,7 @@ export class EditorView {
         this.disconnectOverlay = document.createElement('div');
         this.disconnectOverlay.className = 'disconnect-overlay';
         this.disconnectOverlay.style.display = 'none';
-        this.disconnectOverlay.innerHTML = '<div class="disconnect-overlay-msg">Editing disabled while reconnecting...</div>';
+        this.disconnectOverlay.innerHTML = `<div class="disconnect-overlay-msg">${t('editor.disconnectOverlay')}</div>`;
         this.layout.el.style.position = 'relative';
         this.layout.el.appendChild(this.disconnectOverlay);
 
@@ -154,7 +155,7 @@ export class EditorView {
             const last = Number(sessionStorage.getItem(key) || 0);
             if (Date.now() - last < 120_000) return;
             sessionStorage.setItem(key, String(Date.now()));
-            this.connectionBanner.textContent = 'System updated — reloading...';
+            this.connectionBanner.textContent = t('editor.systemUpdated');
             this.connectionBanner.className = 'connection-banner success';
             this.connectionBanner.style.display = '';
             window.setTimeout(() => {
@@ -197,13 +198,13 @@ export class EditorView {
         });
 
         this.ctx.backend.onWsMessage('__ws_disconnected', () => {
-            this.connectionBanner.textContent = 'Connection lost. Reconnecting...';
+            this.connectionBanner.textContent = t('editor.reconnecting');
             this.connectionBanner.className = 'connection-banner warning';
             this.connectionBanner.style.display = '';
 
             this.disconnectOverlayTimer = window.setTimeout(() => {
                 this.disconnectOverlay.style.display = 'flex';
-                this.connectionBanner.textContent = 'Connection lost — editing disabled until reconnection';
+                this.connectionBanner.textContent = t('editor.connectionLost');
                 this.connectionBanner.className = 'connection-banner error';
             }, 5000);
         });
@@ -225,11 +226,11 @@ export class EditorView {
             this.disconnectOverlayTimer = 0;
             this.disconnectOverlay.style.display = 'none';
 
-            this.connectionBanner.textContent = 'Reconnected';
+            this.connectionBanner.textContent = t('editor.reconnected');
             this.connectionBanner.className = 'connection-banner success';
             this.connectionBanner.style.display = '';
             setTimeout(() => {
-                if (this.connectionBanner.textContent === 'Reconnected') {
+                if (this.connectionBanner.textContent === t('editor.reconnected')) {
                     this.connectionBanner.style.display = 'none';
                 }
             }, 3000);
@@ -239,11 +240,11 @@ export class EditorView {
 
         this.ctx.backend.onWsMessage('__ws_reconnect_failed', () => {
             console.error('[EditorView] All reconnect attempts failed');
-            this.connectionBanner.textContent = 'Unable to reconnect. Please check your connection and refresh the page.';
+            this.connectionBanner.textContent = t('editor.reconnectFailed');
             this.connectionBanner.className = 'connection-banner error';
             this.disconnectOverlay.style.display = 'flex';
             const msg = this.disconnectOverlay.querySelector('.disconnect-overlay-msg');
-            if (msg) msg.textContent = 'Connection lost. Please refresh the page to continue editing.';
+            if (msg) msg.textContent = t('editor.disconnectRefresh');
         });
 
         this.ctx.backend.onWsMessage('collab_presence', (data: any) => {

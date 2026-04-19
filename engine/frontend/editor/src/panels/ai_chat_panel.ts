@@ -1,5 +1,6 @@
 import { EditorContext } from '../editor_context.js';
 import { icon, ThumbsUp, ThumbsDown, RefreshCw, X } from '../widgets/icons.js';
+import { t } from '../i18n/index.js';
 
 interface ChatMessage {
     id?: number;
@@ -125,13 +126,13 @@ export class AiChatPanel {
 
         const title = document.createElement('span');
         title.className = 'panel-title';
-        title.textContent = 'AI Assistant';
+        title.textContent = t('chat.title');
         header.appendChild(title);
 
         this.sessionBtn = document.createElement('button');
         this.sessionBtn.className = 'panel-header-btn';
         this.sessionBtn.textContent = '+';
-        this.sessionBtn.title = 'Chat sessions';
+        this.sessionBtn.title = t('chat.sessionsTooltip');
         this.sessionBtn.addEventListener('click', () => this.toggleSessionMenu());
         header.appendChild(this.sessionBtn);
 
@@ -151,7 +152,7 @@ export class AiChatPanel {
 
         this.textarea = document.createElement('textarea');
         this.textarea.className = 'chat-textarea';
-        this.textarea.placeholder = 'Describe what you want to build or fix...';
+        this.textarea.placeholder = t('chat.placeholder');
         this.textarea.rows = 3;
         this.textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -163,7 +164,7 @@ export class AiChatPanel {
 
         this.sendBtn = document.createElement('button');
         this.sendBtn.className = 'chat-send-btn';
-        this.sendBtn.textContent = 'Send';
+        this.sendBtn.textContent = t('chat.send');
         this.sendBtn.addEventListener('click', () => {
             if (this.state === State.STREAMING) {
                 this.stopGeneration();
@@ -205,7 +206,7 @@ export class AiChatPanel {
         discordLink.target = '_blank';
         discordLink.rel = 'noopener';
         discordLink.className = 'chat-discord-link';
-        discordLink.textContent = 'Need help? Join our Discord';
+        discordLink.textContent = t('chat.discordLink');
         supportRow.appendChild(discordLink);
         this.el.appendChild(supportRow);
 
@@ -318,7 +319,7 @@ export class AiChatPanel {
             if (!this.typingIndicator.querySelector('.chat-typing-hint')) {
                 const hint = document.createElement('div');
                 hint.className = 'chat-typing-hint';
-                hint.textContent = 'This can take up to 10 minutes — feel free to leave the page open, but do not close this page.';
+                hint.textContent = t('chat.fixerHint');
                 this.typingIndicator.appendChild(hint);
             }
             this.scrollToBottom();
@@ -368,7 +369,7 @@ export class AiChatPanel {
             const last = btns[btns.length - 1];
             if (last) {
                 last.disabled = false;
-                last.textContent = 'Create from scratch instead of using this template (20-30 min)';
+                last.textContent = t('chat.createScratch');
             }
             const errMsg: ChatMessage = {
                 role: 'assistant',
@@ -422,7 +423,7 @@ export class AiChatPanel {
             const btn = this.feedbackForm?.querySelector<HTMLButtonElement>('.chat-feedback-restore-btn');
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = 'Restore project to before this build';
+                btn.textContent = t('feedback.restoreButton');
             }
             const msg = (data && typeof data.error === 'string') ? data.error : 'Unable to restore.';
             window.alert(`Restore failed: ${msg}`);
@@ -455,7 +456,7 @@ export class AiChatPanel {
             } else {
                 navigator.clipboard.writeText(data.sessionId ?? '').then(() => {
                     const original = this.sessionIdLabel.textContent;
-                    this.sessionIdLabel.textContent = 'Copied!';
+                    this.sessionIdLabel.textContent = t('chat.sessionIdCopied');
                     setTimeout(() => { this.sessionIdLabel.textContent = original; }, 1500);
                 });
             }
@@ -501,7 +502,7 @@ export class AiChatPanel {
             this.hideTypingIndicator();
             if (this.todoPanel) {
                 const status = this.todoPanel.querySelector('.todo-status');
-                if (status) status.textContent = 'Paused';
+                if (status) status.textContent = t('chat.todoPaused');
             }
         });
 
@@ -525,10 +526,10 @@ export class AiChatPanel {
 
     private syncStopButton(): void {
         if (this.state === State.STREAMING) {
-            this.sendBtn.textContent = 'Stop';
+            this.sendBtn.textContent = t('chat.stop');
             this.sendBtn.classList.add('stop-mode');
         } else {
-            this.sendBtn.textContent = 'Send';
+            this.sendBtn.textContent = t('chat.send');
             this.sendBtn.classList.remove('stop-mode');
         }
         this.sendBtn.disabled = false;
@@ -537,8 +538,8 @@ export class AiChatPanel {
         // run without a chat_session_id to attach its final message to.
         this.sessionBtn.disabled = this.state === State.STREAMING;
         this.sessionBtn.title = this.state === State.STREAMING
-            ? 'Chat sessions (locked while responding)'
-            : 'Chat sessions';
+            ? t('chat.sessionsLocked')
+            : t('chat.sessionsTooltip');
     }
 
     // ── Agent picker ────────────────────────────────────────────────
@@ -789,7 +790,7 @@ export class AiChatPanel {
 
         const btn = document.createElement('button');
         btn.className = 'chat-create-scratch-btn';
-        btn.textContent = 'Create from scratch instead of using this template (20-30 min)';
+        btn.textContent = t('chat.createScratch');
         btn.addEventListener('click', () => {
             if (btn.disabled) return;
             btn.disabled = true;
@@ -812,7 +813,7 @@ export class AiChatPanel {
         this.messagesContainer.querySelectorAll<HTMLButtonElement>('.chat-create-scratch-btn').forEach(btn => {
             if (btn.disabled || btn.textContent === 'Starting...') {
                 btn.disabled = false;
-                btn.textContent = 'Create from scratch instead of using this template (20-30 min)';
+                btn.textContent = t('chat.createScratch');
             }
         });
 
@@ -826,13 +827,13 @@ export class AiChatPanel {
         const frame = document.createElement('p');
         frame.style.margin = '0 0 8px 0';
         if (feature === 'CREATE_GAME') {
-            frame.textContent = 'To build a game from scratch instead of using this template, I need you to sign up first.';
+            frame.textContent = t('signup.createGame');
         } else if (feature === 'FIX_GAME') {
-            frame.textContent = 'To run a fix on your game, I need you to sign up first.';
+            frame.textContent = t('signup.fixGame');
         } else if (feature === 'BUDGET') {
-            frame.textContent = 'You\'ve used up your free anonymous budget — sign up to keep going.';
+            frame.textContent = t('signup.budget');
         } else {
-            frame.textContent = 'I need you to sign up first.';
+            frame.textContent = t('signup.default');
         }
         bubble.appendChild(frame);
         const detail = document.createElement('p');
@@ -843,7 +844,7 @@ export class AiChatPanel {
 
         const btn = document.createElement('button');
         btn.className = 'chat-create-scratch-btn chat-signup-btn';
-        btn.textContent = 'Sign up free';
+        btn.textContent = t('signup.button');
         btn.addEventListener('click', () => {
             const signupHref = window.location.hostname === 'localhost'
                 ? 'http://localhost:5173/signup'
@@ -891,7 +892,7 @@ export class AiChatPanel {
         btnRow.style.cssText = 'display:flex;gap:8px;';
 
         const continueBtn = document.createElement('button');
-        continueBtn.textContent = 'Continue';
+        continueBtn.textContent = t('chat.continue');
         continueBtn.style.cssText = 'padding:4px 12px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:var(--font-size-sm);';
         continueBtn.addEventListener('click', () => {
             container.remove();
@@ -904,7 +905,7 @@ export class AiChatPanel {
         });
 
         const stopBtn = document.createElement('button');
-        stopBtn.textContent = 'Stop';
+        stopBtn.textContent = t('chat.stop');
         stopBtn.style.cssText = 'padding:4px 12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:4px;cursor:pointer;font-size:var(--font-size-sm);';
         stopBtn.addEventListener('click', () => {
             container.remove();
@@ -981,11 +982,11 @@ export class AiChatPanel {
             banner.className = 'chat-template-load-banner';
             const text = document.createElement('div');
             text.className = 'chat-template-load-text';
-            text.textContent = 'A template was just loaded — your previous project files were replaced.';
+            text.textContent = t('chat.templateBanner');
             banner.appendChild(text);
             const restoreBtn = document.createElement('button');
             restoreBtn.className = 'chat-template-load-restore-btn';
-            restoreBtn.textContent = 'Restore my previous project';
+            restoreBtn.textContent = t('chat.templateRestore');
             restoreBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (confirm('Restore your project to BEFORE the template was loaded? The loaded template will be discarded.')) {
@@ -1004,13 +1005,13 @@ export class AiChatPanel {
             if (msg.fileChanges && msg.fileChanges.length > 0) {
                 const tag = document.createElement('span');
                 tag.className = 'chat-changes-tag';
-                tag.textContent = 'Changes applied';
+                tag.textContent = t('chat.changesApplied');
                 footer.appendChild(tag);
 
                 if (msg.id) {
                     const revertBeforeBtn = document.createElement('button');
                     revertBeforeBtn.className = 'chat-revert-btn';
-                    revertBeforeBtn.textContent = 'Revert to before';
+                    revertBeforeBtn.textContent = t('chat.revertBefore');
                     revertBeforeBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         if (confirm('Revert project to BEFORE this change? This message and all later changes will be discarded.')) {
@@ -1021,7 +1022,7 @@ export class AiChatPanel {
 
                     const revertBtn = document.createElement('button');
                     revertBtn.className = 'chat-revert-btn';
-                    revertBtn.textContent = 'Revert to here';
+                    revertBtn.textContent = t('chat.revertHere');
                     revertBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         if (confirm('Revert project to this point? All later changes will be discarded.')) {
@@ -1166,7 +1167,7 @@ export class AiChatPanel {
         }
         const status = document.createElement('span');
         status.className = 'chat-typing-status';
-        status.textContent = ' ParallaxPro AI is thinking...';
+        status.textContent = ' ' + t('chat.thinking');
         this.typingIndicator.appendChild(status);
         this.messagesContainer.appendChild(this.typingIndicator);
     }
@@ -1220,31 +1221,31 @@ export class AiChatPanel {
         const title = document.createElement('div');
         title.className = 'chat-feedback-title';
         title.textContent = kind === 'create_game'
-            ? 'Thanks for trying the builder!'
-            : 'Thanks for using the AI assistant!';
+            ? t('feedback.titleCreate')
+            : t('feedback.titleFix');
         form.appendChild(title);
 
         const thankYou = document.createElement('div');
         thankYou.className = 'chat-feedback-thankyou';
-        thankYou.textContent = 'Your feedback is incredibly valuable and directly helps us improve the product for everyone. We really appreciate you taking a moment to share your experience!';
+        thankYou.textContent = t('feedback.thankYou');
         form.appendChild(thankYou);
 
         const subtitle = document.createElement('div');
         subtitle.className = 'chat-feedback-subtitle';
         subtitle.textContent = kind === 'create_game'
-            ? 'You asked the builder for:'
-            : 'You asked the agent to:';
+            ? t('feedback.promptLabelCreate')
+            : t('feedback.promptLabelFix');
         form.appendChild(subtitle);
 
         const promptBlock = document.createElement('blockquote');
         promptBlock.className = 'chat-feedback-prompt';
-        promptBlock.textContent = prompt || '(no prompt on record)';
+        promptBlock.textContent = prompt || t('feedback.noPrompt');
         form.appendChild(promptBlock);
 
         // Thumbs up / down — one required. Using lucide icons, not emojis.
         const rateLabel = document.createElement('div');
         rateLabel.className = 'chat-feedback-label';
-        rateLabel.textContent = 'Did it work?';
+        rateLabel.textContent = t('feedback.rateLabel');
         form.appendChild(rateLabel);
 
         let rating: 'up' | 'down' | null = null;
@@ -1256,7 +1257,7 @@ export class AiChatPanel {
         upBtn.className = 'chat-feedback-rate-btn';
         upBtn.appendChild(icon(ThumbsUp, 20));
         const upLabel = document.createElement('span');
-        upLabel.textContent = 'It worked';
+        upLabel.textContent = t('feedback.worked');
         upBtn.appendChild(upLabel);
 
         const downBtn = document.createElement('button');
@@ -1264,7 +1265,7 @@ export class AiChatPanel {
         downBtn.className = 'chat-feedback-rate-btn';
         downBtn.appendChild(icon(ThumbsDown, 20));
         const downLabel = document.createElement('span');
-        downLabel.textContent = 'It did not work';
+        downLabel.textContent = t('feedback.notWorked');
         downBtn.appendChild(downLabel);
 
         const updateRating = () => {
@@ -1281,13 +1282,13 @@ export class AiChatPanel {
 
         const notesLabel = document.createElement('div');
         notesLabel.className = 'chat-feedback-label';
-        notesLabel.textContent = 'Anything broken or could be better?';
+        notesLabel.textContent = t('feedback.notesLabel');
         form.appendChild(notesLabel);
 
         const notes = document.createElement('textarea');
         notes.className = 'chat-feedback-notes';
         notes.rows = 3;
-        notes.placeholder = 'What worked? What\'s off? What would you change?';
+        notes.placeholder = t('feedback.notesPlaceholder');
         // Auto-grow as the user types. CSS pins resize:none so the
         // drag handle is gone; we drive the height here instead.
         const autoGrow = () => {
@@ -1307,16 +1308,16 @@ export class AiChatPanel {
             restoreRow.className = 'chat-feedback-restore-row';
             const restoreNote = document.createElement('div');
             restoreNote.className = 'chat-feedback-restore-note';
-            restoreNote.textContent = 'Don\'t want to keep this build? You can restore your project to how it was before.';
+            restoreNote.textContent = t('feedback.restoreNote');
             restoreRow.appendChild(restoreNote);
             const restoreBtn = document.createElement('button');
             restoreBtn.type = 'button';
             restoreBtn.className = 'chat-feedback-restore-btn';
-            restoreBtn.textContent = 'Restore project to before this build';
+            restoreBtn.textContent = t('feedback.restoreButton');
             restoreBtn.addEventListener('click', () => {
                 if (!confirm('Restore the project to how it was BEFORE this CREATE_GAME build? The generated files will be discarded.')) return;
                 restoreBtn.disabled = true;
-                restoreBtn.textContent = 'Restoring…';
+                restoreBtn.textContent = t('feedback.restoring');
                 this.ctx.backend.sendWsMessage('feedback_revert', {
                     feedbackId,
                     text: notes.value.trim(),
@@ -1336,9 +1337,9 @@ export class AiChatPanel {
             dismissBtn.className = 'chat-feedback-dismiss-btn';
             dismissBtn.appendChild(icon(X, 14));
             const dismissLabel = document.createElement('span');
-            dismissLabel.textContent = 'Dismiss';
+            dismissLabel.textContent = t('feedback.dismiss');
             dismissBtn.appendChild(dismissLabel);
-            dismissBtn.title = 'Dismiss this feedback form. It won\'t come back for this change.';
+            dismissBtn.title = t('feedback.dismissTooltip');
             dismissBtn.addEventListener('click', () => {
                 this.ctx.backend.sendWsMessage('feedback_dismiss', { feedbackId });
                 // Hide optimistically; the backend ack doubles as
@@ -1355,12 +1356,12 @@ export class AiChatPanel {
         const submitBtn = document.createElement('button');
         submitBtn.type = 'button';
         submitBtn.className = 'chat-feedback-submit-btn';
-        submitBtn.textContent = 'Submit feedback';
+        submitBtn.textContent = t('feedback.submit');
         submitBtn.disabled = true;
         submitBtn.addEventListener('click', () => {
             if (!rating) return;
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Submitting…';
+            submitBtn.textContent = t('feedback.submitting');
             this.ctx.backend.sendWsMessage('feedback_submit', {
                 feedbackId,
                 rating,
@@ -1443,7 +1444,7 @@ export class AiChatPanel {
 
         const newItem = document.createElement('div');
         newItem.className = 'chat-session-new';
-        newItem.textContent = '+ New Chat';
+        newItem.textContent = t('chat.newChat');
         newItem.addEventListener('click', () => {
             this.closeSessionMenu();
             this.ctx.backend.sendWsMessage('new_chat_session', {});
@@ -1507,7 +1508,7 @@ export class AiChatPanel {
             ? sessionId.slice(0, 8) + '...' + sessionId.slice(-8)
             : sessionId;
         this.sessionIdLabel.textContent = `Session: ${display}`;
-        this.sessionIdLabel.title = 'Click to copy session ID';
+        this.sessionIdLabel.title = t('chat.sessionIdTooltip');
         this.sessionIdLabel.style.cursor = 'pointer';
 
         const newLabel = this.sessionIdLabel.cloneNode(true) as HTMLElement;
@@ -1538,7 +1539,7 @@ export class AiChatPanel {
         header.className = 'raw-files-header';
 
         const title = document.createElement('span');
-        title.textContent = 'Raw Session Dialogue';
+        title.textContent = t('chat.rawFilesTitle');
         title.style.fontWeight = '600';
         header.appendChild(title);
 
@@ -1563,7 +1564,7 @@ export class AiChatPanel {
             const empty = document.createElement('div');
             empty.style.padding = '16px';
             empty.style.color = 'var(--text-secondary)';
-            empty.textContent = 'No files yet in this session.';
+            empty.textContent = t('chat.rawFilesEmpty');
             container.appendChild(empty);
         } else {
             for (const file of files) {
@@ -1661,7 +1662,7 @@ export class AiChatPanel {
 
         const title = document.createElement('span');
         title.className = 'todo-title';
-        title.textContent = 'Building Plan';
+        title.textContent = t('chat.buildingPlan');
         header.appendChild(title);
 
         const status = document.createElement('span');
