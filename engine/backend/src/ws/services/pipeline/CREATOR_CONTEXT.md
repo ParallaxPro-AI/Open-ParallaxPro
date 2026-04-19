@@ -29,8 +29,29 @@ project/                           — EDIT THESE
 reference/                         — Read-only library to copy from
   game_templates/v0.1/...          — Working examples
   behaviors/, systems/, ui/        — Latest shared behaviors/systems/UI
+  previous_project/ (optional)     — The user's own files before this rebuild
 assets/                            — 3D_MODELS.md, AUDIO.md, TEXTURES.md
 ```
+
+### `reference/previous_project/` — the user's work so far
+
+Present when the user already had files in this project before asking for a
+from-scratch rebuild (often a template they'd been tweaking, or a prior
+CREATE_GAME run they want to reshape). The full pre-build file tree is dropped
+in here, unchanged. Read its `README.md` for a quick orientation.
+
+Use it when the new brief is a **variant** of what's there — same theme, same
+genre, small pivot (e.g. user had a sumo-battle template loaded and now asks
+for a sumo-battle with power-ups): lift the entities, behaviors, systems, UI,
+and flow structure as your richest worked example. You can often hit 80% of
+the new game by copying + tweaking instead of starting from zero.
+
+**Ignore** it when the new brief is a **different game** (user had platformer
+files, asks for a racing game): don't be clever, don't waste turns reading
+them. Treat the directory as if it doesn't exist.
+
+Do NOT copy files directly from `previous_project/` into `project/` without
+thinking — cherry-pick, read, adapt. `project/` is the authoritative output.
 
 ### Pulling in shared library files
 

@@ -24,8 +24,11 @@ import {
     writeFilesToDir,
     readFilesFromDir,
     emptyTemplateFiles,
+    parseProjectData,
+    isLegacyProjectData,
     ENGINE_MACHINERY,
 } from './project_files.js';
+import db from '../../../db/connection.js';
 import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
 import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
@@ -107,10 +110,28 @@ export async function runCreator(
     let finalResult: CreatorResult | null = null;
     const runStartedAt = Date.now();
 
+    // Snapshot the project's current file tree before we build the
+    // sandbox so we can drop it in reference/previous_project/ for
+    // the agent's optional use. Read once here, outside the try so a
+    // failed DB read doesn't obscure a creation failure. NULL is
+    // expected for brand-new projects.
+    let previousProjectFiles: ProjectFiles | null = null;
+    try {
+        const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as { project_data?: string } | undefined;
+        if (row?.project_data) {
+            const pd = parseProjectData(row.project_data);
+            if (!isLegacyProjectData(pd) && pd.files && Object.keys(pd.files).length > 0) {
+                previousProjectFiles = pd.files;
+            }
+        }
+    } catch (e: any) {
+        console.warn('[CLICreator] failed to read previous project files:', e?.message);
+    }
+
     try {
       finalResult = await (async (): Promise<CreatorResult> => {
         sendStatus?.('Setting up creation sandbox...');
-        await createSandbox(sandboxDir, description);
+        await createSandbox(sandboxDir, description, previousProjectFiles);
 
         // Drop the config where validate_assembler.js can find it. Done
         // after createSandbox (which rewrites assets) so we don't race
@@ -296,7 +317,11 @@ function deriveTemplateId(description: string): string {
 
 // ─── Sandbox creation ──────────────────────────────────────────────────────
 
-async function createSandbox(sandboxDir: string, description: string): Promise<void> {
+async function createSandbox(
+    sandboxDir: string,
+    description: string,
+    previousProjectFiles: ProjectFiles | null,
+): Promise<void> {
     // sandboxDir is freshly created by mkdtempSync in the caller — already
     // exists and is empty, so no nuke-and-recreate needed here.
 
@@ -320,6 +345,34 @@ async function createSandbox(sandboxDir: string, description: string): Promise<v
 
     const picks = await pickRelevantLibrary(description);
     copyPickedLibraryFiles(picks, refDir);
+
+    // If the user had existing project files (e.g. a template they'd
+    // been tweaking), drop the whole tree into reference/previous_project/
+    // plus a short README that tells the agent how to use it. CREATE_GAME
+    // is a from-scratch rebuild so we don't seed this into project/; but
+    // often the new brief is a variant of what's already there (same
+    // theme, same mechanics, different twist) and the old file tree is
+    // the richest possible worked example. CREATOR_CONTEXT.md tells the
+    // agent to use it for continuity if the brief is a variant, ignore
+    // if the brief is a completely different game.
+    if (previousProjectFiles && Object.keys(previousProjectFiles).length > 0) {
+        const prevDir = path.join(refDir, 'previous_project');
+        writeFilesToDir(previousProjectFiles, prevDir);
+        fs.writeFileSync(path.join(prevDir, 'README.md'),
+            '# Previous project (reference only)\n\n' +
+            'These are the files the user had in this project before they asked ' +
+            'you to CREATE_GAME from scratch.\n\n' +
+            '- If the new brief is a variant of what\'s here (same theme / same ' +
+            'mechanics / small pivot), feel free to lift entities, behaviors, ' +
+            'systems, flows, UI as a starting point — consider it your richest ' +
+            'worked example for this specific user.\n' +
+            '- If the new brief is a completely different game, ignore this ' +
+            'directory entirely. It exists so you don\'t have to rediscover ' +
+            'what the user already had.\n\n' +
+            'Do NOT copy these paths into `project/` blindly — `project/` is ' +
+            'the authoritative output; cherry-pick by hand.\n',
+        );
+    }
 
     // Auto-loaded agent instructions. Each CLI picks up its own convention
     // (claude → CLAUDE.md, codex/opencode/copilot → AGENTS.md) without a
