@@ -15,6 +15,8 @@
 
 export type CLIJobKind = 'fix' | 'create';
 
+export type SessionType = 'resume' | 'warm_fork' | 'cold';
+
 export interface ActiveCLIJob {
     jobId: string;
     cli: string;
@@ -22,6 +24,8 @@ export interface ActiveCLIJob {
     projectId: string;
     description: string;
     startedAt: number; // epoch ms
+    /** How the session was initialized (fix only). Set after CLI spawns. */
+    sessionType?: SessionType;
     /** Kills the CLI run. Set by runFixer / runCreator at registration.
      *  Called by preemptProjectJob when a new CLI run wants to work on
      *  the same project — the newer request wins, the older one dies. */
@@ -36,6 +40,11 @@ export function registerActiveJob(job: ActiveCLIJob): void {
 
 export function unregisterActiveJob(jobId: string): void {
     jobs.delete(jobId);
+}
+
+export function updateJobSessionType(jobId: string, sessionType: SessionType): void {
+    const job = jobs.get(jobId);
+    if (job) job.sessionType = sessionType;
 }
 
 export function listActiveJobs(): ActiveCLIJob[] {

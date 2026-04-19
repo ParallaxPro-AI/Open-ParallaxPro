@@ -23,8 +23,9 @@ import { randomUUID } from 'crypto';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { assembleGame } from './level_assembler.js';
 import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult } from './cli_runner.js';
-import { forkSession, warmIfNeeded } from './session_warmer.js';
-import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
+import { forkSession, warmIfNeeded, forkPreviousFixSession, registerFixSession } from './session_warmer.js';
+import { registerActiveJob, unregisterActiveJob, preemptProjectJob, updateJobSessionType } from './cli_active_jobs.js';
+import type { SessionType } from './cli_active_jobs.js';
 import { preemptGenerationJob } from './generation_jobs.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
@@ -47,6 +48,7 @@ export interface FixerResult {
     deletedFiles: string[];
     costUsd?: number;
     usedWarmSession?: boolean;
+    resumedPrevious?: boolean;
 }
 
 export async function runFixer(
@@ -143,6 +145,8 @@ export async function runFixer(
         sendStatus?.('Editing Agent is analyzing and coding...');
         const cliResult = await spawnCLI(sandboxDir, sendStatus, localSignal, cliOverride, { jobId, projectId });
 
+        try { registerFixSession(projectId, sandboxDir); } catch {}
+
         sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectFiles);
 
@@ -155,6 +159,7 @@ export async function runFixer(
                 deletedFiles: [],
                 costUsd: cliResult.costUsd,
                 usedWarmSession: cliResult.usedWarmSession,
+                resumedPrevious: cliResult.resumedPrevious,
             };
         }
 
@@ -168,6 +173,7 @@ export async function runFixer(
                 deletedFiles: [],
                 costUsd: cliResult.costUsd,
                 usedWarmSession: cliResult.usedWarmSession,
+                resumedPrevious: cliResult.resumedPrevious,
             };
         }
 
@@ -179,6 +185,7 @@ export async function runFixer(
             deletedFiles: changes.deletedFiles,
             costUsd: cliResult.costUsd,
             usedWarmSession: cliResult.usedWarmSession,
+            resumedPrevious: cliResult.resumedPrevious,
         };
     } finally {
         try { unregisterSandboxToken(validateToken); } catch {}
@@ -251,9 +258,36 @@ function fixerStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; usedWarmSession?: boolean }> {
+const FIXER_PROMPT_RESUME = `You previously worked on this project. The project files in project/ may have changed since your last session — re-read any files you need before editing. Read TASK.md for the new bug report. Fix the bug — edit template files only. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor.`;
+
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; usedWarmSession?: boolean; resumedPrevious?: boolean }> {
     const cli = resolveCLI(cliOverride);
-    let usedWarmSession = false;
+    const projectId = capture?.projectId;
+    const jobId = capture?.jobId;
+
+    if (cli === 'claude' && projectId) {
+        const resumedFromPrev = forkPreviousFixSession(projectId, sandboxDir);
+        if (resumedFromPrev) {
+            try {
+                sendStatus?.('Resuming from previous fix session...');
+                if (jobId) updateJobSessionType(jobId, 'resume');
+                const result = await spawnCLIAgent({
+                    sandboxDir,
+                    prompt: FIXER_PROMPT_RESUME,
+                    maxTurns: 30,
+                    continueForked: true,
+                    statusMapper: fixerStatus,
+                    sendStatus,
+                    abortSignal,
+                    cliOverride,
+                    capture: capture ? { ...capture, kind: 'fix' } : undefined,
+                });
+                return { text: result.text, costUsd: result.costUsd, usedWarmSession: false, resumedPrevious: true };
+            } catch (e: any) {
+                console.warn(`[CLIFixer] Resume from previous session failed, trying warm fork:`, e?.message);
+            }
+        }
+    }
 
     if (cli === 'claude') {
         sendStatus?.('Waiting for warm session...');
@@ -262,6 +296,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         if (forked) {
             try {
                 sendStatus?.('Using pre-warmed session...');
+                if (jobId) updateJobSessionType(jobId, 'warm_fork');
                 const result = await spawnCLIAgent({
                     sandboxDir,
                     prompt: FIXER_PROMPT_WARM,
@@ -281,6 +316,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         }
     }
 
+    if (jobId) updateJobSessionType(jobId, 'cold');
     const result = await spawnCLIAgent({
         sandboxDir,
         prompt: FIXER_PROMPT,
@@ -291,7 +327,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         cliOverride,
         capture: capture ? { ...capture, kind: 'fix' } : undefined,
     });
-    return { text: result.text, costUsd: result.costUsd, usedWarmSession };
+    return { text: result.text, costUsd: result.costUsd, usedWarmSession: false };
 }
 
 // ─── Read changes ──────────────────────────────────────────────────────────

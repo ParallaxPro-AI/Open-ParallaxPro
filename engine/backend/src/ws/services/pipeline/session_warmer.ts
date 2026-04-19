@@ -151,6 +151,52 @@ export function invalidate(kind: WarmKind): void {
     state.error = null;
 }
 
+// ─── Per-project fix session reuse ──────────────────────────────────────────
+//
+// When a user repeatedly fixes the same project, we reuse the previous fix
+// session so the agent already has context about the project's codebase.
+
+const projectFixSessions = new Map<string, { sessionId: string; claudeProjectDir: string }>();
+
+/**
+ * After a FIX_GAME completes, register the session so the next fix on the
+ * same project can resume from it.
+ */
+export function registerFixSession(projectId: string, sandboxDir: string): void {
+    const claudeProjectDir = getClaudeProjectDir(sandboxDir);
+    if (!claudeProjectDir) return;
+    const sessionId = findLatestSessionId(sandboxDir);
+    if (!sessionId) return;
+    projectFixSessions.set(projectId, { sessionId, claudeProjectDir });
+}
+
+/**
+ * Fork a previous fix session for the same project into a new sandbox.
+ * Returns true if a previous session existed and was copied successfully.
+ */
+export function forkPreviousFixSession(projectId: string, targetSandboxDir: string): boolean {
+    const prev = projectFixSessions.get(projectId);
+    if (!prev) return false;
+
+    const sourceJsonl = path.join(prev.claudeProjectDir, prev.sessionId + '.jsonl');
+    if (!fs.existsSync(sourceJsonl)) {
+        projectFixSessions.delete(projectId);
+        return false;
+    }
+
+    const targetProjectDir = getClaudeProjectDir(targetSandboxDir);
+    if (!targetProjectDir) return false;
+
+    try {
+        fs.mkdirSync(targetProjectDir, { recursive: true });
+        fs.copyFileSync(sourceJsonl, path.join(targetProjectDir, prev.sessionId + '.jsonl'));
+        return true;
+    } catch (e: any) {
+        console.warn(`[SessionWarmer] Failed to fork previous fix session:`, e?.message);
+        return false;
+    }
+}
+
 /**
  * Initialize on server boot. Checks if existing warm sessions are still
  * valid (hash matches, JSONL on disk). Only re-warms if static content
