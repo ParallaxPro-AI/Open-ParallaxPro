@@ -682,10 +682,22 @@ export class Scene {
             }
         }
 
+        // Round-trip the prefab registry: without this, the Play→Stop
+        // snapshot (editor_context.prePlaySceneSnapshot = scene.toJSON())
+        // loses every prefab blueprint. On the next Play the script's
+        // spawnEntity("enemy_goblin") throws "unknown entity definition"
+        // because hasPrefab returns false against a freshly-loaded scene
+        // with an empty registry. Observed on tower-defense project
+        // 9af663e0 — enemies invisible, wave counter ticking down to zero
+        // because _spawnQueue.shift() runs before spawnEntity throws.
+        const prefabsOut: Record<string, any> = {};
+        for (const [name, bp] of this.prefabBlueprints) prefabsOut[name] = bp;
+
         return {
             name: this.name,
             entities: entitiesData,
             environment: this.environment.toJSON(),
+            prefabs: prefabsOut,
         };
     }
 

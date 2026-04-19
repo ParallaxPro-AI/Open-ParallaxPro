@@ -413,6 +413,7 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
             `spawnEntity("${name}") failed: prefab registered but instantiation returned null. This is an engine bug — please report.`,
           );
         }
+        ensurePrimitiveMeshes();
         return makeScriptEntity(e)!;
       }
       throw new Error(
