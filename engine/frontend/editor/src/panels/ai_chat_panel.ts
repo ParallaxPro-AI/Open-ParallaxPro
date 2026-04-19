@@ -270,13 +270,34 @@ export class AiChatPanel {
         });
 
         ws.onWsMessage('fix_progress', (data: any) => {
-            if (this.typingIndicator) {
-                const textNode = this.typingIndicator.lastChild;
-                if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-                    textNode.textContent = ' ' + (data.text || 'Working...');
-                }
-                this.scrollToBottom();
+            if (!this.typingIndicator) return;
+            // The typing indicator has three animated dots + a text
+            // node. Swap that text node for the latest CLI status.
+            const statusNode = this.typingIndicator.querySelector('.chat-typing-status') as HTMLElement | null;
+            if (statusNode) {
+                statusNode.textContent = ' ' + (data.text || 'Working...');
+            } else {
+                // Older indicator layout (just a trailing text node)
+                // — replace it with a structured one so the hint
+                // below has somewhere to live.
+                const last = this.typingIndicator.lastChild;
+                if (last && last.nodeType === Node.TEXT_NODE) last.remove();
+                const s = document.createElement('span');
+                s.className = 'chat-typing-status';
+                s.textContent = ' ' + (data.text || 'Working...');
+                this.typingIndicator.appendChild(s);
             }
+            // Surface the "this can take a while" hint once, as soon
+            // as the fixer reports any progress. Tells the user the
+            // CLI is actually running + it's not stuck, so they don't
+            // close the tab after 30 seconds of spinner.
+            if (!this.typingIndicator.querySelector('.chat-typing-hint')) {
+                const hint = document.createElement('div');
+                hint.className = 'chat-typing-hint';
+                hint.textContent = 'This can take up to 10 minutes — feel free to leave the page open.';
+                this.typingIndicator.appendChild(hint);
+            }
+            this.scrollToBottom();
         });
 
         ws.onWsMessage('dialogue_done', () => {
@@ -1036,7 +1057,10 @@ export class AiChatPanel {
             dot.className = 'chat-typing-dot';
             this.typingIndicator.appendChild(dot);
         }
-        this.typingIndicator.appendChild(document.createTextNode(' ParallaxPro AI is thinking...'));
+        const status = document.createElement('span');
+        status.className = 'chat-typing-status';
+        status.textContent = ' ParallaxPro AI is thinking...';
+        this.typingIndicator.appendChild(status);
         this.messagesContainer.appendChild(this.typingIndicator);
     }
 

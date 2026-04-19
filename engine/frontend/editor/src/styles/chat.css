@@ -316,11 +316,29 @@
 
 .chat-typing-indicator {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 4px;
     padding: var(--spacing-sm);
     font-size: var(--font-size-sm);
     color: var(--text-disabled);
+}
+
+/* Live CLI status text (swapped on each fix_progress event). */
+.chat-typing-status {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Appears below the status once the FIX_GAME CLI reports progress —
+   reassures the user that slow runs are normal, not a hang. Full-width
+   so it wraps onto its own line below the animated dots + status. */
+.chat-typing-hint {
+    flex: 0 0 100%;
+    margin-top: 4px;
+    font-size: var(--font-size-xs, 11px);
+    opacity: 0.7;
+    font-style: italic;
 }
 
 .chat-typing-dot {
