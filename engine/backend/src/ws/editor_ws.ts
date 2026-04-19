@@ -563,6 +563,13 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             handleFeedbackDismiss(client, data);
             break;
 
+        // CREATE_GAME revert — user didn't like the build, wants their
+        // prior project back. Rolls project_data to the agent_feedback
+        // row's project_before snapshot + resolves the row 'reverted'.
+        case 'feedback_revert':
+            handleFeedbackRevert(client, data);
+            break;
+
         case 'file_save':
             if (isProjectLocked(client.projectId)) {
                 send(client, 'file_save_error', { path: data?.path, error: 'Project is locked — a CREATE_GAME build is in progress.' });
@@ -738,6 +745,91 @@ function handleFeedbackDismiss(client: EditorClient, data: any): void {
         resolveFeedback(feedbackId, 'dismissed', null, null);
     }
     send(client, 'feedback_dismissed', { feedbackId });
+}
+
+/**
+ * Roll the project back to its pre-CREATE_GAME state. The
+ * agent_feedback row stores project_before as an inline JSON
+ * snapshot at build-commit time, so we just write it back into
+ * projects.project_data + rebuild. Row gets resolution='reverted'
+ * so the analysis export can tell "user hit restore" apart from
+ * a plain thumbs-down.
+ *
+ * CREATE_GAME only — FIX_GAME turns are already reachable via the
+ * per-message "Revert to before" button in the chat footer.
+ */
+function handleFeedbackRevert(client: EditorClient, data: any): void {
+    const feedbackId = Number(data?.feedbackId);
+    const text = typeof data?.text === 'string' ? data.text.slice(0, 4000) : '';
+    if (!Number.isFinite(feedbackId) || feedbackId <= 0) {
+        send(client, 'feedback_revert_error', { error: 'Invalid feedback id.' });
+        return;
+    }
+    const row = getFeedbackById(feedbackId);
+    if (!row || row.project_id !== client.projectId || row.user_id !== client.userId) {
+        send(client, 'feedback_revert_error', { error: 'Feedback not found.' });
+        return;
+    }
+    if (row.kind !== 'create_game') {
+        send(client, 'feedback_revert_error', {
+            error: 'Revert only available for CREATE_GAME feedback.',
+        });
+        return;
+    }
+    if (!row.project_before) {
+        send(client, 'feedback_revert_error', {
+            error: 'No pre-build snapshot stored on this feedback row.',
+        });
+        return;
+    }
+    if (row.resolved_at) {
+        // Idempotent — already handled from another tab. Just
+        // ack so this client's UI unlocks.
+        send(client, 'feedback_submitted', { feedbackId });
+        return;
+    }
+    let parsed: ProjectData;
+    try {
+        parsed = parseProjectData(row.project_before);
+    } catch (e: any) {
+        send(client, 'feedback_revert_error', { error: `Snapshot parse failed: ${e?.message}` });
+        return;
+    }
+    if (isLegacyProjectData(parsed)) {
+        send(client, 'feedback_revert_error', {
+            error: 'Pre-build snapshot is in the legacy file shape; cannot restore.',
+        });
+        return;
+    }
+    // Commit the restore + push project_reload so the editor
+    // re-renders from the restored state.
+    stmtUpdateData.run(row.project_before, client.projectId);
+    rebuildAndPush(client, parsed, { sceneKey: client.activeSceneKey });
+    resolveFeedback(feedbackId, 'reverted', null, text || null);
+    send(client, 'feedback_submitted', { feedbackId });
+
+    // Same chat-surfacing shape as submit — save a user-voiced
+    // message so the transcript reads "I reverted the build"
+    // and kick off an AI follow-up turn. System prompt rule 13
+    // already covers the thumbs-down apology path; the AI will
+    // acknowledge the revert and ask what to try differently.
+    const lines = [
+        '**I reverted the build** — restored the project to how it was before CREATE_GAME.',
+        '',
+        `> Original request: ${row.prompt || '(not captured)'}`,
+    ];
+    if (text) lines.push('', `Notes: ${text}`);
+    const content = lines.join('\n');
+    const snapshot = getProjectSnapshot(client.projectId);
+    stmtInsertMessage.run(
+        client.projectId, client.chatSessionId, 'user', content,
+        null, null, snapshot,
+    );
+    stmtTouchProject.run(client.projectId);
+    send(client, 'chat_response_start', {});
+    const abortController = new AbortController();
+    client.abortController = abortController;
+    runLLMWithRetry(client, abortController, 0, [], []);
 }
 
 async function handleConfirmCreateGame(client: EditorClient, data: any): Promise<void> {

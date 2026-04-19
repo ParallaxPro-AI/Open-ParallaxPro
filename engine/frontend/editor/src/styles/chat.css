@@ -952,6 +952,52 @@
     cursor: default;
 }
 
+/* CREATE_GAME escape hatch — revert the project to the pre-build
+   snapshot stored on the agent_feedback row. Sits above the normal
+   submit actions so it doesn't compete with the primary rating flow.
+   Muted border so it doesn't look like the "main" action; red-tinted
+   button because it discards generated content. */
+.chat-feedback-restore-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    margin-top: 4px;
+    border: 1px dashed var(--border-color, #2a2f3a);
+    border-radius: 6px;
+    background: rgba(255,100,100,0.04);
+}
+
+.chat-feedback-restore-note {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-secondary, #b8c5d2);
+}
+
+.chat-feedback-restore-btn {
+    align-self: flex-start;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e0a4a4;
+    background: transparent;
+    border: 1px solid #7a3a3a;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.chat-feedback-restore-btn:hover:not(:disabled) {
+    background: rgba(200, 70, 70, 0.15);
+    color: #f0c0c0;
+    border-color: #a04a4a;
+}
+
+.chat-feedback-restore-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
 /* In-chat signup prompt — rendered as an assistant message when the
    backend refuses a CLI-spawning action (CREATE_GAME, FIX_GAME,
    publish) for an anon session. Amber button to distinguish it

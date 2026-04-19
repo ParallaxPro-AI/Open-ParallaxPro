@@ -399,6 +399,18 @@ export class AiChatPanel {
         // it. Leave the form up; no-op acknowledgement.
         ws.onWsMessage('feedback_dismiss_rejected', () => { /* form stays */ });
 
+        // Revert failed (e.g. missing snapshot, parse error). Reset
+        // the Restore button so the user can try again / submit instead.
+        ws.onWsMessage('feedback_revert_error', (data: any) => {
+            const btn = this.feedbackForm?.querySelector<HTMLButtonElement>('.chat-feedback-restore-btn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Restore project to before this build';
+            }
+            const msg = (data && typeof data.error === 'string') ? data.error : 'Unable to restore.';
+            window.alert(`Restore failed: ${msg}`);
+        });
+
         ws.onWsMessage('__ws_disconnected', () => {
             if (this.state === State.STREAMING) {
                 this.transitionTo(State.IDLE);
@@ -1246,6 +1258,35 @@ export class AiChatPanel {
         };
         notes.addEventListener('input', autoGrow);
         form.appendChild(notes);
+
+        // CREATE_GAME-only: restore the project to how it was before
+        // the build. The agent_feedback row stores the pre-build
+        // snapshot inline, so backend flips project_data back in one
+        // UPDATE. Sits outside the normal submit flow — it's the
+        // escape hatch for a build the user doesn't want to keep.
+        if (kind === 'create_game') {
+            const restoreRow = document.createElement('div');
+            restoreRow.className = 'chat-feedback-restore-row';
+            const restoreNote = document.createElement('div');
+            restoreNote.className = 'chat-feedback-restore-note';
+            restoreNote.textContent = 'Don\'t want to keep this build? You can restore your project to how it was before.';
+            restoreRow.appendChild(restoreNote);
+            const restoreBtn = document.createElement('button');
+            restoreBtn.type = 'button';
+            restoreBtn.className = 'chat-feedback-restore-btn';
+            restoreBtn.textContent = 'Restore project to before this build';
+            restoreBtn.addEventListener('click', () => {
+                if (!confirm('Restore the project to how it was BEFORE this CREATE_GAME build? The generated files will be discarded.')) return;
+                restoreBtn.disabled = true;
+                restoreBtn.textContent = 'Restoring…';
+                this.ctx.backend.sendWsMessage('feedback_revert', {
+                    feedbackId,
+                    text: notes.value.trim(),
+                });
+            });
+            restoreRow.appendChild(restoreBtn);
+            form.appendChild(restoreRow);
+        }
 
         // Actions — submit sticks bottom-right; dismiss only for fix_game.
         const actions = document.createElement('div');

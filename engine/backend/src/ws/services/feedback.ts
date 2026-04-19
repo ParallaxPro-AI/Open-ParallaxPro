@@ -19,7 +19,12 @@ import type BetterSqlite3 from 'better-sqlite3';
 
 export type FeedbackKind = 'create_game' | 'fix_game';
 export type FeedbackRating = 'up' | 'down';
-export type FeedbackResolution = 'submitted' | 'dismissed';
+// 'reverted' means the user hit the Restore button on a CREATE_GAME
+// feedback form — we rolled the project_data back to project_before
+// and retired the row without a rating. Kept distinct from 'dismissed'
+// so analysis can tell "the build was bad enough to revert" apart
+// from "they just closed the form".
+export type FeedbackResolution = 'submitted' | 'dismissed' | 'reverted';
 
 export interface PendingFeedback {
     id: number;
