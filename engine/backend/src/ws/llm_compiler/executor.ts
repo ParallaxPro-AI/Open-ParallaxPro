@@ -216,7 +216,12 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             }
 
             result.madeChanges = true;
-            result.fileChanges.push({ path: built.activeSceneKey, type: 'modified' });
+            // Distinct type lets the chat panel surface a prominent
+            // "your prior project was replaced" banner + restore button
+            // on this assistant message. A plain `modified` tag hides
+            // the revert button in the small footer, which scared users
+            // who didn't realize the template had just wiped their work.
+            result.fileChanges.push({ path: built.activeSceneKey, type: 'template_load' });
 
             const entityCount = built.scenes[built.activeSceneKey]?.entities?.length ?? 0;
             const warnMsg = seed.warnings.length > 0 ? `\n(Warnings: ${seed.warnings.slice(0, 3).join('; ')})` : '';

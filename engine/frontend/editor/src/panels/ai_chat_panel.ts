@@ -11,7 +11,9 @@ interface ChatMessage {
 
 interface FileChange {
     path: string;
-    type: 'created' | 'modified' | 'deleted';
+    // 'template_load' is a destructive full-tree replace (LOAD_TEMPLATE);
+    // the chat panel surfaces a prominent restore banner for it.
+    type: 'created' | 'modified' | 'deleted' | 'template_load';
 }
 
 interface ChatSession {
@@ -929,6 +931,34 @@ export class AiChatPanel {
         bubble.className = 'chat-message-bubble';
         bubble.innerHTML = this.renderMarkdown(msg.content);
         messageEl.appendChild(bubble);
+
+        // Prominent "template loaded, project was replaced" banner for
+        // LOAD_TEMPLATE turns. The small revert button in the footer is
+        // easy to miss, and template loads nuke the user's whole file
+        // tree — they need to see the restore affordance up-front so a
+        // wrong template doesn't feel catastrophic.
+        if (msg.role === 'assistant'
+            && msg.id
+            && msg.fileChanges
+            && msg.fileChanges.some(fc => fc.type === 'template_load')) {
+            const banner = document.createElement('div');
+            banner.className = 'chat-template-load-banner';
+            const text = document.createElement('div');
+            text.className = 'chat-template-load-text';
+            text.textContent = 'A template was just loaded — your previous project files were replaced.';
+            banner.appendChild(text);
+            const restoreBtn = document.createElement('button');
+            restoreBtn.className = 'chat-template-load-restore-btn';
+            restoreBtn.textContent = 'Restore my previous project';
+            restoreBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm('Restore your project to BEFORE the template was loaded? The loaded template will be discarded.')) {
+                    this.ctx.backend.sendRevertToBeforeMessage(msg.id!);
+                }
+            });
+            banner.appendChild(restoreBtn);
+            messageEl.appendChild(banner);
+        }
 
         if (msg.role === 'assistant') {
             const footer = document.createElement('div');

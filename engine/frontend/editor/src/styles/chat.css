@@ -740,6 +740,49 @@
     color: #cfe4f5;
 }
 
+/* ── Template-load restore banner ───────────────────────────────
+   Attaches to the assistant message that loaded a template. Bigger
+   and more prominent than the small footer "Changes applied" tag
+   because a template load wipes the user's entire file tree, and
+   a hidden revert button feels like a trap. Amber to signal
+   "something destructive happened, here's how to undo".
+*/
+.chat-template-load-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 159, 64, 0.14);
+    border: 1px solid rgba(255, 159, 64, 0.45);
+    border-radius: 8px;
+}
+
+.chat-template-load-text {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #ffb366;
+    font-weight: 500;
+}
+
+.chat-template-load-restore-btn {
+    align-self: flex-start;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1a1a1a;
+    background: #ff9f40;
+    border: 1px solid #ff9f40;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.chat-template-load-restore-btn:hover {
+    background: #ffb366;
+    border-color: #ffb366;
+}
+
 /* ── Agent feedback form ───────────────────────────────────────
    Sits where the chat composer usually is (bottom of the panel) so
    the messages scroll stays visible — the user often needs to read
