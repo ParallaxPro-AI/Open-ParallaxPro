@@ -155,12 +155,16 @@ export class EditorView {
         });
 
         this.ctx.backend.onWsMessage('signup_required', (data: any) => {
-            // Backend refused a CLI-spawning action (CREATE_GAME,
-            // FIX_GAME) for an anon session. Show a persistent amber
-            // banner with a direct signup link so the user sees the
-            // conversion path instead of a silent failure.
-            const msg = (data && typeof data.message === 'string') ? data.message : 'Sign up free to unlock this feature.';
+            // Backend refused a CLI-spawning action for an anon session.
+            // CREATE_GAME has its own inline UI (the chat's OFFER_CREATE
+            // button converts to a signup CTA for anons), so skip the
+            // top banner — otherwise the user sees the message twice.
+            // FIX_GAME + publish still surface here because they have
+            // no dedicated chat affordance.
             const feature = (data && typeof data.feature === 'string') ? data.feature : '';
+            if (feature === 'CREATE_GAME') return;
+
+            const msg = (data && typeof data.message === 'string') ? data.message : 'Sign up free to unlock this feature.';
             const signupHref = window.location.hostname === 'localhost'
                 ? 'http://localhost:5173/signup'
                 : 'https://parallaxpro.ai/signup';

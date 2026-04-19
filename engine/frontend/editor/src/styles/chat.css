@@ -720,3 +720,18 @@
     border-color: #4a7fa1;
     color: #cfe4f5;
 }
+
+/* Anon variant — the CLI-spawning path is gated on signup, so the
+   button turns into an inline signup CTA. Amber to distinguish it
+   from the normal build-from-scratch path and to match the project
+   list's "browsing anonymously" banner. */
+.chat-create-scratch-btn.chat-create-scratch-btn-signup {
+    background: #ff9f40;
+    border-color: #ff9f40;
+    color: #1a1a1a;
+}
+
+.chat-create-scratch-btn.chat-create-scratch-btn-signup:hover:not(:disabled) {
+    background: #ffb366;
+    border-color: #ffb366;
+}
