@@ -137,6 +137,23 @@ export class EditorView {
             }, 3000);
         });
 
+        this.ctx.backend.onWsMessage('fix_rolled_back', (data: any) => {
+            // The chat-driven fixer produced files that didn't build.
+            // Backend refused the commit and is re-pushing server truth
+            // via project_reload right after this. Surface it visibly so
+            // the user doesn't trust a stale "✅ fix complete" bubble.
+            const err = (data && typeof data.error === 'string') ? data.error : '';
+            const short = err ? ` — ${err.slice(0, 140)}${err.length > 140 ? '…' : ''}` : '';
+            this.connectionBanner.textContent = `Fix rolled back${short}`;
+            this.connectionBanner.className = 'connection-banner warning';
+            this.connectionBanner.style.display = '';
+            window.setTimeout(() => {
+                if (this.connectionBanner.textContent.startsWith('Fix rolled back')) {
+                    this.connectionBanner.style.display = 'none';
+                }
+            }, 6000);
+        });
+
         this.ctx.backend.onWsMessage('project_renamed', (data: any) => {
             if (!data?.name || !this.ctx.state.projectData) return;
             if (data.projectId && data.projectId !== this.ctx.state.projectId) return;

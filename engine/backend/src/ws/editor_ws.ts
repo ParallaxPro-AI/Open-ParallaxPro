@@ -702,6 +702,65 @@ function rebuildAndPush(client: EditorClient, pd: ProjectData, opts: { sceneKey:
     return built;
 }
 
+/**
+ * Validate-then-commit gate for chat-driven file edits (direct fixer +
+ * LLM FIX_GAME path).
+ *
+ * Historically the commit path wrote to the DB first, then ran buildProject.
+ * If assembleGame rejected the result (missing reference, FSM-reserved key
+ * collision, orphan inline onclick, etc.) the DB was already corrupt, the
+ * editor received `build_error`, and the user saw a half-fixed project
+ * that their "chat said it was fixed" claim contradicted. Reproduced by
+ * prim15505 on 2026-04-19 with the fps_shooter → offline conversion:
+ * 04_systems.json got rewritten to point at a new offline_deathmatch.ts
+ * that the agent never actually wrote, the DB committed, the build failed,
+ * the user deleted the project and started over.
+ *
+ * Now we build against the candidate files BEFORE writing. On success,
+ * commit + push `project_reload` as before. On failure, skip the DB
+ * write entirely, send `fix_rolled_back` so the editor can surface it
+ * in-chat, and defensively re-push the current DB state as `project_reload`
+ * so any drifted in-memory state snaps back to server truth.
+ */
+function commitProjectFilesWithValidation(
+    client: EditorClient,
+    pd: ProjectData,
+    opts: { sceneKey: string },
+): BuildResult {
+    const built = buildProject(client.projectId, pd.files, { activeSceneKey: opts.sceneKey });
+    if (!built.success) {
+        send(client, 'fix_rolled_back', { error: built.error });
+        // Re-push whatever the DB currently holds — should still be the
+        // pre-fix state since we bailed before stmtUpdateData. Snaps the
+        // editor back to server truth belt-and-suspenders.
+        const current = readProjectData(client.projectId);
+        if (current) {
+            const recovery = buildProject(client.projectId, current.files, { activeSceneKey: opts.sceneKey });
+            if (recovery.success) {
+                const sceneData = recovery.scenes[opts.sceneKey] || recovery.scenes[recovery.activeSceneKey];
+                send(client, 'project_reload', {
+                    sceneKey: recovery.activeSceneKey,
+                    sceneData,
+                    scripts: recovery.scripts,
+                    uiFiles: recovery.uiFiles,
+                    sourceMap: recovery.sourceMap,
+                });
+            }
+        }
+        return built;
+    }
+    stmtUpdateData.run(serializeProjectData(pd), client.projectId);
+    const sceneData = built.scenes[opts.sceneKey] || built.scenes[built.activeSceneKey];
+    send(client, 'project_reload', {
+        sceneKey: built.activeSceneKey,
+        sceneData,
+        scripts: built.scripts,
+        uiFiles: built.uiFiles,
+        sourceMap: built.sourceMap,
+    });
+    return built;
+}
+
 const MAX_RETRIES = 7;
 
 function handleChatMessage(client: EditorClient, data: any): void {
@@ -819,6 +878,8 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
         }
 
         const fileChanges: { path: string; type: string }[] = [];
+        let validationRolledBack = false;
+        let rollbackError = '';
         if (fixResult.success && fixResult.filesChanged.length > 0) {
             const updates: Record<string, string | null> = {};
             for (const [k, v] of Object.entries(fixResult.changedFiles)) updates[k] = v;
@@ -829,12 +890,17 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
                     if (cont === null) delete pd2.files[filePath];
                     else setFile(pd2, filePath, cont);
                 }
-                stmtUpdateData.run(serializeProjectData(pd2), client.projectId);
-                rebuildAndPush(client, pd2, { sceneKey: client.activeSceneKey });
+                const built = commitProjectFilesWithValidation(client, pd2, { sceneKey: client.activeSceneKey });
+                if (!built.success) {
+                    validationRolledBack = true;
+                    rollbackError = built.error || 'unknown build error';
+                }
             }
-            for (const f of fixResult.filesChanged) {
-                const isDeleted = fixResult.deletedFiles.includes(f);
-                fileChanges.push({ path: f, type: isDeleted ? 'deleted' : 'modified' });
+            if (!validationRolledBack) {
+                for (const f of fixResult.filesChanged) {
+                    const isDeleted = fixResult.deletedFiles.includes(f);
+                    fileChanges.push({ path: f, type: isDeleted ? 'deleted' : 'modified' });
+                }
             }
         }
 
@@ -842,11 +908,16 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
             : cliOverride === 'opencode' ? 'OpenCode'
             : cliOverride === 'copilot' ? 'GitHub Copilot'
             : 'Claude Code';
-        const summary = fixResult.success
-            ? (fixResult.summary || `${agentLabel} applied the fix.`)
-            : `*${agentLabel} failed: ${fixResult.summary}*`;
+        let summary: string;
+        if (validationRolledBack) {
+            summary = `*${agentLabel} tried to apply a fix, but the resulting project didn't build: ${rollbackError}. No changes were applied — your project is back to how it was before this turn.*`;
+        } else if (fixResult.success) {
+            summary = fixResult.summary || `${agentLabel} applied the fix.`;
+        } else {
+            summary = `*${agentLabel} failed: ${fixResult.summary}*`;
+        }
         appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: summary });
-        finishChat(client, summary, fileChanges);
+        finishChat(client, summary, validationRolledBack ? [] : fileChanges);
     } catch (e: any) {
         client.abortController = null;
         if (abortController.signal.aborted) {
@@ -908,8 +979,12 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
                 if (content === null) delete pd.files[filePath];
                 else setFile(pd, filePath, content);
             }
-            stmtUpdateData.run(serializeProjectData(pd), client.projectId);
-            return rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
+            // Validate against the candidate file tree BEFORE writing to
+            // DB. If assembleGame rejects it, the helper emits
+            // fix_rolled_back, re-pushes server truth, and returns
+            // { success: false }. The executor's FIX_GAME path sees that
+            // and surfaces the rollback to the LLM's follow-up turn.
+            return commitProjectFilesWithValidation(client, pd, { sceneKey: client.activeSceneKey });
         },
         replaceFiles: (newFiles: ProjectFiles, opts?: { name?: string }) => {
             const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled' }, files: {} };

@@ -250,7 +250,11 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     for (const k of fixResult.deletedFiles) updates[k] = null;
                     const built = ctx.commitFiles(updates);
                     if (!built || !built.success) {
-                        result.toolResults = `[FIX_GAME] Fix produced files but the build failed: ${built?.error}`;
+                        // The commit helper already rolled the change back
+                        // (no DB write happened) and re-pushed server
+                        // truth. Tell the LLM in no uncertain terms so its
+                        // follow-up turn doesn't claim success.
+                        result.toolResults = `[FIX_GAME] ROLLED BACK — the agent's files didn't pass assembleGame validation: ${built?.error}. NO changes were applied to the project. In your next response, tell the user the fix attempt did not land, describe what you tried, and ask whether they want you to try again with a different approach. Do NOT claim success.`;
                         break;
                     }
                     result.madeChanges = true;
