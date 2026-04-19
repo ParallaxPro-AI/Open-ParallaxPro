@@ -625,3 +625,41 @@
     line-height: 1.4;
     text-align: center;
 }
+
+.project-list-notice.anon-notice {
+    background: rgba(255, 159, 64, 0.14);
+    color: #ffb366;
+    padding: 10px 24px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.anon-notice-btn {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 6px;
+    background: #ff9f40;
+    color: #1a1a1a;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 12px;
+    transition: background 0.15s;
+}
+
+.anon-notice-btn:hover {
+    background: #ffb366;
+}
+
+.anon-notice-btn.anon-notice-btn-secondary {
+    background: transparent;
+    color: #ffb366;
+    border: 1px solid #ffb366;
+}
+
+.anon-notice-btn.anon-notice-btn-secondary:hover {
+    background: rgba(255, 179, 102, 0.12);
+}

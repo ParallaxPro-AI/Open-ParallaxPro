@@ -100,6 +100,37 @@ export class ProjectListView {
 
         this.el.appendChild(header);
 
+        // Anon-session banner — visible only when the JWT in localStorage
+        // has isAnonymous=true. Urgent (amber) because losing localStorage
+        // means losing the account. Inline signup/login buttons keep the
+        // conversion path one click away.
+        const token = getStoredToken();
+        const decoded = token ? decodeToken(token) : null;
+        if (decoded && (decoded as any).isAnonymous) {
+            const anonBanner = document.createElement('div');
+            anonBanner.className = 'project-list-notice anon-notice';
+            const msg = document.createElement('span');
+            msg.textContent =
+                "You're browsing anonymously — your projects live only in this browser. " +
+                "Sign up (free) to save them across devices and unlock the coding agent. ";
+            anonBanner.appendChild(msg);
+            const signupBtn = document.createElement('a');
+            signupBtn.href = window.location.hostname === 'localhost'
+                ? 'http://localhost:5173/signup'
+                : 'https://parallaxpro.ai/signup';
+            signupBtn.textContent = 'Sign up';
+            signupBtn.className = 'anon-notice-btn';
+            anonBanner.appendChild(signupBtn);
+            const loginBtn = document.createElement('a');
+            loginBtn.href = window.location.hostname === 'localhost'
+                ? 'http://localhost:5173/login'
+                : 'https://parallaxpro.ai/login';
+            loginBtn.textContent = 'Log in';
+            loginBtn.className = 'anon-notice-btn anon-notice-btn-secondary';
+            anonBanner.appendChild(loginBtn);
+            this.el.appendChild(anonBanner);
+        }
+
         // Heads-up banner — we restart the backend often while ironing
         // out issues, and we want users to know up-front that their
         // projects are safe but an in-flight AI build may be killed.

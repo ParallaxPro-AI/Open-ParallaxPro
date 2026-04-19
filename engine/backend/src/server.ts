@@ -173,6 +173,38 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         res.json(getActiveWorkSummary());
     });
 
+    // Move every project owned by `fromUserId` onto `toUserId`. Called
+    // by the landing backend on signup/login when the caller had an
+    // anon JWT, so their in-progress work follows them onto the real
+    // account. Same INTERNAL_API_TOKEN gate as /active-jobs.
+    app.post('/api/engine/internal/transfer-projects', async (req, res) => {
+        const expected = process.env.INTERNAL_API_TOKEN;
+        if (expected) {
+            const provided = req.headers['x-internal-token'];
+            if (provided !== expected) {
+                res.status(401).json({ error: 'Unauthorized' });
+                return;
+            }
+        }
+        const fromUserId = req.body?.fromUserId;
+        const toUserId = req.body?.toUserId;
+        if (typeof fromUserId !== 'number' || typeof toUserId !== 'number') {
+            res.status(400).json({ error: 'fromUserId and toUserId must be numbers' });
+            return;
+        }
+        if (fromUserId === toUserId) {
+            res.json({ ok: true, moved: 0 });
+            return;
+        }
+        try {
+            const info = db.prepare('UPDATE projects SET user_id = ? WHERE user_id = ?').run(toUserId, fromUserId);
+            res.json({ ok: true, moved: info.changes });
+        } catch (e: any) {
+            console.error('[Engine] transfer-projects failed:', e.message);
+            res.status(500).json({ error: e.message });
+        }
+    });
+
     app.post('/api/engine/internal/validate-sandbox/:token', async (req, res) => {
         const { lookupSandboxToken } = await import('./ws/services/pipeline/sandbox_validator.js');
         const { assembleGame } = await import('./ws/services/pipeline/level_assembler.js');

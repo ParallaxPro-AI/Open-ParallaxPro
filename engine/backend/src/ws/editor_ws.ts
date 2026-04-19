@@ -63,6 +63,10 @@ interface EditorClient {
      *  routing (chat LLM provider and fixer CLI). */
     chatAgent?: string;
     editingAgent?: string;
+    /** Mirrors the JWT's `isAnonymous` claim — set at connect time. Anon
+     *  sessions are allowed in the editor but blocked from CLI-spawning
+     *  paths (CREATE_GAME, FIX_GAME) and publishing. */
+    isAnonymous: boolean;
 }
 
 const clients = new Map<string, EditorClient>();
@@ -198,6 +202,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             activeSceneKey: firstSceneKey,
             abortController: null,
             jobUnsubscribe: null,
+            isAnonymous: !!user.isAnonymous,
         };
 
         clients.set(clientId, client);
@@ -250,6 +255,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             chatSessionId,
             isOwner: true,
             permission: 'owner',
+            isAnonymous: client.isAnonymous,
             availableAgents: getAvailableAgents().map(a => ({
                 id: a.id,
                 label: a.label,
@@ -604,6 +610,17 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
         return;
     }
 
+    // Anonymous users can't trigger CREATE_GAME — it spawns a CLI for
+    // tens of minutes and costs real money. Editor catches this event
+    // and surfaces a sign-up modal.
+    if (client.isAnonymous) {
+        send(client, 'signup_required', {
+            feature: 'CREATE_GAME',
+            message: 'Sign up free to build a game from scratch — your prompt and any work-in-progress will follow you to your new account.',
+        });
+        return;
+    }
+
     // Budget gate — button-click path bypasses the chat LLM which
     // normally gates usage, so enforce here too. Refuses before we
     // insert synthetic history entries (don't want a fake "yes" sitting
@@ -806,6 +823,16 @@ function handleChatMessage(client: EditorClient, data: any): void {
     // fixer. This is the "direct" path — best for concrete fix/feature asks.
     const agent = typeof data?.agent === 'string' ? data.agent : '';
     if (agent === 'claude' || agent === 'codex' || agent === 'opencode' || agent === 'copilot') {
+        // Anon sessions can't invoke a CLI directly — same rule as
+        // CREATE_GAME and the LLM's FIX_GAME tool. Nudge to sign up.
+        if (client.isAnonymous) {
+            send(client, 'signup_required', {
+                feature: 'FIX_GAME',
+                message: 'Sign up free to run the coding agent. Your project will follow you over.',
+            });
+            finishChat(client, '*Sign up to use the coding agent — your project will follow you over.*');
+            return;
+        }
         if (!isAgentAvailable(agent)) {
             finishChat(client, `*Agent "${agent}" is not installed on this server.*`);
             return;
@@ -1009,6 +1036,7 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
         authToken: client.authToken,
         activeSceneKey: client.activeSceneKey,
         editingAgent: client.editingAgent,
+        isAnonymous: client.isAnonymous,
     };
 }
 

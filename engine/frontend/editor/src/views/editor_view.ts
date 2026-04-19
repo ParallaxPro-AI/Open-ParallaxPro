@@ -154,6 +154,40 @@ export class EditorView {
             }, 6000);
         });
 
+        this.ctx.backend.onWsMessage('signup_required', (data: any) => {
+            // Backend refused a CLI-spawning action (CREATE_GAME,
+            // FIX_GAME) for an anon session. Show a persistent amber
+            // banner with a direct signup link so the user sees the
+            // conversion path instead of a silent failure.
+            const msg = (data && typeof data.message === 'string') ? data.message : 'Sign up free to unlock this feature.';
+            const feature = (data && typeof data.feature === 'string') ? data.feature : '';
+            const signupHref = window.location.hostname === 'localhost'
+                ? 'http://localhost:5173/signup'
+                : 'https://parallaxpro.ai/signup';
+            this.connectionBanner.innerHTML = '';
+            const label = document.createElement('span');
+            label.textContent = feature ? `[${feature}] ${msg} ` : `${msg} `;
+            this.connectionBanner.appendChild(label);
+            const a = document.createElement('a');
+            a.href = signupHref;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = 'Sign up →';
+            a.style.cssText = 'color: inherit; text-decoration: underline; font-weight: 600; margin-left: 8px;';
+            this.connectionBanner.appendChild(a);
+            this.connectionBanner.className = 'connection-banner warning';
+            this.connectionBanner.style.display = '';
+            // Keep it up longer than a fix-rollback — this one has a
+            // required user action (signup) attached, so give them time
+            // to click through.
+            window.setTimeout(() => {
+                const el = this.connectionBanner;
+                if (el && el.querySelector('a') && el.querySelector('a')!.textContent === 'Sign up →') {
+                    el.style.display = 'none';
+                }
+            }, 15000);
+        });
+
         this.ctx.backend.onWsMessage('project_renamed', (data: any) => {
             if (!data?.name || !this.ctx.state.projectData) return;
             if (data.projectId && data.projectId !== this.ctx.state.projectId) return;

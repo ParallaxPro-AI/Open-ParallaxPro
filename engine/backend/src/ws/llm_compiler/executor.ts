@@ -49,6 +49,12 @@ export interface ExecutionContext {
      * wins per call. Missing = "use the first installed CLI".
      */
     editingAgent?: string;
+    /**
+     * Anon sessions can't trigger FIX_GAME / CREATE_GAME. Set from the
+     * EditorClient's isAnonymous field so the executor can refuse with
+     * a signup-required signal instead of kicking off a CLI job.
+     */
+    isAnonymous?: boolean;
 }
 
 export interface ExecutionResult {
@@ -218,6 +224,19 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 break;
             }
 
+            // Anon sessions can't spawn a CLI. Emit signup_required to
+            // the editor and feed the LLM a blunt toolResults so its
+            // follow-up turn tells the user to sign up instead of
+            // pretending the fix ran.
+            if (ctx.isAnonymous) {
+                ctx.sendToFrontend('signup_required', {
+                    feature: 'FIX_GAME',
+                    message: 'Sign up free to run the coding agent on your game. Your project will follow you over.',
+                });
+                result.toolResults = `[FIX_GAME] BLOCKED — anonymous sessions cannot run the coding agent. In your next response, tell the user to sign up to unlock FIX_GAME (their work will follow them onto their new account). Do NOT attempt the fix.`;
+                break;
+            }
+
             const sendStatus = (msg: string) => ctx.sendToFrontend('fix_progress', { text: msg });
             sendStatus('Dispatching Editing Agent...');
 
@@ -292,6 +311,16 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             const description = node.args.description;
             if (!description) {
                 result.toolResults = '[CREATE_GAME] Missing description — include the user\'s full game idea.';
+                break;
+            }
+
+            // Anon sessions can't start a 20-minute background CLI job.
+            if (ctx.isAnonymous) {
+                ctx.sendToFrontend('signup_required', {
+                    feature: 'CREATE_GAME',
+                    message: 'Sign up free to build a game from scratch — it takes 20–30 minutes and spawns a real coding agent on our side. Your project will follow you over.',
+                });
+                result.toolResults = `[CREATE_GAME] BLOCKED — anonymous sessions cannot run the build agent. In your next response, tell the user to sign up to unlock CREATE_GAME (their prompt + any in-progress work will follow them onto their new account). Do NOT attempt the build.`;
                 break;
             }
 
