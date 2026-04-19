@@ -146,16 +146,16 @@ export class EditorView {
 
         this.ctx.backend.onWsMessage('system_updated', () => {
             // Fired once by the backend on reconnect within 60s of boot —
-            // a hotfix-deploy signal. Brief, auto-dismissing banner so the
-            // user understands the disconnect was intentional.
-            this.connectionBanner.textContent = 'System updated';
+            // a deploy just landed. Reload the page so the browser fetches
+            // the new Vite bundle (frontend fixes like spawnEntity mesh
+            // loading only take effect in new JS). Brief banner so the
+            // user understands why the page is refreshing.
+            this.connectionBanner.textContent = 'System updated — reloading...';
             this.connectionBanner.className = 'connection-banner success';
             this.connectionBanner.style.display = '';
             window.setTimeout(() => {
-                if (this.connectionBanner.textContent === 'System updated') {
-                    this.connectionBanner.style.display = 'none';
-                }
-            }, 3000);
+                window.location.reload();
+            }, 1500);
         });
 
         this.ctx.backend.onWsMessage('fix_rolled_back', (data: any) => {
