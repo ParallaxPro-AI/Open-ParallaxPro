@@ -1048,6 +1048,152 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // hud_update key collision validation
+  // ══════════════════════════════════════════════════════════════════════
+  // The FSM driver merges `phase` (current FSM state name) and every
+  // `set:<var>=` variable declared in 01_flow.json into HUD state every
+  // frame via state_changed. If a system also emits those keys in
+  // hud_update, the FSM overwrites them on the very next tick and the HUD
+  // appears frozen or wrong. Discovered via a card-game post-mortem where
+  // `phase` was used for both FSM state and battle phase (main/battle/ai).
+  // See CREATOR_CONTEXT.md § "Reserved state keys — DO NOT reuse".
+  {
+    const reservedKeys = new Set<string>(['phase']);
+    const collectSetVars = (states: Record<string, any>): void => {
+      for (const state of Object.values(states) as any[]) {
+        const actions: string[] = [
+          ...(state?.on_enter || []),
+          ...(state?.on_exit || []),
+          ...(state?.on_update || []),
+          ...((state?.transitions || []).flatMap((t: any) => t?.actions || [])),
+        ];
+        for (const a of actions) {
+          const m = String(a).match(/^set:([A-Za-z_]\w*)\s*=/);
+          if (m) reservedKeys.add(m[1]);
+        }
+        if (state?.substates) collectSetVars(state.substates);
+      }
+    };
+    if (flow?.states) collectSetVars(flow.states);
+
+    // Walk the top level of a JS object literal `{ ... }` and return the
+    // key identifiers. Handles nested objects/arrays/parens, strings,
+    // and comments, but not computed keys (`[expr]: v`) — those are rare
+    // in hud_update payloads.
+    const topLevelKeys = (literal: string): string[] => {
+      const body = literal.slice(1, -1);
+      const out: string[] = [];
+      let depth = 0, i = 0;
+      let inStr = false, strCh = '';
+      let inLine = false, inBlock = false;
+      while (i < body.length) {
+        const c = body[i], n = body[i + 1];
+        if (inLine) { if (c === '\n') inLine = false; i++; continue; }
+        if (inBlock) { if (c === '*' && n === '/') { inBlock = false; i += 2; continue; } i++; continue; }
+        if (inStr) {
+          if (c === '\\') { i += 2; continue; }
+          if (c === strCh) inStr = false;
+          i++; continue;
+        }
+        if (c === '/' && n === '/') { inLine = true; i += 2; continue; }
+        if (c === '/' && n === '*') { inBlock = true; i += 2; continue; }
+        if (c === '"' || c === "'" || c === '`') { inStr = true; strCh = c; i++; continue; }
+        if (c === '{' || c === '[' || c === '(') { depth++; i++; continue; }
+        if (c === '}' || c === ']' || c === ')') { depth--; i++; continue; }
+        if (depth === 0) {
+          const m = body.slice(i).match(/^(?:['"]([A-Za-z_$][\w$]*)['"]|([A-Za-z_$][\w$]*))\s*:/);
+          if (m) { out.push(m[1] || m[2]); i += m[0].length; continue; }
+        }
+        i++;
+      }
+      return out;
+    };
+
+    const hudErrors: string[] = [];
+    for (const [scriptKey, source] of Object.entries(scripts)) {
+      const re = /events\.ui\.emit\s*\(\s*['"]hud_update['"]\s*,\s*\{/g;
+      let match: RegExpExecArray | null;
+      while ((match = re.exec(source)) !== null) {
+        const openIdx = match.index + match[0].length - 1;
+        let depth = 0, end = -1;
+        for (let i = openIdx; i < source.length; i++) {
+          if (source[i] === '{') depth++;
+          else if (source[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+        }
+        if (end < 0) continue;
+        const literal = source.slice(openIdx, end + 1);
+        for (const k of topLevelKeys(literal)) {
+          if (reservedKeys.has(k)) {
+            const suggest = 'battle' + k[0].toUpperCase() + k.slice(1);
+            hudErrors.push(
+              `${scriptKey}: hud_update key "${k}" collides with an FSM-reserved state key. ` +
+              `The FSM driver merges "${k}" into HUD state every frame from state_changed — your value will be overwritten on the next tick. ` +
+              `Rename to a scoped key (e.g. "${suggest}", "match${k[0].toUpperCase() + k.slice(1)}"). ` +
+              `Reserved names in this flow: ${[...reservedKeys].sort().join(', ')}. ` +
+              `See CREATOR_CONTEXT.md § "Reserved state keys — DO NOT reuse".`,
+            );
+          }
+        }
+      }
+    }
+    if (hudErrors.length > 0) {
+      console.error(`[Assembler] hud_update key validation errors:\n  ${hudErrors.join('\n  ')}`);
+      throw new Error(`hud_update key validation failed: ${hudErrors.length} error(s). ${hudErrors[0]}`);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Inline onclick → IIFE-scope validation
+  // ══════════════════════════════════════════════════════════════════════
+  // Inline onclick="fn(...)" attrs look up `fn` on the global/window
+  // scope. If the panel's <script> is wrapped in an IIFE, every function
+  // defined inside (including `send`, `emit`, custom handlers) is trapped
+  // in that closure and unreachable from inline onclicks — clicks fire
+  // ReferenceError with no visible UI feedback. Seen in card-game
+  // post-mortem: creator correctly did `window.onPlayerZone = ...` but
+  // left `send` inside the IIFE while 3 buttons called `onclick="send(...)"`.
+  // See CREATOR_CONTEXT.md § "Inline onclick and IIFE scoping".
+  {
+    const onclickErrors: string[] = [];
+    for (const [uiPath, html] of Object.entries(uiFiles)) {
+      const scriptBlocks: string[] = [];
+      for (const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) scriptBlocks.push(m[1]);
+      // IIFE heuristic: first non-whitespace/comment token opens with
+      // `(function`, `(() =>`, or `!function`. Covers the common patterns
+      // creators produce.
+      const isIIFE = (s: string) => /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/|\s)*(?:\(\s*(?:function\b|\(\s*\)\s*=>)|!function\b)/.test(s);
+      if (!scriptBlocks.some(isIIFE)) continue;
+      // Names exposed to window across any script block in this panel.
+      const exposed = new Set<string>();
+      for (const s of scriptBlocks) {
+        for (const m of s.matchAll(/\bwindow\.([A-Za-z_$][\w$]*)\s*=/g)) exposed.add(m[1]);
+      }
+      // Names defined at top level in a NON-IIFE sibling script — those
+      // are implicitly global in an HTML <script> and are fine.
+      for (const s of scriptBlocks) {
+        if (isIIFE(s)) continue;
+        for (const m of s.matchAll(/(?:^|\n)\s*(?:function\s+|var\s+|let\s+|const\s+)([A-Za-z_$][\w$]*)\b/g)) exposed.add(m[1]);
+      }
+      // onclick handler names, ignoring method-call forms like obj.fn()
+      const onclickNames = new Set<string>();
+      for (const m of html.matchAll(/onclick\s*=\s*["']\s*([A-Za-z_$][\w$]*)\s*\(/gi)) onclickNames.add(m[1]);
+      for (const name of onclickNames) {
+        if (exposed.has(name)) continue;
+        onclickErrors.push(
+          `${uiPath}: onclick="${name}(...)" references a function that isn't exposed on window. ` +
+          `The panel's <script> is wrapped in an IIFE, so "${name}" is captured in that closure and unreachable from inline onclick attrs. ` +
+          `Fix: either add "window.${name} = ${name};" inside the IIFE, or replace the onclick with addEventListener('click', ...). ` +
+          `See CREATOR_CONTEXT.md § "Inline onclick and IIFE scoping".`,
+        );
+      }
+    }
+    if (onclickErrors.length > 0) {
+      console.error(`[Assembler] Inline-onclick IIFE validation errors:\n  ${onclickErrors.join('\n  ')}`);
+      throw new Error(`Inline-onclick IIFE validation failed: ${onclickErrors.length} error(s). ${onclickErrors[0]}`);
+    }
+  }
+
   const heightmapTerrain = worlds?.worlds?.[0]?.heightmapTerrain;
   const streamedBuildings = worlds?.worlds?.[0]?.streamedBuildings;
   const environment = worlds?.worlds?.[0]?.environment;
