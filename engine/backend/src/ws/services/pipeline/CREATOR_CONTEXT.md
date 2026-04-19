@@ -478,6 +478,14 @@ UI:
 - `show_ui:<panel>` / `hide_ui:<panel>` — show/hide a panel from `project/ui/`.
   Use the path without `.html` (e.g. `show_ui:hud/health`).
 - `show_cursor` / `hide_cursor` — toggle the virtual cursor + pointer lock.
+  **If gameplay is mouse/click-driven** (board games, card games, RTS,
+  point-and-click, inventory/grid UIs, anything where the player clicks
+  entities or HUD zones to play), the gameplay state's `on_enter` MUST
+  include `show_cursor`. Menus commonly `hide_cursor` on exit; forgetting
+  to re-show it in gameplay leaves the player with no way to click
+  anything. The canonical pattern: `show_cursor` in the gameplay (or
+  `playing` substate) `on_enter`, and let the menu states manage their
+  own show/hide independently.
 - `notify:<text>` — fire a `show_notification` event carrying `{text}`.
 
 Audio:
@@ -535,6 +543,13 @@ and the game appears to run, but the broken piece never activates:
   The static validator only sees `spawnEntity('literal')` calls. Dynamic
   pools must declare every possible name in a `__validatorManifest()` stub
   (parallel to the button-action rule). See "Spawn entity — validator rule".
+- **Click-based gameplay without `show_cursor` in the gameplay state.**
+  Menus typically `hide_cursor` on exit, and `show_cursor` does NOT
+  re-fire automatically when the FSM enters a new state. If the gameplay
+  loop is mouse/click-driven (card game, board game, point-and-click,
+  clickable HUD zones) and its `on_enter` doesn't include `show_cursor`,
+  the player sees UI but can't click anything. The game *appears* to
+  run — validator won't catch this.
 
 ## Multiplayer (peer-to-peer, opt-in)
 
