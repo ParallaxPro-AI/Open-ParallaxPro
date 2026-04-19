@@ -81,7 +81,7 @@ export interface CaptureHandle {
      */
     noteOpencodeSessionID(id: string): void;
     /** Close streams + copy native session files + write result.json. */
-    finalize(result: { exitCode: number | null; costUsd?: number; text?: string; aborted?: boolean }): void;
+    finalize(result: { exitCode: number | null; costUsd?: number; text?: string; aborted?: boolean; sessionType?: string }): void;
 }
 
 /**
@@ -176,7 +176,7 @@ export function beginCapture(ctx: CaptureContext): CaptureHandle {
             }
         },
 
-        finalize({ exitCode, costUsd, text, aborted }) {
+        finalize({ exitCode, costUsd, text, aborted, sessionType }) {
             if (finalized) return;
             finalized = true;
             try { stdoutStream?.end(); } catch {}
@@ -192,6 +192,7 @@ export function beginCapture(ctx: CaptureContext): CaptureHandle {
                         costUsd: costUsd ?? null,
                         aborted: !!aborted,
                         summaryText: text || null,
+                        sessionType: sessionType || null,
                         endedAt: new Date(endedAt).toISOString(),
                         endedAtEpochMs: endedAt,
                         durationMs: endedAt - startedAt,

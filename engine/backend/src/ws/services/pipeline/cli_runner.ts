@@ -160,6 +160,8 @@ export interface SpawnOptions {
      * copied into the sandbox's Claude project dir before spawning.
      */
     continueForked?: boolean;
+    /** How the session was started — logged in session capture's result.json. */
+    sessionType?: 'resume' | 'warm_fork' | 'cold';
     /**
      * Optional admin-side session capture. When provided, stdout/stderr and
      * native session files are archived under engine/backend/cli_session_logs
@@ -274,6 +276,7 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
                 costUsd: result.costUsd,
                 text: result.text,
                 aborted: !!opts.abortSignal?.aborted,
+                sessionType: opts.continueForked ? (opts.sessionType || 'warm_fork') : 'cold',
             });
         } catch (e: any) {
             console.warn(`[CLIRunner] Session capture finalize threw (non-fatal): ${e?.message}`);
