@@ -168,10 +168,10 @@ To use your own local assets, set `ASSETS_DIR` in your `.env` to a directory con
 
 Apache License 2.0. See [LICENSE](LICENSE).
 
-<!-- <a href="https://www.star-history.com/?repos=ParallaxPro-AI%2FOpen-ParallaxPro&type=date&legend=bottom-right">
+<a href="https://www.star-history.com/?repos=ParallaxPro-AI%2FOpen-ParallaxPro&type=date&legend=bottom-right">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=ParallaxPro-AI/Open-ParallaxPro&type=date&theme=dark&legend=top-left" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=ParallaxPro-AI/Open-ParallaxPro&type=date&legend=top-left" />
    <img alt="Star History Chart" src="https://api.star-history.com/image?repos=ParallaxPro-AI/Open-ParallaxPro&type=date&legend=top-left" />
  </picture>
-</a> -->
+</a>
