@@ -56,6 +56,7 @@ export class AiChatPanel {
     private readonly messagesContainer: HTMLElement;
     private readonly textarea: HTMLTextAreaElement;
     private readonly sendBtn: HTMLButtonElement;
+    private readonly sessionBtn: HTMLButtonElement;
     private readonly sessionIdLabel: HTMLElement;
 
     private messages: ChatMessage[] = [];
@@ -127,12 +128,12 @@ export class AiChatPanel {
         title.textContent = 'AI Assistant';
         header.appendChild(title);
 
-        const sessionBtn = document.createElement('button');
-        sessionBtn.className = 'panel-header-btn';
-        sessionBtn.textContent = '+';
-        sessionBtn.title = 'Chat sessions';
-        sessionBtn.addEventListener('click', () => this.toggleSessionMenu());
-        header.appendChild(sessionBtn);
+        this.sessionBtn = document.createElement('button');
+        this.sessionBtn.className = 'panel-header-btn';
+        this.sessionBtn.textContent = '+';
+        this.sessionBtn.title = 'Chat sessions';
+        this.sessionBtn.addEventListener('click', () => this.toggleSessionMenu());
+        header.appendChild(this.sessionBtn);
 
         this.el.appendChild(header);
 
@@ -520,6 +521,13 @@ export class AiChatPanel {
             this.sendBtn.classList.remove('stop-mode');
         }
         this.sendBtn.disabled = false;
+        // Lock session switching while a response is in flight — starting
+        // a new chat or swapping sessions mid-stream leaves the current
+        // run without a chat_session_id to attach its final message to.
+        this.sessionBtn.disabled = this.state === State.STREAMING;
+        this.sessionBtn.title = this.state === State.STREAMING
+            ? 'Chat sessions (locked while responding)'
+            : 'Chat sessions';
     }
 
     // ── Agent picker ────────────────────────────────────────────────
