@@ -155,6 +155,12 @@ export interface SpawnOptions {
      */
     claudeModel?: string;
     /**
+     * Claude only — when true, adds `--continue --fork-session` to continue
+     * from a pre-warmed session. The warm session JSONL must already be
+     * copied into the sandbox's Claude project dir before spawning.
+     */
+    continueForked?: boolean;
+    /**
      * Optional admin-side session capture. When provided, stdout/stderr and
      * native session files are archived under engine/backend/cli_session_logs
      * for later analysis. All failures are swallowed — capture never breaks
@@ -291,6 +297,9 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
             '--dangerously-skip-permissions',
             '--max-turns', String(opts.maxTurns),
         ];
+        if (opts.continueForked) {
+            args.push('--continue', '--fork-session');
+        }
 
         const { command, args: spawnArgs } = wrapSpawn('claude', 'claude', args, opts.sandboxDir);
         const proc = spawn(command, spawnArgs, {

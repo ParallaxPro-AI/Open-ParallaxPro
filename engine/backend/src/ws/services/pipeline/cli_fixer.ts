@@ -22,7 +22,8 @@ import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { assembleGame } from './level_assembler.js';
-import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult } from './cli_runner.js';
+import { forkSession, warmIfNeeded } from './session_warmer.js';
 import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
 import { preemptGenerationJob } from './generation_jobs.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
@@ -45,6 +46,7 @@ export interface FixerResult {
     /** Files removed from the project tree. */
     deletedFiles: string[];
     costUsd?: number;
+    usedWarmSession?: boolean;
 }
 
 export async function runFixer(
@@ -152,6 +154,7 @@ export async function runFixer(
                 changedFiles: {},
                 deletedFiles: [],
                 costUsd: cliResult.costUsd,
+                usedWarmSession: cliResult.usedWarmSession,
             };
         }
 
@@ -164,6 +167,7 @@ export async function runFixer(
                 changedFiles: {},
                 deletedFiles: [],
                 costUsd: cliResult.costUsd,
+                usedWarmSession: cliResult.usedWarmSession,
             };
         }
 
@@ -174,6 +178,7 @@ export async function runFixer(
             changedFiles: changes.changedFiles,
             deletedFiles: changes.deletedFiles,
             costUsd: cliResult.costUsd,
+            usedWarmSession: cliResult.usedWarmSession,
         };
     } finally {
         try { unregisterSandboxToken(validateToken); } catch {}
@@ -233,6 +238,8 @@ async function createSandbox(
 // per-run instructions only.
 const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Edit template files in project/ to fix the bug (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/ — never assembled output). To use a behavior/system not yet in project/, copy it from reference/ into project/ and reference its path from the template JSON. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor.`;
 
+const FIXER_PROMPT_WARM = `You have already read the library reference materials. Now read TASK.md for the bug report and project state. Read the project files in project/. Fix the bug — edit template files only (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/). Copy library files from reference/ if needed. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor.`;
+
 function fixerStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {
         case 'read': return 'Reading project files...';
@@ -244,8 +251,37 @@ function fixerStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number }> {
-    return spawnCLIAgent({
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; usedWarmSession?: boolean }> {
+    const cli = resolveCLI(cliOverride);
+    let usedWarmSession = false;
+
+    if (cli === 'claude') {
+        sendStatus?.('Waiting for warm session...');
+        await Promise.race([warmIfNeeded('fixer'), new Promise(r => setTimeout(r, 60_000))]);
+        const forked = forkSession('fixer', sandboxDir);
+        if (forked) {
+            try {
+                sendStatus?.('Using pre-warmed session...');
+                const result = await spawnCLIAgent({
+                    sandboxDir,
+                    prompt: FIXER_PROMPT_WARM,
+                    maxTurns: 30,
+                    continueForked: true,
+                    statusMapper: fixerStatus,
+                    sendStatus,
+                    abortSignal,
+                    cliOverride,
+                    capture: capture ? { ...capture, kind: 'fix' } : undefined,
+                });
+                return { text: result.text, costUsd: result.costUsd, usedWarmSession: true };
+            } catch (e: any) {
+                console.warn(`[CLIFixer] Warm fork failed, falling back to cold start:`, e?.message);
+                sendStatus?.('Warm session failed — starting fresh...');
+            }
+        }
+    }
+
+    const result = await spawnCLIAgent({
         sandboxDir,
         prompt: FIXER_PROMPT,
         maxTurns: 30,
@@ -255,6 +291,7 @@ function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortS
         cliOverride,
         capture: capture ? { ...capture, kind: 'fix' } : undefined,
     });
+    return { text: result.text, costUsd: result.costUsd, usedWarmSession };
 }
 
 // ─── Read changes ──────────────────────────────────────────────────────────

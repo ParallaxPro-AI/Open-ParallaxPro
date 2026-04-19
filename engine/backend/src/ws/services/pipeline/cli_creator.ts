@@ -29,7 +29,8 @@ import {
     ENGINE_MACHINERY,
 } from './project_files.js';
 import db from '../../../db/connection.js';
-import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult } from './cli_runner.js';
+import { forkSession, warmIfNeeded } from './session_warmer.js';
 import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
@@ -55,6 +56,7 @@ export interface CreatorResult {
      * creator_snapshots). Never exposed to user-visible routes.
      */
     sessionCapturePath?: string | null;
+    usedWarmSession?: boolean;
 }
 
 export async function runCreator(
@@ -286,6 +288,7 @@ export async function runCreator(
             templateId,
             files,
             costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
+            usedWarmSession: cliResult.usedWarmSession,
         };
       })();
       return finalResult;
@@ -457,6 +460,8 @@ function generateAssetCatalog(assetsDir: string): void {
 // auto-loads into its system prompt — no Read call needed.
 const CREATOR_PROMPT = `Read TASK.md for the game description and baseline event list — use those events unless you add a new one to project/systems/event_definitions.ts. Browse assets/ for 3D models, audio, textures. reference/game_templates/ has working examples; reference/behaviors|systems|ui/ has library files to copy into project/. Fill in the 4 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ under project/. Run "bash validate.sh" when done and fix any errors.`;
 
+const CREATOR_PROMPT_WARM = `You have already read the game templates, asset catalogs, and engine machinery in your previous turns. Now read TASK.md for the game description and baseline event list. Create the game template in project/ following the patterns you've already seen. Copy any needed library files from reference/ into project/. Run "bash validate.sh" when done and fix any errors.`;
+
 function creatorStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {
         case 'read': return 'Reading reference files...';
@@ -468,19 +473,43 @@ function creatorStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }): Promise<{ text: string; costUsd: number; sessionCapturePath?: string | null }> {
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }): Promise<{ text: string; costUsd: number; sessionCapturePath?: string | null; usedWarmSession?: boolean }> {
+    const cli = resolveCLI(cliOverride);
+    let usedWarmSession = false;
+
+    if (cli === 'claude') {
+        sendStatus?.('Waiting for warm session...');
+        await Promise.race([warmIfNeeded('creator'), new Promise(r => setTimeout(r, 60_000))]);
+        const forked = forkSession('creator', sandboxDir);
+        if (forked) {
+            try {
+                sendStatus?.('Using pre-warmed session...');
+                const result = await spawnCLIAgent({
+                    sandboxDir,
+                    prompt: CREATOR_PROMPT_WARM,
+                    maxTurns: 120,
+                    timeout: 45 * 60 * 1000,
+                    claudeModel: 'opus',
+                    continueForked: true,
+                    statusMapper: creatorStatus,
+                    sendStatus,
+                    cliOverride,
+                    abortSignal,
+                    capture: capture ? { ...capture, kind: 'create' } : undefined,
+                });
+                usedWarmSession = true;
+                return { text: result.text || 'Template created.', costUsd: result.costUsd, sessionCapturePath: result.sessionCapturePath, usedWarmSession };
+            } catch (e: any) {
+                console.warn(`[CLICreator] Warm fork failed, falling back to cold start:`, e?.message);
+                sendStatus?.('Warm session failed — starting fresh...');
+            }
+        }
+    }
+
     const { text, costUsd, sessionCapturePath } = await spawnCLIAgent({
         sandboxDir,
         prompt: CREATOR_PROMPT,
-        // 120 because CREATE_GAME writes 4 JSONs + N behaviors + M systems
-        // + K UI panels + validates + fixes. 50 turns (the fixer default)
-        // was starving ambitious games — agents ran out mid-build with
-        // scripts still unwritten. 120 gives the creator room to
-        // breathe without being infinite.
         maxTurns: 120,
-        // 45 min — comfortably above the "20–30 min" we promise in chat,
-        // so ambitious builds that take longer than expected still get
-        // to finish instead of being SIGKILL'd with partial files.
         timeout: 45 * 60 * 1000,
         claudeModel: 'opus',
         statusMapper: creatorStatus,
@@ -489,5 +518,5 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         abortSignal,
         capture: capture ? { ...capture, kind: 'create' } : undefined,
     });
-    return { text: text || 'Template created.', costUsd, sessionCapturePath };
+    return { text: text || 'Template created.', costUsd, sessionCapturePath, usedWarmSession };
 }

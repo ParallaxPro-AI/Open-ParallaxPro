@@ -160,6 +160,31 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // from probing job state; deploy.sh on the same box knows the token.
     // In dev mode (no token set) we allow unauthenticated calls so running
     // the backend locally doesn't require env setup.
+    // Session warmer status — used by admin dashboard to show warm/warming/not-warm.
+    app.get('/api/engine/internal/warm-status', async (req, res) => {
+        const expected = process.env.INTERNAL_API_TOKEN;
+        if (expected) {
+            const provided = req.headers['x-internal-token'];
+            if (provided !== expected) { res.status(401).json({ error: 'Unauthorized' }); return; }
+        }
+        const { getWarmStatus } = await import('./ws/services/pipeline/session_warmer.js');
+        res.json(getWarmStatus());
+    });
+
+    // Trigger warming manually from admin dashboard.
+    app.post('/api/engine/internal/warm-sessions/:kind', async (req, res) => {
+        const expected = process.env.INTERNAL_API_TOKEN;
+        if (expected) {
+            const provided = req.headers['x-internal-token'];
+            if (provided !== expected) { res.status(401).json({ error: 'Unauthorized' }); return; }
+        }
+        const kind = req.params.kind;
+        if (kind !== 'creator' && kind !== 'fixer') { res.status(400).json({ error: 'kind must be creator or fixer' }); return; }
+        const { warmIfNeeded } = await import('./ws/services/pipeline/session_warmer.js');
+        warmIfNeeded(kind).catch(() => {});
+        res.json({ ok: true, message: `Warming ${kind} session...` });
+    });
+
     app.get('/api/engine/internal/active-jobs', async (req, res) => {
         const expected = process.env.INTERNAL_API_TOKEN;
         if (expected) {
@@ -327,6 +352,12 @@ export async function startEngine(server: http.Server, plugins: EnginePlugin[] =
                     process.exit(1);
                 }
             });
+
+            // Pre-warm Claude sessions in the background so the first
+            // CREATE_GAME / FIX_GAME run can fork from a warm context.
+            import('./ws/services/pipeline/session_warmer.js').then(({ initWarmer }) => {
+                initWarmer();
+            }).catch(e => console.warn('[SessionWarmer] Init failed (non-fatal):', e?.message));
 
             // If DOCKER_SANDBOX=1, confirm docker + the sandbox image are
             // available and log the outcome so misconfigurations don't go
