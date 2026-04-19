@@ -106,6 +106,27 @@ export class EditorView {
 
         await this.editor.initialize(this.viewport.getCanvas(), projectData);
 
+        // When a signup/login popup finishes auth it posts a handoff back
+        // to this window. Stash the new JWT + reload so the editor
+        // reconnects as the real user — otherwise the old anon session
+        // keeps running in memory (bug 2026-04-19: user logs in on the
+        // popup, popup stays open, editor still treats them as anon).
+        window.addEventListener('message', (e: MessageEvent) => {
+            if (e.origin !== window.location.origin) return;
+            const d = e.data as { type?: string; token?: string } | null;
+            if (!d || d.type !== 'parallaxpro-auth-complete' || typeof d.token !== 'string') return;
+            try {
+                // Match every key the auth layer reads from — main-site
+                // `token`, legacy `auth_token`, and the self-hosted CLI
+                // key so refreshing picks it up no matter where the editor
+                // looks. Harmless to overwrite.
+                localStorage.setItem('token', d.token);
+                localStorage.setItem('auth_token', d.token);
+                localStorage.setItem('pp_cli_token', d.token);
+            } catch {}
+            window.location.reload();
+        });
+
         this.ctx.backend.onWsMessage('connected', (data: any) => {
             this.ctx.collabClientId = data.clientId ?? '';
             this.ctx.collabDisplayName = data.displayName ?? '';

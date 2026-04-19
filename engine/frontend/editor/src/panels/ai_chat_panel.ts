@@ -757,7 +757,12 @@ export class AiChatPanel {
             const signupHref = window.location.hostname === 'localhost'
                 ? 'http://localhost:5173/signup'
                 : 'https://parallaxpro.ai/signup';
-            window.open(signupHref, 'parallaxpro-signup', 'width=520,height=680,noopener');
+            // NOTE: no `noopener` — the popup posts `parallaxpro-auth-complete`
+            // back to this window after successful signup/login so we can
+            // pick up the new JWT and reload the editor without a manual
+            // refresh. `noopener` would sever the opener link and break
+            // that handoff.
+            window.open(signupHref, 'parallaxpro-signup', 'width=520,height=680');
         });
         bubble.appendChild(btn);
 
