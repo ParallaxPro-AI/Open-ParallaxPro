@@ -747,6 +747,13 @@ function handleFeedbackSubmit(client: EditorClient, data: any): void {
     if (text) {
         lines.push('', `Notes: ${text}`);
     }
+    lines.push(
+        '',
+        '[SYSTEM] This is user feedback on a completed build/fix — NOT a new request. ' +
+        'Do NOT call LOAD_TEMPLATE, CREATE_GAME, FIX_GAME, or any other tool. ' +
+        'Just reply in a { } block: thank them, acknowledge their feedback, ' +
+        'and if the rating was negative offer to help fix specific issues.',
+    );
     const content = lines.join('\n');
     const snapshot = getProjectSnapshot(client.projectId);
     stmtInsertMessage.run(
