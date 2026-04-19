@@ -123,6 +123,20 @@ export class EditorView {
             }
         });
 
+        this.ctx.backend.onWsMessage('system_updated', () => {
+            // Fired once by the backend on reconnect within 60s of boot —
+            // a hotfix-deploy signal. Brief, auto-dismissing banner so the
+            // user understands the disconnect was intentional.
+            this.connectionBanner.textContent = 'Engine updated';
+            this.connectionBanner.className = 'connection-banner success';
+            this.connectionBanner.style.display = '';
+            window.setTimeout(() => {
+                if (this.connectionBanner.textContent === 'Engine updated') {
+                    this.connectionBanner.style.display = 'none';
+                }
+            }, 3000);
+        });
+
         this.ctx.backend.onWsMessage('project_renamed', (data: any) => {
             if (!data?.name || !this.ctx.state.projectData) return;
             if (data.projectId && data.projectId !== this.ctx.state.projectId) return;

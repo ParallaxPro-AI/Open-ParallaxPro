@@ -154,6 +154,25 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // gate — the endpoint never writes and never leaks file contents,
     // so unauthenticated exposure is low-risk, but the token ensures
     // only the current sandbox's validate.sh can target its own dir.
+    // Deploy-time poll target. Returns a unified count of in-flight work so
+    // `deploy.sh` can wait until the box is quiet before pm2-restarting.
+    // Gated by INTERNAL_API_TOKEN header — prevents random external callers
+    // from probing job state; deploy.sh on the same box knows the token.
+    // In dev mode (no token set) we allow unauthenticated calls so running
+    // the backend locally doesn't require env setup.
+    app.get('/api/engine/internal/active-jobs', async (req, res) => {
+        const expected = process.env.INTERNAL_API_TOKEN;
+        if (expected) {
+            const provided = req.headers['x-internal-token'];
+            if (provided !== expected) {
+                res.status(401).json({ error: 'Unauthorized' });
+                return;
+            }
+        }
+        const { getActiveWorkSummary } = await import('./ws/services/active_work.js');
+        res.json(getActiveWorkSummary());
+    });
+
     app.post('/api/engine/internal/validate-sandbox/:token', async (req, res) => {
         const { lookupSandboxToken } = await import('./ws/services/pipeline/sandbox_validator.js');
         const { assembleGame } = await import('./ws/services/pipeline/level_assembler.js');

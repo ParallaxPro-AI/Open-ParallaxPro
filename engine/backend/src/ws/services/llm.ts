@@ -5,6 +5,7 @@ import path from 'path';
 import { config } from '../../config.js';
 import { getAvailableAgents } from './pipeline/cli_availability.js';
 import { wrapSpawn } from './pipeline/docker_sandbox.js';
+import { beginLLMStream, endLLMStream } from './active_work.js';
 
 export interface LLMMessage {
     role: 'system' | 'user' | 'assistant';
@@ -122,6 +123,23 @@ function sanitizeProjectName(raw: string): string | null {
  *     installed CLI.
  */
 export async function callLLMStream(
+    messages: LLMMessage[],
+    callbacks: LLMStreamCallbacks,
+    abortSignal?: AbortSignal,
+    chatAgent?: string,
+): Promise<void> {
+    // Counted for the active-work view so a deploy won't pm2-restart
+    // mid-chat. try/finally guarantees decrement on every return path
+    // (early-return, thrown error, abort) — don't bypass.
+    beginLLMStream();
+    try {
+        await _callLLMStreamInner(messages, callbacks, abortSignal, chatAgent);
+    } finally {
+        endLLMStream();
+    }
+}
+
+async function _callLLMStreamInner(
     messages: LLMMessage[],
     callbacks: LLMStreamCallbacks,
     abortSignal?: AbortSignal,

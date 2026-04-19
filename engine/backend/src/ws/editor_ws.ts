@@ -117,6 +117,13 @@ export function broadcastProjectRenamed(projectId: string, name: string): void {
     }
 }
 
+// Recorded once at module load. Used to tag the first 60s of post-restart
+// connections with a system_updated message so the editor can show a quick
+// "engine updated" toast — the user's natural signal that their disconnect
+// was a hotfix, not a crash.
+const BACKEND_BOOTED_AT = Date.now();
+const POST_BOOT_BROADCAST_WINDOW_MS = 60_000;
+
 export function setupEditorWebSocket(wss: WebSocketServer): void {
     wss.on('connection', (ws, req) => {
         const url = new URL(req.url ?? '', 'http://localhost');
@@ -224,6 +231,14 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         // Plugin connection hooks
         for (const p of _plugins) {
             if (p.onWsConnection) p.onWsConnection(client);
+        }
+
+        // Post-restart signal: any client that reconnects within 60s of
+        // boot gets told the engine just updated. Editor shows a brief
+        // "engine updated" banner — enough user feedback that the blip
+        // was intentional, not a crash.
+        if (Date.now() - BACKEND_BOOTED_AT < POST_BOOT_BROADCAST_WINDOW_MS) {
+            send(client, 'system_updated', {});
         }
 
         // Send connected confirmation
