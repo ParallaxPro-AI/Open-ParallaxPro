@@ -462,7 +462,8 @@
     border-radius: var(--radius-md);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     z-index: 100;
-    min-width: 220px;
+    min-width: 260px;
+    max-width: 320px;
     max-height: 300px;
     overflow-y: auto;
 }
@@ -737,6 +738,175 @@
     background: #4a7fa1;
     border-color: #4a7fa1;
     color: #cfe4f5;
+}
+
+/* ── Agent feedback form ───────────────────────────────────────
+   Sits where the chat composer usually is (bottom of the panel) so
+   the messages scroll stays visible — the user often needs to read
+   the AI's instructions (keys to press, what to click) to actually
+   rate the change. Fixed-ish height with internal scroll for long
+   notes; input-area is hidden while this is up so the user can't
+   message the AI until they submit or dismiss. Thumbs-up/down
+   required. FIX_GAME has a Dismiss; CREATE_GAME doesn't.
+*/
+.chat-feedback-form {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    max-height: 50%;
+    overflow-y: auto;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color, #2a2f3a);
+}
+
+/* CREATE_GAME takes the full panel — the chat messages are hidden
+   (a fresh build has nothing to re-read), and the strict gate means
+   submit-or-nothing, so we give the form all the room it wants. */
+.chat-feedback-form[data-kind="create_game"] {
+    flex: 1 1 auto;
+    max-height: 100%;
+    border-top: none;
+}
+
+.chat-feedback-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.chat-feedback-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: -4px;
+}
+
+.chat-feedback-prompt {
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border-left: 3px solid var(--accent-blue, #69bbf3);
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.chat-feedback-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.chat-feedback-rate-row {
+    display: flex;
+    gap: 8px;
+}
+
+.chat-feedback-rate-btn {
+    flex: 1 1 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border: 1.5px solid var(--border-color, #2a2f3a);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.chat-feedback-rate-btn:hover {
+    background: var(--bg-hover, rgba(255,255,255,0.04));
+    border-color: var(--border-color-hover, #3a4050);
+}
+
+.chat-feedback-rate-btn.selected {
+    background: rgba(105, 187, 243, 0.14);
+    border-color: var(--accent-blue, #69bbf3);
+    color: var(--accent-blue, #69bbf3);
+}
+
+.chat-feedback-notes {
+    width: 100%;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color, #2a2f3a);
+    border-radius: 6px;
+    resize: none;
+    min-height: 60px;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.chat-feedback-notes:focus {
+    outline: none;
+    border-color: var(--accent-blue, #69bbf3);
+}
+
+.chat-feedback-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color, #2a2f3a);
+}
+
+.chat-feedback-dismiss-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.chat-feedback-dismiss-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--border-color, #2a2f3a);
+}
+
+.chat-feedback-submit-btn {
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0d2541;
+    background: #69bbf3;
+    border: 1px solid #69bbf3;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s, transform 0.05s;
+}
+
+.chat-feedback-submit-btn:hover:not(:disabled) {
+    background: #8fcdf8;
+    border-color: #8fcdf8;
+}
+
+.chat-feedback-submit-btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.chat-feedback-submit-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
 }
 
 /* In-chat signup prompt — rendered as an assistant message when the

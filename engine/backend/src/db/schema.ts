@@ -72,4 +72,50 @@ export function createSchema(db: Database.Database): void {
     // session_capture.ts. Updated on every new run (points to the latest
     // capture). Admin-only — never exposed to user-facing routes.
     addColumn('projects', 'session_capture_path', 'TEXT');
+
+    // Agent-feedback pipeline — every completed CREATE_GAME (strict,
+    // can't be dismissed) and every committed FIX_GAME (soft, dismissable)
+    // writes a pending row here. On next WS connect the editor renders
+    // a feedback form in the chat panel until the user rates it. Feeds
+    // the AI's follow-up turn ("thanks" / "sorry, want me to fix it?")
+    // and doubles as our training-data table.
+    //
+    // kind:         'create_game' | 'fix_game' — drives strict vs soft UX.
+    // job_id:       CREATE_GAME generation_job_id, else NULL.
+    // chat_message_id: for FIX_GAME, points at the assistant message that
+    //                applied the change — lets the export reuse the
+    //                snapshots already stored on chat_messages.
+    // cli_session_path: copy of projects.session_capture_path at commit
+    //                time, since that column is mutated on every new run.
+    // prompt:       what the user actually asked for (user-facing phrasing,
+    //                not the LLM-expanded brief).
+    // project_before / project_after: JSON snapshots. CREATE_GAME always
+    //                captures both inline (one-shot); FIX_GAME leaves them
+    //                NULL and references chat_message_id instead.
+    // rating:       'up' | 'down' | NULL (while pending).
+    // feedback_text: free-form user text.
+    // resolution:   'submitted' | 'dismissed' | NULL. Dismissal is soft —
+    //                the next WS connect re-fires feedback_required until
+    //                it's actually submitted. CREATE_GAME never dismisses.
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL,
+            job_id TEXT,
+            chat_message_id INTEGER,
+            cli_session_path TEXT,
+            prompt TEXT,
+            project_before TEXT,
+            project_after TEXT,
+            rating TEXT,
+            feedback_text TEXT,
+            resolution TEXT,
+            created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f','now')),
+            resolved_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_feedback_project ON agent_feedback(project_id, resolved_at);
+        CREATE INDEX IF NOT EXISTS idx_agent_feedback_pending ON agent_feedback(project_id) WHERE resolved_at IS NULL;
+    `);
 }

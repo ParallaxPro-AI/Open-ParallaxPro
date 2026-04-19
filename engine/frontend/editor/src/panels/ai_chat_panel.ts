@@ -1,5 +1,5 @@
 import { EditorContext } from '../editor_context.js';
-import { icon, ThumbsUp, ThumbsDown, RefreshCw } from '../widgets/icons.js';
+import { icon, ThumbsUp, ThumbsDown, RefreshCw, X } from '../widgets/icons.js';
 
 interface ChatMessage {
     id?: number;
@@ -56,6 +56,11 @@ export class AiChatPanel {
     private currentSessionId: string = '';
     private emptyState: HTMLElement | null = null;
     private typingIndicator: HTMLElement | null = null;
+    // Feedback form overlay — when the backend fires `feedback_required`
+    // after a completed CREATE_GAME / FIX_GAME, the chat UI is replaced
+    // with this form until the user rates the run. See showFeedbackForm().
+    private feedbackForm: HTMLElement | null = null;
+    private feedbackChatEls: HTMLElement[] = [];
     private sessionMenu: HTMLElement | null = null;
     private todoPanel: HTMLElement | null = null;
     private todoItems: HTMLElement[] = [];
@@ -366,6 +371,31 @@ export class AiChatPanel {
                 : 'Sign up free to unlock this — your project will follow you over.';
             this.appendSignupPrompt(feature, message);
         });
+
+        // Backend has a pending agent_feedback row for this project.
+        // Replace the chat UI with a quick-feedback form until the user
+        // submits (or dismisses, fix_game only). Fires on every connect
+        // so a refresh re-prompts until they actually submit.
+        ws.onWsMessage('feedback_required', (data: any) => {
+            const id = Number(data?.feedbackId);
+            const kind = data?.kind === 'create_game' ? 'create_game' : 'fix_game';
+            const prompt = typeof data?.prompt === 'string' ? data.prompt : '';
+            if (!Number.isFinite(id) || id <= 0) return;
+            this.showFeedbackForm(id, kind, prompt);
+        });
+
+        // Submit acknowledged — form goes away, chat restores, the AI
+        // follow-up turn is coming in on the usual chat_response_* path.
+        ws.onWsMessage('feedback_submitted', () => { this.hideFeedbackForm(); });
+
+        // Soft dismiss of a fix_game prompt — hide for this session only.
+        // Backend leaves the pending row intact, so the form re-fires
+        // on the next WS connect until the user actually submits.
+        ws.onWsMessage('feedback_dismissed', () => { this.hideFeedbackForm(); });
+
+        // CREATE_GAME is strict — backend rejects dismiss attempts for
+        // it. Leave the form up; no-op acknowledgement.
+        ws.onWsMessage('feedback_dismiss_rejected', () => { /* form stays */ });
 
         ws.onWsMessage('__ws_disconnected', () => {
             if (this.state === State.STREAMING) {
@@ -1073,6 +1103,180 @@ export class AiChatPanel {
         }
     }
 
+    // ── Feedback form ───────────────────────────────────────────────
+    // Replaces the chat UI with a quick rating + notes form after
+    // CREATE_GAME / FIX_GAME completes. Thumbs-up/down required;
+    // FIX_GAME has a Dismiss (soft, re-prompts on reload);
+    // CREATE_GAME doesn't. Submit unlocks the chat and triggers an
+    // AI follow-up turn via the backend.
+
+    private showFeedbackForm(feedbackId: number, kind: 'create_game' | 'fix_game', prompt: string): void {
+        // Already showing feedback — don't stack; reuse the existing form
+        // if it matches this id, otherwise swap it out.
+        if (this.feedbackForm && this.feedbackForm.dataset.feedbackId === String(feedbackId)) return;
+        this.hideFeedbackForm();
+
+        // FIX_GAME: keep the messages container visible so the user
+        // can still read the AI's reply while filling out feedback
+        // (e.g. "press W to move, Space to jump"). Only hide the
+        // composer, form sits where the composer was.
+        // CREATE_GAME: the build is a blank slate — there's no AI
+        // reply to re-read — so take the full panel for the form.
+        // Either way, hide the composer so the user can't chat
+        // while the gate is up.
+        this.feedbackChatEls = [];
+        const hideSelectors = kind === 'create_game'
+            ? ['.chat-input-area', '.chat-messages']
+            : ['.chat-input-area'];
+        for (const child of Array.from(this.el.children) as HTMLElement[]) {
+            if (child.style.display === 'none') continue;
+            const matches = hideSelectors.some(sel => child.matches(sel));
+            if (matches) {
+                this.feedbackChatEls.push(child);
+                child.style.display = 'none';
+            }
+        }
+
+        const form = document.createElement('div');
+        form.className = 'chat-feedback-form';
+        form.dataset.feedbackId = String(feedbackId);
+        form.dataset.kind = kind;
+
+        const title = document.createElement('div');
+        title.className = 'chat-feedback-title';
+        title.textContent = kind === 'create_game'
+            ? 'Quick feedback on the build'
+            : 'Quick feedback on the last change';
+        form.appendChild(title);
+
+        const subtitle = document.createElement('div');
+        subtitle.className = 'chat-feedback-subtitle';
+        subtitle.textContent = kind === 'create_game'
+            ? 'You asked the builder for:'
+            : 'You asked the agent to:';
+        form.appendChild(subtitle);
+
+        const promptBlock = document.createElement('blockquote');
+        promptBlock.className = 'chat-feedback-prompt';
+        promptBlock.textContent = prompt || '(no prompt on record)';
+        form.appendChild(promptBlock);
+
+        // Thumbs up / down — one required. Using lucide icons, not emojis.
+        const rateLabel = document.createElement('div');
+        rateLabel.className = 'chat-feedback-label';
+        rateLabel.textContent = 'Did it work?';
+        form.appendChild(rateLabel);
+
+        let rating: 'up' | 'down' | null = null;
+        const rateRow = document.createElement('div');
+        rateRow.className = 'chat-feedback-rate-row';
+
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'chat-feedback-rate-btn';
+        upBtn.appendChild(icon(ThumbsUp, 20));
+        const upLabel = document.createElement('span');
+        upLabel.textContent = 'It worked';
+        upBtn.appendChild(upLabel);
+
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'chat-feedback-rate-btn';
+        downBtn.appendChild(icon(ThumbsDown, 20));
+        const downLabel = document.createElement('span');
+        downLabel.textContent = 'It did not work';
+        downBtn.appendChild(downLabel);
+
+        const updateRating = () => {
+            upBtn.classList.toggle('selected', rating === 'up');
+            downBtn.classList.toggle('selected', rating === 'down');
+            submitBtn.disabled = rating === null;
+        };
+        upBtn.addEventListener('click', () => { rating = 'up'; updateRating(); });
+        downBtn.addEventListener('click', () => { rating = 'down'; updateRating(); });
+
+        rateRow.appendChild(upBtn);
+        rateRow.appendChild(downBtn);
+        form.appendChild(rateRow);
+
+        const notesLabel = document.createElement('div');
+        notesLabel.className = 'chat-feedback-label';
+        notesLabel.textContent = 'Anything broken or could be better?';
+        form.appendChild(notesLabel);
+
+        const notes = document.createElement('textarea');
+        notes.className = 'chat-feedback-notes';
+        notes.rows = 3;
+        notes.placeholder = 'What worked? What\'s off? What would you change?';
+        // Auto-grow as the user types. CSS pins resize:none so the
+        // drag handle is gone; we drive the height here instead.
+        const autoGrow = () => {
+            notes.style.height = 'auto';
+            notes.style.height = notes.scrollHeight + 'px';
+        };
+        notes.addEventListener('input', autoGrow);
+        form.appendChild(notes);
+
+        // Actions — submit sticks bottom-right; dismiss only for fix_game.
+        const actions = document.createElement('div');
+        actions.className = 'chat-feedback-actions';
+
+        if (kind === 'fix_game') {
+            const dismissBtn = document.createElement('button');
+            dismissBtn.type = 'button';
+            dismissBtn.className = 'chat-feedback-dismiss-btn';
+            dismissBtn.appendChild(icon(X, 14));
+            const dismissLabel = document.createElement('span');
+            dismissLabel.textContent = 'Dismiss';
+            dismissBtn.appendChild(dismissLabel);
+            dismissBtn.title = 'Dismiss this feedback form. It won\'t come back for this change.';
+            dismissBtn.addEventListener('click', () => {
+                this.ctx.backend.sendWsMessage('feedback_dismiss', { feedbackId });
+                // Hide optimistically; the backend ack doubles as
+                // confirmation and won't resolve the DB row.
+                this.hideFeedbackForm();
+            });
+            actions.appendChild(dismissBtn);
+        }
+
+        const spacer = document.createElement('div');
+        spacer.style.flex = '1 1 auto';
+        actions.appendChild(spacer);
+
+        const submitBtn = document.createElement('button');
+        submitBtn.type = 'button';
+        submitBtn.className = 'chat-feedback-submit-btn';
+        submitBtn.textContent = 'Submit feedback';
+        submitBtn.disabled = true;
+        submitBtn.addEventListener('click', () => {
+            if (!rating) return;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting…';
+            this.ctx.backend.sendWsMessage('feedback_submit', {
+                feedbackId,
+                rating,
+                text: notes.value.trim(),
+            });
+        });
+        actions.appendChild(submitBtn);
+
+        form.appendChild(actions);
+
+        this.feedbackForm = form;
+        this.el.appendChild(form);
+    }
+
+    private hideFeedbackForm(): void {
+        if (this.feedbackForm) {
+            this.feedbackForm.remove();
+            this.feedbackForm = null;
+        }
+        for (const el of this.feedbackChatEls) {
+            el.style.display = '';
+        }
+        this.feedbackChatEls = [];
+    }
+
     // ── Empty state ─────────────────────────────────────────────────
 
     private showEmptyState(): void {
@@ -1143,7 +1347,13 @@ export class AiChatPanel {
 
             const preview = document.createElement('div');
             preview.className = 'session-preview';
-            preview.textContent = session.preview;
+            // Full preview (often a multi-line paragraph) on hover so
+            // users can still see it, but display a short single-line
+            // teaser in the dropdown so the list is actually scannable.
+            const raw = (session.preview || '').replace(/\s+/g, ' ').trim();
+            const MAX = 60;
+            preview.textContent = raw.length > MAX ? raw.slice(0, MAX).trimEnd() + '…' : raw;
+            preview.title = raw;
             item.appendChild(preview);
 
             const date = document.createElement('div');

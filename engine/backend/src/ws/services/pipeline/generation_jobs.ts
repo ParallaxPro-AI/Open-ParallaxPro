@@ -37,6 +37,7 @@ import db from '../../../db/connection.js';
 import { config } from '../../../config.js';
 import { parseProjectData, serializeProjectData, isLegacyProjectData, ProjectFiles } from './project_files.js';
 import { runCreator } from './cli_creator.js';
+import { recordPendingFeedback } from '../feedback.js';
 import { getQueuePosition, resolveCLI } from './cli_runner.js';
 import type { EnginePlugin } from '../../../plugin.js';
 
@@ -424,19 +425,44 @@ async function runJob(job: GenerationJob): Promise<void> {
     // Commit files on success. If the commit itself fails, we demote to
     // 'failed' and stash the error so the user sees *why* — vs. leaving
     // a half-written project behind.
+    let projectBeforeSnapshot: string | null = null;
+    let projectAfterSnapshot: string | null = null;
     if (outcome === 'success' && files) {
         try {
             const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as any;
+            projectBeforeSnapshot = row?.project_data ?? null;
             const pd = parseProjectData(row?.project_data);
             if (isLegacyProjectData(pd)) {
                 throw new Error('Project is in the legacy file shape; cannot commit generated files.');
             }
             pd.files = { ...files };
+            projectAfterSnapshot = serializeProjectData(pd);
             db.prepare(`UPDATE projects SET project_data = ?, updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ?`)
-                .run(serializeProjectData(pd), projectId);
+                .run(projectAfterSnapshot, projectId);
         } catch (e: any) {
             outcome = 'failed';
             summary = `Build produced files but commit failed: ${e?.message || e}`;
+        }
+    }
+
+    // Record a pending feedback row so the editor puts up the
+    // feedback form on the user's next connect. Strict UX for
+    // CREATE_GAME — no dismiss. Only runs on successful commit;
+    // failed builds don't warrant asking "how did it go?".
+    if (outcome === 'success' && projectAfterSnapshot) {
+        try {
+            recordPendingFeedback({
+                userId: job.userId,
+                projectId,
+                kind: 'create_game',
+                jobId,
+                cliSessionPath: sessionCapturePath,
+                prompt: job.description,
+                projectBefore: projectBeforeSnapshot,
+                projectAfter: projectAfterSnapshot,
+            });
+        } catch (e: any) {
+            console.error(`[GenerationJobs] Failed to record CREATE_GAME feedback row: ${e?.message}`);
         }
     }
 

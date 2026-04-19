@@ -15,6 +15,7 @@ import { searchAssets } from '../routes/assets.js';
 import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
 import { getAvailableAgents, isAgentAvailable } from './services/pipeline/cli_availability.js';
 import { runFixer } from './services/pipeline/cli_fixer.js';
+import { recordPendingFeedback, getPendingFeedback, resolveFeedback, getFeedbackById } from './services/feedback.js';
 import {
     parseProjectData,
     serializeProjectData,
@@ -67,6 +68,11 @@ interface EditorClient {
      *  sessions are allowed in the editor but blocked from CLI-spawning
      *  paths (CREATE_GAME, FIX_GAME) and publishing. */
     isAnonymous: boolean;
+    /** Set by the FIX_GAME commit paths (direct fixer + LLM tool) when a
+     *  successful commit wrote a pending agent_feedback row. Fired as a
+     *  `feedback_required` WS event at end-of-turn so the form doesn't
+     *  cover the AI's still-streaming reply. Cleared on announce. */
+    pendingFeedbackAnnounceId: number | null;
 }
 
 const clients = new Map<string, EditorClient>();
@@ -203,6 +209,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             abortController: null,
             jobUnsubscribe: null,
             isAnonymous: !!user.isAnonymous,
+            pendingFeedbackAnnounceId: null,
         };
 
         clients.set(clientId, client);
@@ -244,6 +251,26 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         // was intentional, not a crash.
         if (Date.now() - BACKEND_BOOTED_AT < POST_BOOT_BROADCAST_WINDOW_MS) {
             send(client, 'system_updated', {});
+        }
+
+        // Pending agent-feedback — shown in the chat panel as a form
+        // until the user submits (or dismisses, for fix_game). Fires
+        // on every connect so a refresh re-prompts if they dismissed.
+        // Only fires when the underlying CLI run actually completed
+        // successfully — aborted / failed runs don't write a pending
+        // row (guarded in generation_jobs + runDirectFixer + executor).
+        try {
+            const pending = getPendingFeedback(client.projectId);
+            if (pending) {
+                send(client, 'feedback_required', {
+                    feedbackId: pending.id,
+                    kind: pending.kind,
+                    prompt: pending.prompt,
+                    createdAt: pending.createdAt,
+                });
+            }
+        } catch (e: any) {
+            console.error('[Feedback] pending check failed:', e?.message);
         }
 
         // Send connected confirmation
@@ -525,6 +552,17 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             handleConfirmCreateGame(client, data);
             break;
 
+        // User rated the most recent CREATE_GAME / FIX_GAME run in the
+        // feedback form that replaced the chat panel on connect.
+        // Resolution= 'submitted' unless they dismissed a FIX_GAME row.
+        case 'feedback_submit':
+            handleFeedbackSubmit(client, data);
+            break;
+
+        case 'feedback_dismiss':
+            handleFeedbackDismiss(client, data);
+            break;
+
         case 'file_save':
             if (isProjectLocked(client.projectId)) {
                 send(client, 'file_save_error', { path: data?.path, error: 'Project is locked — a CREATE_GAME build is in progress.' });
@@ -612,6 +650,94 @@ async function checkBudgetOrBlock(client: EditorClient): Promise<string | null> 
         }
     }
     return null;
+}
+
+/**
+ * User submitted the feedback form that replaced the chat panel on
+ * connect. Resolves the pending row + triggers an AI follow-up turn
+ * that acknowledges the rating (thanks on thumbs-up, apology +
+ * fix offer on thumbs-down). Only runs on a successful underlying
+ * CLI run — by design, aborted / failed runs never write a pending
+ * feedback row in the first place.
+ */
+function handleFeedbackSubmit(client: EditorClient, data: any): void {
+    const feedbackId = Number(data?.feedbackId);
+    const rating = typeof data?.rating === 'string' ? data.rating : '';
+    const text = typeof data?.text === 'string' ? data.text.slice(0, 4000) : '';
+    if (!Number.isFinite(feedbackId) || feedbackId <= 0) {
+        send(client, 'feedback_submit_error', { error: 'Invalid feedback id.' });
+        return;
+    }
+    if (rating !== 'up' && rating !== 'down') {
+        send(client, 'feedback_submit_error', { error: 'Rating must be up or down.' });
+        return;
+    }
+    const row = getFeedbackById(feedbackId);
+    if (!row || row.project_id !== client.projectId || row.user_id !== client.userId) {
+        send(client, 'feedback_submit_error', { error: 'Feedback not found.' });
+        return;
+    }
+    if (row.resolved_at) {
+        // Already resolved from another tab — ack quietly so this
+        // client's UI unlocks too.
+        send(client, 'feedback_submitted', { feedbackId });
+        return;
+    }
+    resolveFeedback(feedbackId, 'submitted', rating, text || null);
+    send(client, 'feedback_submitted', { feedbackId });
+
+    // Save the feedback as a visible user chat message + kick off
+    // an AI follow-up turn. The LLM sees this in context with the
+    // system prompt's "respond to feedback" guidance and replies
+    // with a thanks / apology + offer to fix. Chat stays usable
+    // from here on.
+    const label = row.kind === 'create_game' ? 'the build' : 'the last change';
+    const ratingText = rating === 'up' ? 'It worked' : 'It did not work';
+    const lines = [
+        `**Feedback on ${label}** — ${ratingText}.`,
+        '',
+        `> Original request: ${row.prompt || '(not captured)'}`,
+    ];
+    if (text) {
+        lines.push('', `Notes: ${text}`);
+    }
+    const content = lines.join('\n');
+    const snapshot = getProjectSnapshot(client.projectId);
+    stmtInsertMessage.run(
+        client.projectId, client.chatSessionId, 'user', content,
+        null, null, snapshot,
+    );
+    stmtTouchProject.run(client.projectId);
+    send(client, 'chat_response_start', {});
+
+    const abortController = new AbortController();
+    client.abortController = abortController;
+    runLLMWithRetry(client, abortController, 0, [], []);
+}
+
+/**
+ * Hard dismiss — only valid for fix_game. CREATE_GAME is strict per
+ * product spec (a 20-minute build deserves at least a rating).
+ * Marks the row resolved with resolution='dismissed' so it stays out
+ * of getPendingFeedback on future connects and the form doesn't
+ * come back.
+ */
+function handleFeedbackDismiss(client: EditorClient, data: any): void {
+    const feedbackId = Number(data?.feedbackId);
+    if (!Number.isFinite(feedbackId) || feedbackId <= 0) return;
+    const row = getFeedbackById(feedbackId);
+    if (!row || row.project_id !== client.projectId || row.user_id !== client.userId) return;
+    if (row.kind === 'create_game') {
+        send(client, 'feedback_dismiss_rejected', {
+            feedbackId,
+            reason: 'CREATE_GAME feedback cannot be dismissed — quick rating required.',
+        });
+        return;
+    }
+    if (!row.resolved_at) {
+        resolveFeedback(feedbackId, 'dismissed', null, null);
+    }
+    send(client, 'feedback_dismissed', { feedbackId });
 }
 
 async function handleConfirmCreateGame(client: EditorClient, data: any): Promise<void> {
@@ -918,12 +1044,19 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
         const fileChanges: { path: string; type: string }[] = [];
         let validationRolledBack = false;
         let rollbackError = '';
+        let fixBeforeSnapshot: string | null = null;
+        let fixAfterSnapshot: string | null = null;
         if (fixResult.success && fixResult.filesChanged.length > 0) {
             const updates: Record<string, string | null> = {};
             for (const [k, v] of Object.entries(fixResult.changedFiles)) updates[k] = v;
             for (const k of fixResult.deletedFiles) updates[k] = null;
             const pd2 = readProjectData(client.projectId);
             if (pd2) {
+                // Snapshot before applying the fix so the feedback export
+                // can diff "what the user had" against "what the agent
+                // produced". Inline blob — keeps agent_feedback rows
+                // self-contained, no need to join chat_messages.
+                fixBeforeSnapshot = serializeProjectData(pd2);
                 for (const [filePath, cont] of Object.entries(updates)) {
                     if (cont === null) delete pd2.files[filePath];
                     else setFile(pd2, filePath, cont);
@@ -932,6 +1065,8 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
                 if (!built.success) {
                     validationRolledBack = true;
                     rollbackError = built.error || 'unknown build error';
+                } else {
+                    fixAfterSnapshot = serializeProjectData(pd2);
                 }
             }
             if (!validationRolledBack) {
@@ -939,6 +1074,30 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
                     const isDeleted = fixResult.deletedFiles.includes(f);
                     fileChanges.push({ path: f, type: isDeleted ? 'deleted' : 'modified' });
                 }
+            }
+        }
+
+        // Pending feedback row so the editor prompts the user on
+        // next connect. Soft UX — the user can dismiss it, but the
+        // row stays unresolved and re-fires until they actually
+        // submit. Only fires on a committed change, not a rollback /
+        // abort / failure — all three paths short-circuit above.
+        if (!validationRolledBack && fixResult.success && fixResult.filesChanged.length > 0 && fixAfterSnapshot) {
+            try {
+                const fid = recordPendingFeedback({
+                    userId: client.userId,
+                    projectId: client.projectId,
+                    kind: 'fix_game',
+                    prompt: description,
+                    projectBefore: fixBeforeSnapshot,
+                    projectAfter: fixAfterSnapshot,
+                });
+                // Fire the feedback_required event once this chat turn
+                // ends (see finishChat) so the form doesn't cover the
+                // AI's still-streaming "I applied the fix" message.
+                client.pendingFeedbackAnnounceId = fid;
+            } catch (e: any) {
+                console.error('[FIX_GAME] feedback record failed:', e?.message);
             }
         }
 
@@ -1010,9 +1169,13 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
     return {
         sendToFrontend: (type, data) => send(client, type, data),
         getProjectData: () => getProjectData(client.projectId),
-        commitFiles: (updates: Record<string, string | null>) => {
+        commitFiles: (updates: Record<string, string | null>, feedback?: { kind: 'fix_game'; prompt: string }) => {
             const pd = readProjectData(client.projectId);
             if (!pd) return null;
+            // Snapshot before applying the fix so recordPendingFeedback
+            // (if the caller wants a row) gets a diffable before/after
+            // pair without re-reading the DB mid-commit.
+            const beforeSnapshot = feedback ? serializeProjectData(pd) : null;
             for (const [filePath, content] of Object.entries(updates)) {
                 if (content === null) delete pd.files[filePath];
                 else setFile(pd, filePath, content);
@@ -1022,7 +1185,23 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
             // fix_rolled_back, re-pushes server truth, and returns
             // { success: false }. The executor's FIX_GAME path sees that
             // and surfaces the rollback to the LLM's follow-up turn.
-            return commitProjectFilesWithValidation(client, pd, { sceneKey: client.activeSceneKey });
+            const built = commitProjectFilesWithValidation(client, pd, { sceneKey: client.activeSceneKey });
+            if (built.success && feedback && beforeSnapshot) {
+                try {
+                    const fid = recordPendingFeedback({
+                        userId: client.userId,
+                        projectId: client.projectId,
+                        kind: feedback.kind,
+                        prompt: feedback.prompt,
+                        projectBefore: beforeSnapshot,
+                        projectAfter: serializeProjectData(pd),
+                    });
+                    client.pendingFeedbackAnnounceId = fid;
+                } catch (e: any) {
+                    console.error('[FIX_GAME exec] feedback record failed:', e?.message);
+                }
+            }
+            return built;
         },
         replaceFiles: (newFiles: ProjectFiles, opts?: { name?: string }) => {
             const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled' }, files: {} };
@@ -1076,6 +1255,24 @@ function finishChat(client: EditorClient, displayContent: string, fileChanges: a
         fileChanges,
     });
     send(client, 'dialogue_done', {});
+
+    // If a FIX_GAME commit this turn wrote a pending feedback row,
+    // announce it now — the chat's already rendered its final message
+    // so the form covering the chat won't hide a live stream. Clear
+    // the flag so the submission's AI follow-up turn doesn't re-fire it.
+    if (client.pendingFeedbackAnnounceId) {
+        const fid = client.pendingFeedbackAnnounceId;
+        client.pendingFeedbackAnnounceId = null;
+        const row = getFeedbackById(fid);
+        if (row && !row.resolved_at) {
+            send(client, 'feedback_required', {
+                feedbackId: row.id,
+                kind: row.kind,
+                prompt: row.prompt,
+                createdAt: row.created_at,
+            });
+        }
+    }
 }
 
 async function runLLMWithRetry(

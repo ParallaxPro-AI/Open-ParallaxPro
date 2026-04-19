@@ -24,8 +24,15 @@ export interface ExecutionContext {
      * source map for tools that need to mutate template sources.
      */
     getProjectData: () => any;
-    /** Patch a set of files into the project's file tree, then rebuild and push. */
-    commitFiles: (updates: Record<string, string | null>) => BuildResult | null;
+    /** Patch a set of files into the project's file tree, then rebuild and push.
+     *  When `feedback` is supplied and the commit succeeds, the backend writes
+     *  a pending agent_feedback row so the editor can ask the user how the
+     *  change went. Only the FIX_GAME tool uses that — chat-only edits
+     *  aren't worth prompting about. */
+    commitFiles: (
+        updates: Record<string, string | null>,
+        feedback?: { kind: 'fix_game'; prompt: string },
+    ) => BuildResult | null;
     /** Replace the entire file tree (LOAD_TEMPLATE / CREATE_GAME), then rebuild and push. */
     replaceFiles: (newFiles: ProjectFiles, opts?: { name?: string }) => BuildResult | null;
     reloadScene: (sceneKey: string, sceneData: any) => void;
@@ -267,7 +274,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     const updates: Record<string, string | null> = {};
                     for (const [k, v] of Object.entries(fixResult.changedFiles)) updates[k] = v;
                     for (const k of fixResult.deletedFiles) updates[k] = null;
-                    const built = ctx.commitFiles(updates);
+                    const built = ctx.commitFiles(updates, { kind: 'fix_game', prompt: description });
                     if (!built || !built.success) {
                         // The commit helper already rolled the change back
                         // (no DB write happened) and re-pushed server
