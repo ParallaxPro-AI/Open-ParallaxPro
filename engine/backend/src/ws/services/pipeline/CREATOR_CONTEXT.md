@@ -884,6 +884,54 @@ Mixing the two in one panel is the trap: a creator who uses
 `window.onPlayerZone = ...` but leaves `send` inside the IIFE will see
 some buttons work and others silently throw.
 
+### Clickable HUD elements — virtual cursor support
+
+During gameplay the browser's pointer is locked to the canvas. The engine
+renders a virtual cursor and dispatches `.click()` on any HUD element that
+matches `button, input, select, a, [data-interactive], [onclick]` via
+`elementFromPoint`. This already works — you just have to make your
+elements clickable.
+
+**Every interactive HUD element** (shop items, buy/sell buttons, action
+prompts, tabs, close buttons) MUST:
+
+1. Have `pointer-events: auto` in its CSS (the `<body>` is
+   `pointer-events: none` so clicks pass through to the 3D canvas — each
+   interactive child opts back in).
+2. Have a click handler that posts `type: 'game_command'`:
+
+```html
+<div class="shop-item"
+     style="pointer-events:auto;cursor:pointer"
+     onclick="parent.postMessage({type:'game_command',action:'buy_sword'},'*')">
+  Buy Sword — 50g
+</div>
+```
+
+The engine translates this into `ui_event:hud/your_hud:buy_sword`, which
+your game system listens for:
+
+```js
+this.scene.events.ui.on("ui_event:hud/your_hud:buy_sword", function() {
+    self._buySword();
+});
+```
+
+**Do NOT rely on keyboard-only interaction** for shops, inventories, or
+context menus. Users expect to click UI elements — keyboard shortcuts are
+a bonus, not a substitute. Every keyboard shortcut (`Press E to open`,
+`Q to buy`) should also work via click/tap.
+
+For action hints that appear contextually (e.g. "Press E to open Shop"),
+make the hint itself clickable too:
+
+```html
+<div class="action-hint" style="pointer-events:auto;cursor:pointer"
+     onclick="parent.postMessage({type:'game_command',action:'open_shop'},'*')">
+  Press E or click to open Shop
+</div>
+```
+
 ### Spawn entity — validator rule
 
 `scene.spawnEntity(name)` instantiates a prefab from `02_entities.json` `definitions` by its key. The assembler statically scans every script for `spawnEntity('literal')` calls and rejects any name that isn't a declared key — same shape as the `emit('literal')` rule above. The runtime engine also throws on unknown names, so a typo here is a hard failure either way.

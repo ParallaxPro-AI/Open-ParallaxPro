@@ -143,6 +143,26 @@ Scripts update the HUD by emitting on the ui bus:
 this.scene.events.ui.emit("hud_update", { health: 75, score: 100 });
 ```
 
+### Clickable HUD elements
+
+During gameplay the pointer is locked — the engine renders a virtual
+cursor and dispatches `.click()` on any HUD element matching
+`button, input, select, a, [data-interactive], [onclick]`.
+
+Interactive HUD elements (shop items, action prompts, tabs, close
+buttons) need `pointer-events: auto` and a click handler that posts
+`type: 'game_command'`:
+
+```html
+<div style="pointer-events:auto;cursor:pointer"
+     onclick="parent.postMessage({type:'game_command',action:'buy_sword'},'*')">
+  Buy Sword — 50g
+</div>
+```
+
+The engine fires `ui_event:hud/your_hud:buy_sword` — listen in your
+game system. Every keyboard shortcut should also work via click.
+
 ## Behavior Activation
 
 Behaviors have a `_behaviorName` field. The engine automatically activates/deactivates them based on the FSM's `active_behaviors` list. You do NOT need to write activation boilerplate — the engine handles it.
