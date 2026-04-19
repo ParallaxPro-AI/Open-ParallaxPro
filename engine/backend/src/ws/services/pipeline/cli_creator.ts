@@ -30,7 +30,7 @@ import {
 } from './project_files.js';
 import db from '../../../db/connection.js';
 import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
-import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
+import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
@@ -65,6 +65,19 @@ export async function runCreator(
     abortSignal?: AbortSignal,
     jobId?: string,
 ): Promise<CreatorResult> {
+    // Local AbortController so the cli_active_jobs entry can kill this
+    // run from outside — when a newer FIX_GAME or CREATE_GAME on the
+    // same project calls preemptProjectJob, it fires our abort()
+    // callback and we unwind. The external signal (from the WS client's
+    // Stop button) is forwarded into this controller, so either path
+    // aborts the run.
+    const abortController = new AbortController();
+    if (abortSignal) {
+        if (abortSignal.aborted) abortController.abort();
+        else abortSignal.addEventListener('abort', () => abortController.abort());
+    }
+    const localSignal = abortController.signal;
+
     await acquireCLISlot({ cliOverride, sendStatus, jobId });
     const templateId = deriveTemplateId(description);
     // Random suffix per run so concurrent creates on the same projectId don't
@@ -99,6 +112,7 @@ export async function runCreator(
             projectId,
             description,
             startedAt: Date.now(),
+            abort: () => abortController.abort(),
         });
         registered = true;
     } catch { /* observability only — don't let it break the run */ }
@@ -161,7 +175,7 @@ export async function runCreator(
         );
 
         sendStatus?.('Creator agent is building the game...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, abortSignal, { jobId: registryJobId, projectId });
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId });
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
@@ -201,7 +215,7 @@ export async function runCreator(
             // the error to TASK.md and give the agent one more run to
             // fix it before we give up. Aborts are honored — if the
             // user hit Stop while we were waiting, don't re-spawn.
-            if (abortSignal?.aborted) {
+            if (localSignal.aborted) {
                 return { success: false, summary: 'Aborted before retry.', templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
             }
             sendStatus?.('Validation failed — feeding error back to the agent for one retry...');
@@ -223,7 +237,7 @@ export async function runCreator(
                 // second capture dir (the first is still on disk under its
                 // own timestamped name). We swap cliResult's path to point
                 // at the retry's capture so admins land on the last run.
-                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, abortSignal, { jobId: registryJobId, projectId });
+                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId });
             } catch (e: any) {
                 return {
                     success: false,
@@ -238,7 +252,7 @@ export async function runCreator(
             if (retryResult.text) cliResult.text = retryResult.text;
             if (retryResult.sessionCapturePath) cliResult.sessionCapturePath = retryResult.sessionCapturePath;
 
-            if (abortSignal?.aborted) {
+            if (localSignal.aborted) {
                 return { success: false, summary: 'Aborted during retry.', templateId, files: null, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
             }
 

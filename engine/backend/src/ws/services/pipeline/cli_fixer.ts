@@ -23,7 +23,8 @@ import { randomUUID } from 'crypto';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { assembleGame } from './level_assembler.js';
 import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI } from './cli_runner.js';
-import { registerActiveJob, unregisterActiveJob } from './cli_active_jobs.js';
+import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
+import { preemptGenerationJob } from './generation_jobs.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
@@ -55,8 +56,56 @@ export async function runFixer(
     abortSignal?: AbortSignal,
     cliOverride?: string,
 ): Promise<FixerResult> {
+    // Per-project preemption: at most one CLI run per project. If someone
+    // else is already working on this project (fix or create), kill it
+    // and wait for its finally block to unwind before we start. Old runs
+    // are cheap to lose; what's expensive is two CLIs racing each other's
+    // project_data writes. preemptGenerationJob covers CREATE_GAMEs that
+    // are still in generation_jobs' local map but haven't reached their
+    // cli_active_jobs registration yet (queue wait window).
+    await preemptGenerationJob(projectId);
+    await preemptProjectJob(projectId);
+
+    // Local AbortController so the registry entry can kill us from
+    // outside (preemptProjectJob calls abort()). Mirrors the caller's
+    // signal — a Stop from the chat UI still cancels the run.
+    const abortController = new AbortController();
+    if (abortSignal) {
+        if (abortSignal.aborted) abortController.abort();
+        else abortSignal.addEventListener('abort', () => abortController.abort());
+    }
+    const localSignal = abortController.signal;
+
     const jobId = randomUUID();
-    await acquireCLISlot({ cliOverride, sendStatus, jobId });
+
+    // Register BEFORE acquireCLISlot so the per-project lock holds even
+    // while we're queued. Without this, two fixes on the same project
+    // could both enter the queue and only start racing once both got
+    // their slots. Paired with unregisterActiveJob in the finally.
+    let registered = false;
+    try {
+        registerActiveJob({
+            jobId,
+            cli: resolveCLI(cliOverride),
+            kind: 'fix',
+            projectId,
+            description,
+            startedAt: Date.now(),
+            abort: () => abortController.abort(),
+        });
+        registered = true;
+    } catch { /* best-effort — don't let observability break the run */ }
+
+    // acquireCLISlot is the first thing that can throw after we've claimed
+    // the per-project lock. If it does (queue abort, config error), we
+    // must drop the lock before bubbling — the outer try/finally below
+    // hasn't entered yet, so its cleanup won't run.
+    try {
+        await acquireCLISlot({ cliOverride, sendStatus, jobId });
+    } catch (e) {
+        if (registered) { try { unregisterActiveJob(jobId); } catch {} }
+        throw e;
+    }
     // Random suffix per run so concurrent fixes on the same projectId don't
     // trample each other's sandbox. mkdtempSync guarantees a fresh empty dir.
     const sandboxDir = fs.mkdtempSync(path.join('/tmp', 'parallaxpro-fix-'));
@@ -71,24 +120,6 @@ export async function runFixer(
     const validateBackendUrl = isDockerSandboxEnabled()
         ? `http://host.docker.internal:${config.port}`
         : `http://localhost:${config.port}`;
-
-    // Register in the shared active-jobs view so the admin dashboard can
-    // see which CLIs are currently fixing what (mirrors what generation
-    // jobs do from the other side). Unregistered in finally, paired with
-    // the slot release — a throw before register is fine since the
-    // finally only runs code that was set up.
-    let registered = false;
-    try {
-        registerActiveJob({
-            jobId,
-            cli: resolveCLI(cliOverride),
-            kind: 'fix',
-            projectId,
-            description,
-            startedAt: Date.now(),
-        });
-        registered = true;
-    } catch { /* best-effort — don't let observability break the run */ }
 
     try {
         sendStatus?.('Setting up sandbox...');
@@ -108,7 +139,7 @@ export async function runFixer(
         );
 
         sendStatus?.('Editing Agent is analyzing and coding...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, abortSignal, cliOverride, { jobId, projectId });
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, localSignal, cliOverride, { jobId, projectId });
 
         sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectFiles);

@@ -39,6 +39,7 @@ import { parseProjectData, serializeProjectData, isLegacyProjectData, ProjectFil
 import { runCreator } from './cli_creator.js';
 import { recordPendingFeedback } from '../feedback.js';
 import { getQueuePosition, resolveCLI } from './cli_runner.js';
+import { preemptProjectJob } from './cli_active_jobs.js';
 import type { EnginePlugin } from '../../../plugin.js';
 
 export interface QueuePosition {
@@ -115,13 +116,18 @@ export interface StartJobArgs {
 export async function startGenerationJob(args: StartJobArgs): Promise<string> {
     const { projectId, userId, description, cliOverride, username, authToken } = args;
 
-    if (jobs.has(projectId)) {
-        throw new Error('This project already has a build running.');
-    }
+    // Per-project preemption: newer CLI run wins. Kill any in-flight
+    // CREATE_GAME or FIX_GAME on this project before we start. Users
+    // have been observed launching two CLIs against the same project
+    // (double-click, two tabs, retry-on-slow-response) — racing their
+    // project_data writes is worse than losing the older run.
+    await preemptGenerationJob(projectId);
+    await preemptProjectJob(projectId);
 
     // Hosted per-user cap: one job at a time since a 20–30 minute CLI run
     // monopolises the agent pool. Self-hosted users manage their own
-    // machine, so parallel projects are fine.
+    // machine, so parallel projects are fine. This cap is intentionally
+    // cross-project — supersession above only covers same-project races.
     if (config.isHosted) {
         for (const j of jobs.values()) {
             if (j.userId === userId) {
@@ -182,6 +188,30 @@ export function abortJob(projectId: string): boolean {
     const job = jobs.get(projectId);
     if (!job) return false;
     job.abortController.abort();
+    return true;
+}
+
+/**
+ * Kill any in-flight CREATE_GAME on this project and wait for runJob's
+ * finally to clear the local jobs map. Used by FIX_GAME and by other
+ * CREATE_GAME starts to supersede prior runs. Covers the window
+ * between startGenerationJob and runCreator's cli_active_jobs
+ * registration — during that window preemptProjectJob can't see the
+ * job, so this companion check is needed. Bounded wait so a stuck
+ * job can't indefinitely block a new run.
+ */
+export async function preemptGenerationJob(projectId: string, waitMs = 20_000): Promise<boolean> {
+    const existing = jobs.get(projectId);
+    if (!existing) return false;
+    console.log(`[GenerationJobs] Preempting CREATE_GAME job ${existing.jobId} on project ${projectId} to make way for a new run`);
+    existing.abortController.abort();
+    const deadline = Date.now() + waitMs;
+    while (Date.now() < deadline && jobs.has(projectId)) {
+        await new Promise(r => setTimeout(r, 50));
+    }
+    if (jobs.has(projectId)) {
+        console.warn(`[GenerationJobs] Preempted job ${existing.jobId} did not unwind within ${waitMs}ms — proceeding anyway (DB lock may still be held)`);
+    }
     return true;
 }
 
