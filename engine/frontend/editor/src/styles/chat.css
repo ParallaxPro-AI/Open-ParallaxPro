@@ -721,17 +721,17 @@
     color: #cfe4f5;
 }
 
-/* Anon variant — the CLI-spawning path is gated on signup, so the
-   button turns into an inline signup CTA. Amber to distinguish it
-   from the normal build-from-scratch path and to match the project
-   list's "browsing anonymously" banner. */
-.chat-create-scratch-btn.chat-create-scratch-btn-signup {
+/* In-chat signup prompt — rendered as an assistant message when the
+   backend refuses a CLI-spawning action (CREATE_GAME, FIX_GAME,
+   publish) for an anon session. Amber button to distinguish it
+   from the normal "create from scratch" CTA. */
+.chat-signup-btn {
     background: #ff9f40;
     border-color: #ff9f40;
     color: #1a1a1a;
 }
 
-.chat-create-scratch-btn.chat-create-scratch-btn-signup:hover:not(:disabled) {
+.chat-signup-btn:hover:not(:disabled) {
     background: #ffb366;
     border-color: #ffb366;
 }

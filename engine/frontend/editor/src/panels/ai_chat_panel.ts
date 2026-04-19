@@ -1,6 +1,5 @@
 import { EditorContext } from '../editor_context.js';
 import { icon, ThumbsUp, ThumbsDown, RefreshCw } from '../widgets/icons.js';
-import { decodeToken, getStoredToken } from '../backend/auth_session.js';
 
 interface ChatMessage {
     id?: number;
@@ -333,6 +332,18 @@ export class AiChatPanel {
             this.messages.push(errMsg);
             this.renderMessageEl(errMsg);
             this.scrollToBottom();
+        });
+
+        // Anon user tried a CLI-spawning action (CREATE_GAME, FIX_GAME,
+        // or publish). Render an AI-voiced bubble with the backend's
+        // message + a Sign up button that pops the signup page. Handles
+        // the "Starting..." create-scratch button reset too.
+        ws.onWsMessage('signup_required', (data: any) => {
+            const feature = (data && typeof data.feature === 'string') ? data.feature : '';
+            const message = (data && typeof data.message === 'string')
+                ? data.message
+                : 'Sign up free to unlock this — your project will follow you over.';
+            this.appendSignupPrompt(feature, message);
         });
 
         ws.onWsMessage('__ws_disconnected', () => {
@@ -677,12 +688,9 @@ export class AiChatPanel {
      *  message. Clicking sends confirm_create_game to the backend which
      *  kicks off the long-running CLI build + bounces the editor back to
      *  the project list. Disabled after click so double-click is a no-op.
-     *
-     *  Anon-session variant: backend will refuse (CLI = money = requires
-     *  real account), so the client converts the button into an inline
-     *  signup CTA that opens a popup window instead of sending the WS
-     *  message. Avoids the "Starting..." dead-end + the top banner
-     *  (which editor_view suppresses for CREATE_GAME specifically). */
+     *  Anon sessions hit the backend's signup_required refusal, which
+     *  the signup_required WS handler below turns into an in-chat
+     *  signup bubble + re-enables this button. */
     private appendCreateFromScratchButton(description: string): void {
         const assistants = this.messagesContainer.querySelectorAll<HTMLElement>('.chat-message.assistant');
         const last = assistants[assistants.length - 1];
@@ -690,34 +698,71 @@ export class AiChatPanel {
         // Idempotent: if we've already attached a button here, skip.
         if (last.querySelector('.chat-create-scratch-btn')) return;
 
-        const tok = getStoredToken();
-        const decoded = tok ? decodeToken(tok) : null;
-        const isAnon = !!decoded && !!(decoded as any).isAnonymous;
+        const btn = document.createElement('button');
+        btn.className = 'chat-create-scratch-btn';
+        btn.textContent = 'Create from scratch instead of using this template (20-30 min)';
+        btn.addEventListener('click', () => {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+            this.ctx.backend.sendWsMessage('confirm_create_game', { description });
+        });
+        last.appendChild(btn);
+        this.scrollToBottom();
+    }
+
+    /** Build a signup CTA bubble styled like an assistant message —
+     *  the backend's signup_required event lands here for anon users
+     *  who tried a CLI-spawning action (CREATE_GAME, FIX_GAME, publish).
+     *  Also resets any "Starting..." create-scratch button that never
+     *  got to fire, so the flow reads: click → brief spinner → AI-
+     *  voice explanation + Sign up button. */
+    private appendSignupPrompt(feature: string, message: string): void {
+        // Reset any disabled create-scratch button — the click that set
+        // it to "Starting..." didn't actually start anything.
+        this.messagesContainer.querySelectorAll<HTMLButtonElement>('.chat-create-scratch-btn').forEach(btn => {
+            if (btn.disabled || btn.textContent === 'Starting...') {
+                btn.disabled = false;
+                btn.textContent = 'Create from scratch instead of using this template (20-30 min)';
+            }
+        });
+
+        const messageEl = document.createElement('div');
+        messageEl.className = 'chat-message assistant chat-signup-prompt';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-message-bubble';
+        // Framing + backend's message verbatim so any feature-specific
+        // wording (CREATE_GAME / FIX_GAME / publish) still reads right.
+        const frame = document.createElement('p');
+        frame.style.margin = '0 0 8px 0';
+        if (feature === 'CREATE_GAME') {
+            frame.textContent = 'To build a game from scratch instead of using this template, I need you to sign up first.';
+        } else if (feature === 'FIX_GAME') {
+            frame.textContent = 'To run the coding agent on your game, I need you to sign up first.';
+        } else {
+            frame.textContent = 'I need you to sign up first.';
+        }
+        bubble.appendChild(frame);
+        const detail = document.createElement('p');
+        detail.style.margin = '0 0 12px 0';
+        detail.style.color = 'var(--text-secondary, #b8c5d2)';
+        detail.textContent = message;
+        bubble.appendChild(detail);
 
         const btn = document.createElement('button');
-        btn.className = 'chat-create-scratch-btn' + (isAnon ? ' chat-create-scratch-btn-signup' : '');
-        if (isAnon) {
-            btn.textContent = 'Sign up free to build from scratch (takes 20-30 min to build)';
-            btn.addEventListener('click', () => {
-                // Pop the signup page in a small window so the editor
-                // stays in view — they come back here after finishing,
-                // and their anon projects will have been merged onto
-                // the new account.
-                const signupHref = window.location.hostname === 'localhost'
-                    ? 'http://localhost:5173/signup'
-                    : 'https://parallaxpro.ai/signup';
-                window.open(signupHref, 'parallaxpro-signup', 'width=520,height=680,noopener');
-            });
-        } else {
-            btn.textContent = 'Create from scratch instead of using this template (20-30 min)';
-            btn.addEventListener('click', () => {
-                if (btn.disabled) return;
-                btn.disabled = true;
-                btn.textContent = 'Starting...';
-                this.ctx.backend.sendWsMessage('confirm_create_game', { description });
-            });
-        }
-        last.appendChild(btn);
+        btn.className = 'chat-create-scratch-btn chat-signup-btn';
+        btn.textContent = 'Sign up free';
+        btn.addEventListener('click', () => {
+            const signupHref = window.location.hostname === 'localhost'
+                ? 'http://localhost:5173/signup'
+                : 'https://parallaxpro.ai/signup';
+            window.open(signupHref, 'parallaxpro-signup', 'width=520,height=680,noopener');
+        });
+        bubble.appendChild(btn);
+
+        messageEl.appendChild(bubble);
+        this.messagesContainer.appendChild(messageEl);
         this.scrollToBottom();
     }
 
