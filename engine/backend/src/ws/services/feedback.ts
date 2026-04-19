@@ -15,6 +15,7 @@
  */
 
 import db from '../../db/connection.js';
+import type BetterSqlite3 from 'better-sqlite3';
 
 export type FeedbackKind = 'create_game' | 'fix_game';
 export type FeedbackRating = 'up' | 'down';
@@ -30,29 +31,44 @@ export interface PendingFeedback {
     chatMessageId: number | null;
 }
 
-const stmtInsert = db.prepare(`
-    INSERT INTO agent_feedback (
-        user_id, project_id, kind, job_id, chat_message_id,
-        cli_session_path, prompt, project_before, project_after
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
+// Prepared statements are built lazily on first use. Top-level
+// `db.prepare(...)` runs at import time — which is before
+// createSchema() runs on prod boot, so pm2 would crash-loop with
+// "no such table: agent_feedback" on any deploy that introduced
+// the table. Lazy init sidesteps the module-load-order trap.
+let _stmts: {
+    insert: BetterSqlite3.Statement;
+    getPending: BetterSqlite3.Statement;
+    getById: BetterSqlite3.Statement;
+    resolve: BetterSqlite3.Statement;
+} | null = null;
 
-const stmtGetPending = db.prepare(`
-    SELECT id, kind, prompt, chat_message_id, created_at
-    FROM agent_feedback
-    WHERE project_id = ? AND resolved_at IS NULL
-    ORDER BY id DESC
-    LIMIT 1
-`);
-
-const stmtGetById = db.prepare('SELECT * FROM agent_feedback WHERE id = ?');
-
-const stmtResolve = db.prepare(`
-    UPDATE agent_feedback
-    SET rating = ?, feedback_text = ?, resolution = ?,
-        resolved_at = strftime('%Y-%m-%d %H:%M:%f','now')
-    WHERE id = ? AND resolved_at IS NULL
-`);
+function stmts() {
+    if (_stmts) return _stmts;
+    _stmts = {
+        insert: db.prepare(`
+            INSERT INTO agent_feedback (
+                user_id, project_id, kind, job_id, chat_message_id,
+                cli_session_path, prompt, project_before, project_after
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `),
+        getPending: db.prepare(`
+            SELECT id, kind, prompt, chat_message_id, created_at
+            FROM agent_feedback
+            WHERE project_id = ? AND resolved_at IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+        `),
+        getById: db.prepare('SELECT * FROM agent_feedback WHERE id = ?'),
+        resolve: db.prepare(`
+            UPDATE agent_feedback
+            SET rating = ?, feedback_text = ?, resolution = ?,
+                resolved_at = strftime('%Y-%m-%d %H:%M:%f','now')
+            WHERE id = ? AND resolved_at IS NULL
+        `),
+    };
+    return _stmts;
+}
 
 /**
  * Record a pending feedback row after a CLI run commits. Caller supplies
@@ -70,7 +86,7 @@ export function recordPendingFeedback(row: {
     projectBefore?: string | null;
     projectAfter?: string | null;
 }): number {
-    const info = stmtInsert.run(
+    const info = stmts().insert.run(
         row.userId,
         row.projectId,
         row.kind,
@@ -86,7 +102,7 @@ export function recordPendingFeedback(row: {
 
 /** Most recent unresolved feedback for a project, if any. */
 export function getPendingFeedback(projectId: string): PendingFeedback | null {
-    const row = stmtGetPending.get(projectId) as any;
+    const row = stmts().getPending.get(projectId) as any;
     if (!row) return null;
     return {
         id: row.id as number,
@@ -98,7 +114,7 @@ export function getPendingFeedback(projectId: string): PendingFeedback | null {
 }
 
 export function getFeedbackById(id: number): any | null {
-    return stmtGetById.get(id) ?? null;
+    return stmts().getById.get(id) ?? null;
 }
 
 /** Mark a row submitted or dismissed. No-op if already resolved. */
@@ -108,6 +124,6 @@ export function resolveFeedback(
     rating: FeedbackRating | null,
     text: string | null,
 ): boolean {
-    const info = stmtResolve.run(rating, text ? text.slice(0, 10_000) : null, resolution, id);
+    const info = stmts().resolve.run(rating, text ? text.slice(0, 10_000) : null, resolution, id);
     return info.changes > 0;
 }
