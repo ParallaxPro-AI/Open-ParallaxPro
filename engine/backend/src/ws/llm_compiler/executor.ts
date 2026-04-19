@@ -71,6 +71,11 @@ export interface ExecutionResult {
     fileChanges: { path: string; type: string }[];
     /** Tool call results to feed back to the AI for a follow-up response */
     toolResults: string | null;
+    /** Set by OFFER_CREATE_GAME so the surrounding chat plumbing can
+     *  persist the description onto the assistant message row. Lets the
+     *  "Create from scratch" button re-render from history on refresh
+     *  instead of vanishing as soon as the tab reloads. */
+    offerCreateGameDescription?: string;
 }
 
 export async function execute(ast: ASTNode[], ctx: ExecutionContext): Promise<ExecutionResult> {
@@ -316,6 +321,11 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 break;
             }
             ctx.sendToFrontend('create_game_offer', { description });
+            // Stash on the result so finishChat persists the button
+            // description onto the assistant message row. Without this
+            // a refresh drops the button — the chat_message itself has
+            // no record of the offer, it was just a WS event fired once.
+            result.offerCreateGameDescription = description;
             break;
         }
 

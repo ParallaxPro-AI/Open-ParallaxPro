@@ -101,8 +101,9 @@ const stmtUpdateData = db.prepare("UPDATE projects SET project_data = ?, updated
 // subsecond-precision format as the rest of the codebase (see
 // routes/projects.ts) so chat-only bumps sort correctly against edits.
 const stmtTouchProject = db.prepare("UPDATE projects SET updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ?");
-const stmtInsertMessage = db.prepare("INSERT INTO chat_messages (project_id, chat_session_id, role, content, file_changes, project_data_snapshot, project_data_before) VALUES (?, ?, ?, ?, ?, ?, ?)");
-const stmtGetHistory = db.prepare("SELECT id, role, content, feedback, file_changes, created_at FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id ASC");
+const stmtInsertMessage = db.prepare("INSERT INTO chat_messages (project_id, chat_session_id, role, content, file_changes, project_data_snapshot, project_data_before, offer_create_game_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+const stmtSetLastChatSession = db.prepare('UPDATE projects SET last_chat_session_id = ? WHERE id = ?');
+const stmtGetHistory = db.prepare("SELECT id, role, content, feedback, file_changes, offer_create_game_description, created_at FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id ASC");
 const stmtSetFeedback = db.prepare("UPDATE chat_messages SET feedback = ? WHERE id = ? AND project_id = ?");
 const stmtGetMessage = db.prepare("SELECT * FROM chat_messages WHERE id = ? AND project_id = ?");
 const stmtDeleteAfter = db.prepare("DELETE FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id > ?");
@@ -189,7 +190,39 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         }
 
         const clientId = `${user.id}_${Date.now()}`;
-        const chatSessionId = `u${user.id}_p${projectId.slice(0, 8)}_${randomUUID()}`;
+        // Restore the chat session the user was last on, so refresh
+        // doesn't lose their context. Preference order:
+        //  1. projects.last_chat_session_id — the user's explicit
+        //     choice (set by switch_chat_session / new_chat_session /
+        //     first message). This is THE correct answer once any
+        //     session has ever been touched.
+        //  2. Most recent chat_messages row for this user on this
+        //     project — fallback for projects from before the
+        //     last_chat_session_id column existed.
+        //  3. Mint a fresh session id — brand-new project, no history.
+        const sessionPrefix = `u${user.id}_`;
+        let chatSessionId = (row as any).last_chat_session_id as string | null;
+        // Defensive: if the stored id is somehow for a different user
+        // (impossible today since projects are single-user, but future-
+        // proofing), ignore it and fall through.
+        if (chatSessionId && !chatSessionId.startsWith(sessionPrefix)) {
+            chatSessionId = null;
+        }
+        if (!chatSessionId) {
+            const mostRecent = db.prepare(
+                "SELECT chat_session_id FROM chat_messages WHERE project_id = ? AND chat_session_id LIKE ? ORDER BY id DESC LIMIT 1"
+            ).get(projectId, sessionPrefix + '%') as { chat_session_id?: string } | undefined;
+            chatSessionId = mostRecent?.chat_session_id || null;
+        }
+        if (!chatSessionId) {
+            chatSessionId = `u${user.id}_p${projectId.slice(0, 8)}_${randomUUID()}`;
+        }
+        // Keep the column in sync with whatever we just decided so the
+        // next refresh lands on the same session — covers the fallback
+        // + mint paths; the explicit switch/new handlers write it too.
+        if ((row as any).last_chat_session_id !== chatSessionId) {
+            try { stmtSetLastChatSession.run(chatSessionId, projectId); } catch {}
+        }
         const pd = parseProjectData(row.project_data);
         if (isLegacyProjectData(pd)) {
             ws.close(4005, 'Legacy project — please recreate it after the file-tree migration.');
@@ -295,7 +328,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         const history = stmtGetHistory.all(projectId, chatSessionId) as any[];
         if (history.length > 0) {
             send(client, 'chat_history', {
-                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [], offerCreateGameDescription: m.offer_create_game_description || null })),
             });
         }
 
@@ -379,6 +412,8 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
         case 'new_chat_session': {
             const newSessionId = `u${client.userId}_p${client.projectId.slice(0, 8)}_${randomUUID()}`;
             client.chatSessionId = newSessionId;
+            // Remember this as the session to restore on next refresh.
+            try { stmtSetLastChatSession.run(newSessionId, client.projectId); } catch {}
             send(client, 'chat_cleared', {});
             send(client, 'connected', { chatSessionId: newSessionId });
             break;
@@ -403,9 +438,13 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             const sessionId = data?.sessionId;
             if (!sessionId) break;
             client.chatSessionId = sessionId;
+            // Remember the explicit switch so a later refresh restores
+            // this session instead of whichever one has the most
+            // recent message.
+            try { stmtSetLastChatSession.run(sessionId, client.projectId); } catch {}
             const history = stmtGetHistory.all(client.projectId, sessionId) as any[];
             send(client, 'chat_history', {
-                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [], offerCreateGameDescription: m.offer_create_game_description || null })),
             });
             send(client, 'connected', { chatSessionId: sessionId });
             break;
@@ -455,7 +494,7 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             if (!isLegacyProjectData(restored)) rebuildAndPush(client, restored, { sceneKey: client.activeSceneKey });
             const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
             send(client, 'chat_history', {
-                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [], offerCreateGameDescription: m.offer_create_game_description || null })),
             });
             break;
         }
@@ -480,7 +519,7 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             if (!isLegacyProjectData(restored)) rebuildAndPush(client, restored, { sceneKey: client.activeSceneKey });
             const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
             send(client, 'chat_history', {
-                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [], offerCreateGameDescription: m.offer_create_game_description || null })),
             });
             break;
         }
@@ -503,7 +542,7 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             // Send updated chat history so frontend removes deleted messages
             const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
             send(client, 'chat_history', {
-                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [] })),
+                messages: history.map(m => ({ id: m.id, role: m.role, content: m.content, feedback: m.feedback || null, fileChanges: m.file_changes ? JSON.parse(m.file_changes) : [], offerCreateGameDescription: m.offer_create_game_description || null })),
             });
             // Reload scene to restored state
             const restoredPd = readProjectData(client.projectId);
@@ -712,7 +751,7 @@ function handleFeedbackSubmit(client: EditorClient, data: any): void {
     const snapshot = getProjectSnapshot(client.projectId);
     stmtInsertMessage.run(
         client.projectId, client.chatSessionId, 'user', content,
-        null, null, snapshot,
+        null, null, snapshot, null,
     );
     stmtTouchProject.run(client.projectId);
     send(client, 'chat_response_start', {});
@@ -823,7 +862,7 @@ function handleFeedbackRevert(client: EditorClient, data: any): void {
     const snapshot = getProjectSnapshot(client.projectId);
     stmtInsertMessage.run(
         client.projectId, client.chatSessionId, 'user', content,
-        null, null, snapshot,
+        null, null, snapshot, null,
     );
     stmtTouchProject.run(client.projectId);
     send(client, 'chat_response_start', {});
@@ -869,7 +908,7 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
     stmtInsertMessage.run(
         client.projectId, client.chatSessionId, 'user',
         SYNTHETIC_USER_MSG,
-        null, null, beforeSnapshot,
+        null, null, beforeSnapshot, null,
     );
 
     try {
@@ -893,7 +932,7 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
         const snapshotAfter = getProjectSnapshot(client.projectId);
         stmtInsertMessage.run(
             client.projectId, client.chatSessionId, 'assistant',
-            assistantMsg, null, snapshotAfter, null,
+            assistantMsg, null, snapshotAfter, null, null,
         );
         // Mirror the synthetic turn into the JSONL log so the admin
         // Chat Logs tab sees parity with DB-backed history. Append
@@ -1037,7 +1076,7 @@ function handleChatMessage(client: EditorClient, data: any): void {
 
     // Save user message with current project state as "before" snapshot
     const beforeSnapshot = getProjectSnapshot(client.projectId);
-    stmtInsertMessage.run(client.projectId, client.chatSessionId, 'user', content, null, null, beforeSnapshot);
+    stmtInsertMessage.run(client.projectId, client.chatSessionId, 'user', content, null, null, beforeSnapshot, null);
     // Bump updated_at on every chat turn — even ones that end up making
     // no file changes — so the project moves to the top of the list as
     // soon as the user starts a conversation.
@@ -1322,7 +1361,12 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
     };
 }
 
-function finishChat(client: EditorClient, displayContent: string, fileChanges: any[] = []): void {
+function finishChat(
+    client: EditorClient,
+    displayContent: string,
+    fileChanges: any[] = [],
+    opts?: { offerCreateGameDescription?: string },
+): void {
     // Single terminal cleanup point for the in-flight abort handle. Nulling
     // anywhere else (mid-chain, between LLM stream end and tool execute,
     // etc.) breaks Stop mid-flow because the Stop handler short-circuits on
@@ -1337,14 +1381,16 @@ function finishChat(client: EditorClient, displayContent: string, fileChanges: a
     // Save assistant message with post-edit snapshot
     const snapshot = getProjectSnapshot(client.projectId);
     const fileChangesJson = fileChanges.length > 0 ? JSON.stringify(fileChanges) : null;
+    const offerDesc = opts?.offerCreateGameDescription || null;
     const dbResult = stmtInsertMessage.run(
         client.projectId, client.chatSessionId, 'assistant', displayContent,
-        fileChangesJson, snapshot, null
+        fileChangesJson, snapshot, null, offerDesc
     );
     send(client, 'chat_response_end', {
         fullContent: displayContent,
         messageId: Number(dbResult.lastInsertRowid),
         fileChanges,
+        offerCreateGameDescription: offerDesc,
     });
     send(client, 'dialogue_done', {});
 
@@ -1481,7 +1527,9 @@ async function runLLMWithRetry(
             }
 
             const displayContent = execResult.userMessages.join('\n') || '*Done.*';
-            finishChat(client, displayContent, allFileChanges);
+            finishChat(client, displayContent, allFileChanges, {
+                offerCreateGameDescription: execResult.offerCreateGameDescription,
+            });
         },
         onError: (error) => {
             client.abortController = null;

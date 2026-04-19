@@ -39,6 +39,12 @@ export function createSchema(db: Database.Database): void {
     addColumn('chat_messages', 'file_changes', 'TEXT');
     addColumn('chat_messages', 'project_data_snapshot', 'TEXT');
     addColumn('chat_messages', 'project_data_before', 'TEXT');
+    // The LLM's OFFER_CREATE_GAME tool surfaces a "Create from scratch"
+    // button on the chat panel alongside its { } text. Previously the
+    // button lived only as an in-memory flag on the WS client, which
+    // vanished on refresh. Persisting the description per-message lets
+    // the frontend re-render the button from chat history on reconnect.
+    addColumn('chat_messages', 'offer_create_game_description', 'TEXT');
 
     // Cloud sync: projects that also live on parallaxpro.ai are flagged
     // here so the editor can auto-push on save + surface sync status
@@ -72,6 +78,14 @@ export function createSchema(db: Database.Database): void {
     // session_capture.ts. Updated on every new run (points to the latest
     // capture). Admin-only — never exposed to user-facing routes.
     addColumn('projects', 'session_capture_path', 'TEXT');
+
+    // Last chat session the user was on in this project. Written by
+    // switch_chat_session / new_chat_session / first-message of a
+    // freshly-minted session. The WS connect handler reads this to
+    // restore the correct chat on refresh — "most recent by message
+    // id" isn't enough because the user might have switched to an
+    // older session without sending a new message.
+    addColumn('projects', 'last_chat_session_id', 'TEXT');
 
     // Agent-feedback pipeline — every completed CREATE_GAME (strict,
     // can't be dismissed) and every committed FIX_GAME (soft, dismissable)

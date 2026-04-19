@@ -7,6 +7,11 @@ interface ChatMessage {
     content: string;
     fileChanges?: FileChange[];
     feedback?: string | null;
+    // Present when the LLM's OFFER_CREATE_GAME tool ran on this message.
+    // Persisted on the chat_message row so the "Create from scratch"
+    // button re-renders from chat history on refresh, instead of
+    // relying on an ephemeral WS event that only fires live.
+    offerCreateGameDescription?: string | null;
 }
 
 interface FileChange {
@@ -1064,6 +1069,15 @@ export class AiChatPanel {
         }
 
         this.messagesContainer.appendChild(messageEl);
+
+        // If this assistant message had the LLM's OFFER_CREATE_GAME
+        // tool attached, re-render the "Create from scratch" button.
+        // Matches the live path (pendingCreateFromScratchDescription)
+        // but works for history loaded from the DB on refresh, so the
+        // button doesn't vanish across sessions.
+        if (msg.role === 'assistant' && msg.offerCreateGameDescription) {
+            this.appendCreateFromScratchButton(msg.offerCreateGameDescription);
+        }
 
         // Keep typing indicator at the bottom
         if (this.typingIndicator && this.messagesContainer.contains(this.typingIndicator)) {
