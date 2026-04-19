@@ -637,26 +637,29 @@ async function boot(): Promise<void> {
 
     let relockOverlay: HTMLElement | null = null;
     {
-        const showOverlay = () => {
-            if (relockOverlay) return;
-            relockOverlay = document.createElement('div');
-            relockOverlay.style.cssText = 'position:absolute;inset:0;z-index:150000;cursor:pointer;';
-            relockOverlay.addEventListener('mousedown', () => {
-                try { canvas.requestPointerLock(); } catch (_) {}
+        const isMobile = ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (!isMobile) {
+            const showOverlay = () => {
+                if (relockOverlay) return;
+                relockOverlay = document.createElement('div');
+                relockOverlay.style.cssText = 'position:absolute;inset:0;z-index:150000;cursor:pointer;';
+                relockOverlay.addEventListener('mousedown', () => {
+                    try { canvas.requestPointerLock(); } catch (_) {}
+                });
+                gameContainer.appendChild(relockOverlay);
+            };
+            const hideOverlay = () => {
+                if (relockOverlay) { relockOverlay.remove(); relockOverlay = null; }
+            };
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement) {
+                    hideOverlay();
+                } else {
+                    showOverlay();
+                }
             });
-            gameContainer.appendChild(relockOverlay);
-        };
-        const hideOverlay = () => {
-            if (relockOverlay) { relockOverlay.remove(); relockOverlay = null; }
-        };
-        document.addEventListener('pointerlockchange', () => {
-            if (document.pointerLockElement) {
-                hideOverlay();
-            } else {
-                showOverlay();
-            }
-        });
-        showOverlay();
+            showOverlay();
+        }
     }
 
     const resize = () => {

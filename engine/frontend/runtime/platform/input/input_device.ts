@@ -129,6 +129,7 @@ export class InputDevice {
         };
 
         this.boundTouchStart = (e: TouchEvent) => {
+            e.preventDefault();
             const touches = Array.from(e.changedTouches);
             for (const cb of this.touchStartCallbacks) {
                 cb(touches);
@@ -175,7 +176,7 @@ export class InputDevice {
         canvasElement.addEventListener('wheel', this.boundWheel, { passive: false });
         canvasElement.addEventListener('contextmenu', this.boundContextMenu);
 
-        canvasElement.addEventListener('touchstart', this.boundTouchStart);
+        canvasElement.addEventListener('touchstart', this.boundTouchStart, { passive: false });
         canvasElement.addEventListener('touchmove', this.boundTouchMove, { passive: false });
         canvasElement.addEventListener('touchend', this.boundTouchEnd);
 
