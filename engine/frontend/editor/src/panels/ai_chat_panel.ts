@@ -739,7 +739,7 @@ export class AiChatPanel {
         if (feature === 'CREATE_GAME') {
             frame.textContent = 'To build a game from scratch instead of using this template, I need you to sign up first.';
         } else if (feature === 'FIX_GAME') {
-            frame.textContent = 'To run the coding agent on your game, I need you to sign up first.';
+            frame.textContent = 'To run a fix on your game, I need you to sign up first.';
         } else {
             frame.textContent = 'I need you to sign up first.';
         }

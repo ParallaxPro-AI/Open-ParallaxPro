@@ -231,9 +231,9 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             if (ctx.isAnonymous) {
                 ctx.sendToFrontend('signup_required', {
                     feature: 'FIX_GAME',
-                    message: 'Sign up free to run the coding agent on your game. Your project will follow you over.',
+                    message: 'Sign up free to unlock more features. Your project will follow you over.',
                 });
-                result.toolResults = `[FIX_GAME] BLOCKED — anonymous sessions cannot run the coding agent. In your next response, tell the user to sign up to unlock FIX_GAME (their work will follow them onto their new account). Do NOT attempt the fix.`;
+                result.toolResults = `[FIX_GAME] BLOCKED — anonymous sessions cannot run FIX_GAME. In your next response, tell the user to sign up to unlock more features (their work will follow them onto their new account). Do NOT attempt the fix.`;
                 break;
             }
 
@@ -318,7 +318,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             if (ctx.isAnonymous) {
                 ctx.sendToFrontend('signup_required', {
                     feature: 'CREATE_GAME',
-                    message: 'Sign up free to build a game from scratch — it takes 20–30 minutes and spawns a real coding agent on our side. Your project will follow you over.',
+                    message: 'Sign up free to build a game from scratch — it takes 20–30 minutes and runs in the background. Your project will follow you over.',
                 });
                 result.toolResults = `[CREATE_GAME] BLOCKED — anonymous sessions cannot run the build agent. In your next response, tell the user to sign up to unlock CREATE_GAME (their prompt + any in-progress work will follow them onto their new account). Do NOT attempt the build.`;
                 break;

@@ -112,7 +112,7 @@ export class ProjectListView {
             const msg = document.createElement('span');
             msg.textContent =
                 "You're browsing anonymously — your projects live only in this browser. " +
-                "Sign up (free) to save them across devices and unlock the coding agent. ";
+                "Sign up (free) to save them across devices and unlock more features. ";
             anonBanner.appendChild(msg);
             const signupBtn = document.createElement('a');
             signupBtn.href = window.location.hostname === 'localhost'

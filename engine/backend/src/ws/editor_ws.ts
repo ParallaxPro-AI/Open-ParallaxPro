@@ -828,9 +828,9 @@ function handleChatMessage(client: EditorClient, data: any): void {
         if (client.isAnonymous) {
             send(client, 'signup_required', {
                 feature: 'FIX_GAME',
-                message: 'Sign up free to run the coding agent. Your project will follow you over.',
+                message: 'Sign up free to unlock more features. Your project will follow you over.',
             });
-            finishChat(client, '*Sign up to use the coding agent — your project will follow you over.*');
+            finishChat(client, '*Sign up to unlock more features — your project will follow you over.*');
             return;
         }
         if (!isAgentAvailable(agent)) {
