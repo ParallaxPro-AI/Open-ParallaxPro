@@ -216,13 +216,15 @@ function recoverExistingSession(kind: WarmKind): void {
     const hash = computeContentHash(kind);
     const claudeProjectDir = getClaudeProjectDir(state.warmSandboxDir);
     if (!claudeProjectDir || !fs.existsSync(claudeProjectDir)) {
-        console.log(`[SessionWarmer] No existing ${kind} session dir — will warm on first use`);
+        console.log(`[SessionWarmer] No existing ${kind} session dir — warming in background`);
+        warmIfNeeded(kind).catch(() => {});
         return;
     }
 
     const sessionId = findLatestSessionId(state.warmSandboxDir);
     if (!sessionId) {
-        console.log(`[SessionWarmer] No ${kind} session JSONL found — will warm on first use`);
+        console.log(`[SessionWarmer] No ${kind} session JSONL found — warming in background`);
+        warmIfNeeded(kind).catch(() => {});
         return;
     }
 
@@ -242,7 +244,8 @@ function recoverExistingSession(kind: WarmKind): void {
     } catch {}
 
     if (!metaHash) {
-        console.log(`[SessionWarmer] No ${kind} meta file — will warm on first use`);
+        console.log(`[SessionWarmer] No ${kind} meta file — warming in background`);
+        warmIfNeeded(kind).catch(() => {});
         return;
     }
 
