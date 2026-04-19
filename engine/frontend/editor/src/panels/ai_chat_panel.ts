@@ -1209,9 +1209,14 @@ export class AiChatPanel {
         const title = document.createElement('div');
         title.className = 'chat-feedback-title';
         title.textContent = kind === 'create_game'
-            ? 'Quick feedback on the build'
-            : 'Quick feedback on the last change';
+            ? 'Thanks for trying the builder!'
+            : 'Thanks for using the AI assistant!';
         form.appendChild(title);
+
+        const thankYou = document.createElement('div');
+        thankYou.className = 'chat-feedback-thankyou';
+        thankYou.textContent = 'Your feedback is incredibly valuable and directly helps us improve the product for everyone. We really appreciate you taking a moment to share your experience!';
+        form.appendChild(thankYou);
 
         const subtitle = document.createElement('div');
         subtitle.className = 'chat-feedback-subtitle';
