@@ -294,7 +294,7 @@ export class AiChatPanel {
             if (!this.typingIndicator.querySelector('.chat-typing-hint')) {
                 const hint = document.createElement('div');
                 hint.className = 'chat-typing-hint';
-                hint.textContent = 'This can take up to 10 minutes — feel free to leave the page open.';
+                hint.textContent = 'This can take up to 10 minutes — feel free to leave the page open, but do not close this page.';
                 this.typingIndicator.appendChild(hint);
             }
             this.scrollToBottom();
