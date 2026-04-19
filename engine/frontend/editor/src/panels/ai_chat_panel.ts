@@ -138,7 +138,7 @@ export class AiChatPanel {
 
         this.textarea = document.createElement('textarea');
         this.textarea.className = 'chat-textarea';
-        this.textarea.placeholder = 'Describe what you want to build...';
+        this.textarea.placeholder = 'Describe what you want to build or fix...';
         this.textarea.rows = 3;
         this.textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
