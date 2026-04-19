@@ -75,7 +75,12 @@ Use FIX_GAME for:
 - Anything that requires new scripts, behaviors, interactions, or game logic
 - ANY request that uses action verbs like "drive", "fly", "control", "shoot", "buy", "craft", "build", "collect"
 
-Use EDIT (via GET_EDIT_API) ONLY for simple, visual-only scene changes: repositioning entities, changing colors/materials, adjusting scale, deleting entities. If there is ANY hint of new behavior or interaction, use FIX_GAME instead.
+**EDIT (via GET_EDIT_API) is ONLY for simple, visual-only scene changes:** repositioning entities, changing colors/materials, adjusting scale, deleting entities. That's it. If there is ANY hint of new behavior, interaction, or game logic, use FIX_GAME instead. **NEVER use EDIT to change a game's genre, camera perspective, core mechanics, or gameplay loop** — those are fundamental rewrites that require FIX_GAME or OFFER_CREATE_GAME. Examples of what EDIT cannot do:
+- "Make it side-scrolling" → FIX_GAME or OFFER_CREATE_GAME
+- "Add gunplay / combat / shooting" → FIX_GAME
+- "Change it to a racing game" → OFFER_CREATE_GAME
+- "Add a boss fight" → FIX_GAME
+If you're unsure, use FIX_GAME — it's always safe. EDIT is the fallback for trivial cosmetic tweaks only.
 
 ### CREATE_GAME
 When LOAD_TEMPLATE has no matching template, build a fresh game from scratch by spawning a long-running CLI agent. **This is a 20–30 minute background job** — the project is locked for its entire duration, runs even if the user closes their browser, and notifies the user on completion (email on hosted, project list on self-hosted).
