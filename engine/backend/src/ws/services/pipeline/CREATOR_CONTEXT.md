@@ -550,6 +550,17 @@ and the game appears to run, but the broken piece never activates:
   clickable HUD zones) and its `on_enter` doesn't include `show_cursor`,
   the player sees UI but can't click anything. The game *appears* to
   run — validator won't catch this.
+- **`hud_update` keys colliding with FSM-owned keys.** The FSM driver
+  merges `phase` (current FSM state name) and every `set:` var from
+  `01_flow.json` into HUD state every frame. If your system emits
+  `hud_update` with one of these same keys, the FSM overwrites you on
+  the next tick. Scope your keys (`battlePhase`, `matchPhase`, …). See
+  "Reserved state keys — DO NOT reuse" under UI Panels.
+- **Inline `onclick="fn(...)"` referencing IIFE-scoped functions.**
+  `onclick` attributes look up the name on `window`; an IIFE hides it.
+  Click fires `ReferenceError` silently (no banner, no visible signal).
+  Either `window.fn = fn;` or use `addEventListener('click', …)`. See
+  "Inline `onclick` and IIFE scoping" under UI Panels.
 
 ## Multiplayer (peer-to-peer, opt-in)
 
@@ -763,6 +774,23 @@ When you pin a reusable HUD from `reference/ui/hud/`, your game system must emit
 
 If you're writing a **custom** HUD, you get to pick your own key names — just stay consistent between your emitter and your panel.
 
+### Reserved state keys — DO NOT reuse
+
+The FSM driver emits `state_changed` every frame with these keys merged
+into the HUD state. If your `hud_update` also sets them, the FSM will
+overwrite your value on the very next tick and the HUD will appear stuck
+or wrong. Pick a scoped name instead.
+
+| Key | Written by | What it holds |
+| --- | --- | --- |
+| `phase` | FSM driver | Current FSM state name (e.g. `"gameplay"`, `"main_menu"`). **Not** a gameplay phase. |
+| `<any var from `set:x=y` in the flow)` | FSM driver | FSM scratch variables. Anything you `set:` in `01_flow.json` shows up as an HUD state key. |
+
+Concrete example of the collision: a card game with FSM state `"gameplay"`
+cannot use `phase` for its internal `main` / `battle` / `ai_turn` turn
+phase — rename it to `battlePhase`, `matchPhase`, `turnPhase`, etc. Same
+for any other FSM-state-name collision: scope it.
+
 ### Button actions — validator rule
 
 Buttons emit commands via `window.parent.postMessage`, but the assembler's static validator only recognizes a button if a matching `emit('literal_action')` call appears somewhere in the panel's `<script>`. It does NOT scan `postMessage(...)` calls or dynamic `emit(variable)` calls.
@@ -812,6 +840,28 @@ function renderChoices(choices) {
 The `__validatorManifest` stub is never called at runtime but ensures every action name is present as `emit('literal')` for the assembler's static check. Without it, the validator reports **"no buttons found in <panel>.html"** even though the UI works fine in the browser.
 
 Every `ui_event:panel:action` transition in `01_flow.json` must correspond to an `emit('action')` literal call in that panel's HTML — 1:1. Actions declared in the manifest but never used by the FSM are harmless; FSM transitions with no matching literal are a hard failure.
+
+### Inline `onclick` and IIFE scoping
+
+Inline `onclick="fn(...)"` attributes on buttons/zones look up `fn` on
+the panel's **global scope** (`window`). If your script is wrapped in an
+IIFE `(function(){ ... })()` (common pattern to avoid polluting globals),
+every function defined inside — including `emit`, `send`, and custom
+handlers — is invisible to those onclick attributes. Clicking fires
+`ReferenceError: fn is not defined` with no visible UI feedback.
+
+Two options — pick one and stay consistent within a panel:
+
+1. **Expose the handlers you use in `onclick`**: add `window.send = send;`
+   right after defining the function inside the IIFE. Do this for every
+   name referenced by an `onclick=` attribute.
+2. **Use `addEventListener('click', ...)` instead of inline `onclick`**:
+   handlers are captured by closure so IIFE scope is fine. Preferred for
+   dynamically-rendered elements anyway (see the button-action rule above).
+
+Mixing the two in one panel is the trap: a creator who uses
+`window.onPlayerZone = ...` but leaves `send` inside the IIFE will see
+some buttons work and others silently throw.
 
 ### Spawn entity — validator rule
 
