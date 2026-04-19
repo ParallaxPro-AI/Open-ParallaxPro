@@ -1019,3 +1019,22 @@
     background: #ffb366;
     border-color: #ffb366;
 }
+
+.chat-support-row {
+    padding: 4px 12px 6px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.chat-discord-link {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.chat-discord-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}

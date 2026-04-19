@@ -198,6 +198,17 @@ export class AiChatPanel {
 
         this.el.appendChild(inputArea);
 
+        const supportRow = document.createElement('div');
+        supportRow.className = 'chat-support-row';
+        const discordLink = document.createElement('a');
+        discordLink.href = 'https://discord.gg/GEWEdSaXfd';
+        discordLink.target = '_blank';
+        discordLink.rel = 'noopener';
+        discordLink.className = 'chat-discord-link';
+        discordLink.textContent = 'Need help? Join our Discord';
+        supportRow.appendChild(discordLink);
+        this.el.appendChild(supportRow);
+
         // Typing sync (debounced)
         let typingSyncTimer = 0;
         this.textarea.addEventListener('input', () => {
