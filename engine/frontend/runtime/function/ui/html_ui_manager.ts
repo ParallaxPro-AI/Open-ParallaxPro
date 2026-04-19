@@ -287,7 +287,12 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
         const ix = x / zoom;
         const iy = y / zoom;
         for (const iframe of this.overlays.values()) {
-            if (iframe.style.pointerEvents === 'none') continue;
+            // Skip only truly hidden iframes. HUDs default to
+            // pointer-events:none (so real mouse click-throughs to the 3D
+            // scene) — but the virtual cursor is a separate input path and
+            // must still be able to hover/click their interactive children,
+            // which have pointer-events:auto set by panel CSS.
+            if (iframe.style.display === 'none') continue;
             try {
                 const doc = iframe.contentDocument;
                 if (!doc) continue;
@@ -302,7 +307,9 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
 
     private virtualClick(x: number, y: number): void {
         for (const iframe of this.overlays.values()) {
-            if (iframe.style.pointerEvents === 'none') continue;
+            // See getElementAtCursor for rationale — gate on visibility,
+            // not pointer-events, so HUDs can receive virtual-cursor clicks.
+            if (iframe.style.display === 'none') continue;
             try {
                 const doc = iframe.contentDocument;
                 if (!doc) continue;
