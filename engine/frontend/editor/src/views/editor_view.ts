@@ -127,11 +127,11 @@ export class EditorView {
             // Fired once by the backend on reconnect within 60s of boot —
             // a hotfix-deploy signal. Brief, auto-dismissing banner so the
             // user understands the disconnect was intentional.
-            this.connectionBanner.textContent = 'Engine updated';
+            this.connectionBanner.textContent = 'System updated';
             this.connectionBanner.className = 'connection-banner success';
             this.connectionBanner.style.display = '';
             window.setTimeout(() => {
-                if (this.connectionBanner.textContent === 'Engine updated') {
+                if (this.connectionBanner.textContent === 'System updated') {
                     this.connectionBanner.style.display = 'none';
                 }
             }, 3000);
