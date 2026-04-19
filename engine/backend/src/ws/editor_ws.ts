@@ -597,6 +597,17 @@ async function checkBudgetOrBlock(client: EditorClient): Promise<string | null> 
         if (!p.checkLLMBudget) continue;
         const budget = await p.checkLLMBudget(client);
         if (!budget.allowed) {
+            // Budget refusals flagged as signup-required (anon tier)
+            // also emit the same WS event CLI-refusals use, so the
+            // chat renders the inline signup bubble with the button.
+            // The returned error text still runs through finishChat as
+            // a normal assistant message — matches the CLI path.
+            if (budget.signupRequired) {
+                send(client, 'signup_required', {
+                    feature: 'BUDGET',
+                    message: budget.error || 'Sign up free to keep going.',
+                });
+            }
             return budget.error || 'Token usage limit reached. Upgrade your plan or wait until next month.';
         }
     }

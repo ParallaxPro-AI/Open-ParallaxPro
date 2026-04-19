@@ -47,8 +47,16 @@ export interface EnginePlugin {
     /** Hook: called after a CLI fixer run with the USD cost */
     onFixerCost?: (client: any, costUsd: number) => void;
 
-    /** Hook: called before an LLM call to check if the user has budget. Return false to block. */
-    checkLLMBudget?: (client: any) => Promise<{ allowed: boolean; remaining?: number; error?: string }>;
+    /** Hook: called before an LLM call to check if the user has budget. Return false to block.
+     *  When `signupRequired` is true, the caller also emits a `signup_required`
+     *  WS event so the editor renders the inline signup bubble (same UX as
+     *  CREATE_GAME / FIX_GAME refusals). Used by the anonymous-tier cap. */
+    checkLLMBudget?: (client: any) => Promise<{
+        allowed: boolean;
+        remaining?: number;
+        error?: string;
+        signupRequired?: boolean;
+    }>;
 
     /** Hook: called after server starts listening */
     onStartup?: () => void;
