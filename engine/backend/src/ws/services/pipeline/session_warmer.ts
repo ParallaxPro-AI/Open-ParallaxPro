@@ -207,7 +207,10 @@ export function initWarmer(): void {
     for (const kind of ['creator', 'fixer'] as WarmKind[]) {
         try {
             recoverExistingSession(kind);
-        } catch {}
+        } catch (e: any) {
+            console.warn(`[SessionWarmer] Recovery failed for ${kind}, warming in background:`, e?.message);
+            warmIfNeeded(kind).catch(() => {});
+        }
     }
 }
 
@@ -257,9 +260,14 @@ function recoverExistingSession(kind: WarmKind): void {
 
 function getClaudeProjectDir(sandboxDir: string): string | null {
     const home = process.env.HOME || '/tmp';
-    const resolved = fs.realpathSync(sandboxDir);
-    const encoded = resolved.replace(/[/\\]/g, '-');
-    return path.join(home, '.claude', 'projects', encoded);
+    try {
+        const resolved = fs.realpathSync(sandboxDir);
+        const encoded = resolved.replace(/[/\\]/g, '-');
+        return path.join(home, '.claude', 'projects', encoded);
+    } catch {
+        const encoded = sandboxDir.replace(/[/\\]/g, '-');
+        return path.join(home, '.claude', 'projects', encoded);
+    }
 }
 
 function computeContentHash(kind: WarmKind): string {
