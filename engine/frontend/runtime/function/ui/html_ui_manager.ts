@@ -30,7 +30,7 @@ export class HTMLUIManager {
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:transparent;pointer-events:none;z-index:15;display:none;';
 
-        const wrapped = `<!DOCTYPE html><html><head><style>
+        const wrapped = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:none;font-family:'Segoe UI',sans-serif;color:white;}
 button,input,select,a,[data-interactive]{cursor:pointer;}
