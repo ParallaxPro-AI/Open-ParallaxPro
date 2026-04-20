@@ -355,15 +355,6 @@ async function boot(): Promise<void> {
                     if (res.ok) gd = await res.json();
                 } catch { /* private game or network fail — existing fetch path below will error out */ }
                 if (gd) {
-                    const mpCfg = gd.multiplayerConfig || gd.projectConfig?.multiplayerConfig;
-                    const scripts = gd.scripts || {};
-                    const isMP = !!mpCfg?.enabled
-                        || Object.keys(scripts).some(k => k.includes('network_sync'));
-                    if (isMP) await showSignInToPlayBanner(owner, slug);
-                    // Seed bootstrap.game with the data we already fetched
-                    // so the existing gameData branch below uses it instead
-                    // of refetching. Popup handoff (if taken) already
-                    // populated _cachedBootstrap with authed data.
                     if (!_cachedBootstrap) {
                         _cachedBootstrap = { game: gd, user: null, mpTicket: null };
                     }
@@ -381,10 +372,7 @@ async function boot(): Promise<void> {
     } catch { token = null; }
     const isLoggedIn = !!token || !!bootstrap?.user;
 
-    if (isMultiplayerJoin && !isLoggedIn) {
-        navigateTopToSignup();
-        return;
-    }
+    // Multiplayer join works for guests too — they appear as "Guest".
 
     const splashPromise = waitForSplash();
 
@@ -474,17 +462,7 @@ async function boot(): Promise<void> {
     const mpConfig = gameData.multiplayerConfig || gameData.projectConfig?.multiplayerConfig;
     const isMultiplayerGame = !!mpConfig?.enabled
         || Object.keys(scripts).some(k => k.includes('network_sync'));
-    if (isMultiplayerGame && !isLoggedIn) {
-        splashScreen.style.display = 'none';
-        showError('This is a multiplayer game. Please sign up or log in to play.');
-        const homeLink = document.getElementById('error-home-link') as HTMLAnchorElement | null;
-        if (homeLink) {
-            homeLink.textContent = 'Sign up to play';
-            homeLink.href = getSignupUrl();
-            homeLink.target = '_top';
-        }
-        return;
-    }
+    // Multiplayer games no longer require auth — guests play as "Guest".
 
     document.title = `${gameData.name} - ParallaxPro`;
 
