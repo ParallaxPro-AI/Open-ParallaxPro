@@ -114,7 +114,23 @@ function getRecentChatHistory(projectId: string, chatSessionId: string): string 
         const rows = stmtRecentChat.all(projectId, chatSessionId) as Array<{ role: string; content: string }>;
         if (rows.length === 0) return '';
         rows.reverse();
-        return rows.map(r => `**${r.role === 'user' ? 'User' : 'Assistant'}:** ${(r.content || '').slice(0, 500)}`).join('\n\n');
+        const lines: string[] = [];
+        for (const r of rows) {
+            let text = (r.content || '').trim();
+            if (!text) continue;
+            // Strip internal system instructions
+            text = text.replace(/\[SYSTEM\].*$/s, '').trim();
+            // Strip tool tags (<<<LOAD_TEMPLATE>>>, <<<CREATE_GAME>>>, etc.)
+            text = text.replace(/<<<[^>]*>>>/g, '').trim();
+            // Strip { } thinking blocks from assistant messages
+            if (r.role === 'assistant') {
+                text = text.replace(/\{[^}]*\}/g, '').trim();
+            }
+            if (!text) continue;
+            const label = r.role === 'user' ? 'User' : 'Assistant';
+            lines.push(`**${label}:** ${text.slice(0, 500)}`);
+        }
+        return lines.join('\n\n');
     } catch { return ''; }
 }
 const stmtDeleteFrom = db.prepare("DELETE FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id >= ?");
