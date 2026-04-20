@@ -69,6 +69,7 @@ export class AiChatPanel {
     // after a completed CREATE_GAME / FIX_GAME, the chat UI is replaced
     // with this form until the user rates the run. See showFeedbackForm().
     private feedbackForm: HTMLElement | null = null;
+    private pendingFeedbackContent: string | null = null;
     private feedbackChatEls: HTMLElement[] = [];
     private sessionMenu: HTMLElement | null = null;
     private todoPanel: HTMLElement | null = null;
@@ -406,7 +407,16 @@ export class AiChatPanel {
 
         // Submit acknowledged — form goes away, chat restores, the AI
         // follow-up turn is coming in on the usual chat_response_* path.
-        ws.onWsMessage('feedback_submitted', () => { this.hideFeedbackForm(); });
+        ws.onWsMessage('feedback_submitted', () => {
+            if (this.pendingFeedbackContent) {
+                const msg: ChatMessage = { role: 'user', content: this.pendingFeedbackContent };
+                this.messages.push(msg);
+                this.renderMessageEl(msg);
+                this.scrollToBottom();
+                this.pendingFeedbackContent = null;
+            }
+            this.hideFeedbackForm();
+        });
 
         // Soft dismiss of a fix_game prompt — hide for this session only.
         // Backend leaves the pending row intact, so the form re-fires
@@ -964,9 +974,12 @@ export class AiChatPanel {
         const messageEl = document.createElement('div');
         messageEl.className = `chat-message ${msg.role}`;
 
+        let displayContent = msg.content;
+        displayContent = displayContent.replace(/\[SYSTEM\][\s\S]*$/, '').trim();
+
         const bubble = document.createElement('div');
         bubble.className = 'chat-message-bubble';
-        bubble.innerHTML = this.renderMarkdown(msg.content);
+        bubble.innerHTML = this.renderMarkdown(displayContent);
         messageEl.appendChild(bubble);
 
         // Prominent "template loaded, project was replaced" banner for
@@ -1362,10 +1375,15 @@ export class AiChatPanel {
             if (!rating) return;
             submitBtn.disabled = true;
             submitBtn.textContent = t('feedback.submitting');
+            const notesText = notes.value.trim();
+            const ratingText = rating === 'up' ? 'It worked' : 'It did not work';
+            const lines = [`**Feedback on ${kind === 'create_game' ? 'the build' : 'the last change'}** — ${ratingText}.`, '', `> Original request: ${prompt || '(not captured)'}`];
+            if (notesText) lines.push('', `Notes: ${notesText}`);
+            this.pendingFeedbackContent = lines.join('\n');
             this.ctx.backend.sendWsMessage('feedback_submit', {
                 feedbackId,
                 rating,
-                text: notes.value.trim(),
+                text: notesText,
             });
         });
         actions.appendChild(submitBtn);
