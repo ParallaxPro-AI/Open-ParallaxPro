@@ -71,18 +71,21 @@ export function checkTemplateJSON(projectDir: string): string[] {
     return errors;
 }
 
-function stripModuleSyntax(src: string): string {
+function stripForSyntaxCheck(src: string): string {
     return src
         .replace(/^\s*export\s+default\s+/gm, '')
         .replace(/^\s*export\s+/gm, '')
-        .replace(/^\s*import\s+.*$/gm, '');
+        .replace(/^\s*import\s+.*$/gm, '')
+        .replace(/\bconst\b/g, 'var')
+        .replace(/(?:var|let)\s+(\w+)\s*:\s*[^=\n]+=/g, 'var $1 =')
+        .replace(/\)\s*:\s*\w[^{]*/g, ') ');
 }
 
 export function checkScriptSyntax(projectDir: string): string[] {
     const errors: string[] = [];
     for (const dir of ['behaviors', 'systems', 'scripts']) {
         walkTsFiles(path.join(projectDir, dir), (full, rel) => {
-            const src = stripModuleSyntax(fs.readFileSync(full, 'utf-8'));
+            const src = stripForSyntaxCheck(fs.readFileSync(full, 'utf-8'));
             try {
                 // eslint-disable-next-line no-new-func
                 new Function('GameScript', 'Vec3', 'Quat', src + '\n;');
@@ -111,7 +114,7 @@ export function runHeadlessSmoke(projectDir: string): string[] {
                 // No class → already covered by checkScriptSyntax; skip smoke.
                 continue;
             }
-            const fn = new Function('GameScript', 'Vec3', 'Quat', stripModuleSyntax(source) + '\nreturn ' + m[1] + ';');
+            const fn = new Function('GameScript', 'Vec3', 'Quat', stripForSyntaxCheck(source) + '\nreturn ' + m[1] + ';');
             const Cls = fn(StubGameScript, StubVec3, StubQuat);
             const inst = new Cls();
             seedScriptFields(inst);
@@ -232,7 +235,7 @@ for f in $(find project/behaviors project/systems project/scripts -name '*.ts' 2
     node -e "
         const fs = require('fs');
         let src = fs.readFileSync('$f', 'utf-8');
-        src = src.replace(/^\\s*export\\s+default\\s+/gm, '').replace(/^\\s*export\\s+/gm, '').replace(/^\\s*import\\s+.*$/gm, '');
+        src = src.replace(/^\\s*export\\s+default\\s+/gm, '').replace(/^\\s*export\\s+/gm, '').replace(/^\\s*import\\s+.*$/gm, '').replace(/\\bconst\\b/g, 'var').replace(/(?:var|let)\\s+(\\w+)\\s*:\\s*[^=\\n]+=/g, 'var $1 =').replace(/\\)\\s*:\\s*\\w[^{]*/g, ') ');
         try { new Function('GameScript', 'Vec3', 'Quat', src + '\\n;'); }
         catch(e) { console.error('SYNTAX ERROR in $f: ' + e.message); process.exit(1); }
     " 2>&1
@@ -330,13 +333,13 @@ loadScripts('project/behaviors', 'behaviors/');
 loadScripts('project/systems', 'systems/');
 loadScripts('project/scripts', 'scripts/');
 
-function stripModuleSyntax(s) {
-    return s.replace(/^\\s*export\\s+default\\s+/gm, '').replace(/^\\s*export\\s+/gm, '').replace(/^\\s*import\\s+.*$/gm, '');
+function stripForSyntaxCheck(s) {
+    return s.replace(/^\\s*export\\s+default\\s+/gm, '').replace(/^\\s*export\\s+/gm, '').replace(/^\\s*import\\s+.*$/gm, '').replace(/\\bconst\\b/g, 'var').replace(/(?:var|let)\\s+(\\w+)\\s*:\\s*[^=\\n]+=/g, 'var $1 =').replace(/\\)\\s*:\\s*\\w[^{]*/g, ') ');
 }
 
 for (const [key, source] of Object.entries(scripts)) {
     try {
-        const clean = stripModuleSyntax(source);
+        const clean = stripForSyntaxCheck(source);
         const m = clean.match(/class\\s+(\\w+)/);
         if (!m) continue;
         const fn = new Function('GameScript', 'Vec3', 'Quat', clean + '\\nreturn ' + m[1] + ';');
