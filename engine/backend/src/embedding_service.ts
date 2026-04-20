@@ -1,6 +1,8 @@
 /**
- * Embedding service for semantic asset search.
- * Uses all-MiniLM-L6-v2 via @xenova/transformers (runs locally, no API key).
+ * Embedding service for semantic asset/library search.
+ * Uses paraphrase-multilingual-MiniLM-L12-v2 via @xenova/transformers
+ * (runs locally, no API key). Multilingual — handles Chinese, Thai,
+ * Korean, etc. alongside English.
  */
 
 import { pipeline, env } from '@xenova/transformers';
@@ -17,7 +19,7 @@ const EMBEDDINGS_CACHE_PATH = path.resolve(__dirname, '../.embeddings_cache.json
 
 env.cacheDir = MODEL_CACHE_DIR;
 
-const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
+const MODEL_NAME = 'Xenova/paraphrase-multilingual-MiniLM-L12-v2';
 const EMBEDDING_DIM = 384;
 
 let extractor: FeatureExtractionPipeline | null = null;
@@ -34,6 +36,7 @@ export async function initEmbedder(): Promise<void> {
 
 export function computeFingerprint(entries: { key: string; text: string }[]): string {
     const hash = crypto.createHash('sha256');
+    hash.update(MODEL_NAME + '\n');
     const sorted = [...entries].sort((a, b) => a.key.localeCompare(b.key));
     for (const { key, text } of sorted) hash.update(key + '\0' + text + '\n');
     return hash.digest('hex');

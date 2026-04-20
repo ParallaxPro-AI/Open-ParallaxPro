@@ -20,7 +20,6 @@ import { config } from '../../../config.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
 import { writeValidateScripts } from './sandbox_validate.js';
 import {
-    emptyTemplateFiles,
     writeFilesToDir,
     ENGINE_MACHINERY,
 } from './project_files.js';
@@ -314,7 +313,7 @@ async function buildWarmSandbox(kind: WarmKind): Promise<void> {
 
     if (kind === 'creator') {
         const projectDir = path.join(sandboxDir, 'project');
-        const seed = { ...emptyTemplateFiles() };
+        const seed: Record<string, string> = {};
         for (const rel of ENGINE_MACHINERY) {
             const sub = rel.replace(/^systems\//, '');
             const src = path.join(RGC_DIR, 'systems', 'v0.1', sub);

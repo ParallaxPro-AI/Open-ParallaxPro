@@ -342,15 +342,21 @@ async function createSandbox(
     // sandboxDir is freshly created by mkdtempSync in the caller — already
     // exists and is empty, so no nuke-and-recreate needed here.
 
-    // Project: starts as the empty 4-file scaffold + engine machinery so the
-    // agent has working baseline files to edit.
+    // Project: only engine machinery (pre-installed systems). The 4 template
+    // JSONs are NOT seeded — the agent writes them fresh from the patterns
+    // it learned in the warm session / reference templates. Skipping the
+    // empty scaffold saves 4 Read turns (Claude's Write tool requires
+    // reading existing files before overwriting).
     const projectDir = path.join(sandboxDir, 'project');
-    const seed: ProjectFiles = { ...emptyTemplateFiles() };
+    const seed: ProjectFiles = {};
     for (const rel of ENGINE_MACHINERY) {
         const sub = rel.replace(/^systems\//, '');
         const src = path.join(RGC_DIR, 'systems', 'v0.1', sub);
         if (fs.existsSync(src)) seed[rel] = fs.readFileSync(src, 'utf-8');
     }
+    fs.mkdirSync(path.join(projectDir, 'behaviors'), { recursive: true });
+    fs.mkdirSync(path.join(projectDir, 'ui'), { recursive: true });
+    fs.mkdirSync(path.join(projectDir, 'scripts'), { recursive: true });
     writeFilesToDir(seed, projectDir);
 
     // Reference: game_templates kept whole (40 templates × 4 small JSONs —
@@ -405,6 +411,7 @@ async function createSandbox(
     const assetsDir = path.join(sandboxDir, 'assets');
     fs.mkdirSync(assetsDir, { recursive: true });
     generateAssetCatalog(assetsDir);
+    await generateSuggestedAssets(assetsDir, description);
 
     writeValidateScripts(sandboxDir);
 }
@@ -447,6 +454,143 @@ function generateAssetCatalog(assetsDir: string): void {
     fs.writeFileSync(path.join(assetsDir, '3D_MODELS.md'), models.join('\n'));
     fs.writeFileSync(path.join(assetsDir, 'AUDIO.md'), audio.join('\n'));
     fs.writeFileSync(path.join(assetsDir, 'TEXTURES.md'), textures.join('\n'));
+}
+
+/**
+ * Semantic asset suggestion. Embeds asset pack directory names with the
+ * same MiniLM model used by library_index, caches vectors to disk, and
+ * returns the top-K most relevant packs for a game description. Each
+ * pack's files are extracted from the full asset catalogs.
+ */
+
+import {
+    initEmbedder,
+    embedText,
+    embedTexts,
+    cosineSimilarity,
+} from '../../../embedding_service.js';
+
+const ASSET_EMBEDDINGS_CACHE = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '.asset_embeddings_cache.json',
+);
+
+interface AssetPackEntry {
+    dirName: string;
+    humanName: string;
+}
+
+let _assetPackCache: { fingerprint: string; packs: AssetPackEntry[]; vectors: number[][] } | null = null;
+
+function scanAssetPacks(): AssetPackEntry[] {
+    const packs: AssetPackEntry[] = [];
+    if (!fs.existsSync(ASSETS_DIR)) return packs;
+
+    for (const vendor of fs.readdirSync(ASSETS_DIR, { withFileTypes: true })) {
+        if (!vendor.isDirectory() || vendor.name === 'thumbnails') continue;
+        const vendorPath = path.join(ASSETS_DIR, vendor.name);
+        for (const category of fs.readdirSync(vendorPath, { withFileTypes: true })) {
+            if (!category.isDirectory()) continue;
+            const catPath = path.join(vendorPath, category.name);
+            if (category.name === 'textures') {
+                packs.push({
+                    dirName: `${vendor.name}/${category.name}`,
+                    humanName: `${vendor.name} ${category.name}`.replace(/_/g, ' '),
+                });
+                continue;
+            }
+            for (const pack of fs.readdirSync(catPath, { withFileTypes: true })) {
+                if (!pack.isDirectory()) continue;
+                packs.push({
+                    dirName: `${vendor.name}/${category.name}/${pack.name}`,
+                    humanName: pack.name.replace(/_/g, ' '),
+                });
+            }
+        }
+    }
+    return packs;
+}
+
+async function getAssetPackVectors(): Promise<{ packs: AssetPackEntry[]; vectors: number[][] }> {
+    const packs = scanAssetPacks();
+    const { createHash } = await import('crypto');
+    const fp = createHash('md5').update(packs.map(p => p.dirName).join('\n')).digest('hex');
+
+    if (_assetPackCache && _assetPackCache.fingerprint === fp) {
+        return { packs: _assetPackCache.packs, vectors: _assetPackCache.vectors };
+    }
+
+    try {
+        if (fs.existsSync(ASSET_EMBEDDINGS_CACHE)) {
+            const cached = JSON.parse(fs.readFileSync(ASSET_EMBEDDINGS_CACHE, 'utf-8'));
+            if (cached.fingerprint === fp && cached.vectors?.length === packs.length) {
+                _assetPackCache = { fingerprint: fp, packs, vectors: cached.vectors };
+                return { packs, vectors: cached.vectors };
+            }
+        }
+    } catch {}
+
+    await initEmbedder();
+    const vectors = await embedTexts(packs.map(p => p.humanName));
+    _assetPackCache = { fingerprint: fp, packs, vectors };
+    try {
+        fs.writeFileSync(ASSET_EMBEDDINGS_CACHE, JSON.stringify({ fingerprint: fp, vectors }));
+    } catch {}
+    return { packs, vectors };
+}
+
+async function generateSuggestedAssets(assetsDir: string, description: string): Promise<void> {
+    const TOP_K = 10;
+    let queryVec: number[];
+    let packData: { packs: AssetPackEntry[]; vectors: number[][] };
+
+    try {
+        await initEmbedder();
+        queryVec = await embedText(description);
+        packData = await getAssetPackVectors();
+    } catch (e: any) {
+        console.warn('[CLICreator] Asset suggestion embedding failed (non-fatal):', e?.message);
+        return;
+    }
+
+    const scored = packData.packs.map((p, i) => ({
+        ...p,
+        score: cosineSimilarity(queryVec, packData.vectors[i]),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    if (scored[0]?.score < 0.3) return;
+    const topPacks = scored.filter(s => s.score >= 0.15).slice(0, TOP_K);
+
+    const lines: string[] = [
+        '# Suggested Assets',
+        '',
+        'Asset packs matching your game description, ranked by relevance.',
+        'Use these paths directly in entity definitions and scripts.',
+        '',
+    ];
+
+    for (const catalog of ['3D_MODELS.md', 'AUDIO.md', 'TEXTURES.md']) {
+        const catalogPath = path.join(assetsDir, catalog);
+        if (!fs.existsSync(catalogPath)) continue;
+        const content = fs.readFileSync(catalogPath, 'utf-8');
+        const matches: string[] = [];
+        for (const line of content.split('\n')) {
+            if (!line.startsWith('- ')) continue;
+            const assetPath = line.slice(2).trim();
+            if (topPacks.some(p => assetPath.toLowerCase().includes(p.dirName.split('/').pop()!.toLowerCase()))) {
+                matches.push(line);
+            }
+        }
+        if (matches.length > 0) {
+            lines.push(`## ${catalog.replace('.md', '')}`, '');
+            for (const m of matches) lines.push(m);
+            lines.push('');
+        }
+    }
+
+    if (lines.length > 6) {
+        fs.writeFileSync(path.join(assetsDir, 'SUGGESTED_ASSETS.md'), lines.join('\n'));
+    }
 }
 
 // Validation scripts (validate.sh, validate_headless.js, validate_assembler.js)
