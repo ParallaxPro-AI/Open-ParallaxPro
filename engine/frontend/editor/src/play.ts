@@ -324,41 +324,19 @@ async function boot(): Promise<void> {
     //          unauth GET (works for public games) to decide whether we
     //          even need to prompt. Multiplayer → show "Sign in to play"
     //          banner → popup. Single-player public → just play as guest.
-    // Mobile redirect auth flow: play-auth redirected back with ticket in URL
-    {
-        const qp = new URLSearchParams(window.location.search);
-        const ppTicket = qp.get('pp_ticket');
-        const ppUserStr = qp.get('pp_user');
-        if (ppTicket && ppUserStr) {
-            try {
-                const ppUser = JSON.parse(ppUserStr);
-                _cachedBootstrap = { game: null, user: ppUser, mpTicket: ppTicket };
-                qp.delete('pp_ticket');
-                qp.delete('pp_user');
-                qp.delete('pp_game');
-                const clean = qp.toString() ? `${window.location.pathname}?${qp}` : window.location.pathname;
-                window.history.replaceState({}, '', clean);
-            } catch {}
-            bootstrap = _cachedBootstrap;
-        }
-    }
-
+    // TODO: re-enable auth bridge once cross-origin flow is stable on mobile.
+    // For now, skip all auth on games.parallaxpro.ai — everyone plays as guest.
     if (!bootstrap && isTopLevelOnGamesOrigin()) {
         const owner = queryOwner || pathParts[0] || '';
         const slug  = querySlug  || pathParts[1] || '';
         if (owner && slug) {
-            await trySilentAuthBridge(owner, slug);
-            if (!_cachedBootstrap) {
-                let gd: any = null;
-                try {
-                    const res = await fetch(`/api/engine/games/${encodeURIComponent(owner)}/${encodeURIComponent(slug)}`);
-                    if (res.ok) gd = await res.json();
-                } catch { /* private game or network fail — existing fetch path below will error out */ }
-                if (gd) {
-                    if (!_cachedBootstrap) {
-                        _cachedBootstrap = { game: gd, user: null, mpTicket: null };
-                    }
-                }
+            let gd: any = null;
+            try {
+                const res = await fetch(`/api/engine/games/${encodeURIComponent(owner)}/${encodeURIComponent(slug)}`);
+                if (res.ok) gd = await res.json();
+            } catch {}
+            if (gd) {
+                _cachedBootstrap = { game: gd, user: null, mpTicket: null };
             }
             bootstrap = _cachedBootstrap;
         }
