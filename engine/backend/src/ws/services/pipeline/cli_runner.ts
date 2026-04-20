@@ -218,6 +218,7 @@ export function setRemoteSpawnFn(fn: RemoteSpawnFn | null): void { _remoteSpawnF
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     const cli = resolveCLI(opts.cliOverride);
 
+    let isRemoteRetry = false;
     if (_remoteSpawnFn) {
         try {
             const remote = await _remoteSpawnFn(opts, cli);
@@ -227,6 +228,7 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
             }
         } catch (e: any) {
             console.warn(`[CLIRunner] Remote spawn failed, falling back to local:`, e?.message);
+            isRemoteRetry = true;
         }
     }
     const startedAt = Date.now();
@@ -294,6 +296,7 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
                 text: result.text,
                 aborted: !!opts.abortSignal?.aborted,
                 sessionType: opts.continueForked ? (opts.sessionType || 'warm_fork') : 'cold',
+                remoteRetry: isRemoteRetry,
             });
         } catch (e: any) {
             console.warn(`[CLIRunner] Session capture finalize threw (non-fatal): ${e?.message}`);
