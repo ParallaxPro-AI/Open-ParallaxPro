@@ -405,6 +405,7 @@ export class AiChatPanel {
             this.showFeedbackForm(id, kind, prompt);
         });
 
+
         // Submit acknowledged — form goes away, chat restores, the AI
         // follow-up turn is coming in on the usual chat_response_* path.
         ws.onWsMessage('feedback_submitted', () => {
@@ -1202,29 +1203,18 @@ export class AiChatPanel {
     private showFeedbackForm(feedbackId: number, kind: 'create_game' | 'fix_game', prompt: string): void {
         // Already showing feedback — don't stack; reuse the existing form
         // if it matches this id, otherwise swap it out.
-        if (this.feedbackForm && this.feedbackForm.dataset.feedbackId === String(feedbackId)) return;
+        const existingForm = this.feedbackForm?.querySelector('.chat-feedback-form') as HTMLElement | null;
+        if (existingForm && existingForm.dataset.feedbackId === String(feedbackId)) return;
         this.hideFeedbackForm();
 
-        // FIX_GAME: keep the messages container visible so the user
-        // can still read the AI's reply while filling out feedback
-        // (e.g. "press W to move, Space to jump"). Only hide the
-        // composer, form sits where the composer was.
-        // CREATE_GAME: the build is a blank slate — there's no AI
-        // reply to re-read — so take the full panel for the form.
-        // Either way, hide the composer so the user can't chat
-        // while the gate is up.
+        // Overlay the feedback form on top of the chat panel with a
+        // translucent backdrop. The chat stays visible underneath so
+        // users know the AI Assistant is there — they just need to
+        // finish feedback first.
         this.feedbackChatEls = [];
-        const hideSelectors = kind === 'create_game'
-            ? ['.chat-input-area', '.chat-messages']
-            : ['.chat-input-area'];
-        for (const child of Array.from(this.el.children) as HTMLElement[]) {
-            if (child.style.display === 'none') continue;
-            const matches = hideSelectors.some(sel => child.matches(sel));
-            if (matches) {
-                this.feedbackChatEls.push(child);
-                child.style.display = 'none';
-            }
-        }
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'chat-feedback-backdrop';
 
         const form = document.createElement('div');
         form.className = 'chat-feedback-form';
@@ -1390,8 +1380,10 @@ export class AiChatPanel {
 
         form.appendChild(actions);
 
-        this.feedbackForm = form;
-        this.el.appendChild(form);
+        backdrop.appendChild(form);
+        this.feedbackForm = backdrop;
+        this.el.style.position = 'relative';
+        this.el.appendChild(backdrop);
     }
 
     private hideFeedbackForm(): void {

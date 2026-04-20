@@ -784,33 +784,45 @@
 }
 
 /* ── Agent feedback form ───────────────────────────────────────
-   Sits where the chat composer usually is (bottom of the panel) so
-   the messages scroll stays visible — the user often needs to read
-   the AI's instructions (keys to press, what to click) to actually
-   rate the change. Fixed-ish height with internal scroll for long
-   notes; input-area is hidden while this is up so the user can't
-   message the AI until they submit or dismiss. Thumbs-up/down
-   required. FIX_GAME has a Dismiss; CREATE_GAME doesn't.
+   Hovers over the chat panel as a translucent overlay so users can
+   see there's an AI Assistant chat behind it. The chat is blurred
+   and dimmed but visible — communicates "finish this feedback first,
+   then the chat is yours." Input area is pointer-events: none while
+   the overlay is up so the user can't type underneath it.
 */
+.chat-feedback-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: none;
+}
+
+.chat-feedback-backdrop::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 14, 20, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    pointer-events: auto;
+}
+
 .chat-feedback-form {
-    flex: 0 0 auto;
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 12px 14px;
-    max-height: 50%;
+    padding: 14px 14px;
+    max-height: 70%;
     overflow-y: auto;
-    background: var(--bg-secondary);
+    background: var(--bg-secondary, #1a1f2e);
     border-top: 1px solid var(--border-color, #2a2f3a);
-}
-
-/* CREATE_GAME takes the full panel — the chat messages are hidden
-   (a fresh build has nothing to re-read), and the strict gate means
-   submit-or-nothing, so we give the form all the room it wants. */
-.chat-feedback-form[data-kind="create_game"] {
-    flex: 1 1 auto;
-    max-height: 100%;
-    border-top: none;
+    border-radius: 8px 8px 0 0;
+    pointer-events: auto;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
 }
 
 .chat-feedback-title {
