@@ -128,7 +128,9 @@ export async function startGenerationJob(args: StartJobArgs): Promise<string> {
     // monopolises the agent pool. Self-hosted users manage their own
     // machine, so parallel projects are fine. This cap is intentionally
     // cross-project — supersession above only covers same-project races.
-    if (config.isHosted) {
+    // Skip for username=parallaxpro (admin regen account) so admins can
+    // queue multiple regens without waiting.
+    if (config.isHosted && args.username !== 'parallaxpro') {
         for (const j of jobs.values()) {
             if (j.userId === userId) {
                 throw new Error('You already have a game being built. Wait for it to finish (or stop it) before starting another.');
