@@ -26,6 +26,8 @@ export interface ActiveCLIJob {
     startedAt: number; // epoch ms
     /** How the session was initialized (fix only). Set after CLI spawns. */
     sessionType?: SessionType;
+    /** Which worker is running this job. 'local' or a remote worker name. */
+    workerName?: string;
     /** Kills the CLI run. Set by runFixer / runCreator at registration.
      *  Called by preemptProjectJob when a new CLI run wants to work on
      *  the same project — the newer request wins, the older one dies. */
@@ -45,6 +47,11 @@ export function unregisterActiveJob(jobId: string): void {
 export function updateJobSessionType(jobId: string, sessionType: SessionType): void {
     const job = jobs.get(jobId);
     if (job) job.sessionType = sessionType;
+}
+
+export function updateJobWorkerName(jobId: string, workerName: string): void {
+    const job = jobs.get(jobId);
+    if (job) job.workerName = workerName;
 }
 
 export function listActiveJobs(): ActiveCLIJob[] {
