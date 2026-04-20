@@ -385,10 +385,11 @@ const CREATOR_WARM_PROMPT = `You are being pre-warmed for a game creation task. 
 
 Do NOT create, edit, or delete any files. Just read everything and respond with: WARM_COMPLETE`;
 
-const FIXER_WARM_PROMPT = `You are being pre-warmed for a bug-fixing task. Your job right now is to READ and INTERNALIZE reference materials so they are in your context when the real task arrives.
+const FIXER_WARM_PROMPT = `You are being pre-warmed for a game editing task. Your job right now is to READ and INTERNALIZE reference materials so they are in your context when the real task arrives.
 
 1. Read reference/event_definitions.ts for the baseline event schema.
 2. Browse reference/behaviors/, reference/systems/, and reference/ui/ to familiarize yourself with available library components.
+3. Do NOT read the asset catalog files (assets/3D_MODELS.md etc.) — use "bash search_assets.sh \\"query\\"" to find assets when you need them during the real task.
 
 Do NOT create, edit, or delete any files. Just read everything and respond with: WARM_COMPLETE`;
 
