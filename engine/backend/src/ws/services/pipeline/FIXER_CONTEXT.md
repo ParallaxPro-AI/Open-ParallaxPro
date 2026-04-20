@@ -126,6 +126,17 @@ this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserSmall_000.ogg", 0.
 this.audio.playMusic("/assets/kenney/audio/rpg_audio/music.ogg")
 ```
 
+## Asset Search
+
+If you need to find or replace a 3D model, audio file, or texture, use the search tool:
+
+```bash
+bash search_assets.sh "knight character model"
+bash search_assets.sh "explosion sound" --category Audio
+```
+
+**Do NOT invent asset paths.** Every `mesh.asset` and `playSound`/`playMusic` path must come from a search result. `validate.sh` will reject non-existent asset paths.
+
 ## Event System
 
 Events have names and typed payloads. See `reference/event_definitions.ts` for the full list.
