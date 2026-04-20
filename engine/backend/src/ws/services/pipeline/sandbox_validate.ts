@@ -91,23 +91,30 @@ if [ ! -f .search_config.json ]; then
 fi
 
 URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.url||'')")
+FALLBACK_URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.fallbackUrl||'')")
 TOKEN=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.token||'')")
 
-if [ -z "\$URL" ]; then
+if [ -z "\$URL" ] && [ -z "\$FALLBACK_URL" ]; then
     echo "[]"
     exit 0
 fi
 
 # URL-encode the query
 ENCODED_QUERY=\$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$QUERY")
-ENDPOINT="\$URL/api/engine/internal/search-assets?q=\$ENCODED_QUERY&limit=\$LIMIT"
+PARAMS="q=\$ENCODED_QUERY&limit=\$LIMIT"
 if [ -n "\$CATEGORY" ]; then
     ENCODED_CAT=\$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$CATEGORY")
-    ENDPOINT="\$ENDPOINT&category=\$ENCODED_CAT"
+    PARAMS="\$PARAMS&category=\$ENCODED_CAT"
 fi
 
-# Fetch results — soft-fail on network error
-RESP=\$(curl -sf -H "X-Internal-Token: \$TOKEN" "\$ENDPOINT" 2>/dev/null)
+# Try primary URL (Docker-internal), fall back to public URL (for remote workers)
+RESP=""
+if [ -n "\$URL" ]; then
+    RESP=\$(curl -sf --max-time 3 -H "X-Internal-Token: \$TOKEN" "\$URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
+fi
+if [ -z "\$RESP" ] && [ -n "\$FALLBACK_URL" ]; then
+    RESP=\$(curl -sf --max-time 5 -H "X-Internal-Token: \$TOKEN" "\$FALLBACK_URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
+fi
 if [ -z "\$RESP" ]; then
     echo "WARN: could not reach asset search endpoint — falling back to catalog files." >&2
     echo "[]"

@@ -136,9 +136,12 @@ export async function runFixer(
             path.join(sandboxDir, '.validate_config.json'),
             JSON.stringify({ url: validateBackendUrl, token: validateToken }),
         );
+        const searchPublicUrl = config.isHosted
+            ? config.assetsCdn
+            : `http://localhost:${config.port}`;
         fs.writeFileSync(
             path.join(sandboxDir, '.search_config.json'),
-            JSON.stringify({ url: validateBackendUrl, token: process.env.INTERNAL_API_TOKEN || '' }),
+            JSON.stringify({ url: validateBackendUrl, fallbackUrl: searchPublicUrl, token: process.env.INTERNAL_API_TOKEN || '' }),
         );
 
         const projectSummary = buildProjectSummary(sandboxDir, projectFiles, activeSceneKey);
