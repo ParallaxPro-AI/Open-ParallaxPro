@@ -14,6 +14,20 @@ export class HTMLUIManager {
 
     onUICommand: ((data: any) => void) | null = null;
 
+    private applyScale(f: HTMLIFrameElement): void {
+        const s = this.currentZoom;
+        if (s < 1) {
+            f.style.transform = `scale(${s})`;
+            f.style.transformOrigin = 'top left';
+            f.style.width = `${100 / s}%`;
+            f.style.height = `${100 / s}%`;
+        } else {
+            f.style.transform = '';
+            f.style.width = '100%';
+            f.style.height = '100%';
+        }
+    }
+
     setContainer(el: HTMLElement): void { this.container = el; }
 
     setVisible(visible: boolean): void {
@@ -45,19 +59,18 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
         iframe.srcdoc = wrapped;
         container.appendChild(iframe);
         this.overlays.set(path, iframe);
+        this.applyScale(iframe);
 
         // Scale UI based on viewport size (designed for 1920px width).
-        // On mobile use a smaller reference (960px) so game UI isn't
-        // crushed to 20% on a 390px phone — 960 gives ~40% which keeps
-        // text readable and buttons tappable.
+        // Uses transform:scale + enlarged dimensions so the iframe fills
+        // the container while its content is scaled down. CSS zoom would
+        // shrink the iframe's layout box, leaving dead space.
         if (!this.resizeObserver) {
-            const isMobileDevice = 'ontouchstart' in window && window.innerWidth < 1024;
-            const refWidth = isMobileDevice ? 960 : 1920;
             const updateZoom = () => {
-                const w = container.clientWidth || refWidth;
-                this.currentZoom = Math.min(w / refWidth, 1);
+                const w = container.clientWidth || 1920;
+                this.currentZoom = Math.min(w / 1920, 1);
                 for (const f of this.overlays.values()) {
-                    (f.style as any).zoom = String(this.currentZoom);
+                    this.applyScale(f);
                 }
             };
             updateZoom();
