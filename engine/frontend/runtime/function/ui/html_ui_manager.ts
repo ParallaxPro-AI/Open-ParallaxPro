@@ -222,7 +222,8 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
             if (found) this.container = found;
         }
         const container = this.container;
-        const wantCursor = !!(state._cursor && state._cursor.visible && container);
+        const isMobileDevice = 'ontouchstart' in window && window.innerWidth < 1024;
+        const wantCursor = !isMobileDevice && !!(state._cursor && state._cursor.visible && container);
 
         if (wantCursor) {
             this.cursorRelX = state._cursor.x;
@@ -262,12 +263,12 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
             }
         }
 
-        if (container) {
+        if (container && !isMobileDevice) {
             container.style.cursor = wantCursor ? 'default' : 'none';
         }
 
-        // Handle virtual cursor clicks
-        if (state._cursorClick && this.container) {
+        // Handle virtual cursor clicks (skip on mobile — real taps work directly)
+        if (!isMobileDevice && state._cursorClick && this.container) {
             this.virtualClick(state._cursorClick.x, state._cursorClick.y);
             delete state._cursorClick;
         }
