@@ -1,4 +1,5 @@
 import { Component } from '../component.js';
+import { AudioListenerComponent } from './audio_listener_component.js';
 
 /**
  * AudioSourceComponent plays audio clips, optionally spatialized in 3D.
@@ -100,8 +101,8 @@ export class AudioSourceComponent extends Component {
         this.maxDistance = data.maxDistance ?? 50.0;
         this.rolloffFactor = data.rolloffFactor ?? 1.0;
 
-        if (typeof AudioContext !== 'undefined') {
-            this.audioContext = new AudioContext();
+        this.audioContext = AudioListenerComponent.getAudioContext();
+        if (this.audioContext) {
             this.gainNode = this.audioContext.createGain();
             this.gainNode.gain.value = this.volume;
 
@@ -141,10 +142,9 @@ export class AudioSourceComponent extends Component {
 
     onDestroy(): void {
         this.stopSourceNode();
-        if (this.audioContext) {
-            this.audioContext.close().catch(() => {});
-            this.audioContext = null;
-        }
+        if (this.gainNode) { try { this.gainNode.disconnect(); } catch {} }
+        if (this.pannerNode) { try { this.pannerNode.disconnect(); } catch {} }
+        this.audioContext = null;
         this.gainNode = null;
         this.pannerNode = null;
         this.audioBuffer = null;
