@@ -109,11 +109,13 @@ export function initMobileControls(gameContainer: HTMLElement): void {
     };
 
     const jumpBtn = makeBtn('Jump', 'Space', 68);
-    const shiftBtn = makeBtn('Run', 'ShiftLeft', 56);
-    const eBtn = makeBtn('E', 'KeyE', 50);
+    const shiftBtn = makeBtn('Run', 'ShiftLeft', 52);
+    const eBtn = makeBtn('E', 'KeyE', 48);
+    const ctrlBtn = makeBtn('Ctrl', 'ControlLeft', 48);
 
     const topRow = document.createElement('div');
-    topRow.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
+    topRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+    topRow.appendChild(ctrlBtn);
     topRow.appendChild(eBtn);
     topRow.appendChild(shiftBtn);
     btnContainer.appendChild(topRow);

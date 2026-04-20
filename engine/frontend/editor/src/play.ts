@@ -230,10 +230,16 @@ function showSignInToPlayBanner(owner: string, slug: string): Promise<boolean> {
         const cleanup = () => { try { banner.remove(); } catch {} };
         document.getElementById('pp-signin-btn')!.addEventListener('click', () => {
             const popupUrl = `${MAIN_ORIGIN}/play-auth?owner=${encodeURIComponent(owner)}&slug=${encodeURIComponent(slug)}&origin=${encodeURIComponent(window.location.origin)}`;
+            // On mobile, popups are unreliable — redirect the whole page.
+            // play-auth will redirect back after login.
+            const isMobile = ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                window.location.href = popupUrl + '&redirect=1';
+                return;
+            }
             const popup = window.open(popupUrl, 'pp-play-auth', 'width=520,height=680');
             if (!popup) {
                 cleanup();
-                // Popup blocked — last resort, fall through to guest path.
                 resolve(false);
                 return;
             }
@@ -318,6 +324,25 @@ async function boot(): Promise<void> {
     //          unauth GET (works for public games) to decide whether we
     //          even need to prompt. Multiplayer → show "Sign in to play"
     //          banner → popup. Single-player public → just play as guest.
+    // Mobile redirect auth flow: play-auth redirected back with ticket in URL
+    {
+        const qp = new URLSearchParams(window.location.search);
+        const ppTicket = qp.get('pp_ticket');
+        const ppUserStr = qp.get('pp_user');
+        if (ppTicket && ppUserStr) {
+            try {
+                const ppUser = JSON.parse(ppUserStr);
+                _cachedBootstrap = { game: null, user: ppUser, mpTicket: ppTicket };
+                qp.delete('pp_ticket');
+                qp.delete('pp_user');
+                qp.delete('pp_game');
+                const clean = qp.toString() ? `${window.location.pathname}?${qp}` : window.location.pathname;
+                window.history.replaceState({}, '', clean);
+            } catch {}
+            bootstrap = _cachedBootstrap;
+        }
+    }
+
     if (!bootstrap && isTopLevelOnGamesOrigin()) {
         const owner = queryOwner || pathParts[0] || '';
         const slug  = querySlug  || pathParts[1] || '';

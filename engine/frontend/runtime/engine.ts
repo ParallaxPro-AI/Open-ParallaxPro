@@ -59,14 +59,14 @@ export class ParallaxEngine {
             canvasElement.removeEventListener('click', resumeAudio);
             canvasElement.removeEventListener('keydown', resumeAudio);
             canvasElement.removeEventListener('touchstart', resumeAudio);
-            document.removeEventListener('click', resumeAudio);
-            document.removeEventListener('touchstart', resumeAudio);
+            document.removeEventListener('click', resumeAudio, true);
+            document.removeEventListener('touchstart', resumeAudio, true);
         };
         canvasElement.addEventListener('click', resumeAudio);
         canvasElement.addEventListener('keydown', resumeAudio);
         canvasElement.addEventListener('touchstart', resumeAudio);
-        document.addEventListener('click', resumeAudio);
-        document.addEventListener('touchstart', resumeAudio);
+        document.addEventListener('click', resumeAudio, true);
+        document.addEventListener('touchstart', resumeAudio, true);
 
         this.run();
     }
