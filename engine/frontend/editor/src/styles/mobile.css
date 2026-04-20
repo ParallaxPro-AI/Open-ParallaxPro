@@ -1,3 +1,9 @@
+/* ── Prevent browser zoom (pinch/double-tap) ──────────────────── */
+
+body.mobile {
+    touch-action: manipulation;
+}
+
 /* ── Mobile Editor Layout ─────────────────────────────────────── */
 
 body.mobile .mobile-editor-body {
