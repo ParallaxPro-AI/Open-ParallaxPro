@@ -30,7 +30,10 @@ interface EmbeddingsCache {
     embeddings: Record<string, number[]>;
 }
 
+export function isEmbedderReady(): boolean { return extractor !== null; }
+
 export async function initEmbedder(): Promise<void> {
+    if (extractor) return;
     extractor = await pipeline('feature-extraction', MODEL_NAME, { quantized: true }) as FeatureExtractionPipeline;
 }
 
