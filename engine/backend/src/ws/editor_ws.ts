@@ -1424,6 +1424,7 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
         activeSceneKey: client.activeSceneKey,
         editingAgent: client.editingAgent,
         isAnonymous: client.isAnonymous,
+        chatHistory: getRecentChatHistory(client.projectId, client.chatSessionId),
     };
 }
 

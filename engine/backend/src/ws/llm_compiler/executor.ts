@@ -40,6 +40,7 @@ export interface ExecutionContext {
     onFixerCost?: (costUsd: number) => void;
     abortSignal?: AbortSignal;
     projectId: string;
+    chatHistory?: string;
     /** Owner of the project; needed by CREATE_GAME to enforce the hosted
      *  per-user job cap and to attribute email notifications on
      *  completion. */
@@ -267,6 +268,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     sendStatus,
                     ctx.abortSignal,
                     ctx.editingAgent,
+                    ctx.chatHistory,
                 );
 
                 if (fixResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(fixResult.costUsd);
@@ -360,6 +362,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     authToken: ctx.authToken,
                     description,
                     cliOverride: ctx.editingAgent,
+                    chatHistory: ctx.chatHistory,
                 });
                 // Tell the editor frontend to bounce to the project list —
                 // the user will watch progress on the card, not in the
