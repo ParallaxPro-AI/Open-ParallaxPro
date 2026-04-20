@@ -97,7 +97,7 @@ export function getCLISlotStats(): Record<string, { active: number; queued: numb
 
 export function releaseCLISlot(cliOverride?: string): void {
     const cli = resolveCLI(cliOverride);
-    activeCountByCLI[cli]--;
+    if (activeCountByCLI[cli] > 0) activeCountByCLI[cli]--;
     const next = waitQueueByCLI[cli].shift();
     if (next) next.resolve();
 }
@@ -221,7 +221,10 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     if (_remoteSpawnFn) {
         try {
             const remote = await _remoteSpawnFn(opts, cli);
-            if (remote) return remote;
+            if (remote) {
+                releaseCLISlot(opts.cliOverride);
+                return remote;
+            }
         } catch (e: any) {
             console.warn(`[CLIRunner] Remote spawn failed, falling back to local:`, e?.message);
         }
