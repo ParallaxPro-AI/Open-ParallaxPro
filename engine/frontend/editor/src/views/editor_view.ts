@@ -146,21 +146,9 @@ export class EditorView {
         });
 
         this.ctx.backend.onWsMessage('system_updated', () => {
-            // Fired by the backend on any WS connect within 60s of boot.
-            // Reload the page so the browser fetches the new Vite bundle.
-            // Guard with sessionStorage so the post-reload reconnect
-            // (still within the 60s window) doesn't trigger another
-            // reload — without this it's an infinite reload loop.
-            const key = 'parallaxpro_last_system_reload';
-            const last = Number(sessionStorage.getItem(key) || 0);
-            if (Date.now() - last < 120_000) return;
-            sessionStorage.setItem(key, String(Date.now()));
             this.connectionBanner.textContent = t('editor.systemUpdated');
             this.connectionBanner.className = 'connection-banner success';
             this.connectionBanner.style.display = '';
-            window.setTimeout(() => {
-                window.location.reload();
-            }, 1500);
         });
 
         this.ctx.backend.onWsMessage('fix_rolled_back', (data: any) => {
