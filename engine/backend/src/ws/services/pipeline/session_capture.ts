@@ -67,6 +67,7 @@ export interface CaptureContext {
     /** User-supplied prompt/description. Stored in metadata.json, never sent to a user-visible route. */
     prompt?: string;
     dockerSandbox?: boolean;
+    hostname?: string;
 }
 
 export interface CaptureHandle {
@@ -119,7 +120,7 @@ export function beginCapture(ctx: CaptureContext): CaptureHandle {
             sandboxDir: ctx.sandboxDir,
             prompt: ctx.prompt || null,
             dockerSandbox: !!ctx.dockerSandbox,
-            hostname: os.hostname(),
+            hostname: ctx.hostname || os.hostname(),
             pid: process.pid,
             startedAt: new Date(startedAt).toISOString(),
             startedAtEpochMs: startedAt,
