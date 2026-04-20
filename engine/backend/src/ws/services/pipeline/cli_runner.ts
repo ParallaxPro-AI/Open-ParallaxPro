@@ -210,8 +210,22 @@ export function resolveCLI(cliOverride?: string): CLIName {
     return first.id as CLIName;
 }
 
+export type RemoteSpawnFn = (opts: SpawnOptions, cli: CLIName) => Promise<CLIRunResult | null>;
+let _remoteSpawnFn: RemoteSpawnFn | null = null;
+
+export function setRemoteSpawnFn(fn: RemoteSpawnFn | null): void { _remoteSpawnFn = fn; }
+
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     const cli = resolveCLI(opts.cliOverride);
+
+    if (_remoteSpawnFn) {
+        try {
+            const remote = await _remoteSpawnFn(opts, cli);
+            if (remote) return remote;
+        } catch (e: any) {
+            console.warn(`[CLIRunner] Remote spawn failed, falling back to local:`, e?.message);
+        }
+    }
     const startedAt = Date.now();
 
     // Initialize session capture once per call. Wrapped so a bad init never
