@@ -149,6 +149,7 @@ export class EditorView {
             this.connectionBanner.textContent = t('editor.systemUpdated');
             this.connectionBanner.className = 'connection-banner success';
             this.connectionBanner.style.display = '';
+            setTimeout(() => { this.connectionBanner.style.display = 'none'; }, 10_000);
         });
 
         this.ctx.backend.onWsMessage('fix_rolled_back', (data: any) => {

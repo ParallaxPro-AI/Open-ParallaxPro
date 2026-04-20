@@ -92,7 +92,7 @@
     "cloudPromoting": "Syncing…"
   },
   "editor": {
-    "systemUpdated": "System updated — reloading...",
+    "systemUpdated": "System updated — try refreshing",
     "connectionLost": "Connection lost — editing disabled until reconnection",
     "reconnecting": "Connection lost. Reconnecting...",
     "reconnected": "Reconnected",

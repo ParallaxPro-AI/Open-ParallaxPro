@@ -92,7 +92,7 @@
     "cloudPromoting": "同步中…"
   },
   "editor": {
-    "systemUpdated": "系统已更新 — 正在重新加载...",
+    "systemUpdated": "系统已更新 — 请刷新页面",
     "connectionLost": "连接断开 — 重新连接前编辑已禁用",
     "reconnecting": "连接断开。重新连接中...",
     "reconnected": "已重新连接",
