@@ -58,6 +58,9 @@ export interface EnginePlugin {
         signupRequired?: boolean;
     }>;
 
+    /** Hook: max concurrent CREATE_GAME jobs for a user. Return undefined to use default (1). */
+    getMaxConcurrentCreates?: (userId: number) => number | undefined;
+
     /** Hook: called after server starts listening */
     onStartup?: () => void;
 

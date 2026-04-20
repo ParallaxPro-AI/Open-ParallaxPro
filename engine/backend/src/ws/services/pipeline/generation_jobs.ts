@@ -133,10 +133,19 @@ export async function startGenerationJob(args: StartJobArgs): Promise<string> {
     // Skip for username=parallaxpro (admin regen account) so admins can
     // queue multiple regens without waiting.
     if (config.isHosted && args.username !== 'parallaxpro') {
+        let maxConcurrent = 1;
+        for (const p of _plugins) {
+            const limit = p.getMaxConcurrentCreates?.(userId);
+            if (typeof limit === 'number') { maxConcurrent = limit; break; }
+        }
+        let activeCount = 0;
         for (const j of jobs.values()) {
-            if (j.userId === userId) {
-                throw new Error('You already have a game being built. Wait for it to finish (or stop it) before starting another.');
-            }
+            if (j.userId === userId) activeCount++;
+        }
+        if (activeCount >= maxConcurrent) {
+            throw new Error(maxConcurrent <= 1
+                ? 'You already have a game being built. Wait for it to finish (or stop it) before starting another.'
+                : `You already have ${activeCount} games being built (max ${maxConcurrent}). Wait for one to finish or stop it.`);
         }
     }
 
