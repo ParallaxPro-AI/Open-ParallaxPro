@@ -654,7 +654,12 @@ if (eventData) {
     function checkDefAssets(def, defName) {
         if (def && def.mesh && def.mesh.asset) {
             var asset = def.mesh.asset;
-            if (!modelPaths.has(asset)) {
+            if (audioPaths.has(asset) || texturePaths.has(asset)) {
+                assetErrors.push(
+                    '02_entities.json "' + defName + '": mesh asset "' + asset + '" is not a 3D model. ' +
+                    'mesh.asset must be a .glb file from assets/3D_MODELS.md, not an audio or texture file.'
+                );
+            } else if (!modelPaths.has(asset)) {
                 assetErrors.push(
                     '02_entities.json "' + defName + '": mesh asset "' + asset + '" not found in asset catalog. ' +
                     'Check assets/3D_MODELS.md for available models.'
@@ -663,7 +668,12 @@ if (eventData) {
         }
         if (def && def.mesh_override && def.mesh_override.textureBundle) {
             var tex = def.mesh_override.textureBundle;
-            if (!texturePaths.has(tex)) {
+            if (modelPaths.has(tex) || audioPaths.has(tex)) {
+                assetErrors.push(
+                    '02_entities.json "' + defName + '": textureBundle "' + tex + '" is not a texture. ' +
+                    'textureBundle must be a .png/.jpg file from assets/TEXTURES.md, not a model or audio file.'
+                );
+            } else if (!texturePaths.has(tex)) {
                 assetErrors.push(
                     '02_entities.json "' + defName + '": textureBundle "' + tex + '" not found in asset catalog. ' +
                     'Check assets/TEXTURES.md for available textures.'
@@ -688,7 +698,13 @@ if (eventData) {
         var source = scriptEntries[sei][1];
         for (var m of source.matchAll(/\.(?:playSound|playMusic|preload)\s*\(\s*["']([^"']+)["']/g)) {
             var audioPath = m[1];
-            if (audioPath.startsWith('/assets/') && !audioPaths.has(audioPath)) {
+            if (!audioPath.startsWith('/assets/')) continue;
+            if (modelPaths.has(audioPath) || texturePaths.has(audioPath)) {
+                assetErrors.push(
+                    scriptKey + ': playSound/playMusic("' + audioPath + '") is not an audio file. ' +
+                    'Audio calls must use .ogg/.mp3/.wav files from assets/AUDIO.md, not a model or texture.'
+                );
+            } else if (!audioPaths.has(audioPath)) {
                 assetErrors.push(
                     scriptKey + ': audio asset "' + audioPath + '" not found in asset catalog. ' +
                     'Check assets/AUDIO.md for available audio files.'
