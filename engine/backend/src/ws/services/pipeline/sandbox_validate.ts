@@ -22,7 +22,8 @@
  *                              active_behaviors / active_systems typos,
  *                              bad FSM transitions, spawnEntity refs,
  *                              UI button refs, hud_update key collisions,
- *                              and inline-onclick IIFE scoping issues.
+ *                              inline-onclick IIFE scoping issues, and
+ *                              invalid asset paths (mesh/audio/texture).
  *                              Never soft-fails — always runs.
  */
 
@@ -252,11 +253,11 @@ if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
 echo "=== Assembler Check (strict) ==="
 # Runs the same validation as assembleGame() against this project's
-# files. Catches everything the local checks miss: unknown event names,
-# missing behavior/system/UI refs, active_behaviors / active_systems
-# name typos, bad FSM transitions, spawnEntity refs, UI button refs,
-# hud_update key collisions. Runs entirely offline — no backend
-# connection needed.
+# files, plus asset path validation. Catches everything the local
+# checks miss: unknown event names, missing behavior/system/UI refs,
+# active_behaviors / active_systems name typos, bad FSM transitions,
+# spawnEntity refs, UI button refs, hud_update key collisions, and
+# invalid mesh/audio/texture asset paths. Runs entirely offline.
 node validate_assembler.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
@@ -269,8 +270,8 @@ fi
 `;
 
 // VALIDATE_ASSEMBLER_JS is loaded from validate_assembler_script.js at
-// module init time (see top of file). It runs all 7 assembleGame()
-// validation categories offline — no HTTP calls, no soft-fails.
+// module init time (see top of file). It runs all 8 validation
+// categories offline — no HTTP calls, no soft-fails.
 
 // Unified headless smoke. Stubs every major GameScript surface (entity,
 // scene, input, ui, audio, time) so a script's onStart doesn't null-deref

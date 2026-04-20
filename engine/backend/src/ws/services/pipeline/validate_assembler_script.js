@@ -5,7 +5,7 @@
 // directory. Replaces the HTTP-based approach that soft-failed when
 // the backend was unreachable (e.g. Docker on remote workers).
 //
-// The 7 validation categories, checked in order (first failure exits):
+// The 8 validation categories, checked in order (first failure exits):
 //   1. Event validation — unknown game events, wrong bus, missing payload fields
 //   2. Reference validation — missing behavior/system files, missing UI panels
 //   3. FSM structural — missing start fields, unknown active_behaviors/systems
@@ -13,6 +13,7 @@
 //   5. UI button — ui_event transitions referencing missing panel buttons
 //   6. hud_update key collision — system keys shadowed by FSM reserved keys
 //   7. Inline onclick IIFE — onclick attrs calling IIFE-scoped functions
+//   8. Asset path validation — mesh assets, audio, textures vs asset catalogs
 
 var fs = require('fs');
 var path = require('path');
@@ -608,6 +609,96 @@ if (eventData) {
     }
     if (onclickErrors.length > 0) {
         console.error('Inline-onclick IIFE validation failed: ' + onclickErrors.length + ' error(s). ' + onclickErrors[0]);
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
+// 8. Asset path validation — mesh assets, audio, textures
+// ═════════════════════════════════════════════════════════════════════
+// Parse the asset catalogs (assets/3D_MODELS.md, assets/AUDIO.md,
+// assets/TEXTURES.md) that the sandbox seeder generates from the real
+// asset directory. Every path in an entity def's mesh.asset or a
+// script's playSound/playMusic must appear in the catalog, otherwise
+// the runtime will silently fail (invisible meshes, no audio).
+(function() {
+    function parseCatalog(filename) {
+        var catalogPath = path.join('assets', filename);
+        if (!fs.existsSync(catalogPath)) return new Set();
+        var lines = fs.readFileSync(catalogPath, 'utf-8').split('\n');
+        var paths = new Set();
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line.startsWith('- /assets/')) {
+                paths.add(line.substring(2));
+            }
+        }
+        return paths;
+    }
+
+    var modelPaths = parseCatalog('3D_MODELS.md');
+    var audioPaths = parseCatalog('AUDIO.md');
+    var texturePaths = parseCatalog('TEXTURES.md');
+    var allAssets = new Set([...modelPaths, ...audioPaths, ...texturePaths]);
+
+    // Skip if no catalogs found (offline/self-hosted dev without assets)
+    if (allAssets.size === 0) {
+        console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
+        process.exit(0);
+    }
+
+    var assetErrors = [];
+
+    // Check mesh.asset in entity definitions (recurse into children)
+    function checkDefAssets(def, defName) {
+        if (def && def.mesh && def.mesh.asset) {
+            var asset = def.mesh.asset;
+            if (!modelPaths.has(asset)) {
+                assetErrors.push(
+                    '02_entities.json "' + defName + '": mesh asset "' + asset + '" not found in asset catalog. ' +
+                    'Check assets/3D_MODELS.md for available models.'
+                );
+            }
+        }
+        if (def && def.mesh_override && def.mesh_override.textureBundle) {
+            var tex = def.mesh_override.textureBundle;
+            if (!texturePaths.has(tex)) {
+                assetErrors.push(
+                    '02_entities.json "' + defName + '": textureBundle "' + tex + '" not found in asset catalog. ' +
+                    'Check assets/TEXTURES.md for available textures.'
+                );
+            }
+        }
+        if (def && def.children) {
+            for (var ci = 0; ci < def.children.length; ci++) {
+                checkDefAssets(def.children[ci], defName + '/' + (def.children[ci].name || 'child'));
+            }
+        }
+    }
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        checkDefAssets(defs[defKeys[di]], defKeys[di]);
+    }
+
+    // Check audio references in scripts: playSound("/assets/...") and playMusic("/assets/...")
+    var scriptEntries = Object.entries(allScripts);
+    for (var sei = 0; sei < scriptEntries.length; sei++) {
+        var scriptKey = scriptEntries[sei][0];
+        var source = scriptEntries[sei][1];
+        for (var m of source.matchAll(/\.(?:playSound|playMusic|preload)\s*\(\s*["']([^"']+)["']/g)) {
+            var audioPath = m[1];
+            if (audioPath.startsWith('/assets/') && !audioPaths.has(audioPath)) {
+                assetErrors.push(
+                    scriptKey + ': audio asset "' + audioPath + '" not found in asset catalog. ' +
+                    'Check assets/AUDIO.md for available audio files.'
+                );
+            }
+        }
+    }
+
+    if (assetErrors.length > 0) {
+        console.error('Asset validation failed: ' + assetErrors.length + ' missing asset(s). ' + assetErrors[0]);
         process.exit(1);
     }
 })();
