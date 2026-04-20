@@ -59,6 +59,7 @@ export async function runFixer(
     sendStatus?: (msg: string) => void,
     abortSignal?: AbortSignal,
     cliOverride?: string,
+    chatHistory?: string,
 ): Promise<FixerResult> {
     // Per-project preemption: at most one CLI run per project. If someone
     // else is already working on this project (fix or create), kill it
@@ -137,10 +138,11 @@ export async function runFixer(
         );
 
         const projectSummary = buildProjectSummary(sandboxDir, projectFiles, activeSceneKey);
-        fs.writeFileSync(
-            path.join(sandboxDir, 'TASK.md'),
-            `# Bug Report\n\n${description}\n\n# Current Project State\n\n${projectSummary}`,
-        );
+        let taskContent = `# Bug Report\n\n${description}\n\n# Current Project State\n\n${projectSummary}`;
+        if (chatHistory) {
+            taskContent += `\n\n# Chat History\n\nThis is the recent conversation between the user and the AI assistant before this fix was requested. Use it to understand context — what the user already tried, what they're expecting, etc.\n\n${chatHistory}`;
+        }
+        fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), taskContent);
 
         sendStatus?.('Editing Agent is analyzing and coding...');
         const cliResult = await spawnCLI(sandboxDir, sendStatus, localSignal, cliOverride, { jobId, projectId });

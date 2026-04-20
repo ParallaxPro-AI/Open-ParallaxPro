@@ -66,6 +66,7 @@ export async function runCreator(
     cliOverride?: string,
     abortSignal?: AbortSignal,
     jobId?: string,
+    chatHistory?: string,
 ): Promise<CreatorResult> {
     // Local AbortController so the cli_active_jobs entry can kill this
     // run from outside — when a newer FIX_GAME or CREATE_GAME on the
@@ -171,10 +172,11 @@ export async function runCreator(
             validEventsList = `\n\n# Baseline Game Events\n\nThese events already exist in project/systems/event_definitions.ts — prefer them when a reasonable match is available:\n\n${names.map(n => `- ${n}`).join('\n')}\n\nIf your game's mechanic genuinely needs a new event (e.g. a game-specific phase like \`tornado_spawned\`), you MAY append it to project/systems/event_definitions.ts using the same format as the existing entries. Do NOT rename or remove any existing event.`;
         } catch {}
 
-        fs.writeFileSync(
-            path.join(sandboxDir, 'TASK.md'),
-            `# Game to Create\n\n${description}\n\n# Template ID\n\n${templateId}\n\nFill in the project files in project/ — the 4 template JSONs (01_flow.json / 02_entities.json / 03_worlds.json / 04_systems.json), pinned behaviors in project/behaviors/, systems in project/systems/, UI panels in project/ui/, and any custom scripts in project/scripts/. The reference/ directory has the latest shared library to copy from. Run "bash validate.sh" before finishing.${validEventsList}`,
-        );
+        let taskContent = `# Game to Create\n\n${description}\n\n# Template ID\n\n${templateId}\n\nFill in the project files in project/ — the 4 template JSONs (01_flow.json / 02_entities.json / 03_worlds.json / 04_systems.json), pinned behaviors in project/behaviors/, systems in project/systems/, UI panels in project/ui/, and any custom scripts in project/scripts/. The reference/ directory has the latest shared library to copy from. Run "bash validate.sh" before finishing.${validEventsList}`;
+        if (chatHistory) {
+            taskContent += `\n\n# Chat History\n\nThis is the recent conversation between the user and the AI assistant before this build was requested. Use it to understand the user's intent and any specific requirements they mentioned.\n\n${chatHistory}`;
+        }
+        fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), taskContent);
 
         sendStatus?.('Creator agent is building the game...');
         const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId });

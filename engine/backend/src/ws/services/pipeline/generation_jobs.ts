@@ -66,6 +66,7 @@ interface GenerationJob {
      *  bearing for the usage plugin's HTTP token report. */
     username?: string;
     authToken?: string;
+    chatHistory?: string;
     description: string;
     /** Epoch ms. */
     startedAt: number;
@@ -105,6 +106,7 @@ export interface StartJobArgs {
      *  missing. */
     username?: string;
     authToken?: string;
+    chatHistory?: string;
 }
 
 /**
@@ -165,6 +167,7 @@ export async function startGenerationJob(args: StartJobArgs): Promise<string> {
         userId,
         username,
         authToken,
+        chatHistory: args.chatHistory,
         description,
         startedAt,
         currentStatus: 'Queued...',
@@ -419,6 +422,7 @@ async function runJob(job: GenerationJob): Promise<void> {
             cliOverride,
             abortController.signal,
             jobId,
+            job.chatHistory,
         );
         costUsd = result.costUsd;
         sessionCapturePath = result.sessionCapturePath ?? null;

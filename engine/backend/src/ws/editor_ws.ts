@@ -107,6 +107,16 @@ const stmtGetHistory = db.prepare("SELECT id, role, content, feedback, file_chan
 const stmtSetFeedback = db.prepare("UPDATE chat_messages SET feedback = ? WHERE id = ? AND project_id = ?");
 const stmtGetMessage = db.prepare("SELECT * FROM chat_messages WHERE id = ? AND project_id = ?");
 const stmtDeleteAfter = db.prepare("DELETE FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id > ?");
+const stmtRecentChat = db.prepare("SELECT role, content FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id DESC LIMIT 20");
+
+function getRecentChatHistory(projectId: string, chatSessionId: string): string {
+    try {
+        const rows = stmtRecentChat.all(projectId, chatSessionId) as Array<{ role: string; content: string }>;
+        if (rows.length === 0) return '';
+        rows.reverse();
+        return rows.map(r => `**${r.role === 'user' ? 'User' : 'Assistant'}:** ${(r.content || '').slice(0, 500)}`).join('\n\n');
+    } catch { return ''; }
+}
 const stmtDeleteFrom = db.prepare("DELETE FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id >= ?");
 
 function send(client: EditorClient, type: string, data: any): void {
@@ -926,6 +936,7 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
             authToken: client.authToken,
             description,
             cliOverride: client.editingAgent,
+            chatHistory: getRecentChatHistory(client.projectId, client.chatSessionId),
         });
         send(client, 'generation_started', {
             jobId,
@@ -1153,6 +1164,7 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
             return;
         }
 
+        const chatCtx = getRecentChatHistory(client.projectId, client.chatSessionId);
         const fixResult = await runFixer(
             client.projectId,
             description,
@@ -1161,6 +1173,7 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
             sendStatus,
             abortController.signal,
             cliOverride,
+            chatCtx,
         );
 
         if (fixResult.costUsd) {
