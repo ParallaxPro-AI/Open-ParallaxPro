@@ -115,12 +115,14 @@ export function initMobileControls(gameContainer: HTMLElement): void {
 
     const topRow = document.createElement('div');
     topRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
-    topRow.appendChild(ctrlBtn);
     topRow.appendChild(eBtn);
     topRow.appendChild(shiftBtn);
     btnContainer.appendChild(topRow);
-    btnContainer.appendChild(jumpBtn);
-    jumpBtn.style.alignSelf = 'flex-end';
+    const bottomRow = document.createElement('div');
+    bottomRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+    bottomRow.appendChild(ctrlBtn);
+    bottomRow.appendChild(jumpBtn);
+    btnContainer.appendChild(bottomRow);
     overlay.appendChild(btnContainer);
 
     // ── Settings toggle ──
