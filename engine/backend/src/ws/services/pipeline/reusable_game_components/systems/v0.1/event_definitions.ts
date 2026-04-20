@@ -6,7 +6,7 @@
  * Payload field types: 'number', 'string', 'boolean', 'any'
  * Fields marked optional: true are not required.
  */
-export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string; optional?: boolean }> }> = {
+var GAME_EVENTS = {
     // ── Lifecycle ──
     active_systems:     { fields: { systems: { type: 'any' } } },
     active_behaviors:   { fields: { behaviors: { type: 'any' } } },
@@ -628,4 +628,4 @@ export const GAME_EVENTS: Record<string, { fields: Record<string, { type: string
     net_pp_match_ended:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
 };
 
-export const VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
+var VALID_GAME_EVENTS = new Set(Object.keys(GAME_EVENTS));
