@@ -3,6 +3,7 @@ import './styles/theme.css';
 import { ParallaxEditor } from './editor.js';
 import { EditorContext } from './editor_context.js';
 import { StreamingManager } from './streaming_manager.js';
+import { initMobileControls } from './play_mobile_controls.js';
 
 const splashScreen = document.getElementById('splash-screen')!;
 const loadingScreen = document.getElementById('loading-screen')!;
@@ -661,6 +662,8 @@ async function boot(): Promise<void> {
             showOverlay();
         }
     }
+
+    initMobileControls(gameContainer);
 
     const resize = () => {
         canvas.width = window.innerWidth;
