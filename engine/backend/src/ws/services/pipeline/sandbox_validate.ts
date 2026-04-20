@@ -14,22 +14,27 @@
  *   - validate_headless.js   — in-process script smoke test (loads every
  *                              behavior/system/scripts TS, runs onStart +
  *                              60 update ticks against stub runtimes).
- *   - validate_assembler.js  — POSTs to the backend's internal
- *                              /validate-sandbox endpoint so the real
- *                              assembleGame runs against the sandbox's
- *                              project/ dir. Soft-fails when the config
- *                              file (.validate_config.json) isn't present
- *                              OR the backend is unreachable, so offline
- *                              and self-hosted runs still clear the
- *                              earlier checks.
- *
- * The caller is responsible for writing `.validate_config.json` (with
- * `{ url, token }`) alongside these if they want the assembler step to
- * actually fire. The runCreator and runFixer code paths both do this.
+ *   - validate_assembler.js  — runs the same validation checks as
+ *                              assembleGame() in level_assembler.ts,
+ *                              entirely offline using the sandbox's
+ *                              project/ files. Catches unknown event
+ *                              names, missing behavior/system/UI refs,
+ *                              active_behaviors / active_systems typos,
+ *                              bad FSM transitions, spawnEntity refs,
+ *                              UI button refs, hud_update key collisions,
+ *                              and inline-onclick IIFE scoping issues.
+ *                              Never soft-fails — always runs.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname_sv = path.dirname(fileURLToPath(import.meta.url));
+const VALIDATE_ASSEMBLER_JS = fs.readFileSync(
+    path.join(__dirname_sv, 'validate_assembler_script.js'),
+    'utf-8',
+);
 
 export function writeValidateScripts(sandboxDir: string): void {
     fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), VALIDATE_SH, { mode: 0o755 });
@@ -246,13 +251,12 @@ node validate_headless.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
 echo "=== Assembler Check (strict) ==="
-# Calls the engine's internal /validate-sandbox endpoint which runs the
-# real assembleGame against this project's files. Catches everything
-# the local checks miss: unknown event names, missing behavior/system/UI
-# refs, active_behaviors / active_systems name typos, bad FSM transitions,
-# component schema errors, asset paths that don't resolve. Soft-fails on
-# network unreachable so offline / self-hosted dev with the backend down
-# still runs the earlier checks.
+# Runs the same validation as assembleGame() against this project's
+# files. Catches everything the local checks miss: unknown event names,
+# missing behavior/system/UI refs, active_behaviors / active_systems
+# name typos, bad FSM transitions, spawnEntity refs, UI button refs,
+# hud_update key collisions. Runs entirely offline — no backend
+# connection needed.
 node validate_assembler.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
@@ -264,35 +268,9 @@ else
 fi
 `;
 
-const VALIDATE_ASSEMBLER_JS = `
-const fs = require('fs');
-let cfg;
-try {
-    cfg = JSON.parse(fs.readFileSync('.validate_config.json', 'utf-8'));
-} catch (e) {
-    // No config = we can't run the strict check; don't block validate.sh.
-    console.warn('WARN: .validate_config.json missing or unreadable — skipping assembler check.');
-    process.exit(0);
-}
-fetch(cfg.url + '/api/engine/internal/validate-sandbox/' + cfg.token, { method: 'POST' })
-    .then(function(r) { return r.json(); })
-    .then(function(r) {
-        if (r && r.ok) {
-            console.log('Assembler check passed.');
-            process.exit(0);
-        } else {
-            console.error('ASSEMBLE ERROR: ' + (r && r.error ? r.error : 'unknown'));
-            process.exit(1);
-        }
-    })
-    .catch(function(e) {
-        // Soft-fail on network error — the sandbox may be offline / the
-        // backend may not be reachable. The backend's post-exit assembler
-        // gate (for CREATE_GAME) catches anything this layer misses.
-        console.warn('WARN: could not reach assembler endpoint: ' + e.message);
-        process.exit(0);
-    });
-`;
+// VALIDATE_ASSEMBLER_JS is loaded from validate_assembler_script.js at
+// module init time (see top of file). It runs all 7 assembleGame()
+// validation categories offline — no HTTP calls, no soft-fails.
 
 // Unified headless smoke. Stubs every major GameScript surface (entity,
 // scene, input, ui, audio, time) so a script's onStart doesn't null-deref
