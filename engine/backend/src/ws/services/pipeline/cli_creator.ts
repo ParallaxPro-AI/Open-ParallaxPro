@@ -382,18 +382,21 @@ async function createSandbox(
         const prevDir = path.join(refDir, 'previous_project');
         writeFilesToDir(previousProjectFiles, prevDir);
         fs.writeFileSync(path.join(prevDir, 'README.md'),
-            '# Previous project (reference only)\n\n' +
-            'These are the files the user had in this project before they asked ' +
-            'you to CREATE_GAME from scratch.\n\n' +
-            '- If the new brief is a variant of what\'s here (same theme / same ' +
-            'mechanics / small pivot), feel free to lift entities, behaviors, ' +
-            'systems, flows, UI as a starting point — consider it your richest ' +
-            'worked example for this specific user.\n' +
-            '- If the new brief is a completely different game, ignore this ' +
-            'directory entirely. It exists so you don\'t have to rediscover ' +
-            'what the user already had.\n\n' +
-            'Do NOT copy these paths into `project/` blindly — `project/` is ' +
-            'the authoritative output; cherry-pick by hand.\n',
+            '# Previous project — use with caution\n\n' +
+            '⚠️ This directory contains the files that were in the project ' +
+            'BEFORE the user asked to create from scratch. These files are ' +
+            'often an UNRELATED template that was auto-loaded by the system ' +
+            '(e.g. a chess template loaded before the user asked for a tower ' +
+            'defense game).\n\n' +
+            '## How to decide:\n' +
+            '1. Read the user\'s description in TASK.md first.\n' +
+            '2. If the previous project is clearly the same genre/theme as ' +
+            'what the user wants, feel free to borrow ideas, entity layouts, ' +
+            'or UI patterns from it.\n' +
+            '3. If the previous project is a DIFFERENT genre or theme, ignore ' +
+            'this directory. Build from reference/game_templates/ instead.\n' +
+            '4. NEVER copy the previous project\'s structure wholesale — the ' +
+            'user asked to create from scratch for a reason.\n',
         );
     }
 

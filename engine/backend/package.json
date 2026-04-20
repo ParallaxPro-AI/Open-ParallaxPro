@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts"
+    "start": "tsx src/server.ts",
+    "test": "find tests -name '*.test.ts' | xargs npx tsx --test"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",

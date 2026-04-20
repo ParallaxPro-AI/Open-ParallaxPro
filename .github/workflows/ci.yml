@@ -21,6 +21,9 @@ jobs:
       - name: Typecheck
         working-directory: engine/backend
         run: npx tsc --noEmit
+      - name: Test
+        working-directory: engine/backend
+        run: npm test
 
   frontend:
     name: Frontend build
