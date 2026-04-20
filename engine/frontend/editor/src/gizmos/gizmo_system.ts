@@ -9,6 +9,7 @@ import { ColliderComponent, ShapeType } from '../../../runtime/function/framewor
 import { VehicleComponent } from '../../../runtime/function/framework/components/vehicle_component.js';
 import { TerrainComponent } from '../../../runtime/function/framework/components/terrain_component.js';
 import { ChangePropertyCommand, BatchCommand } from '../history/commands.js';
+import { isMobile } from '../utils/mobile.js';
 
 type Axis = 'x' | 'y' | 'z' | 'all' | null;
 type ColliderHandle = '+x' | '-x' | '+y' | '-y' | '+z' | '-z'
@@ -68,6 +69,8 @@ export class GizmoSystem {
         this.camera = camera;
     }
 
+    private touchTarget: HTMLCanvasElement | null = null;
+
     attachOverlay(canvas: HTMLCanvasElement): void {
         this.overlayCanvas = canvas;
         this.overlayCtx2D = canvas.getContext('2d');
@@ -76,12 +79,35 @@ export class GizmoSystem {
         canvas.addEventListener('mousedown', this.onMouseDown);
         window.addEventListener('mousemove', this.onDragMove);
         window.addEventListener('mouseup', this.onMouseUp);
+
+        canvas.addEventListener('touchstart', this.onGizmoTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', this.onGizmoTouchMove, { passive: false });
+        canvas.addEventListener('touchend', this.onGizmoTouchEnd, { passive: false });
+        canvas.addEventListener('touchcancel', this.onGizmoTouchEnd, { passive: false });
+    }
+
+    attachTouchTarget(canvas: HTMLCanvasElement): void {
+        this.touchTarget = canvas;
+        canvas.addEventListener('touchstart', this.onGizmoTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', this.onGizmoTouchMove, { passive: false });
+        canvas.addEventListener('touchend', this.onGizmoTouchEnd, { passive: false });
+        canvas.addEventListener('touchcancel', this.onGizmoTouchEnd, { passive: false });
     }
 
     detach(): void {
         if (this.overlayCanvas) {
             this.overlayCanvas.removeEventListener('mousemove', this.onMouseMove);
             this.overlayCanvas.removeEventListener('mousedown', this.onMouseDown);
+            this.overlayCanvas.removeEventListener('touchstart', this.onGizmoTouchStart);
+            this.overlayCanvas.removeEventListener('touchmove', this.onGizmoTouchMove);
+            this.overlayCanvas.removeEventListener('touchend', this.onGizmoTouchEnd);
+            this.overlayCanvas.removeEventListener('touchcancel', this.onGizmoTouchEnd);
+        }
+        if (this.touchTarget) {
+            this.touchTarget.removeEventListener('touchstart', this.onGizmoTouchStart);
+            this.touchTarget.removeEventListener('touchmove', this.onGizmoTouchMove);
+            this.touchTarget.removeEventListener('touchend', this.onGizmoTouchEnd);
+            this.touchTarget.removeEventListener('touchcancel', this.onGizmoTouchEnd);
         }
         window.removeEventListener('mousemove', this.onDragMove);
         window.removeEventListener('mouseup', this.onMouseUp);
@@ -1072,7 +1098,7 @@ export class GizmoSystem {
         if (!screenPos) return null;
 
         const length = 80;
-        const threshold = 10;
+        const threshold = isMobile() ? 24 : 10;
 
         if (mode === 'scale') {
             const centerSize = 7;
@@ -1116,7 +1142,7 @@ export class GizmoSystem {
         const camDist = worldPos.sub(camPos).length();
         const worldRadius = camDist * 0.15;
 
-        const threshold = 10;
+        const threshold = isMobile() ? 24 : 10;
         let bestAxis: Axis = null;
         let bestDist = threshold;
 
@@ -1183,6 +1209,7 @@ export class GizmoSystem {
 
             this.draggingAxis = axis;
             this.interacting = true;
+            this.ctx.state.gizmoInteracting = true;
             this.dragStartScreenPos = { x: e.clientX, y: e.clientY };
 
             const selected = this.ctx.getSelectedEntities();
@@ -1462,6 +1489,101 @@ export class GizmoSystem {
 
         this.draggingAxis = null;
         this.interacting = false;
+        this.ctx.state.gizmoInteracting = false;
+    };
+
+    // ── Touch Gizmo Interaction ─────────────────────────────────────────
+
+    private gizmoTouchId: number = -1;
+
+    private onGizmoTouchStart = (e: TouchEvent): void => {
+        if (e.touches.length !== 1) return;
+        if (this.ctx.state.isPlaying) return;
+        if (!this.overlayCanvas) return;
+
+        const touch = e.touches[0];
+        const rect = this.overlayCanvas.getBoundingClientRect();
+        const mx = touch.clientX - rect.left;
+        const my = touch.clientY - rect.top;
+
+        const axis = this.hitTestAxis(mx, my);
+        if (!axis) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        this.gizmoTouchId = touch.identifier;
+        this.draggingAxis = axis;
+        this.interacting = true;
+        this.ctx.state.gizmoInteracting = true;
+        this.dragStartScreenPos = { x: touch.clientX, y: touch.clientY };
+
+        const selected = this.ctx.getSelectedEntities();
+        this.multiDragStarts.clear();
+        if (selected.length > 0) {
+            const transform = selected[0].getComponent('TransformComponent');
+            if (transform) {
+                const mode = this.ctx.state.gizmoMode;
+                if (mode === 'translate') {
+                    const pos = (transform as any).position;
+                    this.dragStartValue = new Vec3(pos.x, pos.y, pos.z);
+                } else if (mode === 'scale') {
+                    const scl = (transform as any).scale;
+                    this.dragStartValue = new Vec3(scl.x, scl.y, scl.z);
+                } else if (mode === 'rotate') {
+                    const rot = (transform as any).rotation;
+                    this.dragStartQuat = { x: rot.x, y: rot.y, z: rot.z, w: rot.w };
+                    this.dragStartValue = new Vec3(0, 0, 0);
+                    const worldPos = selected[0].getWorldPosition();
+                    const screenPos = this.worldToScreen(worldPos);
+                    if (screenPos) {
+                        this.dragStartAngle = Math.atan2(my - screenPos.y, mx - screenPos.x);
+                    }
+                }
+            }
+            for (const ent of selected) {
+                const tc = ent.getComponent('TransformComponent');
+                if (!tc) continue;
+                const p = (tc as any).position;
+                const s = (tc as any).scale;
+                const r = (tc as any).rotation;
+                this.multiDragStarts.set(ent.id, {
+                    pos: new Vec3(p.x, p.y, p.z),
+                    scale: new Vec3(s.x, s.y, s.z),
+                    quat: { x: r.x, y: r.y, z: r.z, w: r.w },
+                });
+            }
+        }
+    };
+
+    private onGizmoTouchMove = (e: TouchEvent): void => {
+        if (!this.interacting || this.gizmoTouchId < 0) return;
+
+        let touch: Touch | null = null;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === this.gizmoTouchId) {
+                touch = e.changedTouches[i];
+                break;
+            }
+        }
+        if (!touch) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Reuse the mouse drag logic by faking a MouseEvent-like object
+        this.onDragMove({ clientX: touch.clientX, clientY: touch.clientY } as MouseEvent);
+    };
+
+    private onGizmoTouchEnd = (e: TouchEvent): void => {
+        if (this.gizmoTouchId < 0) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === this.gizmoTouchId) {
+                this.gizmoTouchId = -1;
+                this.onMouseUp();
+                return;
+            }
+        }
     };
 
     // ── Collider Handle Drag ────────────────────────────────────────────

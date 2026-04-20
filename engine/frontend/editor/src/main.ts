@@ -1,8 +1,7 @@
-if ((window as any).__mobileBlocked) throw new Error('Mobile blocked');
-
 import './utils/error_tracker.js';
 import { checkForUpdates } from './utils/version_check.js';
 import { initI18n } from './i18n/index.js';
+import { isMobile } from './utils/mobile.js';
 
 import './styles/theme.css';
 import './styles/editor.css';
@@ -16,6 +15,7 @@ import './styles/chat.css';
 import './styles/widgets.css';
 import './styles/fields.css';
 import './styles/project-list.css';
+import './styles/mobile.css';
 
 import { EditorContext } from './editor_context.js';
 import { ProjectListView } from './views/project_list_view.js';
@@ -144,6 +144,8 @@ class App {
 }
 
 if (document.getElementById('app')) {
+    if (isMobile()) document.body.classList.add('mobile');
+
     window.addEventListener('popstate', () => {
         window.location.reload();
     });

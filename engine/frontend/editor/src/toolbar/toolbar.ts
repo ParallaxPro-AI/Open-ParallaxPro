@@ -3,6 +3,7 @@ import { showModal, showPromptModal, showConfirmModal } from '../widgets/modal.j
 import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Settings, MousePointer2, Crosshair, Globe, Box } from '../widgets/icons.js';
 import { PublishFlow } from '../widgets/publish_flow.js';
 import { formatServerTime } from '../utils/format_time.js';
+import { isMobile } from '../utils/mobile.js';
 
 interface CollabUser {
     clientId: string;
@@ -51,11 +52,19 @@ export class Toolbar {
     private unreadCount: number = 0;
     private unreadBadge!: HTMLElement;
 
+    private overflowMenu: HTMLElement | null = null;
+    private overflowBtn: HTMLElement | null = null;
+
     constructor() {
         this.ctx = EditorContext.instance;
         this.el = document.createElement('div');
         this.el.className = 'toolbar';
-        this.build();
+
+        if (isMobile()) {
+            this.buildMobile();
+        } else {
+            this.build();
+        }
         this.bindEvents();
 
         document.addEventListener('mousedown', (e) => {
@@ -65,6 +74,17 @@ export class Toolbar {
                 this.collabChatVisible = false;
                 this.collabChatPanel.style.display = 'none';
                 this.collabChatBtn.classList.remove('active');
+            }
+            if (this.overflowMenu && !this.overflowMenu.contains(e.target as Node) &&
+                this.overflowBtn && !this.overflowBtn.contains(e.target as Node)) {
+                this.overflowMenu.classList.remove('open');
+            }
+        });
+
+        document.addEventListener('touchstart', (e) => {
+            if (this.overflowMenu && !this.overflowMenu.contains(e.target as Node) &&
+                this.overflowBtn && !this.overflowBtn.contains(e.target as Node)) {
+                this.overflowMenu.classList.remove('open');
             }
         });
     }
@@ -309,6 +329,156 @@ export class Toolbar {
         });
         settingsBtn.title = 'Settings';
         this.el.appendChild(settingsBtn);
+    }
+
+    private buildMobile(): void {
+        const logo = document.createElement('img');
+        logo.className = 'toolbar-logo';
+        logo.src = `${import.meta.env.BASE_URL}logos/main_logo_horizontal.png`;
+        logo.alt = 'ParallaxPro';
+        logo.title = 'Back to Projects';
+        logo.style.cursor = 'pointer';
+        logo.addEventListener('click', () => {
+            if (this.ctx.state.projectDirty) {
+                if (!confirm('You have unsaved changes. Leave without saving?')) return;
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.delete('project');
+            window.location.href = url.toString();
+        });
+        this.el.appendChild(logo);
+
+        this.projectNameEl = document.createElement('span');
+        this.projectNameEl.style.display = 'none';
+        this.syncStatusEl = document.createElement('span');
+        this.syncStatusEl.style.display = 'none';
+        this.wireSyncStatus();
+
+        const transformGroup = this.createGroup();
+        this.translateBtn = this.createIconButton(Move, '', 'toolbar-btn active', () => this.ctx.setGizmoMode('translate'));
+        this.translateBtn.title = 'Translate';
+        transformGroup.appendChild(this.translateBtn);
+
+        this.rotateBtn = this.createIconButton(RotateCw, '', 'toolbar-btn', () => this.ctx.setGizmoMode('rotate'));
+        this.rotateBtn.title = 'Rotate';
+        transformGroup.appendChild(this.rotateBtn);
+
+        this.scaleBtn = this.createIconButton(Maximize2, '', 'toolbar-btn', () => this.ctx.setGizmoMode('scale'));
+        this.scaleBtn.title = 'Scale';
+        transformGroup.appendChild(this.scaleBtn);
+        this.el.appendChild(transformGroup);
+
+        this.cameraModeBtn = this.createIconButton(Crosshair, 'Fly', 'toolbar-btn', () => this.ctx.toggleCameraMode());
+        this.cameraModeBtn.title = 'Toggle Orbit / Fly';
+        this.el.appendChild(this.cameraModeBtn);
+
+        const spacer = document.createElement('div');
+        spacer.className = 'toolbar-spacer';
+        this.el.appendChild(spacer);
+
+        const playGroup = this.createGroup();
+        this.playBtn = this.createIconButton(Play, '', 'toolbar-btn play-btn disabled', () => {
+            if (this.playBtn.classList.contains('disabled')) return;
+            this.ctx.play();
+        });
+        this.playBtn.title = 'Play';
+        playGroup.appendChild(this.playBtn);
+
+        this.stopBtn = this.createIconButton(Square, '', 'toolbar-btn stop-btn', () => this.ctx.stop());
+        this.stopBtn.title = 'Stop';
+        this.stopBtn.style.display = 'none';
+        playGroup.appendChild(this.stopBtn);
+
+        this.previewClientBtn = document.createElement('button');
+        this.previewClientBtn.style.display = 'none';
+        playGroup.appendChild(this.previewClientBtn);
+        this.el.appendChild(playGroup);
+
+        // Dummy elements that desktop bindEvents references (hidden on mobile)
+        this.saveBtn = document.createElement('button');
+        this.saveBtn.style.display = 'none';
+        this.undoBtn = document.createElement('button');
+        this.undoBtn.style.display = 'none';
+        this.redoBtn = document.createElement('button');
+        this.redoBtn.style.display = 'none';
+        this.gizmoSpaceBtn = document.createElement('button');
+        this.gizmoSpaceBtn.style.display = 'none';
+        this.presenceContainer = document.createElement('div');
+        this.collabChatBtn = document.createElement('button');
+        this.collabChatBtn.style.display = 'none';
+        this.collabChatPanel = document.createElement('div');
+        this.collabChatPanel.style.display = 'none';
+        this.collabChatMessages = document.createElement('div');
+        this.collabChatInput = document.createElement('input') as HTMLInputElement;
+        this.unreadBadge = document.createElement('span');
+        this.mpBtn = document.createElement('button');
+        this.mpBtn.style.display = 'none';
+        this.mpDropdown = document.createElement('div');
+        this.mpDropdown.style.display = 'none';
+        this.mpLinkText = document.createElement('span');
+        this.mpPlayerCount = document.createElement('div');
+        const mpWrapper = document.createElement('div');
+        mpWrapper.style.display = 'none';
+        (this as any)._mpWrapper = mpWrapper;
+
+        // Overflow menu button
+        this.overflowBtn = document.createElement('button');
+        this.overflowBtn.className = 'toolbar-overflow-btn';
+        this.overflowBtn.textContent = '\u22EE';
+        this.overflowBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.overflowMenu!.classList.toggle('open');
+        });
+        this.el.appendChild(this.overflowBtn);
+
+        // Overflow menu dropdown
+        this.overflowMenu = document.createElement('div');
+        this.overflowMenu.className = 'toolbar-overflow-menu';
+        this.el.style.position = 'relative';
+
+        const addItem = (iconDef: any, label: string, onClick: () => void): HTMLElement => {
+            const item = document.createElement('button');
+            item.className = 'toolbar-overflow-item';
+            item.appendChild(icon(iconDef, 16));
+            const span = document.createElement('span');
+            span.textContent = label;
+            item.appendChild(span);
+            item.addEventListener('click', () => {
+                onClick();
+                this.overflowMenu!.classList.remove('open');
+            });
+            this.overflowMenu!.appendChild(item);
+            return item;
+        };
+
+        const addDivider = () => {
+            const div = document.createElement('div');
+            div.className = 'toolbar-overflow-divider';
+            this.overflowMenu!.appendChild(div);
+        };
+
+        this.saveBtn = addItem(Save, 'Save', () => this.ctx.saveProject());
+        addItem(Undo2, 'Undo', () => {
+            this.ctx.undoManager.undo();
+            this.ctx.emit('historyChanged');
+            this.ctx.emit('sceneChanged');
+            this.ctx.ensurePrimitiveMeshes();
+        });
+        addItem(Redo2, 'Redo', () => {
+            this.ctx.undoManager.redo();
+            this.ctx.emit('historyChanged');
+            this.ctx.emit('sceneChanged');
+            this.ctx.ensurePrimitiveMeshes();
+        });
+
+        addDivider();
+
+        addItem(Play, 'Publish', () => {
+            if (this.ctx.state.projectId) this.showPublishModal();
+        });
+        addItem(Settings, 'Settings', () => this.showSettingsModal());
+
+        this.el.appendChild(this.overflowMenu);
     }
 
     private bindEvents(): void {

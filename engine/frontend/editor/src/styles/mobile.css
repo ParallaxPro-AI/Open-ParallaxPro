@@ -1,0 +1,357 @@
+/* ── Mobile Editor Layout ─────────────────────────────────────── */
+
+body.mobile .mobile-editor-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+body.mobile .mobile-viewport-container {
+    flex: 1;
+    min-height: 40%;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+body.mobile .viewport-panel {
+    min-height: 0;
+}
+
+body.mobile .mobile-chat-container {
+    flex: 1;
+    min-height: 30%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── Portrait Divider ─────────────────────────────────────────── */
+
+body.mobile .mobile-divider {
+    height: 4px;
+    background: var(--border);
+    touch-action: none;
+    position: relative;
+    flex-shrink: 0;
+}
+
+body.mobile .mobile-divider::after {
+    content: '';
+    position: absolute;
+    inset: -8px 0;
+}
+
+body.mobile .mobile-divider-handle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--text-disabled);
+}
+
+/* ── Landscape: Chat Toggle FAB ───────────────────────────────── */
+
+body.mobile .mobile-chat-toggle {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+}
+
+body.mobile .mobile-chat-toggle svg {
+    width: 22px;
+    height: 22px;
+}
+
+body.mobile .mobile-chat-toggle .unread-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--danger, #e74c3c);
+    border: 2px solid var(--accent);
+    display: none;
+}
+
+/* ── Landscape: Slide-up Chat Sheet ───────────────────────────── */
+
+body.mobile .mobile-chat-sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60%;
+    transform: translateY(100%);
+    transition: transform 0.25s ease-out;
+    z-index: 100;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.mobile .mobile-chat-sheet.open {
+    transform: translateY(0);
+}
+
+body.mobile .mobile-chat-sheet-handle {
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+body.mobile .mobile-chat-sheet-handle::after {
+    content: '';
+    width: 32px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--text-disabled);
+}
+
+/* ── Landscape Overrides ──────────────────────────────────────── */
+
+@media (orientation: landscape) {
+    body.mobile .mobile-viewport-container {
+        flex: 1;
+        min-height: unset;
+    }
+    body.mobile .mobile-chat-container {
+        display: none;
+    }
+    body.mobile .mobile-divider {
+        display: none;
+    }
+    body.mobile .mobile-chat-toggle {
+        display: flex;
+    }
+}
+
+/* ── Portrait Overrides ───────────────────────────────────────── */
+
+@media (orientation: portrait) {
+    body.mobile .mobile-chat-toggle {
+        display: none;
+    }
+    body.mobile .mobile-chat-sheet {
+        display: none;
+    }
+}
+
+/* ── Mobile Toolbar ───────────────────────────────────────────── */
+
+body.mobile .toolbar {
+    gap: 2px;
+    padding: 0 6px;
+    min-height: var(--toolbar-height, 44px);
+}
+
+body.mobile .toolbar-btn {
+    min-width: 36px;
+    min-height: 36px;
+}
+
+body.mobile .toolbar-logo {
+    height: 24px;
+}
+
+body.mobile .toolbar-project-name {
+    max-width: 100px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.mobile .toolbar-separator {
+    display: none;
+}
+
+/* ── Overflow Menu ────────────────────────────────────────────── */
+
+.toolbar-overflow-btn {
+    min-width: 36px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: var(--radius-sm, 4px);
+}
+
+.toolbar-overflow-btn:active {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.1));
+}
+
+.toolbar-overflow-menu {
+    position: absolute;
+    top: var(--toolbar-height, 44px);
+    right: 4px;
+    min-width: 180px;
+    background: var(--bg-panel, #1e1e2e);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 6px);
+    padding: 4px 0;
+    z-index: 10001;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    display: none;
+}
+
+.toolbar-overflow-menu.open {
+    display: block;
+}
+
+.toolbar-overflow-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text-primary, #e0e0e0);
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+
+.toolbar-overflow-item:active {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.toolbar-overflow-item svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.toolbar-overflow-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+}
+
+/* ── Virtual Joystick ─────────────────────────────────────────── */
+
+.virtual-joystick {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    width: 120px;
+    height: 120px;
+    z-index: 40;
+    touch-action: none;
+    pointer-events: auto;
+}
+
+.joystick-base {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.joystick-thumb {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.35);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: background 0.1s;
+}
+
+.joystick-thumb.active {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Fly Mode Up/Down Buttons ─────────────────────────────────── */
+
+.fly-vertical-controls {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 40;
+    pointer-events: auto;
+}
+
+.fly-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.fly-btn:active,
+.fly-btn.active {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Mobile Chat Adjustments ──────────────────────────────────── */
+
+body.mobile .chat-input-area {
+    padding: 8px;
+}
+
+body.mobile .chat-input-area textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+}
+
+body.mobile .chat-message-bubble {
+    max-width: 95%;
+    font-size: 14px;
+}
+
+/* ── Mobile Viewport ──────────────────────────────────────────── */
+
+body.mobile .viewport-panel {
+    flex: 1;
+}
+
+body.mobile .viewport-fps {
+    font-size: 10px;
+}

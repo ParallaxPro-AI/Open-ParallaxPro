@@ -23,6 +23,7 @@ export class EditorState {
     availableAgents: { id: string; label: string; caption: string }[] = [];
     /** Whether the backend has AI_BASE_URL / AI_MODEL / AI_API_KEY configured. */
     llmApiAvailable: boolean = false;
+    gizmoInteracting: boolean = false;
     terrainSculptActive: boolean = false;
     terrainSculptBrush: {
         radius: number;

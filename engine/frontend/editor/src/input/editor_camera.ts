@@ -54,6 +54,17 @@ export class EditorCamera {
 
     private canvas: HTMLCanvasElement | null = null;
 
+    /** Touch state. */
+    private touches: Map<number, { x: number; y: number }> = new Map();
+    private touchDragStarted: boolean = false;
+    private initialPinchDist: number = 0;
+
+    /** Mobile joystick input (set externally by TouchControls). */
+    joystickX: number = 0;
+    joystickY: number = 0;
+    touchMoveUp: boolean = false;
+    touchMoveDown: boolean = false;
+
     /** Computed matrices. */
     private viewMatrix: Mat4 = new Mat4();
     private projectionMatrix: Mat4 = new Mat4();
@@ -74,6 +85,11 @@ export class EditorCamera {
         window.addEventListener('keydown', this.onKeyDown);
         window.addEventListener('keyup', this.onKeyUp);
         window.addEventListener('blur', this.onBlur);
+
+        canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', this.onTouchMove, { passive: false });
+        canvas.addEventListener('touchend', this.onTouchEnd, { passive: false });
+        canvas.addEventListener('touchcancel', this.onTouchEnd, { passive: false });
 
         EditorContext.instance.on('cameraModeChanged', (mode: string) => {
             if (mode === 'fly' && !this.flyMode) {
@@ -100,6 +116,10 @@ export class EditorCamera {
         if (this.canvas) {
             this.canvas.removeEventListener('mousedown', this.onMouseDown);
             this.canvas.removeEventListener('wheel', this.onWheel);
+            this.canvas.removeEventListener('touchstart', this.onTouchStart);
+            this.canvas.removeEventListener('touchmove', this.onTouchMove);
+            this.canvas.removeEventListener('touchend', this.onTouchEnd);
+            this.canvas.removeEventListener('touchcancel', this.onTouchEnd);
         }
         window.removeEventListener('mousemove', this.onMouseMove);
         window.removeEventListener('mouseup', this.onMouseUp);
@@ -232,12 +252,12 @@ export class EditorCamera {
         const right = new Vec3(0, 1, 0).cross(forward).normalize().negate();
         const up = new Vec3(0, 1, 0);
 
-        if (this.keysDown.has('w')) this.flyPosition = this.flyPosition.add(forward.scale(speed));
-        if (this.keysDown.has('s')) this.flyPosition = this.flyPosition.sub(forward.scale(speed));
-        if (this.keysDown.has('a')) this.flyPosition = this.flyPosition.sub(right.scale(speed));
-        if (this.keysDown.has('d')) this.flyPosition = this.flyPosition.add(right.scale(speed));
-        if (this.keysDown.has('e') || this.keysDown.has(' ')) this.flyPosition = this.flyPosition.add(up.scale(speed));
-        if (this.keysDown.has('q') || this.keysDown.has('control')) this.flyPosition = this.flyPosition.sub(up.scale(speed));
+        if (this.keysDown.has('w') || this.joystickY < -0.1) this.flyPosition = this.flyPosition.add(forward.scale(speed * (this.keysDown.has('w') ? 1 : -this.joystickY)));
+        if (this.keysDown.has('s') || this.joystickY > 0.1) this.flyPosition = this.flyPosition.sub(forward.scale(speed * (this.keysDown.has('s') ? 1 : this.joystickY)));
+        if (this.keysDown.has('a') || this.joystickX < -0.1) this.flyPosition = this.flyPosition.sub(right.scale(speed * (this.keysDown.has('a') ? 1 : -this.joystickX)));
+        if (this.keysDown.has('d') || this.joystickX > 0.1) this.flyPosition = this.flyPosition.add(right.scale(speed * (this.keysDown.has('d') ? 1 : this.joystickX)));
+        if (this.keysDown.has('e') || this.keysDown.has(' ') || this.touchMoveUp) this.flyPosition = this.flyPosition.add(up.scale(speed));
+        if (this.keysDown.has('q') || this.keysDown.has('control') || this.touchMoveDown) this.flyPosition = this.flyPosition.sub(up.scale(speed));
     }
 
     // ── Event Handlers ──────────────────────────────────────────────────
@@ -363,5 +383,124 @@ export class EditorCamera {
         this.keysDown.clear();
         this.isOrbiting = false;
         this.isPanning = false;
+        this.touches.clear();
+        this.touchDragStarted = false;
     };
+
+    // ── Touch Event Handlers ────────────────────────────────────────
+
+    private onTouchStart = (e: TouchEvent): void => {
+        if (this.disabled) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            this.touches.set(t.identifier, { x: t.clientX, y: t.clientY });
+        }
+        this.touchDragStarted = false;
+
+        if (this.touches.size === 2) {
+            const pts = [...this.touches.values()];
+            const dx = pts[1].x - pts[0].x;
+            const dy = pts[1].y - pts[0].y;
+            this.initialPinchDist = Math.sqrt(dx * dx + dy * dy);
+        }
+    };
+
+    private onTouchMove = (e: TouchEvent): void => {
+        if (this.disabled) return;
+        // Let gizmo handle first — if gizmo is interacting, don't move camera
+        const gizmoInteracting = EditorContext.instance.state.gizmoInteracting;
+        if (gizmoInteracting) return;
+
+        const count = this.touches.size;
+
+        if (count === 1 && e.touches.length === 1) {
+            const t = e.touches[0];
+            const prev = this.touches.get(t.identifier);
+            if (!prev) return;
+
+            const dx = t.clientX - prev.x;
+            const dy = t.clientY - prev.y;
+
+            if (!this.touchDragStarted) {
+                if (dx * dx + dy * dy < 64) return;
+                this.touchDragStarted = true;
+            }
+
+            e.preventDefault();
+            const sensitivity = 0.005;
+            if (this.flyMode) {
+                this.flyYaw -= dx * sensitivity;
+                this.flyPitch -= dy * sensitivity;
+                this.flyPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.flyPitch));
+            } else {
+                this.yaw -= dx * sensitivity;
+                this.pitch += dy * sensitivity;
+                this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
+            }
+            this.touches.set(t.identifier, { x: t.clientX, y: t.clientY });
+        } else if (count >= 2 && e.touches.length >= 2) {
+            e.preventDefault();
+            this.touchDragStarted = true;
+
+            const ids = [...this.touches.keys()];
+            const t0id = ids[0], t1id = ids[1];
+            let t0: Touch | null = null, t1: Touch | null = null;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === t0id) t0 = e.touches[i];
+                if (e.touches[i].identifier === t1id) t1 = e.touches[i];
+            }
+            if (!t0 || !t1) return;
+
+            const prev0 = this.touches.get(t0id)!;
+            const prev1 = this.touches.get(t1id)!;
+
+            // Pan: average movement of both fingers
+            const avgDx = ((t0.clientX - prev0.x) + (t1.clientX - prev1.x)) / 2;
+            const avgDy = ((t0.clientY - prev0.y) + (t1.clientY - prev1.y)) / 2;
+
+            if (!this.flyMode) {
+                const panSpeed = this.distance * 0.002;
+                const eye = this.getOrbitPosition();
+                const forward = this.target.sub(eye).normalize();
+                const worldUp = new Vec3(0, 1, 0);
+                const right = forward.cross(worldUp).normalize();
+                const up = right.cross(forward).normalize();
+                this.target = this.target.sub(right.scale(avgDx * panSpeed));
+                this.target = this.target.add(up.scale(avgDy * panSpeed));
+            }
+
+            // Pinch: zoom
+            const curDx = t1.clientX - t0.clientX;
+            const curDy = t1.clientY - t0.clientY;
+            const curDist = Math.sqrt(curDx * curDx + curDy * curDy);
+            if (this.initialPinchDist > 0) {
+                const scale = this.initialPinchDist / curDist;
+                if (this.flyMode) {
+                    this.flySpeed = Math.max(1, Math.min(5000, this.flySpeed * scale));
+                } else {
+                    this.distance = Math.max(0.5, Math.min(50000, this.distance * scale));
+                }
+                this.initialPinchDist = curDist;
+            }
+
+            this.touches.set(t0id, { x: t0.clientX, y: t0.clientY });
+            this.touches.set(t1id, { x: t1.clientX, y: t1.clientY });
+        }
+    };
+
+    private onTouchEnd = (e: TouchEvent): void => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            this.touches.delete(e.changedTouches[i].identifier);
+        }
+        if (this.touches.size < 2) {
+            this.initialPinchDist = 0;
+        }
+        if (this.touches.size === 0) {
+            this.touchDragStarted = false;
+        }
+    };
+
+    wasTouchDrag(): boolean {
+        return this.touchDragStarted;
+    }
 }

@@ -2,6 +2,7 @@ import { EditorContext } from '../editor_context.js';
 import { EditorCamera } from '../input/editor_camera.js';
 import { GizmoSystem } from '../gizmos/gizmo_system.js';
 import { ViewportInputHandler } from '../input/viewport_input_handler.js';
+import { TouchControls } from '../input/touch_controls.js';
 import { CameraComponent } from '../../../runtime/function/framework/components/camera_component.js';
 import { Vec3 } from '../../../runtime/core/math/vec3.js';
 import { MeshData } from '../../../runtime/resource/types/mesh_data.js';
@@ -9,6 +10,7 @@ import { CreateEntityCommand } from '../history/commands.js';
 import { buildComponentsForAsset, prettifyAssetName } from '../utils/asset_drop.js';
 import { icon, Maximize2, Minimize2 } from '../widgets/icons.js';
 import { StreamingManager } from '../streaming_manager.js';
+import { isMobile } from '../utils/mobile.js';
 
 /**
  * Viewport panel: contains the WebGPU canvas and overlay canvas for gizmos.
@@ -22,6 +24,7 @@ export class ViewportPanel {
 
     private ctx: EditorContext;
     private inputHandler: ViewportInputHandler;
+    private touchControls: TouchControls | null = null;
     private fpsEl: HTMLElement;
     private assetLoadingIndicator: HTMLElement;
 
@@ -57,7 +60,7 @@ export class ViewportPanel {
         this.overlayCanvas.style.position = 'absolute';
         this.overlayCanvas.style.top = '0';
         this.overlayCanvas.style.left = '0';
-        this.overlayCanvas.style.pointerEvents = 'auto';
+        this.overlayCanvas.style.pointerEvents = isMobile() ? 'none' : 'auto';
         container.appendChild(this.overlayCanvas);
 
         // Overlay info
@@ -120,9 +123,15 @@ export class ViewportPanel {
         this.el.appendChild(this.tabBar);
         this.el.appendChild(container);
 
-        this.camera.attach(this.overlayCanvas);
+        const inputCanvas = isMobile() ? this.canvas : this.overlayCanvas;
+        this.camera.attach(inputCanvas);
         this.gizmo.attachOverlay(this.overlayCanvas);
-        this.inputHandler = new ViewportInputHandler(this.overlayCanvas, this.camera, this.gizmo);
+        this.inputHandler = new ViewportInputHandler(inputCanvas, this.camera, this.gizmo);
+
+        if (isMobile()) {
+            this.gizmo.attachTouchTarget(this.canvas);
+            this.touchControls = new TouchControls(container, this.camera);
+        }
 
         // Asset drag-and-drop
         this.overlayCanvas.addEventListener('dragover', (e) => {

@@ -117,6 +117,10 @@ export class ViewportInputHandler {
     private boxSelectEl: HTMLElement | null = null;
     private gizmoWasInteracting: boolean = false;
 
+    private touchStartX: number = 0;
+    private touchStartY: number = 0;
+    private touchStartTime: number = 0;
+
     constructor(canvas: HTMLCanvasElement, camera: EditorCamera, gizmo: GizmoSystem) {
         this.ctx = EditorContext.instance;
         this.camera = camera;
@@ -125,11 +129,15 @@ export class ViewportInputHandler {
 
         canvas.addEventListener('mousedown', this.onMouseDown);
         canvas.addEventListener('dblclick', this.onDoubleClick);
+        canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
+        canvas.addEventListener('touchend', this.onTouchEnd, { passive: false });
     }
 
     detach(): void {
         this.canvas.removeEventListener('mousedown', this.onMouseDown);
         this.canvas.removeEventListener('dblclick', this.onDoubleClick);
+        this.canvas.removeEventListener('touchstart', this.onTouchStart);
+        this.canvas.removeEventListener('touchend', this.onTouchEnd);
         window.removeEventListener('mousemove', this.onMouseMove);
         window.removeEventListener('mouseup', this.onMouseUp);
         this.removeBoxSelectOverlay();
@@ -447,6 +455,34 @@ export class ViewportInputHandler {
         if (selected.length === 1) {
             const pos = selected[0].getWorldPosition();
             this.camera.focusOn(pos);
+        }
+    };
+
+    // ── Touch Selection ─────────────────────────────────────────────
+
+    private onTouchStart = (e: TouchEvent): void => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        this.touchStartX = touch.clientX;
+        this.touchStartY = touch.clientY;
+        this.touchStartTime = performance.now();
+    };
+
+    private onTouchEnd = (e: TouchEvent): void => {
+        if (e.changedTouches.length !== 1) return;
+        if (this.ctx.state.isPlaying) return;
+        if (this.ctx.state.terrainSculptActive) return;
+        if (this.gizmo.isInteracting()) return;
+
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - this.touchStartX;
+        const dy = touch.clientY - this.touchStartY;
+        const dist = dx * dx + dy * dy;
+        const elapsed = performance.now() - this.touchStartTime;
+
+        if (dist < 100 && elapsed < 400) {
+            if (this.camera.wasTouchDrag()) return;
+            this.performRaycastSelect(touch.clientX, touch.clientY, false, false);
         }
     };
 }

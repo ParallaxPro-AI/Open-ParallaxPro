@@ -1,6 +1,7 @@
 import { EditorContext } from '../editor_context.js';
 import { ParallaxEditor } from '../editor.js';
 import { EditorLayout } from './editor_layout.js';
+import { MobileEditorLayout } from './mobile_editor_layout.js';
 import { Toolbar } from '../toolbar/toolbar.js';
 import { SceneHierarchyPanel } from '../panels/scene_hierarchy_panel.js';
 import { ObjectPropertiesPanel } from '../panels/object_properties_panel.js';
@@ -8,6 +9,7 @@ import { ViewportPanel } from '../panels/viewport_panel.js';
 import { AssetsPanel } from '../panels/assets_panel.js';
 import { AiChatPanel } from '../panels/ai_chat_panel.js';
 import { ShortcutManager } from '../input/shortcut_manager.js';
+import { isMobile } from '../utils/mobile.js';
 import { t } from '../i18n/index.js';
 
 export class EditorView {
@@ -15,13 +17,14 @@ export class EditorView {
     private ctx: EditorContext;
     private editor: ParallaxEditor;
     private toolbar: Toolbar;
-    private layout: EditorLayout;
-    private hierarchy: SceneHierarchyPanel;
-    private properties: ObjectPropertiesPanel;
+    private layout: EditorLayout | null = null;
+    private mobileLayout: MobileEditorLayout | null = null;
+    private hierarchy: SceneHierarchyPanel | null = null;
+    private properties: ObjectPropertiesPanel | null = null;
     private viewport: ViewportPanel;
-    private assets: AssetsPanel;
+    private assets: AssetsPanel | null = null;
     private chat: AiChatPanel;
-    private shortcuts: ShortcutManager;
+    private shortcuts: ShortcutManager | null = null;
     private beforeUnloadHandler: (e: BeforeUnloadEvent) => void;
 
     private connectionBanner: HTMLElement;
@@ -43,30 +46,57 @@ export class EditorView {
         this.connectionBanner.style.display = 'none';
         this.el.appendChild(this.connectionBanner);
 
-        this.layout = new EditorLayout();
-
-        this.hierarchy = new SceneHierarchyPanel();
-        this.properties = new ObjectPropertiesPanel();
         this.viewport = new ViewportPanel();
-        this.assets = new AssetsPanel();
         this.chat = new AiChatPanel();
 
-        this.layout.leftTop.appendChild(this.hierarchy.el);
-        this.layout.leftBottom.appendChild(this.properties.el);
-        this.layout.centerTop.appendChild(this.viewport.el);
-        this.layout.centerBottom.appendChild(this.assets.el);
-        this.layout.rightColumn.appendChild(this.chat.el);
+        if (isMobile()) {
+            this.mobileLayout = new MobileEditorLayout();
+            this.mobileLayout.viewportContainer.appendChild(this.viewport.el);
+            this.mobileLayout.chatContainer.appendChild(this.chat.el);
 
-        this.el.appendChild(this.layout.el);
+            // Landscape chat sheet gets a clone of the chat panel — reparented on orientation change
+            const landscapeQuery = window.matchMedia('(orientation: landscape)');
+            const reparentChat = () => {
+                if (landscapeQuery.matches) {
+                    this.mobileLayout!.getChatSheetContent().appendChild(this.chat.el);
+                } else {
+                    this.mobileLayout!.chatContainer.appendChild(this.chat.el);
+                }
+            };
+            landscapeQuery.addEventListener('change', reparentChat);
+            reparentChat();
 
-        this.disconnectOverlay = document.createElement('div');
-        this.disconnectOverlay.className = 'disconnect-overlay';
-        this.disconnectOverlay.style.display = 'none';
-        this.disconnectOverlay.innerHTML = `<div class="disconnect-overlay-msg">${t('editor.disconnectOverlay')}</div>`;
-        this.layout.el.style.position = 'relative';
-        this.layout.el.appendChild(this.disconnectOverlay);
+            this.el.appendChild(this.mobileLayout.el);
 
-        this.shortcuts = new ShortcutManager();
+            this.disconnectOverlay = document.createElement('div');
+            this.disconnectOverlay.className = 'disconnect-overlay';
+            this.disconnectOverlay.style.display = 'none';
+            this.disconnectOverlay.innerHTML = `<div class="disconnect-overlay-msg">${t('editor.disconnectOverlay')}</div>`;
+            this.mobileLayout.el.style.position = 'relative';
+            this.mobileLayout.el.appendChild(this.disconnectOverlay);
+        } else {
+            this.layout = new EditorLayout();
+            this.hierarchy = new SceneHierarchyPanel();
+            this.properties = new ObjectPropertiesPanel();
+            this.assets = new AssetsPanel();
+
+            this.layout.leftTop.appendChild(this.hierarchy.el);
+            this.layout.leftBottom.appendChild(this.properties.el);
+            this.layout.centerTop.appendChild(this.viewport.el);
+            this.layout.centerBottom.appendChild(this.assets.el);
+            this.layout.rightColumn.appendChild(this.chat.el);
+
+            this.el.appendChild(this.layout.el);
+
+            this.disconnectOverlay = document.createElement('div');
+            this.disconnectOverlay.className = 'disconnect-overlay';
+            this.disconnectOverlay.style.display = 'none';
+            this.disconnectOverlay.innerHTML = `<div class="disconnect-overlay-msg">${t('editor.disconnectOverlay')}</div>`;
+            this.layout.el.style.position = 'relative';
+            this.layout.el.appendChild(this.disconnectOverlay);
+
+            this.shortcuts = new ShortcutManager();
+        }
 
         this.ctx.undoManager.onChange(() => {
             this.ctx.emit('historyChanged');
@@ -650,7 +680,7 @@ export class EditorView {
         this.ctx.stopAutosave();
         this.ctx.backend.disconnectWebSocket();
         this.editor.shutdown();
-        this.shortcuts.destroy();
+        this.shortcuts?.destroy();
     }
 
     sendInitialChatMessage(prompt: string): void {
