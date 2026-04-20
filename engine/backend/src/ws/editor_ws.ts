@@ -68,6 +68,10 @@ interface EditorClient {
      *  sessions are allowed in the editor but blocked from CLI-spawning
      *  paths (CREATE_GAME, FIX_GAME) and publishing. */
     isAnonymous: boolean;
+    /** User-Agent from the WebSocket upgrade request. */
+    userAgent: string;
+    /** 'mobile' or 'desktop' derived from userAgent. */
+    deviceType: 'mobile' | 'desktop';
     /** Set by the FIX_GAME commit paths (direct fixer + LLM tool) when a
      *  successful commit wrote a pending agent_feedback row. Fired as a
      *  `feedback_required` WS event at end-of-turn so the form doesn't
@@ -256,6 +260,8 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         }
         const built = buildProject(projectId, pd.files);
         const firstSceneKey = built.activeSceneKey;
+        const ua = req.headers['user-agent'] || '';
+        const deviceType: 'mobile' | 'desktop' = /Mobi|Android|iPhone|iPad|iPod/i.test(ua) ? 'mobile' : 'desktop';
         const client: EditorClient = {
             ws,
             clientId,
@@ -268,6 +274,8 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
             abortController: null,
             jobUnsubscribe: null,
             isAnonymous: !!user.isAnonymous,
+            userAgent: ua,
+            deviceType,
             pendingFeedbackAnnounceId: null,
         };
 
