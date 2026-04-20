@@ -224,15 +224,20 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
 
     let isRemoteRetry = false;
     if (_remoteSpawnFn) {
+        // Release the local slot immediately — the remote worker has its
+        // own slot tracking. Without this the local slot stays "active"
+        // for the entire duration of the remote job (10+ minutes).
+        releaseCLISlot(opts.cliOverride);
         try {
             const remote = await _remoteSpawnFn(opts, cli);
-            if (remote) {
-                releaseCLISlot(opts.cliOverride);
-                return remote;
-            }
+            if (remote) return remote;
+            // Remote returned null (no worker available) — re-acquire local slot
+            await acquireCLISlot(opts);
         } catch (e: any) {
             console.warn(`[CLIRunner] Remote spawn failed, falling back to local:`, e?.message);
             isRemoteRetry = true;
+            // Re-acquire local slot for the fallback
+            await acquireCLISlot(opts);
         }
     }
     const startedAt = Date.now();
