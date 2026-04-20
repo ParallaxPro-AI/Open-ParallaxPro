@@ -50,14 +50,23 @@ export class ParallaxEngine {
         await this.initialize();
         await this.globalContext.startSystems(canvasElement, projectConfig);
 
-        // Resume audio context on first user interaction
+        // Resume audio context on first user interaction.
+        // Mobile browsers require the resume to happen inside a user
+        // gesture handler. Listen on document too so taps on touch
+        // control overlays (which sit above the canvas) still unlock.
         const resumeAudio = () => {
             this.globalContext.audioSystem.resume();
             canvasElement.removeEventListener('click', resumeAudio);
             canvasElement.removeEventListener('keydown', resumeAudio);
+            canvasElement.removeEventListener('touchstart', resumeAudio);
+            document.removeEventListener('click', resumeAudio);
+            document.removeEventListener('touchstart', resumeAudio);
         };
         canvasElement.addEventListener('click', resumeAudio);
         canvasElement.addEventListener('keydown', resumeAudio);
+        canvasElement.addEventListener('touchstart', resumeAudio);
+        document.addEventListener('click', resumeAudio);
+        document.addEventListener('touchstart', resumeAudio);
 
         this.run();
     }
