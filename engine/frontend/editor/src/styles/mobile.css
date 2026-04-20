@@ -100,7 +100,7 @@ body.mobile .mobile-chat-sheet {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60%;
+    height: 100%;
     transform: translateY(100%);
     transition: transform 0.25s ease-out;
     z-index: 100;
