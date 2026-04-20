@@ -43,6 +43,87 @@ export function writeValidateScripts(sandboxDir: string): void {
     fs.writeFileSync(path.join(sandboxDir, 'validate_assembler.js'), VALIDATE_ASSEMBLER_JS);
 }
 
+/**
+ * Write a `search_assets.sh` tool into the sandbox so the CLI can
+ * semantically search the asset library without reading the full
+ * catalogs. Requires `.search_config.json` (written by cli_creator /
+ * cli_fixer) with `{ url, token }`. Soft-fails gracefully when the
+ * backend is unreachable — returns empty results, never blocks the run.
+ */
+export function writeSearchAssetsTool(sandboxDir: string): void {
+    fs.writeFileSync(path.join(sandboxDir, 'search_assets.sh'), SEARCH_ASSETS_SH, { mode: 0o755 });
+}
+
+const SEARCH_ASSETS_SH = `#!/bin/bash
+# Semantic asset search — queries the engine backend's embedding index.
+# Usage: bash search_assets.sh "soldier character model"
+#        bash search_assets.sh "footstep sound" --category Audio
+#        bash search_assets.sh "grass texture" --limit 10
+#
+# Returns JSON lines: { name, path, category, pack }
+# The "path" field is the value you use in entity defs and scripts, e.g.
+#   mesh.asset: "/assets/kenney/models/character/Knight.glb"
+#   this.audio.playSound("/assets/kenney/audio/hit.ogg")
+
+QUERY="\$1"
+if [ -z "\$QUERY" ]; then
+    echo "Usage: bash search_assets.sh \\"search query\\" [--category 3D\\\\ Models|Audio|Textures] [--limit N]"
+    exit 1
+fi
+
+# Parse optional flags
+CATEGORY=""
+LIMIT="20"
+shift
+while [ \$# -gt 0 ]; do
+    case "\$1" in
+        --category) CATEGORY="\$2"; shift 2 ;;
+        --limit) LIMIT="\$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+# Read backend URL + token from config
+if [ ! -f .search_config.json ]; then
+    echo "WARN: .search_config.json missing — cannot search assets." >&2
+    echo "[]"
+    exit 0
+fi
+
+URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.url||'')")
+TOKEN=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.token||'')")
+
+if [ -z "\$URL" ]; then
+    echo "[]"
+    exit 0
+fi
+
+# URL-encode the query
+ENCODED_QUERY=\$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$QUERY")
+ENDPOINT="\$URL/api/engine/internal/search-assets?q=\$ENCODED_QUERY&limit=\$LIMIT"
+if [ -n "\$CATEGORY" ]; then
+    ENCODED_CAT=\$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$CATEGORY")
+    ENDPOINT="\$ENDPOINT&category=\$ENCODED_CAT"
+fi
+
+# Fetch results — soft-fail on network error
+RESP=\$(curl -sf -H "X-Internal-Token: \$TOKEN" "\$ENDPOINT" 2>/dev/null)
+if [ -z "\$RESP" ]; then
+    echo "WARN: could not reach asset search endpoint — falling back to catalog files." >&2
+    echo "[]"
+    exit 0
+fi
+
+# Pretty-print results for the CLI
+node -e "
+const data = JSON.parse(process.argv[1]);
+const results = data.results || [];
+if (results.length === 0) { console.log('No assets found for that query.'); process.exit(0); }
+console.log(results.length + ' result(s):');
+for (const r of results) console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')');
+" "\$RESP"
+`;
+
 // ─── In-process checks ────────────────────────────────────────────────────
 //
 // These three exported functions are the authoritative spec for what

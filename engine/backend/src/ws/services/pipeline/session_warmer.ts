@@ -380,8 +380,8 @@ function generateAssetCatalog(assetsDir: string): void {
 const CREATOR_WARM_PROMPT = `You are being pre-warmed for a game creation task. Your job right now is to READ and INTERNALIZE reference materials so they are in your context when the real task arrives.
 
 1. Read all game templates in reference/game_templates/ — browse each subdirectory and read every file. These are the patterns you must follow.
-2. Read the asset catalogs in assets/ (3D_MODELS.md, AUDIO.md, TEXTURES.md).
-3. Read the engine machinery in project/systems/ — these files are pre-installed in every game.
+2. Read the engine machinery in project/systems/ — these files are pre-installed in every game.
+3. Do NOT read the asset catalog files (assets/3D_MODELS.md etc.) — use "bash search_assets.sh \\"query\\"" to find assets when you need them during the real task.
 
 Do NOT create, edit, or delete any files. Just read everything and respond with: WARM_COMPLETE`;
 

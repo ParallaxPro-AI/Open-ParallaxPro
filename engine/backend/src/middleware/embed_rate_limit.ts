@@ -23,7 +23,7 @@ const userBuckets = new Map<number, { count: number; resetAt: number }>();
  */
 export function tryConsumeEmbedBudget(userId: number | undefined): boolean {
     if (!config.isHosted) return true; // no limit on self-hosted
-    if (!userId) return true; // unauthenticated is gated elsewhere
+    if (!userId) return false; // unauthenticated users don't get embedding search
     const now = Date.now();
     const entry = userBuckets.get(userId);
     if (!entry || now > entry.resetAt) {

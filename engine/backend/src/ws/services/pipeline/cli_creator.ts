@@ -36,7 +36,7 @@ import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validato
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
 import { archiveCreatorSandbox } from './sandbox_archive.js';
-import { writeValidateScripts } from './sandbox_validate.js';
+import { writeValidateScripts, writeSearchAssetsTool } from './sandbox_validate.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -156,6 +156,10 @@ export async function runCreator(
         fs.writeFileSync(
             path.join(sandboxDir, '.validate_config.json'),
             JSON.stringify({ url: validateBackendUrl, token: validateToken }),
+        );
+        fs.writeFileSync(
+            path.join(sandboxDir, '.search_config.json'),
+            JSON.stringify({ url: validateBackendUrl, token: process.env.INTERNAL_API_TOKEN || '' }),
         );
 
         // Seed TASK.md with the baseline event list so the agent knows
@@ -419,6 +423,7 @@ async function createSandbox(
     await generateSuggestedAssets(assetsDir, description);
 
     writeValidateScripts(sandboxDir);
+    writeSearchAssetsTool(sandboxDir);
 }
 
 function copyDirRecursive(src: string, dest: string): void {
@@ -607,9 +612,9 @@ async function generateSuggestedAssets(assetsDir: string, description: string): 
 
 // Template-format docs + rules live in CLAUDE.md / AGENTS.md, which each CLI
 // auto-loads into its system prompt — no Read call needed.
-const CREATOR_PROMPT = `Read TASK.md for the game description and baseline event list — use those events unless you add a new one to project/systems/event_definitions.ts. Browse assets/ for 3D models, audio, textures. reference/game_templates/ has working examples; reference/behaviors|systems|ui/ has library files to copy into project/. Fill in the 4 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ under project/. Run "bash validate.sh" when done and fix any errors.`;
+const CREATOR_PROMPT = `Read TASK.md for the game description and baseline event list — use those events unless you add a new one to project/systems/event_definitions.ts. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). reference/game_templates/ has working examples; reference/behaviors|systems|ui/ has library files to copy into project/. Fill in the 4 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ under project/. Run "bash validate.sh" when done and fix any errors.`;
 
-const CREATOR_PROMPT_WARM = `You have already read the game templates, asset catalogs, and engine machinery in your previous turns. Now read TASK.md for the game description and baseline event list. Create the game template in project/ following the patterns you've already seen. Copy any needed library files from reference/ into project/. Run "bash validate.sh" when done and fix any errors.`;
+const CREATOR_PROMPT_WARM = `You have already read the game templates and engine machinery in your previous turns. Now read TASK.md for the game description and baseline event list. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). Create the game template in project/ following the patterns you've already seen. Copy any needed library files from reference/ into project/. Run "bash validate.sh" when done and fix any errors.`;
 
 function creatorStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {

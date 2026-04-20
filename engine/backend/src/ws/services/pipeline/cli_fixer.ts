@@ -31,7 +31,7 @@ import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js'
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { config } from '../../../config.js';
-import { writeValidateScripts } from './sandbox_validate.js';
+import { writeValidateScripts, writeSearchAssetsTool } from './sandbox_validate.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
@@ -136,6 +136,10 @@ export async function runFixer(
             path.join(sandboxDir, '.validate_config.json'),
             JSON.stringify({ url: validateBackendUrl, token: validateToken }),
         );
+        fs.writeFileSync(
+            path.join(sandboxDir, '.search_config.json'),
+            JSON.stringify({ url: validateBackendUrl, token: process.env.INTERNAL_API_TOKEN || '' }),
+        );
 
         const projectSummary = buildProjectSummary(sandboxDir, projectFiles, activeSceneKey);
         let taskContent = `# Bug Report\n\n${description}\n\n# Current Project State\n\n${projectSummary}`;
@@ -238,6 +242,7 @@ async function createSandbox(
     }
 
     writeValidateScripts(sandboxDir);
+    writeSearchAssetsTool(sandboxDir);
 }
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────

@@ -244,6 +244,24 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         }
     });
 
+    app.get('/api/engine/internal/search-assets', async (req, res) => {
+        const expected = process.env.INTERNAL_API_TOKEN;
+        if (expected) {
+            const provided = req.headers['x-internal-token'];
+            if (provided !== expected) {
+                res.status(401).json({ error: 'Unauthorized' });
+                return;
+            }
+        }
+        const { searchAssets } = await import('./routes/assets.js');
+        const q = (req.query.q as string) || '';
+        const category = (req.query.category as string) || '';
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+        if (!q) { res.json({ results: [] }); return; }
+        const results = await searchAssets({ search: q, category: category || undefined, limit });
+        res.json({ results });
+    });
+
     app.post('/api/engine/internal/validate-sandbox/:token', async (req, res) => {
         const { lookupSandboxToken } = await import('./ws/services/pipeline/sandbox_validator.js');
         const { assembleGame } = await import('./ws/services/pipeline/level_assembler.js');

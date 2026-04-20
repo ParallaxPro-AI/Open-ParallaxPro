@@ -30,7 +30,9 @@ reference/                         — Read-only library to copy from
   game_templates/v0.1/...          — Working examples
   behaviors/, systems/, ui/        — Latest shared behaviors/systems/UI
   previous_project/ (optional)     — The user's own files before this rebuild
-assets/                            — 3D_MODELS.md, AUDIO.md, TEXTURES.md
+assets/                            — catalogs (don't read — use search_assets.sh)
+search_assets.sh                   — bash search_assets.sh "query" to find assets
+validate.sh                        — bash validate.sh to validate your output
 ```
 
 ### `reference/previous_project/` — the user's work so far
@@ -970,10 +972,20 @@ Without the manifest, the validator can't see the dynamic names — but the runt
 For genuinely blank entities (rare — usually you want a prefab), use `scene.createEntity(name)` instead. That's the bare-create path and isn't validated.
 
 ## Available Assets
-Read files in the `assets/` directory:
-- `assets/3D_MODELS.md` — all 3D model packs with paths
-- `assets/AUDIO.md` — all audio files with paths
-- `assets/TEXTURES.md` — all texture files with paths
+
+**Use `bash search_assets.sh "query"` to find assets.** This is a semantic search tool that returns the most relevant asset paths for your query. Much faster and cheaper than reading the full catalog files.
+
+```bash
+bash search_assets.sh "soldier character model"
+bash search_assets.sh "footstep walking sound" --category Audio
+bash search_assets.sh "grass ground texture" --category Textures --limit 5
+```
+
+The returned `path` values are exactly what you use in entity defs (`mesh.asset`) and scripts (`playSound`/`playMusic`).
+
+**Do NOT read the full catalog files** (`assets/3D_MODELS.md`, `assets/AUDIO.md`, `assets/TEXTURES.md`) — they are thousands of lines and waste your turn budget. Use the search tool instead. Only read catalogs as a last resort if the search tool is unavailable.
+
+**Do NOT invent asset paths.** Every `mesh.asset` and `playSound`/`playMusic` path must come from a search result. `validate.sh` will reject non-existent asset paths.
 
 ## Event Definitions
 Read `project/systems/event_definitions.ts` (the project's pinned copy — there is also `reference/systems/event_definitions.ts` if needed).
