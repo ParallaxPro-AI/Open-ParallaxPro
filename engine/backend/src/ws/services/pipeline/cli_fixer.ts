@@ -32,6 +32,7 @@ import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validato
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { config } from '../../../config.js';
 import { writeValidateScripts, writeSearchAssetsTool } from './sandbox_validate.js';
+import { generateAssetCatalog } from './cli_creator.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
@@ -243,6 +244,10 @@ async function createSandbox(
         fs.writeFileSync(path.join(sandboxDir, 'CLAUDE.md'), ctx);
         fs.writeFileSync(path.join(sandboxDir, 'AGENTS.md'), ctx);
     }
+
+    const assetsDir = path.join(sandboxDir, 'assets');
+    fs.mkdirSync(assetsDir, { recursive: true });
+    generateAssetCatalog(assetsDir);
 
     writeValidateScripts(sandboxDir);
     writeSearchAssetsTool(sandboxDir);

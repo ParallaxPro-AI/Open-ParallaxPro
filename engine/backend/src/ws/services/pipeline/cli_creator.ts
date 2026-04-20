@@ -442,7 +442,7 @@ function copyDirRecursive(src: string, dest: string): void {
 
 // ─── Asset catalog generation ──────────────────────────────────────────────
 
-function generateAssetCatalog(assetsDir: string): void {
+export function generateAssetCatalog(assetsDir: string): void {
     const models: string[] = ['# Available 3D Models\n\nUse these paths in entity definitions: `"asset": "/assets/..."`\n'];
     const audio: string[] = ['# Available Audio\n\nUse these paths in scripts: `this.audio.playSound("/assets/...")`\n'];
     const textures: string[] = ['# Available Textures\n\nUse these paths in mesh_override: `"textureBundle": "/assets/..."`\n'];
