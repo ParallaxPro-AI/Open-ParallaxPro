@@ -160,6 +160,20 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // from probing job state; deploy.sh on the same box knows the token.
     // In dev mode (no token set) we allow unauthenticated calls so running
     // the backend locally doesn't require env setup.
+    // Freeze CLI slots — called by deploy.sh right before pm2 restart.
+    // Jobs that arrive during freeze queue instead of starting, so they
+    // survive the restart gap (client retries after WS reconnect).
+    app.post('/api/engine/internal/freeze-cli', async (req, res) => {
+        const expected = process.env.INTERNAL_API_TOKEN;
+        if (expected) {
+            const provided = req.headers['x-internal-token'];
+            if (provided !== expected) { res.status(401).json({ error: 'Unauthorized' }); return; }
+        }
+        const { freezeCLISlots } = await import('./ws/services/pipeline/cli_runner.js');
+        freezeCLISlots();
+        res.json({ ok: true, frozen: true });
+    });
+
     // Session warmer status — used by admin dashboard to show warm/warming/not-warm.
     app.get('/api/engine/internal/warm-status', async (req, res) => {
         const expected = process.env.INTERNAL_API_TOKEN;

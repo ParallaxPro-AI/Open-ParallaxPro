@@ -61,7 +61,7 @@ export function acquireCLISlot(opts: AcquireOpts = {}): Promise<void> {
     const { jobId, cliOverride, sendStatus } = opts;
     const cli = resolveCLI(cliOverride);
     const cap = MAX_PER_CLI[cli];
-    if (activeCountByCLI[cli] < cap) {
+    if (!_frozen && activeCountByCLI[cli] < cap) {
         activeCountByCLI[cli]++;
         return Promise.resolve();
     }
@@ -212,8 +212,12 @@ export function resolveCLI(cliOverride?: string): CLIName {
 
 export type RemoteSpawnFn = (opts: SpawnOptions, cli: CLIName) => Promise<CLIRunResult | null>;
 let _remoteSpawnFn: RemoteSpawnFn | null = null;
+let _frozen = false;
 
 export function setRemoteSpawnFn(fn: RemoteSpawnFn | null): void { _remoteSpawnFn = fn; }
+export function freezeCLISlots(): void { _frozen = true; }
+export function unfreezeCLISlots(): void { _frozen = false; }
+export function isCLIFrozen(): boolean { return _frozen; }
 
 export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
     const cli = resolveCLI(opts.cliOverride);
