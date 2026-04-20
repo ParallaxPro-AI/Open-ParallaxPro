@@ -14,6 +14,7 @@ export class ProjectListView {
     private selectCountEl: HTMLElement;
     private selectAllCheckbox: HTMLElement;
     private searchInput: HTMLInputElement;
+    private searchRowEl: HTMLElement;
     private projects: any[] = [];
     private selectedIds: Set<string> = new Set();
     private onOpenProject: ((projectId: string, initialPrompt?: string) => void) | null = null;
@@ -171,7 +172,8 @@ export class ProjectListView {
 
         this.el.appendChild(this.toolbarEl);
 
-        const searchRow = document.createElement('div');
+        this.searchRowEl = document.createElement('div');
+        const searchRow = this.searchRowEl;
         searchRow.className = 'project-search-row';
 
         this.searchInput = document.createElement('input');
@@ -1055,6 +1057,7 @@ git checkout da571fe   # last commit before template unification`;
         const count = this.selectedIds.size;
         const total = this.projects.length;
         this.toolbarEl.style.display = count > 0 ? 'flex' : 'none';
+        this.searchRowEl.style.display = count > 0 ? 'none' : '';
         this.selectCountEl.textContent = `${count} of ${total} selected`;
 
         const allSelected = count === total && total > 0;
