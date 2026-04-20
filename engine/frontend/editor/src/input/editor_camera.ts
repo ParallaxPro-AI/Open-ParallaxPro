@@ -413,9 +413,14 @@ export class EditorCamera {
 
         const count = this.touches.size;
 
-        if (count === 1 && e.touches.length === 1) {
-            const t = e.touches[0];
-            const prev = this.touches.get(t.identifier);
+        if (count === 1) {
+            const tid = [...this.touches.keys()][0];
+            let t: Touch | null = null;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === tid) { t = e.changedTouches[i]; break; }
+            }
+            if (!t) return;
+            const prev = this.touches.get(tid);
             if (!prev) return;
 
             const dx = t.clientX - prev.x;
@@ -437,8 +442,8 @@ export class EditorCamera {
                 this.pitch += dy * sensitivity;
                 this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
             }
-            this.touches.set(t.identifier, { x: t.clientX, y: t.clientY });
-        } else if (count >= 2 && e.touches.length >= 2) {
+            this.touches.set(tid, { x: t.clientX, y: t.clientY });
+        } else if (count >= 2) {
             e.preventDefault();
             this.touchDragStarted = true;
 

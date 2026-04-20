@@ -47,21 +47,15 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
         this.overlays.set(path, iframe);
 
         // Scale UI based on viewport size (designed for 1920px width).
-        // On mobile (touch + small screen) skip the zoom-down entirely —
-        // game HTML should render at native device resolution so text and
-        // buttons stay tap-friendly.
+        // On mobile use a smaller reference (960px) so game UI isn't
+        // crushed to 20% on a 390px phone — 960 gives ~40% which keeps
+        // text readable and buttons tappable.
         if (!this.resizeObserver) {
             const isMobileDevice = 'ontouchstart' in window && window.innerWidth < 1024;
+            const refWidth = isMobileDevice ? 960 : 1920;
             const updateZoom = () => {
-                if (isMobileDevice) {
-                    this.currentZoom = 1;
-                    for (const f of this.overlays.values()) {
-                        (f.style as any).zoom = '1';
-                    }
-                    return;
-                }
-                const w = container.clientWidth || 1920;
-                this.currentZoom = Math.min(w / 1920, 1);
+                const w = container.clientWidth || refWidth;
+                this.currentZoom = Math.min(w / refWidth, 1);
                 for (const f of this.overlays.values()) {
                     (f.style as any).zoom = String(this.currentZoom);
                 }
