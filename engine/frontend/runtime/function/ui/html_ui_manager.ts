@@ -46,9 +46,20 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
         container.appendChild(iframe);
         this.overlays.set(path, iframe);
 
-        // Scale UI based on viewport size (designed for 1920px width)
+        // Scale UI based on viewport size (designed for 1920px width).
+        // On mobile (touch + small screen) skip the zoom-down entirely —
+        // game HTML should render at native device resolution so text and
+        // buttons stay tap-friendly.
         if (!this.resizeObserver) {
+            const isMobileDevice = 'ontouchstart' in window && window.innerWidth < 1024;
             const updateZoom = () => {
+                if (isMobileDevice) {
+                    this.currentZoom = 1;
+                    for (const f of this.overlays.values()) {
+                        (f.style as any).zoom = '1';
+                    }
+                    return;
+                }
                 const w = container.clientWidth || 1920;
                 this.currentZoom = Math.min(w / 1920, 1);
                 for (const f of this.overlays.values()) {

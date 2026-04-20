@@ -154,7 +154,7 @@ export class AiChatPanel {
         this.textarea = document.createElement('textarea');
         this.textarea.className = 'chat-textarea';
         this.textarea.placeholder = t('chat.placeholder');
-        this.textarea.rows = 3;
+        this.textarea.rows = document.body.classList.contains('mobile') ? 2 : 3;
         this.textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

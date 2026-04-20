@@ -337,8 +337,18 @@ body.mobile .chat-input-area {
     padding: 8px;
 }
 
-body.mobile .chat-input-area textarea {
+body.mobile .chat-textarea {
     font-size: 16px; /* prevents iOS zoom on focus */
+    max-height: 60px;
+    min-height: 36px;
+}
+
+body.mobile .chat-session-id {
+    display: none;
+}
+
+body.mobile .chat-agent-caption {
+    display: none;
 }
 
 body.mobile .chat-message-bubble {
