@@ -56,37 +56,44 @@ export function writeSearchAssetsTool(sandboxDir: string): void {
 
 const SEARCH_ASSETS_SH = `#!/bin/bash
 # Semantic asset search — queries the engine backend's embedding index.
-# Usage: bash search_assets.sh "soldier character model"
-#        bash search_assets.sh "footstep sound" --category Audio
-#        bash search_assets.sh "grass texture" --limit 10
 #
-# Returns JSON lines: { name, path, category, pack }
+# Single query:
+#   bash search_assets.sh "soldier character model"
+#   bash search_assets.sh "footstep sound" --category Audio
+#   bash search_assets.sh "grass texture" --limit 10
+#
+# Batch mode (multiple queries in one call — saves tool-call round trips):
+#   bash search_assets.sh "soldier character" "zombie enemy" "gunshot sound" "brick texture"
+#
 # The "path" field is the value you use in entity defs and scripts, e.g.
 #   mesh.asset: "/assets/kenney/models/character/Knight.glb"
 #   this.audio.playSound("/assets/kenney/audio/hit.ogg")
 
-QUERY="\$1"
-if [ -z "\$QUERY" ]; then
-    echo "Usage: bash search_assets.sh \\"search query\\" [--category 3D\\\\ Models|Audio|Textures] [--limit N]"
+if [ -z "\$1" ]; then
+    echo "Usage: bash search_assets.sh \\"query1\\" [\\"query2\\" ...] [--category Audio|Textures] [--limit N]"
     exit 1
 fi
 
-# Parse optional flags
+# Collect queries and flags
+QUERIES=()
 CATEGORY=""
-LIMIT="20"
-shift
+LIMIT="10"
 while [ \$# -gt 0 ]; do
     case "\$1" in
         --category) CATEGORY="\$2"; shift 2 ;;
         --limit) LIMIT="\$2"; shift 2 ;;
-        *) shift ;;
+        *) QUERIES+=("\$1"); shift ;;
     esac
 done
+
+if [ \${#QUERIES[@]} -eq 0 ]; then
+    echo "No queries provided."
+    exit 1
+fi
 
 # Read backend URL + token from config
 if [ ! -f .search_config.json ]; then
     echo "WARN: .search_config.json missing — cannot search assets." >&2
-    echo "[]"
     exit 0
 fi
 
@@ -95,40 +102,45 @@ FALLBACK_URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_
 TOKEN=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.token||'')")
 
 if [ -z "\$URL" ] && [ -z "\$FALLBACK_URL" ]; then
-    echo "[]"
     exit 0
 fi
 
-# URL-encode the query
-ENCODED_QUERY=\$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$QUERY")
-PARAMS="q=\$ENCODED_QUERY&limit=\$LIMIT"
+ENCODED_CAT=""
 if [ -n "\$CATEGORY" ]; then
     ENCODED_CAT=\$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$CATEGORY")
-    PARAMS="\$PARAMS&category=\$ENCODED_CAT"
 fi
 
-# Try primary URL (Docker-internal), fall back to public URL (for remote workers)
-RESP=""
-if [ -n "\$URL" ]; then
-    RESP=\$(curl -sf --max-time 3 -H "X-Internal-Token: \$TOKEN" "\$URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
-fi
-if [ -z "\$RESP" ] && [ -n "\$FALLBACK_URL" ]; then
-    RESP=\$(curl -sf --max-time 5 -H "X-Internal-Token: \$TOKEN" "\$FALLBACK_URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
-fi
-if [ -z "\$RESP" ]; then
-    echo "WARN: could not reach asset search endpoint — falling back to catalog files." >&2
-    echo "[]"
-    exit 0
-fi
+for QUERY in "\${QUERIES[@]}"; do
+    ENCODED_QUERY=\$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$QUERY")
+    PARAMS="q=\$ENCODED_QUERY&limit=\$LIMIT"
+    if [ -n "\$ENCODED_CAT" ]; then
+        PARAMS="\$PARAMS&category=\$ENCODED_CAT"
+    fi
 
-# Pretty-print results for the CLI
-node -e "
-const data = JSON.parse(process.argv[1]);
-const results = data.results || [];
-if (results.length === 0) { console.log('No assets found for that query.'); process.exit(0); }
-console.log(results.length + ' result(s):');
-for (const r of results) console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')');
-" "\$RESP"
+    RESP=""
+    if [ -n "\$URL" ]; then
+        RESP=\$(curl -sf --max-time 3 -H "X-Internal-Token: \$TOKEN" "\$URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
+    fi
+    if [ -z "\$RESP" ] && [ -n "\$FALLBACK_URL" ]; then
+        RESP=\$(curl -sf --max-time 5 -H "X-Internal-Token: \$TOKEN" "\$FALLBACK_URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
+    fi
+
+    if [ -z "\$RESP" ]; then
+        echo "[\$QUERY] WARN: endpoint unreachable"
+        continue
+    fi
+
+    node -e "
+var data = JSON.parse(process.argv[1]);
+var q = process.argv[2];
+var results = data.results || [];
+if (results.length === 0) { console.log('[' + q + '] No results.'); }
+else {
+    console.log('[' + q + '] ' + results.length + ' result(s):');
+    for (var r of results) console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')');
+}
+" "\$RESP" "\$QUERY"
+done
 `;
 
 // ─── In-process checks ────────────────────────────────────────────────────

@@ -973,10 +973,17 @@ For genuinely blank entities (rare — usually you want a prefab), use `scene.cr
 
 ## Available Assets
 
-**Use `bash search_assets.sh "query"` to find assets.** This is a semantic search tool that returns the most relevant asset paths for your query. Much faster and cheaper than reading the full catalog files.
+**Use `bash search_assets.sh` to find assets.** This is a semantic search tool that returns the most relevant asset paths for your query. Much faster and cheaper than reading the full catalog files.
+
+**Batch multiple queries in a single call** to save tool-call round trips:
 
 ```bash
-bash search_assets.sh "soldier character model"
+bash search_assets.sh "soldier character" "zombie enemy" "gunshot sound" "brick wall texture"
+```
+
+You can also filter by category or adjust the limit:
+
+```bash
 bash search_assets.sh "footstep walking sound" --category Audio
 bash search_assets.sh "grass ground texture" --category Textures --limit 5
 ```
