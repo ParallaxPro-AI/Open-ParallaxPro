@@ -129,11 +129,12 @@
 .project-list-toolbar {
     display: flex;
     align-items: center;
-    padding: var(--spacing-md) 24px;
+    padding: 4px 24px;
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border);
-    gap: var(--spacing-md);
-    min-height: 40px;
+    gap: var(--spacing-sm);
+    min-height: 0;
+    font-size: var(--font-size-sm);
 }
 
 .project-select-all-checkbox {
