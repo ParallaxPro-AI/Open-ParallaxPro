@@ -1,9 +1,23 @@
 import en from './locales/en.json';
 import zhCN from './locales/zh-CN.json';
+import zhTW from './locales/zh-TW.json';
+import ja from './locales/ja.json';
+import ko from './locales/ko.json';
+import th from './locales/th.json';
+import ru from './locales/ru.json';
+import es from './locales/es.json';
+import ptBR from './locales/pt-BR.json';
 
 const locales: Record<string, Record<string, any>> = {
     en,
     'zh-CN': zhCN,
+    'zh-TW': zhTW,
+    ja,
+    ko,
+    th,
+    ru,
+    es,
+    'pt-BR': ptBR,
 };
 
 let currentLang = 'en';
@@ -14,7 +28,15 @@ function detectLanguage(): string {
     const stored = localStorage.getItem('i18nLang');
     if (stored && locales[stored]) return stored;
     const nav = navigator.language;
+    if (locales[nav]) return nav;
+    if (nav.startsWith('zh-TW') || nav.startsWith('zh-Hant')) return 'zh-TW';
     if (nav.startsWith('zh')) return 'zh-CN';
+    if (nav.startsWith('ja')) return 'ja';
+    if (nav.startsWith('ko')) return 'ko';
+    if (nav.startsWith('th')) return 'th';
+    if (nav.startsWith('ru')) return 'ru';
+    if (nav.startsWith('es')) return 'es';
+    if (nav.startsWith('pt')) return 'pt-BR';
     return 'en';
 }
 
