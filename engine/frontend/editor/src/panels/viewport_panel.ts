@@ -159,7 +159,12 @@ export class ViewportPanel {
                 this.setActiveTab('game');
             } else {
                 this.tabBar!.style.display = 'none';
-                this.overlayCanvas.style.pointerEvents = 'auto';
+                // On mobile the overlay canvas sits above the WebGL canvas
+                // that owns the touch handlers (see line ~63 and the
+                // isMobile branch for `inputCanvas`). Setting pointerEvents
+                // to 'auto' on stop swallows every touch and breaks
+                // look-around / object selection until the page reloads.
+                this.overlayCanvas.style.pointerEvents = isMobile() ? 'none' : 'auto';
                 this.camera.disabled = false;
             }
         });
@@ -268,7 +273,9 @@ export class ViewportPanel {
             this.canvas.focus();
             this.ctx.emit('viewportTabChanged', 'game');
         } else {
-            this.overlayCanvas.style.pointerEvents = 'auto';
+            // See playModeChanged — mobile routes touch input to the
+            // underlying canvas, so the overlay must stay pointer-transparent.
+            this.overlayCanvas.style.pointerEvents = isMobile() ? 'none' : 'auto';
             this.camera.disabled = false;
             this.ctx.emit('viewportTabChanged', 'scene');
         }
