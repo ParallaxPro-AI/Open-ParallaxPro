@@ -18,6 +18,9 @@ export class ProjectListView {
     private searchRowEl: HTMLElement;
     private projects: any[] = [];
     private selectedIds: Set<string> = new Set();
+    // Anchor for shift-click range selection — id of the last project the
+    // user explicitly clicked (checkbox or shift-click on card body).
+    private lastSelectedId: string | null = null;
     private onOpenProject: ((projectId: string, initialPrompt?: string) => void) | null = null;
     private searchQuery: string = '';
     private statusFilter: 'all' | 'published' | 'draft' = 'all';
@@ -676,6 +679,10 @@ export class ProjectListView {
             }
             checkbox.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (e.shiftKey) {
+                    this.selectRangeTo(project.id);
+                    return;
+                }
                 this.toggleSelect(project.id);
             });
             card.appendChild(checkbox);
@@ -830,7 +837,15 @@ export class ProjectListView {
         info.appendChild(bottom);
         card.appendChild(info);
 
-        card.addEventListener('click', async () => {
+        card.addEventListener('click', async (e) => {
+            // Shift-click on a card extends the current selection from the
+            // anchor (last explicitly selected project) through this one —
+            // same semantics as Finder / Windows Explorer. Skip opening.
+            if (e.shiftKey) {
+                window.getSelection()?.removeAllRanges();
+                this.selectRangeTo(project.id);
+                return;
+            }
             if (project.legacy) {
                 this.showDeprecatedModal(project);
                 return;
@@ -1038,6 +1053,7 @@ git checkout da571fe   # last commit before template unification`;
                 this.selectedIds.add(p.id);
             }
         }
+        this.lastSelectedId = null;
         this.updateSelectionUI();
     }
 
@@ -1047,6 +1063,43 @@ git checkout da571fe   # last commit before template unification`;
         } else {
             this.selectedIds.add(projectId);
         }
+        this.lastSelectedId = projectId;
+        this.updateSelectionUI();
+    }
+
+    /**
+     * Shift-click range selection. Adds every project between the anchor
+     * (last explicitly selected) and the target — inclusive — to the
+     * current selection, preserving anything already selected outside the
+     * range. Range is computed against the filtered project list so it
+     * works across pagination boundaries.
+     */
+    private selectRangeTo(projectId: string): void {
+        const filtered = this.getFilteredProjects();
+        if (filtered.length === 0) return;
+
+        // No anchor yet (first selection), or the anchor has been filtered
+        // out by the current search/status → fall back to single-select.
+        const anchorIdx = this.lastSelectedId
+            ? filtered.findIndex(p => p.id === this.lastSelectedId)
+            : -1;
+        const targetIdx = filtered.findIndex(p => p.id === projectId);
+        if (targetIdx < 0) return;
+
+        if (anchorIdx < 0) {
+            this.selectedIds.add(projectId);
+            this.lastSelectedId = projectId;
+            this.updateSelectionUI();
+            return;
+        }
+
+        const [lo, hi] = anchorIdx <= targetIdx
+            ? [anchorIdx, targetIdx]
+            : [targetIdx, anchorIdx];
+        for (let i = lo; i <= hi; i++) {
+            this.selectedIds.add(filtered[i].id);
+        }
+        this.lastSelectedId = projectId;
         this.updateSelectionUI();
     }
 
