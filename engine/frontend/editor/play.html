@@ -100,16 +100,17 @@
             height: 36px;
             border: none;
             border-radius: 8px;
-            background: rgba(30, 30, 30, 0.7);
+            background: rgba(30, 30, 30, 0.35);
             color: #ccc;
             cursor: pointer;
             display: none;
             align-items: center;
             justify-content: center;
             backdrop-filter: blur(6px);
-            transition: background 0.15s, color 0.15s;
+            opacity: 0.45;
+            transition: background 0.15s, color 0.15s, opacity 0.15s;
         }
-        #settings-btn:hover { background: rgba(50, 50, 50, 0.85); color: #fff; }
+        #settings-btn:hover { background: rgba(50, 50, 50, 0.85); color: #fff; opacity: 1; }
         #settings-btn svg { width: 20px; height: 20px; }
 
         #settings-panel {
@@ -168,10 +169,11 @@
             font-size: 13px;
             font-weight: 600;
             color: #fff;
-            background: rgba(0, 0, 0, 0.45);
+            background: rgba(0, 0, 0, 0.25);
             padding: 4px 10px;
             border-radius: 6px;
             pointer-events: none;
+            opacity: 0.4;
             display: none;
         }
 
