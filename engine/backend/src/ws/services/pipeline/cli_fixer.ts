@@ -258,9 +258,9 @@ async function createSandbox(
 // Engine docs + rules live in CLAUDE.md / AGENTS.md, which each CLI auto-loads
 // into its system prompt — no Read call needed. Keep this prompt to the
 // per-run instructions only.
-const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Edit template files in project/ to fix the bug (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/ — never assembled output). To use a behavior/system not yet in project/, copy it from reference/ into project/ and reference its path from the template JSON. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor.`;
+const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Edit template files in project/ to fix the bug (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/ — never assembled output). To use a behavior/system not yet in project/, copy it from reference/ into project/ and reference its path from the template JSON. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
-const FIXER_PROMPT_WARM = `You have already read the library reference materials. Now read TASK.md for the bug report and project state. Read the project files in project/. Fix the bug — edit template files only (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/). Copy library files from reference/ if needed. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor.`;
+const FIXER_PROMPT_WARM = `You have already read the library reference materials. Now read TASK.md for the bug report and project state. Read the project files in project/. Fix the bug — edit template files only (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/). Copy library files from reference/ if needed. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
 function fixerStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {
@@ -273,7 +273,7 @@ function fixerStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-const FIXER_PROMPT_RESUME = `You previously worked on this project. The project files in project/ may have changed since your last session — re-read any files you need before editing. Read TASK.md for the new bug report. Fix the bug — edit template files only. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor.`;
+const FIXER_PROMPT_RESUME = `You previously worked on this project. The project files in project/ may have changed since your last session — re-read any files you need before editing. Read TASK.md for the new bug report. Fix the bug — edit template files only. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
 async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; usedWarmSession?: boolean; resumedPrevious?: boolean }> {
     const cli = resolveCLI(cliOverride);
