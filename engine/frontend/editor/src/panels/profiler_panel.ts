@@ -1,4 +1,5 @@
 import { EditorContext } from '../editor_context.js';
+import { t } from '../i18n/index.js';
 
 /**
  * Performance Profiler panel: live view of engine.getPerfSnapshot().
@@ -60,7 +61,7 @@ export class ProfilerPanel {
 
         this.copyBtn = document.createElement('button');
         this.copyBtn.type = 'button';
-        this.copyBtn.textContent = 'Copy stats';
+        this.copyBtn.textContent = t('profiler.copyStats');
         this.copyBtn.style.cssText = 'margin-left:auto;padding:6px 14px;font-size:12px;font-weight:600;color:#c8d0e0;background:#1a2238;border:1px solid #2a3554;border-radius:4px;cursor:pointer;font-family:inherit;';
         this.copyBtn.addEventListener('mouseenter', () => { this.copyBtn.style.background = '#223055'; });
         this.copyBtn.addEventListener('mouseleave', () => { this.copyBtn.style.background = '#1a2238'; });
@@ -70,7 +71,7 @@ export class ProfilerPanel {
         this.el.appendChild(headline);
 
         // ── Frame time chart (simple) ───────────────────────────────
-        const frameSection = this.section('Smoothness (last 2 seconds)', 'Lower and flatter is better. The red line marks a smooth 60 fps.');
+        const frameSection = this.section(t('profiler.smoothness'), t('profiler.smoothnessHint'));
         this.frameChart = document.createElement('canvas');
         this.frameChart.width = 600;
         this.frameChart.height = 90;
@@ -79,7 +80,7 @@ export class ProfilerPanel {
         this.el.appendChild(frameSection);
 
         // ── "Where your frame time goes" — simple stacked bar ───────
-        const budgetSection = this.section('Where your frame time goes', 'Grouped view of what the engine is spending time on each frame.');
+        const budgetSection = this.section(t('profiler.frameBudget'), t('profiler.frameBudgetHint'));
         this.budgetBar = document.createElement('div');
         this.budgetBar.style.cssText = 'display:flex;height:22px;background:#0e1220;border:1px solid #1e253a;border-radius:4px;overflow:hidden;';
         this.budgetLegend = document.createElement('div');
@@ -89,12 +90,12 @@ export class ProfilerPanel {
         this.el.appendChild(budgetSection);
 
         // ── Quick stats (what's on screen) ──────────────────────────
-        const quickSection = this.section('What\u2019s on screen', '');
+        const quickSection = this.section(t('profiler.onScreen'), '');
         const quickGrid = document.createElement('div');
         quickGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;';
-        this.statsDrawEl = this.miniStat(quickGrid, 'Draw calls');
-        this.statsTrisEl = this.miniStat(quickGrid, 'Triangles');
-        this.statsEntitiesEl = this.miniStat(quickGrid, 'Entities');
+        this.statsDrawEl = this.miniStat(quickGrid, t('profiler.drawCalls'));
+        this.statsTrisEl = this.miniStat(quickGrid, t('profiler.triangles'));
+        this.statsEntitiesEl = this.miniStat(quickGrid, t('profiler.entities'));
         quickSection.appendChild(quickGrid);
         this.el.appendChild(quickSection);
 
@@ -102,7 +103,7 @@ export class ProfilerPanel {
         const details = document.createElement('details');
         details.style.cssText = 'display:flex;flex-direction:column;gap:12px;border-top:1px solid #1e253a;padding-top:10px;';
         const summary = document.createElement('summary');
-        summary.textContent = 'Show details';
+        summary.textContent = t('profiler.showDetails');
         summary.style.cssText = 'cursor:pointer;font-size:12px;font-weight:600;color:#8896b4;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;';
         details.appendChild(summary);
 
@@ -117,32 +118,32 @@ export class ProfilerPanel {
         detailsBody.appendChild(headlineExtra);
 
         // CPU phase table
-        const phaseSection = this.section('CPU phases (per tickOneFrame)', 'Each phase timed separately \u2014 bar shows share of total tick time.');
+        const phaseSection = this.section(t('profiler.cpuPhases'), t('profiler.cpuPhasesHint'));
         this.phaseTbody = this.makeTable(phaseSection, ['Phase', 'Avg', 'Max', 'P95', '%']);
         detailsBody.appendChild(phaseSection);
 
         // Render pass table
-        const passSection = this.section('Render passes (CPU submit, ms)', 'Approximate per-pass cost \u2014 CPU time spent assembling and submitting commands. Not true GPU time.');
+        const passSection = this.section(t('profiler.renderPasses'), t('profiler.renderPassesHint'));
         this.passTbody = this.makeTable(passSection, ['Pass', 'Avg', 'Max']);
         detailsBody.appendChild(passSection);
 
         // Extra renderer stat
-        const rendererSection = this.section('Renderer (last frame)', '');
+        const rendererSection = this.section(t('profiler.renderer'), '');
         const rendererGrid = document.createElement('div');
         rendererGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;';
-        this.statsMeshesEl = this.miniStat(rendererGrid, 'Meshes drawn');
-        this.statsScriptsCountEl = this.miniStat(rendererGrid, 'Scripts');
-        this.statsMeshesTotalEl = this.miniStat(rendererGrid, 'Meshes total');
+        this.statsMeshesEl = this.miniStat(rendererGrid, t('profiler.meshesDrawn'));
+        this.statsScriptsCountEl = this.miniStat(rendererGrid, t('profiler.scripts'));
+        this.statsMeshesTotalEl = this.miniStat(rendererGrid, t('profiler.meshesTotal'));
         rendererSection.appendChild(rendererGrid);
         detailsBody.appendChild(rendererSection);
 
         // Script cost table
-        const scriptSection = this.section('Per-script cost (this frame)', 'Sum of onUpdate / onFixedUpdate / onLateUpdate time across all entities sharing the same script.');
+        const scriptSection = this.section(t('profiler.scriptCost'), t('profiler.scriptCostHint'));
         this.scriptTbody = this.makeTable(scriptSection, ['Script', 'Total ms', 'Calls', 'Avg ms/call']);
         detailsBody.appendChild(scriptSection);
 
         // Memory chart
-        this.memoryChartWrap = this.section('JS heap (MB)', 'Chrome-only \u2014 useful for spotting leaks.');
+        this.memoryChartWrap = this.section(t('profiler.jsHeap'), t('profiler.jsHeapHint'));
         this.memoryChart = document.createElement('canvas');
         this.memoryChart.width = 600;
         this.memoryChart.height = 70;
@@ -233,7 +234,7 @@ export class ProfilerPanel {
     private update(): void {
         const engine: any = this.ctx.engine;
         if (!engine || typeof engine.getPerfSnapshot !== 'function') {
-            this.fpsEl.textContent = 'Engine not running';
+            this.fpsEl.textContent = t('profiler.engineNotRunning');
             return;
         }
         const snap = engine.getPerfSnapshot();

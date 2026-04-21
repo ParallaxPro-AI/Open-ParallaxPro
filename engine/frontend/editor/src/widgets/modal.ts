@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 export interface ModalOptions {
     title: string;
     body?: HTMLElement | string;
@@ -120,14 +122,14 @@ export function showPromptModal(
             width: '360px',
             buttons: [
                 {
-                    label: 'Cancel',
+                    label: t('modal.cancel'),
                     action: () => {
                         finish(null);
                         close();
                     },
                 },
                 {
-                    label: 'OK',
+                    label: t('modal.ok'),
                     primary: true,
                     action: () => {
                         const value = input.value.trim();
@@ -169,14 +171,14 @@ export function showConfirmModal(title: string, message: string): Promise<boolea
             width: '360px',
             buttons: [
                 {
-                    label: 'Cancel',
+                    label: t('modal.cancel'),
                     action: () => {
                         finish(false);
                         close();
                     },
                 },
                 {
-                    label: 'Confirm',
+                    label: t('modal.confirm'),
                     danger: true,
                     action: () => {
                         finish(true);

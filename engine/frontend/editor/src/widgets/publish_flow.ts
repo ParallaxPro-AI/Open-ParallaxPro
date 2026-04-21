@@ -13,6 +13,7 @@ import type { EditorContext } from '../editor_context.js';
 import { ApiError, AuthRequiredError } from '../backend/backend_client.js';
 import { ensureLoggedIn, clearStoredToken } from '../backend/auth_session.js';
 import { showModal } from './modal.js';
+import { t } from '../i18n/index.js';
 
 export interface PublishProjectMeta {
     id?: string;
@@ -127,17 +128,17 @@ export class PublishFlow {
         const body = document.createElement('div');
         body.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
 
-        body.appendChild(this.makeField('Game Name', () => {
+        body.appendChild(this.makeField(t('publish.gameName'), () => {
             const inp = document.createElement('input');
-            inp.type = 'text'; inp.value = projectName; inp.placeholder = 'My Awesome Game';
+            inp.type = 'text'; inp.value = projectName; inp.placeholder = t('publish.gameNamePlaceholder');
             inp.style.cssText = 'width:100%;height:28px;';
             return inp;
         }));
         const nameInput = body.querySelector('input')!;
 
-        const slugRow = this.makeField('URL Slug', () => {
+        const slugRow = this.makeField(t('publish.urlSlug'), () => {
             const inp = document.createElement('input');
-            inp.type = 'text'; inp.value = autoSlug; inp.placeholder = 'my-awesome-game';
+            inp.type = 'text'; inp.value = autoSlug; inp.placeholder = t('publish.urlSlugPlaceholder');
             inp.style.cssText = 'width:100%;height:28px;';
             return inp;
         });
@@ -155,7 +156,7 @@ export class PublishFlow {
             slugHint.textContent = `${urlPrefix}${s || '...'}`;
         });
 
-        body.appendChild(this.makeField('Version', () => {
+        body.appendChild(this.makeField(t('publish.version'), () => {
             const inp = document.createElement('input');
             inp.type = 'text'; inp.value = '1.0.0'; inp.placeholder = '1.0.0';
             inp.style.cssText = 'width:100%;height:28px;';
@@ -163,9 +164,9 @@ export class PublishFlow {
         }));
         const versionInput = body.querySelectorAll('input')[2] as HTMLInputElement;
 
-        body.appendChild(this.makeField('Changelog (optional)', () => {
+        body.appendChild(this.makeField(t('publish.changelogLabel'), () => {
             const ta = document.createElement('textarea');
-            ta.placeholder = 'What\'s in this version...';
+            ta.placeholder = t('publish.changelogPlaceholder');
             ta.style.cssText = 'width:100%;height:60px;resize:vertical;font-family:inherit;font-size:13px;';
             return ta;
         }));
@@ -173,8 +174,8 @@ export class PublishFlow {
 
         const visSelect = document.createElement('select');
         visSelect.style.cssText = 'width:100%;height:28px;';
-        visSelect.innerHTML = '<option value="public">Public</option><option value="unlisted">Unlisted</option>';
-        body.appendChild(this.makeField('Visibility', () => visSelect));
+        visSelect.innerHTML = `<option value="public">${t('publish.visibilityPublic')}</option><option value="unlisted">${t('publish.visibilityUnlisted')}</option>`;
+        body.appendChild(this.makeField(t('publish.visibility'), () => visSelect));
 
         body.appendChild(this.makeThumbnailField(projectId, meta.thumbnail ?? null));
 
@@ -183,21 +184,21 @@ export class PublishFlow {
         body.appendChild(errorMsg);
 
         const { close } = showModal({
-            title: 'Publish Game',
+            title: t('publish.title'),
             body, width: '440px', closeOnBackdrop: false,
             buttons: [
-                { label: 'Cancel', action: () => close() },
+                { label: t('publish.cancel'), action: () => close() },
                 {
-                    label: 'Publish', primary: true, action: async () => {
+                    label: t('publish.publish'), primary: true, action: async () => {
                         const gameName = nameInput.value.trim();
                         const gameSlug = slugInput.value.trim();
                         const version = versionInput.value.trim();
-                        if (!gameName) { errorMsg.textContent = 'Game name is required.'; errorMsg.style.display = 'block'; return; }
+                        if (!gameName) { errorMsg.textContent = t('publish.gameNameRequired'); errorMsg.style.display = 'block'; return; }
                         if (!gameSlug || !SLUG_RE.test(gameSlug)) {
-                            errorMsg.textContent = 'Slug must be 3-64 chars, lowercase alphanumeric and hyphens.'; errorMsg.style.display = 'block'; return;
+                            errorMsg.textContent = t('publish.slugInvalid'); errorMsg.style.display = 'block'; return;
                         }
                         if (!version || !isValidSemver(version)) {
-                            errorMsg.textContent = 'Enter a valid version (e.g., 1.0.0).'; errorMsg.style.display = 'block'; return;
+                            errorMsg.textContent = t('publish.versionInvalid'); errorMsg.style.display = 'block'; return;
                         }
                         try {
                             const result = await this.submit(projectId, {
@@ -287,7 +288,7 @@ export class PublishFlow {
 
                 if (!v.isLive) {
                     const setLiveBtn = document.createElement('button');
-                    setLiveBtn.textContent = 'Set Live';
+                    setLiveBtn.textContent = t('publish.setLive');
                     setLiveBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--accent);color:white;border:none;border-radius:3px;cursor:pointer;';
                     setLiveBtn.addEventListener('click', async () => {
                         try {
@@ -307,10 +308,10 @@ export class PublishFlow {
                 }
 
                 const revertBtn = document.createElement('button');
-                revertBtn.textContent = 'Checkout';
+                revertBtn.textContent = t('publish.checkout');
                 revertBtn.style.cssText = 'padding:2px 8px;font-size:11px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);border-radius:3px;cursor:pointer;';
                 revertBtn.addEventListener('click', async () => {
-                    if (!confirm(`Revert project to v${v.version}? Your current editor state will be replaced.`)) return;
+                    if (!confirm(t('publish.revertConfirm').replace('{version}', v.version))) return;
                     try {
                         if (this.ctx.backend.isSelfHosted) {
                             const src = await this.ctx.backend.getVersionSourceProd(projectId, v.id);
@@ -337,7 +338,7 @@ export class PublishFlow {
         const newVerSection = document.createElement('div');
         newVerSection.style.cssText = 'padding:12px;background:var(--bg-secondary);border-radius:6px;display:flex;flex-direction:column;gap:8px;';
         const newVerTitle = document.createElement('div');
-        newVerTitle.textContent = 'Publish New Version';
+        newVerTitle.textContent = t('publish.publishNewVersion');
         newVerTitle.style.cssText = 'font-weight:600;font-size:12px;color:var(--text-secondary);';
         newVerSection.appendChild(newVerTitle);
 
@@ -355,12 +356,12 @@ export class PublishFlow {
 
         const clInput = document.createElement('input');
         clInput.type = 'text';
-        clInput.placeholder = 'Changelog (optional)';
+        clInput.placeholder = t('publish.changelogOptional');
         clInput.style.cssText = 'flex:1;height:28px;padding:0 8px;font-size:13px;';
         newVerRow.appendChild(clInput);
 
         const pubBtn = document.createElement('button');
-        pubBtn.textContent = 'Publish';
+        pubBtn.textContent = t('publish.publish');
         pubBtn.style.cssText = 'padding:4px 14px;font-size:12px;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;';
         newVerRow.appendChild(pubBtn);
         newVerSection.appendChild(newVerRow);
@@ -371,7 +372,7 @@ export class PublishFlow {
 
         pubBtn.addEventListener('click', async () => {
             const ver = vInput.value.trim();
-            if (!ver || !isValidSemver(ver)) { newVerError.textContent = 'Enter a valid version.'; newVerError.style.display = 'block'; return; }
+            if (!ver || !isValidSemver(ver)) { newVerError.textContent = t('publish.versionRequired'); newVerError.style.display = 'block'; return; }
             try {
                 const result = await this.submit(projectId, {
                     name: pubData.name, slug: pubData.slug, visibility: pubData.visibility,
@@ -398,10 +399,10 @@ export class PublishFlow {
         const dangerSection = document.createElement('div');
         dangerSection.style.cssText = 'display:flex;justify-content:flex-end;';
         const unpubBtn = document.createElement('button');
-        unpubBtn.textContent = 'Unpublish Game';
+        unpubBtn.textContent = t('publish.unpublishGame');
         unpubBtn.style.cssText = 'padding:4px 12px;font-size:11px;background:transparent;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;cursor:pointer;';
         unpubBtn.addEventListener('click', async () => {
-            if (!confirm('Unpublish this game? It will no longer be accessible to players.')) return;
+            if (!confirm(t('publish.unpublishConfirm'))) return;
             try {
                 if (this.ctx.backend.isSelfHosted) {
                     await this.ctx.backend.unpublishProd(projectId);
@@ -419,9 +420,9 @@ export class PublishFlow {
         body.appendChild(dangerSection);
 
         const { close } = showModal({
-            title: 'Manage Published Game',
+            title: t('publish.manage'),
             body, width: '520px',
-            buttons: [{ label: 'Close', action: () => close() }],
+            buttons: [{ label: t('publish.close'), action: () => close() }],
         });
     }
 
@@ -431,7 +432,7 @@ export class PublishFlow {
         const body = document.createElement('div');
         body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
         const msg = document.createElement('div');
-        msg.textContent = `Version ${result.version} is now live!`;
+        msg.textContent = t('publish.successMessage').replace('{version}', result.version);
         msg.style.cssText = 'font-size:14px;color:var(--text-primary);';
         body.appendChild(msg);
         const link = document.createElement('a');
@@ -439,8 +440,8 @@ export class PublishFlow {
         link.style.cssText = 'font-size:13px;color:var(--accent);word-break:break-all;';
         body.appendChild(link);
         const { close } = showModal({
-            title: 'Published!', body, width: '420px',
-            buttons: [{ label: 'Done', primary: true, action: () => close() }],
+            title: t('publish.successTitle'), body, width: '420px',
+            buttons: [{ label: t('publish.done'), primary: true, action: () => close() }],
         });
     }
 
@@ -470,9 +471,9 @@ export class PublishFlow {
         body.appendChild(tip);
 
         const { close } = showModal({
-            title: 'Engine version not supported',
+            title: t('publish.mismatchTitle'),
             body, width: '480px',
-            buttons: [{ label: 'Got it', primary: true, action: () => close() }],
+            buttons: [{ label: t('publish.gotIt'), primary: true, action: () => close() }],
         });
     }
 
@@ -599,7 +600,7 @@ export class PublishFlow {
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
         const lbl = document.createElement('label');
-        lbl.textContent = 'Thumbnail (optional)';
+        lbl.textContent = t('publish.thumbnail');
         lbl.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
         row.appendChild(lbl);
 
@@ -616,7 +617,7 @@ export class PublishFlow {
             thumbPreview.appendChild(img);
         } else {
             const ph = document.createElement('span');
-            ph.textContent = 'No image';
+            ph.textContent = t('publish.noImage');
             ph.style.cssText = 'font-size:11px;color:var(--text-disabled);';
             thumbPreview.appendChild(ph);
         }
@@ -628,7 +629,7 @@ export class PublishFlow {
         fileInput.style.display = 'none';
 
         const uploadBtn = document.createElement('button');
-        uploadBtn.textContent = currentThumbnail ? 'Change' : 'Upload';
+        uploadBtn.textContent = currentThumbnail ? t('publish.change') : t('publish.upload');
         uploadBtn.style.cssText = 'padding:4px 12px;font-size:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);cursor:pointer;';
         uploadBtn.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
 
@@ -655,7 +656,7 @@ export class PublishFlow {
                 img.src = previewSrc;
                 img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
                 thumbPreview.appendChild(img);
-                uploadBtn.textContent = 'Change';
+                uploadBtn.textContent = t('publish.change');
             } catch (e: any) {
                 alert(e?.message || 'Failed to upload thumbnail.');
             }

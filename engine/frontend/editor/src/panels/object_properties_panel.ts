@@ -23,6 +23,7 @@ import { ColorField } from '../widgets/fields/color_field.js';
 import { Vec3Field } from '../widgets/fields/vec3_field.js';
 import { EnumField } from '../widgets/fields/enum_field.js';
 import { icon, Globe } from '../widgets/icons.js';
+import { t } from '../i18n/index.js';
 
 /**
  * Object properties panel: shows selected entity name, tags, components,
@@ -44,7 +45,7 @@ export class ObjectPropertiesPanel {
         header.className = 'panel-header';
         const title = document.createElement('span');
         title.className = 'panel-title';
-        title.textContent = 'Properties';
+        title.textContent = t('properties.title');
         header.appendChild(title);
         this.el.appendChild(header);
 
@@ -84,7 +85,7 @@ export class ObjectPropertiesPanel {
         if (selected.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'panel-empty';
-            empty.textContent = 'No entity selected';
+            empty.textContent = t('properties.noSelection');
             this.contentEl.appendChild(empty);
             return;
         }
@@ -116,7 +117,7 @@ export class ObjectPropertiesPanel {
         label.style.background = 'transparent';
         label.style.border = 'none';
         label.style.color = 'var(--text-secondary, #aaa)';
-        label.textContent = `${entities.length} entities selected`;
+        label.textContent = t('properties.entitiesSelected').replace('{count}', String(entities.length));
         nameRow.appendChild(label);
 
         const allActive = entities.every(e => e.active);
@@ -138,7 +139,7 @@ export class ObjectPropertiesPanel {
             }
         });
         activeToggle.appendChild(checkbox);
-        activeToggle.appendChild(document.createTextNode(' Active'));
+        activeToggle.appendChild(document.createTextNode(` ${t('properties.active')}`));
         nameRow.appendChild(activeToggle);
 
         header.appendChild(nameRow);
@@ -178,7 +179,7 @@ export class ObjectPropertiesPanel {
             enabledCb.className = 'component-enabled';
             enabledCb.checked = allEnabled;
             enabledCb.indeterminate = !allEnabled && !allDisabled;
-            enabledCb.title = 'Enabled';
+            enabledCb.title = t('properties.enabled');
             enabledCb.addEventListener('click', (e) => e.stopPropagation());
             enabledCb.addEventListener('change', () => {
                 const newEnabled = enabledCb.checked;
@@ -199,7 +200,7 @@ export class ObjectPropertiesPanel {
                 ev.stopPropagation();
                 showContextMenu(ev.clientX, ev.clientY, [
                     {
-                        label: `Remove from ${entities.length} entities`,
+                        label: t('properties.removeFromEntities').replace('{count}', String(entities.length)),
                         danger: true,
                         action: () => {
                             const cmds = entities.map(e => new RemoveComponentCommand(e.id, typeName));
@@ -234,7 +235,7 @@ export class ObjectPropertiesPanel {
     private renderMultiAddComponentButton(entities: Entity[]): void {
         const btn = document.createElement('div');
         btn.className = 'add-component-btn';
-        btn.innerHTML = '<span>+</span> <span>Add Component to All</span>';
+        btn.innerHTML = `<span>+</span> <span>${t('properties.addComponentToAll')}</span>`;
 
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -278,7 +279,7 @@ export class ObjectPropertiesPanel {
             this.ctx.emit('historyChanged');
         });
         activeToggle.appendChild(checkbox);
-        activeToggle.appendChild(document.createTextNode(' Active'));
+        activeToggle.appendChild(document.createTextNode(` ${t('properties.active')}`));
         nameRow.appendChild(activeToggle);
 
         header.appendChild(nameRow);
@@ -307,12 +308,12 @@ export class ObjectPropertiesPanel {
         const addTagBtn = document.createElement('button');
         addTagBtn.className = 'icon-btn';
         addTagBtn.textContent = '+';
-        addTagBtn.title = 'Add Tag';
+        addTagBtn.title = t('properties.addTag');
         addTagBtn.style.fontSize = '10px';
         addTagBtn.style.width = '18px';
         addTagBtn.style.height = '18px';
         addTagBtn.addEventListener('click', () => {
-            const tag = prompt('Enter tag name:');
+            const tag = prompt(t('properties.enterTagName'));
             if (tag && tag.trim()) {
                 const cmd = new AddTagCommand(entity.id, tag.trim());
                 this.ctx.undoManager.execute(cmd);
@@ -351,7 +352,7 @@ export class ObjectPropertiesPanel {
             enabledCb.type = 'checkbox';
             enabledCb.className = 'component-enabled';
             enabledCb.checked = component.enabled;
-            enabledCb.title = 'Enabled';
+            enabledCb.title = t('properties.enabled');
             enabledCb.addEventListener('click', (e) => e.stopPropagation());
             enabledCb.addEventListener('change', () => {
                 const cmd = new SetComponentEnabledCommand(entity.id, typeName, !enabledCb.checked, enabledCb.checked);
@@ -392,7 +393,7 @@ export class ObjectPropertiesPanel {
     private renderAddComponentButton(entity: Entity): void {
         const btn = document.createElement('div');
         btn.className = 'add-component-btn';
-        btn.innerHTML = '<span>+</span> <span>Add Component</span>';
+        btn.innerHTML = `<span>+</span> <span>${t('properties.addComponent')}</span>`;
 
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -492,7 +493,7 @@ export class ObjectPropertiesPanel {
     private showComponentContextMenu(entity: Entity, componentType: string, x: number, y: number): void {
         showContextMenu(x, y, [
             {
-                label: 'Reset',
+                label: t('properties.reset'),
                 action: () => {
                     const cmd = new ResetComponentCommand(entity.id, componentType);
                     this.ctx.undoManager.execute(cmd);
@@ -500,7 +501,7 @@ export class ObjectPropertiesPanel {
                 },
             },
             {
-                label: 'Copy Values',
+                label: t('properties.copyValues'),
                 action: () => {
                     const comp = entity.getComponent(componentType);
                     if (comp) {
@@ -509,7 +510,7 @@ export class ObjectPropertiesPanel {
                 },
             },
             {
-                label: 'Paste Values',
+                label: t('properties.pasteValues'),
                 disabled: !(this.ctx.state.clipboard?.type === 'component' && this.ctx.state.clipboard?.componentType === componentType),
                 action: () => {
                     if (this.ctx.state.clipboard?.data) {
@@ -521,7 +522,7 @@ export class ObjectPropertiesPanel {
             },
             { label: '', separator: true },
             {
-                label: 'Remove Component',
+                label: t('properties.removeComponent'),
                 danger: true,
                 action: () => {
                     const cmd = new RemoveComponentCommand(entity.id, componentType);

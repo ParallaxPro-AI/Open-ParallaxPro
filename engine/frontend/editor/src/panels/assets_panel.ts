@@ -3,6 +3,7 @@ import { TabsWidget } from '../widgets/tabs.js';
 import { MeshRendererComponent } from '../../../runtime/function/framework/components/mesh_renderer_component.js';
 import { AudioSourceComponent } from '../../../runtime/function/framework/components/audio_source_component.js';
 import { ProfilerPanel } from './profiler_panel.js';
+import { t } from '../i18n/index.js';
 
 const CATEGORY_ICONS: Record<string, string> = {
     '3D Models': '\u25A6',
@@ -137,7 +138,7 @@ export class AssetsPanel {
         header.className = 'panel-header';
         const title = document.createElement('span');
         title.className = 'panel-title';
-        title.textContent = 'Assets & Finite State Machines & Performance';
+        title.textContent = t('assets.title');
         header.appendChild(title);
         this.el.appendChild(header);
 
@@ -145,10 +146,10 @@ export class AssetsPanel {
 
         this.tabs = new TabsWidget();
         this.tabs.setTabs([
-            { id: 'files', label: 'Project Files', content: this.buildProjectFilesTab() },
-            { id: 'library', label: 'Asset Library', content: this.buildAssetLibraryTab() },
-            { id: 'gameflow', label: 'FSM', content: this.buildGameFlowTab() },
-            { id: 'profiler', label: 'Performance', content: this.profiler.el },
+            { id: 'files', label: t('assets.projectFiles'), content: this.buildProjectFilesTab() },
+            { id: 'library', label: t('assets.assetLibrary'), content: this.buildAssetLibraryTab() },
+            { id: 'gameflow', label: t('assets.fsm'), content: this.buildGameFlowTab() },
+            { id: 'profiler', label: t('assets.performance'), content: this.profiler.el },
         ]);
         this.el.appendChild(this.tabs.el);
     }
@@ -193,7 +194,7 @@ export class AssetsPanel {
             // Scenes
             const scenesHeader = document.createElement('div');
             scenesHeader.className = 'project-section-header';
-            scenesHeader.textContent = 'Scenes';
+            scenesHeader.textContent = t('assets.scenes');
             contentArea.appendChild(scenesHeader);
 
             const scenesGrid = document.createElement('div');
@@ -212,7 +213,7 @@ export class AssetsPanel {
 
                 const name = document.createElement('div');
                 name.className = 'asset-card-name';
-                name.textContent = s.name || 'Untitled Scene';
+                name.textContent = s.name || t('assets.untitledScene');
                 card.appendChild(name);
 
                 card.addEventListener('click', () => {
@@ -331,7 +332,7 @@ export class AssetsPanel {
 
             const usedHeader = document.createElement('div');
             usedHeader.className = 'project-section-header';
-            usedHeader.textContent = 'Used Assets';
+            usedHeader.textContent = t('assets.usedAssets');
             contentArea.appendChild(usedHeader);
 
             for (const cat of CATEGORIES) {
@@ -404,14 +405,14 @@ export class AssetsPanel {
         searchDiv.className = 'asset-library-search';
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
-        searchInput.placeholder = 'Search assets...';
+        searchInput.placeholder = t('assets.searchAssets');
         searchDiv.appendChild(searchInput);
 
         const typeFilter = document.createElement('select');
         typeFilter.className = 'asset-type-filter';
         const allOption = document.createElement('option');
         allOption.value = '';
-        allOption.textContent = 'All Types';
+        allOption.textContent = t('assets.allTypes');
         typeFilter.appendChild(allOption);
         for (const cat of ['3D Models', 'Characters', 'Audio', 'Textures']) {
             const opt = document.createElement('option');
@@ -440,7 +441,7 @@ export class AssetsPanel {
             breadcrumbBar.innerHTML = '';
             const crumbs: { label: string; action: () => void }[] = [];
 
-            crumbs.push({ label: 'Asset Library', action: () => { navCategory = ''; navSource = ''; navPack = ''; currentPage = 1; searchInput.value = ''; navigate(); } });
+            crumbs.push({ label: t('assets.assetLibraryBreadcrumb'), action: () => { navCategory = ''; navSource = ''; navPack = ''; currentPage = 1; searchInput.value = ''; navigate(); } });
             if (navCategory) {
                 crumbs.push({ label: navCategory, action: () => { navSource = ''; navPack = ''; currentPage = 1; navigate(); } });
             }
@@ -502,7 +503,7 @@ export class AssetsPanel {
             if (items.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'asset-library-empty';
-                empty.textContent = 'No items found';
+                empty.textContent = t('assets.noItemsFound');
                 list.appendChild(empty);
             }
 
@@ -534,7 +535,7 @@ export class AssetsPanel {
             if (assets.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'asset-library-empty';
-                empty.textContent = 'No assets found';
+                empty.textContent = t('assets.noAssetsFound');
                 content.appendChild(empty);
                 paginationBar.innerHTML = '';
                 return;

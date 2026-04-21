@@ -4,6 +4,7 @@ import { showContextMenu } from '../widgets/context_menu.js';
 import { icon, MoreVertical, Check, FolderOpen, Plus, LogIn, LogOut, ExternalLink, Square, X } from '../widgets/icons.js';
 import { ensureLoggedIn, getStoredToken, clearStoredToken, decodeToken } from '../backend/auth_session.js';
 import { formatServerTime } from '../utils/format_time.js';
+import { t } from '../i18n/index.js';
 
 export class ProjectListView {
     readonly el: HTMLElement;
@@ -71,7 +72,7 @@ export class ProjectListView {
 
         const createBtn = document.createElement('button');
         createBtn.className = 'toolbar-btn publish-btn';
-        createBtn.textContent = '+ New Project';
+        createBtn.textContent = t('projectList.newProject');
         createBtn.addEventListener('click', () => this.createProject());
         header.appendChild(createBtn);
 
@@ -90,9 +91,9 @@ export class ProjectListView {
             exitBtn.className = 'toolbar-btn exit-btn';
             exitBtn.appendChild(icon(LogOut, 15));
             const exitLabel = document.createElement('span');
-            exitLabel.textContent = ' Exit';
+            exitLabel.textContent = ` ${t('projectList.exit')}`;
             exitBtn.appendChild(exitLabel);
-            exitBtn.title = 'Back to landing page';
+            exitBtn.title = t('projectList.backToLanding');
             exitBtn.addEventListener('click', () => {
                 window.location.href = '/';
             });
@@ -111,22 +112,20 @@ export class ProjectListView {
             const anonBanner = document.createElement('div');
             anonBanner.className = 'project-list-notice anon-notice';
             const msg = document.createElement('span');
-            msg.textContent =
-                "You're browsing anonymously — your projects live only in this browser. " +
-                "Sign up (free) to save them across devices and unlock more features. ";
+            msg.textContent = t('projectList.anonBanner') + ' ';
             anonBanner.appendChild(msg);
             const signupBtn = document.createElement('a');
             signupBtn.href = window.location.hostname === 'localhost'
                 ? 'http://localhost:5173/signup'
                 : 'https://parallaxpro.ai/signup';
-            signupBtn.textContent = 'Sign up';
+            signupBtn.textContent = t('projectList.anonSignup');
             signupBtn.className = 'anon-notice-btn';
             anonBanner.appendChild(signupBtn);
             const loginBtn = document.createElement('a');
             loginBtn.href = window.location.hostname === 'localhost'
                 ? 'http://localhost:5173/login'
                 : 'https://parallaxpro.ai/login';
-            loginBtn.textContent = 'Log in';
+            loginBtn.textContent = t('projectList.anonLogin');
             loginBtn.className = 'anon-notice-btn anon-notice-btn-secondary';
             anonBanner.appendChild(loginBtn);
             this.el.appendChild(anonBanner);
@@ -139,9 +138,7 @@ export class ProjectListView {
         // view without covering content.
         const notice = document.createElement('div');
         notice.className = 'project-list-notice';
-        notice.textContent =
-            'We may restart the servers at any time as we iterate and flush out issues — apologies for the bumps! ' +
-            'Your projects are always saved, but a long-running AI build could be killed mid-way and you\'ll need to retry it.';
+        notice.textContent = t('projectList.restartNotice');
         this.el.appendChild(notice);
 
         this.toolbarEl = document.createElement('div');
@@ -155,7 +152,7 @@ export class ProjectListView {
 
         const selectAllLabel = document.createElement('span');
         selectAllLabel.className = 'select-all-label';
-        selectAllLabel.textContent = 'Select All';
+        selectAllLabel.textContent = t('projectList.selectAll');
         selectAllLabel.style.cursor = 'pointer';
         selectAllLabel.addEventListener('click', () => this.toggleSelectAll());
         this.toolbarEl.appendChild(selectAllLabel);
@@ -166,7 +163,7 @@ export class ProjectListView {
 
         const deleteSelBtn = document.createElement('button');
         deleteSelBtn.className = 'danger';
-        deleteSelBtn.textContent = 'Delete Selected';
+        deleteSelBtn.textContent = t('projectList.deleteSelected');
         deleteSelBtn.addEventListener('click', () => this.deleteSelected());
         this.toolbarEl.appendChild(deleteSelBtn);
 
@@ -179,7 +176,7 @@ export class ProjectListView {
         this.searchInput = document.createElement('input');
         this.searchInput.type = 'text';
         this.searchInput.className = 'project-search-input';
-        this.searchInput.placeholder = 'Search projects...';
+        this.searchInput.placeholder = t('projectList.searchPlaceholder');
         this.searchInput.addEventListener('input', () => {
             this.searchQuery = this.searchInput.value.trim().toLowerCase();
             this.currentPage = 1;
@@ -190,7 +187,7 @@ export class ProjectListView {
 
         this.statusFilterEl = document.createElement('select');
         this.statusFilterEl.className = 'project-status-filter';
-        this.statusFilterEl.innerHTML = '<option value="all">All</option><option value="published">Published</option><option value="draft">Draft</option>';
+        this.statusFilterEl.innerHTML = `<option value="all">${t('projectList.statusAll')}</option><option value="published">${t('projectList.statusPublished')}</option><option value="draft">${t('projectList.statusDraft')}</option>`;
         this.statusFilterEl.addEventListener('change', () => {
             this.statusFilter = this.statusFilterEl.value as 'all' | 'published' | 'draft';
             this.currentPage = 1;
@@ -209,23 +206,23 @@ export class ProjectListView {
         // path (which on hosted is just listProjects + publish merge).
         if (this.ctx.backend.isSelfHosted) {
             const tabs: { key: 'all' | 'my' | 'cloud'; label: string; el?: HTMLElement }[] = [
-                { key: 'all', label: 'All' },
-                { key: 'my', label: 'Local Projects' },
-                { key: 'cloud', label: 'Cloud Projects' },
+                { key: 'all', label: t('projectList.tabAll') },
+                { key: 'my', label: t('projectList.tabLocal') },
+                { key: 'cloud', label: t('projectList.tabCloud') },
             ];
-            for (const t of tabs) {
+            for (const tab of tabs) {
                 const btn = document.createElement('button');
-                btn.className = 'project-tab' + (t.key === this.activeTab ? ' active' : '');
-                btn.textContent = t.label;
+                btn.className = 'project-tab' + (tab.key === this.activeTab ? ' active' : '');
+                btn.textContent = tab.label;
                 btn.addEventListener('click', () => {
-                    if (this.activeTab === t.key) return;
-                    this.activeTab = t.key;
-                    for (const other of tabs) other.el!.classList.toggle('active', other.key === t.key);
+                    if (this.activeTab === tab.key) return;
+                    this.activeTab = tab.key;
+                    for (const other of tabs) other.el!.classList.toggle('active', other.key === tab.key);
                     this.currentPage = 1;
                     this.selectedIds.clear();
                     this.loadProjects();
                 });
-                t.el = btn;
+                tab.el = btn;
                 this.tabBar.appendChild(btn);
             }
             this.el.appendChild(this.tabBar);
@@ -544,12 +541,12 @@ export class ProjectListView {
             prompt.style.gridColumn = '1 / -1';
             const title = document.createElement('div');
             title.className = 'empty-text';
-            title.textContent = 'Sign in to parallaxpro.ai to access your cloud projects.';
+            title.textContent = t('projectList.cloudSignIn');
             title.style.marginBottom = '16px';
             prompt.appendChild(title);
             const btn = document.createElement('button');
             btn.className = 'toolbar-btn publish-btn';
-            btn.textContent = 'Sign in';
+            btn.textContent = t('projectList.cloudSignInButton');
             btn.addEventListener('click', async () => {
                 const { ensureLoggedIn } = await import('../backend/auth_session.js');
                 try {
@@ -581,10 +578,10 @@ export class ProjectListView {
             const text = document.createElement('div');
             text.className = 'empty-text';
             text.textContent = this.searchQuery
-                ? 'No projects match your search.'
+                ? t('projectList.emptySearch')
                 : this.activeTab === 'cloud'
-                    ? 'No cloud projects yet. Publishing or promoting a project will put it here.'
-                    : 'No projects yet. Create your first game!';
+                    ? t('projectList.emptyCloud')
+                    : t('projectList.emptyDefault');
             empty.appendChild(text);
 
             this.gridEl.appendChild(empty);
@@ -621,7 +618,7 @@ export class ProjectListView {
 
         const prevBtn = document.createElement('button');
         prevBtn.className = 'pagination-btn';
-        prevBtn.textContent = '\u2039 Prev';
+        prevBtn.textContent = t('projectList.prev');
         prevBtn.disabled = this.currentPage <= 1;
         prevBtn.addEventListener('click', () => {
             if (this.currentPage > 1) {
@@ -653,7 +650,7 @@ export class ProjectListView {
 
         const nextBtn = document.createElement('button');
         nextBtn.className = 'pagination-btn';
-        nextBtn.textContent = 'Next \u203A';
+        nextBtn.textContent = t('projectList.next');
         nextBtn.disabled = this.currentPage >= totalPages;
         nextBtn.addEventListener('click', () => {
             if (this.currentPage < totalPages) {
@@ -706,19 +703,19 @@ export class ProjectListView {
 
         const name = document.createElement('div');
         name.className = 'project-card-name';
-        name.textContent = project.name ?? 'Untitled';
+        name.textContent = project.name ?? t('projectList.untitled');
         nameRow.appendChild(name);
 
         const isPublished = project.status === 'published' && project.publishedSlug;
         const badge = document.createElement('span');
         if (project.legacy) {
             badge.className = 'project-status-badge deprecated';
-            badge.textContent = 'DEPRECATED';
+            badge.textContent = t('projectList.deprecated');
             badge.title = 'Stored in the pre-template-unification format. Click the project to learn how to open it.';
         } else {
             badge.className = `project-status-badge ${isPublished ? 'published' : 'draft'}`;
             const versionInfo = project.publishedVersion ? ` V${project.publishedVersion}` : '';
-            badge.textContent = isPublished ? `PUBLISHED${versionInfo}` : 'Draft';
+            badge.textContent = isPublished ? `${t('projectList.published')}${versionInfo}` : t('projectList.draft');
         }
         nameRow.appendChild(badge);
 
@@ -821,7 +818,7 @@ export class ProjectListView {
 
         const menuBtn = document.createElement('button');
         menuBtn.className = 'menu-btn';
-        menuBtn.title = 'More actions';
+        menuBtn.title = t('projectList.moreActions');
         menuBtn.appendChild(icon(MoreVertical, 16));
         menuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -942,12 +939,12 @@ export class ProjectListView {
             const pick = (c: 'demote' | 'delete' | 'cancel') => { if (!settled) { settled = true; close(); resolve(c); } };
 
             const modal = showModal({
-                title: 'Cloud copy deleted',
+                title: t('projectList.cloudCopyDeleted'),
                 body, width: '440px', closeOnBackdrop: false,
                 buttons: [
-                    { label: 'Cancel', action: () => pick('cancel') },
-                    { label: 'Delete local too', danger: true, action: () => pick('delete') },
-                    { label: 'Keep as local-only', primary: true, action: () => pick('demote') },
+                    { label: t('settings.cancel'), action: () => pick('cancel') },
+                    { label: t('projectList.deleteLocalToo'), danger: true, action: () => pick('delete') },
+                    { label: t('projectList.keepAsLocalOnly'), primary: true, action: () => pick('demote') },
                 ],
             });
             close = modal.close;
@@ -1153,33 +1150,33 @@ git checkout da571fe   # last commit before template unification`;
         const isPublished = project.status === 'published' && project.publishedSlug;
 
         const items: any[] = [
-            { label: 'Open', action: () => this.onOpenProject?.(project.id) },
+            { label: t('projectList.open'), action: () => this.onOpenProject?.(project.id) },
         ];
 
         {
-            items.push({ label: 'Rename', action: () => this.renameProject(project) });
-            items.push({ label: 'Duplicate', action: () => this.duplicateProject(project) });
-            items.push({ label: project.thumbnail ? 'Change Thumbnail' : 'Set Thumbnail', action: () => this.setThumbnail(project) });
+            items.push({ label: t('projectList.rename'), action: () => this.renameProject(project) });
+            items.push({ label: t('projectList.duplicate'), action: () => this.duplicateProject(project) });
+            items.push({ label: project.thumbnail ? t('projectList.changeThumbnail') : t('projectList.setThumbnail'), action: () => this.setThumbnail(project) });
             if (project.thumbnail) {
-                items.push({ label: 'Remove Thumbnail', action: () => this.removeThumbnail(project) });
+                items.push({ label: t('projectList.removeThumbnail'), action: () => this.removeThumbnail(project) });
             }
             items.push({ label: '', separator: true });
 
             if (isPublished) {
                 items.push({
-                    label: 'View Published Game',
+                    label: t('projectList.viewPublishedGame'),
                     action: () => {
                         const origin = this.ctx.backend.isSelfHosted ? 'https://parallaxpro.ai' : window.location.origin;
                         window.open(`${origin}/games/${project.publishedOwner}/${project.publishedSlug}`, '_blank');
                     },
                 });
-                items.push({ label: 'Unpublish', action: () => this.unpublishProject(project) });
+                items.push({ label: t('projectList.unpublish'), action: () => this.unpublishProject(project) });
             } else {
-                items.push({ label: 'Publish', action: () => this.publishProject(project) });
+                items.push({ label: t('toolbar.publish'), action: () => this.publishProject(project) });
             }
 
             items.push({ label: '', separator: true });
-            items.push({ label: 'Delete', danger: true, action: () => this.deleteProject(project) });
+            items.push({ label: t('projectList.delete'), danger: true, action: () => this.deleteProject(project) });
         }
 
         showContextMenu(x, y, items);
@@ -1209,20 +1206,20 @@ git checkout da571fe   # last commit before template unification`;
         promptSection.style.gap = '8px';
 
         const label = document.createElement('label');
-        label.textContent = 'Generate from prompt';
+        label.textContent = t('projectList.generateFromPrompt');
         label.style.fontSize = '13px';
         label.style.fontWeight = '600';
         label.style.color = 'var(--text-secondary)';
         promptSection.appendChild(label);
 
         const promptHint = document.createElement('div');
-        promptHint.textContent = 'Describe your game idea and AI will build it for you.';
+        promptHint.textContent = t('projectList.generateHint');
         promptHint.style.fontSize = '11px';
         promptHint.style.color = 'var(--text-tertiary, #888)';
         promptSection.appendChild(promptHint);
 
         const textarea = document.createElement('textarea');
-        textarea.placeholder = 'e.g. A 3D platformer with double-jump and coin collection...';
+        textarea.placeholder = t('projectList.generatePlaceholder');
         textarea.maxLength = 2000;
         textarea.style.width = '100%';
         textarea.style.height = '100px';
@@ -1249,7 +1246,7 @@ git checkout da571fe   # last commit before template unification`;
         divLine1.style.height = '1px';
         divLine1.style.background = 'var(--border)';
         const divText = document.createElement('span');
-        divText.textContent = 'or';
+        divText.textContent = t('projectList.or');
         divText.style.fontSize = '12px';
         divText.style.color = 'var(--text-tertiary, #888)';
         divText.style.flexShrink = '0';
@@ -1269,14 +1266,14 @@ git checkout da571fe   # last commit before template unification`;
         templateSection.style.gap = '8px';
 
         const templateLabel = document.createElement('label');
-        templateLabel.textContent = 'Build from template';
+        templateLabel.textContent = t('projectList.buildFromTemplate');
         templateLabel.style.fontSize = '13px';
         templateLabel.style.fontWeight = '600';
         templateLabel.style.color = 'var(--text-secondary)';
         templateSection.appendChild(templateLabel);
 
         const templateHint = document.createElement('div');
-        templateHint.textContent = 'Start with a ready-made game template you can customize.';
+        templateHint.textContent = t('projectList.templateHint');
         templateHint.style.fontSize = '11px';
         templateHint.style.color = 'var(--text-tertiary, #888)';
         templateSection.appendChild(templateHint);
@@ -1284,7 +1281,7 @@ git checkout da571fe   # last commit before template unification`;
         // Search input
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
-        searchInput.placeholder = 'Search templates...';
+        searchInput.placeholder = t('projectList.templateSearch');
         searchInput.style.width = '100%';
         searchInput.style.fontSize = '13px';
         searchInput.style.padding = '7px 10px';
@@ -1321,12 +1318,12 @@ git checkout da571fe   # last commit before template unification`;
             const query = filter.toLowerCase();
             const filtered = (isRanked || !query)
                 ? allTemplates
-                : allTemplates.filter(t =>
-                    t.name.toLowerCase().includes(query) || t.id.toLowerCase().includes(query) || (t.description || '').toLowerCase().includes(query)
+                : allTemplates.filter(tmpl =>
+                    tmpl.name.toLowerCase().includes(query) || tmpl.id.toLowerCase().includes(query) || (tmpl.description || '').toLowerCase().includes(query)
                 );
             if (filtered.length === 0) {
                 const empty = document.createElement('div');
-                empty.textContent = query ? 'No templates match your search' : 'Loading...';
+                empty.textContent = query ? t('projectList.noTemplatesMatch') : t('projectList.loadingTemplates');
                 empty.style.fontSize = '12px';
                 empty.style.color = 'var(--text-tertiary, #888)';
                 empty.style.padding = '8px';
@@ -1334,7 +1331,7 @@ git checkout da571fe   # last commit before template unification`;
                 templateList.appendChild(empty);
                 return;
             }
-            for (const t of filtered) {
+            for (const tmpl of filtered) {
                 const item = document.createElement('div');
                 item.style.display = 'flex';
                 item.style.alignItems = 'center';
@@ -1344,27 +1341,27 @@ git checkout da571fe   # last commit before template unification`;
                 item.style.cursor = 'pointer';
                 item.style.fontSize = '12px';
                 item.style.transition = 'background 0.1s';
-                item.style.background = t.id === selectedTemplateId ? 'var(--accent-bg, rgba(59,130,246,0.15))' : 'transparent';
-                item.style.border = t.id === selectedTemplateId ? '1px solid var(--accent, #3b82f6)' : '1px solid transparent';
+                item.style.background = tmpl.id === selectedTemplateId ? 'var(--accent-bg, rgba(59,130,246,0.15))' : 'transparent';
+                item.style.border = tmpl.id === selectedTemplateId ? '1px solid var(--accent, #3b82f6)' : '1px solid transparent';
 
                 const info = document.createElement('div');
                 const nameEl = document.createElement('div');
                 nameEl.style.fontWeight = '600';
                 nameEl.style.color = 'var(--text-primary)';
-                nameEl.textContent = t.name;
+                nameEl.textContent = tmpl.name;
                 const descEl = document.createElement('div');
                 descEl.style.fontSize = '11px';
                 descEl.style.color = 'var(--text-tertiary, #888)';
                 descEl.style.marginTop = '1px';
-                descEl.textContent = `${t.description} · ${t.entityCount} entities`;
+                descEl.textContent = `${tmpl.description} · ${tmpl.entityCount} entities`;
                 info.appendChild(nameEl);
                 info.appendChild(descEl);
                 item.appendChild(info);
 
-                item.addEventListener('mouseenter', () => { if (t.id !== selectedTemplateId) item.style.background = 'var(--bg-hover, rgba(255,255,255,0.04))'; });
-                item.addEventListener('mouseleave', () => { if (t.id !== selectedTemplateId) item.style.background = 'transparent'; });
+                item.addEventListener('mouseenter', () => { if (tmpl.id !== selectedTemplateId) item.style.background = 'var(--bg-hover, rgba(255,255,255,0.04))'; });
+                item.addEventListener('mouseleave', () => { if (tmpl.id !== selectedTemplateId) item.style.background = 'transparent'; });
                 item.addEventListener('click', () => {
-                    selectedTemplateId = selectedTemplateId === t.id ? '' : t.id;
+                    selectedTemplateId = selectedTemplateId === tmpl.id ? '' : tmpl.id;
                     renderTemplateList(searchInput.value);
                     // Mutual exclusion
                     textarea.disabled = !!selectedTemplateId;
@@ -1464,13 +1461,13 @@ git checkout da571fe   # last commit before template unification`;
         };
 
         const { close } = showModal({
-            title: 'New Project',
+            title: t('projectList.newProjectModal'),
             body,
             width: '520px',
             buttons: [
-                { label: 'Cancel', action: () => close() },
+                { label: t('settings.cancel'), action: () => close() },
                 {
-                    label: 'Generate',
+                    label: t('projectList.generate'),
                     primary: true,
                     action: async () => {
                         if (selectedTemplateId) {
@@ -1500,7 +1497,7 @@ git checkout da571fe   # last commit before template unification`;
     }
 
     private async renameProject(project: any): Promise<void> {
-        const newName = await showPromptModal('Rename Project', project.name, 'New name');
+        const newName = await showPromptModal(t('projectList.renameProject'), project.name, t('projectList.newNamePlaceholder'));
         if (!newName) return;
         try {
             await this.ctx.backend.renameProject(project.id, newName);
@@ -1674,7 +1671,7 @@ git checkout da571fe   # last commit before template unification`;
 
     private async unpublishProject(project: any): Promise<void> {
         const confirmed = await showConfirmModal(
-            'Unpublish Game',
+            t('projectList.unpublishGame'),
             `This will take "${project.name}" offline. Players will no longer be able to access the published version.`
         );
         if (!confirmed) return;
@@ -1716,9 +1713,9 @@ git checkout da571fe   # last commit before template unification`;
             loginBtn.className = 'toolbar-btn exit-btn';
             loginBtn.appendChild(icon(LogIn, 15));
             const lbl = document.createElement('span');
-            lbl.textContent = ' Login';
+            lbl.textContent = ` ${t('projectList.login')}`;
             loginBtn.appendChild(lbl);
-            loginBtn.title = 'Sign in to parallaxpro.ai so you can publish this project';
+            loginBtn.title = t('projectList.loginTooltip');
             loginBtn.addEventListener('click', async () => {
                 loginBtn.classList.add('disabled');
                 try {
@@ -1761,7 +1758,7 @@ git checkout da571fe   # last commit before template unification`;
         logoutItem.style.cssText = 'width:100%;padding:8px 12px;display:flex;align-items:center;gap:8px;background:transparent;border:0;color:var(--text-primary);cursor:pointer;font-size:13px;text-align:left;';
         logoutItem.appendChild(icon(LogOut, 14));
         const logoutLabel = document.createElement('span');
-        logoutLabel.textContent = 'Log out';
+        logoutLabel.textContent = t('projectList.logout');
         logoutItem.appendChild(logoutLabel);
         logoutItem.addEventListener('mouseenter', () => { logoutItem.style.background = 'var(--bg-input)'; });
         logoutItem.addEventListener('mouseleave', () => { logoutItem.style.background = 'transparent'; });
@@ -1860,16 +1857,16 @@ git checkout da571fe   # last commit before template unification`;
 
             const stopBtn = document.createElement('button');
             stopBtn.className = 'project-generation-stop';
-            stopBtn.title = 'Stop this build (the run is killed and the project unlocks)';
+            stopBtn.title = t('projectList.stopTooltip');
             stopBtn.appendChild(icon(Square, 12));
             const stopLabel = document.createElement('span');
-            stopLabel.textContent = 'Stop';
+            stopLabel.textContent = t('projectList.stopBuild');
             stopBtn.appendChild(stopLabel);
             stopBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const ok = await showConfirmModal(
-                    'Stop this build?',
-                    'The run will be stopped and all progress from this attempt is discarded. The project will unlock — you can start again with a different prompt.',
+                    t('projectList.stopBuildConfirmTitle'),
+                    t('projectList.stopBuildConfirmMsg'),
                 );
                 if (!ok) return;
                 try {
@@ -1926,7 +1923,7 @@ git checkout da571fe   # last commit before template unification`;
 
             const badge = document.createElement('span');
             badge.className = 'project-generation-badge failed';
-            badge.textContent = 'BUILD FAILED';
+            badge.textContent = t('projectList.buildFailed');
             header.appendChild(badge);
 
             const dismiss = document.createElement('button');
@@ -1968,12 +1965,12 @@ git checkout da571fe   # last commit before template unification`;
 
             const badge = document.createElement('span');
             badge.className = 'project-generation-badge success';
-            badge.textContent = '\u2713 JUST BUILT';
+            badge.textContent = t('projectList.justBuilt');
             header.appendChild(badge);
 
             const hint = document.createElement('span');
             hint.className = 'project-generation-status';
-            hint.textContent = 'Click the card to open';
+            hint.textContent = t('projectList.clickToOpen');
             header.appendChild(hint);
 
             const dismiss = document.createElement('button');

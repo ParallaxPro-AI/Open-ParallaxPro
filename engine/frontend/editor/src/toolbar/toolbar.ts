@@ -4,6 +4,7 @@ import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Sett
 import { PublishFlow } from '../widgets/publish_flow.js';
 import { formatServerTime } from '../utils/format_time.js';
 import { isMobile } from '../utils/mobile.js';
+import { t } from '../i18n/index.js';
 
 interface CollabUser {
     clientId: string;
@@ -94,11 +95,11 @@ export class Toolbar {
         logo.className = 'toolbar-logo';
         logo.src = `${import.meta.env.BASE_URL}logos/main_logo_horizontal.png`;
         logo.alt = 'ParallaxPro';
-        logo.title = 'Back to Projects';
+        logo.title = t('toolbar.backToProjects');
         logo.style.cursor = 'pointer';
         logo.addEventListener('click', () => {
             if (this.ctx.state.projectDirty) {
-                if (!confirm('You have unsaved changes. Leave without saving?')) return;
+                if (!confirm(t('toolbar.unsavedConfirm'))) return;
             }
             const url = new URL(window.location.href);
             url.searchParams.delete('project');
@@ -110,8 +111,8 @@ export class Toolbar {
 
         this.projectNameEl = document.createElement('span');
         this.projectNameEl.className = 'toolbar-project-name';
-        this.projectNameEl.textContent = 'Untitled Project';
-        this.projectNameEl.title = 'Click to rename';
+        this.projectNameEl.textContent = t('toolbar.untitled');
+        this.projectNameEl.title = t('toolbar.renameTooltip');
         this.projectNameEl.style.cursor = 'pointer';
         this.projectNameEl.addEventListener('click', () => this.startRenameProject());
         this.el.appendChild(this.projectNameEl);
@@ -126,8 +127,8 @@ export class Toolbar {
         this.addSeparator();
 
         const fileGroup = this.createGroup();
-        this.saveBtn = this.createIconButton(Save, 'Save', 'toolbar-btn disabled', () => this.ctx.saveProject());
-        this.saveBtn.title = 'Save (Ctrl+S)';
+        this.saveBtn = this.createIconButton(Save, t('settings.save'), 'toolbar-btn disabled', () => this.ctx.saveProject());
+        this.saveBtn.title = t('toolbar.save');
         fileGroup.appendChild(this.saveBtn);
 
         this.undoBtn = this.createIconButton(Undo2, '', 'toolbar-btn disabled', () => {
@@ -136,7 +137,7 @@ export class Toolbar {
             this.ctx.emit('sceneChanged');
             this.ctx.ensurePrimitiveMeshes();
         });
-        this.undoBtn.title = 'Undo (Ctrl+Z)';
+        this.undoBtn.title = t('toolbar.undo');
         fileGroup.appendChild(this.undoBtn);
 
         this.redoBtn = this.createIconButton(Redo2, '', 'toolbar-btn disabled', () => {
@@ -145,35 +146,35 @@ export class Toolbar {
             this.ctx.emit('sceneChanged');
             this.ctx.ensurePrimitiveMeshes();
         });
-        this.redoBtn.title = 'Redo (Ctrl+Y / Ctrl+Shift+Z)';
+        this.redoBtn.title = t('toolbar.redo');
         fileGroup.appendChild(this.redoBtn);
 
         this.el.appendChild(fileGroup);
         this.addSeparator();
 
         const transformGroup = this.createGroup();
-        this.translateBtn = this.createIconButton(Move, 'Move', 'toolbar-btn active', () => this.ctx.setGizmoMode('translate'));
-        this.translateBtn.title = 'Translate (1)';
+        this.translateBtn = this.createIconButton(Move, t('toolbar.moveLabel'), 'toolbar-btn active', () => this.ctx.setGizmoMode('translate'));
+        this.translateBtn.title = t('toolbar.translate');
         transformGroup.appendChild(this.translateBtn);
 
-        this.rotateBtn = this.createIconButton(RotateCw, 'Rotate', 'toolbar-btn', () => this.ctx.setGizmoMode('rotate'));
-        this.rotateBtn.title = 'Rotate (2)';
+        this.rotateBtn = this.createIconButton(RotateCw, t('toolbar.rotateLabel'), 'toolbar-btn', () => this.ctx.setGizmoMode('rotate'));
+        this.rotateBtn.title = t('toolbar.rotate');
         transformGroup.appendChild(this.rotateBtn);
 
-        this.scaleBtn = this.createIconButton(Maximize2, 'Scale', 'toolbar-btn', () => this.ctx.setGizmoMode('scale'));
-        this.scaleBtn.title = 'Scale (3)';
+        this.scaleBtn = this.createIconButton(Maximize2, t('toolbar.scaleLabel'), 'toolbar-btn', () => this.ctx.setGizmoMode('scale'));
+        this.scaleBtn.title = t('toolbar.scale');
         transformGroup.appendChild(this.scaleBtn);
 
         this.el.appendChild(transformGroup);
         this.addSeparator();
 
         const cameraGroup = this.createGroup();
-        this.cameraModeBtn = this.createIconButton(MousePointer2, 'Orbit', 'toolbar-btn', () => this.ctx.toggleCameraMode());
-        this.cameraModeBtn.title = 'Toggle Orbit / Fly (4)';
+        this.cameraModeBtn = this.createIconButton(MousePointer2, t('toolbar.orbitLabel'), 'toolbar-btn', () => this.ctx.toggleCameraMode());
+        this.cameraModeBtn.title = t('toolbar.cameraMode');
         cameraGroup.appendChild(this.cameraModeBtn);
 
-        this.gizmoSpaceBtn = this.createIconButton(Globe, 'Global', 'toolbar-btn', () => this.ctx.toggleGizmoSpace());
-        this.gizmoSpaceBtn.title = 'Toggle Global / Local (5)';
+        this.gizmoSpaceBtn = this.createIconButton(Globe, t('toolbar.globalLabel'), 'toolbar-btn', () => this.ctx.toggleGizmoSpace());
+        this.gizmoSpaceBtn.title = t('toolbar.gizmoSpace');
         cameraGroup.appendChild(this.gizmoSpaceBtn);
 
         this.el.appendChild(cameraGroup);
@@ -188,7 +189,7 @@ export class Toolbar {
 
         this.collabChatBtn = document.createElement('button');
         this.collabChatBtn.className = 'toolbar-btn collab-chat-btn';
-        this.collabChatBtn.title = 'Team Chat';
+        this.collabChatBtn.title = t('toolbar.teamChat');
         this.collabChatBtn.style.display = 'none';
         this.collabChatBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
         this.unreadBadge = document.createElement('span');
@@ -202,10 +203,10 @@ export class Toolbar {
         this.collabChatPanel.className = 'collab-chat-panel';
         this.collabChatPanel.style.display = 'none';
         this.collabChatPanel.innerHTML = `
-            <div class="collab-chat-header">Team Chat</div>
+            <div class="collab-chat-header">${t('toolbar.teamChat')}</div>
             <div class="collab-chat-messages"></div>
             <div class="collab-chat-input-row">
-                <input type="text" class="collab-chat-input" placeholder="Type a message..." />
+                <input type="text" class="collab-chat-input" placeholder="${t('toolbar.teamChatPlaceholder')}" />
             </div>
         `;
         document.body.appendChild(this.collabChatPanel);
@@ -229,15 +230,15 @@ export class Toolbar {
         this.addSeparator();
 
         const playGroup = this.createGroup();
-        this.playBtn = this.createIconButton(Play, 'Play', 'toolbar-btn play-btn disabled', () => {
+        this.playBtn = this.createIconButton(Play, t('toolbar.play'), 'toolbar-btn play-btn disabled', () => {
             if (this.playBtn.classList.contains('disabled')) return;
             this.ctx.play();
         });
-        this.playBtn.title = 'Loading...';
+        this.playBtn.title = t('toolbar.loading');
         playGroup.appendChild(this.playBtn);
 
-        this.stopBtn = this.createIconButton(Square, 'Stop', 'toolbar-btn stop-btn', () => this.ctx.stop());
-        this.stopBtn.title = 'Stop';
+        this.stopBtn = this.createIconButton(Square, t('toolbar.stop'), 'toolbar-btn stop-btn', () => this.ctx.stop());
+        this.stopBtn.title = t('toolbar.stop');
         this.stopBtn.style.display = 'none';
         playGroup.appendChild(this.stopBtn);
 
@@ -248,8 +249,8 @@ export class Toolbar {
         this.previewClientBtn = document.createElement('button');
         this.previewClientBtn.className = 'toolbar-btn';
         this.previewClientBtn.style.cssText = 'font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap;margin-left:4px;display:none;';
-        this.previewClientBtn.textContent = '+ Client';
-        this.previewClientBtn.title = 'Open another window of this project to test multiplayer locally';
+        this.previewClientBtn.textContent = t('toolbar.previewClient');
+        this.previewClientBtn.title = t('toolbar.previewClientTooltip');
         this.previewClientBtn.addEventListener('click', () => {
             const pid = this.ctx.state.projectId;
             if (!pid) return;
@@ -267,15 +268,15 @@ export class Toolbar {
         this.mpBtn = document.createElement('button');
         this.mpBtn.className = 'toolbar-btn';
         this.mpBtn.style.cssText = 'font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap;';
-        this.mpBtn.textContent = 'Multiplayer';
-        this.mpBtn.title = 'Multiplayer room link';
+        this.mpBtn.textContent = t('toolbar.multiplayer');
+        this.mpBtn.title = t('toolbar.multiplayerTooltip');
         mpWrapper.appendChild(this.mpBtn);
 
         this.mpDropdown = document.createElement('div');
         this.mpDropdown.style.cssText = 'display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg-panel,#1e1e2e);border:1px solid var(--border-color,#333);border-radius:6px;padding:10px 14px;min-width:260px;z-index:10001;box-shadow:0 4px 12px rgba(0,0,0,0.4);';
         const mpLabel = document.createElement('div');
         mpLabel.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px;';
-        mpLabel.textContent = 'Share this link to invite players:';
+        mpLabel.textContent = t('toolbar.shareLink');
         this.mpDropdown.appendChild(mpLabel);
 
         this.mpLinkText = document.createElement('a');
@@ -284,12 +285,12 @@ export class Toolbar {
         this.mpDropdown.appendChild(this.mpLinkText);
 
         const mpCopyBtn = document.createElement('button');
-        mpCopyBtn.textContent = 'Copy Link';
+        mpCopyBtn.textContent = t('toolbar.copyLink');
         mpCopyBtn.style.cssText = 'font-size:11px;padding:4px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;border-radius:4px;cursor:pointer;width:100%;';
         mpCopyBtn.addEventListener('click', () => {
             navigator.clipboard.writeText(this.mpLinkText.textContent || '').then(() => {
-                mpCopyBtn.textContent = 'Copied!';
-                setTimeout(() => { mpCopyBtn.textContent = 'Copy Link'; }, 1500);
+                mpCopyBtn.textContent = t('toolbar.copied');
+                setTimeout(() => { mpCopyBtn.textContent = t('toolbar.copyLink'); }, 1500);
             });
         });
         this.mpDropdown.appendChild(mpCopyBtn);
@@ -314,12 +315,12 @@ export class Toolbar {
         this.el.appendChild(playGroup);
         this.addSeparator();
 
-        const publishBtn = this.createButton('Publish', '', 'toolbar-btn publish-btn', () => {
+        const publishBtn = this.createButton(t('toolbar.publish'), '', 'toolbar-btn publish-btn', () => {
             if (this.ctx.state.projectId) this.showPublishModal();
         });
         this.el.appendChild(publishBtn);
 
-        const feedbackBtn = this.createButton('Feedback', '', 'toolbar-btn', () => {
+        const feedbackBtn = this.createButton(t('toolbar.feedback'), '', 'toolbar-btn', () => {
             this.showFeedbackModal();
         });
         this.el.appendChild(feedbackBtn);
@@ -327,7 +328,7 @@ export class Toolbar {
         const settingsBtn = this.createIconButton(Settings, '', 'toolbar-btn', () => {
             this.showSettingsModal();
         });
-        settingsBtn.title = 'Settings';
+        settingsBtn.title = t('toolbar.settings');
         this.el.appendChild(settingsBtn);
     }
 
@@ -336,11 +337,11 @@ export class Toolbar {
         logo.className = 'toolbar-logo';
         logo.src = `${import.meta.env.BASE_URL}logos/main_logo_horizontal.png`;
         logo.alt = 'ParallaxPro';
-        logo.title = 'Back to Projects';
+        logo.title = t('toolbar.backToProjects');
         logo.style.cursor = 'pointer';
         logo.addEventListener('click', () => {
             if (this.ctx.state.projectDirty) {
-                if (!confirm('You have unsaved changes. Leave without saving?')) return;
+                if (!confirm(t('toolbar.unsavedConfirm'))) return;
             }
             const url = new URL(window.location.href);
             url.searchParams.delete('project');
@@ -356,20 +357,20 @@ export class Toolbar {
 
         const transformGroup = this.createGroup();
         this.translateBtn = this.createIconButton(Move, '', 'toolbar-btn active', () => this.ctx.setGizmoMode('translate'));
-        this.translateBtn.title = 'Translate';
+        this.translateBtn.title = t('toolbar.translate');
         transformGroup.appendChild(this.translateBtn);
 
         this.rotateBtn = this.createIconButton(RotateCw, '', 'toolbar-btn', () => this.ctx.setGizmoMode('rotate'));
-        this.rotateBtn.title = 'Rotate';
+        this.rotateBtn.title = t('toolbar.rotate');
         transformGroup.appendChild(this.rotateBtn);
 
         this.scaleBtn = this.createIconButton(Maximize2, '', 'toolbar-btn', () => this.ctx.setGizmoMode('scale'));
-        this.scaleBtn.title = 'Scale';
+        this.scaleBtn.title = t('toolbar.scale');
         transformGroup.appendChild(this.scaleBtn);
         this.el.appendChild(transformGroup);
 
-        this.cameraModeBtn = this.createIconButton(Crosshair, 'Fly', 'toolbar-btn', () => this.ctx.toggleCameraMode());
-        this.cameraModeBtn.title = 'Toggle Orbit / Fly';
+        this.cameraModeBtn = this.createIconButton(Crosshair, t('toolbar.flyLabel'), 'toolbar-btn', () => this.ctx.toggleCameraMode());
+        this.cameraModeBtn.title = t('toolbar.cameraMode');
         this.el.appendChild(this.cameraModeBtn);
 
         const spacer = document.createElement('div');
@@ -381,11 +382,11 @@ export class Toolbar {
             if (this.playBtn.classList.contains('disabled')) return;
             this.ctx.play();
         });
-        this.playBtn.title = 'Play';
+        this.playBtn.title = t('toolbar.play');
         playGroup.appendChild(this.playBtn);
 
         this.stopBtn = this.createIconButton(Square, '', 'toolbar-btn stop-btn', () => this.ctx.stop());
-        this.stopBtn.title = 'Stop';
+        this.stopBtn.title = t('toolbar.stop');
         this.stopBtn.style.display = 'none';
         playGroup.appendChild(this.stopBtn);
 
@@ -457,14 +458,14 @@ export class Toolbar {
             this.overflowMenu!.appendChild(div);
         };
 
-        this.saveBtn = addItem(Save, 'Save', () => this.ctx.saveProject());
-        addItem(Undo2, 'Undo', () => {
+        this.saveBtn = addItem(Save, t('settings.save'), () => this.ctx.saveProject());
+        addItem(Undo2, t('toolbar.undo'), () => {
             this.ctx.undoManager.undo();
             this.ctx.emit('historyChanged');
             this.ctx.emit('sceneChanged');
             this.ctx.ensurePrimitiveMeshes();
         });
-        addItem(Redo2, 'Redo', () => {
+        addItem(Redo2, t('toolbar.redo'), () => {
             this.ctx.undoManager.redo();
             this.ctx.emit('historyChanged');
             this.ctx.emit('sceneChanged');
@@ -473,10 +474,10 @@ export class Toolbar {
 
         addDivider();
 
-        addItem(Play, 'Publish', () => {
+        addItem(Play, t('toolbar.publish'), () => {
             if (this.ctx.state.projectId) this.showPublishModal();
         });
-        addItem(Settings, 'Settings', () => this.showSettingsModal());
+        addItem(Settings, t('toolbar.settings'), () => this.showSettingsModal());
 
         this.el.appendChild(this.overflowMenu);
     }
@@ -493,9 +494,9 @@ export class Toolbar {
             this.cameraModeBtn.innerHTML = '';
             this.cameraModeBtn.appendChild(icon(isFly ? Crosshair : MousePointer2, 15));
             const span = document.createElement('span');
-            span.textContent = isFly ? ' Fly' : ' Orbit';
+            span.textContent = isFly ? ` ${t('toolbar.flyLabel')}` : ` ${t('toolbar.orbitLabel')}`;
             this.cameraModeBtn.appendChild(span);
-            this.cameraModeBtn.title = isFly ? 'Fly mode (4)' : 'Orbit mode (4)';
+            this.cameraModeBtn.title = isFly ? t('toolbar.flyMode') : t('toolbar.orbitMode');
             this.cameraModeBtn.classList.toggle('active', isFly);
         });
 
@@ -504,9 +505,9 @@ export class Toolbar {
             this.gizmoSpaceBtn.innerHTML = '';
             this.gizmoSpaceBtn.appendChild(icon(isLocal ? Box : Globe, 15));
             const span = document.createElement('span');
-            span.textContent = isLocal ? ' Local' : ' Global';
+            span.textContent = isLocal ? ` ${t('toolbar.localLabel')}` : ` ${t('toolbar.globalLabel')}`;
             this.gizmoSpaceBtn.appendChild(span);
-            this.gizmoSpaceBtn.title = isLocal ? 'Local space (5)' : 'Global space (5)';
+            this.gizmoSpaceBtn.title = isLocal ? t('toolbar.localSpace') : t('toolbar.globalSpace');
             this.gizmoSpaceBtn.classList.toggle('active', isLocal);
         });
 
@@ -518,7 +519,7 @@ export class Toolbar {
             } else {
                 this.playBtn.classList.remove('active');
                 this.playBtn.classList.remove('disabled');
-                this.playBtn.title = 'Play (Ctrl+P)';
+                this.playBtn.title = t('toolbar.playCtrlP');
                 (this as any)._mpWrapper.style.display = 'none';
                 this.mpDropdown.style.display = 'none';
             }
@@ -533,16 +534,16 @@ export class Toolbar {
             const { joinLink } = data;
             this.mpLinkText.textContent = joinLink;
             (this.mpLinkText as HTMLAnchorElement).href = joinLink;
-            this.mpPlayerCount.textContent = '1 player connected';
+            this.mpPlayerCount.textContent = t('toolbar.playerConnected').replace('{count}', '1');
             (this as any)._mpWrapper.style.display = '';
         });
         this.ctx.multiplayer.on('playerJoined', () => {
             const count = this.ctx.multiplayer.remotePlayerCount + 1;
-            this.mpPlayerCount.textContent = `${count} player${count !== 1 ? 's' : ''} connected`;
+            this.mpPlayerCount.textContent = (count !== 1 ? t('toolbar.playersConnected') : t('toolbar.playerConnected')).replace('{count}', String(count));
         });
         this.ctx.multiplayer.on('playerLeft', () => {
             const count = this.ctx.multiplayer.remotePlayerCount + 1;
-            this.mpPlayerCount.textContent = `${count} player${count !== 1 ? 's' : ''} connected`;
+            this.mpPlayerCount.textContent = (count !== 1 ? t('toolbar.playersConnected') : t('toolbar.playerConnected')).replace('{count}', String(count));
         });
 
         this.ctx.on('historyChanged', () => {
@@ -551,7 +552,7 @@ export class Toolbar {
         });
 
         this.ctx.on('dirtyChanged', (dirty: boolean) => {
-            const name = this.ctx.state.projectData?.name ?? 'Untitled Project';
+            const name = this.ctx.state.projectData?.name ?? t('toolbar.untitled');
             this.projectNameEl.textContent = dirty ? `${name} *` : name;
             this.saveBtn.classList.toggle('disabled', !dirty);
         });
@@ -564,7 +565,7 @@ export class Toolbar {
         const enablePlayBtn = () => {
             if (!this.ctx.state.isPlaying && this.ctx.assetsLoadingCount === 0) {
                 this.playBtn.classList.remove('disabled');
-                this.playBtn.title = 'Play (Ctrl+P)';
+                this.playBtn.title = t('toolbar.playCtrlP');
                 loadingLabel.style.display = 'none';
             }
         };
@@ -583,12 +584,12 @@ export class Toolbar {
         this.ctx.on('sceneChanged', () => enablePlayBtn());
 
         this.ctx.on('projectLoaded', () => {
-            const name = this.ctx.state.projectData?.name ?? 'Untitled Project';
+            const name = this.ctx.state.projectData?.name ?? t('toolbar.untitled');
             this.projectNameEl.textContent = name;
         });
 
         this.ctx.on('projectSaved', () => {
-            this.showToast('Project saved', 'success');
+            this.showToast(t('toolbar.projectSaved'), 'success');
         });
 
         this.ctx.on('collabPresenceChanged', (users: CollabUser[]) => {
@@ -601,13 +602,13 @@ export class Toolbar {
                 this.collabUsers.push(user);
             }
             this.renderPresence();
-            this.addCollabSystemMessage(`${user.displayName} joined`);
+            this.addCollabSystemMessage(`${user.displayName} ${t('toolbar.joined')}`);
         });
 
         this.ctx.on('collabUserLeft', (data: { clientId: string; displayName: string }) => {
             this.collabUsers = this.collabUsers.filter(u => u.clientId !== data.clientId);
             this.renderPresence();
-            this.addCollabSystemMessage(`${data.displayName} left`);
+            this.addCollabSystemMessage(`${data.displayName} ${t('toolbar.left')}`);
         });
 
         this.ctx.on('collabChatMessage', (data: CollabChatMsg) => {
@@ -616,7 +617,7 @@ export class Toolbar {
 
         this.ctx.backend.onWsMessage('multiplayer_room', (data: any) => {
             const host = data.hostName || 'A collaborator';
-            this.showToast(`${host} started a multiplayer session`, 'success');
+            this.showToast(`${host} ${t('toolbar.startedMultiplayer')}`, 'success');
             const div = document.createElement('div');
             div.className = 'collab-chat-msg collab-chat-msg-system';
             const strong = document.createElement('strong');
@@ -711,8 +712,8 @@ export class Toolbar {
     }
 
     private async startRenameProject(): Promise<void> {
-        const currentName = this.ctx.state.projectData?.name ?? 'Untitled Project';
-        const newName = await showPromptModal('Rename Project', currentName, 'Project name');
+        const currentName = this.ctx.state.projectData?.name ?? t('toolbar.untitled');
+        const newName = await showPromptModal(t('toolbar.renameProject'), currentName, t('toolbar.projectNamePlaceholder'));
         if (!newName || newName === currentName) return;
 
         if (this.ctx.state.projectData) {
@@ -736,10 +737,10 @@ export class Toolbar {
                         }
                     } catch (e) { console.warn('Cloud rename push failed:', e); }
                 }
-                this.showToast('Project renamed', 'success');
+                this.showToast(t('toolbar.projectRenamed'), 'success');
             } catch (e) {
                 console.error('Failed to rename project:', e);
-                this.showToast('Rename failed', 'error');
+                this.showToast(t('toolbar.renameFailed'), 'error');
             }
         }
     }
@@ -752,7 +753,7 @@ export class Toolbar {
         body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
 
         const addLabel = document.createElement('label');
-        addLabel.textContent = 'Add people';
+        addLabel.textContent = t('share.addPeople');
         addLabel.style.cssText = 'font-weight:600;font-size:13px;';
         body.appendChild(addLabel);
 
@@ -761,17 +762,17 @@ export class Toolbar {
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = 'Email or username';
+        input.placeholder = t('share.emailPlaceholder');
         input.style.cssText = 'flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-size:13px;';
         addRow.appendChild(input);
 
         const permSelect = document.createElement('select');
         permSelect.style.cssText = 'padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-size:13px;';
-        permSelect.innerHTML = '<option value="editor">Editor</option><option value="viewer">Viewer</option>';
+        permSelect.innerHTML = `<option value="editor">${t('share.editor')}</option><option value="viewer">${t('share.viewer')}</option>`;
         addRow.appendChild(permSelect);
 
         const addBtn = document.createElement('button');
-        addBtn.textContent = 'Share';
+        addBtn.textContent = t('share.share');
         addBtn.style.cssText = 'padding:8px 16px;background:#69bbf3;color:#1e1e1e;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;';
         addRow.appendChild(addBtn);
 
@@ -782,7 +783,7 @@ export class Toolbar {
         body.appendChild(statusMsg);
 
         const listLabel = document.createElement('label');
-        listLabel.textContent = 'People with access';
+        listLabel.textContent = t('share.peopleWithAccess');
         listLabel.style.cssText = 'font-weight:600;font-size:13px;margin-top:8px;';
         body.appendChild(listLabel);
 
@@ -841,7 +842,7 @@ export class Toolbar {
 
                     const removeBtn = document.createElement('button');
                     removeBtn.textContent = '\u00d7';
-                    removeBtn.title = 'Remove access';
+                    removeBtn.title = t('share.removeAccess');
                     removeBtn.style.cssText = 'background:none;border:none;color:#e53935;font-size:18px;cursor:pointer;padding:0 4px;line-height:1;';
                     removeBtn.addEventListener('click', async () => {
                         try {
@@ -860,12 +861,12 @@ export class Toolbar {
 
                 if (data.shares.length === 0) {
                     const emptyMsg = document.createElement('div');
-                    emptyMsg.textContent = 'Not shared with anyone yet.';
+                    emptyMsg.textContent = t('share.notSharedYet');
                     emptyMsg.style.cssText = 'font-size:12px;color:var(--text-dim);padding:8px;text-align:center;';
                     listContainer.appendChild(emptyMsg);
                 }
             } catch {
-                listContainer.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:8px;">Could not load shares.</div>';
+                listContainer.innerHTML = `<div style="font-size:12px;color:var(--text-dim);padding:8px;">${t('share.couldNotLoad')}</div>`;
             }
         };
 
@@ -874,7 +875,7 @@ export class Toolbar {
         addBtn.addEventListener('click', async () => {
             const identifier = input.value.trim();
             if (!identifier) {
-                statusMsg.textContent = 'Enter an email or username.';
+                statusMsg.textContent = t('share.enterEmailOrUsername');
                 statusMsg.style.cssText = 'font-size:12px;display:block;color:#e53935;';
                 return;
             }
@@ -884,8 +885,8 @@ export class Toolbar {
                 const result = await this.ctx.backend.shareProject(projectId, identifier, permSelect.value);
                 input.value = '';
                 statusMsg.textContent = result.user?.is_stub
-                    ? `Invitation email sent to ${result.user.email}`
-                    : `Shared with ${result.user?.email || identifier}`;
+                    ? t('share.invitationSent').replace('{email}', result.user.email)
+                    : t('share.sharedWith').replace('{email}', result.user?.email || identifier);
                 statusMsg.style.cssText = 'font-size:12px;display:block;color:#4caf50;';
                 renderShares();
             } catch (e: any) {
@@ -893,7 +894,7 @@ export class Toolbar {
                 statusMsg.style.cssText = 'font-size:12px;display:block;color:#e53935;';
             } finally {
                 addBtn.disabled = false;
-                addBtn.textContent = 'Share';
+                addBtn.textContent = t('share.share');
             }
         });
 
@@ -902,11 +903,11 @@ export class Toolbar {
         });
 
         const { close } = showModal({
-            title: 'Share Project',
+            title: t('share.title'),
             body,
             width: '480px',
             buttons: [
-                { label: 'Done', primary: true, action: () => close() },
+                { label: t('share.done'), primary: true, action: () => close() },
             ],
         });
 
@@ -918,19 +919,19 @@ export class Toolbar {
         body.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
 
         const msgLabel = document.createElement('label');
-        msgLabel.textContent = 'What feedback do you have?';
+        msgLabel.textContent = t('feedbackModal.whatFeedback');
         msgLabel.style.cssText = 'font-weight:600;font-size:13px;';
         body.appendChild(msgLabel);
 
         const textarea = document.createElement('textarea');
-        textarea.placeholder = 'Describe the issue, suggestion, or feedback...';
+        textarea.placeholder = t('feedbackModal.placeholder');
         textarea.rows = 5;
         textarea.style.cssText = 'width:100%;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-family:inherit;font-size:13px;';
         body.appendChild(textarea);
 
         // Image upload area
         const imageLabel = document.createElement('label');
-        imageLabel.textContent = 'Screenshots (optional, max 5 images, 5MB each)';
+        imageLabel.textContent = t('feedbackModal.screenshotsLabel');
         imageLabel.style.cssText = 'font-weight:600;font-size:13px;';
         body.appendChild(imageLabel);
 
@@ -940,7 +941,7 @@ export class Toolbar {
         body.appendChild(previewContainer);
 
         const uploadBtn = document.createElement('button');
-        uploadBtn.textContent = '+ Add Image';
+        uploadBtn.textContent = t('feedbackModal.addImage');
         uploadBtn.style.cssText = 'padding:6px 12px;border:1px dashed var(--border);border-radius:6px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;';
         body.appendChild(uploadBtn);
 
@@ -977,7 +978,7 @@ export class Toolbar {
             for (const file of files) {
                 if (imageFiles.length >= 5) break;
                 if (file.size > 5 * 1024 * 1024) {
-                    errorMsg.textContent = `${file.name} exceeds 5MB limit.`;
+                    errorMsg.textContent = t('feedbackModal.exceedsLimit').replace('{name}', file.name);
                     errorMsg.style.display = 'block';
                     continue;
                 }
@@ -992,25 +993,25 @@ export class Toolbar {
         body.appendChild(errorMsg);
 
         const { close } = showModal({
-            title: 'Send Feedback',
+            title: t('feedbackModal.title'),
             body,
             width: '480px',
             buttons: [
-                { label: 'Cancel', action: () => close() },
+                { label: t('feedbackModal.cancel'), action: () => close() },
                 {
-                    label: 'Send',
+                    label: t('feedbackModal.send'),
                     primary: true,
                     action: async () => {
                         const msg = textarea.value.trim();
                         if (!msg) {
-                            errorMsg.textContent = 'Please enter your feedback.';
+                            errorMsg.textContent = t('feedbackModal.enterFeedback');
                             errorMsg.style.display = 'block';
                             return;
                         }
                         try {
                             await this.ctx.backend.sendFeedback(this.ctx.state.projectId!, msg, imageFiles);
                             close();
-                            this.showToast('Feedback sent! Thank you.', 'success');
+                            this.showToast(t('feedbackModal.sent'), 'success');
                         } catch (e: any) {
                             errorMsg.textContent = e.message || 'Failed to send feedback.';
                             errorMsg.style.display = 'block';
@@ -1043,7 +1044,7 @@ export class Toolbar {
             const chatRow = document.createElement('div');
             chatRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
             const chatLabel = document.createElement('label');
-            chatLabel.textContent = 'Chat Agent';
+            chatLabel.textContent = t('settings.chatAgent');
             chatLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
             chatSelect = document.createElement('select');
             chatSelect.style.cssText = 'width:100%;height:28px;';
@@ -1058,7 +1059,7 @@ export class Toolbar {
             }
             const chatHint = document.createElement('span');
             chatHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
-            chatHint.textContent = 'Recommended: LLM API — faster (<1s vs 10-20s per message, because the CLI is relaunched on every turn), cheaper, and produces cleaner output. CLI agents are a convenience when you don\'t have an API key, but they run in agent mode rather than chat mode and may perform very poorly — occasionally emitting tool calls instead of chat replies.';
+            chatHint.textContent = t('settings.chatAgentHint');
             chatRow.appendChild(chatLabel);
             chatRow.appendChild(chatSelect);
             chatRow.appendChild(chatHint);
@@ -1073,7 +1074,7 @@ export class Toolbar {
             const agentRow = document.createElement('div');
             agentRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
             const agentLabel = document.createElement('label');
-            agentLabel.textContent = 'Editing Agent';
+            agentLabel.textContent = t('settings.editingAgent');
             agentLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
             agentSelect = document.createElement('select');
             agentSelect.style.cssText = 'width:100%;height:28px;';
@@ -1087,7 +1088,7 @@ export class Toolbar {
             }
             const agentHint = document.createElement('span');
             agentHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
-            agentHint.textContent = 'Agent spawned when the AI decides to edit your project files.';
+            agentHint.textContent = t('settings.editingAgentHint');
             agentRow.appendChild(agentLabel);
             agentRow.appendChild(agentSelect);
             agentRow.appendChild(agentHint);
@@ -1097,7 +1098,7 @@ export class Toolbar {
         const gfxRow = document.createElement('div');
         gfxRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
         const gfxLabel = document.createElement('label');
-        gfxLabel.textContent = 'Graphics Quality';
+        gfxLabel.textContent = t('settings.graphicsQuality');
         gfxLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
         const gfxSelect = document.createElement('select');
         gfxSelect.style.cssText = 'width:100%;height:28px;';
@@ -1134,7 +1135,7 @@ export class Toolbar {
             const cloudRow = document.createElement('div');
             cloudRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--bg-secondary);border-radius:6px;';
             const cloudLabel = document.createElement('div');
-            cloudLabel.textContent = 'Cloud Sync';
+            cloudLabel.textContent = t('settings.cloudSync');
             cloudLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
             cloudRow.appendChild(cloudLabel);
             this.renderCloudSettingsSection(cloudRow);
@@ -1142,14 +1143,14 @@ export class Toolbar {
         }
 
         const { close } = showModal({
-            title: 'Settings',
+            title: t('toolbar.settings'),
             body,
             width: '400px',
             closeOnBackdrop: false,
             buttons: [
-                { label: 'Cancel', action: () => close() },
+                { label: t('settings.cancel'), action: () => close() },
                 {
-                    label: 'Save',
+                    label: t('settings.save'),
                     primary: true,
                     action: () => {
                         if (agentSelect) localStorage.setItem('editing_agent', agentSelect.value);
@@ -1181,16 +1182,16 @@ export class Toolbar {
             const hint = document.createElement('div');
             hint.style.cssText = 'font-size:12px;color:var(--text-secondary);line-height:1.4;';
             hint.textContent = isCloud
-                ? 'This is a cloud project but you\'re signed out — saves aren\'t reaching parallaxpro.ai. Sign in to resume syncing.'
-                : 'Sign in to parallaxpro.ai to enable cloud sync for this project.';
+                ? t('settings.cloudSignedOutCloudHint')
+                : t('settings.cloudSignedOutHint');
             container.appendChild(hint);
 
             const btn = document.createElement('button');
-            btn.textContent = 'Sign in';
+            btn.textContent = t('settings.cloudSignIn');
             btn.style.cssText = 'align-self:flex-start;padding:6px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
             btn.addEventListener('click', async () => {
                 btn.disabled = true;
-                btn.textContent = 'Signing in…';
+                btn.textContent = t('settings.cloudSigningIn');
                 try {
                     const { ensureLoggedIn } = await import('../backend/auth_session.js');
                     await ensureLoggedIn();
@@ -1203,10 +1204,10 @@ export class Toolbar {
                     if (isCloud && this.ctx.state.projectId) {
                         this.ctx.cloudSync.schedulePush(this.ctx.state.projectId);
                     }
-                    this.showToast('Signed in to parallaxpro.ai.', 'success');
+                    this.showToast(t('settings.signedInToast'), 'success');
                 } catch (e: any) {
                     btn.disabled = false;
-                    btn.textContent = 'Sign in';
+                    btn.textContent = t('settings.cloudSignIn');
                     console.warn('[auth] sign-in cancelled:', e?.message ?? e);
                 }
             });
@@ -1217,22 +1218,22 @@ export class Toolbar {
         if (isCloud) {
             const status = document.createElement('div');
             status.style.cssText = 'font-size:12.5px;color:#7bca9b;display:flex;align-items:center;gap:6px;';
-            status.textContent = '✓ This project syncs to parallaxpro.ai on every save.';
+            status.textContent = t('settings.cloudSyncedCheck');
             container.appendChild(status);
             return;
         }
 
         const hint = document.createElement('div');
         hint.style.cssText = 'font-size:12px;color:var(--text-secondary);line-height:1.4;';
-        hint.textContent = 'Sync this project to parallaxpro.ai so you can pick up where you left off from any computer.';
+        hint.textContent = t('settings.cloudHint');
         container.appendChild(hint);
 
         const btn = document.createElement('button');
-        btn.textContent = 'Promote to Cloud';
+        btn.textContent = t('settings.cloudPromote');
         btn.style.cssText = 'align-self:flex-start;padding:6px 14px;background:#8648e6;color:#fff;border:0;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;';
         btn.addEventListener('click', async () => {
             btn.disabled = true;
-            btn.textContent = 'Syncing…';
+            btn.textContent = t('settings.cloudPromoting');
             const result = await this.ctx.promoteCurrentProjectToCloud();
             if (result.ok) {
                 // Also clear any per-project "don't show toast" flag so a
@@ -1240,10 +1241,10 @@ export class Toolbar {
                 // dismissed this one in the past.
                 try { localStorage.removeItem(`pp_promote_dismissed:${this.ctx.state.projectId}`); } catch {}
                 this.renderCloudSettingsSection(container);
-                this.showToast('Project synced to parallaxpro.ai.', 'success');
+                this.showToast(t('settings.cloudProjectSynced'), 'success');
             } else {
                 btn.disabled = false;
-                btn.textContent = 'Promote to Cloud';
+                btn.textContent = t('settings.cloudPromote');
                 alert(result.reason);
             }
         });
@@ -1439,7 +1440,7 @@ export class Toolbar {
         const nameSpan = document.createElement('span');
         nameSpan.className = 'collab-chat-msg-name';
         nameSpan.style.color = msg.color;
-        nameSpan.textContent = msg.isLocal ? 'You' : msg.sender;
+        nameSpan.textContent = msg.isLocal ? t('toolbar.you') : msg.sender;
 
         const textSpan = document.createElement('span');
         textSpan.className = 'collab-chat-msg-text';

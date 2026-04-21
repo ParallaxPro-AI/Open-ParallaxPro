@@ -13,6 +13,7 @@ import {
 } from '../history/commands.js';
 import { icon, Box, Circle, Square, Sun, Camera, Volume2, Sparkles, Layers, Lightbulb, Eye, EyeOff, Plus, Globe } from '../widgets/icons.js';
 import { buildComponentsForAsset, prettifyAssetName } from '../utils/asset_drop.js';
+import { t } from '../i18n/index.js';
 
 /**
  * Scene hierarchy panel: shows entity tree with drag-and-drop reparenting,
@@ -41,13 +42,13 @@ export class SceneHierarchyPanel {
 
         const title = document.createElement('span');
         title.className = 'panel-title';
-        title.textContent = 'Hierarchy';
+        title.textContent = t('hierarchy.title');
         header.appendChild(title);
 
         const addBtn = document.createElement('button');
         addBtn.className = 'icon-btn';
         addBtn.appendChild(icon(Plus, 14));
-        addBtn.title = 'Add Entity';
+        addBtn.title = t('hierarchy.addEntity');
         addBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.showAddDropdown(addBtn);
@@ -61,7 +62,7 @@ export class SceneHierarchyPanel {
         searchBar.className = 'panel-search';
         this.searchInput = document.createElement('input');
         this.searchInput.type = 'text';
-        this.searchInput.placeholder = 'Search entities...';
+        this.searchInput.placeholder = t('hierarchy.searchEntities');
         this.searchInput.addEventListener('input', () => {
             this.searchTerm = this.searchInput.value.toLowerCase();
             this.render();
@@ -143,7 +144,7 @@ export class SceneHierarchyPanel {
         if (!wm) {
             const empty = document.createElement('div');
             empty.className = 'panel-empty';
-            empty.textContent = 'No scene loaded';
+            empty.textContent = t('hierarchy.noSceneLoaded');
             this.treeContainer.appendChild(empty);
             return;
         }
@@ -154,7 +155,7 @@ export class SceneHierarchyPanel {
         if (scenes.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'panel-empty';
-            empty.textContent = 'No scene loaded';
+            empty.textContent = t('hierarchy.noSceneLoaded');
             this.treeContainer.appendChild(empty);
             return;
         }
@@ -201,7 +202,7 @@ export class SceneHierarchyPanel {
 
         const name = document.createElement('span');
         name.className = 'tree-node-name scene-name';
-        name.textContent = scene.name || 'Untitled Scene';
+        name.textContent = scene.name || t('assets.untitledScene');
         row.appendChild(name);
 
         row.addEventListener('click', (e) => {
@@ -238,7 +239,7 @@ export class SceneHierarchyPanel {
     }
 
     private startSceneRename(scene: any, nameEl: HTMLElement): void {
-        const oldName = scene.name || 'Untitled Scene';
+        const oldName = scene.name || t('assets.untitledScene');
         const input = document.createElement('input');
         input.className = 'rename-input';
         input.value = oldName;
@@ -288,7 +289,7 @@ export class SceneHierarchyPanel {
         const scenes = wm?.getLoadedScenes() ?? [];
         showContextMenu(x, y, [
             {
-                label: 'Rename',
+                label: t('hierarchy.rename'),
                 shortcut: 'Double-click',
                 action: () => {
                     const nameEl = this.treeContainer.querySelector('.scene-node.active-scene .scene-name, .scene-node .scene-name') as HTMLElement;
@@ -297,7 +298,7 @@ export class SceneHierarchyPanel {
             },
             { label: '', separator: true },
             {
-                label: 'Delete Scene',
+                label: t('hierarchy.deleteScene'),
                 danger: true,
                 disabled: scenes.length <= 1,
                 action: () => {
@@ -395,7 +396,7 @@ export class SceneHierarchyPanel {
         visBtn.className = 'tree-node-action';
         if (isHidden) visBtn.classList.add('hidden-entity');
         visBtn.appendChild(icon(isHidden ? EyeOff : Eye, 12));
-        visBtn.title = isHidden ? 'Show' : 'Hide';
+        visBtn.title = isHidden ? t('hierarchy.show') : t('hierarchy.hide');
         visBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.ctx.toggleVisibility(entity.id);
@@ -721,7 +722,7 @@ export class SceneHierarchyPanel {
     private showEntityContextMenu(entity: Entity, x: number, y: number): void {
         showContextMenu(x, y, [
             {
-                label: 'Rename',
+                label: t('hierarchy.rename'),
                 shortcut: 'Double-click',
                 action: () => {
                     const nameEl = this.treeContainer.querySelector(`[data-entity-id="${entity.id}"] .tree-node-name`) as HTMLElement;
@@ -744,7 +745,7 @@ export class SceneHierarchyPanel {
                 },
             },
             {
-                label: 'Create Child',
+                label: t('hierarchy.createChild'),
                 action: () => {
                     const cmd = new CreateEntityCommand('New Entity', entity.id);
                     this.ctx.undoManager.execute(cmd);
@@ -763,7 +764,7 @@ export class SceneHierarchyPanel {
                     this.ctx.emit('historyChanged');
                 },
             }] : [{
-                label: 'Delete (locked)',
+                label: t('hierarchy.deleteLocked'),
                 disabled: true,
                 action: () => {},
             }]),
@@ -785,7 +786,7 @@ export class SceneHierarchyPanel {
         newSceneIconSpan.appendChild(icon(Globe, 14));
         newSceneItem.appendChild(newSceneIconSpan);
         const newSceneLabel = document.createElement('span');
-        newSceneLabel.textContent = 'New Scene';
+        newSceneLabel.textContent = t('hierarchy.newScene');
         newSceneItem.appendChild(newSceneLabel);
         newSceneItem.addEventListener('click', () => {
             const wm = this.ctx.engine?.globalContext.worldManager;

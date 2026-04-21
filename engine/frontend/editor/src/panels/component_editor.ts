@@ -12,6 +12,7 @@ import { EnumField } from '../widgets/fields/enum_field.js';
 import { ColorField } from '../widgets/fields/color_field.js';
 import { AssetField } from '../widgets/fields/asset_field.js';
 import { Quat } from '../../../../shared/math/quat.js';
+import { t } from '../i18n/index.js';
 
 interface FieldDef {
     name: string;
@@ -350,8 +351,8 @@ export class ComponentEditor {
                 );
                 if (hasFSM) {
                     const fsmBtn = document.createElement('button');
-                    fsmBtn.textContent = 'View FSMs';
-                    fsmBtn.title = "Switch to FSM tab and show this entity's state machines";
+                    fsmBtn.textContent = t('properties.viewFSMs');
+                    fsmBtn.title = t('properties.viewFSMsTooltip');
                     fsmBtn.style.cssText = 'margin:8px 0;padding:4px 12px;border:1px solid rgba(139,92,246,0.4);border-radius:4px;background:rgba(139,92,246,0.15);color:#c4b5fd;cursor:pointer;font-size:11px;width:100%;';
                     fsmBtn.addEventListener('click', () => {
                         ctx.emit('showEntityFSM', { entityName });
@@ -395,7 +396,7 @@ export class ComponentEditor {
 
         const toggleBtn = document.createElement('button');
         toggleBtn.className = 'terrain-sculpt-btn';
-        toggleBtn.textContent = isActive ? 'Stop Sculpting' : 'Sculpt Terrain';
+        toggleBtn.textContent = isActive ? t('properties.stopSculpting') : t('properties.sculptTerrain');
         toggleBtn.style.cssText = `
             width: 100%; padding: 6px 0; border: none; border-radius: 4px; cursor: pointer;
             font-size: 12px; font-weight: 500;
