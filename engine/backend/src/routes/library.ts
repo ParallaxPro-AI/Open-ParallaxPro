@@ -102,9 +102,20 @@ export function createLibraryRouter(): Router {
         // templates") onto each library file, so the agent sees
         // related files without a second round-trip. Template shows
         // skip this — they already show everything they contain.
+        //
+        // Critical: wrap the hint in format-native comment syntax for
+        // the file's kind. If the agent copies the raw response into
+        // project/ verbatim (e.g. `library.sh show ui/foo.html > file`
+        // then cp), we don't want the annotation to end up as visible
+        // text in a rendered HTML page or as a syntax error in TS.
+        const wrapAnnotation = (resolvedPath: string, hint: string): string => {
+            if (resolvedPath.endsWith('.html')) return `<!--\n${hint}\n-->`;
+            if (resolvedPath.endsWith('.ts') || resolvedPath.endsWith('.js')) return `/*\n${hint}\n*/`;
+            return hint;
+        };
         const annotate = (resolvedPath: string, content: string): string => {
             const hint = getCoOccurrenceAnnotation(resolvedPath);
-            return hint ? `${content}\n\n${hint}` : content;
+            return hint ? `${content}\n\n${wrapAnnotation(resolvedPath, hint)}\n` : content;
         };
 
         const resolveOne = (raw: string): { resolvedPath: string; content: string } | { notFound: string[] } => {
