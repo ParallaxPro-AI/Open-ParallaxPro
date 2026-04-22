@@ -977,6 +977,8 @@ bash library.sh show ui/main_menu.html --tail 40
 bash library.sh show behaviors/ai/boss_ai.ts --range 120-200
 ```
 
+**⚠ DO NOT redirect `show` to a file** (`bash library.sh show X > project/ui/X.html`). That sends the file body past your context — you can't read it later without another fetch, and `Write` / `Edit` won't see it. Correct pattern: `show` → read the output in the tool result → `Write` tool with that content.
+
 ```bash
 # examples: grep for literal API/string across library + templates, return
 # file:line + a few lines of context. Use when you want to see HOW an API
@@ -1002,7 +1004,6 @@ The header `X-Library-Resolved-Path` (visible in error messages if something goe
 
 `library.sh` for any library file (behaviors/systems/ui/templates). `Read` for `project/` and `reference/previous_project/`. Batch multiple paths or queries in one call — partial failures come back inline as `=== NOT_FOUND: ... ===`, no second call needed. For large files, prefer `show --head N` / `--range L1-L2` over piping to head/tail (the slice happens server-side and doesn't accumulate in your context). Soft-fails on network error: warning to stderr, exit 0.
 
-**Copying a library file into `project/`**: run `library.sh show X` once, then use the `Write` tool with the body — drop the trailing annotation block. Do NOT use shell redirection (`bash library.sh show X > project/ui/X.html`): that sends the content to disk *bypassing your context*, so any later edit or reread forces a second fetch. `show` + `Write` is one tool-roundtrip of visible content; `show > file` + later `cat file` is two.
 
 ## Event Definitions
 Read `project/systems/event_definitions.ts` (the project's pinned copy). If you need the canonical library version for comparison, fetch it with `bash library.sh show systems/event_definitions.ts`.
