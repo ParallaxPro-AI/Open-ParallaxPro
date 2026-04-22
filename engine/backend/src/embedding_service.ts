@@ -1,8 +1,9 @@
 /**
  * Embedding service for semantic asset/library search.
- * Uses paraphrase-multilingual-MiniLM-L12-v2 via @xenova/transformers
- * (runs locally, no API key). Multilingual — handles Chinese, Thai,
- * Korean, etc. alongside English.
+ * Uses multilingual-e5-small via @xenova/transformers (runs locally,
+ * no API key). Multilingual — handles Chinese, Thai, Korean, Russian,
+ * etc. alongside English. e5 requires "query: " / "passage: " prefixes
+ * on inputs: use embedQuery for user intents, embedText(s) for corpus.
  */
 
 import { pipeline, env } from '@xenova/transformers';
@@ -19,8 +20,10 @@ const EMBEDDINGS_CACHE_PATH = path.resolve(__dirname, '../.embeddings_cache.json
 
 env.cacheDir = MODEL_CACHE_DIR;
 
-const MODEL_NAME = 'Xenova/paraphrase-multilingual-MiniLM-L12-v2';
+const MODEL_NAME = 'Xenova/multilingual-e5-small';
 const EMBEDDING_DIM = 384;
+const PASSAGE_PREFIX = 'passage: ';
+const QUERY_PREFIX = 'query: ';
 
 let extractor: FeatureExtractionPipeline | null = null;
 
@@ -58,9 +61,10 @@ export function saveCachedEmbeddings(fingerprint: string, embeddings: Record<str
     fs.writeFileSync(EMBEDDINGS_CACHE_PATH, JSON.stringify({ version: 1, fingerprint, embeddings } satisfies EmbeddingsCache));
 }
 
+// Embed a corpus document (file description, template name, asset label, …).
 export async function embedText(text: string): Promise<number[]> {
     if (!extractor) throw new Error('Embedder not initialized');
-    const output = await extractor(text, { pooling: 'mean', normalize: true });
+    const output = await extractor(PASSAGE_PREFIX + text, { pooling: 'mean', normalize: true });
     return Array.from(output.data as Float32Array).slice(0, EMBEDDING_DIM);
 }
 
@@ -69,7 +73,7 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
     const results: number[][] = [];
     const BATCH_SIZE = 64;
     for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-        const batch = texts.slice(i, i + BATCH_SIZE);
+        const batch = texts.slice(i, i + BATCH_SIZE).map(t => PASSAGE_PREFIX + t);
         const output = await extractor(batch, { pooling: 'mean', normalize: true });
         const data = output.data as Float32Array;
         for (let j = 0; j < batch.length; j++) {
@@ -77,6 +81,14 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
         }
     }
     return results;
+}
+
+// Embed a search intent ("platformer jumping", "spaceship camera"). Use for
+// query-side vectors when the corpus was indexed with embedText(s).
+export async function embedQuery(text: string): Promise<number[]> {
+    if (!extractor) throw new Error('Embedder not initialized');
+    const output = await extractor(QUERY_PREFIX + text, { pooling: 'mean', normalize: true });
+    return Array.from(output.data as Float32Array).slice(0, EMBEDDING_DIM);
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {

@@ -19,6 +19,7 @@ import {
     initEmbedder,
     embedText,
     embedTexts,
+    embedQuery,
     cosineSimilarity,
     computeFingerprint,
 } from '../../../embedding_service.js';
@@ -189,7 +190,7 @@ export async function pickRelevantLibrary(
 
     let queryVec: number[];
     try {
-        queryVec = await embedText(description);
+        queryVec = await embedQuery(description);
     } catch {
         return { behaviors: allBehaviors, systems: allSystems, ui: allUi, method: 'all-fallback' };
     }
@@ -315,7 +316,7 @@ export async function searchLibrary(
 
     let queryVec: number[] | null = null;
     if (vectorByKey) {
-        try { queryVec = await embedText(query); }
+        try { queryVec = await embedQuery(query); }
         catch { queryVec = null; }
     }
 

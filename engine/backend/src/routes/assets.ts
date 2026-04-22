@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
 import {
-    initEmbedder, embedText, embedTexts,
+    initEmbedder, embedText, embedTexts, embedQuery,
     computeFingerprint, loadCachedEmbeddings, saveCachedEmbeddings,
     cosineSimilarity
 } from '../embedding_service.js';
@@ -239,7 +239,7 @@ export async function searchAssets(opts: { category?: string; search?: string; s
     const max = Math.min(opts.limit ?? 20, 50);
 
     if (opts.search && embeddingsReady) {
-        const queryVec = await embedText(opts.search);
+        const queryVec = await embedQuery(opts.search);
         const scored = filtered
             .map(a => ({
                 asset: a,
@@ -334,7 +334,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     // substring matching when a user exceeds their embedding budget.
     const canEmbed = search && embeddingsReady && tryConsumeEmbedBudget(req.user?.id);
     if (canEmbed) {
-        const queryVec = await embedText(search);
+        const queryVec = await embedQuery(search);
         const scored = filtered
             .map(a => ({ asset: a, score: cosineSimilarity(queryVec, assetEmbeddings.get(a.filePath) ?? []) }))
             .filter(s => s.score > 0.15)

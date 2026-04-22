@@ -539,6 +539,7 @@ import {
     initEmbedder,
     embedText,
     embedTexts,
+    embedQuery,
     cosineSimilarity,
 } from '../../../embedding_service.js';
 
@@ -618,7 +619,7 @@ async function generateSuggestedAssets(assetsDir: string, description: string): 
 
     try {
         await initEmbedder();
-        queryVec = await embedText(description);
+        queryVec = await embedQuery(description);
         packData = await getAssetPackVectors();
     } catch (e: any) {
         console.warn('[CLICreator] Asset suggestion embedding failed (non-fatal):', e?.message);
