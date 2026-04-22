@@ -54,6 +54,20 @@ export function writeSearchAssetsTool(sandboxDir: string): void {
     fs.writeFileSync(path.join(sandboxDir, 'search_assets.sh'), SEARCH_ASSETS_SH, { mode: 0o755 });
 }
 
+/**
+ * Write a `library.sh` tool into the sandbox — semantic + lexical
+ * search over the game-component library, plus on-demand file fetch.
+ * Replaces "read reference/ by hand" with "ask for what you want."
+ *
+ * Shares the `.search_config.json` with search_assets.sh (same url/token).
+ * Backend endpoints live at /api/engine/internal/library/{index,search,file}.
+ * Soft-fails gracefully (exit 0 with stderr warning) so a transient
+ * backend hiccup doesn't blow up an agent run.
+ */
+export function writeLibraryTool(sandboxDir: string): void {
+    fs.writeFileSync(path.join(sandboxDir, 'library.sh'), LIBRARY_SH, { mode: 0o755 });
+}
+
 const SEARCH_ASSETS_SH = `#!/bin/bash
 # Semantic asset search — queries the engine backend's embedding index.
 #
@@ -141,6 +155,210 @@ else {
 }
 " "\$RESP" "\$QUERY"
 done
+`;
+
+const LIBRARY_SH = `#!/bin/bash
+# library.sh — on-demand access to the reusable game-components library.
+#
+# Three subcommands:
+#
+#   list [KIND]
+#       Show the library index. KIND is one of behaviors | systems | ui |
+#       templates. When KIND is omitted, prints all four. Each entry
+#       carries a one-line summary so you can usually pick the right
+#       file without opening it.
+#
+#   search "QUERY" ["QUERY2" ...] [--kind K] [--category C] [--limit N]
+#       Semantic + lexical hybrid search. Multiple queries run in a
+#       single call — batch whenever you have related intents, it's
+#       cheaper for your transcript than N separate calls. Returns
+#       top-N ranked hits per query.
+#
+#       Examples:
+#         bash library.sh search "platformer jumping"
+#         bash library.sh search "zombie AI" "health regen" "boss fight"
+#         bash library.sh search "tower ai" --kind behaviors --limit 5
+#         bash library.sh search "movement" --category movement
+#
+#   show PATH [PATH2 ...]
+#       Fetch one or more library files. Kind-inferring: literal
+#       references inside library files (like "movement/jump.ts" in a
+#       template's 02_entities.json) resolve without needing the kind
+#       prefix. Accepts:
+#         behaviors/movement/jump.ts     (explicit kind)
+#         movement/jump.ts               (kind inferred from .ts)
+#         gameplay/scoring.ts            (resolves to systems/)
+#         hud/health.html                (ui)
+#         hud/health                     (no extension → ui/hud/health.html)
+#         templates/platformer           (all 4 JSONs concatenated)
+#         platformer                     (no extension → template id)
+#
+#       Multiple paths return concatenated with "=== <resolved-path> ==="
+#       headers. Anything not found becomes "=== NOT_FOUND: ... ===" in
+#       line, so one call covers partial failures.
+#
+# Soft-fails gracefully if the engine backend is unreachable — writes a
+# warning to stderr and exits 0 so a CREATE_GAME run isn't broken by a
+# transient. Reads URL + token from .search_config.json (same file the
+# search_assets tool uses).
+
+CMD="\$1"
+shift 2>/dev/null || true
+
+if [ -z "\$CMD" ] || [ "\$CMD" = "help" ] || [ "\$CMD" = "-h" ] || [ "\$CMD" = "--help" ]; then
+    sed -n '2,45p' "\$0" | sed 's/^# \\{0,1\\}//'
+    exit 0
+fi
+
+if [ ! -f .search_config.json ]; then
+    echo "WARN: .search_config.json missing — cannot use library tool." >&2
+    exit 0
+fi
+
+URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.url||'')")
+TOKEN=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.token||'')")
+
+if [ -z "\$URL" ]; then
+    echo "WARN: no backend URL in .search_config.json." >&2
+    exit 0
+fi
+
+enc() { node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$1"; }
+
+# Parse flags from remaining args
+POSITIONAL=()
+KIND=""
+CATEGORY=""
+LIMIT=""
+while [ \$# -gt 0 ]; do
+    case "\$1" in
+        --kind)      KIND="\$2"; shift 2 ;;
+        --category)  CATEGORY="\$2"; shift 2 ;;
+        --limit)     LIMIT="\$2"; shift 2 ;;
+        *)           POSITIONAL+=("\$1"); shift ;;
+    esac
+done
+
+HDR=(-H "X-Internal-Token: \$TOKEN")
+
+case "\$CMD" in
+
+list)
+    QS=""
+    if [ \${#POSITIONAL[@]} -gt 0 ]; then
+        QS="?kind=\$(enc "\${POSITIONAL[0]}")"
+    fi
+    RESP=\$(curl -sf --max-time 5 "\${HDR[@]}" "\${URL}/api/engine/internal/library/index\${QS}" 2>/dev/null) || {
+        echo "WARN: library/index endpoint unreachable." >&2
+        exit 0
+    }
+    node -e "
+var data = JSON.parse(process.argv[1]);
+function suffix(k) {
+  if (k === 'ui') return '.html';
+  if (k === 'templates') return '';
+  return '.ts';
+}
+function byCategory(items) {
+  var g = {};
+  for (var it of items) (g[it.category] ||= []).push(it);
+  return g;
+}
+function dumpKind(kind, items) {
+  console.log(kind.charAt(0).toUpperCase() + kind.slice(1) + ' (' + items.length + ' total)');
+  var g = byCategory(items);
+  for (var cat of Object.keys(g).sort()) {
+    if (cat === '_root') console.log('  (root)');
+    else console.log('  ' + cat + '/');
+    for (var it of g[cat]) {
+      var name = it.name + suffix(kind);
+      var sum = (it.summary || '').slice(0, 100);
+      var line = '    ' + name;
+      while (line.length < 42) line += ' ';
+      if (sum) line += ' — ' + sum;
+      console.log(line);
+    }
+  }
+}
+if (data.kind) dumpKind(data.kind, data.items);
+else {
+  dumpKind('behaviors', data.behaviors);
+  console.log();
+  dumpKind('systems',   data.systems);
+  console.log();
+  dumpKind('ui',        data.ui);
+  console.log();
+  dumpKind('templates', data.templates);
+}
+" "\$RESP"
+    ;;
+
+search)
+    if [ \${#POSITIONAL[@]} -eq 0 ]; then
+        echo "Usage: library.sh search \\"query\\" [\\"query2\\" ...] [--kind K] [--category C] [--limit N]" >&2
+        exit 1
+    fi
+    QS=""
+    for q in "\${POSITIONAL[@]}"; do
+        [ -n "\$QS" ] && QS="\${QS}&"
+        QS="\${QS}q=\$(enc "\$q")"
+    done
+    [ -n "\$KIND" ]     && QS="\${QS}&kind=\$(enc "\$KIND")"
+    [ -n "\$CATEGORY" ] && QS="\${QS}&category=\$(enc "\$CATEGORY")"
+    [ -n "\$LIMIT" ]    && QS="\${QS}&limit=\${LIMIT}"
+
+    RESP=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/library/search?\${QS}" 2>/dev/null) || {
+        echo "WARN: library/search endpoint unreachable." >&2
+        exit 0
+    }
+    node -e "
+var data = JSON.parse(process.argv[1]);
+function fmt(q, hits) {
+  console.log('[' + q + '] ' + hits.length + ' match' + (hits.length === 1 ? '' : 'es'));
+  if (!hits.length) return;
+  for (var h of hits) {
+    var sum = (h.summary || '').slice(0, 80);
+    var kind = h.kind.padEnd(9);
+    var rel = h.relPath.padEnd(38);
+    console.log('  ' + h.score.toFixed(2) + '  ' + kind + ' ' + rel + (sum ? ' — ' + sum : ''));
+  }
+}
+if (data.batch) {
+  for (var i = 0; i < data.results.length; i++) {
+    if (i > 0) console.log();
+    fmt(data.results[i].query, data.results[i].hits);
+  }
+} else {
+  fmt(data.query, data.hits);
+}
+" "\$RESP"
+    ;;
+
+show)
+    if [ \${#POSITIONAL[@]} -eq 0 ]; then
+        echo "Usage: library.sh show PATH [PATH2 ...]" >&2
+        exit 1
+    fi
+    QS=""
+    for p in "\${POSITIONAL[@]}"; do
+        [ -n "\$QS" ] && QS="\${QS}&"
+        QS="\${QS}path=\$(enc "\$p")"
+    done
+    # Single-path returns raw content; multi-path returns concatenated text.
+    # Either way, pipe straight to stdout — curl -f sets exit status on HTTP
+    # error, and the body carries the details.
+    curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/library/file?\${QS}" || {
+        echo "WARN: library/file endpoint returned error or was unreachable." >&2
+        exit 0
+    }
+    ;;
+
+*)
+    echo "Unknown command: \$CMD" >&2
+    echo "Run 'library.sh --help' for usage." >&2
+    exit 1
+    ;;
+esac
 `;
 
 // ─── In-process checks ────────────────────────────────────────────────────
