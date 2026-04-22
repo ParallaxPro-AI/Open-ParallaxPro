@@ -541,6 +541,7 @@ import {
     embedTexts,
     embedQuery,
     cosineSimilarity,
+    computeFingerprint,
 } from '../../../embedding_service.js';
 
 const ASSET_EMBEDDINGS_CACHE = path.join(
@@ -586,8 +587,10 @@ function scanAssetPacks(): AssetPackEntry[] {
 
 async function getAssetPackVectors(): Promise<{ packs: AssetPackEntry[]; vectors: number[][] }> {
     const packs = scanAssetPacks();
-    const { createHash } = await import('crypto');
-    const fp = createHash('md5').update(packs.map(p => p.dirName).join('\n')).digest('hex');
+    // Fingerprint must include MODEL_NAME (bundled into computeFingerprint)
+    // AND the exact text being embedded (humanName). A dirName-only hash
+    // lets stale vectors survive a model swap or a humanName relabeling.
+    const fp = computeFingerprint(packs.map(p => ({ key: p.dirName, text: p.humanName })));
 
     if (_assetPackCache && _assetPackCache.fingerprint === fp) {
         return { packs: _assetPackCache.packs, vectors: _assetPackCache.vectors };
