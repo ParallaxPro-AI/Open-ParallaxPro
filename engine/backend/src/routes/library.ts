@@ -113,12 +113,15 @@ export function createLibraryRouter(): Router {
             if (resolvedPath.endsWith('.ts') || resolvedPath.endsWith('.js')) return `/*\n${hint}\n*/`;
             return hint;
         };
-        const annotate = (resolvedPath: string, content: string): string => {
+        const annotationFor = (resolvedPath: string): string => {
             const hint = getCoOccurrenceAnnotation(resolvedPath);
-            return hint ? `${content}\n\n${wrapAnnotation(resolvedPath, hint)}\n` : content;
+            return hint ? `\n\n${wrapAnnotation(resolvedPath, hint)}\n` : '';
         };
 
-        const resolveOne = (raw: string): { resolvedPath: string; content: string } | { notFound: string[] } => {
+        // resolveOne returns raw body without annotation so the caller
+        // can apply --head/--tail/--range to just the content, then
+        // re-append the annotation untouched after slicing.
+        const resolveOne = (raw: string): { resolvedPath: string; content: string; annotate: boolean } | { notFound: string[] } => {
             // 1. Explicit template path.
             if (raw.startsWith('templates/')) {
                 const id = raw.slice('templates/'.length).replace(/\/+$/, '');
@@ -127,13 +130,13 @@ export function createLibraryRouter(): Router {
                 const content = Object.entries(tpl)
                     .map(([name, c]) => `=== ${name} ===\n${c}`)
                     .join('\n\n');
-                return { resolvedPath: `templates/${id}`, content };
+                return { resolvedPath: `templates/${id}`, content, annotate: false };
             }
             // 2. Explicit kind prefix.
             if (raw.startsWith('behaviors/') || raw.startsWith('systems/') || raw.startsWith('ui/')) {
                 const hit = readLibraryFile(raw);
                 if (!hit) return { notFound: [raw] };
-                return { resolvedPath: raw, content: annotate(raw, hit.content) };
+                return { resolvedPath: raw, content: hit.content, annotate: true };
             }
             // 3. Kind-inferring. References in library files drop the kind
             //    prefix. `*.ts` is behaviors or systems; `*.html` is ui;
@@ -144,14 +147,14 @@ export function createLibraryRouter(): Router {
                     const p = `${kind}/${raw}`;
                     tried.push(p);
                     const hit = readLibraryFile(p);
-                    if (hit) return { resolvedPath: p, content: annotate(p, hit.content) };
+                    if (hit) return { resolvedPath: p, content: hit.content, annotate: true };
                 }
                 return { notFound: tried };
             }
             if (raw.endsWith('.html')) {
                 const p = `ui/${raw}`;
                 const hit = readLibraryFile(p);
-                if (hit) return { resolvedPath: p, content: annotate(p, hit.content) };
+                if (hit) return { resolvedPath: p, content: hit.content, annotate: true };
                 return { notFound: [p] };
             }
             // No extension.
@@ -160,7 +163,7 @@ export function createLibraryRouter(): Router {
                 const p = `ui/${raw}.html`;
                 tried.push(p);
                 const hit = readLibraryFile(p);
-                if (hit) return { resolvedPath: p, content: annotate(p, hit.content) };
+                if (hit) return { resolvedPath: p, content: hit.content, annotate: true };
             }
             if (/^[a-zA-Z0-9_-]+$/.test(raw)) {
                 const tpl = readLibraryTemplate(raw);
@@ -168,11 +171,49 @@ export function createLibraryRouter(): Router {
                     const content = Object.entries(tpl)
                         .map(([name, c]) => `=== ${name} ===\n${c}`)
                         .join('\n\n');
-                    return { resolvedPath: `templates/${raw}`, content };
+                    return { resolvedPath: `templates/${raw}`, content, annotate: false };
                 }
                 tried.push(`templates/${raw}`);
             }
             return { notFound: tried };
+        };
+
+        // Parse optional ?head=N / ?tail=N / ?range=L1-L2 (1-based,
+        // inclusive). Only applied on single-path responses. Multi-
+        // path would make slice semantics ambiguous across files.
+        const parseSlice = (): { kind: 'head'|'tail'|'range'; a: number; b?: number } | null => {
+            const head = parseInt((req.query.head as string) ?? '', 10);
+            if (Number.isFinite(head) && head > 0) return { kind: 'head', a: head };
+            const tail = parseInt((req.query.tail as string) ?? '', 10);
+            if (Number.isFinite(tail) && tail > 0) return { kind: 'tail', a: tail };
+            const range = typeof req.query.range === 'string' ? req.query.range : '';
+            const rm = range.match(/^(\d+)-(\d+)$/);
+            if (rm) {
+                const a = parseInt(rm[1], 10), b = parseInt(rm[2], 10);
+                if (a > 0 && b >= a) return { kind: 'range', a, b };
+            }
+            return null;
+        };
+        const applySlice = (content: string, slice: ReturnType<typeof parseSlice>): string => {
+            if (!slice) return content;
+            const lines = content.split('\n');
+            const total = lines.length;
+            let out: string[];
+            let note: string;
+            if (slice.kind === 'head') {
+                out = lines.slice(0, slice.a);
+                note = `[head ${out.length} of ${total} lines]`;
+            } else if (slice.kind === 'tail') {
+                const start = Math.max(0, total - slice.a);
+                out = lines.slice(start);
+                note = `[tail ${out.length} of ${total} lines; starts at line ${start + 1}]`;
+            } else {
+                const start = Math.max(0, slice.a - 1);
+                const end = Math.min(total, slice.b!);
+                out = lines.slice(start, end);
+                note = `[lines ${start + 1}-${end} of ${total}]`;
+            }
+            return out.join('\n') + `\n\n${note}`;
         };
 
         // Single-path: keep the clean "content or 404" response.
@@ -181,20 +222,26 @@ export function createLibraryRouter(): Router {
             if ('notFound' in r) {
                 return res.status(404).json({ error: 'not_found', tried: r.notFound });
             }
+            const slice = parseSlice();
+            const sliced = applySlice(r.content, slice);
+            const body = r.annotate ? sliced + annotationFor(r.resolvedPath) : sliced;
             res.setHeader('X-Library-Resolved-Path', r.resolvedPath);
-            return res.type('text/plain').send(r.content);
+            return res.type('text/plain').send(body);
         }
 
         // Multi-path: concatenate. Anything that couldn't be resolved
         // becomes a "=== NOT_FOUND: <what was tried> ===" block so the
         // agent can tell what worked vs didn't without a second call.
+        // Slice flags are ignored for multi-path — they'd be ambiguous
+        // across files.
         const parts: string[] = [];
         for (const p of paths) {
             const r = resolveOne(p);
             if ('notFound' in r) {
                 parts.push(`=== NOT_FOUND: ${p} (tried: ${r.notFound.join(', ')}) ===`);
             } else {
-                parts.push(`=== ${r.resolvedPath} ===\n${r.content}`);
+                const body = r.annotate ? r.content + annotationFor(r.resolvedPath) : r.content;
+                parts.push(`=== ${r.resolvedPath} ===\n${body}`);
             }
         }
         res.type('text/plain').send(parts.join('\n\n'));

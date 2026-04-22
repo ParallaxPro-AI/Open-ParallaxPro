@@ -1037,6 +1037,11 @@ bash library.sh search "movement" --category movement
 bash library.sh show behaviors/movement/platformer_movement.ts
 bash library.sh show templates/platformer                   # all 4 JSONs concatenated
 bash library.sh show movement/jump.ts gameplay/scoring.ts hud/health   # batch fetch
+
+# Slice flags (single-path only) — cheaper than piping to head/tail:
+bash library.sh show systems/gameplay/voxel_world.ts --head 80
+bash library.sh show ui/main_menu.html --tail 40
+bash library.sh show behaviors/ai/boss_ai.ts --range 120-200
 ```
 
 ### Kind-inferring paths

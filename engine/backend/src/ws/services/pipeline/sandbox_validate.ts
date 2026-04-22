@@ -197,6 +197,14 @@ const LIBRARY_SH = `#!/bin/bash
 #       headers. Anything not found becomes "=== NOT_FOUND: ... ===" in
 #       line, so one call covers partial failures.
 #
+#       Slice flags (single-path only — multi-path ignores them):
+#         --head N          first N lines
+#         --tail N          last N lines
+#         --range L1-L2     lines L1 through L2 (1-based, inclusive)
+#       These are cheaper than fetching the whole file then piping to
+#       head/tail — the server slices before sending, so the transcript
+#       only holds what was asked for.
+#
 # Soft-fails gracefully if the engine backend is unreachable — writes a
 # warning to stderr and exits 0 so a CREATE_GAME run isn't broken by a
 # transient. Reads URL + token from .search_config.json (same file the
@@ -230,11 +238,17 @@ POSITIONAL=()
 KIND=""
 CATEGORY=""
 LIMIT=""
+HEAD=""
+TAIL=""
+RANGE=""
 while [ \$# -gt 0 ]; do
     case "\$1" in
         --kind)      KIND="\$2"; shift 2 ;;
         --category)  CATEGORY="\$2"; shift 2 ;;
         --limit)     LIMIT="\$2"; shift 2 ;;
+        --head)      HEAD="\$2"; shift 2 ;;
+        --tail)      TAIL="\$2"; shift 2 ;;
+        --range)     RANGE="\$2"; shift 2 ;;
         *)           POSITIONAL+=("\$1"); shift ;;
     esac
 done
@@ -280,16 +294,28 @@ function dumpKind(kind, items) {
     }
   }
 }
-if (data.kind) dumpKind(data.kind, data.items);
-else {
-  dumpKind('behaviors', data.behaviors);
+function terseSummary() {
+  // Unscoped \`list\` without a kind arg gets a counts-only summary
+  // so the agent can orient cheaply. Full per-kind dumps are large
+  // (20K+ tokens) and almost never all-needed at once.
+  function line(label, items) {
+    var cats = new Set();
+    for (var it of items) cats.add(it.category);
+    var catStr = cats.size === 1 && cats.has('_root') ? '' : ' across ' + cats.size + ' categor' + (cats.size === 1 ? 'y' : 'ies');
+    console.log('  ' + label.padEnd(11) + items.length.toString().padEnd(4) + ' file' + (items.length === 1 ? ' ' : 's') + catStr);
+  }
+  console.log('Library summary:');
+  line('behaviors', data.behaviors);
+  line('systems',   data.systems);
+  line('ui',        data.ui);
+  line('templates', data.templates);
   console.log();
-  dumpKind('systems',   data.systems);
-  console.log();
-  dumpKind('ui',        data.ui);
-  console.log();
-  dumpKind('templates', data.templates);
+  console.log(\"Use 'library.sh list <kind>' (behaviors | systems | ui | templates)\");
+  console.log(\"to see each file with a one-line summary, or 'search \\\"<intent>\\\"'\");
+  console.log('to semantic-search across the whole library.');
 }
+if (data.kind) dumpKind(data.kind, data.items);
+else terseSummary();
 " "\$RESP"
     ;;
 
@@ -336,7 +362,7 @@ if (data.batch) {
 
 show)
     if [ \${#POSITIONAL[@]} -eq 0 ]; then
-        echo "Usage: library.sh show PATH [PATH2 ...]" >&2
+        echo "Usage: library.sh show PATH [PATH2 ...] [--head N | --tail N | --range L1-L2]" >&2
         exit 1
     fi
     QS=""
@@ -344,6 +370,12 @@ show)
         [ -n "\$QS" ] && QS="\${QS}&"
         QS="\${QS}path=\$(enc "\$p")"
     done
+    # Slice flags — only applied server-side for single-path shows.
+    # Multi-path responses ignore them (one slice across a concatenated
+    # blob of multiple files would be ambiguous).
+    [ -n "\$HEAD" ]  && QS="\${QS}&head=\${HEAD}"
+    [ -n "\$TAIL" ]  && QS="\${QS}&tail=\${TAIL}"
+    [ -n "\$RANGE" ] && QS="\${QS}&range=\$(enc "\$RANGE")"
     # Single-path returns raw content; multi-path returns concatenated text.
     # Either way, pipe straight to stdout — curl -f sets exit status on HTTP
     # error, and the body carries the details.
