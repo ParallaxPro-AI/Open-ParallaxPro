@@ -23,6 +23,7 @@ import {
     type LibraryKind,
 } from '../ws/services/pipeline/library_catalog.js';
 import { searchLibrary } from '../ws/services/pipeline/library_index.js';
+import { getCoOccurrenceAnnotation } from '../ws/services/pipeline/library_graph.js';
 
 function isKind(v: unknown): v is LibraryKind {
     return v === 'behaviors' || v === 'systems' || v === 'ui' || v === 'templates';
@@ -97,6 +98,15 @@ export function createLibraryRouter(): Router {
         else                                   paths = [];
         if (paths.length === 0) return res.status(400).json({ error: 'path is required' });
 
+        // Tack co-occurrence hints ("often paired with", "used in
+        // templates") onto each library file, so the agent sees
+        // related files without a second round-trip. Template shows
+        // skip this — they already show everything they contain.
+        const annotate = (resolvedPath: string, content: string): string => {
+            const hint = getCoOccurrenceAnnotation(resolvedPath);
+            return hint ? `${content}\n\n${hint}` : content;
+        };
+
         const resolveOne = (raw: string): { resolvedPath: string; content: string } | { notFound: string[] } => {
             // 1. Explicit template path.
             if (raw.startsWith('templates/')) {
@@ -112,7 +122,7 @@ export function createLibraryRouter(): Router {
             if (raw.startsWith('behaviors/') || raw.startsWith('systems/') || raw.startsWith('ui/')) {
                 const hit = readLibraryFile(raw);
                 if (!hit) return { notFound: [raw] };
-                return { resolvedPath: raw, content: hit.content };
+                return { resolvedPath: raw, content: annotate(raw, hit.content) };
             }
             // 3. Kind-inferring. References in library files drop the kind
             //    prefix. `*.ts` is behaviors or systems; `*.html` is ui;
@@ -123,14 +133,14 @@ export function createLibraryRouter(): Router {
                     const p = `${kind}/${raw}`;
                     tried.push(p);
                     const hit = readLibraryFile(p);
-                    if (hit) return { resolvedPath: p, content: hit.content };
+                    if (hit) return { resolvedPath: p, content: annotate(p, hit.content) };
                 }
                 return { notFound: tried };
             }
             if (raw.endsWith('.html')) {
                 const p = `ui/${raw}`;
                 const hit = readLibraryFile(p);
-                if (hit) return { resolvedPath: p, content: hit.content };
+                if (hit) return { resolvedPath: p, content: annotate(p, hit.content) };
                 return { notFound: [p] };
             }
             // No extension.
@@ -139,7 +149,7 @@ export function createLibraryRouter(): Router {
                 const p = `ui/${raw}.html`;
                 tried.push(p);
                 const hit = readLibraryFile(p);
-                if (hit) return { resolvedPath: p, content: hit.content };
+                if (hit) return { resolvedPath: p, content: annotate(p, hit.content) };
             }
             if (/^[a-zA-Z0-9_-]+$/.test(raw)) {
                 const tpl = readLibraryTemplate(raw);
