@@ -20,12 +20,12 @@
 import { Router, type Request, type Response } from 'express';
 import {
     getEnrichedLibrary, readLibraryFile, readLibraryTemplate,
-    getLibraryCatalog, type LibraryKind,
+    type LibraryKind,
 } from '../ws/services/pipeline/library_catalog.js';
 import { searchLibrary } from '../ws/services/pipeline/library_index.js';
 
 function isKind(v: unknown): v is LibraryKind {
-    return v === 'behaviors' || v === 'systems' || v === 'ui';
+    return v === 'behaviors' || v === 'systems' || v === 'ui' || v === 'templates';
 }
 
 export function createLibraryRouter(): Router {
@@ -34,33 +34,20 @@ export function createLibraryRouter(): Router {
     router.get('/index', (req: Request, res: Response) => {
         const kindParam = req.query.kind;
         const enriched = getEnrichedLibrary();
-        const cat = getLibraryCatalog();
 
         if (kindParam && isKind(kindParam)) {
             return res.json({ kind: kindParam, items: enriched[kindParam] });
         }
 
-        // No kind filter — return all kinds plus the template list.
-        // Templates aren't embedded (they live as 4-file dirs), so
-        // surface just their ids with a summary parsed from 01_flow.json
-        // if available.
-        const templates = cat.templates.map(id => {
-            const files = readLibraryTemplate(id);
-            let summary = '';
-            if (files?.['01_flow.json']) {
-                try {
-                    const parsed = JSON.parse(files['01_flow.json']);
-                    summary = (parsed?.description || parsed?.name || '').toString();
-                } catch {}
-            }
-            return { id, summary };
-        });
-
+        // No kind filter — return every kind's enriched catalog. Templates
+        // are now first-class items in the enriched map (their summary
+        // comes from each template's 01_flow.json), so we serve them
+        // uniformly alongside behaviors/systems/ui.
         res.json({
             behaviors: enriched.behaviors,
             systems:   enriched.systems,
             ui:        enriched.ui,
-            templates,
+            templates: enriched.templates,
         });
     });
 

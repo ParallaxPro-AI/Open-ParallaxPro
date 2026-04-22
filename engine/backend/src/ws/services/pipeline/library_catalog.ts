@@ -23,7 +23,7 @@ export interface LibraryItem {
     description: string;
 }
 
-export type LibraryKind = 'behaviors' | 'systems' | 'ui';
+export type LibraryKind = 'behaviors' | 'systems' | 'ui' | 'templates';
 
 export interface LibraryCatalog {
     behaviors: LibraryItem[];   // reference/behaviors/v0.1/<relPath>
@@ -59,9 +59,12 @@ export function getEnrichedLibrary(): Record<LibraryKind, EnrichedLibraryItem[]>
             { kind: 'behaviors' as const, items: enrich(cat.behaviors, 'behaviors') },
             { kind: 'systems'   as const, items: enrich(cat.systems,   'systems') },
             { kind: 'ui'        as const, items: enrich(cat.ui,        'ui') },
+            { kind: 'templates' as const, items: enrichTemplates(cat.templates) },
         ];
     }
-    const out: Record<LibraryKind, EnrichedLibraryItem[]> = { behaviors: [], systems: [], ui: [] };
+    const out: Record<LibraryKind, EnrichedLibraryItem[]> = {
+        behaviors: [], systems: [], ui: [], templates: [],
+    };
     for (const e of cachedEnriched) out[e.kind] = e.items;
     return out;
 }
@@ -83,6 +86,35 @@ function enrich(items: LibraryItem[], kind: LibraryKind): EnrichedLibraryItem[] 
 }
 
 /**
+ * Templates are directories (4 JSONs each), so we synthesize an enriched
+ * entry by reading 01_flow.json's name + description. Falls back to the
+ * template id if the JSON isn't parseable or lacks fields.
+ *
+ * relPath is intentionally the id itself (no trailing slash) so the tool
+ * surface can use "templates/<id>" uniformly alongside other kinds.
+ */
+function enrichTemplates(ids: string[]): EnrichedLibraryItem[] {
+    return ids.map(id => {
+        let summary = '';
+        try {
+            const flowPath = path.join(RGC_DIR, 'game_templates', 'v0.1', id, '01_flow.json');
+            if (fs.existsSync(flowPath)) {
+                const parsed = JSON.parse(fs.readFileSync(flowPath, 'utf-8'));
+                // Prefer description; fall back to name.
+                summary = String(parsed?.description || parsed?.name || '').trim();
+            }
+        } catch { /* leave summary empty */ }
+        return {
+            kind: 'templates' as const,
+            relPath: id,
+            category: '_root',
+            name: id,
+            summary,
+        };
+    });
+}
+
+/**
  * Safe read of a library file. `relPath` is of the form
  * "<kind>/<path-within-kind>" e.g. "behaviors/movement/jump.ts".
  * Returns null if the file is outside the library tree or missing.
@@ -94,8 +126,9 @@ export function readLibraryFile(relPath: string): { kind: LibraryKind; relPath: 
     if (firstSlash < 0) return null;
     const kind = relPath.slice(0, firstSlash) as LibraryKind;
     const within = relPath.slice(firstSlash + 1);
+    // Templates are dirs with 4 JSONs — reached via readLibraryTemplate.
+    // This fetch only handles single-file kinds.
     if (kind !== 'behaviors' && kind !== 'systems' && kind !== 'ui') return null;
-    // templates are also reachable via readLibraryTemplate — keep that separate.
 
     const root = path.join(RGC_DIR, kind, 'v0.1');
     const full = path.resolve(root, within);

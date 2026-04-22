@@ -28,6 +28,10 @@ const __dirname_li = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_li, 'reusable_game_components');
 const LIBRARY_EMBEDDINGS_CACHE = path.resolve(__dirname_li, '../../../../.library_embeddings_cache.json');
 
+// Legacy narrow kind for pickRelevantLibrary / copyPickedLibraryFiles,
+// which only operate on the three file-based categories. The wider
+// LibraryKind (imported from library_catalog) also includes 'templates'
+// and is used by the new searchLibrary / entries flow.
 type Kind = 'behaviors' | 'systems' | 'ui';
 
 // UI panels that are engine infrastructure (lobby, pause, HUD shell). They
@@ -50,18 +54,18 @@ const ALWAYS_INCLUDE_UI: ReadonlySet<string> = new Set([
 ]);
 
 interface IndexEntry {
-    kind: Kind;
-    relPath: string; // within the kind's v0.1/ root
+    kind: LibraryKind;
+    relPath: string; // within the kind's v0.1/ root (for templates: the id)
     vector: number[];
 }
 
 let entries: IndexEntry[] | null = null;
 let initPromise: Promise<void> | null = null;
 
-function buildCorpus(): Array<{ key: string; text: string; kind: Kind; relPath: string }> {
+function buildCorpus(): Array<{ key: string; text: string; kind: LibraryKind; relPath: string }> {
     const cat = getLibraryCatalog();
-    const out: Array<{ key: string; text: string; kind: Kind; relPath: string }> = [];
-    const push = (kind: Kind, relPath: string, description: string) => {
+    const out: Array<{ key: string; text: string; kind: LibraryKind; relPath: string }> = [];
+    const push = (kind: LibraryKind, relPath: string, description: string) => {
         // Prepend kind + filename-derived label so queries like "movement" or
         // "health hud" get non-zero signal even when the file's top comment
         // is sparse. relPath carries category + stem (e.g. "movement/jump.ts").
@@ -76,6 +80,24 @@ function buildCorpus(): Array<{ key: string; text: string; kind: Kind; relPath: 
     for (const b of cat.behaviors) push('behaviors', b.relPath, b.description);
     for (const s of cat.systems)   push('systems',   s.relPath, s.description);
     for (const u of cat.ui)        push('ui',        u.relPath, u.description);
+
+    // Templates: pull name + description from each template's 01_flow.json
+    // via the already-built enriched catalog. Gives the embedder the most
+    // meaningful text (e.g. "Platformer — 3D platformer with run+jump+collect")
+    // instead of just the id.
+    const enriched = getEnrichedLibrary();
+    for (const t of enriched.templates) {
+        // Use the display name (summary starts with name when available) as
+        // the embedding text; fall back to id if summary is empty.
+        const text = t.summary ? `${t.name} ${t.summary}` : t.name;
+        out.push({
+            key: `templates:${t.relPath}`,
+            kind: 'templates',
+            relPath: t.relPath,
+            text: `templates ${text}`.trim(),
+        });
+    }
+
     return out;
 }
 
@@ -176,6 +198,10 @@ export async function pickRelevantLibrary(
         behaviors: [], systems: [], ui: [],
     };
     for (const e of entries) {
+        // pickRelevantLibrary is the legacy sandbox-copy path — it only
+        // handles the file-kinds. Template entries are embedded for the
+        // new tool surface but ignored here.
+        if (e.kind === 'templates') continue;
         byKind[e.kind].push({ relPath: e.relPath, score: cosineSimilarity(queryVec, e.vector) });
     }
     const topK = (arr: Array<{ relPath: string; score: number }>, k: number) =>
@@ -253,9 +279,13 @@ export async function searchLibrary(
     const limit = opts.limit ?? 10;
     const enriched = getEnrichedLibrary();
 
-    // Gather the candidate pool honoring the filters.
+    // Gather the candidate pool honoring the filters. Default pool now
+    // includes templates so queries like "tower defense" surface the
+    // matching template alongside the related behaviors/systems.
     let pool: EnrichedLibraryItem[] = [];
-    const kinds: LibraryKind[] = opts.kind ? [opts.kind] : ['behaviors', 'systems', 'ui'];
+    const kinds: LibraryKind[] = opts.kind
+        ? [opts.kind]
+        : ['behaviors', 'systems', 'ui', 'templates'];
     for (const k of kinds) {
         pool.push(...enriched[k]);
     }
