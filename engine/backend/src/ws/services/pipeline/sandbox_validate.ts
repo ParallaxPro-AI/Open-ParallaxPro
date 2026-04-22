@@ -297,10 +297,11 @@ function dumpKind(kind, items) {
 function terseSummary() {
   // Unscoped list without a kind arg gets a counts-only summary so the
   // agent can orient cheaply. Full per-kind dumps are large (20K+
-  // tokens) and almost never all-needed at once. All strings here use
-  // single quotes on purpose — this source is interpolated into a
-  // bash \`node -e \"...\"\` where a stray double quote would end the
-  // outer bash string and leak parens / pipes into the shell.
+  // tokens) and almost never all-needed at once. All strings below use
+  // single quotes intentionally: this JS is interpolated into an outer
+  // bash double-quoted node invocation, so a stray double quote would
+  // end the bash string. Backticks inside this comment would ALSO
+  // trigger bash command substitution, so avoid those too.
   function line(label, items) {
     var cats = new Set();
     for (var it of items) cats.add(it.category);
