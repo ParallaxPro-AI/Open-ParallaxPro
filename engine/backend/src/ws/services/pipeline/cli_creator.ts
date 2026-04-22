@@ -75,6 +75,21 @@ export interface CreatorOptions {
      * prod callers never set this, and prod behavior is unchanged.
      */
     skipPersistence?: boolean;
+
+    /**
+     * Fires once the sandbox is fully constructed (TASK.md written,
+     * validate scripts written, asset catalogs generated) and the run
+     * is about to be unwound — after any retries have finished and
+     * before the temp dir is deleted. Gets the sandbox directory so
+     * the caller can snapshot files (e.g. the final TASK.md, which
+     * may have been appended to on retry) into their own artifact
+     * area.
+     *
+     * Swallowed errors: the callback runs inside the cleanup `finally`
+     * block; anything thrown is logged but won't affect the returned
+     * CreatorResult. Default: undefined — prod paths don't pass one.
+     */
+    onBeforeCleanup?: (sandboxDir: string) => void;
 }
 
 export async function runCreator(
@@ -332,6 +347,16 @@ export async function runCreator(
       })();
       return finalResult;
     } finally {
+        // Caller-provided pre-cleanup hook. Runs BEFORE archive + rmSync so
+        // the caller can snapshot sandbox files (e.g. the final TASK.md,
+        // which may include retry-appended error guidance) into their own
+        // artifact dir. Errors are swallowed so a bad hook can't break the
+        // run's reported result.
+        if (opts?.onBeforeCleanup) {
+            try { opts.onBeforeCleanup(sandboxDir); }
+            catch (e: any) { console.warn(`[CLICreator] onBeforeCleanup failed: ${e?.message}`); }
+        }
+
         // Admin-only snapshot of the sandbox's project/ tree + TASK.md.
         // Runs for both success AND failure so we can diff broken outputs
         // against working ones later. Best-effort — a failed archive must
