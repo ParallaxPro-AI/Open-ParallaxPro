@@ -52,19 +52,33 @@ export function createLibraryRouter(): Router {
     });
 
     router.get('/search', async (req: Request, res: Response) => {
-        const q = String(req.query.q || '').trim();
-        if (!q) return res.status(400).json({ error: 'q is required' });
+        // Accept multiple queries via repeated ?q=... params. Lets the
+        // tool caller fold N related searches into one bash call, which
+        // matters for token cost in the agent's transcript more than
+        // local HTTP latency.
+        const rawQ = req.query.q;
+        let queries: string[];
+        if (Array.isArray(rawQ))    queries = rawQ.map(x => String(x).trim()).filter(Boolean);
+        else if (typeof rawQ === 'string') queries = [rawQ.trim()].filter(Boolean);
+        else                        queries = [];
+        if (queries.length === 0) return res.status(400).json({ error: 'q is required' });
+
         const kindParam = req.query.kind;
         const category = req.query.category ? String(req.query.category) : undefined;
         const limit = Math.min(Math.max(parseInt(String(req.query.limit || '10'), 10) || 10, 1), 50);
+        const kind = isKind(kindParam) ? kindParam : undefined;
 
         try {
-            const hits = await searchLibrary(q, {
-                kind: isKind(kindParam) ? kindParam : undefined,
-                category,
-                limit,
-            });
-            res.json({ query: q, hits });
+            const results = await Promise.all(queries.map(async q => ({
+                query: q,
+                hits: await searchLibrary(q, { kind, category, limit }),
+            })));
+            if (results.length === 1) {
+                // Single-query shape stays flat for back-compat.
+                const r = results[0];
+                return res.json({ query: r.query, hits: r.hits });
+            }
+            res.json({ batch: true, results });
         } catch (e: any) {
             console.error('[library-search]', e?.message);
             res.status(500).json({ error: 'search_failed', detail: e?.message });
@@ -72,71 +86,97 @@ export function createLibraryRouter(): Router {
     });
 
     router.get('/file', (req: Request, res: Response) => {
-        const raw = String(req.query.path || '').trim();
-        if (!raw) return res.status(400).json({ error: 'path is required' });
+        // Accept one or more ?path=... params. Multi-path responses come
+        // back as a concatenated text blob with `=== <resolved> ===`
+        // separators — same shape as reading a template dir, so the
+        // agent has one parsing pattern to learn.
+        const rawP = req.query.path;
+        let paths: string[];
+        if (Array.isArray(rawP))               paths = rawP.map(x => String(x).trim()).filter(Boolean);
+        else if (typeof rawP === 'string')     paths = [rawP.trim()].filter(Boolean);
+        else                                   paths = [];
+        if (paths.length === 0) return res.status(400).json({ error: 'path is required' });
 
-        const sendTemplate = (id: string): boolean => {
-            const tpl = readLibraryTemplate(id);
-            if (!tpl) return false;
-            res.setHeader('X-Library-Resolved-Path', `templates/${id}`);
-            res.type('text/plain').send(
-                Object.entries(tpl)
-                    .map(([name, content]) => `=== ${name} ===\n${content}`)
-                    .join('\n\n'),
-            );
-            return true;
+        const resolveOne = (raw: string): { resolvedPath: string; content: string } | { notFound: string[] } => {
+            // 1. Explicit template path.
+            if (raw.startsWith('templates/')) {
+                const id = raw.slice('templates/'.length).replace(/\/+$/, '');
+                const tpl = readLibraryTemplate(id);
+                if (!tpl) return { notFound: [`templates/${id}`] };
+                const content = Object.entries(tpl)
+                    .map(([name, c]) => `=== ${name} ===\n${c}`)
+                    .join('\n\n');
+                return { resolvedPath: `templates/${id}`, content };
+            }
+            // 2. Explicit kind prefix.
+            if (raw.startsWith('behaviors/') || raw.startsWith('systems/') || raw.startsWith('ui/')) {
+                const hit = readLibraryFile(raw);
+                if (!hit) return { notFound: [raw] };
+                return { resolvedPath: raw, content: hit.content };
+            }
+            // 3. Kind-inferring. References in library files drop the kind
+            //    prefix. `*.ts` is behaviors or systems; `*.html` is ui;
+            //    bare names are a ui panel id or template id.
+            if (raw.endsWith('.ts')) {
+                const tried: string[] = [];
+                for (const kind of ['behaviors', 'systems'] as const) {
+                    const p = `${kind}/${raw}`;
+                    tried.push(p);
+                    const hit = readLibraryFile(p);
+                    if (hit) return { resolvedPath: p, content: hit.content };
+                }
+                return { notFound: tried };
+            }
+            if (raw.endsWith('.html')) {
+                const p = `ui/${raw}`;
+                const hit = readLibraryFile(p);
+                if (hit) return { resolvedPath: p, content: hit.content };
+                return { notFound: [p] };
+            }
+            // No extension.
+            const tried: string[] = [];
+            {
+                const p = `ui/${raw}.html`;
+                tried.push(p);
+                const hit = readLibraryFile(p);
+                if (hit) return { resolvedPath: p, content: hit.content };
+            }
+            if (/^[a-zA-Z0-9_-]+$/.test(raw)) {
+                const tpl = readLibraryTemplate(raw);
+                if (tpl) {
+                    const content = Object.entries(tpl)
+                        .map(([name, c]) => `=== ${name} ===\n${c}`)
+                        .join('\n\n');
+                    return { resolvedPath: `templates/${raw}`, content };
+                }
+                tried.push(`templates/${raw}`);
+            }
+            return { notFound: tried };
         };
-        const sendFile = (p: string): boolean => {
-            const hit = readLibraryFile(p);
-            if (!hit) return false;
-            res.setHeader('X-Library-Resolved-Path', p);
-            res.type('text/plain').send(hit.content);
-            return true;
-        };
 
-        // 1. Explicit template path — fetch all 4 JSONs.
-        if (raw.startsWith('templates/')) {
-            const id = raw.slice('templates/'.length).replace(/\/+$/, '');
-            if (sendTemplate(id)) return;
-            return res.status(404).json({ error: 'not_found' });
+        // Single-path: keep the clean "content or 404" response.
+        if (paths.length === 1) {
+            const r = resolveOne(paths[0]);
+            if ('notFound' in r) {
+                return res.status(404).json({ error: 'not_found', tried: r.notFound });
+            }
+            res.setHeader('X-Library-Resolved-Path', r.resolvedPath);
+            return res.type('text/plain').send(r.content);
         }
 
-        // 2. Explicit kind prefix — trust the caller, one shot.
-        if (
-            raw.startsWith('behaviors/') ||
-            raw.startsWith('systems/') ||
-            raw.startsWith('ui/')
-        ) {
-            if (sendFile(raw)) return;
-            return res.status(404).json({ error: 'not_found' });
+        // Multi-path: concatenate. Anything that couldn't be resolved
+        // becomes a "=== NOT_FOUND: <what was tried> ===" block so the
+        // agent can tell what worked vs didn't without a second call.
+        const parts: string[] = [];
+        for (const p of paths) {
+            const r = resolveOne(p);
+            if ('notFound' in r) {
+                parts.push(`=== NOT_FOUND: ${p} (tried: ${r.notFound.join(', ')}) ===`);
+            } else {
+                parts.push(`=== ${r.resolvedPath} ===\n${r.content}`);
+            }
         }
-
-        // 3. Kind-inferring resolution — literal references inside library
-        //    files don't carry a kind prefix (a template's 02_entities.json
-        //    says "script": "movement/jump.ts", not "behaviors/movement/...").
-        //    Try the sensible kinds in order.
-        //
-        //    - `*.ts` files are either behaviors or systems (never ui).
-        //    - `*.html` files are ui only.
-        //    - bare names with no extension are either a ui panel id
-        //      (flow references like "hud/health") or a template id
-        //      (like "platformer").
-        if (raw.endsWith('.ts')) {
-            if (sendFile(`behaviors/${raw}`)) return;
-            if (sendFile(`systems/${raw}`)) return;
-            return res.status(404).json({ error: 'not_found', tried: [`behaviors/${raw}`, `systems/${raw}`] });
-        }
-        if (raw.endsWith('.html')) {
-            if (sendFile(`ui/${raw}`)) return;
-            return res.status(404).json({ error: 'not_found', tried: [`ui/${raw}`] });
-        }
-        // No extension → prefer ui panel (flow action shape), then template.
-        if (sendFile(`ui/${raw}.html`)) return;
-        if (/^[a-zA-Z0-9_-]+$/.test(raw) && sendTemplate(raw)) return;
-        return res.status(404).json({
-            error: 'not_found',
-            tried: [`ui/${raw}.html`, `templates/${raw}`],
-        });
+        res.type('text/plain').send(parts.join('\n\n'));
     });
 
     return router;
