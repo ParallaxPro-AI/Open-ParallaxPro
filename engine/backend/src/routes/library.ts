@@ -24,6 +24,12 @@ import {
 } from '../ws/services/pipeline/library_catalog.js';
 import { searchLibrary } from '../ws/services/pipeline/library_index.js';
 import { getCoOccurrenceAnnotation } from '../ws/services/pipeline/library_graph.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname_lib = path.dirname(fileURLToPath(import.meta.url));
+const RGC_DIR_FOR_EXAMPLES = path.resolve(__dirname_lib, '..', 'ws', 'services', 'pipeline', 'reusable_game_components');
 
 function isKind(v: unknown): v is LibraryKind {
     return v === 'behaviors' || v === 'systems' || v === 'ui' || v === 'templates';
@@ -84,6 +90,60 @@ export function createLibraryRouter(): Router {
             console.error('[library-search]', e?.message);
             res.status(500).json({ error: 'search_failed', detail: e?.message });
         }
+    });
+
+    router.get('/examples', (req: Request, res: Response) => {
+        // Grep-style examples finder. Given a query string (typically a
+        // method name like "setTimeOfDay" or a type name like
+        // "LightComponent"), walk every library + template file looking
+        // for literal substring hits. Return file:line + a few lines
+        // of context so the agent sees how the API is actually called.
+        // Soft-caps total response to keep transcript cost predictable.
+        const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+        if (!q) return res.status(400).json({ error: 'q is required' });
+        const limit = Math.min(Math.max(parseInt(String(req.query.limit || '12'), 10) || 12, 1), 40);
+        const ctx = Math.min(Math.max(parseInt(String(req.query.context || '2'), 10) || 2, 0), 6);
+        const MAX_BYTES = 3500;
+
+        const hits: Array<{ path: string; line: number; snippet: string }> = [];
+        let totalBytes = 0;
+        const scanned = { behaviors: 0, systems: 0, ui: 0, templates: 0 };
+
+        const walk = (dir: string, kind: keyof typeof scanned, extFilter: (p: string) => boolean, relBase: string) => {
+            if (!fs.existsSync(dir)) return;
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const p = path.join(dir, entry.name);
+                const rel = path.posix.join(relBase, entry.name);
+                if (entry.isDirectory()) { walk(p, kind, extFilter, rel); continue; }
+                if (!extFilter(entry.name)) continue;
+                scanned[kind]++;
+                let text: string;
+                try { text = fs.readFileSync(p, 'utf-8'); } catch { continue; }
+                const lines = text.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    if (!lines[i].includes(q)) continue;
+                    if (hits.length >= limit) return;
+                    const start = Math.max(0, i - ctx);
+                    const end = Math.min(lines.length, i + ctx + 1);
+                    const snippet = lines.slice(start, end).map((l, k) => {
+                        const n = start + k + 1;
+                        const mark = n === i + 1 ? '→' : ' ';
+                        return `${mark}${String(n).padStart(4)}: ${l}`;
+                    }).join('\n');
+                    const b = Buffer.byteLength(snippet, 'utf-8');
+                    if (totalBytes + b > MAX_BYTES) return;
+                    totalBytes += b;
+                    hits.push({ path: rel, line: i + 1, snippet });
+                }
+            }
+        };
+
+        walk(path.join(RGC_DIR_FOR_EXAMPLES, 'behaviors', 'v0.1'), 'behaviors', n => n.endsWith('.ts'), 'behaviors');
+        walk(path.join(RGC_DIR_FOR_EXAMPLES, 'systems',   'v0.1'), 'systems',   n => n.endsWith('.ts'), 'systems');
+        walk(path.join(RGC_DIR_FOR_EXAMPLES, 'ui',        'v0.1'), 'ui',        n => n.endsWith('.html'), 'ui');
+        walk(path.join(RGC_DIR_FOR_EXAMPLES, 'game_templates', 'v0.1'), 'templates', n => n.endsWith('.json'), 'templates');
+
+        res.json({ query: q, scanned, hits });
     });
 
     router.get('/file', (req: Request, res: Response) => {

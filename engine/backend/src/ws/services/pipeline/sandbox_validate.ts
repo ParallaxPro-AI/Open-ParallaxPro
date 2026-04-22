@@ -205,6 +205,20 @@ const LIBRARY_SH = `#!/bin/bash
 #       head/tail — the server slices before sending, so the transcript
 #       only holds what was asked for.
 #
+#   examples QUERY [--limit N]
+#       Grep-style search: find files where QUERY appears literally,
+#       return file:line + a few lines of context. Use when you want
+#       to see HOW an API is called in the shipped code, not to find
+#       files by intent (that's \`search\`).
+#
+#       Examples:
+#         bash library.sh examples playSound
+#         bash library.sh examples scene.events.net.emit
+#         bash library.sh examples lightType --limit 20
+#
+#       Empty results mean no library file or template uses QUERY
+#       literally — check CREATOR_CONTEXT.md for the API's docs.
+#
 # Soft-fails gracefully if the engine backend is unreachable — writes a
 # warning to stderr and exits 0 so a CREATE_GAME run isn't broken by a
 # transient. Reads URL + token from .search_config.json (same file the
@@ -214,7 +228,7 @@ CMD="\$1"
 shift 2>/dev/null || true
 
 if [ -z "\$CMD" ] || [ "\$CMD" = "help" ] || [ "\$CMD" = "-h" ] || [ "\$CMD" = "--help" ]; then
-    sed -n '2,45p' "\$0" | sed 's/^# \\{0,1\\}//'
+    sed -n '2,58p' "\$0" | sed 's/^# \\{0,1\\}//'
     exit 0
 fi
 
@@ -422,6 +436,34 @@ show)
         echo >&2
     fi
     rm -f "\$BODY_FILE"
+    ;;
+
+examples)
+    if [ \${#POSITIONAL[@]} -eq 0 ]; then
+        echo "Usage: library.sh examples QUERY [--limit N]" >&2
+        exit 1
+    fi
+    QS="q=\$(enc "\${POSITIONAL[0]}")"
+    [ -n "\$LIMIT" ] && QS="\${QS}&limit=\${LIMIT}"
+    RESP=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/library/examples?\${QS}" 2>/dev/null) || {
+        echo "WARN: library/examples endpoint unreachable." >&2
+        exit 0
+    }
+    node -e "
+var data = JSON.parse(process.argv[1]);
+console.log('[' + data.query + '] ' + data.hits.length + ' example' + (data.hits.length === 1 ? '' : 's'));
+if (data.hits.length === 0) {
+  console.log('No library file or template uses this literally. If this is a scripting API');
+  console.log('(this.scene.*, this.audio.*, LightComponent, etc.) check CREATOR_CONTEXT.md');
+  console.log('for its docs — it is described there, not in a library file.');
+} else {
+  for (var h of data.hits) {
+    console.log('');
+    console.log('--- ' + h.path + ':' + h.line + ' ---');
+    console.log(h.snippet);
+  }
+}
+" "\$RESP"
     ;;
 
 *)

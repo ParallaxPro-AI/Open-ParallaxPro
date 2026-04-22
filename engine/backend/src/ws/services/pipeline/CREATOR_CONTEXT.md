@@ -964,6 +964,16 @@ bash library.sh show ui/main_menu.html --tail 40
 bash library.sh show behaviors/ai/boss_ai.ts --range 120-200
 ```
 
+```bash
+# examples: grep for literal API/string across library + templates, return
+# file:line + a few lines of context. Use when you want to see HOW an API
+# is called in shipped code. Empty result = API is documented here in
+# CREATOR_CONTEXT.md, not in a library file.
+bash library.sh examples playSound
+bash library.sh examples lightType
+bash library.sh examples scene.events.net.emit
+```
+
 ### Kind-inferring paths
 
 References inside library files drop the kind prefix. When you see `"script": "movement/jump.ts"` in a template's `02_entities.json`, or `"show_ui:hud/health"` in a `01_flow.json`, you can pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` automatically:
