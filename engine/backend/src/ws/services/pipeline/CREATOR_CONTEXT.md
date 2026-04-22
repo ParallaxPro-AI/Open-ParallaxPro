@@ -38,45 +38,18 @@ library.sh                         — bash library.sh {list,search,show} to fin
 validate.sh                        — bash validate.sh to validate your output
 ```
 
-### `reference/previous_project/` — the user's work so far
+### `reference/previous_project/` — the user's prior files
 
-Present when the user already had files in this project before asking for a
-from-scratch rebuild (often a template they'd been tweaking, or a prior
-CREATE_GAME run they want to reshape). The full pre-build file tree is dropped
-in here, unchanged. Read its `README.md` for a quick orientation.
+Present when the user had files before this rebuild. Read its `README.md`.
 
-Use it when the new brief is a **variant** of what's there — same theme, same
-genre, small pivot (e.g. user had a sumo-battle template loaded and now asks
-for a sumo-battle with power-ups): lift the entities, behaviors, systems, UI,
-and flow structure as your richest worked example. You can often hit 80% of
-the new game by copying + tweaking instead of starting from zero.
+- **Use it** when the brief is a variant (same theme/genre, small pivot) — lift entities, behaviors, systems, flow as a starting point.
+- **Ignore it** when the brief is a different game entirely.
 
-**Ignore** it when the new brief is a **different game** (user had platformer
-files, asks for a racing game): don't be clever, don't waste turns reading
-them. Treat the directory as if it doesn't exist.
-
-Do NOT copy files directly from `previous_project/` into `project/` without
-thinking — cherry-pick, read, adapt. `project/` is the authoritative output.
+Cherry-pick and adapt; don't copy wholesale. `project/` is the authoritative output.
 
 ### Pulling in shared library files
 
-Behaviors, systems, and UI panels are NOT in `reference/` — they live behind
-the `library.sh` tool. To use one in your game:
-
-1. **Find it** — `bash library.sh search "jumping"` (or `list behaviors` to see
-   all of them with summaries).
-2. **Read it** — `bash library.sh show behaviors/movement/jump.ts` (or the
-   bare form `show movement/jump.ts` — kind is inferred from the extension).
-3. **Write it into project/** — use the `Write` tool to save the content as
-   `project/behaviors/movement/jump.ts`.
-4. **Reference it** from `project/02_entities.json` as `"script":
-   "movement/jump.ts"`. Same pattern for systems (`project/systems/.../name.ts`
-   referenced from `04_systems.json`) and UI panels (`project/ui/name.html`
-   referenced from `01_flow.json`'s `show_ui:name`).
-
-When a template in `reference/game_templates/` references a file like
-`"script": "movement/jump.ts"`, that's a library path — fetch with
-`bash library.sh show movement/jump.ts`.
+Behaviors, systems, and UI panels are NOT in `reference/` — they live behind `library.sh`. Find with `bash library.sh search "…"`, fetch with `bash library.sh show <path>`, `Write` into `project/`, reference from the JSON files (same `"script": "movement/jump.ts"` form templates already use). Full tool docs below.
 
 ## What You Must Create
 
@@ -166,7 +139,7 @@ For primitive meshes:
 
 ### Labels
 
-Every non-camera, non-manager, non-custom-mesh entity gets a floating name label above it for debug/editor visibility. Set `"label": false` to suppress (common on ground/walls/decorations to reduce clutter). Cameras and `manager` / `managers_root`-tagged entities are auto-suppressed.
+Every entity gets a floating debug label. Set `"label": false` on ground, walls, and decorations to suppress.
 
 **03_worlds.json** — Scene layout
 ```json
@@ -194,13 +167,10 @@ Every non-camera, non-manager, non-custom-mesh entity gets a floating name label
 
 ### Lighting / `environment` block
 
-Preferred (newer, camelCase) keys:
 - `ambientColor: [r, g, b]` and `ambientIntensity: number` — global fill.
 - `sunColor: [r, g, b]` and `sunIntensity: number` — directional key light.
 - `fog: { enabled: bool, color: [r,g,b], near: number, far: number }` — distance fog.
 - `gravity: [x, y, z]` — physics gravity vector, e.g. `[0, -9.81, 0]`.
-
-Legacy keys (also recognized, snake_case): `lighting.sun_color`, `lighting.ambient`. Either works; `environment` is preferred.
 
 ### Placement fields
 
@@ -267,31 +237,12 @@ Every script extends `GameScript`. Available hooks (all optional):
 
 ### System vs behavior activation — timing gotcha
 
-Behaviors and systems activate differently, and it matters for event wiring:
+- **Behaviors** `onStart` at scene load, before any FSM transition.
+- **Systems** `onStart` only *after* the FSM enters a state that lists them in `active_systems`.
 
-- **Behaviors** live on entities that are active at scene load. Their `onStart`
-  runs up front, before any FSM transition. The FSM later flips a per-behavior
-  `_behaviorActive` flag via the `active_behaviors` event — but the `on(...)`
-  listeners inside `onStart` are already registered by then.
-- **Systems** live on entities that start `active=false` (except the two auto-
-  active bridges, `ui` and `mp_bridge`). Their `onStart` only runs *after*
-  the FSM enters a state whose `active_systems` includes them.
+Trap: if a state's `on_enter` emits an event AND that state is what activates the system, the listener isn't registered yet and the emit is lost (events don't queue). Symptom: `onUpdate` guards stay false, HUD shows zeros, player wanders an empty arena.
 
-The trap: if an FSM state's `on_enter` emits an event *and* that same state
-(or its substate) is what activates the system, the system's `onStart`
-hasn't run yet — its `on(...)` listener isn't registered, and the emit
-is lost. Events are fire-and-forget; they don't queue. Real-world failure
-mode: a `game_ready` / `match_start` event emitted from `gameplay.on_enter`
-never triggers the system's `_resetGame()`, so `_gameActive` stays false,
-`onUpdate` early-returns forever, and the HUD reads `0 score, wave 1, 0:00`
-while the player walks around an empty arena.
-
-**Rule**: a system's first-time initialization must live **in `onStart`
-itself**, not in an `on("some_event", ...)` that fires from the state that
-activates it. Use events only for things that happen *after* the system is
-already running (like `restart_game` triggered from a game-over button).
-
-Correct shape for a gameplay system:
+**Rule**: a system's first-time init runs directly **in `onStart`**, not behind an event fired from the activating state. Use events only for things that happen *after* the system is already running (e.g. `restart_game` from a button).
 
 ```js
 class MyGameSystem extends GameScript {
@@ -427,8 +378,6 @@ t.text = "Updated"
 t.remove()
 ```
 
-Most games should drive UI via HTML panels + `events.ui.emit("hud_update", …)` instead of `this.ui.createText`. Use `createText` / `createButton` only for quick, code-only overlays.
-
 ### `this.time`
 
 ```js
@@ -495,9 +444,6 @@ the target state:
 { "when": "ui_event:game_over:play_again", "goto": "playing",
   "actions": ["emit:game.restart_game", "set:score=0"] }
 ```
-
-This is how restart/reset behavior is wired in the shipped templates — see
-`reference/game_templates/alien_invasion/01_flow.json`.
 
 ### Flow action verbs
 
@@ -664,16 +610,7 @@ kind inferred), then `Write` into `project/ui/<name>.html`:
 
 ### Engine-owned system bridges (auto-active — do NOT list)
 
-Two system bridges are injected + kept always-active by the assembler:
-
-- `systems/ui/ui_bridge.ts` — every game (HUD, menu, cursor, notifications).
-- `systems/mp/mp_bridge.ts` — any game with a `"multiplayer"` block in
-  `01_flow.json` (even if `enabled` is unset).
-
-Do **NOT** list either of these in any state's `active_systems`. Listing
-them is redundant (the assembler already activated them) and just wastes
-JSON. `active_systems` is for your own game-logic systems from
-`04_systems.json` (scoring, wave spawners, enemy AI, etc.).
+`ui_bridge` (always) and `mp_bridge` (when `multiplayer` block present) are auto-injected by the assembler. Do NOT list either in any state's `active_systems` — `active_systems` is only for your own systems from `04_systems.json`.
 
 ### Typical multiplayer flow skeleton
 
@@ -744,15 +681,8 @@ Typical FSM wiring — a `paused` substate under `gameplay`:
 ```
 
 Notes:
-- `keyboard:pause` fires on `KeyP` only. Don't bind `Escape` — the browser
-  owns it for exiting pointer lock.
-- Omit `pauseButtons` to get the default (`Resume` + `Main Menu`).
-- Only include buttons that make sense for the game — no button appears
-  unless you list it. Single-player shouldn't include `leave_match`;
-  multiplayer typically replaces `retry` with `leave_match`.
-- `ui_event:pause_menu:<action>` transitions in the `paused` substate
-  should go back to `playing`; transitions that exit the match should be
-  on the parent `gameplay` state.
+- `keyboard:pause` / `keyboard:resume` fire on `KeyP` only (browser owns Escape).
+- `ui_event:pause_menu:<action>` transitions inside `paused` return to `playing`; match-exit transitions go on the parent `gameplay` state.
 
 ## Physics Rules
 - `dynamic` + `setVelocity()` for moving characters (NOT `setPosition`)
@@ -827,11 +757,6 @@ or wrong. Pick a scoped name instead.
 | `phase` | FSM driver | Current FSM state name (e.g. `"gameplay"`, `"main_menu"`). **Not** a gameplay phase. |
 | `<any var from `set:x=y` in the flow)` | FSM driver | FSM scratch variables. Anything you `set:` in `01_flow.json` shows up as an HUD state key. |
 
-Concrete example of the collision: a card game with FSM state `"gameplay"`
-cannot use `phase` for its internal `main` / `battle` / `ai_turn` turn
-phase — rename it to `battlePhase`, `matchPhase`, `turnPhase`, etc. Same
-for any other FSM-state-name collision: scope it.
-
 ### Button actions — validator rule
 
 Buttons emit commands via `window.parent.postMessage`, but the assembler's static validator only recognizes a button if a matching `emit('literal_action')` call appears somewhere in the panel's `<script>`. It does NOT scan `postMessage(...)` calls or dynamic `emit(variable)` calls.
@@ -884,25 +809,7 @@ Every `ui_event:panel:action` transition in `01_flow.json` must correspond to an
 
 ### Inline `onclick` and IIFE scoping
 
-Inline `onclick="fn(...)"` attributes on buttons/zones look up `fn` on
-the panel's **global scope** (`window`). If your script is wrapped in an
-IIFE `(function(){ ... })()` (common pattern to avoid polluting globals),
-every function defined inside — including `emit`, `send`, and custom
-handlers — is invisible to those onclick attributes. Clicking fires
-`ReferenceError: fn is not defined` with no visible UI feedback.
-
-Two options — pick one and stay consistent within a panel:
-
-1. **Expose the handlers you use in `onclick`**: add `window.send = send;`
-   right after defining the function inside the IIFE. Do this for every
-   name referenced by an `onclick=` attribute.
-2. **Use `addEventListener('click', ...)` instead of inline `onclick`**:
-   handlers are captured by closure so IIFE scope is fine. Preferred for
-   dynamically-rendered elements anyway (see the button-action rule above).
-
-Mixing the two in one panel is the trap: a creator who uses
-`window.onPlayerZone = ...` but leaves `send` inside the IIFE will see
-some buttons work and others silently throw.
+Inline `onclick="fn(...)"` looks up `fn` on `window`. If your script is in an IIFE, `fn` is hidden and clicks throw `ReferenceError` silently. Fix: either `window.fn = fn;` inside the IIFE, or use `addEventListener('click', …)` everywhere (preferred). Don't mix styles in one panel.
 
 ### Clickable HUD elements — virtual cursor support
 
@@ -985,32 +892,20 @@ class WaveSpawnerSystem extends GameScript {
 }
 ```
 
-Without the manifest, the validator can't see the dynamic names — but the runtime still throws if any of them turn out to be unknown. The manifest moves that catch from "first wave at runtime in the browser" to "validate.sh fails before the CLI ships."
-
-For genuinely blank entities (rare — usually you want a prefab), use `scene.createEntity(name)` instead. That's the bare-create path and isn't validated.
+For genuinely blank entities (rare), use `scene.createEntity(name)` — bare-create path, not validated.
 
 ## Available Assets
 
-**Use `bash search_assets.sh` to find assets.** This is a semantic search tool that returns the most relevant asset paths for your query. Much faster and cheaper than reading the full catalog files.
-
-**Batch multiple queries in a single call** to save tool-call round trips:
+Use `bash search_assets.sh "query"` to find assets — semantic search, returns real paths. Batch multiple queries in one call:
 
 ```bash
-bash search_assets.sh "soldier character" "zombie enemy" "gunshot sound" "brick wall texture"
-```
-
-You can also filter by category or adjust the limit:
-
-```bash
-bash search_assets.sh "footstep walking sound" --category Audio
+bash search_assets.sh "soldier character" "zombie enemy" "gunshot sound"
 bash search_assets.sh "grass ground texture" --category Textures --limit 5
 ```
 
-The returned `path` values are exactly what you use in entity defs (`mesh.asset`) and scripts (`playSound`/`playMusic`).
+Returned `path` values are what you put in `mesh.asset` / `playSound` / `playMusic`.
 
-**Do NOT read the full catalog files** (`assets/3D_MODELS.md`, `assets/AUDIO.md`, `assets/TEXTURES.md`) — they are thousands of lines and waste your turn budget. Use the search tool instead. Only read catalogs as a last resort if the search tool is unavailable.
-
-**Do NOT invent asset paths.** Every `mesh.asset` and `playSound`/`playMusic` path must come from a search result. `validate.sh` will reject non-existent asset paths.
+Do NOT read the full catalog files (`assets/3D_MODELS.md`, etc) — thousands of lines. Do NOT invent asset paths — `validate.sh` rejects non-existent ones.
 
 ## Library tool — `library.sh`
 
@@ -1057,33 +952,7 @@ The header `X-Library-Resolved-Path` (visible in error messages if something goe
 
 ### When to use it vs `Read`
 
-Use `library.sh`:
-- To find library files by intent ("jumping", "tower defense camera")
-- To fetch library files referenced from templates / other library files
-- To see the categorized summary of what behaviors / systems / UI / templates exist
-
-Use `Read`:
-- For files inside `project/` (your own output)
-- For files inside `reference/previous_project/` (the user's prior work)
-- When `library.sh` has already told you the exact file to open and you want its raw content (though `library.sh show` does this too)
-
-**Mental model**: references in library files are library paths — fetch with `library.sh show`. References in your `project/` files are your own files — read with `Read`.
-
-### Batching saves tokens
-
-Each bash tool call costs you transcript tokens regardless of local HTTP. Batch related lookups:
-
-```bash
-# Three queries, one tool call
-bash library.sh search "platformer jumping" "double jump" "wall jump"
-
-# Four file fetches, one tool call
-bash library.sh show movement/jump.ts gameplay/scoring.ts hud/health hud/game_over
-```
-
-Anything not found comes back inline as `=== NOT_FOUND: <path> (tried: ...) ===`, so partial failures don't require a second call.
-
-**Soft-fails:** if the backend is unreachable, `library.sh` prints a warning to stderr and exits 0. You can fall back to `Read`/`Glob` against `reference/` if you ever see that — but normally you won't.
+`library.sh` for any library file (behaviors/systems/ui/templates). `Read` for `project/` and `reference/previous_project/`. Batch multiple paths or queries in one call — partial failures come back inline as `=== NOT_FOUND: ... ===`, no second call needed. For large files, prefer `show --head N` / `--range L1-L2` over piping to head/tail (the slice happens server-side and doesn't accumulate in your context). Soft-fails on network error: warning to stderr, exit 0.
 
 ## Event Definitions
 Read `project/systems/event_definitions.ts` (the project's pinned copy). If you need the canonical library version for comparison, fetch it with `bash library.sh show systems/event_definitions.ts`.
