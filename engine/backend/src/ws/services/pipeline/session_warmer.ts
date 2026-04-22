@@ -415,6 +415,11 @@ function runWarmAgent(kind: WarmKind): Promise<string> {
             '--model', 'haiku',
             '--dangerously-skip-permissions',
             '--max-turns', kind === 'creator' ? '30' : '20',
+            // Must match cli_runner's --tools allowlist so the warm
+            // fork's cached tool-definition chunk matches what the
+            // forked run expects. Mismatch would re-cache on fork.
+            '--tools', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep',
+            '--strict-mcp-config',
         ];
 
         const proc = spawn('claude', args, {
