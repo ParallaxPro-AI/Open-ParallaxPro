@@ -9,7 +9,7 @@ You are creating a NEW game template directly inside a user's project. The user 
 
 ## Sandbox Layout
 
-The project is in template format (the same 4-file format every game uses).
+Every file shown below is **guaranteed present** in the sandbox (or optional where noted). You do NOT need to `ls`, `find`, or `cat .search_config.json` to orient — trust this map. The project is in template format (the same 4-file format every game uses).
 
 ```
 project/                           — EDIT THESE
@@ -977,12 +977,30 @@ bash library.sh show ui/main_menu.html --tail 40
 bash library.sh show behaviors/ai/boss_ai.ts --range 120-200
 ```
 
+**Do NOT slice small files.** Under ~150 lines: one `show X` puts the whole file in context and you can re-read freely. Progressive slicing (`--head`, then `--range`, then `--tail`) on a short file costs 2-3 tool-call turns to save a few hundred bytes — a net loss. Only slice when the file is genuinely large (template JSONs, big system scripts).
+
 **Two patterns for copying a library file into `project/`:**
 
 - **Verbatim copy, no later edits**: `bash library.sh show X > project/ui/X.html` — cheapest (content bypasses your context entirely, ~0 transcript tokens).
 - **Modify before saving, OR will re-examine later**: `show X` → read the tool result → `Write` with your adjusted content. Content stays in your context so `Edit` / re-reads don't need another fetch. Costs ~2× file size in transcript tokens vs the redirect form.
 
 Pick based on whether you'll touch the file again in this run. Don't redirect to `/tmp/` and then `cp` — that's two shell calls when one redirect straight to `project/` does the job.
+
+**Batch multiple short writes via bash heredocs.** When you've planned out 3-5 small files the agent authors itself (short behaviors, one-line JSONs), one Bash call with `cat << EOF` blocks beats N `Write` calls. Each Write is a full tool turn; each heredoc inside one Bash is free.
+
+```bash
+mkdir -p project/behaviors/movement project/behaviors/camera
+cat > project/behaviors/movement/hop.ts << 'EOF'
+// description: short hop behavior
+class HopBehavior extends GameScript { _behaviorName = "hop"; ... }
+EOF
+cat > project/behaviors/camera/tilt.ts << 'EOF'
+// description: tilt camera
+class TiltCameraBehavior extends GameScript { ... }
+EOF
+```
+
+Use `Write` for large single files, heredoc batches for clusters of small ones.
 
 ```bash
 # examples: grep for literal API/string across library + templates, return
@@ -1056,6 +1074,14 @@ After creating all files, run `bash validate.sh`. Fix any errors before finishin
 The assembler's checks are strict — see the "Silent-failure watch-list" above
 for what it now rejects (typos in `active_behaviors`/`active_systems`, missing
 `start`, button-wiring gaps).
+
+### Common failure classes (avoid BEFORE running validate)
+
+Three error classes produce ~80% of validate failures in practice. Check your work against these before calling `validate.sh`:
+
+1. **Invented asset paths.** `mesh.asset`, `textureBundle`, `playSound`, `playMusic` paths MUST come from `search_assets.sh` results — do not reconstruct paths from memory, do not guess pack names. `validate.sh` rejects any path not in the asset catalog. If a search returned no match, pick a different asset or skip that detail — don't invent.
+2. **UI button name mismatch.** Each `ui_event:<panel>:<action>` transition in `01_flow.json` must have a matching `emit('<action>')` literal in `<panel>.html`'s script. Mismatches (wiring `retry` when the panel only emits `resume`/`main_menu`/`leave_match`) fail the button-wiring validator. Before adding a `ui_event:panel:X` transition, open the panel HTML and grep for `emit('X')`.
+3. **Hallucinated APIs.** `this.scene.events` has only `game` and `ui` channels (and `net` in multiplayer). There is NO `scene.events.audio.emit` — audio is `this.audio.playSound(path)` / `this.audio.playMusic(path)`. If you're unsure an API exists, run `bash library.sh examples <name>` to see real call-sites; empty result = the API is in this doc, not the library.
 
 ## Quality Checklist
 
