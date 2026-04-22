@@ -94,6 +94,15 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // Auth middleware for project routes — applies to both core router and plugin routes
     const pluginAuth = plugins.find(p => p.authMiddleware)?.authMiddleware;
     const { requireAuth } = await import('./middleware/auth.js');
+    // Research workbench — intercept /api/engine/projects/research-*
+    // requests BEFORE the project auth middleware. Research projects live
+    // in an in-memory cache on this process, bypass DB/user scoping, and
+    // are only mounted on local (non-hosted) dev.
+    if (!config.isHosted) {
+        const { researchProjectMiddleware } = await import('./routes/research_play.js');
+        app.use('/api/engine/projects', researchProjectMiddleware);
+    }
+
     app.use('/api/engine/projects', pluginAuth || requireAuth);
     if (config.isHosted) app.use('/api/engine', httpRateLimit);
 
