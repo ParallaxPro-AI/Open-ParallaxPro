@@ -27,8 +27,8 @@ project/                           — EDIT THESE
   ui/{name}.html                   — UI panels
   scripts/{name}.ts                — Custom user scripts (optional)
 reference/                         — Read-only references
-  game_templates/v0.1/INDEX.md     — One-line summary of every template (read first to pick by name)
-  game_templates/v0.1/...          — Working examples (40 templates, all 4 JSONs each)
+  game_templates/INDEX.md          — One-line summary of every template (read first to pick by name)
+  game_templates/...               — Working examples (40 templates, all 4 JSONs each)
   previous_project/ (optional)     — The user's own files before this rebuild
 assets/                            — catalogs (don't read — use search_assets.sh)
 search_assets.sh                   — bash search_assets.sh "query" to find assets
@@ -497,7 +497,7 @@ the target state:
 ```
 
 This is how restart/reset behavior is wired in the shipped templates — see
-`reference/game_templates/v0.1/alien_invasion/01_flow.json`.
+`reference/game_templates/alien_invasion/01_flow.json`.
 
 ### Flow action verbs
 
@@ -689,7 +689,7 @@ Transitions to watch for:
 - `mp_event:phase_browsing` → back to the lobby list
 - `mp_event:phase_disconnected` → socket/session dropped; fall back to main_menu
 
-See `reference/game_templates/v0.1/multiplayer_arena/` for a complete example.
+See `reference/game_templates/multiplayer_arena/` for a complete example.
 
 ## Pause menu (optional, reusable)
 
@@ -777,7 +777,7 @@ override goes on `physics.collider`:
   ```
   Supported shapes in object form: `cuboid` (uses `halfExtents`), `sphere`
   (uses `radius`), `capsule` (uses `radius` + `height`). See
-  `reference/game_templates/v0.1/multiplayer_coin_grab/02_entities.json` and
+  `reference/game_templates/multiplayer_coin_grab/02_entities.json` and
   `banner_siege/02_entities.json` for real usage.
 - **Trigger zones** — add `"is_trigger": true` inside the `physics` block
   to turn the collider into a non-blocking trigger. Scripts see
