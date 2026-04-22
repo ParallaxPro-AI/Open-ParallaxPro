@@ -137,6 +137,16 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     app.use('/api/engine/projects', projectRoutes);
     app.use('/api/engine/assets', assetRoutes);
 
+    // Research workbench — local-only ephemeral play endpoint. Accepts
+    // generated ProjectFiles over HTTP, assembles them in a tempdir,
+    // caches the ConvertedScene by UUID so research/create_game/ can
+    // iframe-play its runs without writing to the engine DB. Never
+    // mounted on hosted prod (config.isHosted = !!WEBSITE_BACKEND_URL).
+    if (!config.isHosted) {
+        const { createResearchPlayRouter } = await import('./routes/research_play.js');
+        app.use('/api/engine/research', createResearchPlayRouter());
+    }
+
     app.get('/api/engine/health', (_req, res) => {
         res.json({ status: 'ok' });
     });
