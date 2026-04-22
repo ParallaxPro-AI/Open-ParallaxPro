@@ -182,6 +182,31 @@ Every entity gets a floating debug label. Set `"label": false` on ground, walls,
 - `tags` — additional tags merged onto the def's tags.
 - `material_overrides` — same shape as `mesh_override` on the def; placement wins on conflict.
 - `active` — `false` to spawn inactive.
+- `extra_components` — array of extra ECS components attached verbatim. The main use is **lights** (spot, point, extra directional); see below.
+
+### Lights — placement-level spot / point / directional
+
+The assembler auto-adds one directional sun light per scene. For anything else (car headlights, street lamps, muzzle flash, lantern glow), attach a `LightComponent` via `extra_components` on the placement. Light direction/position comes from the entity's transform (for spot lights: the entity's forward vector).
+
+```json
+{ "ref": "car", "name": "Player", "position": [0, 0.8, 0], "rotation": [0, 90, 0],
+  "extra_components": [
+    { "type": "LightComponent", "data": {
+      "lightType": "spot",                  // "directional" | "point" | "spot"
+      "color": [1.0, 0.95, 0.82],
+      "intensity": 15,                      // default 10 for point/spot, 5 for directional
+      "range": 40,                          // point/spot only (world units)
+      "innerConeAngle": 0.25,               // spot only — radians, full bright
+      "outerConeAngle": 0.55,               // spot only — radians, falloff edge
+      "castShadows": false
+    }}
+  ]
+}
+```
+
+Hard renderer caps: **8 point + 4 spot + 4 directional** lights visible at once (nearest to camera picked). Use sparingly — a pair of car headlights (spot), a handful of streetlights near the player (point), and the auto-added sun is plenty.
+
+For a **night / overcast scene**: call `setTimeOfDay(22)` (or any hour outside 5:00-19:30) from a system's `onStart`. That darkens the procedural skybox and dims scene lighting. It does NOT rotate the engine's auto-added sun — if you want the sun gone too, lower `sunIntensity` in the world `environment` block (e.g. `0.05`). Pair with `setFog(true, [0.05, 0.05, 0.09], 20, 120)` for the wet-asphalt / rainstorm look.
 
 **04_systems.json** — Manager systems (global game logic)
 ```json
