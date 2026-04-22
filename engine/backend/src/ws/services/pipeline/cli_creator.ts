@@ -34,7 +34,10 @@ import { forkSession, warmIfNeeded } from './session_warmer.js';
 import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
-import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
+// Previously used pickRelevantLibrary/copyPickedLibraryFiles to seed
+// reference/behaviors|systems|ui. After L2 of the library-tool plan,
+// those files no longer live in the sandbox — library.sh serves them
+// on demand — so the imports are unused here.
 import { archiveCreatorSandbox } from './sandbox_archive.js';
 import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
 
@@ -424,14 +427,14 @@ async function createSandbox(
     writeFilesToDir(seed, projectDir);
 
     // Reference: game_templates kept whole (40 templates × 4 small JSONs —
-    // cheap and the agent picks one by name). behaviors/systems/ui are
-    // filtered by semantic similarity to the game description so the agent
-    // isn't swimming through hundreds of irrelevant files.
+    // cheap, load-bearing for the "start from a template" workflow, and
+    // agents routinely pick one by name). behaviors/systems/ui are NOT
+    // in the sandbox anymore — they're served by library.sh on demand
+    // (see writeLibraryTool). This is the L2 step from
+    // docs/LIBRARY_TOOL_PLAN.md: the agent gets a compact index + a
+    // retrieval tool instead of hundreds of files it mostly doesn't read.
     const refDir = path.join(sandboxDir, 'reference');
     copyDirRecursive(path.join(RGC_DIR, 'game_templates', 'v0.1'), path.join(refDir, 'game_templates'));
-
-    const picks = await pickRelevantLibrary(description);
-    copyPickedLibraryFiles(picks, refDir);
 
     // If the user had existing project files (e.g. a template they'd
     // been tweaking), drop the whole tree into reference/previous_project/
@@ -671,9 +674,9 @@ async function generateSuggestedAssets(assetsDir: string, description: string): 
 
 // Template-format docs + rules live in CLAUDE.md / AGENTS.md, which each CLI
 // auto-loads into its system prompt — no Read call needed.
-const CREATOR_PROMPT = `Read TASK.md for the game description and baseline event list — use those events unless you add a new one to project/systems/event_definitions.ts. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). reference/game_templates/ has working examples; reference/behaviors|systems|ui/ has library files to copy into project/. Fill in the 4 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ under project/. Run "bash validate.sh" when done and fix any errors. If the user's game description in TASK.md is in a non-English language, write all in-game UI text (HUD, menus, buttons, instructions, messages) in that same language.`;
+const CREATOR_PROMPT = `Read TASK.md for the game description and baseline event list — use those events unless you add a new one to project/systems/event_definitions.ts. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). reference/game_templates/ has working examples. For behaviors, systems, and UI panels, use "bash library.sh {list|search|show}" to find and fetch library files on demand — they are NOT in reference/ anymore. When you want to use a library file, fetch it with "library.sh show" and use the Write tool to save it into project/. Fill in the 4 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ under project/. Run "bash validate.sh" when done and fix any errors. If the user's game description in TASK.md is in a non-English language, write all in-game UI text (HUD, menus, buttons, instructions, messages) in that same language.`;
 
-const CREATOR_PROMPT_WARM = `You have already read the game templates and engine machinery in your previous turns. Now read TASK.md for the game description and baseline event list. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). Create the game template in project/ following the patterns you've already seen. Copy any needed library files from reference/ into project/. Run "bash validate.sh" when done and fix any errors. If the user's game description in TASK.md is in a non-English language, write all in-game UI text (HUD, menus, buttons, instructions, messages) in that same language.`;
+const CREATOR_PROMPT_WARM = `You have already read the game templates and engine machinery in your previous turns. Now read TASK.md for the game description and baseline event list. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). Create the game template in project/ following the patterns you've already seen. Library files (behaviors, systems, UI panels) are served by "bash library.sh {list|search|show}" — fetch what you need and Write it into project/. Run "bash validate.sh" when done and fix any errors. If the user's game description in TASK.md is in a non-English language, write all in-game UI text (HUD, menus, buttons, instructions, messages) in that same language.`;
 
 function creatorStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {

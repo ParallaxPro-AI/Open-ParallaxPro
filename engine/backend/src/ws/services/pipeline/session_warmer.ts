@@ -17,7 +17,10 @@ import { createHash } from 'crypto';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { config } from '../../../config.js';
-import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
+// pickRelevantLibrary/copyPickedLibraryFiles are no longer used here —
+// after L2 of the library-tool plan, behaviors/systems/ui are served
+// by library.sh in the real sandbox on demand, not pre-populated into
+// the warm sandbox's reference/ tree.
 import { writeValidateScripts } from './sandbox_validate.js';
 import {
     writeFilesToDir,
@@ -331,8 +334,10 @@ async function buildWarmSandbox(kind: WarmKind): Promise<void> {
         generateAssetCatalog(assetsDir);
     }
 
-    const picks = await pickRelevantLibrary('');
-    copyPickedLibraryFiles(picks, refDir);
+    // L2 of the library-tool plan: behaviors/systems/ui no longer live in
+    // the sandbox. The real fork gets library.sh (writeLibraryTool in
+    // cli_creator/cli_fixer's createSandbox); the warm session only needs
+    // CREATOR_CONTEXT + game_templates to load the patterns.
 
     if (kind === 'fixer') {
         const evtDefs = path.join(RGC_DIR, 'systems', 'v0.1', 'event_definitions.ts');
@@ -382,14 +387,15 @@ const CREATOR_WARM_PROMPT = `You are being pre-warmed for a game creation task. 
 1. Read all game templates in reference/game_templates/ — browse each subdirectory and read every file. These are the patterns you must follow.
 2. Read the engine machinery in project/systems/ — these files are pre-installed in every game.
 3. Do NOT read the asset catalog files (assets/3D_MODELS.md etc.) — use "bash search_assets.sh \\"query\\"" to find assets when you need them during the real task.
+4. Do NOT try to browse reference/behaviors, reference/systems, or reference/ui — those directories are no longer populated. During the real task, use "bash library.sh list | search | show" to index and fetch behaviors, systems, and UI panels on demand.
 
 Do NOT create, edit, or delete any files. Just read everything and respond with: WARM_COMPLETE`;
 
 const FIXER_WARM_PROMPT = `You are being pre-warmed for a game editing task. Your job right now is to READ and INTERNALIZE reference materials so they are in your context when the real task arrives.
 
 1. Read reference/event_definitions.ts for the baseline event schema.
-2. Browse reference/behaviors/, reference/systems/, and reference/ui/ to familiarize yourself with available library components.
-3. Do NOT read the asset catalog files (assets/3D_MODELS.md etc.) — use "bash search_assets.sh \\"query\\"" to find assets when you need them during the real task.
+2. Do NOT read the asset catalog files (assets/3D_MODELS.md etc.) — use "bash search_assets.sh \\"query\\"" to find assets when you need them during the real task.
+3. Do NOT try to browse reference/behaviors, reference/systems, or reference/ui — those directories are no longer populated. During the real task, use "bash library.sh list | search | show" to index and fetch behaviors, systems, and UI panels on demand.
 
 Do NOT create, edit, or delete any files. Just read everything and respond with: WARM_COMPLETE`;
 

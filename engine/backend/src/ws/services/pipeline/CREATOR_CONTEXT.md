@@ -26,13 +26,14 @@ project/                           — EDIT THESE
   systems/mp/mp_bridge.ts          — Multiplayer session bridge (already pinned; the assembler auto-activates it whenever 01_flow.json has a multiplayer block — do NOT list it in active_systems)
   ui/{name}.html                   — UI panels
   scripts/{name}.ts                — Custom user scripts (optional)
-reference/                         — Read-only library to copy from
-  game_templates/v0.1/...          — Working examples
-  behaviors/, systems/, ui/        — Latest shared behaviors/systems/UI
+reference/                         — Read-only references
+  game_templates/v0.1/...          — Working examples (40 templates, all 4 JSONs)
   previous_project/ (optional)     — The user's own files before this rebuild
 assets/                            — catalogs (don't read — use search_assets.sh)
 search_assets.sh                   — bash search_assets.sh "query" to find assets
-library.sh                         — bash library.sh {list,search,show} for game-code library
+library.sh                         — bash library.sh {list,search,show} to find + fetch
+                                     behaviors, systems, UI panels. The library is
+                                     NOT in reference/ anymore — use this tool.
 validate.sh                        — bash validate.sh to validate your output
 ```
 
@@ -58,10 +59,23 @@ thinking — cherry-pick, read, adapt. `project/` is the authoritative output.
 
 ### Pulling in shared library files
 
-If you want a behavior from `reference/behaviors/movement/jump.ts`, COPY it to
-`project/behaviors/movement/jump.ts` and reference it from
-`project/02_entities.json` as `"script": "movement/jump.ts"`. Same pattern for
-systems and UI panels.
+Behaviors, systems, and UI panels are NOT in `reference/` — they live behind
+the `library.sh` tool. To use one in your game:
+
+1. **Find it** — `bash library.sh search "jumping"` (or `list behaviors` to see
+   all of them with summaries).
+2. **Read it** — `bash library.sh show behaviors/movement/jump.ts` (or the
+   bare form `show movement/jump.ts` — kind is inferred from the extension).
+3. **Write it into project/** — use the `Write` tool to save the content as
+   `project/behaviors/movement/jump.ts`.
+4. **Reference it** from `project/02_entities.json` as `"script":
+   "movement/jump.ts"`. Same pattern for systems (`project/systems/.../name.ts`
+   referenced from `04_systems.json`) and UI panels (`project/ui/name.html`
+   referenced from `01_flow.json`'s `show_ui:name`).
+
+When a template in `reference/game_templates/` references a file like
+`"script": "movement/jump.ts"`, that's a library path — fetch with
+`bash library.sh show movement/jump.ts`.
 
 ## What You Must Create
 
@@ -632,7 +646,9 @@ matching transition is `net_event:<event>`.
 
 ### Reusable lobby + HUD UI panels
 
-Pin these from `reference/ui/` — do not rewrite them:
+Pin these UI panels — do not rewrite them. Fetch each with
+`bash library.sh show ui/<name>.html` (or `show <name>` — bare form,
+kind inferred), then `Write` into `project/ui/<name>.html`:
 
 - `ui/main_menu.html`
 - `ui/lobby_browser.html`
@@ -785,7 +801,7 @@ The `state` object is merged — every emit adds/updates keys; nothing clears th
 
 ### State keys the reusable HUDs expect
 
-When you pin a reusable HUD from `reference/ui/hud/`, your game system must emit the keys that panel reads. Mismatched/missing keys = blank display.
+When you pin a reusable HUD (fetched via `bash library.sh show hud/<name>`), your game system must emit the keys that panel reads. Mismatched/missing keys = blank display.
 
 | Panel | Required state keys |
 | --- | --- |
@@ -1064,7 +1080,7 @@ Anything not found comes back inline as `=== NOT_FOUND: <path> (tried: ...) ===`
 **Soft-fails:** if the backend is unreachable, `library.sh` prints a warning to stderr and exits 0. You can fall back to `Read`/`Glob` against `reference/` if you ever see that — but normally you won't.
 
 ## Event Definitions
-Read `project/systems/event_definitions.ts` (the project's pinned copy — there is also `reference/systems/event_definitions.ts` if needed).
+Read `project/systems/event_definitions.ts` (the project's pinned copy). If you need the canonical library version for comparison, fetch it with `bash library.sh show systems/event_definitions.ts`.
 
 **Default to the existing events** when a reasonable one already covers what you need — it keeps your game compatible with future engine features. Prefer:
 - `entity_killed` over a new `enemy_killed`
