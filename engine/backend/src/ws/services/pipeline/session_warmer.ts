@@ -384,10 +384,14 @@ function generateAssetCatalog(assetsDir: string): void {
 
 const CREATOR_WARM_PROMPT = `You are being pre-warmed for a game creation task. Your job right now is to READ and INTERNALIZE reference materials so they are in your context when the real task arrives.
 
-1. Read all game templates in reference/game_templates/ — browse each subdirectory and read every file. These are the patterns you must follow.
-2. Read the engine machinery in project/systems/ — these files are pre-installed in every game.
-3. Do NOT read the asset catalog files (assets/3D_MODELS.md etc.) — use "bash search_assets.sh \\"query\\"" to find assets when you need them during the real task.
-4. Do NOT try to browse reference/behaviors, reference/systems, or reference/ui — those directories are no longer populated. During the real task, use "bash library.sh list | search | show" to index and fetch behaviors, systems, and UI panels on demand.
+1. Read reference/game_templates/INDEX.md to learn what templates exist by name (one-line summary each).
+2. Deep-read these two templates in full (all 4 JSONs each) to internalize the schema and patterns:
+   - reference/game_templates/rts_battle/{01_flow,02_entities,03_worlds,04_systems}.json — single-player exemplar (RTS, tech tree, AI escalation)
+   - reference/game_templates/buccaneer_bay/{01_flow,02_entities,03_worlds,04_systems}.json — multiplayer exemplar (P2P lobby, voice chat, transform sync)
+   Do NOT read other templates — if a specific run needs one, the real task will Read it then.
+3. Read the engine machinery in project/systems/ — these files are pre-installed in every game.
+4. Do NOT read the asset catalog files (assets/3D_MODELS.md etc.) — use "bash search_assets.sh \\"query\\"" to find assets when you need them during the real task.
+5. Do NOT try to browse reference/behaviors, reference/systems, or reference/ui — those directories are no longer populated. During the real task, use "bash library.sh list | search | show" to index and fetch behaviors, systems, and UI panels on demand.
 
 Do NOT create, edit, or delete any files. Just read everything and respond with: WARM_COMPLETE`;
 
@@ -410,7 +414,7 @@ function runWarmAgent(kind: WarmKind): Promise<string> {
             '--verbose',
             '--model', 'haiku',
             '--dangerously-skip-permissions',
-            '--max-turns', kind === 'creator' ? '80' : '40',
+            '--max-turns', kind === 'creator' ? '30' : '20',
         ];
 
         const proc = spawn('claude', args, {

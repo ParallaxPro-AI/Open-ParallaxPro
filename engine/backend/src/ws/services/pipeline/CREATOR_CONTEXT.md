@@ -27,7 +27,8 @@ project/                           — EDIT THESE
   ui/{name}.html                   — UI panels
   scripts/{name}.ts                — Custom user scripts (optional)
 reference/                         — Read-only references
-  game_templates/v0.1/...          — Working examples (40 templates, all 4 JSONs)
+  game_templates/v0.1/INDEX.md     — One-line summary of every template (read first to pick by name)
+  game_templates/v0.1/...          — Working examples (40 templates, all 4 JSONs each)
   previous_project/ (optional)     — The user's own files before this rebuild
 assets/                            — catalogs (don't read — use search_assets.sh)
 search_assets.sh                   — bash search_assets.sh "query" to find assets
