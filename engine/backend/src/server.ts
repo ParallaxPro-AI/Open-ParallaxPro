@@ -263,6 +263,26 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         }
     });
 
+    // Library tool endpoints — used by the sandbox's library.sh. Same
+    // INTERNAL_API_TOKEN gate as search-assets; mounted as a full
+    // router so the three sub-routes (/index, /search, /file) live
+    // together. Localhost-only in dev (no token set).
+    {
+        const { createLibraryRouter } = await import('./routes/library.js');
+        const libraryRouter = createLibraryRouter();
+        app.use('/api/engine/internal/library', (req, res, next) => {
+            const expected = process.env.INTERNAL_API_TOKEN;
+            if (expected) {
+                const provided = req.headers['x-internal-token'];
+                if (provided !== expected) {
+                    res.status(401).json({ error: 'Unauthorized' });
+                    return;
+                }
+            }
+            libraryRouter(req, res, next);
+        });
+    }
+
     app.get('/api/engine/internal/search-assets', async (req, res) => {
         const expected = process.env.INTERNAL_API_TOKEN;
         if (expected) {

@@ -22,7 +22,7 @@ import {
     cosineSimilarity,
     computeFingerprint,
 } from '../../../embedding_service.js';
-import { getLibraryCatalog } from './library_catalog.js';
+import { getLibraryCatalog, getEnrichedLibrary, type EnrichedLibraryItem, type LibraryKind } from './library_catalog.js';
 
 const __dirname_li = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_li, 'reusable_game_components');
@@ -216,6 +216,94 @@ export function copyPickedLibraryFiles(picks: LibraryPicks, refDir: string): voi
             fs.copyFileSync(src, dest);
         }
     }
+}
+
+// ─── Public search API (for the library.sh tool) ─────────────────────────
+
+export interface LibrarySearchHit extends EnrichedLibraryItem {
+    score: number;
+}
+
+export interface LibrarySearchOpts {
+    kind?: LibraryKind;
+    category?: string;
+    limit?: number;
+}
+
+/**
+ * Semantic + lexical hybrid search over the library.
+ *
+ * 1. Embedding similarity (cosineSimilarity vs cached vectors) provides
+ *    the primary ranking.
+ * 2. A small lexical overlay bumps results whose name or category
+ *    matches the query as a substring — catches literal queries like
+ *    "mob_spawner" that embedding alone might miss.
+ *
+ * Filters are AND-ed — kind narrows to one of behaviors/systems/ui,
+ * category narrows to a subdirectory within that kind.
+ *
+ * Returns an empty array if the embedder isn't ready; callers should
+ * fall back to the full index (served by getEnrichedLibrary) in that
+ * case.
+ */
+export async function searchLibrary(
+    query: string,
+    opts: LibrarySearchOpts = {},
+): Promise<LibrarySearchHit[]> {
+    const limit = opts.limit ?? 10;
+    const enriched = getEnrichedLibrary();
+
+    // Gather the candidate pool honoring the filters.
+    let pool: EnrichedLibraryItem[] = [];
+    const kinds: LibraryKind[] = opts.kind ? [opts.kind] : ['behaviors', 'systems', 'ui'];
+    for (const k of kinds) {
+        pool.push(...enriched[k]);
+    }
+    if (opts.category) pool = pool.filter(e => e.category === opts.category);
+    if (pool.length === 0) return [];
+
+    // Lexical score: 1 if query substring appears in name or category,
+    // 0.5 if appears in summary. Small but deterministic bump over pure
+    // cosine similarity for literal-name queries.
+    const q = query.toLowerCase();
+    const lex = (e: EnrichedLibraryItem): number => {
+        const name = e.name.toLowerCase();
+        const cat  = e.category.toLowerCase();
+        const sum  = e.summary.toLowerCase();
+        if (name.includes(q) || cat.includes(q)) return 1;
+        if (sum.includes(q)) return 0.5;
+        return 0;
+    };
+
+    // Embedding score: if embeddings aren't ready, skip — we still
+    // return a lexically-ranked list (monotonically better than empty).
+    let vectorByKey: Map<string, number[]> | null = null;
+    if (entries !== null) {
+        vectorByKey = new Map();
+        for (const e of entries) vectorByKey.set(`${e.kind}:${e.relPath}`, e.vector);
+    }
+
+    let queryVec: number[] | null = null;
+    if (vectorByKey) {
+        try { queryVec = await embedText(query); }
+        catch { queryVec = null; }
+    }
+
+    const hits: LibrarySearchHit[] = pool.map(e => {
+        const lexScore = lex(e);
+        let embScore = 0;
+        if (vectorByKey && queryVec) {
+            const v = vectorByKey.get(`${e.kind}:${e.relPath}`);
+            if (v) embScore = cosineSimilarity(queryVec, v);
+        }
+        // Weighted blend: embedding drives ranking, lexical matches
+        // add a small boost so "exact name" queries float to the top.
+        const score = embScore + (lexScore * 0.15);
+        return { ...e, score };
+    });
+
+    hits.sort((a, b) => b.score - a.score);
+    return hits.slice(0, limit);
 }
 
 // Kick off embeddings at module load, non-blocking. pickRelevantLibrary awaits
