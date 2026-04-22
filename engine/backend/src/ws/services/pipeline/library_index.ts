@@ -320,6 +320,25 @@ export async function searchLibrary(
         catch { queryVec = null; }
     }
 
+    // e5-small against this corpus has a narrow noise-floor band: any
+    // query (including gibberish) produces top-K scores around 0.84-
+    // 0.85 because template descriptions cluster in a similar embedding
+    // region. So an absolute threshold can't distinguish signal from
+    // noise — both land at ~0.85. What DOES distinguish them is
+    // *spread*: real queries have a meaningful gap between the top hit
+    // and the tail of the top-K, while nonsense queries return a flat
+    // cluster.
+    //
+    // Empirical windows (measured on this corpus, e5-small):
+    //   "xyzzy_nonsense_42"        top-10 spread 0.015  (noise)
+    //   "flying combat aircraft"   top-10 spread 0.032  (real)
+    //   "platformer jumping"       top-10 spread 0.05+  (real)
+    //
+    // MIN_ABS_FLOOR kills the degenerate case where every score is
+    // tiny. MIN_SPREAD kills the flat-cluster case.
+    const MIN_ABS_FLOOR = 0.60;
+    const MIN_SPREAD = 0.025;
+
     const hits: LibrarySearchHit[] = pool.map(e => {
         const lexScore = lex(e);
         let embScore = 0;
@@ -334,6 +353,16 @@ export async function searchLibrary(
     });
 
     hits.sort((a, b) => b.score - a.score);
+    // Spread-gated filtering. Only applies when embeddings contributed
+    // — in lex-only fallback, scores top out at 0.15 and we want to
+    // surface literal-name matches regardless.
+    if (queryVec && hits.length >= 3) {
+        const windowEnd = Math.min(hits.length, 10) - 1;
+        const spread = hits[0].score - hits[windowEnd].score;
+        if (hits[0].score < MIN_ABS_FLOOR || spread < MIN_SPREAD) {
+            return [];
+        }
+    }
     return hits.slice(0, limit);
 }
 

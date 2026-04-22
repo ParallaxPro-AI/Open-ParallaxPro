@@ -382,12 +382,28 @@ show)
     [ -n "\$TAIL" ]  && QS="\${QS}&tail=\${TAIL}"
     [ -n "\$RANGE" ] && QS="\${QS}&range=\$(enc "\$RANGE")"
     # Single-path returns raw content; multi-path returns concatenated text.
-    # Either way, pipe straight to stdout — curl -f sets exit status on HTTP
-    # error, and the body carries the details.
-    curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/library/file?\${QS}" || {
-        echo "WARN: library/file endpoint returned error or was unreachable." >&2
-        exit 0
-    }
+    # Split body from HTTP status so we can distinguish "path doesn't
+    # exist" (404, agent-actionable) from "backend unreachable" (network
+    # failure, run should soft-fail). On 404 we synthesise the same
+    # "=== NOT_FOUND: ... ===" marker that multi-path already uses, so
+    # the agent sees a consistent error shape across single and multi.
+    BODY_FILE=\$(mktemp 2>/dev/null || echo /tmp/libsh.\$\$.body)
+    HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${URL}/api/engine/internal/library/file?\${QS}" 2>/dev/null) || HTTP="000"
+    if [ "\$HTTP" = "000" ] || [ -z "\$HTTP" ]; then
+        echo "WARN: library/file endpoint unreachable." >&2
+    elif [ "\$HTTP" = "404" ]; then
+        # Backend's 404 body is JSON: {"error":"not_found","tried":[...]}
+        TRIED=\$(node -e "try { var d = JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); process.stdout.write((d.tried||[]).join(', ')); } catch { process.stdout.write(''); }" "\$BODY_FILE")
+        REQ="\${POSITIONAL[*]}"
+        echo "=== NOT_FOUND: \${REQ} (tried: \${TRIED}) ==="
+    elif [ "\$HTTP" = "200" ]; then
+        cat "\$BODY_FILE"
+    else
+        echo "WARN: library/file returned HTTP \$HTTP." >&2
+        head -c 400 "\$BODY_FILE" >&2
+        echo >&2
+    fi
+    rm -f "\$BODY_FILE"
     ;;
 
 *)
