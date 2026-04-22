@@ -977,7 +977,12 @@ bash library.sh show ui/main_menu.html --tail 40
 bash library.sh show behaviors/ai/boss_ai.ts --range 120-200
 ```
 
-**⚠ DO NOT redirect `show` to a file** (`bash library.sh show X > project/ui/X.html`). That sends the file body past your context — you can't read it later without another fetch, and `Write` / `Edit` won't see it. Correct pattern: `show` → read the output in the tool result → `Write` tool with that content.
+**Two patterns for copying a library file into `project/`:**
+
+- **Verbatim copy, no later edits**: `bash library.sh show X > project/ui/X.html` — cheapest (content bypasses your context entirely, ~0 transcript tokens).
+- **Modify before saving, OR will re-examine later**: `show X` → read the tool result → `Write` with your adjusted content. Content stays in your context so `Edit` / re-reads don't need another fetch. Costs ~2× file size in transcript tokens vs the redirect form.
+
+Pick based on whether you'll touch the file again in this run. Don't redirect to `/tmp/` and then `cp` — that's two shell calls when one redirect straight to `project/` does the job.
 
 ```bash
 # examples: grep for literal API/string across library + templates, return
