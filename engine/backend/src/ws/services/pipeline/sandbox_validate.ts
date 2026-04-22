@@ -295,13 +295,16 @@ function dumpKind(kind, items) {
   }
 }
 function terseSummary() {
-  // Unscoped \`list\` without a kind arg gets a counts-only summary
-  // so the agent can orient cheaply. Full per-kind dumps are large
-  // (20K+ tokens) and almost never all-needed at once.
+  // Unscoped list without a kind arg gets a counts-only summary so the
+  // agent can orient cheaply. Full per-kind dumps are large (20K+
+  // tokens) and almost never all-needed at once. All strings here use
+  // single quotes on purpose — this source is interpolated into a
+  // bash \`node -e \"...\"\` where a stray double quote would end the
+  // outer bash string and leak parens / pipes into the shell.
   function line(label, items) {
     var cats = new Set();
     for (var it of items) cats.add(it.category);
-    var catStr = cats.size === 1 && cats.has('_root') ? '' : ' across ' + cats.size + ' categor' + (cats.size === 1 ? 'y' : 'ies');
+    var catStr = cats.size === 1 && cats.has('_root') ? '' : ' across ' + cats.size + ' cats';
     console.log('  ' + label.padEnd(11) + items.length.toString().padEnd(4) + ' file' + (items.length === 1 ? ' ' : 's') + catStr);
   }
   console.log('Library summary:');
@@ -310,9 +313,10 @@ function terseSummary() {
   line('ui',        data.ui);
   line('templates', data.templates);
   console.log();
-  console.log(\"Use 'library.sh list <kind>' (behaviors | systems | ui | templates)\");
-  console.log(\"to see each file with a one-line summary, or 'search \\\"<intent>\\\"'\");
-  console.log('to semantic-search across the whole library.');
+  console.log('Next steps:');
+  console.log('  library.sh list <kind>   drill into one kind with per-file summaries');
+  console.log('                           kind = behaviors | systems | ui | templates');
+  console.log('  library.sh search <q>    semantic search across the whole library');
 }
 if (data.kind) dumpKind(data.kind, data.items);
 else terseSummary();
