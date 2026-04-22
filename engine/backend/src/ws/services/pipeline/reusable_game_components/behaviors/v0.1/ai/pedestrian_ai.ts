@@ -1,3 +1,4 @@
+// also: civilian, npc_crowd, escape_behavior, panic_reaction, ambient_population
 // Pedestrian AI — wanders randomly, flees from nearby gunshots
 class PedestrianAIBehavior extends GameScript {
     _behaviorName = "pedestrian_ai";

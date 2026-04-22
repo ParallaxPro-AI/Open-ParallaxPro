@@ -1,3 +1,4 @@
+// also: arcade, fixed view, retro camera, static framing, playfield
 // Camera for retro single-screen arcades — fixed position + look-at
 // that frames the entire playfield. No follow logic so the view stays
 // stable like classic fixed-screen shooters.

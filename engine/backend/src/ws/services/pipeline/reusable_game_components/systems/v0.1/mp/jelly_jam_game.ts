@@ -1,3 +1,4 @@
+// also: minigame, race, obstacle, elimination, rounds, multiplayer
 // Jelly Jam — multiplayer party-elimination minigame bracket.
 //
 // Match structure: a sequence of N short minigame ROUNDS. Each round is

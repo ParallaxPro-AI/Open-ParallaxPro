@@ -1,3 +1,4 @@
+// also: movement-based challenge, enemy stomping, hazard avoidance, jumping mechanics, level completion
 // Platformer level — score, collectibles, lives, stomping, goal, moving platforms, hazards
 class PlatformerLevelSystem extends GameScript {
     _startLives = 3;

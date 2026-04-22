@@ -1,3 +1,4 @@
+// also: horde, swarm behavior, zergling, swarmer, mass attack, rushing unit
 // Enemy swarm AI — fast melee enemy that rushes player units
 class EnemySwarmAIBehavior extends GameScript {
     _behaviorName = "enemy_swarm_ai"; _speed = 5; _damage = 8; _attackRange = 2.5; _attackRate = 0.6; _detectRange = 25; _health = 40; _dead = false; _cooldown = 0;

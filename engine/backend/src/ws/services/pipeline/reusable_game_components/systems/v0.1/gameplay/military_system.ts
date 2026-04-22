@@ -1,3 +1,4 @@
+// also: RTS combat, terrain tactics, unit advancement, strategy mechanics, promotion leveling
 // Military system — unit combat resolution, terrain bonuses, XP, promotions
 class MilitarySystem extends GameScript {
     _gridSize = 12;

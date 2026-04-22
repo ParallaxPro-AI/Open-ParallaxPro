@@ -1,3 +1,4 @@
+// also: variable jump height, stomp mechanic, power-ups, Super Mario Bros, auto-run
 // Sidescroll runner — arcade SMB-style 2.5D character control with
 // run, variable-height jump, and Z-locked movement.
 //

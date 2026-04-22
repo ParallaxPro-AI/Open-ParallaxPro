@@ -1,3 +1,4 @@
+// also: sports gameplay, ball interaction, world-relative, directional input, field games
 // Soccer player — WASD world-axis movement for player-controlled character, sprint with Shift
 class SoccerPlayerBehavior extends GameScript {
     _behaviorName = "soccer_player";

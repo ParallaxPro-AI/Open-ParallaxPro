@@ -1,3 +1,4 @@
+// also: side-scroller mechanics, item collection, life system, classic arcade, respawn logic
 // Pipe Runner engine — single-player 2.5D arcade-platformer game state.
 //
 // Owns:

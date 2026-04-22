@@ -1,3 +1,4 @@
+// also: time-of-day cycling, weather effects, ambient visuals, immersive environment, day-night
 // Ocean atmosphere — drives the slow background mood of a sea-faring
 // game: ambient light shifts across an in-game day, optional fog roll-
 // in for stormy passages, and a far-field wave plane that gently

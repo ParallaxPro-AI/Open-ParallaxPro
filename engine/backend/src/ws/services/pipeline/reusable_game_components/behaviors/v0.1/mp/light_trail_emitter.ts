@@ -1,3 +1,4 @@
+// also: particle trail, afterglow, motion blur, visual effect, collision-less
 // Light trail emitter — paints a glowing wall behind every bike.
 //
 // Remote-player prefabs spawn with skipBehaviors:true (see

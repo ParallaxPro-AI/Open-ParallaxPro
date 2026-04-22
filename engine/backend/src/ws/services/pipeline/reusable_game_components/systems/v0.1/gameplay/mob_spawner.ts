@@ -1,3 +1,4 @@
+// also: enemy waves, night spawning, enemy management, cave creatures, AI hostile units
 // Mob spawner — spawns hostile mobs at night and underground
 class MobSpawnerSystem extends GameScript {
     _maxSurfaceMobs = 8;

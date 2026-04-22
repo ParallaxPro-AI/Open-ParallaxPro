@@ -1,3 +1,4 @@
+// also: sword, close-range, knockback, AoE damage, proximity detection
 // Melee combat — left click to attack with cooldown, damage nearby enemies
 class MeleeCombatBehavior extends GameScript {
     _behaviorName = "melee_combat";

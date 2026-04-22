@@ -1,3 +1,4 @@
+// also: lane switching, auto-run, slide mechanic, rhythm-action, endless runner
 // Surf runner — auto-run forward with lane switching, jump, and slide
 class SurfRunnerBehavior extends GameScript {
     _behaviorName = "surf_runner";

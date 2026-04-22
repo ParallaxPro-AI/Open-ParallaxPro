@@ -1,3 +1,4 @@
+// also: bike-racing, collision-detection, trail-walls, arena-combat
 // Neon Cycles match rules — host-authoritative best-of-N rounds with
 // trail-wall collision detection.
 //

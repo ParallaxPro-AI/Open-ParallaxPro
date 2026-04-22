@@ -1,3 +1,4 @@
+// also: tower-defense, isometric-view, grid-based, tactical
 // Tower defense camera — top-down isometric view with WASD panning
 class TDCameraBehavior extends GameScript {
     _behaviorName = "camera_td";

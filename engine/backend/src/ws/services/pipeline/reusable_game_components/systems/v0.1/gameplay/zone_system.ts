@@ -1,3 +1,4 @@
+// also: circle, damage, radius, battle royale, storm, ring
 // Zone system — shrinking safe zone that damages entities outside the ring
 class ZoneSystem extends GameScript {
     _startRadius = 55;

@@ -1,3 +1,4 @@
+// also: sinking animation, hull damage, respawn delay, vehicle health, water line
 // Ship health — hull HP for a player-captained ship. Listens for
 // entity_damaged + net_player_shot events that target this entity, sinks
 // the ship when hull <= 0, and respawns after a delay (multiplayer).

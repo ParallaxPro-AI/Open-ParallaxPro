@@ -1,3 +1,4 @@
+// also: tech tree, progression system, resource management, 4X gameplay, civilizations
 // Civilization core — turn counter, resource yields, city growth, era progression, victory conditions
 class CivilizationCoreSystem extends GameScript {
     _maxTurns = 150;

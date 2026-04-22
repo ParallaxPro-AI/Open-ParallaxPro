@@ -1,3 +1,4 @@
+// also: sports-camera, broadcast-angle, ball-tracking, TV-cam
 // Soccer camera — TV broadcast angle following ball movement
 class SoccerCameraBehavior extends GameScript {
     _behaviorName = "camera_soccer";

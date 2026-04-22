@@ -1,3 +1,4 @@
+// also: troop generation, AI spawning, competitive waves, team units, periodic intervals
 // Minion spawner — spawns waves of minions for both teams periodically
 class MinionSpawnerSystem extends GameScript {
     _spawnInterval = 25;

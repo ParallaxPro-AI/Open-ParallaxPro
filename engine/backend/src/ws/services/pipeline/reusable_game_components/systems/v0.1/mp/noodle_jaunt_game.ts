@@ -1,3 +1,4 @@
+// also: co-op-platformer, checkpoint-progression, puzzle-gauntlet, ragdoll
 // Noodle Jaunt — Human-Fall-Flat-style floppy puzzle platformer.
 //
 // 1-4 player co-op (or solo). Players spawn at the start pad and

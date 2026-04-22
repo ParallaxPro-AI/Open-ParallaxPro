@@ -1,3 +1,4 @@
+// also: multiplayer weapons, inventory system, ammunition, networking, synchronization
 // Multiplayer hitscan weapon behavior — per-player loadout + fire loop.
 //
 // Attaches to the local player; stores an inventory of weapon slots

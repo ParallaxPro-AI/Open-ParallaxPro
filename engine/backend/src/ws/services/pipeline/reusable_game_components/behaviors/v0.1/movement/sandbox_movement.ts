@@ -1,3 +1,4 @@
+// also: first-person, footstep sounds, free movement, survival mechanics, mining games
 // Sandbox movement — FPS-style WASD with sprint and jump for survival games
 class SandboxMovementBehavior extends GameScript {
     _behaviorName = "sandbox_movement";

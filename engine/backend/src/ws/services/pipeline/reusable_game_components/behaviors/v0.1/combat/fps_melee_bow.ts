@@ -1,3 +1,4 @@
+// also: first-person, dual-weapon, projectile, sword, archery, swinging
 // FPS melee and bow — left click for melee swing, Q for bow shot
 class FPSMeleeBowBehavior extends GameScript {
     _behaviorName = "fps_melee_bow";

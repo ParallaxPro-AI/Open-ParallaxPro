@@ -1,3 +1,4 @@
+// also: input handling, piece selection, visual feedback, move validation UI
 // Chess piece interaction system — virtual cursor click to select/move pieces with highlights
 class ChessInteractionSystem extends GameScript {
     _selectedPiece = null;

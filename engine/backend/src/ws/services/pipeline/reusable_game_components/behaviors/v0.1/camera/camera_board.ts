@@ -1,3 +1,4 @@
+// also: chess perspective, isometric, board game, mouse control, orbit view
 // Board camera — angled view from behind white, right-click orbit
 class CameraBoardBehavior extends GameScript {
     _behaviorName = "board_camera";

@@ -1,3 +1,4 @@
+// also: twin-stick, top-down shooter, directional fire, projectile system
 // Top-down tear shooter — twin-stick fire on the arrow keys (or
 // optionally LMB to fire toward the cursor). Each shot fires a tear
 // projectile in the chosen cardinal direction (or diagonal when two

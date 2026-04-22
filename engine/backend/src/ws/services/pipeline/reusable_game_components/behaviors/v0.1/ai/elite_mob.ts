@@ -1,3 +1,4 @@
+// also: rare enemy, powerful minion, tough opponent, high-tier mob, champion
 // Elite mob — strong enemy with high health and damage
 class EliteMobBehavior extends GameScript {
     _behaviorName = "elite_mob"; _speed = 3.5; _damage = 25; _detectRange = 18; _attackRange = 3; _attackRate = 1.5; _health = 200; _xpReward = 80;

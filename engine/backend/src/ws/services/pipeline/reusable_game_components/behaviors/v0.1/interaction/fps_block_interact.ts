@@ -1,3 +1,4 @@
+// also: mining, block-placing, voxel, destructible, survival
 // FPS block interact — mine/place blocks in first person
 class FPSBlockInteractBehavior extends GameScript {
     _behaviorName = "fps_block_interact";

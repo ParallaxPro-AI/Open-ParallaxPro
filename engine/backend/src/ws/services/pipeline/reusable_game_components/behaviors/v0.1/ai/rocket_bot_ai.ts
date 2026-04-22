@@ -1,3 +1,4 @@
+// also: soccer_bot, vehicle_soccer, goal_defense, ball_chasing, sports_ai
 // Rocket car AI bot — a simple chase-the-ball-and-shoot-at-the-opponent-goal
 // driver for solo play / 1v1-with-bot modes.
 //

@@ -1,3 +1,4 @@
+// also: firearm, projectile, ammo management, reload mechanics, raycast hitDetection
 // Pistol combat — left click to shoot, R to reload, raycast from player facing direction
 class PistolCombatBehavior extends GameScript {
     _behaviorName = "pistol_combat";

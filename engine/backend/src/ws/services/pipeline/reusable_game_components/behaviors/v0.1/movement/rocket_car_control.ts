@@ -1,3 +1,4 @@
+// also: vehicle physics, boost mechanic, jump impulse, multiplayer control, arcade racing
 // Rocket Car control — arcade vehicle driving for car-football games.
 //
 // WASD accelerate/steer/reverse, Space jump, Shift boost (consumes the

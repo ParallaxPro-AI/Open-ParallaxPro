@@ -1,3 +1,4 @@
+// also: aggressive monster, combat encounter, predator behavior, threat system
 // Hostile AI — aggressive mob that patrols, detects, chases, and attacks the player
 class HostileAIBehavior extends GameScript {
     _behaviorName = "hostile_ai";

@@ -1,3 +1,4 @@
+// also: state machine, transitions, event-driven FSM, state config, behavior sequencing
 // Universal FSM Driver — executes FSM configs on a single entity.
 // Written in plain JS (no TypeScript annotations).
 //

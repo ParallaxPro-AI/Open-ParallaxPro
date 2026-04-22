@@ -1,3 +1,4 @@
+// also: agriculture, simulation, NPC AI, economic system, village simulation
 // Farming village — manages NPC village life, crop growth, trade
 class FarmingVillageSystem extends GameScript {
     _cropGrowthTime = 60;

@@ -1,3 +1,4 @@
+// also: law_enforcement, bounty_system, wanted_mechanic, aggressive_pursuit, law
 // Police AI — patrols when peaceful, chases and shoots when player is wanted
 class PoliceAIBehavior extends GameScript {
     _behaviorName = "police_ai";

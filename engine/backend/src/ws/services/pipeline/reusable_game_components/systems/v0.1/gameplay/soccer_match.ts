@@ -1,3 +1,4 @@
+// also: sport, football, team, goal, possession
 // Soccer match — ball physics, AI players, scoring, match timer, kickoff
 class SoccerMatchSystem extends GameScript {
     _matchDuration = 180;

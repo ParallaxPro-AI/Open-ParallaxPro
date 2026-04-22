@@ -1,3 +1,4 @@
+// also: racing, kart racing, boost, drift, speed effects, FOV punch
 // Kart camera — low-to-ground chase camera tuned for arcade kart races.
 // Sits behind + above the kart with a soft FOV punch when boosting,
 // gentle camera shake on a successful drift boost. Pulls back slightly

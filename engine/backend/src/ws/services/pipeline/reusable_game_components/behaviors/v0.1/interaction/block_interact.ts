@@ -1,3 +1,4 @@
+// also: voxel, sandboxing, resource gathering, placement system, destruction
 // Block interact — mine and place blocks in the world
 class BlockInteractBehavior extends GameScript {
     _behaviorName = "block_interact";

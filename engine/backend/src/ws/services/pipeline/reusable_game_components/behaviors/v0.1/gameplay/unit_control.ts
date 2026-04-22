@@ -1,3 +1,4 @@
+// also: turn-based strategy, unit stats, selection system, grid-based movement
 // Unit control — player unit behavior with selection, movement, and combat
 class UnitControlBehavior extends GameScript {
     _behaviorName = "unit_control";

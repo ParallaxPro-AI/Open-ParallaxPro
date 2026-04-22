@@ -1,3 +1,4 @@
+// also: base_structure, strategic_defense, moba_objective, faction_asset, game_objective
 // Tower/Nexus AI — attacks nearest enemy in range, takes damage, handles win/lose
 class TowerAIBehavior extends GameScript {
     _behaviorName = "tower_ai";

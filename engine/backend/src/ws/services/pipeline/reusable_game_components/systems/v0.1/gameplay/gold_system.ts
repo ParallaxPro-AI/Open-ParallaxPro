@@ -1,3 +1,4 @@
+// also: currency, income generation, score, economy, player progression
 // Gold system — tracks player gold from kills and passive income
 class GoldSystem extends GameScript {
     _gold = 0;

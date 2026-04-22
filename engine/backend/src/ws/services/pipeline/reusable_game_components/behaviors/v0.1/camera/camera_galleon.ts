@@ -1,3 +1,4 @@
+// also: ship control, artillery targeting, free orbit, naval combat
 // Galleon orbit camera — chase camera that hovers behind the ship and
 // can be orbited freely with the mouse for cannon aiming. Uses the ship
 // yaw as a base orientation but lets the player drift the camera off-

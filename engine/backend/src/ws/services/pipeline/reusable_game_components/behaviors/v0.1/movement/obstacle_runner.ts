@@ -1,3 +1,4 @@
+// also: parkour, racing, agility, endless-runner, obstacle-course
 // Obstacle runner — WASD movement with turning, sprint, and jump
 class ObstacleRunnerBehavior extends GameScript {
     _behaviorName = "obstacle_runner";

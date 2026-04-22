@@ -1,3 +1,4 @@
+// also: platform_hazard, jumping_obstacle, stomp_target, platformer_foe, bouncing
 // Patrol enemy — walks back and forth on a platform, can be stomped
 class PatrolEnemyBehavior extends GameScript {
     _behaviorName = "patrol_enemy";

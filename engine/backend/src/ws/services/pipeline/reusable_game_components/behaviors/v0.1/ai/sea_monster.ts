@@ -1,3 +1,4 @@
+// also: water_hazard, maritime_threat, state_machine_cycle, naval_combat, ocean_enemy
 // Sea monster — surfacing kraken tentacle that menaces nearby ships.
 //
 // State machine: hidden (below water) → surfacing → swiping (damages

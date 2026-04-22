@@ -1,3 +1,4 @@
+// also: classic_platformer, jump_enemy, arcade_foe, side_scroller, smb_style
 // Stomper enemy — 2.5D side-scrolling foe that walks back and forth on
 // a fixed Y, can be stomped from above (kills it + bounces the player),
 // and damages the player on side contact.

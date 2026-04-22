@@ -1,3 +1,4 @@
+// also: item-pickup, collectible, drop, rewards, inventory
 // Loot crate — on-ground pickup that triggers when the local player
 // overlaps its radius.
 //

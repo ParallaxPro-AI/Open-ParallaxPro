@@ -1,3 +1,4 @@
+// also: health, experience, character stats, battle system, action RPG
 // Combat RPG — manages combat interactions, damage calculation, healing
 class CombatRPGSystem extends GameScript {
     _damageMultiplier = 1; _healMultiplier = 1; _gameActive = false; _kills = 0;

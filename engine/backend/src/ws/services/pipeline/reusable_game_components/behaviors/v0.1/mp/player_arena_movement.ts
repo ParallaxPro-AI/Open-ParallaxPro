@@ -1,3 +1,4 @@
+// also: WASD locomotion, sprint, client-side input, multiplayer sync
 // Arena player movement — client-authoritative.
 //
 // Each peer drives their own local player with WASD. Remote players show

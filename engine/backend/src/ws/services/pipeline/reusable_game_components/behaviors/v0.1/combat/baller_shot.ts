@@ -1,3 +1,4 @@
+// also: timing-meter, charge-release, shot-power, arcade-sports
 // Baller shot — charge-and-release shot meter for a basketball / arcade
 // shooting game.
 //

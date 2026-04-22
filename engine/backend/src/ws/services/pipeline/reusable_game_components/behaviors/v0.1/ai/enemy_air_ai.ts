@@ -1,3 +1,4 @@
+// also: aerial unit, flying creature, airborne threat, sky patrol, drone
 // Enemy air AI — flying enemy that attacks from above
 class EnemyAirAIBehavior extends GameScript {
     _behaviorName = "enemy_air_ai"; _speed = 6; _damage = 12; _attackRange = 12; _attackRate = 2; _detectRange = 30; _health = 60; _flyHeight = 8; _dead = false; _cooldown = 0;

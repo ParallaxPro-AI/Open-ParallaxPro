@@ -1,3 +1,4 @@
+// also: naval enemy, pirate ship, sea encounter, broadside combat, vessel
 // Ghost ship — NPC enemy galleon. Wanders the open sea by default,
 // detects player ships within range, then steers toward them and fires
 // broadside cannons at intervals. Fully owned by the lobby host in

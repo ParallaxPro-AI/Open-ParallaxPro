@@ -1,3 +1,4 @@
+// also: racing, kart, circuit, lap, multiplayer, items
 // Kart Race — mario-kart style multiplayer circuit racer.
 //
 // Players race a fixed circuit defined by N "checkpoint_<i>" tagged

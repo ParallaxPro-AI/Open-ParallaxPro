@@ -1,3 +1,4 @@
+// also: side scroller, mouse control, third person, smooth follow, orbit
 // Platformer camera — smooth follow with mouse orbit
 class PlatformerCameraBehavior extends GameScript {
     _behaviorName = "camera_platformer";

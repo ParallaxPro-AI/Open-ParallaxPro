@@ -1,3 +1,4 @@
+// also: pickup, collectible, multiplayer, deathmatch, scoring
 // Coin Grab match rules — host-authoritative.
 //
 // On match_started, every peer:

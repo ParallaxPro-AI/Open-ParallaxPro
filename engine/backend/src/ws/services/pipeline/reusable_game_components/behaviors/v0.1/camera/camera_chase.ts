@@ -1,3 +1,4 @@
+// also: third person, vehicle follow, rear view, smoothing, interpolation
 // Chase camera — follows player car from behind with smooth interpolation
 class ChaseCameraBehavior extends GameScript {
     _behaviorName = "chase_camera";

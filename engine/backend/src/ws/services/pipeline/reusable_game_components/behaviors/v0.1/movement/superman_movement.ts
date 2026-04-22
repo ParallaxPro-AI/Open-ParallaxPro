@@ -1,3 +1,4 @@
+// also: flight control, no gravity, vertical ascent, free movement, superpowers
 // Superman movement — physics-free free flight, camera-relative WASD,
 // Space ascends, Ctrl/C descends, Shift sprints. No gravity, no collisions.
 class SupermanMovementBehavior extends GameScript {

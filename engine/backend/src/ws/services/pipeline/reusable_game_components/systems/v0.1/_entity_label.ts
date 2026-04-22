@@ -1,3 +1,4 @@
+// also: nametag, world-space text, distance culling, UI rendering, entity display
 class EntityLabel extends GameScript {
     _el = null;
     _label = "";

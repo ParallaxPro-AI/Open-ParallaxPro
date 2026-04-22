@@ -1,3 +1,4 @@
+// also: city-builder, resource management, population system, civilization game
 // City manager — player city behavior tracking population and production
 class CityManagerBehavior extends GameScript {
     _behaviorName = "city_manager";

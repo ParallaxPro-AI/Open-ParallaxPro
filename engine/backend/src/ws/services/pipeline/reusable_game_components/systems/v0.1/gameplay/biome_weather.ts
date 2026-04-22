@@ -1,3 +1,4 @@
+// also: environment, climate, season, time progression, lighting
 // Biome weather — day/night cycle and weather management for voxel survival
 class BiomeWeatherSystem extends GameScript {
     _dayDuration = 180;

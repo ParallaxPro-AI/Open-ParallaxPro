@@ -1,3 +1,4 @@
+// also: mage, spellcaster, projectile attacker, magic damage, ranged threat
 // Caster mob — ranged hostile that attacks from distance
 class CasterMobBehavior extends GameScript {
     _behaviorName = "caster_mob"; _speed = 2; _damage = 15; _detectRange = 20; _attackRange = 12; _attackRate = 2; _health = 50; _xpReward = 30;

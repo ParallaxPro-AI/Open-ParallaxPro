@@ -1,3 +1,4 @@
+// also: vehicle combat, ammunition system, fire rate, turret control, artillery mechanics
 // Tank control — WASD treads with acceleration physics, cannon firing with reload
 class TankControlBehavior extends GameScript {
     _behaviorName = "tank_control";

@@ -1,3 +1,4 @@
+// also: spectating, behind-back camera, bike racing, FOV boost, dynamic camera, third-person
 // Chase camera that follows the local bike — or spectates the leader
 // once the local player is out — and always sits directly behind and
 // above the bike, looking at its rear.

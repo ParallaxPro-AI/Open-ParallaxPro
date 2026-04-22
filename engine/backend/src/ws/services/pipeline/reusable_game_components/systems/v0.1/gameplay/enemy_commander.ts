@@ -1,3 +1,4 @@
+// also: wave spawn, AI attack, mob management, base assault, tower defense
 // Enemy commander — AI that sends waves of enemies against the player base
 class EnemyCommanderSystem extends GameScript {
     _waveInterval = 30; _waveSize = 3; _maxWaves = 5; _enemyTypes = [];

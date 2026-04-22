@@ -1,3 +1,4 @@
+// also: camera-relative, character locomotion, animation blending, sprint mechanic, adventure games
 // RPG movement — WASD camera-relative movement with sprint for RPGs
 class RPGMovementBehavior extends GameScript {
     _behaviorName = "rpg_movement"; _speed = 5; _sprintSpeed = 8; _jumpForce = 7; _currentAnim = "";

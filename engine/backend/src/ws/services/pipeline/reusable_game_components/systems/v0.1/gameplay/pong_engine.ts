@@ -1,3 +1,4 @@
+// also: paddle mechanics, serve system, rally mechanics, AI paddle control, classic arcade physics
 // Pong engine — ball physics, collision, AI opponent, scoring
 class PongEngineSystem extends GameScript {
     _winScore = 7;

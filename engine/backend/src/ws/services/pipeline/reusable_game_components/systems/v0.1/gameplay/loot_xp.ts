@@ -1,3 +1,4 @@
+// also: item rewards, progression tracking, kill monetization, currency management
 // Loot and XP — manages experience distribution, loot drops, gold
 class LootXPSystem extends GameScript {
     _goldPerKill = 10; _totalGold = 0; _gameActive = false;

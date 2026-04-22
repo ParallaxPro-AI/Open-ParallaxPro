@@ -1,3 +1,4 @@
+// also: ambient lighting, atmosphere, time of day, darkness, environment
 // Day-night cycle — manages lighting transitions, night danger, time tracking
 class DayNightCycleSystem extends GameScript {
     _dayDuration = 180;

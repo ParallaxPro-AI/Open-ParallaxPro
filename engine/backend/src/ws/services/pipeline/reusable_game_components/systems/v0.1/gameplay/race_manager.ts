@@ -1,3 +1,4 @@
+// also: waypoint navigation, competitive timing, finish detection, lap tracking, position ordering
 // Race manager — tracks race positions based on waypoint progress
 class RaceManagerSystem extends GameScript {
     _waypoints = [];

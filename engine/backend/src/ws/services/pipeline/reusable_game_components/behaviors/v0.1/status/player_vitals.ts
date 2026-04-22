@@ -1,3 +1,4 @@
+// also: stamina pool, endurance, vital signs, resource management, survival
 // Player vitals — health, hunger, stamina tracking for survival
 class PlayerVitalsBehavior extends GameScript {
     _behaviorName = "player_vitals";

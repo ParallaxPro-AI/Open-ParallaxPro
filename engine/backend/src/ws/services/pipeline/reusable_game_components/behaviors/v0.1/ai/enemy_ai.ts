@@ -1,3 +1,4 @@
+// also: sentinel, sentry patrol, pursuit behavior, guard system, threat detection
 // Enemy AI — patrols, chases player when in range, fires at player
 class EnemyAIBehavior extends GameScript {
     _behaviorName = "enemy_ai";

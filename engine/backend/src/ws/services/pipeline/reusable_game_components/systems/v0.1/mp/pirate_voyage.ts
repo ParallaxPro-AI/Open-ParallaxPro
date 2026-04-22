@@ -1,3 +1,4 @@
+// also: treasure-hunt, maritime-adventure, collection-scoring, ship-racing
 // Pirate Voyage match rules — multiplayer treasure-hunt scoring.
 //
 // Loop per match:

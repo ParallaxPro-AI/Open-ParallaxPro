@@ -1,3 +1,4 @@
+// also: overhead, top down, fixed view, arena camera, bird's eye
 // Party camera — fixed overhead view centered on the arena
 class PartyCameraBehavior extends GameScript {
     _behaviorName = "camera_party";

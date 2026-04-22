@@ -1,3 +1,4 @@
+// also: objective tracking, progression system, achievement rewards, quest completion, missions
 // Quest system — tracks active quests, objectives, completion, and rewards
 class QuestSystemInstance extends GameScript {
     _quests = {}; _activeQuests = []; _completedQuests = []; _gameActive = false;

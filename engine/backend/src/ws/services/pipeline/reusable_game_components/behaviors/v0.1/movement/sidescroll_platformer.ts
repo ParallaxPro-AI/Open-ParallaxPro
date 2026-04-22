@@ -1,3 +1,4 @@
+// also: 2.5D, coyote time, jump buffering, metroidvania, side-view action
 // Sidescroll platformer movement — A/D horizontal, Space to jump, Z axis
 // locked to zero so the player stays on the 2D action plane. Gravity is
 // delivered by the physics engine on a dynamic rigidbody; we just drive

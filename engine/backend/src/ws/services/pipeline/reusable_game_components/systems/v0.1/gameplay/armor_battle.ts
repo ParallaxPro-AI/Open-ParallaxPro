@@ -1,3 +1,4 @@
+// also: wave spawner, enemy AI, tank mechanics, wave progression, defeat condition
 // Armor battle — wave-based tank combat with enemy AI, damage system, and repair
 class ArmorBattleSystem extends GameScript {
     _totalWaves = 3;

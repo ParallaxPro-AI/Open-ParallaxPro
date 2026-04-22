@@ -1,3 +1,4 @@
+// also: endless-runner, speed-zoom, dynamic-FOV, velocity-camera
 // Surf camera — smooth chase camera with dynamic FOV that increases with speed
 class SurfCameraBehavior extends GameScript {
     _behaviorName = "camera_surf";

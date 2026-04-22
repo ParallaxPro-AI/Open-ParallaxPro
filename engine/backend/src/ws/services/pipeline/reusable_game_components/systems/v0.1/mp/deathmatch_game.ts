@@ -1,3 +1,4 @@
+// also: pvp, free-for-all, kills, ffa, multiplayer, combat
 // Deathmatch FFA match rules — kill count + respawn.
 //
 // Diffs from coin_grab_game.ts worth calling out:

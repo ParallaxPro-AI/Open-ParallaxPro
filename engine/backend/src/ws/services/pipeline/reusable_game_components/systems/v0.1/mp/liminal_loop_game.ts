@@ -1,3 +1,4 @@
+// also: observation-puzzle, anomaly-spotting, hallway-gauntlet, perceptual-test
 // Liminal Loop — single-player anomaly-detection corridor walker.
 //
 // Each iteration the player walks down a fluorescent-lit subway-style

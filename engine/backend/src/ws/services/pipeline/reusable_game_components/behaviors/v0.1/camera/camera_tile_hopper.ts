@@ -1,3 +1,4 @@
+// also: lane-runner, 3/4-angle, auto-scroll, endless-lane
 // Tile hopper isometric chase camera.
 //
 // Sits behind-and-above the player at a 3/4 angle so lanes read clearly.

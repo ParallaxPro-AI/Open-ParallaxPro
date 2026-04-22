@@ -1,3 +1,4 @@
+// also: sentry, guard_route, stationary_defense, boundary_patrol, access_control
 // Patrol AI — guard NPC that patrols between waypoints
 class PatrolAIBehavior extends GameScript {
     _behaviorName = "patrol_ai";

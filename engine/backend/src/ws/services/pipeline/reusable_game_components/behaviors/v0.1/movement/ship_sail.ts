@@ -1,3 +1,4 @@
+// also: nautical, ocean simulation, momentum physics, sail control, naval gameplay
 // Ship sailing — physics-based sail/rudder model for a multiplayer captain.
 //
 // Ship holds two pieces of state — sail level (0..1 throttle) and rudder

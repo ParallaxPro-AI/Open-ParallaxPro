@@ -1,3 +1,4 @@
+// also: NPC behavior, settlement, wandering, patrol, townsperson
 // Villager AI — friendly NPC that wanders near buildings, can be interacted with
 class VillagerAIBehavior extends GameScript {
     _behaviorName = "villager_ai";

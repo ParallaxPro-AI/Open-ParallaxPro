@@ -1,3 +1,4 @@
+// also: mana regen, experience points, leveling system, health pool expansion
 // Player stats — health, mana, XP, level tracking for RPG
 class PlayerStatsBehavior extends GameScript {
     _behaviorName = "player_stats"; _maxHealth = 200; _maxMana = 100; _health = 200; _mana = 100;

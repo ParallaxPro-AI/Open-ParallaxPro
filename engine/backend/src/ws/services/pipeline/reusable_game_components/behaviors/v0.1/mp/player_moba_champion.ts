@@ -1,3 +1,4 @@
+// also: click-to-move, Q/E/R abilities, auto-attack, mouse aim, intent system
 // MOBA champion movement + input — click-to-move with ability intents.
 //
 // Right-click to queue a move order (or auto-attack the enemy beneath

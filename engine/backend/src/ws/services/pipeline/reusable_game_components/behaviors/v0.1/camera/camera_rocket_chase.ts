@@ -1,3 +1,4 @@
+// also: car-following, arcade-racer, speed-biased, cinematic-zoom
 // Rocket-style chase camera.
 //
 // Third-person trailing camera that keeps the car centered but also

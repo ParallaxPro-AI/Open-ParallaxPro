@@ -1,4 +1,4 @@
-// Ranged combat — auto-targets nearest enemy in range and fires
+// also: AI targeting, distance-based detection, auto-attack, archer, projectile
 class RangedCombatBehavior extends GameScript {
     _behaviorName = "ranged_combat"; _damage = 12; _range = 20; _fireRate = 1.0; _cooldown = 0; _health = 80; _speed = 3; _dead = false; _currentAnim = "";
     onStart() { var self = this; this.scene.events.game.on("entity_damaged", function(d) { if (d.targetId!==self.entity.id) return; self._health-=d.damage||0; if (self._health<=0) { self._dead=true; self.entity.active=false; self.scene.events.game.emit("entity_killed",{entityId:self.entity.id,team:"player"}); } }); }
