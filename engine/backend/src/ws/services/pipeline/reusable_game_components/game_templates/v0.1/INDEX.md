@@ -6,7 +6,9 @@ JSONs (`01_flow.json`, `02_entities.json`, `03_worlds.json`,
 `04_systems.json`) to copy patterns from.
 
 The two templates pre-read during warming are **rts_battle** (single-player
-exemplar) and **buccaneer_bay** (multiplayer exemplar).
+exemplar) and **multiplayer_coin_grab** (minimal multiplayer exemplar). For
+richer multiplayer patterns (voice chat, transform sync, etc.), fetch
+**buccaneer_bay** on demand via `library.sh show templates/buccaneer_bay`.
 
 ## Templates
 

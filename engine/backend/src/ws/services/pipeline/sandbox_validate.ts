@@ -279,18 +279,27 @@ function byCategory(items) {
   return g;
 }
 function dumpKind(kind, items) {
+  // Cap per-category output — agents rarely need every entry of every
+  // category. Over the cap, print the first CAT_CAP and a hint to drill
+  // down with search or --category.
+  var CAT_CAP = 20;
   console.log(kind.charAt(0).toUpperCase() + kind.slice(1) + ' (' + items.length + ' total)');
   var g = byCategory(items);
   for (var cat of Object.keys(g).sort()) {
     if (cat === '_root') console.log('  (root)');
     else console.log('  ' + cat + '/');
-    for (var it of g[cat]) {
+    var bucket = g[cat];
+    var shown = bucket.slice(0, CAT_CAP);
+    for (var it of shown) {
       var name = it.name + suffix(kind);
       var sum = (it.summary || '').slice(0, 100);
       var line = '    ' + name;
       while (line.length < 42) line += ' ';
       if (sum) line += ' — ' + sum;
       console.log(line);
+    }
+    if (bucket.length > CAT_CAP) {
+      console.log('    … and ' + (bucket.length - CAT_CAP) + ' more — use search or --category ' + cat);
     }
   }
 }
