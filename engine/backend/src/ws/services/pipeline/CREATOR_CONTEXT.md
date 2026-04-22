@@ -32,6 +32,7 @@ reference/                         — Read-only library to copy from
   previous_project/ (optional)     — The user's own files before this rebuild
 assets/                            — catalogs (don't read — use search_assets.sh)
 search_assets.sh                   — bash search_assets.sh "query" to find assets
+library.sh                         — bash library.sh {list,search,show} for game-code library
 validate.sh                        — bash validate.sh to validate your output
 ```
 
@@ -993,6 +994,74 @@ The returned `path` values are exactly what you use in entity defs (`mesh.asset`
 **Do NOT read the full catalog files** (`assets/3D_MODELS.md`, `assets/AUDIO.md`, `assets/TEXTURES.md`) — they are thousands of lines and waste your turn budget. Use the search tool instead. Only read catalogs as a last resort if the search tool is unavailable.
 
 **Do NOT invent asset paths.** Every `mesh.asset` and `playSound`/`playMusic` path must come from a search result. `validate.sh` will reject non-existent asset paths.
+
+## Library tool — `library.sh`
+
+The `reference/` directory holds the shared library (game templates, behaviors, systems, UI panels). Instead of `Read`/`Glob`-ing through it, use `bash library.sh` to index, search, and fetch on demand. It's faster, costs fewer tokens, and batches cleanly.
+
+### Three subcommands
+
+```bash
+bash library.sh list                       # all kinds, grouped by category
+bash library.sh list behaviors             # only behaviors, with summaries
+bash library.sh list systems
+bash library.sh list ui
+bash library.sh list templates             # the 40 shipped game templates
+```
+
+```bash
+bash library.sh search "platformer jumping"                 # single query
+bash library.sh search "zombie AI" "health regen" "boss"    # batch several intents in one call
+bash library.sh search "tower ai" --kind behaviors --limit 5
+bash library.sh search "movement" --category movement
+```
+
+```bash
+bash library.sh show behaviors/movement/platformer_movement.ts
+bash library.sh show templates/platformer                   # all 4 JSONs concatenated
+bash library.sh show movement/jump.ts gameplay/scoring.ts hud/health   # batch fetch
+```
+
+### Kind-inferring paths
+
+References inside library files drop the kind prefix. When you see `"script": "movement/jump.ts"` in a template's `02_entities.json`, or `"show_ui:hud/health"` in a `01_flow.json`, you can pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` automatically:
+
+- `movement/jump.ts` → `behaviors/movement/jump.ts`
+- `gameplay/scoring.ts` → `systems/gameplay/scoring.ts`
+- `hud/health` → `ui/hud/health.html`
+- `platformer` → `templates/platformer/` (all 4 JSONs)
+
+The header `X-Library-Resolved-Path` (visible in error messages if something goes wrong) tells you what was actually returned.
+
+### When to use it vs `Read`
+
+Use `library.sh`:
+- To find library files by intent ("jumping", "tower defense camera")
+- To fetch library files referenced from templates / other library files
+- To see the categorized summary of what behaviors / systems / UI / templates exist
+
+Use `Read`:
+- For files inside `project/` (your own output)
+- For files inside `reference/previous_project/` (the user's prior work)
+- When `library.sh` has already told you the exact file to open and you want its raw content (though `library.sh show` does this too)
+
+**Mental model**: references in library files are library paths — fetch with `library.sh show`. References in your `project/` files are your own files — read with `Read`.
+
+### Batching saves tokens
+
+Each bash tool call costs you transcript tokens regardless of local HTTP. Batch related lookups:
+
+```bash
+# Three queries, one tool call
+bash library.sh search "platformer jumping" "double jump" "wall jump"
+
+# Four file fetches, one tool call
+bash library.sh show movement/jump.ts gameplay/scoring.ts hud/health hud/game_over
+```
+
+Anything not found comes back inline as `=== NOT_FOUND: <path> (tried: ...) ===`, so partial failures don't require a second call.
+
+**Soft-fails:** if the backend is unreachable, `library.sh` prints a warning to stderr and exits 0. You can fall back to `Read`/`Glob` against `reference/` if you ever see that — but normally you won't.
 
 ## Event Definitions
 Read `project/systems/event_definitions.ts` (the project's pinned copy — there is also `reference/systems/event_definitions.ts` if needed).

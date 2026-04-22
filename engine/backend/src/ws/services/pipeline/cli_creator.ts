@@ -36,7 +36,7 @@ import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validato
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
 import { archiveCreatorSandbox } from './sandbox_archive.js';
-import { writeValidateScripts, writeSearchAssetsTool } from './sandbox_validate.js';
+import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -482,6 +482,7 @@ async function createSandbox(
 
     writeValidateScripts(sandboxDir);
     writeSearchAssetsTool(sandboxDir);
+    writeLibraryTool(sandboxDir);
 }
 
 function copyDirRecursive(src: string, dest: string): void {

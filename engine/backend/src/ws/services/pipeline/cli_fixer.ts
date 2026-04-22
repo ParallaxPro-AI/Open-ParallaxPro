@@ -31,7 +31,7 @@ import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js'
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { config } from '../../../config.js';
-import { writeValidateScripts, writeSearchAssetsTool } from './sandbox_validate.js';
+import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
 import { generateAssetCatalog } from './cli_creator.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
@@ -251,6 +251,7 @@ async function createSandbox(
 
     writeValidateScripts(sandboxDir);
     writeSearchAssetsTool(sandboxDir);
+    writeLibraryTool(sandboxDir);
 }
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────

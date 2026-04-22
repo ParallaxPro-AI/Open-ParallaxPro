@@ -33,6 +33,7 @@ reference/                        — Read-only reference, the latest shared lib
   behaviors/, systems/, ui/, event_definitions.ts
 TASK.md                           — The user's request + project summary
 search_assets.sh                  — bash search_assets.sh "query" to find assets
+library.sh                        — bash library.sh {list,search,show} for game-code library
 validate.sh                       — bash validate.sh to validate your output
 ```
 
@@ -277,6 +278,24 @@ bash search_assets.sh "grass ground texture" --category Textures --limit 5
 ```
 
 The returned `path` values are exactly what you use in entity defs (`mesh.asset`) and scripts (`playSound`/`playMusic`).
+
+## Library tool — `library.sh`
+
+`reference/` holds the shared game-code library (behaviors, systems, UI panels, the 40 shipped templates). Instead of `Read`/`Glob`-ing through it, use `bash library.sh`:
+
+```bash
+bash library.sh list behaviors                              # categorized index + summaries
+bash library.sh search "jumping" "boss fight" "health bar"  # batch semantic search
+bash library.sh show behaviors/movement/jump.ts             # fetch by path
+bash library.sh show movement/jump.ts gameplay/scoring.ts   # kind-inferring + batch
+bash library.sh show templates/platformer                   # all 4 JSONs concatenated
+```
+
+**Kind inference**: a template's `02_entities.json` says `"script": "movement/jump.ts"` (no kind prefix). Pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` based on extension. UI panel ids like `hud/health` auto-append `.html`. Bare names (no extension, no slash) resolve as template ids.
+
+**Batch**: multiple positional args fold into one HTTP call, one tool call, one transcript entry. Anything not found comes back inline as `=== NOT_FOUND: <path> (tried: ...) ===` so partial failures don't need a second call.
+
+**When to use it vs `Read`**: references in library files are library paths — fetch via `library.sh show`. References in `project/` files (the one you're fixing) are the user's own files — read via `Read`.
 
 **Do NOT invent asset paths.** Every `mesh.asset` and `playSound`/`playMusic` path must come from a search result. `validate.sh` will reject non-existent asset paths.
 
