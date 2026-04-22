@@ -248,7 +248,16 @@ while [ \$# -gt 0 ]; do
         --limit)     LIMIT="\$2"; shift 2 ;;
         --head)      HEAD="\$2"; shift 2 ;;
         --tail)      TAIL="\$2"; shift 2 ;;
-        --range)     RANGE="\$2"; shift 2 ;;
+        --range)
+            RANGE="\$2"; shift 2
+            # Normalize \`--range 220 280\` (two space-separated numbers)
+            # to the canonical \`--range 220-280\`. Agents frequently try
+            # the space form because the flag is described as "L1-L2";
+            # they see two numbers, type two args.
+            if [[ ! "\$RANGE" =~ - ]] && [[ "\$1" =~ ^[0-9]+\$ ]]; then
+                RANGE="\${RANGE}-\$1"; shift
+            fi
+            ;;
         *)           POSITIONAL+=("\$1"); shift ;;
     esac
 done
