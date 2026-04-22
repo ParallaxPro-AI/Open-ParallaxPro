@@ -48,6 +48,12 @@ export const config = {
     fixer: {
         timeout: envInt('FIXER_TIMEOUT', 1200000),
     },
+    // Phased creator pipeline (Approach B). When true, runCreator splits
+    // CREATE_GAME into 5 sequential claude -p calls each with a narrow
+    // CLAUDE.md. Aims for 50%+ cache_read reduction vs single-agent flow.
+    // Off by default; user opts in via env var while we tune. Feature-flag
+    // state is read once at module load; restart to flip.
+    useCreatorPhased: envString('USE_CREATOR_PHASED', '0') === '1',
 };
 
 // Fail closed if a prod deploy forgot to set JWT_SECRET. Without this, the

@@ -697,6 +697,30 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
     const cli = resolveCLI(cliOverride);
     let usedWarmSession = false;
 
+    // Phased pipeline (Approach B). Skips warm session entirely — each
+    // phase is its own fresh claude -p with a narrow CLAUDE.md. Shared
+    // CLI baseline still caches across phase invocations because it's
+    // byte-identical. See creator_phased.ts.
+    if (cli === 'claude' && config.useCreatorPhased) {
+        sendStatus?.('Running phased creator pipeline...');
+        const { runCreatorPhased } = await import('./creator_phased.js');
+        const result = await runCreatorPhased({
+            sandboxDir,
+            claudeModel: 'claude-opus-4-7',
+            abortSignal,
+            sendStatus,
+        });
+        const summary = result.allPhasesSucceeded
+            ? `Phased run complete — 5/5 phases succeeded.`
+            : `Phased run halted after phase ${result.perPhase.length}. Last failure: ${result.perPhase.at(-1)?.failureReason || 'unknown'}`;
+        return {
+            text: summary,
+            costUsd: result.totalCostUsd,
+            sessionCapturePath: result.lastSessionCapturePath,
+            usedWarmSession: false,
+        };
+    }
+
     if (cli === 'claude') {
         sendStatus?.('Waiting for warm session...');
         await Promise.race([warmIfNeeded('creator'), new Promise(r => setTimeout(r, 60_000))]);
