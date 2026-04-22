@@ -194,8 +194,8 @@ The assembler auto-adds one directional sun light per scene. For anything else (
     { "type": "LightComponent", "data": {
       "lightType": "spot",                  // "directional" | "point" | "spot"
       "color": [1.0, 0.95, 0.82],
-      "intensity": 15,                      // default 10 for point/spot, 5 for directional
-      "range": 40,                          // point/spot only (world units)
+      "intensity": 400,                     // see note below — start here for headlights
+      "range": 50,                          // point/spot only (world units)
       "innerConeAngle": 0.25,               // spot only — radians, full bright
       "outerConeAngle": 0.55,               // spot only — radians, falloff edge
       "castShadows": false
@@ -203,6 +203,19 @@ The assembler auto-adds one directional sun light per scene. For anything else (
   ]
 }
 ```
+
+**Intensity — the engine uses inverse-square falloff, so the default of 10 is near-invisible.** Attenuation is `clamp(1 - (d/range)⁴, 0, 1)² / (d² + 1)`. Practical starting values:
+
+| Use case | `range` | `intensity` |
+|---|---|---|
+| Car headlight lighting 20-30m of road | 40-60 | **300-600** |
+| Streetlamp glowing 10-15m radius | 15-20 | **150-300** |
+| Indoor lamp / lantern (small room) | 5-10 | **50-150** |
+| Torch / firepit | 8-12 | **80-200** |
+
+`range` is *not* the visible reach — it's the hard cutoff edge. Light goes to zero at `range` but is already dim well before that from `1/d²`. If a scene looks dark with `intensity: 100`, try **3-5× it** before shrinking `range`.
+
+Directional lights (the sun) skip distance falloff — stick to `intensity: 1-5`.
 
 Hard renderer caps: **8 point + 4 spot + 4 directional** lights visible at once (nearest to camera picked). Use sparingly — a pair of car headlights (spot), a handful of streetlights near the player (point), and the auto-added sun is plenty.
 
