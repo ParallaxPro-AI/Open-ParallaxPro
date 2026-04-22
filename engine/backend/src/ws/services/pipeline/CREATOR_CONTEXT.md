@@ -203,8 +203,8 @@ Create scripts inside `project/`:
   its `.html` suffix; the action string does not.
 - `project/scripts/{name}.ts` — anything else specific to this game
 
-If a behavior or system already exists in `reference/`, prefer copying it into
-`project/` over rewriting from scratch.
+If a behavior or system already exists in the library, prefer `library.sh show`
++ `Write` into `project/` over rewriting from scratch.
 
 ## Script Rules — CRITICAL
 
@@ -626,7 +626,7 @@ Transitions to watch for:
 - `mp_event:phase_browsing` → back to the lobby list
 - `mp_event:phase_disconnected` → socket/session dropped; fall back to main_menu
 
-See `reference/game_templates/multiplayer_arena/` for a complete example.
+See `reference/game_templates/multiplayer_coin_grab/` for a complete example.
 
 ## Pause menu (optional, reusable)
 
@@ -969,7 +969,7 @@ Read `project/systems/event_definitions.ts` (the project's pinned copy). If you 
 3. **Do NOT rename or remove any existing event** — other engine code and reference behaviors rely on them; renames break projects silently.
 4. Keep new event names lowercase snake_case and scoped to your game (`rocket_launched`, not `event1` or `myEvent`).
 
-Any script that emits/listens for an event NOT in `project/systems/event_definitions.ts` after your run will fail validation. The full baseline list is in TASK.md + `reference/event_definitions.ts`.
+Any script that emits/listens for an event NOT in `project/systems/event_definitions.ts` after your run will fail validation. The full baseline list is in TASK.md.
 
 ## Reference Templates
 Look at `reference/game_templates/` for working examples of complete templates.
@@ -1005,7 +1005,7 @@ for what it now rejects (typos in `active_behaviors`/`active_systems`, missing
 
 **Validator-enforced** — `validate.sh` will fail if any of these is missing:
 - [ ] All four template JSONs parse and are well-formed.
-- [ ] Every behavior script referenced in `02_entities.json` exists in `project/behaviors/` (or was copied from `reference/`).
+- [ ] Every behavior script referenced in `02_entities.json` exists in `project/behaviors/` (or was fetched via `library.sh show` and `Write`-ed in).
 - [ ] Every system script referenced in `04_systems.json` exists in `project/systems/`.
 - [ ] Every `show_ui:<panel>` action points at a file that exists in `project/ui/`.
 - [ ] Every `active_behaviors` entry matches a behavior `name` declared in `02_entities.json`.
