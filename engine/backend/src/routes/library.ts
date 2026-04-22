@@ -75,21 +75,68 @@ export function createLibraryRouter(): Router {
         const raw = String(req.query.path || '').trim();
         if (!raw) return res.status(400).json({ error: 'path is required' });
 
-        // Template dirs get a special shape — fetch all 4 JSONs.
-        if (raw.startsWith('templates/')) {
-            const id = raw.slice('templates/'.length).replace(/\/+$/, '');
+        const sendTemplate = (id: string): boolean => {
             const tpl = readLibraryTemplate(id);
-            if (!tpl) return res.status(404).json({ error: 'not_found' });
-            return res.type('text/plain').send(
+            if (!tpl) return false;
+            res.setHeader('X-Library-Resolved-Path', `templates/${id}`);
+            res.type('text/plain').send(
                 Object.entries(tpl)
                     .map(([name, content]) => `=== ${name} ===\n${content}`)
                     .join('\n\n'),
             );
+            return true;
+        };
+        const sendFile = (p: string): boolean => {
+            const hit = readLibraryFile(p);
+            if (!hit) return false;
+            res.setHeader('X-Library-Resolved-Path', p);
+            res.type('text/plain').send(hit.content);
+            return true;
+        };
+
+        // 1. Explicit template path — fetch all 4 JSONs.
+        if (raw.startsWith('templates/')) {
+            const id = raw.slice('templates/'.length).replace(/\/+$/, '');
+            if (sendTemplate(id)) return;
+            return res.status(404).json({ error: 'not_found' });
         }
 
-        const hit = readLibraryFile(raw);
-        if (!hit) return res.status(404).json({ error: 'not_found' });
-        res.type('text/plain').send(hit.content);
+        // 2. Explicit kind prefix — trust the caller, one shot.
+        if (
+            raw.startsWith('behaviors/') ||
+            raw.startsWith('systems/') ||
+            raw.startsWith('ui/')
+        ) {
+            if (sendFile(raw)) return;
+            return res.status(404).json({ error: 'not_found' });
+        }
+
+        // 3. Kind-inferring resolution — literal references inside library
+        //    files don't carry a kind prefix (a template's 02_entities.json
+        //    says "script": "movement/jump.ts", not "behaviors/movement/...").
+        //    Try the sensible kinds in order.
+        //
+        //    - `*.ts` files are either behaviors or systems (never ui).
+        //    - `*.html` files are ui only.
+        //    - bare names with no extension are either a ui panel id
+        //      (flow references like "hud/health") or a template id
+        //      (like "platformer").
+        if (raw.endsWith('.ts')) {
+            if (sendFile(`behaviors/${raw}`)) return;
+            if (sendFile(`systems/${raw}`)) return;
+            return res.status(404).json({ error: 'not_found', tried: [`behaviors/${raw}`, `systems/${raw}`] });
+        }
+        if (raw.endsWith('.html')) {
+            if (sendFile(`ui/${raw}`)) return;
+            return res.status(404).json({ error: 'not_found', tried: [`ui/${raw}`] });
+        }
+        // No extension → prefer ui panel (flow action shape), then template.
+        if (sendFile(`ui/${raw}.html`)) return;
+        if (/^[a-zA-Z0-9_-]+$/.test(raw) && sendTemplate(raw)) return;
+        return res.status(404).json({
+            error: 'not_found',
+            tried: [`ui/${raw}.html`, `templates/${raw}`],
+        });
     });
 
     return router;
