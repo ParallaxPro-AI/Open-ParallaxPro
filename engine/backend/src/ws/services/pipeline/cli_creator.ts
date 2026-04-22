@@ -60,6 +60,19 @@ export interface CreatorResult {
      */
     sessionCapturePath?: string | null;
     usedWarmSession?: boolean;
+    /**
+     * Per-phase breakdown populated only when the phased creator pipeline
+     * (Approach B) ran. Undefined for the single-agent path. Lets the
+     * research workbench record per-phase cost/turn telemetry without
+     * re-parsing session captures.
+     */
+    phaseBreakdown?: Array<{
+        phase: string;
+        costUsd: number;
+        turns: number;
+        success: boolean;
+        failureReason?: string;
+    }>;
 }
 
 export interface CreatorOptions {
@@ -346,6 +359,7 @@ export async function runCreator(
             files,
             costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
             usedWarmSession: cliResult.usedWarmSession,
+            phaseBreakdown: cliResult.phaseBreakdown,
         };
       })();
       return finalResult;
@@ -693,7 +707,13 @@ function creatorStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }): Promise<{ text: string; costUsd: number; sessionCapturePath?: string | null; usedWarmSession?: boolean }> {
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }): Promise<{
+    text: string;
+    costUsd: number;
+    sessionCapturePath?: string | null;
+    usedWarmSession?: boolean;
+    phaseBreakdown?: CreatorResult['phaseBreakdown'];
+}> {
     const cli = resolveCLI(cliOverride);
     let usedWarmSession = false;
 
@@ -718,6 +738,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
             costUsd: result.totalCostUsd,
             sessionCapturePath: result.lastSessionCapturePath,
             usedWarmSession: false,
+            phaseBreakdown: result.perPhase,
         };
     }
 
