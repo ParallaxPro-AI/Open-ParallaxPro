@@ -247,14 +247,39 @@ if [ ! -f .search_config.json ]; then
 fi
 
 URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.url||'')")
+FALLBACK_URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.fallbackUrl||'')")
 TOKEN=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.token||'')")
 
-if [ -z "\$URL" ]; then
+if [ -z "\$URL" ] && [ -z "\$FALLBACK_URL" ]; then
     echo "WARN: no backend URL in .search_config.json." >&2
     exit 0
 fi
 
 enc() { node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$1"; }
+
+# Try local engine URL first, then fall back to the public URL (typically
+# the prod CDN / main server). On worker hosts where the docker bridge
+# can't reach \`host.docker.internal\`, the local URL fails fast and the
+# fallback carries the call. Mirrors the URL/FALLBACK_URL pattern that
+# search_assets.sh already uses. Echos response body on success; returns
+# non-zero only when BOTH attempts fail.
+fetch_lib() {
+    local rel="\$1"
+    local resp
+    if [ -n "\$URL" ]; then
+        resp=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/\${rel}" 2>/dev/null) && {
+            printf '%s' "\$resp"
+            return 0
+        }
+    fi
+    if [ -n "\$FALLBACK_URL" ]; then
+        resp=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${FALLBACK_URL}/api/engine/internal/\${rel}" 2>/dev/null) && {
+            printf '%s' "\$resp"
+            return 0
+        }
+    fi
+    return 1
+}
 
 # Parse flags from remaining args
 POSITIONAL=()
@@ -294,7 +319,7 @@ list)
     if [ \${#POSITIONAL[@]} -gt 0 ]; then
         QS="?kind=\$(enc "\${POSITIONAL[0]}")"
     fi
-    RESP=\$(curl -sf --max-time 5 "\${HDR[@]}" "\${URL}/api/engine/internal/library/index\${QS}" 2>/dev/null) || {
+    RESP=\$(fetch_lib "library/index\${QS}") || {
         echo "WARN: library/index endpoint unreachable." >&2
         exit 0
     }
@@ -379,7 +404,7 @@ search)
     [ -n "\$CATEGORY" ] && QS="\${QS}&category=\$(enc "\$CATEGORY")"
     [ -n "\$LIMIT" ]    && QS="\${QS}&limit=\${LIMIT}"
 
-    RESP=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/library/search?\${QS}" 2>/dev/null) || {
+    RESP=\$(fetch_lib "library/search?\${QS}") || {
         echo "WARN: library/search endpoint unreachable." >&2
         exit 0
     }
@@ -429,7 +454,16 @@ show)
     # "=== NOT_FOUND: ... ===" marker that multi-path already uses, so
     # the agent sees a consistent error shape across single and multi.
     BODY_FILE=\$(mktemp 2>/dev/null || echo /tmp/libsh.\$\$.body)
-    HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${URL}/api/engine/internal/library/file?\${QS}" 2>/dev/null) || HTTP="000"
+    HTTP="000"
+    if [ -n "\$URL" ]; then
+        HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${URL}/api/engine/internal/library/file?\${QS}" 2>/dev/null) || HTTP="000"
+    fi
+    # Only retry via fallback on a true network failure. A 404 means the
+    # path really doesn't exist and the local backend already answered —
+    # retrying a mirror would just double-404 for no reason.
+    if { [ "\$HTTP" = "000" ] || [ -z "\$HTTP" ]; } && [ -n "\$FALLBACK_URL" ]; then
+        HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${FALLBACK_URL}/api/engine/internal/library/file?\${QS}" 2>/dev/null) || HTTP="000"
+    fi
     if [ "\$HTTP" = "000" ] || [ -z "\$HTTP" ]; then
         echo "WARN: library/file endpoint unreachable." >&2
     elif [ "\$HTTP" = "404" ]; then
@@ -461,7 +495,7 @@ examples)
     fi
     QS="q=\$(enc "\${POSITIONAL[0]}")"
     [ -n "\$LIMIT" ] && QS="\${QS}&limit=\${LIMIT}"
-    RESP=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/library/examples?\${QS}" 2>/dev/null) || {
+    RESP=\$(fetch_lib "library/examples?\${QS}") || {
         echo "WARN: library/examples endpoint unreachable." >&2
         exit 0
     }
