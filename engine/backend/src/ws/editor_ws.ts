@@ -1395,15 +1395,64 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
     }
 }
 
+// Two caps on the chat history we forward to the LLM. Either one alone
+// is enough on most sessions; both run for safety.
+//   - count cap: a hard ceiling on past-message count regardless of size.
+//     Catches long sessions where each message is small.
+//   - token cap: a budget for total input chars (rough chars/4 → tokens).
+//     Catches sessions with long pasted code or huge file dumps even when
+//     the message count is well under MAX_HISTORY_MESSAGES.
+// Both drop oldest-first. Ungated previously: stmtGetHistory has no LIMIT,
+// so a 200-message session sent the whole transcript every turn — cost
+// grew linearly with conversation length and eventually hit the model's
+// context window with no graceful fallback.
+const MAX_HISTORY_MESSAGES = 60;
+// Llama 3.3 70B (Groq, the default chat model) has 128K context.
+// 100K input + Groq's 8K AI_MAX_TOKENS output leaves ~20K headroom.
+// Lower this if you swap to a smaller-context model; raise for 200K+.
+const MAX_CHAT_INPUT_TOKENS = 100_000;
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+
 function buildMessages(client: EditorClient, retryContext: LLMMessage[]): LLMMessage[] {
-    const history = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
+    const allHistory = stmtGetHistory.all(client.projectId, client.chatSessionId) as any[];
 
     // Always include fresh project state so AI knows current scene
     const pd = getProjectData(client.projectId);
     const summary = getProjectSummary(pd, client.activeSceneKey);
+    const sys: LLMMessage = { role: 'system', content: SYSTEM_PROMPT + summary };
+
+    // Cap 1: count. Drop oldest-first if over MAX_HISTORY_MESSAGES.
+    let history = allHistory.length > MAX_HISTORY_MESSAGES
+        ? allHistory.slice(-MAX_HISTORY_MESSAGES)
+        : allHistory;
+    const droppedByCount = allHistory.length - history.length;
+
+    // Cap 2: token budget. Drop oldest until (sys + retryContext + history)
+    // fits MAX_CHAT_INPUT_TOKENS. Char-based estimate; the real tokenizer
+    // varies ±15-25% but never enough to overflow a 28K-token headroom.
+    const fixedChars = sys.content.length
+        + retryContext.reduce((a, m) => a + (m.content || '').length, 0);
+    let historyChars = history.reduce((a, m) => a + (m.content || '').length, 0);
+    let droppedByBudget = 0;
+    while (history.length > 0
+        && (fixedChars + historyChars) / CHARS_PER_TOKEN_ESTIMATE > MAX_CHAT_INPUT_TOKENS) {
+        const dropped = history.shift();
+        if (dropped) {
+            historyChars -= (dropped.content || '').length;
+            droppedByBudget++;
+        }
+    }
+
+    if (droppedByCount + droppedByBudget > 0) {
+        console.log(
+            `[chat] trimmed history for project ${client.projectId.slice(0, 8)}: `
+            + `${droppedByCount} by count, ${droppedByBudget} by token budget; `
+            + `sending ${history.length}/${allHistory.length} messages`,
+        );
+    }
 
     return [
-        { role: 'system', content: SYSTEM_PROMPT + summary },
+        sys,
         ...history.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
         ...retryContext,
     ];
