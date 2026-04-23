@@ -245,14 +245,36 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         if (chatSessionId && !chatSessionId.startsWith(sessionPrefix)) {
             chatSessionId = null;
         }
+        let restoredExistingSession = !!chatSessionId;
         if (!chatSessionId) {
             const mostRecent = db.prepare(
                 "SELECT chat_session_id FROM chat_messages WHERE project_id = ? AND chat_session_id LIKE ? ORDER BY id DESC LIMIT 1"
             ).get(projectId, sessionPrefix + '%') as { chat_session_id?: string } | undefined;
             chatSessionId = mostRecent?.chat_session_id || null;
+            restoredExistingSession = !!chatSessionId;
         }
         if (!chatSessionId) {
             chatSessionId = `u${user.id}_p${projectId.slice(0, 8)}_${randomUUID()}`;
+        }
+        // Stale-session guard: if we restored a session whose last message
+        // is more than 2 hours old, start a fresh one instead. Old
+        // conversations rarely continue meaningfully after a long gap,
+        // and reloading a stale session means the LLM gets a wall of
+        // context the user has long since moved past — confusing for the
+        // user and expensive per turn. Fresh sessions never apply this
+        // (no messages → SQL returns NULL → comparison is false).
+        const STALE_SESSION_AGE_SECONDS = 2 * 60 * 60;
+        if (restoredExistingSession) {
+            try {
+                const ageRow = db.prepare(
+                    "SELECT (julianday('now') - julianday(MAX(created_at))) * 86400 AS age_seconds "
+                    + "FROM chat_messages WHERE chat_session_id = ?"
+                ).get(chatSessionId) as { age_seconds?: number } | undefined;
+                const ageS = ageRow?.age_seconds;
+                if (typeof ageS === 'number' && ageS > STALE_SESSION_AGE_SECONDS) {
+                    chatSessionId = `u${user.id}_p${projectId.slice(0, 8)}_${randomUUID()}`;
+                }
+            } catch {}
         }
         // Keep the column in sync with whatever we just decided so the
         // next refresh lands on the same session — covers the fallback
