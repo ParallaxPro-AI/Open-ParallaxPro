@@ -297,11 +297,21 @@ bash library.sh show templates/platformer                   # all 4 JSONs concat
 
 **Kind inference**: a template's `02_entities.json` says `"script": "movement/jump.ts"` (no kind prefix). Pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` based on extension. UI panel ids like `hud/health` auto-append `.html`. Bare names (no extension, no slash) resolve as template ids.
 
-**Batch**: multiple positional args fold into one HTTP call, one tool call, one transcript entry. Anything not found comes back inline as `=== NOT_FOUND: <path> (tried: ...) ===` so partial failures don't need a second call.
+**Batch**: multiple positional args fold into one HTTP call, one tool call, one transcript entry. Anything not found comes back inline as `=== NOT_FOUND: <path> (tried: ...) ===` so partial failures don't need a second call. **If you'll need 3+ library files, ALWAYS batch them in one call** — sequential `library.sh show A` then `show B` then `show C` is the most-common failed-batching pattern, and `library.sh` will print a stderr hint nudging you to batch when you call it on a single file.
 
 **When to use it vs `Read`**: references in library files are library paths — fetch via `library.sh show`. References in `project/` files (the one you're fixing) are the user's own files — read via `Read`.
 
 **Do NOT invent asset paths.** Every `mesh.asset` and `playSound`/`playMusic` path must come from a search result. `validate.sh` will reject non-existent asset paths.
+
+## Common validator failures (avoid up-front)
+
+These are the recurring pitfalls that flip a clean fix into a multi-iteration loop. Watch for them when editing.
+
+**FSM-var ↔ hud_update key collision.** If `01_flow.json` uses `set:score=0` / `increment:score` and any system script also does `events.ui.emit('hud_update', { score: 100 })`, the assembler rejects it. The FSM var and the HUD key share a lookup table; the FSM value shadows your HUD update, and the panel never sees the new value. **Fix:** rename the HUD-side key (`displayScore`, `score_display`, etc.) — anything different from the FSM var. When you add a new `set:` action OR a new `hud_update` field, scan the other side for collisions before saving.
+
+**`postMessage` wire format must be `type: 'game_command'`.** UI panels emit actions to the engine via `window.parent.postMessage({ type: 'game_command', panel: '<name>', action: '<x>' })`. The engine's html_ui_manager only routes messages with `type: 'game_command'` — any other type (`'ui_event'`, `'click'`, etc.) is silently dropped, the button does nothing, and validate.sh now catches this with an explicit error. If you're adding or rewriting a UI panel's `<script>`, double-check the type literal.
+
+**Game logic in HTML script tags.** UI panel `<script>` blocks should be presentational only: read state via the `gameState` message handler, emit actions via `postMessage`. State machines, scoring, spawning, NPC AI, and other cross-entity logic belong in a system `.ts` under `project/systems/gameplay/`. The validator will pass either way, but logic-in-HTML is harder to debug and the structure doesn't extend.
 
 ## Template Format Reference
 
