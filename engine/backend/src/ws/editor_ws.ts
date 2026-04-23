@@ -977,6 +977,12 @@ function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
         return;
     }
 
+    // Capture pre-swap state for the "Restore my previous project" banner
+    // button — without this, the banner appears but Restore has no
+    // snapshot to roll back to (the LLM-driven path stashes this on the
+    // paired user message; here there is no user message).
+    const beforeSnapshot = getProjectSnapshot(client.projectId);
+
     const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled' }, files: {} };
     pd.files = { ...seed.files };
     stmtUpdateData.run(serializeProjectData(pd), client.projectId);
@@ -988,6 +994,27 @@ function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
     }
 
     try { stmtIncLoadTemplateCount.run(client.projectId); } catch {}
+
+    // Synthetic assistant message so the chat-panel template-load banner
+    // ("A template was just loaded — Restore my previous project") fires.
+    // The banner keys off msg.fileChanges containing a template_load
+    // entry; without an actual chat row there's nothing to attach to.
+    // Mirrors what the LLM-driven LOAD_TEMPLATE path produces minus the
+    // narration the LLM would have written.
+    const fileChanges = [{ path: built.activeSceneKey, type: 'template_load' as const }];
+    const afterSnapshot = getProjectSnapshot(client.projectId);
+    const synthContent = `Loaded the **${seed.templateId}** template.`;
+    const dbResult = stmtInsertMessage.run(
+        client.projectId, client.chatSessionId, 'assistant', synthContent,
+        JSON.stringify(fileChanges), afterSnapshot, beforeSnapshot, null
+    );
+    appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: synthContent });
+    send(client, 'chat_response_end', {
+        fullContent: synthContent,
+        messageId: Number(dbResult.lastInsertRowid),
+        fileChanges,
+        offerCreateGameDescription: null,
+    });
 
     // Tell the chat panel the load completed so it can clear the modal +
     // update any pending UI. The actual scene/file push already happened
