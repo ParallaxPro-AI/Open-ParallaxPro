@@ -43,6 +43,7 @@ engine/backend/.models_cache/
 engine/backend/.embeddings_cache.json
 engine/backend/.template_embeddings_cache.json
 engine/backend/.library_embeddings_cache.json
+engine/backend/.library_graph_cache.json
 engine/backend/src/ws/services/pipeline/.asset_embeddings_cache.json
 
 # Python
