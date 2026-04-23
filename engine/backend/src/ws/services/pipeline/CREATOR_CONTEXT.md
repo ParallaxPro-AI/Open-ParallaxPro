@@ -185,26 +185,51 @@ This convention is active when `projectConfig.useFacingRegistry === true`, which
 
 ### Sizing rules of thumb (use the size info from `search_assets.sh`)
 
-`search_assets.sh` results now end each line with the model's canonical size, e.g. `4.50x1.50x2.55m` (W × H × D, meters, after registry scale). Use this to plan placements with real geometry instead of guessing.
+`search_assets.sh` results now end each line with the model's canonical bounding-box size after the registry's scale:
 
-Reference scales for human-piloted gameplay:
+```
+/assets/kenney/3d_models/car_kit/sedan.glb  (3D Models, car_kit)  3.00x2.60x5.10m
+                                                                   │    │    │
+                                                                   │    │    └─ depth along Z (front↔back)
+                                                                   │    └────── height along Y (ground↔sky)
+                                                                   └─────────── width along X (left↔right)
+```
+
+**Axis mapping**: `W x H x D` = **X-extent × Y-extent × Z-extent**, in meters.
+The model faces **−Z** by default (canonical forward, see above), so **D is the model's length from tail to nose**. For a car: W ≈ 3 (side-to-side), H ≈ 2.6 (ground to roof), D ≈ 5.1 (trunk to headlights).
+
+**How to use this for collision / spacing**: a model placed at `position: [x, y, z]` with no rotation occupies roughly this volume:
+- from `x − W/2` to `x + W/2` (along X)
+- from `y` to `y + H` (Y starts at the placement — the origin is the bottom-center, so Y=placement_y is the feet / wheels)
+- from `z − D/2` to `z + D/2` (along Z)
+
+So to avoid overlap between two instances on flat ground:
+```
+|x_A − x_B| ≥ (W_A + W_B) / 2 + ε     (X-axis separation)
+|z_A − z_B| ≥ (D_A + D_B) / 2 + ε     (Z-axis separation)
+```
+…or the distance along ANY axis must exceed the combined half-extents along that axis. Use ε ≈ 0.2 m as a safety buffer.
+
+If the placement has `rotation: [0, yaw, 0]`, the AABB rotates too — for yaw = 90°, swap W and D in the formulas.
+
+**Reference scales for human-piloted gameplay:**
 - **Player walk speed** ≈ 5 m/s · **sprint** ≈ 8 m/s · **vehicle top speed** ≈ 15–30 m/s
 - **Standing jump distance** ≈ 2 m horizontal, **double jump** ≈ 3.5 m
 - **Standing jump height** ≈ 1.2 m, **double jump** ≈ 2.5 m
 - **Comfortable platform spacing** ≈ 2–3 m gap (must be < jump distance)
 - **Door frame** = 2.1 m tall · **ceiling clearance** ≈ 2.5 m for player + camera
-- **Driving lane width** ≈ 4 m (slightly wider than vehicle)
+- **Driving lane width** ≈ 4 m (slightly wider than vehicle W)
 - **Combat engagement range**: melee ≈ 2 m, gun ≈ 30 m, sniper ≈ 100 m
 - **Camera follow distance**: third-person 5 m back + 3 m up · top-down ≈ 15 m up
 
-Placement spacing rules:
-- **No-overlap rule** — minimum gap between two entities ≥ (entity_A.width + entity_B.width) / 2 + 0.2 m buffer
-- **Trees in a forest**: ≥ 3 m apart for medium trees (8 m tall × 3 m radius)
-- **Buildings on a city block**: ≥ 1 m gap between facades; align fronts with sidewalk
-- **Crowd / NPC spawns**: ≥ 1 m apart so they don't clip into each other
-- **Pickups (coins, health)**: ≥ 0.5 m above ground so the player can collect by walking through
+**Placement spacing rules:**
+- **Trees in a forest**: a medium tree reports `~3x8x3m` → space centers ≥ 3 m apart (≥ W + ε)
+- **Buildings on a city block**: align front facades with sidewalks; keep ≥ 1 m gap (W_facade / 2 + ε) between neighbors
+- **Crowd / NPC spawns**: humans report `~0.5x1.75x0.3m` → space centers ≥ 1 m apart so they don't clip
+- **Pickups (coins, health)**: place at `y = 0.5 + H/2` so the player walks through the center
+- **Walls**: if a wall reports `6x3x0.3m` (W×H×D) and runs along X, lay several end-to-end at ΔX = 6 m (one W per step) with matching rotation
 
-If a result line lacks the size suffix, the GLB couldn't be inspected (rare — usually a malformed file or a non-GLB asset). Pick a different model or assume conservative ~1 m for a single-mesh prop.
+If a result line **lacks the size suffix**, the GLB couldn't be inspected (rare — usually a malformed file, a non-GLB asset, or a brand-new pack the cache hasn't seen yet). Pick a different model, or assume a conservative ~1 m for a single-mesh prop.
 
 **Implication for AI scripts:** when you `lookAt` a target, the model's −Z aligns to that direction automatically. When you set `transform.rotation` from a velocity, use `Math.atan2(velocity.x, velocity.z)` and assign as Y-yaw — no per-asset offsets.
 
