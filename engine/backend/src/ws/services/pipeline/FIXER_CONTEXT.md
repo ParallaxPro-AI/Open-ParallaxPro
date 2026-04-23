@@ -48,9 +48,17 @@ validate.sh                       — bash validate.sh to validate your output
   `project/02_entities.json`. Same pattern for systems and UI panels.
 - Edit JSON template files for entity changes (mesh, physics, behaviors, placement)
   — do NOT generate scenes/*.json files; the engine assembles them from the templates.
-- New scripts that aren't general behaviors go in `project/scripts/{name}.ts`.
 - Reference panels **without** the `.html` extension in flow actions — e.g.
   `show_ui:hud/health` (not `show_ui:hud/health.html`).
+
+### Where new scripts go
+
+- `project/behaviors/{category}/{name}.ts` — per-entity behaviors (movement, AI, camera, interaction). Reference from `02_entities.json`'s `behaviors[].script` field.
+- `project/systems/{category}/{name}.ts` — standalone manager systems (scoring, spawning, world logic). Reference from `04_systems.json`'s `script` field.
+- `project/ui/{name}.html` (or `project/ui/hud/{name}.html`) — HTML overlays (HUD panels, menus). Reference from `01_flow.json`'s `show_ui:` actions **without** the `.html` extension.
+- `project/scripts/{name}.ts` — anything one-off that isn't a general behavior or system.
+
+If a behavior or system already exists in the library, prefer `library.sh show` + `Write` into `project/` over rewriting from scratch.
 
 ## Validation
 
@@ -141,11 +149,22 @@ this.entity.transform.position             // { x, y, z }
 this.entity.transform.rotation             // { x, y, z, w } quaternion
 this.entity.transform.scale                // { x, y, z }
 this.entity.transform.lookAt(x, y, z)
+this.entity.transform.setPosition(x, y, z) // shorthand for transform.position = ...
 this.entity.transform.setRotationEuler(x, y, z)  // degrees
-this.entity.getComponent("RigidbodyComponent")
-this.entity.playAnimation("Run", { loop: true })
-this.entity.setMaterialColor(r, g, b, a)
+this.entity.transform.forward              // unit Vec3 — engine forward is -Z
+this.entity.transform.right                // unit Vec3
+this.entity.transform.up                   // unit Vec3
+this.entity.tags                           // string[] (snapshot)
+this.entity.hasTag("player")               // boolean
 this.entity.addTag("foo") / removeTag("foo")
+this.entity.getComponent("RigidbodyComponent")
+this.entity.addComponent("LightComponent", { lightType: "point", ... })
+this.entity.removeComponent("AudioSourceComponent")
+this.entity.playAnimation("Run", { loop: true, speed: 1, blendTime: 0.2 })
+this.entity.setMaterialColor(r, g, b, a)
+this.entity.setMaterialProperty("emissiveIntensity", 2.0)
+this.entity.setParent(otherEntity) / getParent()
+this.entity.getWorldPosition()             // { x, y, z } — accounts for parent
 this.entity.getScript("SiblingClassName")  // fetch a sibling script instance
 ```
 
@@ -153,11 +172,12 @@ this.entity.getScript("SiblingClassName")  // fetch a sibling script instance
 
 Entity lookup + lifecycle:
 ```js
-this.scene.findEntityByName("Player")          // single match or null
+this.scene.findEntityByName("Player")          // single match or null (case-insensitive fallback)
+this.scene.findEntitiesByName("Enemy")         // array — when multiple instances share a name
 this.scene.findEntitiesByTag("enemy")          // array
 this.scene.getAllEntities()                    // [{ id, name }]
-this.scene.createEntity("TempMarker")          // returns id
-this.scene.spawnEntity("bullet")               // instantiate prefab by def name
+this.scene.createEntity("TempMarker")          // returns id (bare entity, no validation)
+this.scene.spawnEntity("bullet")               // instantiate prefab by def name (validated)
 this.scene.destroyEntity(id)
 ```
 
@@ -167,14 +187,19 @@ this.scene.setPosition(id, x, y, z)
 this.scene.setScale(id, x, y, z)
 this.scene.setRotationEuler(id, x, y, z)       // degrees
 this.scene.setVelocity(id, { x, y, z })        // dynamic bodies only
+this.scene.lookAt(id, targetX, targetY, targetZ)
+this.scene.getPosition(id)                     // { x, y, z }
 ```
 
 Queries:
 ```js
-this.scene.raycast(ox, oy, oz, dx, dy, dz, maxDist)   // world ray
-this.scene.screenRaycast(screenX, screenY)            // from camera through pixel
+this.scene.raycast(ox, oy, oz, dx, dy, dz, maxDist)   // world ray → RaycastHit | null
+this.scene.screenRaycast(screenX, screenY, maxDist?)  // from camera through pixel
 this.scene.screenPointToGround(screenX, screenY, 0)   // project onto Y-plane
+this.scene.screenToWorldRay(screenX, screenY)         // { origin, direction } — for custom hit-tests
+this.scene.worldToScreen(x, y, z)                     // { x, y } | null — for HUD pinning
 this.scene.getTerrainHeight(x, z)
+this.scene.getTerrainNormal(x, z)
 ```
 
 Environment:
@@ -285,19 +310,83 @@ The returned `path` values are exactly what you use in entity defs (`mesh.asset`
 
 ## Library tool — `library.sh`
 
-`reference/` holds the shared game-code library (behaviors, systems, UI panels, the 40 shipped templates). Instead of `Read`/`Glob`-ing through it, use `bash library.sh`:
+The shared library of game code (behaviors, systems, UI panels, 40 game templates) is served by `bash library.sh` — NOT pre-copied into the sandbox. Use it to index, search, and fetch on demand. It's faster, costs fewer tokens, and batches cleanly.
+
+### Three subcommands
 
 ```bash
-bash library.sh list behaviors                              # categorized index + summaries
-bash library.sh search "jumping" "boss fight" "health bar"  # batch semantic search
-bash library.sh show behaviors/movement/jump.ts             # fetch by path
-bash library.sh show movement/jump.ts gameplay/scoring.ts   # kind-inferring + batch
-bash library.sh show templates/platformer                   # all 4 JSONs concatenated
+bash library.sh list                       # all kinds, grouped by category
+bash library.sh list behaviors             # only behaviors, with summaries
+bash library.sh list systems
+bash library.sh list ui
+bash library.sh list templates             # the 40 shipped game templates
 ```
 
-**Kind inference**: a template's `02_entities.json` says `"script": "movement/jump.ts"` (no kind prefix). Pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` based on extension. UI panel ids like `hud/health` auto-append `.html`. Bare names (no extension, no slash) resolve as template ids.
+```bash
+bash library.sh search "platformer jumping"                 # single query
+bash library.sh search "zombie AI" "health regen" "boss"    # batch several intents in one call
+bash library.sh search "tower ai" --kind behaviors --limit 5
+bash library.sh search "movement" --category movement
+```
+
+```bash
+bash library.sh show behaviors/movement/platformer_movement.ts
+bash library.sh show templates/platformer                   # all 4 JSONs concatenated
+bash library.sh show movement/jump.ts gameplay/scoring.ts hud/health   # batch fetch
+
+# Slice flags (single-path only) — cheaper than piping to head/tail:
+bash library.sh show systems/gameplay/voxel_world.ts --head 80
+bash library.sh show ui/main_menu.html --tail 40
+bash library.sh show behaviors/ai/boss_ai.ts --range 120-200
+```
+
+```bash
+# examples: grep for literal API/string across library + templates, return
+# file:line + a few lines of context. Use when you want to see HOW an API
+# is called in shipped code. Empty result = API is documented here in
+# FIXER_CONTEXT.md, not in a library file.
+bash library.sh examples playSound
+bash library.sh examples lightType
+bash library.sh examples scene.events.net.emit
+```
+
+### Kind-inferring paths
+
+References inside library files drop the kind prefix. When you see `"script": "movement/jump.ts"` in a template's `02_entities.json`, or `"show_ui:hud/health"` in a `01_flow.json`, you can pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` automatically:
+
+- `movement/jump.ts` → `behaviors/movement/jump.ts`
+- `gameplay/scoring.ts` → `systems/gameplay/scoring.ts`
+- `hud/health` → `ui/hud/health.html`
+- `platformer` → `templates/platformer/` (all 4 JSONs)
+
+### Batching, slicing, and copying patterns
 
 **Batch**: multiple positional args fold into one HTTP call, one tool call, one transcript entry. Anything not found comes back inline as `=== NOT_FOUND: <path> (tried: ...) ===` so partial failures don't need a second call. **If you'll need 3+ library files, ALWAYS batch them in one call** — sequential `library.sh show A` then `show B` then `show C` is the most-common failed-batching pattern, and `library.sh` will print a stderr hint nudging you to batch when you call it on a single file.
+
+**Do NOT slice small files.** Under ~150 lines: one `show X` puts the whole file in context and you can re-read freely. Progressive slicing (`--head`, then `--range`, then `--tail`) on a short file costs 2-3 tool-call turns to save a few hundred bytes — a net loss. Only slice when the file is genuinely large (template JSONs, big system scripts).
+
+**Two patterns for copying a library file into `project/`:**
+
+- **Verbatim copy, no later edits**: `bash library.sh show X > project/ui/X.html` — cheapest (content bypasses your context entirely, ~0 transcript tokens).
+- **Modify before saving, OR will re-examine later**: `show X` → read the tool result → `Write` with your adjusted content. Content stays in your context so `Edit` / re-reads don't need another fetch. Costs ~2× file size in transcript tokens vs the redirect form.
+
+Pick based on whether you'll touch the file again in this fix. Don't redirect to `/tmp/` and then `cp` — that's two shell calls when one redirect straight to `project/` does the job.
+
+**Batch multiple short writes via bash heredocs.** When pinning 3-5 small files yourself (short behaviors, one-line JSONs), one Bash call with `cat << EOF` blocks beats N separate `Write` tool calls. Each Write is a full tool turn; each heredoc inside one Bash is free.
+
+```bash
+mkdir -p project/behaviors/movement project/behaviors/camera
+cat > project/behaviors/movement/hop.ts << 'EOF'
+// description: short hop behavior
+class HopBehavior extends GameScript { _behaviorName = "hop"; ... }
+EOF
+cat > project/behaviors/camera/tilt.ts << 'EOF'
+// description: tilt camera
+class TiltCameraBehavior extends GameScript { ... }
+EOF
+```
+
+Use `Write` for large single files, heredoc batches for clusters of small ones.
 
 **When to use it vs `Read`**: references in library files are library paths — fetch via `library.sh show`. References in `project/` files (the one you're fixing) are the user's own files — read via `Read`.
 
@@ -412,6 +501,44 @@ Every non-camera, non-manager, non-custom-mesh entity gets a floating name label
 - `tags` — additional tags merged onto the def's tags.
 - `material_overrides` — same shape as `mesh_override` on the def; placement wins on conflict.
 - `active` — `false` to spawn inactive.
+- `extra_components` — array of extra ECS components attached verbatim. The main use is **lights** (spot, point, extra directional); see below.
+
+### Lights — placement-level spot / point / directional
+
+The assembler auto-adds one directional sun light per scene. For anything else (car headlights, street lamps, muzzle flash, lantern glow), attach a `LightComponent` via `extra_components` on the placement. Light direction/position comes from the entity's transform (for spot lights: the entity's forward vector).
+
+```json
+{ "ref": "car", "name": "Player", "position": [0, 0.8, 0], "rotation": [0, 90, 0],
+  "extra_components": [
+    { "type": "LightComponent", "data": {
+      "lightType": "spot",                  // "directional" | "point" | "spot"
+      "color": [1.0, 0.95, 0.82],
+      "intensity": 400,                     // see note below — start here for headlights
+      "range": 50,                          // point/spot only (world units)
+      "innerConeAngle": 0.25,               // spot only — radians, full bright
+      "outerConeAngle": 0.55,               // spot only — radians, falloff edge
+      "castShadows": false
+    }}
+  ]
+}
+```
+
+**Intensity — the engine uses inverse-square falloff, so the default of 10 is near-invisible.** Attenuation is `clamp(1 - (d/range)⁴, 0, 1)² / (d² + 1)`. Practical starting values:
+
+| Use case | `range` | `intensity` |
+|---|---|---|
+| Car headlight lighting 20-30m of road | 40-60 | **300-600** |
+| Streetlamp glowing 10-15m radius | 15-20 | **150-300** |
+| Indoor lamp / lantern (small room) | 5-10 | **50-150** |
+| Torch / firepit | 8-12 | **80-200** |
+
+`range` is *not* the visible reach — it's the hard cutoff edge. Light goes to zero at `range` but is already dim well before that from `1/d²`. If a scene looks dark with `intensity: 100`, try **3-5× it** before shrinking `range`.
+
+Directional lights (the sun) skip distance falloff — stick to `intensity: 1-5`.
+
+Hard renderer caps: **8 point + 4 spot + 4 directional** lights visible at once (nearest to camera picked).
+
+For a **night / overcast scene**: call `setTimeOfDay(22)` (or any hour outside 5:00-19:30) from a system's `onStart`. That darkens the procedural skybox and dims scene lighting. It does NOT rotate the engine's auto-added sun — if you want the sun gone too, lower `sunIntensity` in the world `environment` block (e.g. `0.05`). Pair with `setFog(true, [0.05, 0.05, 0.09], 20, 120)` for the wet-asphalt / rainstorm look.
 
 ### 04_systems.json — Manager systems
 
@@ -457,7 +584,7 @@ Any script that emits/listens for an event NOT in `project/systems/event_definit
 - `ui_event:panel:action` — a button click (e.g. `ui_event:main_menu:start_game`).
 - `game_event:name` — a game event (e.g. `game_event:player_died`). `name` must be declared in `event_definitions.ts`.
 - `keyboard:pause` / `keyboard:resume` — built-in keyboard transitions from `KeyP`.
-- `mp_event:phase_in_lobby` / `mp_event:phase_in_game` / `mp_event:phase_browsing` / `mp_event:phase_disconnected` — the **only** four valid multiplayer phase transitions.
+- `mp_event:phase_<name>` — multiplayer session phase changes from `mp_bridge`. Six valid phase names (per `SessionPhase` in `multiplayer_session.ts`): `phase_disconnected`, `phase_connecting`, `phase_browsing`, `phase_in_lobby`, `phase_in_game`, `phase_game_over`.
 - `net_event:<event>` — networked event received from a peer.
 - `score>=100` — variable comparison. Operators: `>`, `<`, `>=`, `<=`, `==`, `!=`.
 - `timer_expired` — state's wall-clock timer passed its `duration`.
@@ -567,7 +694,7 @@ Do **NOT** list either in `active_systems`. The assembler already activates them
 boot → main_menu → lobby_browser ⇄ lobby_host_config → lobby_room → gameplay → game_over
 ```
 
-Transitions: `mp_event:phase_in_lobby` → entered room, `mp_event:phase_in_game` → match live, `mp_event:phase_browsing` → back to list, `mp_event:phase_disconnected` → dropped.
+Phase transitions (six total): `phase_disconnected` (no session), `phase_connecting` (handshake in progress), `phase_browsing` (lobby list), `phase_in_lobby` (entered room), `phase_in_game` (match live), `phase_game_over` (match ended, room still open).
 
 ## Pause menu (optional, reusable)
 
@@ -716,7 +843,7 @@ These are NOT caught by `validate.sh` — the game appears to run but the broken
 1. **`active_behaviors` / `active_systems` name typos.** Must exactly match declared names.
 2. **Unknown flow-action verbs.** Typos in `on_enter`/`on_exit` etc. are silently dropped.
 3. **`emit:` with no dot.** `emit:game.player_died` works; bare `emit:player_died` is ignored.
-4. **`mp_event:` with invalid phase.** Only `phase_in_lobby` / `phase_in_game` / `phase_browsing` / `phase_disconnected` fire.
+4. **`mp_event:` with invalid phase.** Six valid phases fire: `phase_disconnected`, `phase_connecting`, `phase_browsing`, `phase_in_lobby`, `phase_in_game`, `phase_game_over`. Anything else is silently ignored.
 5. **Systems init from `on_enter` event fires BEFORE the system is listening.** Always init in `onStart`.
 6. **`spawnEntity(variable)` without `__validatorManifest()`.** Validator can't see dynamic names.
 7. **Click-based gameplay without `show_cursor`.** Menus `hide_cursor` on exit; gameplay `on_enter` must `show_cursor` if mouse-driven.
@@ -730,3 +857,28 @@ These are NOT caught by `validate.sh` — the game appears to run but the broken
 3. **Missing animation**: Wrong clip name for the model. Check what clips the GLB actually has.
 4. **Falling through ground**: Ground has no physics collider, or collider size is wrong.
 5. **Script not running**: Entity is inactive, or behavior's `_behaviorName` doesn't match flow's `active_behaviors`.
+
+## Reference Templates
+
+The 40 shipped templates are accessible via `bash library.sh list templates` (one-line summary of each) and `bash library.sh show templates/<id>` (returns all 4 JSONs concatenated). Useful when a fix request is "make it more like X game" and you need a working pattern to crib from.
+
+## Quality Checklist (post-fix)
+
+Before declaring done, sanity-check:
+
+**Validator-enforced (`bash validate.sh` will fail if missing):**
+- [ ] Every behavior referenced in `02_entities.json` exists at the path you wrote.
+- [ ] Every system referenced in `04_systems.json` exists at the path you wrote.
+- [ ] Every `show_ui:<panel>` action points at a real file in `project/ui/`.
+- [ ] Every `active_behaviors` entry matches a `behaviors[].name` in `02_entities.json`.
+- [ ] Every `active_systems` entry matches a key in `04_systems.json` (or is the auto-injected `ui`/`mp_bridge`).
+- [ ] Every `ui_event:panel:action` transition matches an `emit('action')` literal in that panel's HTML.
+- [ ] Every `game_event:<name>` matches an event declared in `project/systems/event_definitions.ts`.
+- [ ] Every compound state in `01_flow.json` has its own `start`.
+
+**Fix-specific sanity:**
+- [ ] You didn't rename or remove any baseline event in `event_definitions.ts` — only appended new ones.
+- [ ] Your edits stayed within the bug's scope — no incidental refactors of unrelated files.
+- [ ] If you renamed something across files, every reference got updated (grep for the old name to be sure).
+- [ ] If you added a new entity, both `02_entities.json` (definition) and `03_worlds.json` (placement) got the change.
+- [ ] If you added a behavior to `active_behaviors` of a state, the entity that owns it has a corresponding `behaviors[].name` entry.
