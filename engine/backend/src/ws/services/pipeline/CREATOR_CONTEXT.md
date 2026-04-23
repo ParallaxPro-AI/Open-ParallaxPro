@@ -67,6 +67,7 @@ project/                           — EDIT THESE
   systems/mp/mp_bridge.ts          — Multiplayer session bridge (already pinned; the assembler auto-activates it whenever 01_flow.json has a multiplayer block — do NOT list it in active_systems)
   ui/{name}.html                   — UI panels
   scripts/{name}.ts                — Custom user scripts (optional)
+  PLAYTEST.ts                      — Required. Headless playtest scenario (see Validation)
 reference/                         — Read-only references
   game_templates/INDEX.md          — One-line summary of every template (read first to pick by name)
   game_templates/...               — Working examples (40 templates, all 4 JSONs each)
@@ -1216,6 +1217,66 @@ scripts need to share per-frame context without growing a plumbing layer.
 ## Validation
 After creating all files, run `bash validate.sh`. Fix any errors before finishing.
 
+`validate.sh` now runs a **headless playtest** as part of its final stage — it actually boots the game in a node-side simulated engine, ticks physics and scripts, simulates input, and rejects games that aren't playable (player spawns inside a wall, missing ground collider, dead controls, onUpdate crashes, UI with no clickable elements, etc.).
+
+### PLAYTEST.ts (required)
+
+Every game must include a `project/PLAYTEST.ts` file — a short scenario the playtest engine runs to verify the game works end-to-end. This is the agent's explicit theory of what makes the game playable. Without it, only invariant checks run; with it, the playtest can exercise game-specific mechanics with cheats instead of trying to "play" the game.
+
+Contract:
+
+```ts
+export const gameType = "vehicle";           // "vehicle" | "locomotion_3d" | "platformer" | "shooter" | "paddle_2d" | "board" | "clicker" | "ui" | "unknown"
+export const primaryAction = "KeyW";         // the key a fresh player would press first; omit for pure-UI games
+
+export default async (p) => {
+  // IMPORTANT: call this first. Behavior scripts are gated on an
+  // `active_behaviors` event the FSM driver emits per state — outside of the
+  // gameplay state, behaviors sit inactive and `onUpdate` never runs. The
+  // playtest can't easily drive the FSM through boot → main_menu → gameplay
+  // via UI clicks, so this cheat flips every behavior's `_behaviorActive` to
+  // true so movement / combat / systems all run immediately.
+  p.activateAllBehaviors();
+
+  // `p` is a Playtest handle. Core API:
+  //   p.find(name)            / p.findByTag(tag)              → EntityRef | null
+  //   p.pos(ref) / p.vel(ref)                                 → Vec3 | null
+  //   p.tick(n) / p.tickSeconds(s)                            → advance sim
+  //   p.keyDown/keyUp/tapKey  / p.click(x, y) / p.clickButtonByText(text)
+  //   p.teleport(ref, {x,y,z}) / p.setVelocity(ref, v) / p.setDriveInput({throttle,steer,brake})
+  //   p.spawn(prefabName, pos?) / p.aimAt(shooter, target) / p.setScriptField(ref, className, field, value)
+  //   p.assertExists / assertNotStuck / assertMoved(ref, "xz", min, fromPos)
+  //   p.assertNoErrors / assertYAbove / assertPositionNotNaN
+  //   p.snapshot() / p.restore()   — cheap rewind for multi-probe scripts
+
+  const player = p.findByTag("player");
+  p.assertExists(player, "player");
+
+  // Cheat route first — does the physics engine actually react to input?
+  const before = p.pos(player);
+  p.setDriveInput({ throttle: 1 });        // 2D paddle: use p.keyDown("ArrowRight") etc.
+  p.tickSeconds(1);
+  p.assertMoved(player, "xz", 0.5, before);
+};
+```
+
+Keep it **under 40 lines**. The goal is to catch the game's core loop being broken, not to fully play it. Use cheats (`setDriveInput`, `setVelocity`, `teleport`, `aimAt`, `setScriptField`) to skip past gameplay friction — the LLM can't "play" well and shouldn't try.
+
+### gameType decisions
+
+- **vehicle** — car/plane/boat with throttle+steer controls
+- **locomotion_3d** — 3D character walking (WASD + jump)
+- **platformer** — 2D/3D platformer with jump
+- **shooter** — FPS / third-person shooter
+- **paddle_2d** — pong / breakout / paddle-like
+- **board** — chess / checkers / turn-based
+- **clicker** — pure-UI clicker / idle game
+- **ui** — menu-driven, no 3D player
+- **unknown** — only if nothing else fits; invariants will run but no genre-specific checks
+
+Picking the right `gameType` turns on the matching invariant profile: 3D types require a camera and a responsive player; UI types require at least one clickable button; board types skip physics checks entirely.
+
+
 The assembler's checks are strict — see the "Silent-failure watch-list" above
 for what it now rejects (typos in `active_behaviors`/`active_systems`, missing
 `start`, button-wiring gaps).
@@ -1251,6 +1312,7 @@ Quick mental checklist when something looks wrong but the validator passes:
 - [ ] Every `ui_event:panel:action` transition matches an `emit('action')` literal in that panel's HTML.
 - [ ] Every `game_event:<name>` matches an event declared in `project/systems/event_definitions.ts`.
 - [ ] The root flow has `start`, and every compound state has its own `start`.
+- [ ] `PLAYTEST.ts` exists, sets `gameType`, and default-exports an async function that asserts at least one core-loop property of the game (player moves when primary action held, UI button progresses state, etc.).
 
 **Aspirational (good games have these, but validator won't fail without them):**
 - [ ] Flow has boot → main_menu → gameplay → game_over.

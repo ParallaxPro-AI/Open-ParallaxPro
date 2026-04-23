@@ -742,6 +742,21 @@ echo "=== Assembler Check (strict) ==="
 node validate_assembler.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
+echo "=== Headless Playtest ==="
+# The orchestrator (cli_creator.ts) always runs the full headless playtest
+# against your project/ after this script returns — that's the authoritative
+# gate, with up to 3 retries if it fails. If the playtest binary happens to
+# be on PATH inside this sandbox, we run it here too so you can see failures
+# during your own turn budget rather than learning about them on a retry.
+# When the binary isn't reachable (default sandbox), we skip — the
+# orchestrator still enforces. A skip is NOT a failure.
+if command -v playtest >/dev/null 2>&1; then
+    playtest project/ 2>&1
+    if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
+else
+    echo "(playtest binary not on PATH in this sandbox — the orchestrator will run it post-CLI)"
+fi
+
 if [ $ERRORS -eq 0 ]; then
     echo "All checks passed."
 else

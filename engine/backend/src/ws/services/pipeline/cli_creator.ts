@@ -40,6 +40,9 @@ import { isDockerSandboxEnabled } from './docker_sandbox.js';
 // on demand — so the imports are unused here.
 import { archiveCreatorSandbox } from './sandbox_archive.js';
 import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
+// The headless package lives as a sibling under engine/headless. Both packages
+// run under tsx so cross-package TS imports resolve at runtime without a build.
+import { runPlaytest, renderHuman } from '../../../../../headless/src/index.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -339,9 +342,85 @@ export async function runCreator(
             }
         }
 
+        // ── Headless playtest gate ─────────────────────────────────────────
+        // The assembler catches structural bugs; the playtest catches
+        // behavioural ones — player stuck at spawn, missing ground collider,
+        // dead controls, onUpdate crashes, unreachable UI. Up to 3 retries.
+        // After the cap we ship with the verdict attached to the summary so
+        // the user can guide the next fix (per user direction 2026-04-23).
+        const PLAYTEST_MAX_RETRIES = 3;
+        let lastVerdict: Awaited<ReturnType<typeof runPlaytest>> | null = null;
+        for (let attempt = 0; attempt <= PLAYTEST_MAX_RETRIES; attempt++) {
+            if (localSignal.aborted) {
+                return { success: false, summary: 'Aborted before playtest.', templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
+            }
+            sendStatus?.(attempt === 0 ? 'Running headless playtest...' : `Playtest retry ${attempt}/${PLAYTEST_MAX_RETRIES}...`);
+            try {
+                lastVerdict = await runPlaytest(projectDir, { timeoutMs: 30_000 });
+            } catch (e: any) {
+                lastVerdict = {
+                    pass: false,
+                    invariants: { total: 1, passed: 0, failed: 1, skipped: 0, failures: [{ name: 'runner_crash', code: 'runner_crash', message: String(e?.message ?? e), detail: {} }] },
+                    authored: { total: 0, passed: 0, failed: 0, failures: [] },
+                    scriptErrors: [],
+                    durationMs: 0,
+                } as any;
+            }
+            if (lastVerdict!.pass) break;
+            if (attempt === PLAYTEST_MAX_RETRIES) break;
+
+            const verdictText = renderHuman(lastVerdict!);
+            try {
+                const taskPath = path.join(sandboxDir, 'TASK.md');
+                const existing = fs.readFileSync(taskPath, 'utf-8');
+                fs.writeFileSync(
+                    taskPath,
+                    existing +
+                        `\n\n# Playtest failed (attempt ${attempt + 1} of ${PLAYTEST_MAX_RETRIES + 1})\n\nThe headless playtest booted your game and found problems:\n\n\`\`\`\n${verdictText}\n\`\`\`\n\nFix the specific problems above, run \`bash validate.sh\` to verify, then finish. Only small targeted edits — do not rewrite unrelated files.`,
+                );
+            } catch (e: any) {
+                console.warn(`[CLICreator] Failed to append playtest verdict to TASK.md: ${e?.message}`);
+            }
+
+            let retry: { text: string; costUsd: number; sessionCapturePath?: string | null };
+            try {
+                retry = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: capProjectId });
+            } catch (e: any) {
+                return {
+                    success: false,
+                    summary: `Playtest failed on attempt ${attempt + 1}; retry spawn errored: ${e?.message || e}\n\n${verdictText}`,
+                    templateId, files,
+                    costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
+                };
+            }
+            cliResult.costUsd += retry.costUsd;
+            if (retry.text) cliResult.text = retry.text;
+            if (retry.sessionCapturePath) cliResult.sessionCapturePath = retry.sessionCapturePath;
+
+            files = readFilesFromDir(projectDir);
+            if (!files['01_flow.json'] || !files['02_entities.json']) {
+                return { success: false, summary: `Playtest retry removed required files.`, templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
+            }
+            // Re-run assembler each retry — a playtest fix can regress structural validity.
+            try {
+                assembleGame(projectDir, { behaviors: path.join(projectDir, 'behaviors'), systems: path.join(projectDir, 'systems'), ui: path.join(projectDir, 'ui') });
+            } catch (assembleRetryErr: any) {
+                return {
+                    success: false,
+                    summary: `Playtest retry broke assembler: ${assembleRetryErr?.message || assembleRetryErr}`,
+                    templateId, files,
+                    costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
+                };
+            }
+        }
+
+        const playtestPassed = !!lastVerdict?.pass;
+
         return {
             success: true,
-            summary: cliResult.text || `Created "${templateId}".`,
+            summary: playtestPassed
+                ? (cliResult.text || `Created "${templateId}".`)
+                : `Created "${templateId}" but playtest did not pass after ${PLAYTEST_MAX_RETRIES + 1} attempts:\n\n${lastVerdict ? renderHuman(lastVerdict) : '(no verdict)'}\n\nShipping anyway so the user can guide the next fix.`,
             templateId,
             files,
             costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
