@@ -716,7 +716,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     // batching behavior; the runtime cap is higher so an
                     // edge-case run that legitimately needs a few extra
                     // fix-loop turns doesn't get killed mid-stride.
-                    maxTurns: 25,
+                    maxTurns: 35,
                     timeout: 45 * 60 * 1000,
                     claudeModel: 'claude-opus-4-7',
                     continueForked: true,
@@ -741,7 +741,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         prompt: CREATOR_PROMPT,
         // CREATOR_CONTEXT.md tells the agent "15 turns" to drive batching;
         // runtime cap is higher so edge-case fix loops don't get killed.
-        maxTurns: 25,
+        maxTurns: 35,
         timeout: 45 * 60 * 1000,
         claudeModel: 'claude-opus-4-7',
         statusMapper: creatorStatus,
