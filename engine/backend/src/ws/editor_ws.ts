@@ -841,24 +841,17 @@ function handleFeedbackSubmit(client: EditorClient, data: any): void {
 }
 
 /**
- * Hard dismiss — only valid for fix_game. CREATE_GAME is strict per
- * product spec (a 20-minute build deserves at least a rating).
- * Marks the row resolved with resolution='dismissed' so it stays out
- * of getPendingFeedback on future connects and the form doesn't
- * come back.
+ * Hard dismiss — applies to both CREATE_GAME and FIX_GAME. Marks the
+ * row resolved with resolution='dismissed' so it stays out of
+ * getPendingFeedback on future connects and the form doesn't come
+ * back on refresh. The next CREATE_GAME / FIX_GAME run inserts a
+ * fresh pending row which will re-prompt as normal.
  */
 function handleFeedbackDismiss(client: EditorClient, data: any): void {
     const feedbackId = Number(data?.feedbackId);
     if (!Number.isFinite(feedbackId) || feedbackId <= 0) return;
     const row = getFeedbackById(feedbackId);
     if (!row || row.project_id !== client.projectId || row.user_id !== client.userId) return;
-    if (row.kind === 'create_game') {
-        send(client, 'feedback_dismiss_rejected', {
-            feedbackId,
-            reason: 'CREATE_GAME feedback cannot be dismissed — quick rating required.',
-        });
-        return;
-    }
     if (!row.resolved_at) {
         resolveFeedback(feedbackId, 'dismissed', null, null);
     }
