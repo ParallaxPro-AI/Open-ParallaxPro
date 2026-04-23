@@ -15,7 +15,7 @@ You have **15 turns** to deliver a complete, validated game. Each turn re-reads 
 
 - **Turns 1-2 — Discovery, batched.** Make ALL exploration calls in batched form:
   - `library.sh search "a" "b" "c" --limit 5` (not three separate searches)
-  - `library.sh show p1 p2 p3` (not three separate shows)
+  - `library.sh show p1 p2 p3` (not three separate shows — **if you'll need 3+ library files, ALWAYS batch them in one call**)
   - `search_assets.sh "x" "y" "z"` (not three separate searches)
   - Pick the template; don't browse alternatives.
 - **Turn 3 — Commit the plan.** Decide entity names, behavior names, system names, UI panel names, asset paths. They must match across all files; commit them now in writing.
@@ -30,12 +30,22 @@ You have **15 turns** to deliver a complete, validated game. Each turn re-reads 
 
 ### Anti-patterns
 
-- Sequential `library.sh show X`, then `library.sh show Y`. Use `library.sh show X Y` once.
+- Sequential `library.sh show X`, then `library.sh show Y`. Use `library.sh show X Y` once. (library.sh prints a stderr hint when called for a single file — that's a signal you should have batched.)
 - One Write per assistant message. Use parallel `tool_use` blocks in one message.
 - Re-reading the template after every entity. The template doesn't change between your writes.
 - Reading one library candidate, deciding, then reading another. Batch the candidates upfront and pick from the combined output.
 
 A bigger first-batch read is cheap. Re-reading the same context across 15 turns is expensive. Frontload.
+
+### Common validator failures (avoid up-front)
+
+These are the recurring pitfalls that flip a clean run into a fix loop. Get them right in turn 3 (planning) and you stay on the happy path.
+
+**FSM-var ↔ hud_update key collision.** If your flow uses `set:score=0` / `increment:score` and your script also does `events.ui.emit('hud_update', { score: 100 })`, the assembler rejects it. The FSM var and the HUD key share a lookup table; the FSM value shadows your HUD update. **Fix up-front:** rename the HUD-side key — `displayScore`, `score_display`, `scoreLabel` — anything different from the FSM var. Decide names in turn 3 and never reuse an FSM var name on the HUD side.
+
+**Big world files don't fit in parallel-Write batches.** If `03_worlds.json` will exceed ~5KB (15+ placements with extra_components), schedule it in its OWN write message AFTER the smaller-JSON batch. Per-message output cap is 100K tokens (already raised via `CLAUDE_CODE_MAX_OUTPUT_TOKENS`), but mixing one giant file with three small ones in a parallel batch wastes one round-trip on truncation recovery.
+
+**Game logic in HTML script tags.** UI panel `<script>` blocks should be presentational only: read state via the `gameState` message handler, emit actions via `postMessage({type: 'game_command', ...})`. State machines, scoring, spawning, NPC AI, and other cross-entity logic belong in a system `.ts` under `project/systems/gameplay/`. The validator will pass either way, but logic-in-HTML is harder for you to debug mid-run and the structure doesn't extend.
 
 ## Sandbox Layout
 

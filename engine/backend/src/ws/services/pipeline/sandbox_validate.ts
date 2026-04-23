@@ -430,6 +430,13 @@ show)
         echo "=== NOT_FOUND: \${REQ} (tried: \${TRIED}) ==="
     elif [ "\$HTTP" = "200" ]; then
         cat "\$BODY_FILE"
+        # Nudge the agent to batch on next call. Single-path shows are the
+        # most-common failed-batching pattern — agents issue 5 separate
+        # show calls when one batched call would do. stderr so it never
+        # contaminates content the agent might redirect to a file.
+        if [ \${#POSITIONAL[@]} -eq 1 ]; then
+            echo "# tip: batch next time — \\\`library.sh show p1 p2 p3\\\` in one call (one cache_read instead of N)" >&2
+        fi
     else
         echo "WARN: library/file returned HTTP \$HTTP." >&2
         head -c 400 "\$BODY_FILE" >&2

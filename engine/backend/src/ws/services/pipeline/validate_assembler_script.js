@@ -591,9 +591,16 @@ if (eventData) {
             var keys = topLevelKeys(literal);
             for (var ki = 0; ki < keys.length; ki++) {
                 if (reservedKeys.has(keys[ki])) {
+                    var keyName = keys[ki];
+                    var fix = keyName === 'phase'
+                        ? 'Rename the HUD-side key (the engine reserves "phase" for the FSM\'s current state name).'
+                        : 'Rename the HUD-side key (e.g. "display' + keyName.charAt(0).toUpperCase() + keyName.slice(1) +
+                          '" or "' + keyName + '_display") OR rename the FSM var in 01_flow.json. ' +
+                          'They live in different namespaces but share the lookup table — the FSM var ' +
+                          'shadows your HUD value and the panel never sees your update.';
                     hudErrors.push(
-                        scriptKey + ': hud_update key "' + keys[ki] + '" collides with an FSM-reserved state key. ' +
-                        'Reserved names: ' + Array.from(reservedKeys).sort().join(', ')
+                        scriptKey + ': hud_update key "' + keyName + '" collides with FSM var "' + keyName + '" ' +
+                        '(set in 01_flow.json via set:' + keyName + '=...). ' + fix
                     );
                 }
             }

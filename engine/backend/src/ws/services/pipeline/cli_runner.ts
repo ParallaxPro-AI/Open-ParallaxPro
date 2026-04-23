@@ -20,6 +20,15 @@ import { getAvailableAgents } from './cli_availability.js';
 import { wrapSpawn, isDockerSandboxEnabled } from './docker_sandbox.js';
 import { beginCapture, CaptureHandle } from './session_capture.js';
 
+// Bump claude's per-message output cap so parallel-Write batches don't
+// truncate. Default is 32K (or 64K on some tiers); 100K comfortably
+// covers a full project's worth of files written in one assistant
+// message. Set on this process's env so every spawn that does
+// `env: { ...process.env, ... }` inherits it. No-op if user already set it.
+if (!process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
+    process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = '100000';
+}
+
 // ─── Concurrency gate ───────────────────────────────────────────────────────
 //
 // Per-CLI in-flight caps, shared across `runFixer` and `runCreator`. Callers
