@@ -1,7 +1,7 @@
 /**
  * active_work.ts — unified "is the backend busy?" view.
  *
- * Pulls together every class of in-flight LLM/CLI work so deploy.sh can
+ * Pulls together every class of in-flight LLM/CLI work so server_deploy.sh can
  * poll a single endpoint and only trigger a pm2 restart once the box is
  * truly quiet. Two inputs:
  *   - cli_active_jobs registry (CREATE_GAME, FIX_GAME, admin regens — any

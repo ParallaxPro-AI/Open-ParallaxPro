@@ -174,12 +174,12 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // so unauthenticated exposure is low-risk, but the token ensures
     // only the current sandbox's validate.sh can target its own dir.
     // Deploy-time poll target. Returns a unified count of in-flight work so
-    // `deploy.sh` can wait until the box is quiet before pm2-restarting.
+    // `server_deploy.sh` can wait until the box is quiet before pm2-restarting.
     // Gated by INTERNAL_API_TOKEN header — prevents random external callers
-    // from probing job state; deploy.sh on the same box knows the token.
+    // from probing job state; server_deploy.sh on the same box knows the token.
     // In dev mode (no token set) we allow unauthenticated calls so running
     // the backend locally doesn't require env setup.
-    // Freeze CLI slots — called by deploy.sh right before pm2 restart.
+    // Freeze CLI slots — called by server_deploy.sh right before pm2 restart.
     // Jobs that arrive during freeze queue instead of starting, so they
     // survive the restart gap (client retries after WS reconnect).
     app.post('/api/engine/internal/freeze-cli', async (req, res) => {
