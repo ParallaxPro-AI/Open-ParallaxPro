@@ -303,6 +303,17 @@ bash library.sh show templates/platformer                   # all 4 JSONs concat
 
 **Do NOT invent asset paths.** Every `mesh.asset` and `playSound`/`playMusic` path must come from a search result. `validate.sh` will reject non-existent asset paths.
 
+## Batching `Edit` and `Write` tool calls
+
+When your fix touches multiple files (e.g. renaming an event across `04_systems.json` + `01_flow.json` + a UI panel, or pinning 3 library files into `project/`), issue **multiple `tool_use` blocks in a SINGLE assistant message** rather than one `Edit` per turn. Same idea as `library.sh` batching: one LLM round-trip with N tool calls is cheaper than N round-trips, because each turn re-reads the cumulative conversation context.
+
+Examples of when to batch:
+- Renaming `coin_grabbed` → `pickup_grabbed`: one message with parallel `Edit` calls on every file referencing the old name.
+- Pinning 3 library behaviors after `library.sh show A B C`: one message with 3 parallel `Write` calls.
+- Adding a new entity that needs both an entry in `02_entities.json` (Edit) AND a placement in `03_worlds.json` (Edit): one message with both Edits.
+
+Do NOT issue one Edit per turn when several touches are obviously needed — that pattern is the most expensive way to fix a bug.
+
 ## Common validator failures (avoid up-front)
 
 These are the recurring pitfalls that flip a clean fix into a multi-iteration loop. Watch for them when editing.
