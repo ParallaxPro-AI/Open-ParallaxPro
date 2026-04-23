@@ -183,6 +183,29 @@ Right-handed. To make an entity face north/east/south/west, you don't compute Eu
 
 This convention is active when `projectConfig.useFacingRegistry === true`, which is the default for newly-created projects. Legacy projects (saved before the registry existed) leave the flag absent — for those, the engine returns raw GLBs and per-entity `mesh.scale` / `modelRotationY` values still apply unchanged.
 
+### Sizing rules of thumb (use the size info from `search_assets.sh`)
+
+`search_assets.sh` results now end each line with the model's canonical size, e.g. `4.50x1.50x2.55m` (W × H × D, meters, after registry scale). Use this to plan placements with real geometry instead of guessing.
+
+Reference scales for human-piloted gameplay:
+- **Player walk speed** ≈ 5 m/s · **sprint** ≈ 8 m/s · **vehicle top speed** ≈ 15–30 m/s
+- **Standing jump distance** ≈ 2 m horizontal, **double jump** ≈ 3.5 m
+- **Standing jump height** ≈ 1.2 m, **double jump** ≈ 2.5 m
+- **Comfortable platform spacing** ≈ 2–3 m gap (must be < jump distance)
+- **Door frame** = 2.1 m tall · **ceiling clearance** ≈ 2.5 m for player + camera
+- **Driving lane width** ≈ 4 m (slightly wider than vehicle)
+- **Combat engagement range**: melee ≈ 2 m, gun ≈ 30 m, sniper ≈ 100 m
+- **Camera follow distance**: third-person 5 m back + 3 m up · top-down ≈ 15 m up
+
+Placement spacing rules:
+- **No-overlap rule** — minimum gap between two entities ≥ (entity_A.width + entity_B.width) / 2 + 0.2 m buffer
+- **Trees in a forest**: ≥ 3 m apart for medium trees (8 m tall × 3 m radius)
+- **Buildings on a city block**: ≥ 1 m gap between facades; align fronts with sidewalk
+- **Crowd / NPC spawns**: ≥ 1 m apart so they don't clip into each other
+- **Pickups (coins, health)**: ≥ 0.5 m above ground so the player can collect by walking through
+
+If a result line lacks the size suffix, the GLB couldn't be inspected (rare — usually a malformed file or a non-GLB asset). Pick a different model or assume conservative ~1 m for a single-mesh prop.
+
 **Implication for AI scripts:** when you `lookAt` a target, the model's −Z aligns to that direction automatically. When you set `transform.rotation` from a velocity, use `Math.atan2(velocity.x, velocity.z)` and assign as Y-yaw — no per-asset offsets.
 
 For primitive meshes:

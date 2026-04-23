@@ -151,7 +151,16 @@ var results = data.results || [];
 if (results.length === 0) { console.log('[' + q + '] No results.'); }
 else {
     console.log('[' + q + '] ' + results.length + ' result(s):');
-    for (var r of results) console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')');
+    for (var r of results) {
+        // Canonical size in meters (W × H × D after MODEL_FACING.json scale).
+        // Use it to plan placements: spacing >= max width avoids overlap,
+        // height tells you whether to clear it with a jump, etc.
+        var sz = '';
+        if (Array.isArray(r.size) && r.size.length === 3) {
+            sz = '  ' + r.size[0].toFixed(2) + 'x' + r.size[1].toFixed(2) + 'x' + r.size[2].toFixed(2) + 'm';
+        }
+        console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')' + sz);
+    }
 }
 " "\$RESP" "\$QUERY"
 done
