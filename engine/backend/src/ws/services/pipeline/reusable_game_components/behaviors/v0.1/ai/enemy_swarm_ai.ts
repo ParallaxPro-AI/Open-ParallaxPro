@@ -7,7 +7,7 @@ class EnemySwarmAIBehavior extends GameScript {
         var p=this.entity.transform.position,allies=this.scene.findEntitiesByTag("military")||[],best=null,bestD=this._detectRange+1;
         for(var i=0;i<allies.length;i++){if(!allies[i].active)continue;var tags=allies[i].tags||[];var isPlayer=false;for(var t=0;t<tags.length;t++){if(tags[t]==="player")isPlayer=true;}if(!isPlayer)continue;
             var ap=allies[i].transform.position,d=Math.sqrt((p.x-ap.x)*(p.x-ap.x)+(p.z-ap.z)*(p.z-ap.z));if(d<bestD){bestD=d;best=allies[i];}}
-        if(best){var ep=best.transform.position,dx=ep.x-p.x,dz=ep.z-p.z;this.entity.transform.setRotationEuler(0,Math.atan2(dx,dz)*180/Math.PI,0);
+        if(best){var ep=best.transform.position,dx=ep.x-p.x,dz=ep.z-p.z;this.entity.transform.setRotationEuler(0,Math.atan2(-dx,-dz)*180/Math.PI,0);
             if(bestD>this._attackRange){this.scene.setPosition(this.entity.id,p.x+(dx/bestD)*this._speed*dt,p.y,p.z+(dz/bestD)*this._speed*dt);}
             else if(this._cooldown<=0){this._cooldown=this._attackRate;this.scene.events.game.emit("entity_damaged",{targetId:best.id,damage:this._damage,source:"enemy"});}}
     }

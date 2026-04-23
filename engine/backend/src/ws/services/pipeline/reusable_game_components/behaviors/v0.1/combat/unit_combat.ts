@@ -8,7 +8,7 @@ class UnitCombatBehavior extends GameScript {
         var best = null, bestD = this._detectRange + 1;
         for (var i = 0; i < enemies.length; i++) { if (!enemies[i].active) continue; var ep = enemies[i].transform.position; var d = Math.sqrt((p.x-ep.x)*(p.x-ep.x)+(p.z-ep.z)*(p.z-ep.z)); if (d < bestD) { bestD = d; best = enemies[i]; } }
         if (best) { var ep = best.transform.position; var dx = ep.x-p.x, dz = ep.z-p.z;
-            this.entity.transform.setRotationEuler(0, Math.atan2(dx,dz)*180/Math.PI, 0);
+            this.entity.transform.setRotationEuler(0, Math.atan2(-dx,-dz)*180/Math.PI, 0);
             if (bestD > this._attackRange) { this.scene.setPosition(this.entity.id, p.x+(dx/bestD)*this._speed*dt, p.y, p.z+(dz/bestD)*this._speed*dt); this._playAnim("Run"); }
             else if (this._cooldown <= 0) { this._cooldown = this._attackRate; this.scene.events.game.emit("entity_damaged", { targetId: best.id, damage: this._damage, source: "player" });
                 if (this.audio) this.audio.playSound("/assets/kenney/audio/rpg_audio/knifeSlice.ogg", 0.3); this._playAnim("Idle"); } }

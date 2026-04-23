@@ -3,14 +3,32 @@
     "ground": {
       "mesh": {
         "type": "plane",
-        "color": [0.04, 0.05, 0.09, 1],
-        "scale": [80, 1, 80]
+        "color": [
+          0.04,
+          0.05,
+          0.09,
+          1
+        ],
+        "scale": [
+          80,
+          1,
+          80
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [40, 0.05, 40] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            40,
+            0.05,
+            40
+          ]
+        }
       },
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
@@ -19,107 +37,236 @@
     "arena_wall_n": {
       "mesh": {
         "type": "cube",
-        "color": [0.2, 0.85, 1, 1],
-        "scale": [82, 2.5, 1]
+        "color": [
+          0.2,
+          0.85,
+          1,
+          1
+        ],
+        "scale": [
+          82,
+          2.5,
+          1
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [41, 1.25, 0.5] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            41,
+            1.25,
+            0.5
+          ]
+        }
       },
-      "tags": ["arena_wall"],
+      "tags": [
+        "arena_wall"
+      ],
       "label": false
     },
     "arena_wall_s": {
       "mesh": {
         "type": "cube",
-        "color": [0.2, 0.85, 1, 1],
-        "scale": [82, 2.5, 1]
+        "color": [
+          0.2,
+          0.85,
+          1,
+          1
+        ],
+        "scale": [
+          82,
+          2.5,
+          1
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [41, 1.25, 0.5] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            41,
+            1.25,
+            0.5
+          ]
+        }
       },
-      "tags": ["arena_wall"],
+      "tags": [
+        "arena_wall"
+      ],
       "label": false
     },
     "arena_wall_e": {
       "mesh": {
         "type": "cube",
-        "color": [0.2, 0.85, 1, 1],
-        "scale": [1, 2.5, 80]
+        "color": [
+          0.2,
+          0.85,
+          1,
+          1
+        ],
+        "scale": [
+          1,
+          2.5,
+          80
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [0.5, 1.25, 40] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            0.5,
+            1.25,
+            40
+          ]
+        }
       },
-      "tags": ["arena_wall"],
+      "tags": [
+        "arena_wall"
+      ],
       "label": false
     },
     "arena_wall_w": {
       "mesh": {
         "type": "cube",
-        "color": [0.2, 0.85, 1, 1],
-        "scale": [1, 2.5, 80]
+        "color": [
+          0.2,
+          0.85,
+          1,
+          1
+        ],
+        "scale": [
+          1,
+          2.5,
+          80
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [0.5, 1.25, 40] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            0.5,
+            1.25,
+            40
+          ]
+        }
       },
-      "tags": ["arena_wall"],
+      "tags": [
+        "arena_wall"
+      ],
       "label": false
     },
     "grid_line_h": {
       "mesh": {
         "type": "cube",
-        "color": [0.1, 0.45, 0.7, 0.6],
-        "scale": [80, 0.02, 0.08]
+        "color": [
+          0.1,
+          0.45,
+          0.7,
+          0.6
+        ],
+        "scale": [
+          80,
+          0.02,
+          0.08
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "grid_line_v": {
       "mesh": {
         "type": "cube",
-        "color": [0.1, 0.45, 0.7, 0.6],
-        "scale": [0.08, 0.02, 80]
+        "color": [
+          0.1,
+          0.45,
+          0.7,
+          0.6
+        ],
+        "scale": [
+          0.08,
+          0.02,
+          80
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "corner_pylon": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.3, 0.95, 1, 1],
-        "scale": [1.6, 6, 1.6]
+        "color": [
+          0.3,
+          0.95,
+          1,
+          1
+        ],
+        "scale": [
+          1.6,
+          6,
+          1.6
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [0.8, 3, 0.8] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            0.8,
+            3,
+            0.8
+          ]
+        }
       },
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "bike_player": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/car_kit/race-future.glb",
-        "scale": [1.0, 1.0, 1.0],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "kinematic",
-        "collider": { "shape": "cuboid", "halfExtents": [0.6, 0.5, 1.0] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            0.6,
+            0.5,
+            1.0
+          ]
+        }
       },
       "network": {
         "syncTransform": true,
         "syncInterval": 33,
         "ownership": "local_player",
         "predictLocally": true,
-        "networkedVars": ["alive", "boost"]
+        "networkedVars": [
+          "alive",
+          "boost"
+        ]
       },
-      "tags": ["player", "bike", "networked"],
+      "tags": [
+        "player",
+        "bike",
+        "networked"
+      ],
       "behaviors": [
         {
           "name": "bike_player_control",
@@ -151,9 +298,21 @@
       ]
     },
     "camera": {
-      "camera": { "fov": 60, "near": 0.5, "far": 400 },
-      "tags": ["camera"],
-      "transform": { "position": [0, 18, 22] },
+      "camera": {
+        "fov": 60,
+        "near": 0.5,
+        "far": 400
+      },
+      "tags": [
+        "camera"
+      ],
+      "transform": {
+        "position": [
+          0,
+          18,
+          22
+        ]
+      },
       "behaviors": [
         {
           "name": "bike_chase_camera",

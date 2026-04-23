@@ -4,8 +4,11 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
-        "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "dynamic",
@@ -18,9 +21,14 @@
         "syncInterval": 33,
         "ownership": "local_player",
         "predictLocally": true,
-        "networkedVars": ["health"]
+        "networkedVars": [
+          "health"
+        ]
       },
-      "tags": ["player", "networked"],
+      "tags": [
+        "player",
+        "networked"
+      ],
       "behaviors": [
         {
           "name": "fps_movement",
@@ -58,8 +66,12 @@
       ]
     },
     "camera": {
-      "camera": { "fov": 75 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 75
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "fps_camera",
@@ -74,10 +86,21 @@
     "wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.45, 0.42, 0.4, 1],
-        "scale": [4, 3, 0.3]
+        "color": [
+          0.45,
+          0.42,
+          0.4,
+          1
+        ],
+        "scale": [
+          4,
+          3,
+          0.3
+        ]
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
@@ -86,10 +109,21 @@
     "wall_long": {
       "mesh": {
         "type": "cube",
-        "color": [0.45, 0.42, 0.4, 1],
-        "scale": [10, 3, 0.3]
+        "color": [
+          0.45,
+          0.42,
+          0.4,
+          1
+        ],
+        "scale": [
+          10,
+          3,
+          0.3
+        ]
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
@@ -98,10 +132,21 @@
     "crate": {
       "mesh": {
         "type": "cube",
-        "color": [0.6, 0.45, 0.25, 1],
-        "scale": [1, 1, 1]
+        "color": [
+          0.6,
+          0.45,
+          0.25,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["cover"],
+      "tags": [
+        "cover"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
@@ -110,19 +155,41 @@
     "barrel": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.35, 0.5, 0.35, 1],
-        "scale": [0.5, 1, 0.5]
+        "color": [
+          0.35,
+          0.5,
+          0.35,
+          1
+        ],
+        "scale": [
+          0.5,
+          1,
+          0.5
+        ]
       },
-      "tags": ["cover"],
+      "tags": [
+        "cover"
+      ],
       "label": false
     },
     "ground": {
       "mesh": {
         "type": "plane",
-        "color": [0.35, 0.38, 0.35, 1],
-        "scale": [40, 1, 40]
+        "color": [
+          0.35,
+          0.38,
+          0.35,
+          1
+        ],
+        "scale": [
+          40,
+          1,
+          40
+        ]
       },
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"

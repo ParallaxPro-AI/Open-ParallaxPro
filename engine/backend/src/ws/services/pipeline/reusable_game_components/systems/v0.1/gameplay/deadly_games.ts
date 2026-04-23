@@ -307,7 +307,7 @@ class DeadlyGamesSystem extends GameScript {
                 if (pp.z <= this._finishZ) continue; // Already finished
                 var speed = 4 + Math.random() * 3;
                 this.scene.setPosition(c.entity.id, pp.x + (Math.random() - 0.5) * 0.3, pp.y, pp.z - speed * dt);
-                c.entity.transform.setRotationEuler(0, 180, 0);
+                // REMOVED (registry handles facing now): c.entity.transform.setRotationEuler(0, 180, 0);
                 if (c.entity.playAnimation) c.entity.playAnimation("Run", { loop: true });
             }
         } else {

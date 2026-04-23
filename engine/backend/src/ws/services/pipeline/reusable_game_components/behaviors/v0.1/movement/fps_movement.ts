@@ -7,11 +7,24 @@ class FPSMovementBehavior extends GameScript {
     _jumpForce = 7;
     _canJump = true;
     _matchOver = false;
+    _currentAnim = "";
 
     onStart() {
         var self = this;
         this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
         this.scene.events.game.on("match_started", function() { self._matchOver = false; });
+        // Kick off Idle so the model isn't stuck in T-pose at spawn.
+        this._playAnim("Idle");
+    }
+
+    // Switch animation only on change so the engine doesn't restart from
+    // frame 0 every tick. No-op if the model lacks the named clip.
+    _playAnim(name) {
+        if (this._currentAnim === name) return;
+        this._currentAnim = name;
+        if (this.entity.playAnimation) {
+            try { this.entity.playAnimation(name, { loop: true }); } catch (e) {}
+        }
     }
 
     onUpdate(dt) {
@@ -68,5 +81,15 @@ class FPSMovementBehavior extends GameScript {
         // other peers see a soldier running backwards relative to where
         // they're looking.
         this.entity.transform.setRotationEuler(0, -(this.scene._fpsYaw || 0), 0);
+
+        // Animation state: Jump while airborne, Run when sprinting and
+        // moving, Walk when moving normally, Idle otherwise. Names match
+        // the standard Quaternius animated character pack.
+        var moving = (forward !== 0 || strafe !== 0);
+        var airborne = pos.y > 1.0;
+        if (airborne)                                this._playAnim("Jump");
+        else if (moving && speed === this._sprintSpeed) this._playAnim("Run");
+        else if (moving)                             this._playAnim("Walk");
+        else                                         this._playAnim("Idle");
     }
 }

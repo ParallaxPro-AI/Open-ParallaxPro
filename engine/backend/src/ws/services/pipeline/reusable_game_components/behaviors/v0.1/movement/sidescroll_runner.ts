@@ -157,7 +157,7 @@ class SidescrollRunnerBehavior extends GameScript {
         }
 
         // Face direction — yaw only.
-        this.entity.transform.setRotationEuler && this.entity.transform.setRotationEuler(0, this._facing > 0 ? Math.PI / 2 : -Math.PI / 2, 0);
+        this.entity.transform.setRotationEuler && this.entity.transform.setRotationEuler(0, this._facing > 0 ? -90 : 90, 0);
         this.entity.transform.markDirty && this.entity.transform.markDirty();
 
         // Visual scale — power-up makes us bigger.

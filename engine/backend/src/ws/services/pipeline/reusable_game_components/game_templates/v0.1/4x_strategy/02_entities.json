@@ -1,340 +1,1568 @@
 {
   "definitions": {
     "camera": {
-      "camera": { "fov": 50 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 50
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "strategy_camera",
           "script": "camera/camera_strategy.ts",
-          "params": { "height": 40, "angle": 55, "panSpeed": 35, "zoomSpeed": 10, "minZoom": 20, "maxZoom": 65, "edgeScrollSpeed": 25, "edgeScrollMargin": 25, "smoothSpeed": 8, "boundsX": [-85, 85], "boundsZ": [-85, 85], "rotateSpeed": 60 }
+          "params": {
+            "height": 40,
+            "angle": 55,
+            "panSpeed": 35,
+            "zoomSpeed": 10,
+            "minZoom": 20,
+            "maxZoom": 65,
+            "edgeScrollSpeed": 25,
+            "edgeScrollMargin": 25,
+            "smoothSpeed": 8,
+            "boundsX": [
+              -85,
+              85
+            ],
+            "boundsZ": [
+              -85,
+              85
+            ],
+            "rotateSpeed": 60
+          }
         }
       ]
     },
-
     "city_center": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_SecondAge_Level3.glb", "scale": [2, 2, 2] },
-      "tags": ["building", "player", "city", "capital"],
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_SecondAge_Level3.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "city",
+        "capital"
+      ],
       "label": false,
-      "behaviors": [{ "name": "city_manager", "script": "gameplay/city_manager.ts", "params": { "population": 3, "housing": 6, "isCapital": true } }]
+      "behaviors": [
+        {
+          "name": "city_manager",
+          "script": "gameplay/city_manager.ts",
+          "params": {
+            "population": 3,
+            "housing": 6,
+            "isCapital": true
+          }
+        }
+      ]
     },
     "city_small": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_FirstAge_Level2.glb", "scale": [1.8, 1.8, 1.8] },
-      "tags": ["building", "player", "city"],
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_FirstAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "city"
+      ],
       "label": false,
-      "behaviors": [{ "name": "city_manager", "script": "gameplay/city_manager.ts", "params": { "population": 1, "housing": 4, "isCapital": false } }]
+      "behaviors": [
+        {
+          "name": "city_manager",
+          "script": "gameplay/city_manager.ts",
+          "params": {
+            "population": 1,
+            "housing": 4,
+            "isCapital": false
+          }
+        }
+      ]
     },
     "housing": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_SecondAge_1_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "player", "district", "housing"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_SecondAge_1_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "district",
+        "housing"
+      ],
+      "label": false
     },
     "campus": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Temple_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "player", "district", "science"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Temple_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "district",
+        "science"
+      ],
+      "label": false
     },
     "commercial_hub": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Market_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "player", "district", "commerce"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Market_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "district",
+        "commerce"
+      ],
+      "label": false
     },
     "encampment": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barracks_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "player", "district", "military"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barracks_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "district",
+        "military"
+      ],
+      "label": false
     },
     "harbor": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Port_FirstAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "player", "district", "naval"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Port_FirstAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "district",
+        "naval"
+      ],
+      "label": false
     },
     "granary": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_SecondAge_Level2_Wheat.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "player", "district", "food"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_SecondAge_Level2_Wheat.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "district",
+        "food"
+      ],
+      "label": false
     },
     "city_walls": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wall_SecondAge.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "player", "defense"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wall_SecondAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "defense"
+      ],
+      "label": false
     },
     "wonder_building": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wonder_SecondAge_Level3.glb", "scale": [2, 2, 2] },
-      "tags": ["building", "player", "wonder"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wonder_SecondAge_Level3.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "wonder"
+      ],
+      "label": false
     },
     "storage": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Storage_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "player", "district"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Storage_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "player",
+        "district"
+      ],
+      "label": false
     },
-
     "ai_city_center": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_FirstAge_Level3.glb", "scale": [2, 2, 2] },
-      "tags": ["building", "ai", "city", "capital"],
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_FirstAge_Level3.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "ai",
+        "city",
+        "capital"
+      ],
       "label": false,
-      "behaviors": [{ "name": "ai_city", "script": "ai/ai_city.ts", "params": { "population": 3, "housing": 6, "isCapital": true } }]
+      "behaviors": [
+        {
+          "name": "ai_city",
+          "script": "ai/ai_city.ts",
+          "params": {
+            "population": 3,
+            "housing": 6,
+            "isCapital": true
+          }
+        }
+      ]
     },
     "ai_city_small": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_FirstAge_Level1.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "ai", "city"],
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_FirstAge_Level1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "ai",
+        "city"
+      ],
       "label": false,
-      "behaviors": [{ "name": "ai_city", "script": "ai/ai_city.ts", "params": { "population": 1, "housing": 4, "isCapital": false } }]
+      "behaviors": [
+        {
+          "name": "ai_city",
+          "script": "ai/ai_city.ts",
+          "params": {
+            "population": 1,
+            "housing": 4,
+            "isCapital": false
+          }
+        }
+      ]
     },
     "ai_housing": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_FirstAge_2_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "ai", "district"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_FirstAge_2_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "ai",
+        "district"
+      ],
+      "label": false
     },
     "ai_encampment": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barracks_FirstAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "ai", "district", "military"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barracks_FirstAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "ai",
+        "district",
+        "military"
+      ],
+      "label": false
     },
     "ai_granary": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_FirstAge_Level2_Wheat.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "ai", "district", "food"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_FirstAge_Level2_Wheat.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "ai",
+        "district",
+        "food"
+      ],
+      "label": false
     },
     "ai_walls": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wall_FirstAge.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "ai", "defense"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wall_FirstAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "ai",
+        "defense"
+      ],
+      "label": false
     },
     "ai_wonder": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wonder_FirstAge_Level3.glb", "scale": [1.8, 1.8, 1.8] },
-      "tags": ["building", "ai", "wonder"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wonder_FirstAge_Level3.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "ai",
+        "wonder"
+      ],
+      "label": false
     },
-
     "warrior": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 70, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "player", "military", "melee"],
-      "behaviors": [{ "name": "unit_control", "script": "gameplay/unit_control.ts", "params": { "unitType": "warrior", "attack": 20, "defense": 15, "health": 100, "maxHealth": 100, "movement": 2, "vision": 2, "moveSpeed": 4 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 70,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "player",
+        "military",
+        "melee"
+      ],
+      "behaviors": [
+        {
+          "name": "unit_control",
+          "script": "gameplay/unit_control.ts",
+          "params": {
+            "unitType": "warrior",
+            "attack": 20,
+            "defense": 15,
+            "health": 100,
+            "maxHealth": 100,
+            "movement": 2,
+            "vision": 2,
+            "moveSpeed": 4
+          }
+        }
+      ]
     },
     "archer": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Elf.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 55, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "player", "military", "ranged"],
-      "behaviors": [{ "name": "unit_control", "script": "gameplay/unit_control.ts", "params": { "unitType": "archer", "attack": 25, "defense": 10, "health": 80, "maxHealth": 80, "movement": 2, "vision": 3, "range": 2, "moveSpeed": 4 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Elf.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 55,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "player",
+        "military",
+        "ranged"
+      ],
+      "behaviors": [
+        {
+          "name": "unit_control",
+          "script": "gameplay/unit_control.ts",
+          "params": {
+            "unitType": "archer",
+            "attack": 25,
+            "defense": 10,
+            "health": 80,
+            "maxHealth": 80,
+            "movement": 2,
+            "vision": 3,
+            "range": 2,
+            "moveSpeed": 4
+          }
+        }
+      ]
     },
     "swordsman": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Viking_Male.glb", "scale": [0.42, 0.42, 0.42], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 80, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "player", "military", "melee"],
-      "behaviors": [{ "name": "unit_control", "script": "gameplay/unit_control.ts", "params": { "unitType": "swordsman", "attack": 35, "defense": 20, "health": 120, "maxHealth": 120, "movement": 2, "vision": 2, "moveSpeed": 4 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Viking_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 80,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "player",
+        "military",
+        "melee"
+      ],
+      "behaviors": [
+        {
+          "name": "unit_control",
+          "script": "gameplay/unit_control.ts",
+          "params": {
+            "unitType": "swordsman",
+            "attack": 35,
+            "defense": 20,
+            "health": 120,
+            "maxHealth": 120,
+            "movement": 2,
+            "vision": 2,
+            "moveSpeed": 4
+          }
+        }
+      ]
     },
     "knight_unit": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Golden_Male.glb", "scale": [0.45, 0.45, 0.45], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 120, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "player", "military", "cavalry"],
-      "behaviors": [{ "name": "unit_control", "script": "gameplay/unit_control.ts", "params": { "unitType": "knight_unit", "attack": 45, "defense": 25, "health": 140, "maxHealth": 140, "movement": 4, "vision": 3, "moveSpeed": 6 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Golden_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 120,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "player",
+        "military",
+        "cavalry"
+      ],
+      "behaviors": [
+        {
+          "name": "unit_control",
+          "script": "gameplay/unit_control.ts",
+          "params": {
+            "unitType": "knight_unit",
+            "attack": 45,
+            "defense": 25,
+            "health": 140,
+            "maxHealth": 140,
+            "movement": 4,
+            "vision": 3,
+            "moveSpeed": 6
+          }
+        }
+      ]
     },
     "musketeer": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 65, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "player", "military", "ranged"],
-      "behaviors": [{ "name": "unit_control", "script": "gameplay/unit_control.ts", "params": { "unitType": "musketeer", "attack": 50, "defense": 30, "health": 130, "maxHealth": 130, "movement": 2, "vision": 2, "range": 1, "moveSpeed": 4 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 65,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "player",
+        "military",
+        "ranged"
+      ],
+      "behaviors": [
+        {
+          "name": "unit_control",
+          "script": "gameplay/unit_control.ts",
+          "params": {
+            "unitType": "musketeer",
+            "attack": 50,
+            "defense": 30,
+            "health": 130,
+            "maxHealth": 130,
+            "movement": 2,
+            "vision": 2,
+            "range": 1,
+            "moveSpeed": 4
+          }
+        }
+      ]
     },
     "siege_unit": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/tank_pack/Tank.glb", "scale": [0.5, 0.5, 0.5] },
-      "physics": { "type": "dynamic", "mass": 500, "freeze_rotation": true, "collider": "box" },
-      "tags": ["unit", "player", "military", "siege"],
-      "behaviors": [{ "name": "unit_control", "script": "gameplay/unit_control.ts", "params": { "unitType": "siege_unit", "attack": 60, "defense": 10, "health": 100, "maxHealth": 100, "movement": 1, "vision": 2, "range": 3, "siegeBonus": 2.0, "moveSpeed": 2 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/tank_pack/Tank.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 500,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": [
+        "unit",
+        "player",
+        "military",
+        "siege"
+      ],
+      "behaviors": [
+        {
+          "name": "unit_control",
+          "script": "gameplay/unit_control.ts",
+          "params": {
+            "unitType": "siege_unit",
+            "attack": 60,
+            "defense": 10,
+            "health": 100,
+            "maxHealth": 100,
+            "movement": 1,
+            "vision": 2,
+            "range": 3,
+            "siegeBonus": 2.0,
+            "moveSpeed": 2
+          }
+        }
+      ]
     },
     "settler": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 60, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "player", "civilian"],
-      "behaviors": [{ "name": "unit_control", "script": "gameplay/unit_control.ts", "params": { "unitType": "settler", "attack": 0, "defense": 5, "health": 50, "maxHealth": 50, "movement": 2, "vision": 2, "canFoundCity": true, "moveSpeed": 3 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "player",
+        "civilian"
+      ],
+      "behaviors": [
+        {
+          "name": "unit_control",
+          "script": "gameplay/unit_control.ts",
+          "params": {
+            "unitType": "settler",
+            "attack": 0,
+            "defense": 5,
+            "health": 50,
+            "maxHealth": 50,
+            "movement": 2,
+            "vision": 2,
+            "canFoundCity": true,
+            "moveSpeed": 3
+          }
+        }
+      ]
     },
     "scout": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Ninja_Male.glb", "scale": [0.38, 0.38, 0.38], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 50, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "player", "military", "recon"],
-      "behaviors": [{ "name": "unit_control", "script": "gameplay/unit_control.ts", "params": { "unitType": "scout", "attack": 8, "defense": 8, "health": 60, "maxHealth": 60, "movement": 4, "vision": 4, "moveSpeed": 7 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Ninja_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "player",
+        "military",
+        "recon"
+      ],
+      "behaviors": [
+        {
+          "name": "unit_control",
+          "script": "gameplay/unit_control.ts",
+          "params": {
+            "unitType": "scout",
+            "attack": 8,
+            "defense": 8,
+            "health": 60,
+            "maxHealth": 60,
+            "movement": 4,
+            "vision": 4,
+            "moveSpeed": 7
+          }
+        }
+      ]
     },
-
     "ai_warrior": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 70, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "ai", "military", "melee"],
-      "behaviors": [{ "name": "ai_unit_control", "script": "ai/ai_unit_control.ts", "params": { "unitType": "warrior", "attack": 20, "defense": 15, "health": 100, "maxHealth": 100, "movement": 2, "vision": 2, "moveSpeed": 4 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 70,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "ai",
+        "military",
+        "melee"
+      ],
+      "behaviors": [
+        {
+          "name": "ai_unit_control",
+          "script": "ai/ai_unit_control.ts",
+          "params": {
+            "unitType": "warrior",
+            "attack": 20,
+            "defense": 15,
+            "health": 100,
+            "maxHealth": 100,
+            "movement": 2,
+            "vision": 2,
+            "moveSpeed": 4
+          }
+        }
+      ]
     },
     "ai_archer": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Female.glb", "scale": [0.35, 0.35, 0.35], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 45, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "ai", "military", "ranged"],
-      "behaviors": [{ "name": "ai_unit_control", "script": "ai/ai_unit_control.ts", "params": { "unitType": "archer", "attack": 25, "defense": 10, "health": 80, "maxHealth": 80, "movement": 2, "vision": 3, "range": 2, "moveSpeed": 4 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Female.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 45,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "ai",
+        "military",
+        "ranged"
+      ],
+      "behaviors": [
+        {
+          "name": "ai_unit_control",
+          "script": "ai/ai_unit_control.ts",
+          "params": {
+            "unitType": "archer",
+            "attack": 25,
+            "defense": 10,
+            "health": 80,
+            "maxHealth": 80,
+            "movement": 2,
+            "vision": 3,
+            "range": 2,
+            "moveSpeed": 4
+          }
+        }
+      ]
     },
     "ai_swordsman": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Pirate_Male.glb", "scale": [0.42, 0.42, 0.42], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 80, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "ai", "military", "melee"],
-      "behaviors": [{ "name": "ai_unit_control", "script": "ai/ai_unit_control.ts", "params": { "unitType": "swordsman", "attack": 35, "defense": 20, "health": 120, "maxHealth": 120, "movement": 2, "vision": 2, "moveSpeed": 4 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Pirate_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 80,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "ai",
+        "military",
+        "melee"
+      ],
+      "behaviors": [
+        {
+          "name": "ai_unit_control",
+          "script": "ai/ai_unit_control.ts",
+          "params": {
+            "unitType": "swordsman",
+            "attack": 35,
+            "defense": 20,
+            "health": 120,
+            "maxHealth": 120,
+            "movement": 2,
+            "vision": 2,
+            "moveSpeed": 4
+          }
+        }
+      ]
     },
     "ai_settler": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Female.glb", "scale": [0.38, 0.38, 0.38], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 55, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "ai", "civilian"],
-      "behaviors": [{ "name": "ai_unit_control", "script": "ai/ai_unit_control.ts", "params": { "unitType": "settler", "attack": 0, "defense": 5, "health": 50, "maxHealth": 50, "movement": 2, "vision": 2, "canFoundCity": true, "moveSpeed": 3 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Female.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 55,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "ai",
+        "civilian"
+      ],
+      "behaviors": [
+        {
+          "name": "ai_unit_control",
+          "script": "ai/ai_unit_control.ts",
+          "params": {
+            "unitType": "settler",
+            "attack": 0,
+            "defense": 5,
+            "health": 50,
+            "maxHealth": 50,
+            "movement": 2,
+            "vision": 2,
+            "canFoundCity": true,
+            "moveSpeed": 3
+          }
+        }
+      ]
     },
     "ai_scout": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Ninja_Sand.glb", "scale": [0.38, 0.38, 0.38], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 50, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["unit", "ai", "military", "recon"],
-      "behaviors": [{ "name": "ai_unit_control", "script": "ai/ai_unit_control.ts", "params": { "unitType": "scout", "attack": 8, "defense": 8, "health": 60, "maxHealth": 60, "movement": 4, "vision": 4, "moveSpeed": 7 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Ninja_Sand.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "unit",
+        "ai",
+        "military",
+        "recon"
+      ],
+      "behaviors": [
+        {
+          "name": "ai_unit_control",
+          "script": "ai/ai_unit_control.ts",
+          "params": {
+            "unitType": "scout",
+            "attack": 8,
+            "defense": 8,
+            "health": 60,
+            "maxHealth": 60,
+            "movement": 4,
+            "vision": 4,
+            "moveSpeed": 7
+          }
+        }
+      ]
     },
-
     "gold_deposit": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Gold_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["resource", "gold"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Gold_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "resource",
+        "gold"
+      ],
+      "label": false
     },
     "stone_quarry": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Rock_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["resource", "stone"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Rock_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "resource",
+        "stone"
+      ],
+      "label": false
     },
     "lumber_camp": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Tree_Group.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["resource", "lumber"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Tree_Group.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "resource",
+        "lumber"
+      ],
+      "label": false
     },
     "wheat_resource": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Wheat.glb", "scale": [3, 3, 3] },
-      "physics": false, "tags": ["resource", "food"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Wheat.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "resource",
+        "food"
+      ],
+      "label": false
     },
     "iron_mine": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mine.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["resource", "iron"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mine.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "resource",
+        "iron"
+      ],
+      "label": false
     },
-
     "mountain": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mountain_Group_1.glb", "scale": [2, 2, 2] },
-      "tags": ["terrain", "impassable"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mountain_Group_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "terrain",
+        "impassable"
+      ],
+      "label": false
     },
     "mountain_large": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/MountainLarge_Single.glb", "scale": [2, 2, 2] },
-      "tags": ["terrain", "impassable"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/MountainLarge_Single.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "terrain",
+        "impassable"
+      ],
+      "label": false
     },
     "mountain_single": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mountain_Single.glb", "scale": [2, 2, 2] },
-      "tags": ["terrain", "impassable"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mountain_Single.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "terrain",
+        "impassable"
+      ],
+      "label": false
     },
     "rock_formation": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Rock_Group.glb", "scale": [2, 2, 2] },
-      "tags": ["terrain", "hills"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Rock_Group.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "terrain",
+        "hills"
+      ],
+      "label": false
     },
     "ancient_ruins": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TowerHouse_FirstAge.glb", "scale": [1.2, 1.2, 1.2] },
-      "physics": false, "tags": ["terrain", "ruins", "discoverable"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TowerHouse_FirstAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "terrain",
+        "ruins",
+        "discoverable"
+      ],
+      "label": false
     },
-
     "common_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration", "forest"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration",
+        "forest"
+      ],
+      "label": false
     },
     "common_tree_2": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_3.glb", "scale": [1.8, 1.8, 1.8] },
-      "physics": false, "tags": ["decoration", "forest"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_3.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration",
+        "forest"
+      ],
+      "label": false
     },
     "pine_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_2.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration", "forest"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration",
+        "forest"
+      ],
+      "label": false
     },
     "birch_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/BirchTree_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration", "forest"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/BirchTree_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration",
+        "forest"
+      ],
+      "label": false
     },
     "willow_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Willow_1.glb", "scale": [1.2, 1.2, 1.2] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Willow_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "palm_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PalmTree_3.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration", "desert"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PalmTree_3.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration",
+        "desert"
+      ],
+      "label": false
     },
     "dead_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_Dead_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_Dead_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "pine_snow": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_Snow_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration", "tundra"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_Snow_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration",
+        "tundra"
+      ],
+      "label": false
     },
     "cactus": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Cactus_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration", "desert"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Cactus_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration",
+        "desert"
+      ],
+      "label": false
     },
     "bush": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Bush_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Bush_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "flowers": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Flowers.glb", "scale": [2, 2, 2] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Flowers.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "grass_patch": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Grass.glb", "scale": [2, 2, 2] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Grass.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "rock_large": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_Moss_1.glb", "scale": [2, 2, 2] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_Moss_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "rock_small": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
-
     "farm_improvement": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_Dirt_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["improvement", "food"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_Dirt_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "improvement",
+        "food"
+      ],
+      "label": false
     },
     "lumber_mill": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Tree_Group_Cut.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["improvement", "production"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Tree_Group_Cut.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "improvement",
+        "production"
+      ],
+      "label": false
     },
     "mine_improvement": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mine.glb", "scale": [1.2, 1.2, 1.2] },
-      "physics": false, "tags": ["improvement", "production"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Mine.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "improvement",
+        "production"
+      ],
+      "label": false
     },
-
     "watchtower": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WatchTower_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "defense"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WatchTower_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "defense"
+      ],
+      "label": false
     },
     "cannon_defense": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/turret_pack/Cannon_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "defense"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/turret_pack/Cannon_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "defense"
+      ],
+      "label": false
     },
     "wall_tower": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WallTowers_SecondAge.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "defense"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WallTowers_SecondAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "defense"
+      ],
+      "label": false
     },
-
     "windmill": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Windmill_SecondAge.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Windmill_SecondAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "crate_stack": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Crate_Stack2.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Crate_Stack2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "barrel": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barrel.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barrel.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "logs": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Logs.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Logs.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
-
     "ground_plains": {
-      "mesh": { "type": "plane", "color": [0.3, 0.5, 0.25, 1], "scale": [180, 1, 180] },
-      "tags": ["ground"], "label": false,
-      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png" }
+      "mesh": {
+        "type": "plane",
+        "color": [
+          0.3,
+          0.5,
+          0.25,
+          1
+        ],
+        "scale": [
+          180,
+          1,
+          180
+        ]
+      },
+      "tags": [
+        "ground"
+      ],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
     },
     "ground_desert": {
-      "mesh": { "type": "plane", "color": [0.7, 0.6, 0.4, 1], "scale": [60, 1, 60] },
-      "physics": false, "tags": ["ground", "biome_desert"], "label": false,
-      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png" }
+      "mesh": {
+        "type": "plane",
+        "color": [
+          0.7,
+          0.6,
+          0.4,
+          1
+        ],
+        "scale": [
+          60,
+          1,
+          60
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "ground",
+        "biome_desert"
+      ],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+      }
     },
     "ground_tundra": {
-      "mesh": { "type": "plane", "color": [0.75, 0.78, 0.82, 1], "scale": [55, 1, 55] },
-      "physics": false, "tags": ["ground", "biome_tundra"], "label": false,
-      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png" }
+      "mesh": {
+        "type": "plane",
+        "color": [
+          0.75,
+          0.78,
+          0.82,
+          1
+        ],
+        "scale": [
+          55,
+          1,
+          55
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "ground",
+        "biome_tundra"
+      ],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+      }
     },
     "stone_wall": {
-      "mesh": { "type": "cube", "color": [0.45, 0.42, 0.38, 1], "scale": [1, 5, 1] },
-      "tags": ["terrain", "boundary"], "label": false,
-      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png" }
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.45,
+          0.42,
+          0.38,
+          1
+        ],
+        "scale": [
+          1,
+          5,
+          1
+        ]
+      },
+      "tags": [
+        "terrain",
+        "boundary"
+      ],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
     }
   }
 }

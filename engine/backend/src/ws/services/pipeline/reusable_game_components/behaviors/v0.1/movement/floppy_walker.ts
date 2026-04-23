@@ -144,7 +144,7 @@ class FloppyWalkerBehavior extends GameScript {
         // — input dir would jitter at low input.
         var spd = Math.sqrt(vx * vx + vz * vz);
         if (spd > 0.6) {
-            var ang = Math.atan2(vx, vz) * 180 / Math.PI;
+            var ang = Math.atan2(-vx, -vz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, ang, 0);
         }
 

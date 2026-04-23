@@ -4,23 +4,39 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Ship_Large.glb",
-        "scale": [1.4, 1.4, 1.4],
-        "modelRotationY": 270
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "kinematic",
         "mass": 1500,
         "freeze_rotation": true,
-        "collider": { "shape": "cuboid", "halfExtents": [2.4, 1.5, 5.0] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            2.4,
+            1.5,
+            5.0
+          ]
+        }
       },
       "network": {
         "syncTransform": true,
         "syncInterval": 50,
         "ownership": "local_player",
         "predictLocally": true,
-        "networkedVars": ["health"]
+        "networkedVars": [
+          "health"
+        ]
       },
-      "tags": ["player", "ship", "networked"],
+      "tags": [
+        "player",
+        "ship",
+        "networked"
+      ],
       "behaviors": [
         {
           "name": "ship_sail",
@@ -74,10 +90,13 @@
         }
       ]
     },
-
     "camera": {
-      "camera": { "fov": 70 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 70
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "camera_galleon",
@@ -94,37 +113,68 @@
         }
       ]
     },
-
     "ocean_surface": {
       "mesh": {
         "type": "plane",
-        "color": [0.15, 0.32, 0.48, 1],
-        "scale": [320, 1, 320]
+        "color": [
+          0.15,
+          0.32,
+          0.48,
+          1
+        ],
+        "scale": [
+          320,
+          1,
+          320
+        ]
       },
-      "tags": ["ocean", "ground"],
+      "tags": [
+        "ocean",
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_03.png"
       }
     },
-
     "ocean_floor": {
       "mesh": {
         "type": "plane",
-        "color": [0.05, 0.10, 0.18, 1],
-        "scale": [320, 1, 320]
+        "color": [
+          0.05,
+          0.1,
+          0.18,
+          1
+        ],
+        "scale": [
+          320,
+          1,
+          320
+        ]
       },
-      "tags": ["sea_floor"],
+      "tags": [
+        "sea_floor"
+      ],
       "label": false
     },
-
     "sand_island": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.92, 0.83, 0.55, 1],
-        "scale": [12, 0.6, 12]
+        "color": [
+          0.92,
+          0.83,
+          0.55,
+          1
+        ],
+        "scale": [
+          12,
+          0.6,
+          12
+        ]
       },
-      "tags": ["island"],
+      "tags": [
+        "island"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
@@ -133,30 +183,54 @@
     "sand_atoll_small": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.94, 0.86, 0.6, 1],
-        "scale": [6, 0.5, 6]
+        "color": [
+          0.94,
+          0.86,
+          0.6,
+          1
+        ],
+        "scale": [
+          6,
+          0.5,
+          6
+        ]
       },
-      "tags": ["island"],
+      "tags": [
+        "island"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
       }
     },
-
     "ghost_ship_small": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Ship_Small.glb",
-        "scale": [1.2, 1.2, 1.2],
-        "modelRotationY": 270
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "kinematic",
         "mass": 1200,
         "freeze_rotation": true,
-        "collider": { "shape": "cuboid", "halfExtents": [1.8, 1.4, 4.0] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            1.8,
+            1.4,
+            4.0
+          ]
+        }
       },
-      "tags": ["enemy", "ship", "ghost"],
+      "tags": [
+        "enemy",
+        "ship",
+        "ghost"
+      ],
       "behaviors": [
         {
           "name": "ghost_ship",
@@ -180,15 +254,21 @@
         }
       ]
     },
-
     "kraken_tentacle": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Enemy_Tentacle.glb",
-        "scale": [2.4, 2.4, 2.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["enemy", "kraken"],
+      "tags": [
+        "enemy",
+        "kraken"
+      ],
       "behaviors": [
         {
           "name": "sea_monster",
@@ -212,15 +292,21 @@
         }
       ]
     },
-
     "shark_patrol": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/animated_fish_pack/Shark.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["enemy", "shark"],
+      "tags": [
+        "enemy",
+        "shark"
+      ],
       "behaviors": [
         {
           "name": "sea_monster",
@@ -242,310 +328,488 @@
         }
       ]
     },
-
     "treasure_barrel": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_Barrel.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["treasure", "networked"],
+      "tags": [
+        "treasure",
+        "networked"
+      ],
       "label": false
     },
-
     "treasure_chest_gold": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_Chest_Gold.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["treasure", "decoration"],
+      "tags": [
+        "treasure",
+        "decoration"
+      ],
       "label": false
     },
-
     "treasure_chest_closed": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_Chest_Closed.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "gold_pile": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_Coins.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "gold_bag": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_GoldBag.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "anchor_decor": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_Anchor.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "barrel_decor": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_Barrel.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "skull_decor": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_Skull.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "bones_decor": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_LargeBones.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "palm_a": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_PalmTree_1.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "tree"],
+      "tags": [
+        "decoration",
+        "tree"
+      ],
       "label": false
     },
     "palm_b": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_PalmTree_2.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "tree"],
+      "tags": [
+        "decoration",
+        "tree"
+      ],
       "label": false
     },
     "palm_c": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_PalmTree_3.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "tree"],
+      "tags": [
+        "decoration",
+        "tree"
+      ],
       "label": false
     },
-
     "rock_a": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_Rock_1.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "rock_b": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_Rock_3.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "rock_c": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_Rock_5.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "cliff_face": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_Cliff2.glb",
-        "scale": [2.4, 2.4, 2.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "tavern_house": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_House1.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "structure"],
+      "tags": [
+        "decoration",
+        "structure"
+      ],
       "label": false
     },
     "fishery_house": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_House3.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "structure"],
+      "tags": [
+        "decoration",
+        "structure"
+      ],
       "label": false
     },
     "sawmill_house": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_Sawmill.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "structure"],
+      "tags": [
+        "decoration",
+        "structure"
+      ],
       "label": false
     },
-
     "dock_long": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_Dock.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "dock_pole": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Environment_Dock_Pole.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "captain_statue": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Characters_Captain_Barbarossa.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "npc"],
+      "tags": [
+        "decoration",
+        "npc"
+      ],
       "label": false
     },
     "skeleton_decor": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Characters_Skeleton.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "npc"],
+      "tags": [
+        "decoration",
+        "npc"
+      ],
       "label": false
     },
-
     "fish_tuna": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cute_fish_pack/Tuna.glb",
-        "scale": [0.9, 0.9, 0.9]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "wildlife"],
+      "tags": [
+        "decoration",
+        "wildlife"
+      ],
       "label": false
     },
     "fish_clown": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cute_fish_pack/Clownfish.glb",
-        "scale": [0.7, 0.7, 0.7]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "wildlife"],
+      "tags": [
+        "decoration",
+        "wildlife"
+      ],
       "label": false
     },
     "fish_tang": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cute_fish_pack/BlueTang.glb",
-        "scale": [0.7, 0.7, 0.7]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "wildlife"],
+      "tags": [
+        "decoration",
+        "wildlife"
+      ],
       "label": false
     },
     "whale_distant": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/animated_fish_pack/Whale.glb",
-        "scale": [2.0, 2.0, 2.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "wildlife"],
+      "tags": [
+        "decoration",
+        "wildlife"
+      ],
       "label": false
     },
     "dolphin_pod": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/animated_fish_pack/Dolphin.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "wildlife"],
+      "tags": [
+        "decoration",
+        "wildlife"
+      ],
       "label": false
     },
-
     "border_buoy": {
       "mesh": {
         "type": "cube",
-        "color": [0.85, 0.18, 0.18, 1],
-        "scale": [1.5, 2.0, 1.5]
+        "color": [
+          0.85,
+          0.18,
+          0.18,
+          1
+        ],
+        "scale": [
+          1.5,
+          2.0,
+          1.5
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     }
   }

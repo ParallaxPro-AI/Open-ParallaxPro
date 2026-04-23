@@ -4,375 +4,1671 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Golden_Male.glb",
-        "scale": [0.45, 0.45, 0.45],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 80, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["player", "hero"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 80,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "player",
+        "hero"
+      ],
       "behaviors": [
         {
           "name": "rpg_movement",
           "script": "movement/rpg_movement.ts",
-          "params": { "speed": 5, "sprintSpeed": 9, "jumpForce": 6, "turnSpeed": 150, "autoRunKey": "NumLock" }
+          "params": {
+            "speed": 5,
+            "sprintSpeed": 9,
+            "jumpForce": 6,
+            "turnSpeed": 150,
+            "autoRunKey": "NumLock"
+          }
         },
         {
           "name": "hero_abilities",
           "script": "combat/hero_abilities.ts",
           "params": {
-            "maxHealth": 500, "maxMana": 200, "manaRegen": 5,
-            "attackDamage": 25, "attackRange": 3, "attackRate": 1.0, "defense": 10,
-            "qDamage": 40, "qRadius": 4, "qCooldown": 4, "qManaCost": 20,
-            "eDamage": 15, "eStunDuration": 1.5, "eRange": 3, "eCooldown": 8, "eManaCost": 30,
-            "rBuffMagnitude": 0.25, "rBuffDuration": 10, "rCooldown": 20, "rManaCost": 40,
-            "fHealAmount": 80, "fCooldown": 12, "fManaCost": 50,
+            "maxHealth": 500,
+            "maxMana": 200,
+            "manaRegen": 5,
+            "attackDamage": 25,
+            "attackRange": 3,
+            "attackRate": 1.0,
+            "defense": 10,
+            "qDamage": 40,
+            "qRadius": 4,
+            "qCooldown": 4,
+            "qManaCost": 20,
+            "eDamage": 15,
+            "eStunDuration": 1.5,
+            "eRange": 3,
+            "eCooldown": 8,
+            "eManaCost": 30,
+            "rBuffMagnitude": 0.25,
+            "rBuffDuration": 10,
+            "rCooldown": 20,
+            "rManaCost": 40,
+            "fHealAmount": 80,
+            "fCooldown": 12,
+            "fManaCost": 50,
             "attackSound": "/assets/kenney/audio/rpg_audio/knifeSlice.ogg"
           }
         },
         {
           "name": "player_stats",
           "script": "status/player_stats.ts",
-          "params": { "level": 1, "xp": 0, "gold": 25 }
+          "params": {
+            "level": 1,
+            "xp": 0,
+            "gold": 25
+          }
         }
       ]
     },
     "camera": {
-      "camera": { "fov": 60 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 60
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "camera_rpg",
           "script": "camera/camera_rpg.ts",
-          "params": { "distance": 10, "height": 6, "lookHeight": 2, "smoothSpeed": 6, "sensitivity": 0.15, "minZoom": 5, "maxZoom": 22, "rightClickRotate": true }
+          "params": {
+            "distance": 10,
+            "height": 6,
+            "lookHeight": 2,
+            "smoothSpeed": 6,
+            "sensitivity": 0.15,
+            "minZoom": 5,
+            "maxZoom": 22,
+            "rightClickRotate": true
+          }
         }
       ]
     },
-
     "town_hall": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/TownCenter_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
     "house_1": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_SecondAge_1_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_SecondAge_1_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
     "house_2": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_SecondAge_2_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Houses_SecondAge_2_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
     "inn": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Inn.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town", "interactive"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Inn.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town",
+        "interactive"
+      ],
+      "label": false
     },
     "blacksmith_shop": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Blacksmith.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town", "interactive"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Blacksmith.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town",
+        "interactive"
+      ],
+      "label": false
     },
     "market": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Market_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town", "interactive"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Market_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town",
+        "interactive"
+      ],
+      "label": false
     },
     "temple": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Temple_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Temple_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
     "stable": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Stable.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Stable.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
     "well": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Well.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Well.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
     "bell_tower": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bell_Tower.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bell_Tower.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
     "guard_tower": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WatchTower_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town", "defense"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WatchTower_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town",
+        "defense"
+      ],
+      "label": false
     },
     "farm": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_SecondAge_Level2_Wheat.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Farm_SecondAge_Level2_Wheat.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
     "windmill": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Windmill_SecondAge.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "town"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Windmill_SecondAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "town"
+      ],
+      "label": false
     },
-
     "fortress_wall": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wall_SecondAge.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "fortress"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Wall_SecondAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "fortress"
+      ],
+      "label": false
     },
     "fortress_tower": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WallTowers_SecondAge.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "fortress"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WallTowers_SecondAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "fortress"
+      ],
+      "label": false
     },
     "fortress_gate": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WallTowers_DoorClosed_SecondAge.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "fortress"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/WallTowers_DoorClosed_SecondAge.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "fortress"
+      ],
+      "label": false
     },
     "barracks": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barracks_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "fortress"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Barracks_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "fortress"
+      ],
+      "label": false
     },
     "archery_range": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Archery_SecondAge_Level2.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["building", "fortress"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Archery_SecondAge_Level2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "building",
+        "fortress"
+      ],
+      "label": false
     },
-
     "bonfire": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bonfire_Lit.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["prop", "light"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bonfire_Lit.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "prop",
+        "light"
+      ],
+      "label": false
     },
     "torch": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/survival_pack/WoodenTorch_Fire.glb", "scale": [0.8, 0.8, 0.8] },
-      "physics": false, "tags": ["prop", "light"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/survival_pack/WoodenTorch_Fire.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "prop",
+        "light"
+      ],
+      "label": false
     },
     "bench": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bench_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["prop"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bench_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "prop"
+      ],
+      "label": false
     },
     "barrel": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Barrel.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["prop"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Barrel.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "prop"
+      ],
+      "label": false
     },
     "path_stone": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Path_Straight.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["prop"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Path_Straight.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "prop"
+      ],
+      "label": false
     },
     "fence": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Fence.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["prop"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Fence.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "prop"
+      ],
+      "label": false
     },
     "hay_bale": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Hay.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["prop"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Hay.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "prop"
+      ],
+      "label": false
     },
     "cart": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/medieval_village_pack/Cart.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["prop"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Cart.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "prop"
+      ],
+      "label": false
     },
     "crate_stack": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Crate_Stack2.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["prop"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Crate_Stack2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "prop"
+      ],
+      "label": false
     },
-
     "quest_elder": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/OldClassy_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 60, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "quest_giver"],
-      "behaviors": [{ "name": "npc_quest", "script": "ai/npc_quest.ts", "params": { "wanderRadius": 5, "walkSpeed": 1, "idleTime": 6, "interactRange": 4, "greetRange": 8, "questIcon": "exclamation" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/OldClassy_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "quest_giver"
+      ],
+      "behaviors": [
+        {
+          "name": "npc_quest",
+          "script": "ai/npc_quest.ts",
+          "params": {
+            "wanderRadius": 5,
+            "walkSpeed": 1,
+            "idleTime": 6,
+            "interactRange": 4,
+            "greetRange": 8,
+            "questIcon": "exclamation"
+          }
+        }
+      ]
     },
     "quest_knight": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "quest_giver"],
-      "behaviors": [{ "name": "npc_quest", "script": "ai/npc_quest.ts", "params": { "wanderRadius": 3, "walkSpeed": 1.5, "idleTime": 4, "interactRange": 4, "greetRange": 8, "questIcon": "exclamation" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/BlueSoldier_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "quest_giver"
+      ],
+      "behaviors": [
+        {
+          "name": "npc_quest",
+          "script": "ai/npc_quest.ts",
+          "params": {
+            "wanderRadius": 3,
+            "walkSpeed": 1.5,
+            "idleTime": 4,
+            "interactRange": 4,
+            "greetRange": 8,
+            "questIcon": "exclamation"
+          }
+        }
+      ]
     },
     "merchant": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Female.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 55, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "merchant"],
-      "behaviors": [{ "name": "merchant_ai", "script": "ai/merchant_ai.ts", "params": { "wanderRadius": 4, "walkSpeed": 1, "idleTime": 5, "interactRange": 3, "shopItems": ["health_potion", "mana_potion", "bread", "arrow_bundle"], "buyMultiplier": 0.5, "tradeSound": "/assets/kenney/audio/rpg_audio/handleCoins.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Female.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 55,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "merchant"
+      ],
+      "behaviors": [
+        {
+          "name": "merchant_ai",
+          "script": "ai/merchant_ai.ts",
+          "params": {
+            "wanderRadius": 4,
+            "walkSpeed": 1,
+            "idleTime": 5,
+            "interactRange": 3,
+            "shopItems": [
+              "health_potion",
+              "mana_potion",
+              "bread",
+              "arrow_bundle"
+            ],
+            "buyMultiplier": 0.5,
+            "tradeSound": "/assets/kenney/audio/rpg_audio/handleCoins.ogg"
+          }
+        }
+      ]
     },
     "healer_npc": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Doctor_Female_Young.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 55, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "healer"],
-      "behaviors": [{ "name": "npc_quest", "script": "ai/npc_quest.ts", "params": { "wanderRadius": 5, "walkSpeed": 1, "idleTime": 6, "interactRange": 3, "greetRange": 6, "healsPlayer": true, "healAmount": 200, "healCooldown": 30 } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Doctor_Female_Young.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 55,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "healer"
+      ],
+      "behaviors": [
+        {
+          "name": "npc_quest",
+          "script": "ai/npc_quest.ts",
+          "params": {
+            "wanderRadius": 5,
+            "walkSpeed": 1,
+            "idleTime": 6,
+            "interactRange": 3,
+            "greetRange": 6,
+            "healsPlayer": true,
+            "healAmount": 200,
+            "healCooldown": 30
+          }
+        }
+      ]
     },
     "blacksmith_npc": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 70, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "merchant"],
-      "behaviors": [{ "name": "merchant_ai", "script": "ai/merchant_ai.ts", "params": { "wanderRadius": 3, "walkSpeed": 1, "idleTime": 4, "interactRange": 3, "shopItems": ["iron_sword", "iron_armor", "shield"], "buyMultiplier": 0.4, "tradeSound": "/assets/kenney/audio/rpg_audio/metalClick.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Worker_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 70,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "merchant"
+      ],
+      "behaviors": [
+        {
+          "name": "merchant_ai",
+          "script": "ai/merchant_ai.ts",
+          "params": {
+            "wanderRadius": 3,
+            "walkSpeed": 1,
+            "idleTime": 4,
+            "interactRange": 3,
+            "shopItems": [
+              "iron_sword",
+              "iron_armor",
+              "shield"
+            ],
+            "buyMultiplier": 0.4,
+            "tradeSound": "/assets/kenney/audio/rpg_audio/metalClick.ogg"
+          }
+        }
+      ]
     },
     "innkeeper": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Chef_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 65, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "innkeeper"],
-      "behaviors": [{ "name": "npc_quest", "script": "ai/npc_quest.ts", "params": { "wanderRadius": 4, "walkSpeed": 1, "idleTime": 6, "interactRange": 3, "greetRange": 6, "restoresPlayer": true } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Chef_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 65,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "innkeeper"
+      ],
+      "behaviors": [
+        {
+          "name": "npc_quest",
+          "script": "ai/npc_quest.ts",
+          "params": {
+            "wanderRadius": 4,
+            "walkSpeed": 1,
+            "idleTime": 6,
+            "interactRange": 3,
+            "greetRange": 6,
+            "restoresPlayer": true
+          }
+        }
+      ]
     },
     "guard_male": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Viking_Male.glb", "scale": [0.45, 0.45, 0.45], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 85, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "guard"],
-      "behaviors": [{ "name": "patrol_guard", "script": "ai/patrol_guard.ts", "params": { "patrolSpeed": 2.5, "patrolRadius": 18, "health": 200, "maxHealth": 200, "damage": 20, "attackRange": 3, "attackRate": 1.0, "detectionRange": 16, "chaseSpeed": 5, "defendsAllies": true } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Viking_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 85,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "guard"
+      ],
+      "behaviors": [
+        {
+          "name": "patrol_guard",
+          "script": "ai/patrol_guard.ts",
+          "params": {
+            "patrolSpeed": 2.5,
+            "patrolRadius": 18,
+            "health": 200,
+            "maxHealth": 200,
+            "damage": 20,
+            "attackRange": 3,
+            "attackRate": 1.0,
+            "detectionRange": 16,
+            "chaseSpeed": 5,
+            "defendsAllies": true
+          }
+        }
+      ]
     },
     "guard_female": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Viking_Female.glb", "scale": [0.45, 0.45, 0.45], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 80, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "guard"],
-      "behaviors": [{ "name": "patrol_guard", "script": "ai/patrol_guard.ts", "params": { "patrolSpeed": 2.5, "patrolRadius": 18, "health": 200, "maxHealth": 200, "damage": 18, "attackRange": 3, "attackRate": 1.0, "detectionRange": 16, "chaseSpeed": 5, "defendsAllies": true } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Viking_Female.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 80,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "guard"
+      ],
+      "behaviors": [
+        {
+          "name": "patrol_guard",
+          "script": "ai/patrol_guard.ts",
+          "params": {
+            "patrolSpeed": 2.5,
+            "patrolRadius": 18,
+            "health": 200,
+            "maxHealth": 200,
+            "damage": 18,
+            "attackRange": 3,
+            "attackRate": 1.0,
+            "detectionRange": 16,
+            "chaseSpeed": 5,
+            "defendsAllies": true
+          }
+        }
+      ]
     },
-
     "goblin_scout": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Male.glb", "scale": [0.35, 0.35, 0.35], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 40, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "goblin"],
-      "behaviors": [{ "name": "hostile_mob", "script": "ai/hostile_mob.ts", "params": { "health": 80, "maxHealth": 80, "damage": 8, "attackRange": 2.5, "attackRate": 1.0, "detectionRange": 14, "chaseSpeed": 4, "wanderSpeed": 2, "wanderRadius": 10, "leashRange": 30, "attackSound": "/assets/kenney/audio/rpg_audio/knifeSlice2.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 40,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "goblin"
+      ],
+      "behaviors": [
+        {
+          "name": "hostile_mob",
+          "script": "ai/hostile_mob.ts",
+          "params": {
+            "health": 80,
+            "maxHealth": 80,
+            "damage": 8,
+            "attackRange": 2.5,
+            "attackRate": 1.0,
+            "detectionRange": 14,
+            "chaseSpeed": 4,
+            "wanderSpeed": 2,
+            "wanderRadius": 10,
+            "leashRange": 30,
+            "attackSound": "/assets/kenney/audio/rpg_audio/knifeSlice2.ogg"
+          }
+        }
+      ]
     },
     "goblin_shaman": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Female.glb", "scale": [0.35, 0.35, 0.35], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 35, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "goblin", "caster"],
-      "behaviors": [{ "name": "caster_mob", "script": "ai/caster_mob.ts", "params": { "health": 60, "maxHealth": 60, "damage": 15, "attackRange": 10, "attackRate": 2.0, "detectionRange": 16, "chaseSpeed": 3, "wanderSpeed": 1.5, "wanderRadius": 8, "leashRange": 28, "preferredRange": 8, "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_003.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Female.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 35,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "goblin",
+        "caster"
+      ],
+      "behaviors": [
+        {
+          "name": "caster_mob",
+          "script": "ai/caster_mob.ts",
+          "params": {
+            "health": 60,
+            "maxHealth": 60,
+            "damage": 15,
+            "attackRange": 10,
+            "attackRate": 2.0,
+            "detectionRange": 16,
+            "chaseSpeed": 3,
+            "wanderSpeed": 1.5,
+            "wanderRadius": 8,
+            "leashRange": 28,
+            "preferredRange": 8,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_003.ogg"
+          }
+        }
+      ]
     },
     "undead_warrior": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Zombie_Male.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 70, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "undead"],
-      "behaviors": [{ "name": "hostile_mob", "script": "ai/hostile_mob.ts", "params": { "health": 150, "maxHealth": 150, "damage": 14, "attackRange": 2.5, "attackRate": 1.2, "detectionRange": 12, "chaseSpeed": 3, "wanderSpeed": 1, "wanderRadius": 8, "leashRange": 25, "attackSound": "/assets/kenney/audio/rpg_audio/knifeSlice.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Zombie_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 70,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "undead"
+      ],
+      "behaviors": [
+        {
+          "name": "hostile_mob",
+          "script": "ai/hostile_mob.ts",
+          "params": {
+            "health": 150,
+            "maxHealth": 150,
+            "damage": 14,
+            "attackRange": 2.5,
+            "attackRate": 1.2,
+            "detectionRange": 12,
+            "chaseSpeed": 3,
+            "wanderSpeed": 1,
+            "wanderRadius": 8,
+            "leashRange": 25,
+            "attackSound": "/assets/kenney/audio/rpg_audio/knifeSlice.ogg"
+          }
+        }
+      ]
     },
     "undead_mage": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Zombie_Female.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 55, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "undead", "caster"],
-      "behaviors": [{ "name": "caster_mob", "script": "ai/caster_mob.ts", "params": { "health": 100, "maxHealth": 100, "damage": 22, "attackRange": 12, "attackRate": 2.5, "detectionRange": 16, "chaseSpeed": 2.5, "wanderSpeed": 1, "wanderRadius": 6, "leashRange": 25, "preferredRange": 10, "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserRetro_002.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Zombie_Female.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 55,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "undead",
+        "caster"
+      ],
+      "behaviors": [
+        {
+          "name": "caster_mob",
+          "script": "ai/caster_mob.ts",
+          "params": {
+            "health": 100,
+            "maxHealth": 100,
+            "damage": 22,
+            "attackRange": 12,
+            "attackRate": 2.5,
+            "detectionRange": 16,
+            "chaseSpeed": 2.5,
+            "wanderSpeed": 1,
+            "wanderRadius": 6,
+            "leashRange": 25,
+            "preferredRange": 10,
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserRetro_002.ogg"
+          }
+        }
+      ]
     },
     "shadow_assassin": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Ninja_Sand.glb", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 50, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "shadow"],
-      "behaviors": [{ "name": "hostile_mob", "script": "ai/hostile_mob.ts", "params": { "health": 120, "maxHealth": 120, "damage": 20, "attackRange": 2.5, "attackRate": 0.7, "detectionRange": 18, "chaseSpeed": 6, "wanderSpeed": 3, "wanderRadius": 12, "leashRange": 30, "canStealth": true, "stealthDuration": 5, "attackSound": "/assets/kenney/audio/rpg_audio/drawKnife3.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Ninja_Sand.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "shadow"
+      ],
+      "behaviors": [
+        {
+          "name": "hostile_mob",
+          "script": "ai/hostile_mob.ts",
+          "params": {
+            "health": 120,
+            "maxHealth": 120,
+            "damage": 20,
+            "attackRange": 2.5,
+            "attackRate": 0.7,
+            "detectionRange": 18,
+            "chaseSpeed": 6,
+            "wanderSpeed": 3,
+            "wanderRadius": 12,
+            "leashRange": 30,
+            "canStealth": true,
+            "stealthDuration": 5,
+            "attackSound": "/assets/kenney/audio/rpg_audio/drawKnife3.ogg"
+          }
+        }
+      ]
     },
     "dark_knight": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb", "scale": [0.45, 0.45, 0.45], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 85, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "elite"],
-      "behaviors": [{ "name": "elite_mob", "script": "ai/elite_mob.ts", "params": { "health": 250, "maxHealth": 250, "damage": 22, "attackRange": 3, "attackRate": 1.2, "detectionRange": 16, "chaseSpeed": 4, "wanderSpeed": 2, "wanderRadius": 10, "leashRange": 35, "armor": 5, "hasShieldBlock": true, "blockChance": 0.2, "attackSound": "/assets/kenney/audio/rpg_audio/knifeSlice.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 85,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "elite"
+      ],
+      "behaviors": [
+        {
+          "name": "elite_mob",
+          "script": "ai/elite_mob.ts",
+          "params": {
+            "health": 250,
+            "maxHealth": 250,
+            "damage": 22,
+            "attackRange": 3,
+            "attackRate": 1.2,
+            "detectionRange": 16,
+            "chaseSpeed": 4,
+            "wanderSpeed": 2,
+            "wanderRadius": 10,
+            "leashRange": 35,
+            "armor": 5,
+            "hasShieldBlock": true,
+            "blockChance": 0.2,
+            "attackSound": "/assets/kenney/audio/rpg_audio/knifeSlice.ogg"
+          }
+        }
+      ]
     },
     "war_chief": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Pirate_Male.glb", "scale": [0.55, 0.55, 0.55], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 120, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "elite", "boss"],
-      "behaviors": [{ "name": "boss_ai", "script": "ai/boss_ai.ts", "params": { "health": 800, "maxHealth": 800, "damage": 30, "attackRange": 4, "attackRate": 1.5, "detectionRange": 20, "chaseSpeed": 4.5, "armor": 8, "phases": [{ "healthThreshold": 0.5, "enrage": true, "damageMultiplier": 1.5, "speedMultiplier": 1.3 }], "cleaveAngle": 120, "cleaveDamage": 20, "cleaveCooldown": 6, "attackSound": "/assets/kenney/audio/impact_sounds/impactMetal_heavy_002.ogg", "enrageSound": "/assets/kenney/audio/rpg_audio/cloth1.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Pirate_Male.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 120,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "elite",
+        "boss"
+      ],
+      "behaviors": [
+        {
+          "name": "boss_ai",
+          "script": "ai/boss_ai.ts",
+          "params": {
+            "health": 800,
+            "maxHealth": 800,
+            "damage": 30,
+            "attackRange": 4,
+            "attackRate": 1.5,
+            "detectionRange": 20,
+            "chaseSpeed": 4.5,
+            "armor": 8,
+            "phases": [
+              {
+                "healthThreshold": 0.5,
+                "enrage": true,
+                "damageMultiplier": 1.5,
+                "speedMultiplier": 1.3
+              }
+            ],
+            "cleaveAngle": 120,
+            "cleaveDamage": 20,
+            "cleaveCooldown": 6,
+            "attackSound": "/assets/kenney/audio/impact_sounds/impactMetal_heavy_002.ogg",
+            "enrageSound": "/assets/kenney/audio/rpg_audio/cloth1.ogg"
+          }
+        }
+      ]
     },
     "dungeon_lord": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Witch.glb", "scale": [0.6, 0.6, 0.6], "modelRotationY": 180 },
-      "physics": { "type": "dynamic", "mass": 100, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "boss", "final_boss"],
-      "behaviors": [{ "name": "boss_ai", "script": "ai/boss_ai.ts", "params": { "health": 1500, "maxHealth": 1500, "damage": 35, "attackRange": 12, "attackRate": 2.0, "detectionRange": 25, "chaseSpeed": 3, "armor": 5, "isRanged": true, "phases": [{ "healthThreshold": 0.7, "summonMinions": true, "minionType": "shadow_assassin", "minionCount": 2 }, { "healthThreshold": 0.3, "enrage": true, "damageMultiplier": 2.0, "aoeRadius": 8, "aoeDamage": 40, "aoeCooldown": 10 }], "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_002.ogg", "phaseSound": "/assets/kenney/audio/sci_fi_sounds/forceField_001.ogg" } }]
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Witch.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 100,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "boss",
+        "final_boss"
+      ],
+      "behaviors": [
+        {
+          "name": "boss_ai",
+          "script": "ai/boss_ai.ts",
+          "params": {
+            "health": 1500,
+            "maxHealth": 1500,
+            "damage": 35,
+            "attackRange": 12,
+            "attackRate": 2.0,
+            "detectionRange": 25,
+            "chaseSpeed": 3,
+            "armor": 5,
+            "isRanged": true,
+            "phases": [
+              {
+                "healthThreshold": 0.7,
+                "summonMinions": true,
+                "minionType": "shadow_assassin",
+                "minionCount": 2
+              },
+              {
+                "healthThreshold": 0.3,
+                "enrage": true,
+                "damageMultiplier": 2.0,
+                "aoeRadius": 8,
+                "aoeDamage": 40,
+                "aoeCooldown": 10
+              }
+            ],
+            "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserLarge_002.ogg",
+            "phaseSound": "/assets/kenney/audio/sci_fi_sounds/forceField_001.ogg"
+          }
+        }
+      ]
     },
-
     "common_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "common_tree_2": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_3.glb", "scale": [1.8, 1.8, 1.8] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_3.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "pine_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_2.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/PineTree_2.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "birch_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/BirchTree_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/BirchTree_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "willow_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Willow_1.glb", "scale": [1.2, 1.2, 1.2] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Willow_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "dead_tree": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_Dead_4.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/CommonTree_Dead_4.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "bush": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Bush_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Bush_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "bush_berries": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/BushBerries_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/BushBerries_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "flowers": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Flowers.glb", "scale": [2, 2, 2] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Flowers.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "grass_patch": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Grass.glb", "scale": [2, 2, 2] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Grass.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "rock_large": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_Moss_1.glb", "scale": [2, 2, 2] },
-      "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_Moss_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
     "rock_small": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_nature_pack/Rock_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "decoration"
+      ],
+      "label": false
     },
-
     "dungeon_wall": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/ModularStoneWall.glb", "scale": [2, 2, 2] },
-      "tags": ["dungeon"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/ModularStoneWall.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "dungeon"
+      ],
+      "label": false
     },
     "dungeon_floor": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/ModularFloor.glb", "scale": [2, 2, 2] },
-      "physics": false, "tags": ["dungeon"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/ModularFloor.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "dungeon"
+      ],
+      "label": false
     },
     "dungeon_column": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Column.glb", "scale": [2, 2, 2] },
-      "tags": ["dungeon"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Column.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "dungeon"
+      ],
+      "label": false
     },
     "dungeon_torch": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Torch_wall.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["dungeon", "light"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Torch_wall.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "dungeon",
+        "light"
+      ],
+      "label": false
     },
     "dungeon_chest": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Chest.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["dungeon", "interactive", "loot"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Chest.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "dungeon",
+        "interactive",
+        "loot"
+      ],
+      "label": false
     },
     "treasure_chest": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Chest_gold.glb", "scale": [1.5, 1.5, 1.5] },
-      "tags": ["dungeon", "interactive", "loot"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Chest_gold.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "tags": [
+        "dungeon",
+        "interactive",
+        "loot"
+      ],
+      "label": false
     },
     "dungeon_potion": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Potion.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["loot", "collectible"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Potion.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "loot",
+        "collectible"
+      ],
+      "label": false
     },
     "bones": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Bones.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["dungeon", "decoration"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Bones.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "dungeon",
+        "decoration"
+      ],
+      "label": false
     },
     "candelabrum": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Candelabrum_tall.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["dungeon", "light"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/modular_dungeon_pack/Candelabrum_tall.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "dungeon",
+        "light"
+      ],
+      "label": false
     },
-
     "gold_pile": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Gold_1.glb", "scale": [1.5, 1.5, 1.5] },
-      "physics": false, "tags": ["resource", "collectible"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_fantasy_rts/Resource_Gold_1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "resource",
+        "collectible"
+      ],
+      "label": false
     },
     "health_potion": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_rpg_items_pack/Potion1_Filled.glb", "scale": [2, 2, 2] },
-      "physics": false, "tags": ["loot", "collectible"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_rpg_items_pack/Potion1_Filled.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "loot",
+        "collectible"
+      ],
+      "label": false
     },
     "mana_potion": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_rpg_items_pack/Potion3_Filled.glb", "scale": [2, 2, 2] },
-      "physics": false, "tags": ["loot", "collectible"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_rpg_items_pack/Potion3_Filled.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "loot",
+        "collectible"
+      ],
+      "label": false
     },
     "quest_crystal": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/3d_models/ultimate_rpg_items_pack/Crystal1.glb", "scale": [2.5, 2.5, 2.5] },
-      "physics": false, "tags": ["quest", "marker"], "label": false
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/ultimate_rpg_items_pack/Crystal1.glb",
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "quest",
+        "marker"
+      ],
+      "label": false
     },
-
     "ground": {
-      "mesh": { "type": "plane", "color": [0.3, 0.5, 0.25, 1], "scale": [200, 1, 200] },
-      "tags": ["ground"], "label": false,
-      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png" }
+      "mesh": {
+        "type": "plane",
+        "color": [
+          0.3,
+          0.5,
+          0.25,
+          1
+        ],
+        "scale": [
+          200,
+          1,
+          200
+        ]
+      },
+      "tags": [
+        "ground"
+      ],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
     },
     "ground_swamp": {
-      "mesh": { "type": "plane", "color": [0.2, 0.3, 0.18, 1], "scale": [50, 1, 50] },
-      "physics": false, "tags": ["ground", "biome_swamp"], "label": false,
-      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png" }
+      "mesh": {
+        "type": "plane",
+        "color": [
+          0.2,
+          0.3,
+          0.18,
+          1
+        ],
+        "scale": [
+          50,
+          1,
+          50
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "ground",
+        "biome_swamp"
+      ],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+      }
     },
     "stone_wall": {
-      "mesh": { "type": "cube", "color": [0.4, 0.38, 0.35, 1], "scale": [1, 4, 1] },
-      "tags": ["terrain"], "label": false,
-      "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png" }
+      "mesh": {
+        "type": "cube",
+        "color": [
+          0.4,
+          0.38,
+          0.35,
+          1
+        ],
+        "scale": [
+          1,
+          4,
+          1
+        ]
+      },
+      "tags": [
+        "terrain"
+      ],
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+      }
     }
   }
 }

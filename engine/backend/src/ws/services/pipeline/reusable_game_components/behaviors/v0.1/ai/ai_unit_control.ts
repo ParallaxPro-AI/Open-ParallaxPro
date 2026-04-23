@@ -56,7 +56,7 @@ class AIUnitControlBehavior extends GameScript {
                 pos.y,
                 pos.z + (dz / dist) * this._moveSpeed * dt
             );
-            this.entity.transform.setRotationEuler(0, Math.atan2(dx, dz) * 180 / Math.PI, 0);
+            this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
             this._playAnim("Walk");
         }
     }

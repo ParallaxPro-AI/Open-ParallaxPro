@@ -190,9 +190,14 @@ class CrimeWorldSystem extends GameScript {
             }
         }
 
+        // Flip steering direction in reverse so D/A always rotates the car
+        // toward the camera-relative right/left (arcade convention — physically,
+        // reversing makes the rear "lead" so a right turn of the wheel sends
+        // the front left). Without this the car steers opposite when backing up.
         var speedFactor = Math.abs(this._vehicleSpeed) / this._carMaxSpeed;
         if (speedFactor > 0.05) {
-            this._vehicleYaw += steer * this._carTurn * dt * Math.min(speedFactor * 2, 1);
+            var reverseSign = this._vehicleSpeed < 0 ? -1 : 1;
+            this._vehicleYaw += steer * this._carTurn * dt * Math.min(speedFactor * 2, 1) * reverseSign;
         }
 
         var yawRad = this._vehicleYaw * Math.PI / 180;

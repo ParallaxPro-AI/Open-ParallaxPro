@@ -58,7 +58,7 @@ class StomperEnemyBehavior extends GameScript {
             newX = pos.x + this._dir * this._moveSpeed * dt;
         }
         this.scene.setPosition(this.entity.id, newX, this._groundY, this._constrainZ);
-        this.entity.transform.setRotationEuler && this.entity.transform.setRotationEuler(0, this._dir > 0 ? Math.PI / 2 : -Math.PI / 2, 0);
+        this.entity.transform.setRotationEuler && this.entity.transform.setRotationEuler(0, this._dir > 0 ? -90 : 90, 0);
         this.entity.transform.markDirty && this.entity.transform.markDirty();
         this._registerSelf();
         this._playAnim("Walk");

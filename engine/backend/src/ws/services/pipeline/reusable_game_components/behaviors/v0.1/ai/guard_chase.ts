@@ -85,7 +85,7 @@ class GuardChaseBehavior extends GameScript {
         this.scene.setPosition(this.entity.id, newX, targetY, newZ);
 
         // Face forward (-Z)
-        this.entity.transform.setRotationEuler(0, 180, 0);
+        // REMOVED (registry handles facing now): this.entity.transform.setRotationEuler(0, 180, 0);
         this._playAnim("Run");
     }
 

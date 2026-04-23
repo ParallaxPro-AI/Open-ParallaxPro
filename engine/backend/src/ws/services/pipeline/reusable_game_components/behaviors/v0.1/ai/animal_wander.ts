@@ -71,7 +71,7 @@ class AnimalWanderBehavior extends GameScript {
         if (dist > 1) {
             var speed = this._fleeing ? this._speed * 2 : this._speed;
             this.scene.setPosition(this.entity.id, pos.x + (dx / dist) * speed * dt, pos.y, pos.z + (dz / dist) * speed * dt);
-            this.entity.transform.setRotationEuler(0, Math.atan2(dx, dz) * 180 / Math.PI, 0);
+            this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
             this._playAnim("Walk");
         } else {
             this._playAnim("Idle");

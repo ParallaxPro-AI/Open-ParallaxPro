@@ -511,7 +511,7 @@ class LawnDefendersEngineSystem extends GameScript {
         // Face left (toward -X) so the zombie is walking the right way.
         var bodyEnt = this.scene.findEntityByName ? this.scene.findEntityByName(bodyName) : null;
         if (bodyEnt && bodyEnt.transform && bodyEnt.transform.setRotationEuler) {
-            bodyEnt.transform.setRotationEuler(0, -Math.PI / 2, 0);
+            bodyEnt.transform.setRotationEuler(0, 90, 0);
             bodyEnt.transform.markDirty && bodyEnt.transform.markDirty();
         }
         ids.push(bodyId);

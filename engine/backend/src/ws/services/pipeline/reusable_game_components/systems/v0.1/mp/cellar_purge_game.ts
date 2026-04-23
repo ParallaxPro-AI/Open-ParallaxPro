@@ -416,7 +416,7 @@ class CellarPurgeGameSystem extends GameScript {
                 this.scene.setVelocity && this.scene.setVelocity(ent.id, {
                     x: (dx / d) * spd, y: 0, z: (dz / d) * spd,
                 });
-                ent.transform.setRotationEuler && ent.transform.setRotationEuler(0, Math.atan2(dx, dz) * 180 / Math.PI, 0);
+                ent.transform.setRotationEuler && ent.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
             }
             st.attackCooldown -= dt;
             var contact = st.kind === "boss" ? 1.6 : 1.0;

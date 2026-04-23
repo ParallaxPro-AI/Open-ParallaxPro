@@ -101,7 +101,7 @@ class PedestrianAIBehavior extends GameScript {
             pos.z + ndz * speed * dt
         );
 
-        var angle = Math.atan2(dx, dz) * 180 / Math.PI;
+        var angle = Math.atan2(-dx, -dz) * 180 / Math.PI;
         this.entity.transform.setRotationEuler(0, angle, 0);
 
         this._playAnim(this._fleeing ? "Run" : "Walk");

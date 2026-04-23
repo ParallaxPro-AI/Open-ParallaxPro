@@ -4,8 +4,11 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Character_Male_2.glb",
-        "scale": [0.5, 0.5, 0.5],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "dynamic",
@@ -13,12 +16,19 @@
         "freeze_rotation": true,
         "collider": "capsule"
       },
-      "tags": ["player"],
+      "tags": [
+        "player"
+      ],
       "behaviors": [
         {
           "name": "fps_movement",
           "script": "movement/fps_movement.ts",
-          "params": { "speed": 5, "sprintSpeed": 8, "jumpForce": 8, "crouchSpeed": 2.5 }
+          "params": {
+            "speed": 5,
+            "sprintSpeed": 8,
+            "jumpForce": 8,
+            "crouchSpeed": 2.5
+          }
         },
         {
           "name": "fps_block_interact",
@@ -61,283 +71,486 @@
       ]
     },
     "camera": {
-      "camera": { "fov": 75 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 75
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "camera_fps",
           "script": "camera/camera_fps.ts",
-          "params": { "sensitivity": 0.15, "eyeHeight": 1.6 }
+          "params": {
+            "sensitivity": 0.15,
+            "eyeHeight": 1.6
+          }
         }
       ]
     },
-
     "grass_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Grass.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable"],
+      "tags": [
+        "block",
+        "mineable"
+      ],
       "label": false
     },
     "dirt_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Dirt.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable"],
+      "tags": [
+        "block",
+        "mineable"
+      ],
       "label": false
     },
     "stone_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Stone.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable"],
+      "tags": [
+        "block",
+        "mineable"
+      ],
       "label": false
     },
     "coal_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Coal.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable", "ore"],
+      "tags": [
+        "block",
+        "mineable",
+        "ore"
+      ],
       "label": false
     },
     "diamond_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Diamond.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable", "ore"],
+      "tags": [
+        "block",
+        "mineable",
+        "ore"
+      ],
       "label": false
     },
     "wood_plank": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_WoodPlanks.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable"],
+      "tags": [
+        "block",
+        "mineable"
+      ],
       "label": false
     },
     "brick_red": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Bricks_Red.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block"],
+      "tags": [
+        "block"
+      ],
       "label": false
     },
     "snow_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Snow.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable"],
+      "tags": [
+        "block",
+        "mineable"
+      ],
       "label": false
     },
     "ice_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Ice.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable"],
+      "tags": [
+        "block",
+        "mineable"
+      ],
       "label": false
     },
     "crystal_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Crystal.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable", "ore"],
+      "tags": [
+        "block",
+        "mineable",
+        "ore"
+      ],
       "label": false
     },
     "metal_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Metal.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block", "mineable", "ore"],
+      "tags": [
+        "block",
+        "mineable",
+        "ore"
+      ],
       "label": false
     },
     "crate_block": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Crate.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["block"],
+      "tags": [
+        "block"
+      ],
       "label": false
     },
-
     "oak_tree": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Tree_1.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tree", "harvestable"],
+      "tags": [
+        "tree",
+        "harvestable"
+      ],
       "label": false
     },
     "pine_tree": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Tree_2.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tree", "harvestable"],
+      "tags": [
+        "tree",
+        "harvestable"
+      ],
       "label": false
     },
     "birch_tree": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Tree_3.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tree", "harvestable"],
+      "tags": [
+        "tree",
+        "harvestable"
+      ],
       "label": false
     },
     "dead_tree": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/DeadTree_1.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tree"],
+      "tags": [
+        "tree"
+      ],
       "label": false
     },
     "palm_tree": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/nature_crops_pack/PalmTree_1.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tree", "harvestable"],
+      "tags": [
+        "tree",
+        "harvestable"
+      ],
       "label": false
     },
-
     "bush": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Bush.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "flowers": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Flowers_1.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "mushroom": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Mushroom.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["harvestable", "food"],
+      "tags": [
+        "harvestable",
+        "food"
+      ],
       "label": false
     },
     "tall_grass": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Grass_Big.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "wheat_crop": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/nature_crops_pack/Wheat_4.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["crop", "harvestable"],
+      "tags": [
+        "crop",
+        "harvestable"
+      ],
       "label": false
     },
     "corn_crop": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/nature_crops_pack/Corn_4.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["crop", "harvestable"],
+      "tags": [
+        "crop",
+        "harvestable"
+      ],
       "label": false
     },
     "pumpkin": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/nature_crops_pack/Pumpkin_4.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["crop", "harvestable"],
+      "tags": [
+        "crop",
+        "harvestable"
+      ],
       "label": false
     },
     "watermelon": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/nature_crops_pack/Watermelon_1.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["crop", "harvestable"],
+      "tags": [
+        "crop",
+        "harvestable"
+      ],
       "label": false
     },
     "berry_bush": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/nature_crops_pack/BushBerries_Harvested.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["crop", "harvestable"],
+      "tags": [
+        "crop",
+        "harvestable"
+      ],
       "label": false
     },
-
     "sheep": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Sheep.glb",
-        "scale": [0.5, 0.5, 0.5],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 40, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["animal", "passive", "breedable"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 40,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "animal",
+        "passive",
+        "breedable"
+      ],
       "behaviors": [
         {
           "name": "farm_animal_ai",
           "script": "ai/farm_animal_ai.ts",
-          "params": { "walkSpeed": 1.5, "wanderRadius": 10, "idleTime": 4, "fleeSpeed": 5, "fleeRange": 6, "health": 30, "product": "wool", "breedable": true }
+          "params": {
+            "walkSpeed": 1.5,
+            "wanderRadius": 10,
+            "idleTime": 4,
+            "fleeSpeed": 5,
+            "fleeRange": 6,
+            "health": 30,
+            "product": "wool",
+            "breedable": true
+          }
         }
       ]
     },
@@ -345,16 +558,37 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Pig.glb",
-        "scale": [0.5, 0.5, 0.5],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 50, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["animal", "passive", "breedable"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "animal",
+        "passive",
+        "breedable"
+      ],
       "behaviors": [
         {
           "name": "farm_animal_ai",
           "script": "ai/farm_animal_ai.ts",
-          "params": { "walkSpeed": 1.8, "wanderRadius": 8, "idleTime": 3, "fleeSpeed": 4, "fleeRange": 5, "health": 40, "product": "raw_meat", "breedable": true }
+          "params": {
+            "walkSpeed": 1.8,
+            "wanderRadius": 8,
+            "idleTime": 3,
+            "fleeSpeed": 4,
+            "fleeRange": 5,
+            "health": 40,
+            "product": "raw_meat",
+            "breedable": true
+          }
         }
       ]
     },
@@ -362,16 +596,38 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Chicken.glb",
-        "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 5, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["animal", "passive", "breedable"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 5,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "animal",
+        "passive",
+        "breedable"
+      ],
       "behaviors": [
         {
           "name": "farm_animal_ai",
           "script": "ai/farm_animal_ai.ts",
-          "params": { "walkSpeed": 2, "wanderRadius": 6, "idleTime": 2, "fleeSpeed": 6, "fleeRange": 4, "health": 15, "product": "egg", "breedable": true, "layInterval": 90 }
+          "params": {
+            "walkSpeed": 2,
+            "wanderRadius": 6,
+            "idleTime": 2,
+            "fleeSpeed": 6,
+            "fleeRange": 4,
+            "health": 15,
+            "product": "egg",
+            "breedable": true,
+            "layInterval": 90
+          }
         }
       ]
     },
@@ -379,16 +635,37 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Cow.glb",
-        "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 80, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["animal", "passive", "breedable"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 80,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "animal",
+        "passive",
+        "breedable"
+      ],
       "behaviors": [
         {
           "name": "farm_animal_ai",
           "script": "ai/farm_animal_ai.ts",
-          "params": { "walkSpeed": 1.2, "wanderRadius": 10, "idleTime": 5, "fleeSpeed": 3.5, "fleeRange": 6, "health": 50, "product": "leather", "breedable": true }
+          "params": {
+            "walkSpeed": 1.2,
+            "wanderRadius": 10,
+            "idleTime": 5,
+            "fleeSpeed": 3.5,
+            "fleeRange": 6,
+            "health": 50,
+            "product": "leather",
+            "breedable": true
+          }
         }
       ]
     },
@@ -396,16 +673,37 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Horse.glb",
-        "scale": [0.5, 0.5, 0.5],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 120, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["animal", "passive", "rideable"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 120,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "animal",
+        "passive",
+        "rideable"
+      ],
       "behaviors": [
         {
           "name": "farm_animal_ai",
           "script": "ai/farm_animal_ai.ts",
-          "params": { "walkSpeed": 3, "wanderRadius": 15, "idleTime": 3, "fleeSpeed": 8, "fleeRange": 8, "health": 80, "rideable": true, "rideSpeed": 12 }
+          "params": {
+            "walkSpeed": 3,
+            "wanderRadius": 15,
+            "idleTime": 3,
+            "fleeSpeed": 8,
+            "fleeRange": 8,
+            "health": 80,
+            "rideable": true,
+            "rideSpeed": 12
+          }
         }
       ]
     },
@@ -413,16 +711,38 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Dog.glb",
-        "scale": [0.45, 0.45, 0.45],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 20, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["animal", "tameable"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 20,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "animal",
+        "tameable"
+      ],
       "behaviors": [
         {
           "name": "farm_animal_ai",
           "script": "ai/farm_animal_ai.ts",
-          "params": { "walkSpeed": 3, "wanderRadius": 12, "idleTime": 2, "fleeSpeed": 0, "fleeRange": 0, "health": 40, "tameable": true, "followDistance": 4, "attackDamage": 6, "attackRange": 2 }
+          "params": {
+            "walkSpeed": 3,
+            "wanderRadius": 12,
+            "idleTime": 2,
+            "fleeSpeed": 0,
+            "fleeRange": 0,
+            "health": 40,
+            "tameable": true,
+            "followDistance": 4,
+            "attackDamage": 6,
+            "attackRange": 2
+          }
         }
       ]
     },
@@ -430,34 +750,82 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Cat.glb",
-        "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 8, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["animal", "tameable"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 8,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "animal",
+        "tameable"
+      ],
       "behaviors": [
         {
           "name": "farm_animal_ai",
           "script": "ai/farm_animal_ai.ts",
-          "params": { "walkSpeed": 2.5, "wanderRadius": 10, "idleTime": 4, "fleeSpeed": 7, "fleeRange": 6, "health": 20, "tameable": true, "followDistance": 5, "scaresCreepers": true }
+          "params": {
+            "walkSpeed": 2.5,
+            "wanderRadius": 10,
+            "idleTime": 4,
+            "fleeSpeed": 7,
+            "fleeRange": 6,
+            "health": 20,
+            "tameable": true,
+            "followDistance": 5,
+            "scaresCreepers": true
+          }
         }
       ]
     },
-
     "zombie": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Zombie.glb",
-        "scale": [0.5, 0.5, 0.5],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 70, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "undead"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 70,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "undead"
+      ],
       "behaviors": [
         {
           "name": "hostile_ai",
           "script": "ai/hostile_ai.ts",
-          "params": { "health": 80, "maxHealth": 80, "damage": 12, "attackRange": 2.5, "attackRate": 1.2, "detectionRange": 20, "chaseSpeed": 3.5, "wanderSpeed": 1.5, "wanderRadius": 8, "aggroOnHit": true, "aggroOnSight": true, "burnsInSunlight": true, "drops": ["raw_meat", "leather"] }
+          "params": {
+            "health": 80,
+            "maxHealth": 80,
+            "damage": 12,
+            "attackRange": 2.5,
+            "attackRate": 1.2,
+            "detectionRange": 20,
+            "chaseSpeed": 3.5,
+            "wanderSpeed": 1.5,
+            "wanderRadius": 8,
+            "aggroOnHit": true,
+            "aggroOnSight": true,
+            "burnsInSunlight": true,
+            "drops": [
+              "raw_meat",
+              "leather"
+            ]
+          }
         }
       ]
     },
@@ -465,16 +833,45 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Skeleton.glb",
-        "scale": [0.5, 0.5, 0.5],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 50, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "undead"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "undead"
+      ],
       "behaviors": [
         {
           "name": "hostile_ai",
           "script": "ai/hostile_ai.ts",
-          "params": { "health": 60, "maxHealth": 60, "damage": 8, "attackRange": 12, "attackRate": 1.8, "detectionRange": 22, "chaseSpeed": 3, "wanderSpeed": 2, "wanderRadius": 10, "aggroOnHit": true, "aggroOnSight": true, "isRanged": true, "burnsInSunlight": true, "drops": ["arrow", "bone"] }
+          "params": {
+            "health": 60,
+            "maxHealth": 60,
+            "damage": 8,
+            "attackRange": 12,
+            "attackRate": 1.8,
+            "detectionRange": 22,
+            "chaseSpeed": 3,
+            "wanderSpeed": 2,
+            "wanderRadius": 10,
+            "aggroOnHit": true,
+            "aggroOnSight": true,
+            "isRanged": true,
+            "burnsInSunlight": true,
+            "drops": [
+              "arrow",
+              "bone"
+            ]
+          }
         }
       ]
     },
@@ -482,16 +879,45 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Skeleton_Armor.glb",
-        "scale": [0.55, 0.55, 0.55],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 65, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "undead", "elite"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 65,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "undead",
+        "elite"
+      ],
       "behaviors": [
         {
           "name": "hostile_ai",
           "script": "ai/hostile_ai.ts",
-          "params": { "health": 120, "maxHealth": 120, "damage": 16, "attackRange": 3.5, "attackRate": 1.5, "detectionRange": 20, "chaseSpeed": 3.5, "wanderSpeed": 2, "wanderRadius": 8, "aggroOnHit": true, "aggroOnSight": true, "armor": 4, "drops": ["iron_ingot", "bone"] }
+          "params": {
+            "health": 120,
+            "maxHealth": 120,
+            "damage": 16,
+            "attackRange": 3.5,
+            "attackRate": 1.5,
+            "detectionRange": 20,
+            "chaseSpeed": 3.5,
+            "wanderSpeed": 2,
+            "wanderRadius": 8,
+            "aggroOnHit": true,
+            "aggroOnSight": true,
+            "armor": 4,
+            "drops": [
+              "iron_ingot",
+              "bone"
+            ]
+          }
         }
       ]
     },
@@ -499,16 +925,42 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Goblin.glb",
-        "scale": [0.45, 0.45, 0.45],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 40, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 40,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy"
+      ],
       "behaviors": [
         {
           "name": "hostile_ai",
           "script": "ai/hostile_ai.ts",
-          "params": { "health": 50, "maxHealth": 50, "damage": 8, "attackRange": 2.5, "attackRate": 0.8, "detectionRange": 16, "chaseSpeed": 5.5, "wanderSpeed": 3, "wanderRadius": 10, "aggroOnHit": true, "aggroOnSight": true, "drops": ["coal", "string"] }
+          "params": {
+            "health": 50,
+            "maxHealth": 50,
+            "damage": 8,
+            "attackRange": 2.5,
+            "attackRate": 0.8,
+            "detectionRange": 16,
+            "chaseSpeed": 5.5,
+            "wanderSpeed": 3,
+            "wanderRadius": 10,
+            "aggroOnHit": true,
+            "aggroOnSight": true,
+            "drops": [
+              "coal",
+              "string"
+            ]
+          }
         }
       ]
     },
@@ -516,16 +968,45 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Giant.glb",
-        "scale": [0.7, 0.7, 0.7],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 200, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "boss"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 200,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "boss"
+      ],
       "behaviors": [
         {
           "name": "hostile_ai",
           "script": "ai/hostile_ai.ts",
-          "params": { "health": 400, "maxHealth": 400, "damage": 30, "attackRange": 4, "attackRate": 2.0, "detectionRange": 18, "chaseSpeed": 3, "wanderSpeed": 1, "wanderRadius": 5, "aggroOnHit": true, "aggroOnSight": true, "knockback": 6, "drops": ["diamond", "diamond", "gold_bar"] }
+          "params": {
+            "health": 400,
+            "maxHealth": 400,
+            "damage": 30,
+            "attackRange": 4,
+            "attackRate": 2.0,
+            "detectionRange": 18,
+            "chaseSpeed": 3,
+            "wanderSpeed": 1,
+            "wanderRadius": 5,
+            "aggroOnHit": true,
+            "aggroOnSight": true,
+            "knockback": 6,
+            "drops": [
+              "diamond",
+              "diamond",
+              "gold_bar"
+            ]
+          }
         }
       ]
     },
@@ -533,254 +1014,463 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Yeti.glb",
-        "scale": [0.6, 0.6, 0.6],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 150, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["enemy", "elite"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 150,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "enemy",
+        "elite"
+      ],
       "behaviors": [
         {
           "name": "hostile_ai",
           "script": "ai/hostile_ai.ts",
-          "params": { "health": 200, "maxHealth": 200, "damage": 20, "attackRange": 3.5, "attackRate": 1.8, "detectionRange": 22, "chaseSpeed": 4.5, "wanderSpeed": 2, "wanderRadius": 12, "aggroOnHit": true, "aggroOnSight": true, "drops": ["leather", "ice_block"] }
+          "params": {
+            "health": 200,
+            "maxHealth": 200,
+            "damage": 20,
+            "attackRange": 3.5,
+            "attackRate": 1.8,
+            "detectionRange": 22,
+            "chaseSpeed": 4.5,
+            "wanderSpeed": 2,
+            "wanderRadius": 12,
+            "aggroOnHit": true,
+            "aggroOnSight": true,
+            "drops": [
+              "leather",
+              "ice_block"
+            ]
+          }
         }
       ]
     },
-
     "village_house_1": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/House_1.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "village"],
+      "tags": [
+        "building",
+        "village"
+      ],
       "label": false
     },
     "village_house_2": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/House_2.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "village"],
+      "tags": [
+        "building",
+        "village"
+      ],
       "label": false
     },
     "blacksmith": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Blacksmith.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "village", "interactive"],
+      "tags": [
+        "building",
+        "village",
+        "interactive"
+      ],
       "label": false
     },
     "mill": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Mill.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "village"],
+      "tags": [
+        "building",
+        "village"
+      ],
       "label": false
     },
     "well": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Well.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "village", "interactive"],
+      "tags": [
+        "building",
+        "village",
+        "interactive"
+      ],
       "label": false
     },
     "market_stand": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/MarketStand_1.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "village", "interactive"],
+      "tags": [
+        "building",
+        "village",
+        "interactive"
+      ],
       "label": false
     },
     "bell_tower": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bell_Tower.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "village"],
+      "tags": [
+        "building",
+        "village"
+      ],
       "label": false
     },
-
     "barn": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/farm_buildings/Barn.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "farm"],
+      "tags": [
+        "building",
+        "farm"
+      ],
       "label": false
     },
     "chicken_coop": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/farm_buildings/ChickenCoop.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "farm"],
+      "tags": [
+        "building",
+        "farm"
+      ],
       "label": false
     },
     "farm_windmill": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/farm_buildings/Windmill.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["building", "farm"],
+      "tags": [
+        "building",
+        "farm"
+      ],
       "label": false
     },
-
     "chest": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Chest_Closed.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["structure", "interactive", "storage"],
+      "tags": [
+        "structure",
+        "interactive",
+        "storage"
+      ],
       "label": false
     },
     "furnace": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Cauldron.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["structure", "interactive", "smelting"],
+      "tags": [
+        "structure",
+        "interactive",
+        "smelting"
+      ],
       "label": false
     },
     "crafting_table": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Block_Crate.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["structure", "interactive", "crafting"],
+      "tags": [
+        "structure",
+        "interactive",
+        "crafting"
+      ],
       "label": false
     },
     "torch": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/survival_pack/WoodenTorch_Fire.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["structure", "light"],
+      "tags": [
+        "structure",
+        "light"
+      ],
       "label": false
     },
     "bonfire_lit": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bonfire_Lit.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["structure", "light"],
+      "tags": [
+        "structure",
+        "light"
+      ],
       "label": false
     },
     "fence": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Fence_Center.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["structure"],
+      "tags": [
+        "structure"
+      ],
       "label": false
     },
     "door": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Door_Closed.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["structure", "interactive"],
+      "tags": [
+        "structure",
+        "interactive"
+      ],
       "label": false
     },
     "lever": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Lever_Left.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["structure", "interactive", "mechanism"],
+      "tags": [
+        "structure",
+        "interactive",
+        "mechanism"
+      ],
       "label": false
     },
     "button": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Button.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["structure", "interactive", "mechanism"],
+      "tags": [
+        "structure",
+        "interactive",
+        "mechanism"
+      ],
       "label": false
     },
-
     "coal_ore": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Coal.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["resource", "collectible"],
+      "tags": [
+        "resource",
+        "collectible"
+      ],
       "label": false
     },
     "diamond_ore": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Diamond.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["resource", "collectible"],
+      "tags": [
+        "resource",
+        "collectible"
+      ],
       "label": false
     },
     "wood_log": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Wood.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["resource", "collectible"],
+      "tags": [
+        "resource",
+        "collectible"
+      ],
       "label": false
     },
     "crystal": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Crystal_Big.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["resource", "collectible"],
+      "tags": [
+        "resource",
+        "collectible"
+      ],
       "label": false
     },
-
     "villager_male": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
-        "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 65, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "villager"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 65,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "villager"
+      ],
       "behaviors": [
         {
           "name": "villager_ai",
           "script": "ai/villager_ai.ts",
-          "params": { "walkSpeed": 1.5, "wanderRadius": 12, "idleTime": 5, "tradeRange": 3, "greetRange": 6, "health": 50, "fleeSpeed": 4 }
+          "params": {
+            "walkSpeed": 1.5,
+            "wanderRadius": 12,
+            "idleTime": 5,
+            "tradeRange": 3,
+            "greetRange": 6,
+            "health": 50,
+            "fleeSpeed": 4
+          }
         }
       ]
     },
@@ -788,16 +1478,35 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Female.glb",
-        "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 60, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "villager"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 60,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "villager"
+      ],
       "behaviors": [
         {
           "name": "villager_ai",
           "script": "ai/villager_ai.ts",
-          "params": { "walkSpeed": 1.5, "wanderRadius": 10, "idleTime": 4, "tradeRange": 3, "greetRange": 6, "health": 50, "fleeSpeed": 4 }
+          "params": {
+            "walkSpeed": 1.5,
+            "wanderRadius": 10,
+            "idleTime": 4,
+            "tradeRange": 3,
+            "greetRange": 6,
+            "health": 50,
+            "fleeSpeed": 4
+          }
         }
       ]
     },
@@ -805,27 +1514,59 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Male.glb",
-        "scale": [0.45, 0.45, 0.45],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "physics": { "type": "dynamic", "mass": 80, "freeze_rotation": true, "collider": "capsule" },
-      "tags": ["npc", "guard"],
+      "physics": {
+        "type": "dynamic",
+        "mass": 80,
+        "freeze_rotation": true,
+        "collider": "capsule"
+      },
+      "tags": [
+        "npc",
+        "guard"
+      ],
       "behaviors": [
         {
           "name": "patrol_ai",
           "script": "ai/patrol_ai.ts",
-          "params": { "patrolSpeed": 2.5, "patrolRadius": 20, "health": 150, "maxHealth": 150, "damage": 15, "attackRange": 3, "attackRate": 1.0, "detectionRange": 16, "chaseSpeed": 5, "defendsVillagers": true }
+          "params": {
+            "patrolSpeed": 2.5,
+            "patrolRadius": 20,
+            "health": 150,
+            "maxHealth": 150,
+            "damage": 15,
+            "attackRange": 3,
+            "attackRate": 1.0,
+            "detectionRange": 16,
+            "chaseSpeed": 5,
+            "defendsVillagers": true
+          }
         }
       ]
     },
-
     "ground_plains": {
       "mesh": {
         "type": "plane",
-        "color": [0.35, 0.55, 0.25, 1],
-        "scale": [160, 1, 160]
+        "color": [
+          0.35,
+          0.55,
+          0.25,
+          1
+        ],
+        "scale": [
+          160,
+          1,
+          160
+        ]
       },
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
@@ -834,11 +1575,23 @@
     "ground_snow": {
       "mesh": {
         "type": "plane",
-        "color": [0.85, 0.88, 0.92, 1],
-        "scale": [60, 1, 60]
+        "color": [
+          0.85,
+          0.88,
+          0.92,
+          1
+        ],
+        "scale": [
+          60,
+          1,
+          60
+        ]
       },
       "physics": false,
-      "tags": ["ground", "biome_snow"],
+      "tags": [
+        "ground",
+        "biome_snow"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
@@ -847,11 +1600,23 @@
     "ground_desert": {
       "mesh": {
         "type": "plane",
-        "color": [0.7, 0.6, 0.4, 1],
-        "scale": [60, 1, 60]
+        "color": [
+          0.7,
+          0.6,
+          0.4,
+          1
+        ],
+        "scale": [
+          60,
+          1,
+          60
+        ]
       },
       "physics": false,
-      "tags": ["ground", "biome_desert"],
+      "tags": [
+        "ground",
+        "biome_desert"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
@@ -860,93 +1625,157 @@
     "stone_wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.4, 0.38, 0.35, 1],
-        "scale": [1, 4, 1]
+        "color": [
+          0.4,
+          0.38,
+          0.35,
+          1
+        ],
+        "scale": [
+          1,
+          4,
+          1
+        ]
       },
-      "tags": ["terrain"],
+      "tags": [
+        "terrain"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
       }
     },
-
     "rock_large": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Rock1.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "rock_small": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Rock2.glb",
-        "scale": [1.0, 1.0, 1.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "bench": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Bench_1.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "village"],
+      "tags": [
+        "decoration",
+        "village"
+      ],
       "label": false
     },
     "hay_bale": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Hay.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "farm"],
+      "tags": [
+        "decoration",
+        "farm"
+      ],
       "label": false
     },
     "barrel": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Barrel.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "tags": ["decoration", "village"],
+      "tags": [
+        "decoration",
+        "village"
+      ],
       "label": false
     },
     "village_cart": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Cart.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "village"],
+      "tags": [
+        "decoration",
+        "village"
+      ],
       "label": false
     },
     "path_stone": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Path_Straight.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "village"],
+      "tags": [
+        "decoration",
+        "village"
+      ],
       "label": false
     },
     "village_fence": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Fence.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "village"],
+      "tags": [
+        "decoration",
+        "village"
+      ],
       "label": false
     }
   }

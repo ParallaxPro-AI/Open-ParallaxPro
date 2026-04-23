@@ -1,8 +1,12 @@
 {
   "definitions": {
     "camera": {
-      "camera": { "fov": 50 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 50
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "camera_td",
@@ -15,206 +19,314 @@
         }
       ]
     },
-
     "ground": {
       "mesh": {
         "type": "plane",
-        "color": [0.35, 0.6, 0.25, 1],
-        "scale": [80, 1, 60]
+        "color": [
+          0.35,
+          0.6,
+          0.25,
+          1
+        ],
+        "scale": [
+          80,
+          1,
+          60
+        ]
       },
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
       }
     },
-
     "path_tile": {
       "mesh": {
         "type": "cube",
-        "color": [0.7, 0.6, 0.4, 1],
-        "scale": [1, 0.15, 1]
+        "color": [
+          0.7,
+          0.6,
+          0.4,
+          1
+        ],
+        "scale": [
+          1,
+          0.15,
+          1
+        ]
       },
-      "tags": ["path"],
+      "tags": [
+        "path"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_13.png"
       }
     },
-
     "tower_spot_marker": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/selection-a.glb",
-        "scale": [1.8, 1.8, 1.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tower_spot"],
+      "tags": [
+        "tower_spot"
+      ],
       "label": false
     },
-
     "tower_cursor": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/selection-b.glb",
-        "scale": [2.2, 2.2, 2.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["cursor"],
+      "tags": [
+        "cursor"
+      ],
       "label": false
     },
-
     "spawn_marker": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/tile-spawn.glb",
-        "scale": [2, 2, 2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "exit_marker": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/tile-spawn-end.glb",
-        "scale": [2, 2, 2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "tower_arrow": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/turret_pack/Gun.glb",
-        "scale": [1.8, 1.8, 1.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tower", "arrow"],
+      "tags": [
+        "tower",
+        "arrow"
+      ],
       "label": false
     },
-
     "tower_cannon": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/turret_pack/Cannon_3.glb",
-        "scale": [1.8, 1.8, 1.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tower", "cannon"],
+      "tags": [
+        "tower",
+        "cannon"
+      ],
       "label": false
     },
-
     "tower_ice": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
-        "scale": [2.5, 2.5, 2.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tower", "ice"],
+      "tags": [
+        "tower",
+        "ice"
+      ],
       "label": false
     },
-
     "tower_lightning": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/turret_pack/Laser_Quad.glb",
-        "scale": [1.8, 1.8, 1.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["tower", "lightning"],
+      "tags": [
+        "tower",
+        "lightning"
+      ],
       "label": false
     },
-
     "enemy_goblin": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Male.glb",
-        "scale": [0.7, 0.7, 0.7]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["enemy", "goblin"],
+      "tags": [
+        "enemy",
+        "goblin"
+      ],
       "label": false
     },
-
     "enemy_slime": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/animated_monster_pack/Slime.glb",
-        "scale": [0.9, 0.9, 0.9]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["enemy", "slime"],
+      "tags": [
+        "enemy",
+        "slime"
+      ],
       "label": false
     },
-
     "enemy_skeleton": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/animated_monster_pack/Skeleton.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["enemy", "skeleton"],
+      "tags": [
+        "enemy",
+        "skeleton"
+      ],
       "label": false
     },
-
     "enemy_dragon": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/animated_monster_pack/Dragon.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["enemy", "dragon"],
+      "tags": [
+        "enemy",
+        "dragon"
+      ],
       "label": false
     },
-
     "tree_detail": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-tree-large.glb",
-        "scale": [2.5, 2.5, 2.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "rocks_detail": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-rocks-large.glb",
-        "scale": [2, 2, 2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "crystal_detail": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal.glb",
-        "scale": [2, 2, 2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "watchtower_detail": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/wood-structure-high.glb",
-        "scale": [2, 2, 2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     }
   }
