@@ -1330,11 +1330,13 @@ export class AiChatPanel {
             form.appendChild(restoreRow);
         }
 
-        // Actions — submit sticks bottom-right; dismiss only for fix_game.
+        // Actions — submit sticks bottom-right; dismiss available for both
+        // create_game and fix_game so users can skip the form without
+        // typing anything.
         const actions = document.createElement('div');
         actions.className = 'chat-feedback-actions';
 
-        if (kind === 'fix_game') {
+        {
             const dismissBtn = document.createElement('button');
             dismissBtn.type = 'button';
             dismissBtn.className = 'chat-feedback-dismiss-btn';
