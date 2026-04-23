@@ -333,7 +333,9 @@
     "done": "Done",
     "close": "Close",
     "mismatchTitle": "Engine version not supported",
-    "gotIt": "Got it"
+    "gotIt": "Got it",
+    "saving": "Saving…",
+    "saved": "Saved"
   },
   "profiler": {
     "title": "Performance",

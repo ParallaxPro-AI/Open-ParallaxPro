@@ -240,16 +240,65 @@ export class PublishFlow {
 
         const metaEl = document.createElement('div');
         metaEl.style.cssText = 'font-size:11px;color:var(--text-disabled);margin-top:4px;';
-        metaEl.textContent = `Live: v${pubData.liveVersion} · ${pubData.versions.length} version(s) · ${pubData.visibility}`;
+        metaEl.textContent = `Live: v${pubData.liveVersion} · ${pubData.versions.length} version(s)`;
         infoSection.appendChild(metaEl);
 
         const linkEl = document.createElement('a');
         linkEl.href = gameUrl;
         linkEl.target = '_blank';
         linkEl.rel = 'noopener noreferrer';
-        linkEl.style.cssText = 'font-size:11px;color:var(--accent);text-decoration:none;';
+        linkEl.style.cssText = 'font-size:11px;color:var(--accent);text-decoration:none;display:block;margin-top:2px;';
         linkEl.textContent = gameUrl;
         infoSection.appendChild(linkEl);
+
+        // Inline visibility toggle — saves on change so the user doesn't
+        // need a separate confirm step. Backend already exposes a PUT that
+        // updates visibility without bumping a new version.
+        const visRow = document.createElement('div');
+        visRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;';
+        const visLabel = document.createElement('label');
+        visLabel.textContent = t('publish.visibility') + ':';
+        visLabel.style.cssText = 'color:var(--text-secondary);';
+        const visSelect = document.createElement('select');
+        visSelect.style.cssText = 'height:24px;font-size:12px;padding:0 6px;';
+        const optPub = document.createElement('option');
+        optPub.value = 'public'; optPub.textContent = t('publish.visibilityPublic');
+        const optUnl = document.createElement('option');
+        optUnl.value = 'unlisted'; optUnl.textContent = t('publish.visibilityUnlisted');
+        visSelect.appendChild(optPub); visSelect.appendChild(optUnl);
+        visSelect.value = pubData.visibility === 'unlisted' ? 'unlisted' : 'public';
+        const visStatus = document.createElement('span');
+        visStatus.style.cssText = 'font-size:11px;color:var(--text-disabled);';
+        visRow.appendChild(visLabel);
+        visRow.appendChild(visSelect);
+        visRow.appendChild(visStatus);
+        infoSection.appendChild(visRow);
+
+        visSelect.addEventListener('change', async () => {
+            const newVis = visSelect.value;
+            const prevVis = pubData.visibility;
+            if (newVis === prevVis) return;
+            visSelect.disabled = true;
+            visStatus.textContent = t('publish.saving') || 'Saving…';
+            visStatus.style.color = 'var(--text-disabled)';
+            try {
+                if (this.ctx.backend.isSelfHosted) {
+                    await this.ctx.backend.updatePublishSettingsProd(projectId, pubData.name, pubData.slug, newVis);
+                } else {
+                    await this.ctx.backend.updatePublishSettings(projectId, pubData.name, pubData.slug, newVis);
+                }
+                pubData.visibility = newVis;
+                visStatus.textContent = t('publish.saved') || 'Saved';
+                visStatus.style.color = '#27ae60';
+                setTimeout(() => { visStatus.textContent = ''; }, 1500);
+            } catch (e: any) {
+                visSelect.value = prevVis === 'unlisted' ? 'unlisted' : 'public';
+                visStatus.textContent = e.message || 'Failed';
+                visStatus.style.color = '#e74c3c';
+            } finally {
+                visSelect.disabled = false;
+            }
+        });
 
         body.appendChild(infoSection);
 
