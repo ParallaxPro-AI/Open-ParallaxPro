@@ -15,6 +15,7 @@ import { searchAssets } from '../routes/assets.js';
 import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
 import { getAvailableAgents, isAgentAvailable } from './services/pipeline/cli_availability.js';
 import { runFixer } from './services/pipeline/cli_fixer.js';
+import { seedFromTemplate } from './services/pipeline/project_seeder.js';
 import { recordPendingFeedback, getPendingFeedback, resolveFeedback, getFeedbackById } from './services/feedback.js';
 import {
     parseProjectData,
@@ -107,6 +108,8 @@ const stmtUpdateData = db.prepare("UPDATE projects SET project_data = ?, updated
 const stmtTouchProject = db.prepare("UPDATE projects SET updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ?");
 const stmtInsertMessage = db.prepare("INSERT INTO chat_messages (project_id, chat_session_id, role, content, file_changes, project_data_snapshot, project_data_before, offer_create_game_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 const stmtSetLastChatSession = db.prepare('UPDATE projects SET last_chat_session_id = ? WHERE id = ?');
+const stmtGetLoadTemplateCount = db.prepare('SELECT load_template_count FROM projects WHERE id = ?');
+const stmtIncLoadTemplateCount = db.prepare('UPDATE projects SET load_template_count = COALESCE(load_template_count, 0) + 1 WHERE id = ?');
 const stmtGetHistory = db.prepare("SELECT id, role, content, feedback, file_changes, offer_create_game_description, created_at FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id ASC");
 const stmtSetFeedback = db.prepare("UPDATE chat_messages SET feedback = ? WHERE id = ? AND project_id = ?");
 const stmtGetMessage = db.prepare("SELECT * FROM chat_messages WHERE id = ? AND project_id = ?");
@@ -625,6 +628,15 @@ function handleMessage(client: EditorClient, msg: { type: string; data?: any }):
             handleConfirmCreateGame(client, data);
             break;
 
+        case 'confirm_template_load':
+            handleConfirmTemplateLoad(client, data);
+            break;
+
+        case 'cancel_template_load':
+            // No-op on the backend — the load was never started, so there
+            // is nothing to undo. The editor closes the modal locally.
+            break;
+
         // User rated the most recent CREATE_GAME / FIX_GAME run in the
         // feedback form that replaced the chat panel on connect.
         // Resolution= 'submitted' unless they dismissed a FIX_GAME row.
@@ -910,6 +922,54 @@ function handleFeedbackRevert(client: EditorClient, data: any): void {
     const abortController = new AbortController();
     client.abortController = abortController;
     runLLMWithRetry(client, abortController, 0, [], []);
+}
+
+/**
+ * Direct-from-popup template load. Fired when the user clicks Confirm on
+ * the template-load confirmation modal (which appears for the 2nd+ load
+ * on a project — see executor.ts LOAD_TEMPLATE case). Bypasses the LLM
+ * entirely: the agent already chose the template, the only question was
+ * whether the user wanted to overwrite their current project, and they
+ * just said yes.
+ */
+function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
+    const templateId = typeof data?.templateId === 'string' ? data.templateId.trim() : '';
+    if (!templateId) {
+        send(client, 'template_load_error', { error: 'Missing templateId in confirm_template_load.' });
+        return;
+    }
+
+    let seed: ReturnType<typeof seedFromTemplate>;
+    try {
+        seed = seedFromTemplate(templateId);
+    } catch (e: any) {
+        send(client, 'template_load_error', { error: `Failed to load template "${templateId}": ${e?.message || e}` });
+        return;
+    }
+    if (!seed.templateId) {
+        send(client, 'template_load_error', { error: `Template "${templateId}" not found.` });
+        return;
+    }
+
+    const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled' }, files: {} };
+    pd.files = { ...seed.files };
+    stmtUpdateData.run(serializeProjectData(pd), client.projectId);
+    const built = rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
+
+    if (!built || !built.success) {
+        send(client, 'template_load_error', { error: `Failed to build "${seed.templateId}": ${built?.error || 'unknown'}` });
+        return;
+    }
+
+    try { stmtIncLoadTemplateCount.run(client.projectId); } catch {}
+
+    // Tell the chat panel the load completed so it can clear the modal +
+    // update any pending UI. The actual scene/file push already happened
+    // via rebuildAndPush; this is just the "all done" signal.
+    send(client, 'template_load_completed', {
+        templateId: seed.templateId,
+        sceneKey: built.activeSceneKey,
+    });
 }
 
 async function handleConfirmCreateGame(client: EditorClient, data: any): Promise<void> {
@@ -1433,6 +1493,17 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
         editingAgent: client.editingAgent,
         isAnonymous: client.isAnonymous,
         chatHistory: getRecentChatHistory(client.projectId, client.chatSessionId),
+        getLoadTemplateCount: () => {
+            try {
+                const row = stmtGetLoadTemplateCount.get(client.projectId) as { load_template_count?: number } | undefined;
+                return row?.load_template_count ?? 0;
+            } catch {
+                return 0;
+            }
+        },
+        incrementLoadTemplateCount: () => {
+            try { stmtIncLoadTemplateCount.run(client.projectId); } catch {}
+        },
     };
 }
 

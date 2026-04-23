@@ -87,6 +87,14 @@ export function createSchema(db: Database.Database): void {
     // older session without sending a new message.
     addColumn('projects', 'last_chat_session_id', 'TEXT');
 
+    // LOAD_TEMPLATE counter. The first template load on a fresh project
+    // is silent (the user just asked to make a game). The second and
+    // later loads gate on a confirmation popup so the user can't lose
+    // their current project to an agent-misread without one click.
+    // See ai_chat_panel handleTemplateLoadConfirmRequired + the
+    // confirm_template_load WS handler.
+    addColumn('projects', 'load_template_count', 'INTEGER NOT NULL DEFAULT 0');
+
     // Agent-feedback pipeline — every completed CREATE_GAME (strict,
     // can't be dismissed) and every committed FIX_GAME (soft, dismissable)
     // writes a pending row here. On next WS connect the editor renders

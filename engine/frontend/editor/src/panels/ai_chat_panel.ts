@@ -1,5 +1,6 @@
 import { EditorContext } from '../editor_context.js';
 import { icon, ThumbsUp, ThumbsDown, RefreshCw, X } from '../widgets/icons.js';
+import { showModal } from '../widgets/modal.js';
 import { t } from '../i18n/index.js';
 
 interface ChatMessage {
@@ -95,6 +96,10 @@ export class AiChatPanel {
     // attach a button once the assistant message renders. Cleared at
     // chat_response_start (new turn = stale offer).
     private pendingCreateFromScratchDescription: string | null = null;
+
+    /** Modal-close handle for the LOAD_TEMPLATE confirmation popup. Set
+     *  by openTemplateLoadConfirmModal, cleared on Confirm/Cancel/error. */
+    private templateLoadModalClose: (() => void) | null = null;
 
     /** beforeunload guard — warns the user if they try to close / refresh /
      *  navigate away while the assistant is mid-response. Without this, a
@@ -375,6 +380,40 @@ export class AiChatPanel {
             const errMsg: ChatMessage = {
                 role: 'assistant',
                 content: `*Couldn't start the build: ${data?.error || 'unknown error'}*`,
+            };
+            this.messages.push(errMsg);
+            this.renderMessageEl(errMsg);
+            this.scrollToBottom();
+        });
+
+        // The agent emitted LOAD_TEMPLATE on a project that has had
+        // ≥1 prior template load. Backend deferred the actual load and
+        // is asking the user to confirm via a modal popup so a misread
+        // can't silently nuke their current project.
+        ws.onWsMessage('template_load_confirm_required', (data: any) => {
+            const templateId = typeof data?.templateId === 'string' ? data.templateId : '';
+            if (!templateId) return;
+            this.openTemplateLoadConfirmModal(templateId);
+        });
+
+        // Confirm flow finished — close the modal if still open. The
+        // file-tree push happens via the normal scene_reload / project
+        // events that rebuildAndPush emits.
+        ws.onWsMessage('template_load_completed', () => {
+            if (this.templateLoadModalClose) {
+                this.templateLoadModalClose();
+                this.templateLoadModalClose = null;
+            }
+        });
+
+        ws.onWsMessage('template_load_error', (data: any) => {
+            if (this.templateLoadModalClose) {
+                this.templateLoadModalClose();
+                this.templateLoadModalClose = null;
+            }
+            const errMsg: ChatMessage = {
+                role: 'assistant',
+                content: `*Couldn't load the template: ${data?.error || 'unknown error'}*`,
             };
             this.messages.push(errMsg);
             this.renderMessageEl(errMsg);
@@ -1397,6 +1436,82 @@ export class AiChatPanel {
             el.style.display = '';
         }
         this.feedbackChatEls = [];
+    }
+
+    /**
+     * Confirmation popup for the agent's 2nd-and-later LOAD_TEMPLATE on a
+     * project. The first load is silent; later loads gate here so the
+     * agent can't silently overwrite the user's work on a misread.
+     * Confirm → fires confirm_template_load WS, the backend swaps in
+     * the template and emits template_load_completed (closes the modal).
+     * Cancel → closes the modal locally; backend gets cancel_template_load
+     * (currently a no-op, kept for symmetry).
+     */
+    private openTemplateLoadConfirmModal(templateId: string): void {
+        // If a stale modal is already open (shouldn't happen in normal
+        // flow), close it first so we don't stack.
+        if (this.templateLoadModalClose) {
+            this.templateLoadModalClose();
+            this.templateLoadModalClose = null;
+        }
+
+        const body = document.createElement('div');
+        body.style.lineHeight = '1.5';
+        const p1 = document.createElement('p');
+        p1.style.margin = '0 0 10px';
+        // Build sentence with safe DOM nodes — avoids HTML injection if
+        // a template id ever contains markup-y characters.
+        p1.appendChild(document.createTextNode('The AI Assistant wants to load the '));
+        const tname = document.createElement('strong');
+        tname.textContent = templateId;
+        p1.appendChild(tname);
+        p1.appendChild(document.createTextNode(' template. This will '));
+        const replace = document.createElement('strong');
+        replace.textContent = 'replace your current project';
+        p1.appendChild(replace);
+        p1.appendChild(document.createTextNode('.'));
+        const p2 = document.createElement('p');
+        p2.style.margin = '0';
+        p2.style.color = 'var(--ink-3, #888)';
+        p2.style.fontSize = '12px';
+        p2.textContent = 'You can revert by pressing "Restore my previous project" in the chat anytime.';
+        body.appendChild(p1);
+        body.appendChild(p2);
+
+        const handle = showModal({
+            title: 'Replace your project?',
+            body,
+            width: '440px',
+            closeOnBackdrop: false,
+            buttons: [
+                {
+                    label: 'Cancel',
+                    action: () => {
+                        try { this.ctx.backend.sendWsMessage('cancel_template_load', { templateId }); } catch {}
+                        this.templateLoadModalClose?.();
+                        this.templateLoadModalClose = null;
+                    },
+                },
+                {
+                    label: 'Confirm — replace project',
+                    primary: true,
+                    action: () => {
+                        try { this.ctx.backend.sendWsMessage('confirm_template_load', { templateId }); } catch {}
+                        // Don't close yet — wait for template_load_completed
+                        // to confirm the swap actually landed. If it errors
+                        // the template_load_error handler will close + show
+                        // the message.
+                    },
+                },
+            ],
+            onClose: () => {
+                // Backdrop close is disabled; this fires on programmatic
+                // close (after Cancel / Confirm-then-completed). Just
+                // clear the handle so the next popup starts fresh.
+                this.templateLoadModalClose = null;
+            },
+        });
+        this.templateLoadModalClose = handle.close;
     }
 
     // ── Empty state ─────────────────────────────────────────────────

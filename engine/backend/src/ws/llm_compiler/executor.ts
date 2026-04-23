@@ -63,6 +63,15 @@ export interface ExecutionContext {
      * a signup-required signal instead of kicking off a CLI job.
      */
     isAnonymous?: boolean;
+    /**
+     * How many times LOAD_TEMPLATE has succeeded on this project. The
+     * first load is silent; the 2nd and later loads pause for a user
+     * confirmation popup before overwriting the existing project. See
+     * the LOAD_TEMPLATE case in execute().
+     */
+    getLoadTemplateCount: () => number;
+    /** Bumps the load_template_count after a load succeeds. */
+    incrementLoadTemplateCount: () => void;
 }
 
 export interface ExecutionResult {
@@ -215,11 +224,32 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 break;
             }
 
+            // Confirmation gate: the FIRST load on a project is silent
+            // (the user asked for a game; we deliver). The 2nd+ load
+            // shows a popup so a misread can't silently nuke the user's
+            // current project. The confirmed=true arg is set by the
+            // editor's confirm_template_load WS handler when the user
+            // clicks Confirm in the popup.
+            const priorLoads = ctx.getLoadTemplateCount();
+            const confirmed = node.args.confirmed === 'true';
+            if (priorLoads >= 1 && !confirmed) {
+                ctx.sendToFrontend('template_load_confirm_required', {
+                    templateId: seed.templateId,
+                    priorLoads,
+                });
+                result.toolResults = `[LOAD_TEMPLATE] User confirmation required (this would be load #${priorLoads + 1} on this project). A popup is now shown in the editor; the load will only run if the user clicks Confirm. Do NOT re-emit <<<LOAD_TEMPLATE>>> — the editor will trigger it directly on confirm. In your next message just tell the user briefly that "${seed.templateId}" is queued and they can confirm or cancel from the popup; do not narrate the load as completed.`;
+                break;
+            }
+
             const built = ctx.replaceFiles(seed.files);
             if (!built || !built.success) {
                 result.toolResults = `[LOAD_TEMPLATE] Failed to build "${seed.templateId}": ${built?.error || 'unknown build error'}`;
                 break;
             }
+
+            // Successful load — bump the per-project counter so the next
+            // load on this project will require confirmation.
+            try { ctx.incrementLoadTemplateCount(); } catch {}
 
             result.madeChanges = true;
             // Distinct type lets the chat panel surface a prominent
