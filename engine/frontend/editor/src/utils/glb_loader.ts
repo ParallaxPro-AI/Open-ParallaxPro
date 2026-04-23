@@ -2,7 +2,267 @@
  * Minimal GLB (Binary glTF 2.0) parser.
  * Extracts positions, normals, uvs, and indices from all mesh primitives.
  * Returns data suitable for uploading to the GPU.
+ *
+ * Also applies the per-pack facing/scale transform from MODEL_FACING.json
+ * so every loaded model conforms to the engine's canonical convention:
+ *   forward = -Z, up = +Y, right = +X, units = meters, origin = bottom-center.
  */
+
+// ── Facing registry (MODEL_FACING.json) ──────────────────────────────────
+//
+// Fetched once per session from /assets/MODEL_FACING.json and cached.
+// Each pack entry can have {front, up} axes plus a {scale_to_meters: {axis,
+// target_meters}}. Per-asset overrides under per_asset_overrides[fileName]
+// take precedence over pack-level fields.
+
+type AxisLabel = '+x' | '-x' | '+y' | '-y' | '+z' | '-z';
+interface ScaleSpec { axis: 'length' | 'width' | 'height' | 'longest'; target_meters: number; }
+interface FacingEntry {
+    front?: AxisLabel;
+    up?: AxisLabel;
+    category?: string;
+    scale_to_meters?: ScaleSpec;
+    /** Direct multiplier from the raw GLB scale. Wins over scale_to_meters when both are present. */
+    scale_multiplier?: number;
+    per_asset_overrides?: Record<string, FacingEntry>;
+    notes?: string;
+}
+
+let _facingRegistry: Record<string, FacingEntry> | null = null;
+let _facingRegistryPromise: Promise<Record<string, FacingEntry>> | null = null;
+let _assetsRoot: string = '/assets';   // override via setAssetsRoot()
+let _useFacingRegistry: boolean = false; // off by default — backwards-compat for legacy projects
+
+export function setAssetsRoot(rootUrl: string) {
+    _assetsRoot = rootUrl.replace(/\/$/, '');
+    _facingRegistry = null;
+    _facingRegistryPromise = null;
+}
+
+/**
+ * Per-game opt-in for the asset-normalization registry. Old projects (pre-registry)
+ * leave this off (the default) so their hand-tuned `mesh.scale` and `modelRotationY`
+ * values keep working unchanged. New projects opt in by setting
+ * `useFacingRegistry: true` in their project config; the engine then applies the
+ * registry's rotation + scale and the AI is taught to omit the per-entity overrides.
+ */
+export function setUseFacingRegistry(on: boolean) {
+    _useFacingRegistry = !!on;
+}
+
+export function isFacingRegistryEnabled(): boolean {
+    return _useFacingRegistry;
+}
+
+async function getFacingRegistry(): Promise<Record<string, FacingEntry>> {
+    if (_facingRegistry) return _facingRegistry;
+    if (_facingRegistryPromise) return _facingRegistryPromise;
+    const url = `${_assetsRoot}/MODEL_FACING.json`;
+    _facingRegistryPromise = (async () => {
+        try {
+            const r = await fetch(url);
+            if (!r.ok) {
+                console.warn(`[FacingRegistry] ${url} returned HTTP ${r.status} — registry disabled this session`);
+                return {};
+            }
+            const j = await r.json();
+            return (j && typeof j === 'object') ? j as Record<string, FacingEntry> : {};
+        } catch (e) {
+            console.warn(`[FacingRegistry] failed to load ${url}:`, e);
+            return {};
+        }
+    })();
+    _facingRegistry = await _facingRegistryPromise;
+    return _facingRegistry;
+}
+
+const AXIS_VECS: Record<AxisLabel, [number, number, number]> = {
+    '+x': [ 1,  0,  0],  '-x': [-1,  0,  0],
+    '+y': [ 0,  1,  0],  '-y': [ 0, -1,  0],
+    '+z': [ 0,  0,  1],  '-z': [ 0,  0, -1],
+};
+
+function buildFacingRotation(front: AxisLabel, up: AxisLabel): Float32Array | null {
+    const f = AXIS_VECS[front], u = AXIS_VECS[up];
+    if (!f || !u) return null;
+    if (f[0] * u[0] + f[1] * u[1] + f[2] * u[2] !== 0) return null;
+    // right = cross(up, -forward)
+    const nf: [number, number, number] = [-f[0], -f[1], -f[2]];
+    const r: [number, number, number] = [
+        u[1] * nf[2] - u[2] * nf[1],
+        u[2] * nf[0] - u[0] * nf[2],
+        u[0] * nf[1] - u[1] * nf[0],
+    ];
+    // Row-major 3x3: rows are canonical basis expressed in asset coords.
+    return new Float32Array([
+        r[0],  r[1],  r[2],
+        u[0],  u[1],  u[2],
+        nf[0], nf[1], nf[2],
+    ]);
+}
+
+function effectiveEntry(packEntry: FacingEntry | undefined, fileName: string): FacingEntry {
+    if (!packEntry) return {};
+    const out: FacingEntry = { ...packEntry };
+    delete (out as any).per_asset_overrides;
+    if (packEntry.per_asset_overrides && packEntry.per_asset_overrides[fileName]) {
+        const ov = packEntry.per_asset_overrides[fileName];
+        for (const k of Object.keys(ov) as (keyof FacingEntry)[]) {
+            if (k === 'scale_to_meters' && out.scale_to_meters) {
+                out.scale_to_meters = { ...out.scale_to_meters, ...ov.scale_to_meters! };
+            } else {
+                (out as any)[k] = (ov as any)[k];
+            }
+        }
+    }
+    return out;
+}
+
+function packKeyFromUrl(url: string): { packKey: string; fileName: string } | null {
+    // Strip query/hash, then drop the assets root prefix to get the pack-relative path.
+    const clean = url.split('?')[0].split('#')[0];
+    const idx = clean.indexOf(_assetsRoot + '/');
+    if (idx < 0) return null;
+    const rel = clean.substring(idx + _assetsRoot.length + 1);
+    const lastSlash = rel.lastIndexOf('/');
+    if (lastSlash < 0) return null;
+    return { packKey: rel.substring(0, lastSlash), fileName: rel.substring(lastSlash + 1) };
+}
+
+/**
+ * Apply a 3x3 rotation (row-major 9 floats) to positions and normals in place.
+ * Normals get re-normalized after rotation.
+ */
+function rotatePositionsNormals(positions: Float32Array, normals: Float32Array, R: Float32Array) {
+    const r00 = R[0], r01 = R[1], r02 = R[2];
+    const r10 = R[3], r11 = R[4], r12 = R[5];
+    const r20 = R[6], r21 = R[7], r22 = R[8];
+    for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i], y = positions[i + 1], z = positions[i + 2];
+        positions[i]     = r00 * x + r01 * y + r02 * z;
+        positions[i + 1] = r10 * x + r11 * y + r12 * z;
+        positions[i + 2] = r20 * x + r21 * y + r22 * z;
+    }
+    for (let i = 0; i < normals.length; i += 3) {
+        const x = normals[i], y = normals[i + 1], z = normals[i + 2];
+        let nx = r00 * x + r01 * y + r02 * z;
+        let ny = r10 * x + r11 * y + r12 * z;
+        let nz = r20 * x + r21 * y + r22 * z;
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (len > 1e-6) { nx /= len; ny /= len; nz /= len; }
+        normals[i]     = nx;
+        normals[i + 1] = ny;
+        normals[i + 2] = nz;
+    }
+}
+
+function pickScaleDimension(sx: number, sy: number, sz: number, axisLabel: ScaleSpec['axis']): number {
+    switch (axisLabel) {
+        case 'height':  return sy;
+        case 'length':  return Math.max(sx, sz);
+        case 'width':   return Math.min(sx, sz);
+        case 'longest': return Math.max(sx, sy, sz);
+    }
+}
+
+function applyFacingTransformInPlace(parsed: ParsedMesh, entry: FacingEntry) {
+    const positions = parsed.positions;
+    const normals = parsed.normals;
+
+    // For SKINNED meshes, baking the transform into vertex positions breaks the
+    // skeleton: bones still drive vertices to their unscaled/unrotated positions,
+    // so animations explode (the soldier's arms float in the air). Instead we
+    // stash the facing transform on the parsed mesh and the renderer composes it
+    // into the model matrix at draw time, applying it uniformly to vertices and
+    // bone-driven positions alike.
+    if (parsed.hasSkin) {
+        if (entry.front && entry.up) {
+            const R = buildFacingRotation(entry.front, entry.up);
+            if (R) parsed.facingRotMatrix = R;
+        }
+        let scale: number | null = null;
+        if (typeof entry.scale_multiplier === 'number' && entry.scale_multiplier > 0) {
+            scale = entry.scale_multiplier;
+        } else if (entry.scale_to_meters && entry.scale_to_meters.target_meters > 0) {
+            // For scale_to_meters on skinned, derive multiplier from the
+            // (un-rotated, un-scaled) bind-pose AABB. Rotation here is OK
+            // because uniform scale * rotation preserves dimensions.
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            let minZ = Infinity, maxZ = -Infinity;
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = positions[i], y = positions[i + 1], z = positions[i + 2];
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (y < minY) minY = y; if (y > maxY) maxY = y;
+                if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+            }
+            if (isFinite(minX)) {
+                const dim = pickScaleDimension(maxX - minX, maxY - minY, maxZ - minZ, entry.scale_to_meters.axis);
+                if (dim > 1e-6) scale = entry.scale_to_meters.target_meters / dim;
+            }
+        }
+        if (scale !== null && Math.abs(scale - 1) > 1e-4) parsed.facingScale = scale;
+        return;
+    }
+
+    // STATIC meshes: safe to bake into vertices (no skeleton to fight).
+    // 1) Rotation
+    if (entry.front && entry.up) {
+        const R = buildFacingRotation(entry.front, entry.up);
+        if (R) rotatePositionsNormals(positions, normals, R);
+    }
+
+    // 2) Scale — scale_multiplier (direct from raw) wins over scale_to_meters
+    let scale: number | null = null;
+    if (typeof entry.scale_multiplier === 'number' && entry.scale_multiplier > 0) {
+        scale = entry.scale_multiplier;
+    } else if (entry.scale_to_meters && entry.scale_to_meters.target_meters > 0) {
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i], y = positions[i + 1], z = positions[i + 2];
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+        }
+        if (isFinite(minX)) {
+            const dim = pickScaleDimension(maxX - minX, maxY - minY, maxZ - minZ, entry.scale_to_meters.axis);
+            if (dim > 1e-6) scale = entry.scale_to_meters.target_meters / dim;
+        }
+    }
+    if (scale !== null && Math.abs(scale - 1) > 1e-4) {
+        for (let i = 0; i < positions.length; i++) positions[i] *= scale;
+    }
+
+    // 3) Re-center bottom to (0, y=0, 0). The original parseGLB does this once
+    //    pre-rotation; if we rotated, rerun so the resulting AABB is aligned.
+    {
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i], y = positions[i + 1], z = positions[i + 2];
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+        }
+        if (isFinite(minX)) {
+            const offX = (minX + maxX) / 2;
+            const offY = minY;
+            const offZ = (minZ + maxZ) / 2;
+            if (Math.abs(offX) > 0.001 || Math.abs(offY) > 0.001 || Math.abs(offZ) > 0.001) {
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] -= offX;
+                    positions[i + 1] -= offY;
+                    positions[i + 2] -= offZ;
+                }
+            }
+        }
+    }
+}
+
+// ── Parsed-mesh interface ────────────────────────────────────────────────
 
 export interface ParsedMesh {
     positions: Float32Array;
@@ -35,6 +295,18 @@ export interface ParsedMesh {
     weights?: Float32Array;
     /** Whether this mesh has embedded skin data */
     hasSkin?: boolean;
+    /**
+     * Asset-normalization registry rotation, as a 3x3 row-major matrix.
+     * Only set for skinned meshes (where baking into vertex positions would
+     * desynchronise the skeleton). The renderer composes it into the model
+     * matrix so it applies uniformly to vertex+bone positions.
+     */
+    facingRotMatrix?: Float32Array;
+    /**
+     * Asset-normalization registry uniform scale. Only set for skinned meshes —
+     * for static meshes we bake the scale into vertex positions in the loader.
+     */
+    facingScale?: number;
     /** Extracted skeleton from glTF skin */
     skeleton?: ParsedSkeleton;
     /** Extracted animation clips from glTF animations */
@@ -77,10 +349,57 @@ export interface ParsedAnimationClip {
 }
 
 export async function loadGLB(url: string): Promise<ParsedMesh> {
-    const resp = await fetch(url);
+    if (!_useFacingRegistry) {
+        // Legacy path — no registry fetch, no transforms applied. Identical to
+        // pre-registry behavior so existing projects continue to render exactly
+        // as their hand-tuned mesh.scale / modelRotationY expect.
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`Failed to fetch GLB: ${resp.status}`);
+        const buffer = await resp.arrayBuffer();
+        return parseGLB(buffer, url);
+    }
+    const [resp, registry] = await Promise.all([
+        fetch(url),
+        getFacingRegistry(),
+    ]);
     if (!resp.ok) throw new Error(`Failed to fetch GLB: ${resp.status}`);
     const buffer = await resp.arrayBuffer();
-    return parseGLB(buffer, url);
+    const parsed = parseGLB(buffer, url);
+
+    const keyInfo = packKeyFromUrl(url);
+    if (!keyInfo) return parsed;
+    const packEntry = registry[keyInfo.packKey];
+    if (!packEntry) return parsed;
+    const entry = effectiveEntry(packEntry, keyInfo.fileName);
+    if (entry.front || entry.scale_to_meters || entry.scale_multiplier) {
+        applyFacingTransformInPlace(parsed, entry);
+    }
+    return parsed;
+}
+
+/**
+ * Apply the same facing transform the visible mesh receives, but to a flat
+ * Float32Array of positions (e.g. .collision.bin contents). Used by the
+ * collider loader so the collision shape stays aligned with the visible mesh
+ * when the registry is on.
+ *
+ * Returns true if a transform was applied (caller may want to invalidate any
+ * cached AABBs derived from the positions).
+ */
+export async function applyFacingTransformToPositions(positions: Float32Array, glbUrl: string): Promise<boolean> {
+    if (!_useFacingRegistry) return false;
+    const registry = await getFacingRegistry();
+    const keyInfo = packKeyFromUrl(glbUrl);
+    if (!keyInfo) return false;
+    const entry = effectiveEntry(registry[keyInfo.packKey], keyInfo.fileName);
+    if (!entry.front && !entry.scale_to_meters && !entry.scale_multiplier) return false;
+    // Reuse the same in-place pipeline by wrapping positions in a tiny ParsedMesh-like shim.
+    // Normals don't exist on collision data; pass an empty Float32Array to skip the normal pass.
+    applyFacingTransformInPlace(
+        { positions, normals: new Float32Array(0), uvs: new Float32Array(0), indices: new Uint32Array(0) } as any,
+        entry,
+    );
+    return true;
 }
 
 function parseGLB(buffer: ArrayBuffer, glbUrl?: string): ParsedMesh {

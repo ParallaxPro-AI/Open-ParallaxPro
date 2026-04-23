@@ -69,6 +69,10 @@ export class MeshRendererComponent extends Component {
     _meshTransformRotY: number = NaN;
     _meshTransformRotZ: number = NaN;
     _meshTransformOffY: number = NaN;
+    /** Identity ref of the meshData when the cache was last built — invalidate
+     *  when meshData is swapped (so registry facingRotMatrix/facingScale on
+     *  the new asset get composed into the transform). */
+    _meshTransformMeshData: any = null;
     _modelMatrixCache: any = null;     // Mat4 for world × mesh-transform
 
     // -- Lifecycle ------------------------------------------------------------

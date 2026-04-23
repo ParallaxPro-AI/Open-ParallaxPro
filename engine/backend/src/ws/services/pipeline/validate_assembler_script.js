@@ -766,4 +766,10 @@ if (eventData) {
 })();
 
 
+// (No mesh-override validation — `mesh.scale` and `mesh.modelRotation*` on
+// custom meshes are still supported by the engine for legacy projects and
+// edge cases. The 40 templates demonstrate the new convention by example
+// instead of the validator enforcing it.)
+
+
 console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');

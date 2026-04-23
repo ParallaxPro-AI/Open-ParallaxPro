@@ -976,7 +976,10 @@ function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
     // paired user message; here there is no user message).
     const beforeSnapshot = getProjectSnapshot(client.projectId);
 
-    const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled' }, files: {} };
+    // Fallback when projectId has no stored data → fresh project, gets the
+    // asset-normalization registry on by default. Existing projects keep
+    // their stored projectConfig (so legacy games stay legacy).
+    const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled', useFacingRegistry: true }, files: {} };
     pd.files = { ...seed.files };
     stmtUpdateData.run(serializeProjectData(pd), client.projectId);
     const built = rebuildAndPush(client, pd, { sceneKey: client.activeSceneKey });
@@ -1564,7 +1567,7 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
             return built;
         },
         replaceFiles: (newFiles: ProjectFiles, opts?: { name?: string }) => {
-            const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled' }, files: {} };
+            const pd = readProjectData(client.projectId) || { projectConfig: { name: 'Untitled', useFacingRegistry: true }, files: {} };
             pd.files = { ...newFiles };
             if (opts?.name) pd.projectConfig.name = opts.name;
             stmtUpdateData.run(serializeProjectData(pd), client.projectId);

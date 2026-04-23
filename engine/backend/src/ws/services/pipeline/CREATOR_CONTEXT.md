@@ -143,7 +143,7 @@ Behaviors, systems, and UI panels are NOT in `reference/` — they live behind `
 {
   "definitions": {
     "player": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/...", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/..." },
       "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png" },
       "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
       "tags": ["player"],
@@ -166,8 +166,24 @@ Behaviors, systems, and UI panels are NOT in `reference/` — they live behind `
 
 For `custom` meshes:
 - `asset`: path from the asset catalog (see `assets/3D_MODELS.md`).
-- `scale`: `[x, y, z]` — uniform usually.
-- `modelRotationY` / `modelRotationX` / `modelRotationZ`: bake a rotation into the loaded mesh (**degrees**). Use `modelRotationY: 180` when the asset's "forward" faces the wrong way (common for Quaternius character packs).
+- `scale`: `[x, y, z]` — **OMIT** unless you genuinely want a non-real-world size. The engine reads `MODEL_FACING.json` and auto-scales every model to its real-world meter size (4.5 m sedan, 1.75 m human, 8 m tree, …). Don't pass `scale` just to "fix" a model that looks tiny or huge — that's a registry gap; ask once and the registry will cover all assets in that pack forever.
+- `modelRotationY` / `modelRotationX` / `modelRotationZ`: **deprecated for registered packs.** The engine auto-rotates every model so it faces canonical −Z. Only set these if the model is from an unregistered pack AND the registry can't be updated. The previous `modelRotationY: 180` Quaternius hack is gone — Quaternius character packs are now registered with `front: "+z"` so the engine handles it.
+
+### Canonical convention (the engine guarantees this for every loaded model)
+
+| Axis     | Direction | Meaning                                     |
+|----------|-----------|---------------------------------------------|
+| **+Y**   | up        | gravity is −Y                               |
+| **−Z**   | forward   | what the model "faces" (windshield, eyes)   |
+| **+X**   | right     | from the model's own POV                    |
+| **1 unit** | = 1 meter | sedan length ≈ 4.5, human height ≈ 1.75   |
+| **origin**  | bottom-center | feet/wheels at Y=0, centered on X/Z   |
+
+Right-handed. To make an entity face north/east/south/west, you don't compute Euler angles by hand — use `placement.rotation = [0, yawDegrees, 0]` where yaw 0 = canonical forward (−Z = north).
+
+This convention is active when `projectConfig.useFacingRegistry === true`, which is the default for newly-created projects. Legacy projects (saved before the registry existed) leave the flag absent — for those, the engine returns raw GLBs and per-entity `mesh.scale` / `modelRotationY` values still apply unchanged.
+
+**Implication for AI scripts:** when you `lookAt` a target, the model's −Z aligns to that direction automatically. When you set `transform.rotation` from a velocity, use `Math.atan2(velocity.x, velocity.z)` and assign as Y-yaw — no per-asset offsets.
 
 For primitive meshes:
 - `color`: `[r, g, b, a]` 0–1. Applied to the mesh's default material.

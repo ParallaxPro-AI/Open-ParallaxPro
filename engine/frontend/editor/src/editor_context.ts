@@ -9,7 +9,7 @@ import { EditorState } from './state/editor_state.js';
 import { UndoRedoManager } from './history/undo_redo_manager.js';
 import { BackendClient } from './backend/backend_client.js';
 import { CloudSync } from './backend/cloud_sync.js';
-import { loadGLB, ParsedMesh } from './utils/glb_loader.js';
+import { loadGLB, ParsedMesh, applyFacingTransformToPositions } from './utils/glb_loader.js';
 import { loadScriptClass } from '../../runtime/function/scripting/script_loader.js';
 import { ScriptComponent } from '../../runtime/function/framework/components/script_component.js';
 import { GameUISystem } from '../../runtime/function/ui/game_ui.js';
@@ -1074,6 +1074,19 @@ export class EditorContext extends EventBus {
                     }
                 }
             }
+            // Surface the facing-registry transform (only set on skinned meshes by
+            // the loader) so scene.ts can compose it into the per-entity mesh
+            // transform at render time. Static meshes have it baked into vertices
+            // already, so meshData stays null for them and there's nothing to do.
+            if (cachedParsed) {
+                const scene = this.getActiveScene();
+                if (scene) {
+                    for (const e of scene.entities.values()) {
+                        const comp = e.getComponent('MeshRendererComponent') as any;
+                        if (comp && comp.meshAsset === url) comp.meshData = cachedParsed;
+                    }
+                }
+            }
             return;
         }
 
@@ -1121,6 +1134,11 @@ export class EditorContext extends EventBus {
                     const comp = entity.getComponent('MeshRendererComponent') as MeshRendererComponent | null;
                     if (comp && comp.meshAsset === url) {
                         comp.gpuMesh = gpuHandle;
+                        // Stash the parsed mesh so scene.ts can read facingRotMatrix
+                        // / facingScale (skinned-mesh registry transform) from it.
+                        // Static meshes have those baked into vertices; setting
+                        // meshData for them is harmless (the fields are absent).
+                        comp.meshData = meshData;
                         this.autoFitCollider(entity, gpuHandle);
                         comp.gpuBaseColorTexture = gpuTexture;
                         comp.gpuNormalMapTexture = gpuNormalMap;
@@ -1546,14 +1564,19 @@ export class EditorContext extends EventBus {
                 fetch(binUrl).then(resp => {
                     if (!resp.ok) throw new Error(`${resp.status}`);
                     return resp.arrayBuffer();
-                }).then(buf => {
+                }).then(async buf => {
                     if (buf.byteLength < 16) return;
                     const view = new DataView(buf);
                     if (view.getUint32(0, true) !== 0x434F4C4C) return;
                     const posCount = view.getUint32(8, true);
                     const idxCount = view.getUint32(12, true);
                     if (buf.byteLength < 16 + posCount * 4 + idxCount * 4) return;
-                    collider.collisionPositions = new Float32Array(buf, 16, posCount);
+                    // .collision.bin is baked from RAW geometry. When the project opts into
+                    // the asset-normalization registry, transform the collision positions in
+                    // place to match the visible mesh. (No-op for legacy projects.)
+                    const positions = new Float32Array(buf.slice(16, 16 + posCount * 4));
+                    await applyFacingTransformToPositions(positions, mr.meshAsset);
+                    collider.collisionPositions = positions;
                     collider.collisionIndices = new Uint32Array(buf, 16 + posCount * 4, idxCount);
                 }).catch(() => {
                     console.warn(`[MeshCollider] No collision sidecar for "${entity.name}" (${binUrl})`);

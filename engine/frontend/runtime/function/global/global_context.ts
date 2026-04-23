@@ -15,6 +15,7 @@ import { MultiplayerSession } from '../network/multiplayer_session.js';
 import { WorldManager } from '../framework/world_manager.js';
 import { Vec3 } from '../../core/math/vec3.js';
 import { SeededRandom } from '../../core/math/seeded_random.js';
+import { setUseFacingRegistry } from '../../../editor/src/utils/glb_loader.js';
 
 /**
  * Central registry holding all engine systems.
@@ -42,6 +43,13 @@ export class RuntimeGlobalContext {
 
     async startSystems(canvas: HTMLCanvasElement, projectConfig?: any): Promise<void> {
         this.projectConfig = projectConfig ?? null;
+
+        // Asset-normalization registry (MODEL_FACING.json) is opt-in per
+        // project. New projects are stamped with `useFacingRegistry: true`
+        // by every "create project" path. Old projects (saved before that
+        // field existed) leave it undefined → engine treats as off → their
+        // hand-tuned mesh.scale / modelRotationY values apply unchanged.
+        setUseFacingRegistry(projectConfig?.useFacingRegistry === true);
 
         // Platform layer
         this.canvasManager.initialize(canvas);

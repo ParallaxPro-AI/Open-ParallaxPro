@@ -15,7 +15,10 @@ export class ParallaxEditor {
 
         registerBuiltInComponents();
 
-        const projectConfig = projectData?.config ?? {
+        // Field-name compatibility: editor_view passes the raw projectData (whose
+        // canonical field is `projectConfig`), while play.ts wraps it as `config`.
+        // Read both so we get the real config in either path.
+        const projectConfig = projectData?.projectConfig ?? projectData?.config ?? {
             name: 'Untitled',
             settings: {},
         };

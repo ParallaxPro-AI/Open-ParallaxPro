@@ -205,7 +205,7 @@ export function researchProjectMiddleware(req: Request, res: Response, next: Nex
             status: 'active',
             createdAt: entry.createdAt,
             updatedAt: entry.createdAt,
-            projectConfig: { name: entry.projectName },
+            projectConfig: { name: entry.projectName, useFacingRegistry: true },
             files: entry.files,
             scenes: built.scenes,
             scripts: built.scripts,

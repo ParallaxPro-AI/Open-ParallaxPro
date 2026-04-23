@@ -433,23 +433,60 @@ export class Scene {
             // keys its GPU-buffer pool by Mat4 identity. A fresh Mat4 per
             // frame creates a fresh GPUBuffer + GPUBindGroup per frame and
             // the pool grows without bound.
-            if (mr.modelRotationX !== 0 || mr.modelRotationY !== 0 || mr.modelRotationZ !== 0 || mr.modelOffsetY !== 0) {
-                // Mesh-local transform only needs to be rebuilt when the
-                // rotation/offset values themselves change — ordinarily
-                // they're set once on the prefab and never touched again.
+            //
+            // Two contributors to the mesh-local transform:
+            //   (a) per-entity modelRotation* / modelOffsetY (legacy / artist tweaks)
+            //   (b) per-mesh registry facing transform on the parsed mesh
+            //       (only present for SKINNED meshes — for static meshes the
+            //       loader bakes it into vertex positions already)
+            const facingRot = (mr.meshData as any)?.facingRotMatrix as Float32Array | undefined;
+            const facingScale = (mr.meshData as any)?.facingScale as number | undefined;
+            const hasFacing = !!facingRot || (facingScale !== undefined && facingScale !== 1);
+            const hasUserXform = mr.modelRotationX !== 0 || mr.modelRotationY !== 0 || mr.modelRotationZ !== 0 || mr.modelOffsetY !== 0;
+
+            if (hasUserXform || hasFacing) {
+                // Cache invalidation: rebuild on rotation/offset change OR when
+                // meshData identity changes (new mesh asset → maybe different facing).
                 if (mr._meshTransformCache === null ||
                     mr._meshTransformRotX !== mr.modelRotationX ||
                     mr._meshTransformRotY !== mr.modelRotationY ||
                     mr._meshTransformRotZ !== mr.modelRotationZ ||
-                    mr._meshTransformOffY !== mr.modelOffsetY) {
+                    mr._meshTransformOffY !== mr.modelOffsetY ||
+                    mr._meshTransformMeshData !== mr.meshData) {
                     const deg2rad = Math.PI / 180;
                     const meshRot = Quat.fromEuler(mr.modelRotationX * deg2rad, mr.modelRotationY * deg2rad, mr.modelRotationZ * deg2rad);
                     const meshOffset = new Vec3(0, mr.modelOffsetY, 0);
-                    mr._meshTransformCache = Mat4.compose(meshOffset, meshRot, new Vec3(1, 1, 1));
+                    const userXform = Mat4.compose(meshOffset, meshRot, new Vec3(1, 1, 1));
+
+                    if (hasFacing) {
+                        // Build facing 4x4 from the row-major 3x3 rotation matrix
+                        // and uniform scale. Mat4 stores column-major.
+                        const s = (facingScale ?? 1);
+                        const facingMat = new Mat4();
+                        if (facingRot) {
+                            const R = facingRot;
+                            facingMat.set(
+                                R[0] * s, R[3] * s, R[6] * s, 0,   // col 0
+                                R[1] * s, R[4] * s, R[7] * s, 0,   // col 1
+                                R[2] * s, R[5] * s, R[8] * s, 0,   // col 2
+                                0,        0,        0,        1,
+                            );
+                        } else {
+                            // Pure scale, no rotation
+                            facingMat.setIdentity();
+                            facingMat.data[0] = s; facingMat.data[5] = s; facingMat.data[10] = s;
+                        }
+                        // Apply facing first (innermost), then user xform
+                        mr._meshTransformCache = userXform.multiply(facingMat);
+                    } else {
+                        mr._meshTransformCache = userXform;
+                    }
+
                     mr._meshTransformRotX = mr.modelRotationX;
                     mr._meshTransformRotY = mr.modelRotationY;
                     mr._meshTransformRotZ = mr.modelRotationZ;
                     mr._meshTransformOffY = mr.modelOffsetY;
+                    mr._meshTransformMeshData = mr.meshData;
                 }
                 // Composite world × meshTransform into a persistent output
                 // buffer. Mat4.multiply(out) mutates 'out' in place and
