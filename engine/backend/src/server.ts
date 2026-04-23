@@ -94,6 +94,15 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // Auth middleware for project routes — applies to both core router and plugin routes
     const pluginAuth = plugins.find(p => p.authMiddleware)?.authMiddleware;
     const { requireAuth } = await import('./middleware/auth.js');
+    // Research workbench — intercept /api/engine/projects/research-*
+    // requests BEFORE the project auth middleware. Research projects live
+    // in an in-memory cache on this process, bypass DB/user scoping, and
+    // are only mounted on local (non-hosted) dev.
+    if (!config.isHosted) {
+        const { researchProjectMiddleware } = await import('./routes/research_play.js');
+        app.use('/api/engine/projects', researchProjectMiddleware);
+    }
+
     app.use('/api/engine/projects', pluginAuth || requireAuth);
     if (config.isHosted) app.use('/api/engine', httpRateLimit);
 
@@ -136,6 +145,16 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // Core routes
     app.use('/api/engine/projects', projectRoutes);
     app.use('/api/engine/assets', assetRoutes);
+
+    // Research workbench — local-only ephemeral play endpoint. Accepts
+    // generated ProjectFiles over HTTP, assembles them in a tempdir,
+    // caches the ConvertedScene by UUID so research/create_game/ can
+    // iframe-play its runs without writing to the engine DB. Never
+    // mounted on hosted prod (config.isHosted = !!WEBSITE_BACKEND_URL).
+    if (!config.isHosted) {
+        const { createResearchPlayRouter } = await import('./routes/research_play.js');
+        app.use('/api/engine/research', createResearchPlayRouter());
+    }
 
     app.get('/api/engine/health', (_req, res) => {
         res.json({ status: 'ok' });
@@ -243,6 +262,26 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
             res.status(500).json({ error: e.message });
         }
     });
+
+    // Library tool endpoints — used by the sandbox's library.sh. Same
+    // INTERNAL_API_TOKEN gate as search-assets; mounted as a full
+    // router so the three sub-routes (/index, /search, /file) live
+    // together. Localhost-only in dev (no token set).
+    {
+        const { createLibraryRouter } = await import('./routes/library.js');
+        const libraryRouter = createLibraryRouter();
+        app.use('/api/engine/internal/library', (req, res, next) => {
+            const expected = process.env.INTERNAL_API_TOKEN;
+            if (expected) {
+                const provided = req.headers['x-internal-token'];
+                if (provided !== expected) {
+                    res.status(401).json({ error: 'Unauthorized' });
+                    return;
+                }
+            }
+            libraryRouter(req, res, next);
+        });
+    }
 
     app.get('/api/engine/internal/search-assets', async (req, res) => {
         const expected = process.env.INTERNAL_API_TOKEN;

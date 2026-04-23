@@ -1,3 +1,4 @@
+// also: social-gameplay, free-roam, hangout, avatar-nametags
 // Walk-around social MP: no match logic, no score, no respawn — just
 // 1-16 players sharing a world, chatting, and seeing each other as
 // named characters floating over the landscape.

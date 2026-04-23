@@ -1,3 +1,4 @@
+// also: sports broadcast, arena follow, court view, hoop tracking
 // Courtside camera — broadcast-style follow camera for a basketball
 // court. Sits high on one side of the court and pans along it as the
 // local player moves, keeping both the player and the active basket

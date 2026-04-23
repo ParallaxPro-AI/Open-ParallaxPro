@@ -1,3 +1,4 @@
+// also: pursuit mechanic, chase mechanic, persistent threat, runner escape, cop
 // Guard chase — inspector character that runs behind the player as a constant threat
 class GuardChaseBehavior extends GameScript {
     _behaviorName = "guard_chase";

@@ -1,3 +1,4 @@
+// also: MOBA, lane-combat, champions, tower-defense, minion-ai
 // Rift 1v1 — peer-to-peer MOBA lane rules.
 //
 // Host-authoritative match with a single mid lane:

@@ -34,9 +34,12 @@ import { forkSession, warmIfNeeded } from './session_warmer.js';
 import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
-import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
+// Previously used pickRelevantLibrary/copyPickedLibraryFiles to seed
+// reference/behaviors|systems|ui. After L2 of the library-tool plan,
+// those files no longer live in the sandbox — library.sh serves them
+// on demand — so the imports are unused here.
 import { archiveCreatorSandbox } from './sandbox_archive.js';
-import { writeValidateScripts, writeSearchAssetsTool } from './sandbox_validate.js';
+import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -59,6 +62,39 @@ export interface CreatorResult {
     usedWarmSession?: boolean;
 }
 
+export interface CreatorOptions {
+    /**
+     * When true, runCreator performs zero writes against the prod engine
+     * DB. Currently that means:
+     *   - skipping the `SELECT project_data FROM projects` lookup that
+     *     hydrates reference/previous_project/ (the run still proceeds,
+     *     just without any prior files to reference);
+     *   - passing an empty-string projectId into session_capture so its
+     *     optional `UPDATE projects SET session_capture_path` is
+     *     skipped by the existing `if (ctx.projectId)` guard.
+     *
+     * Intended for the research/ workbench so it can invoke the same
+     * pipeline prod uses without touching prod data. Default: false —
+     * prod callers never set this, and prod behavior is unchanged.
+     */
+    skipPersistence?: boolean;
+
+    /**
+     * Fires once the sandbox is fully constructed (TASK.md written,
+     * validate scripts written, asset catalogs generated) and the run
+     * is about to be unwound — after any retries have finished and
+     * before the temp dir is deleted. Gets the sandbox directory so
+     * the caller can snapshot files (e.g. the final TASK.md, which
+     * may have been appended to on retry) into their own artifact
+     * area.
+     *
+     * Swallowed errors: the callback runs inside the cleanup `finally`
+     * block; anything thrown is logged but won't affect the returned
+     * CreatorResult. Default: undefined — prod paths don't pass one.
+     */
+    onBeforeCleanup?: (sandboxDir: string) => void;
+}
+
 export async function runCreator(
     projectId: string,
     description: string,
@@ -67,7 +103,9 @@ export async function runCreator(
     abortSignal?: AbortSignal,
     jobId?: string,
     chatHistory?: string,
+    opts?: CreatorOptions,
 ): Promise<CreatorResult> {
+    const skipPersistence = opts?.skipPersistence === true;
     // Local AbortController so the cli_active_jobs entry can kill this
     // run from outside — when a newer FIX_GAME or CREATE_GAME on the
     // same project calls preemptProjectJob, it fires our abort()
@@ -132,17 +170,23 @@ export async function runCreator(
     // the agent's optional use. Read once here, outside the try so a
     // failed DB read doesn't obscure a creation failure. NULL is
     // expected for brand-new projects.
+    //
+    // Research runs pass skipPersistence=true — they don't have a real
+    // prod row to look up, and we want zero writes/reads against the
+    // prod DB from the research path.
     let previousProjectFiles: ProjectFiles | null = null;
-    try {
-        const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as { project_data?: string } | undefined;
-        if (row?.project_data) {
-            const pd = parseProjectData(row.project_data);
-            if (!isLegacyProjectData(pd) && pd.files && Object.keys(pd.files).length > 0) {
-                previousProjectFiles = pd.files;
+    if (!skipPersistence) {
+        try {
+            const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as { project_data?: string } | undefined;
+            if (row?.project_data) {
+                const pd = parseProjectData(row.project_data);
+                if (!isLegacyProjectData(pd) && pd.files && Object.keys(pd.files).length > 0) {
+                    previousProjectFiles = pd.files;
+                }
             }
+        } catch (e: any) {
+            console.warn('[CLICreator] failed to read previous project files:', e?.message);
         }
-    } catch (e: any) {
-        console.warn('[CLICreator] failed to read previous project files:', e?.message);
     }
 
     try {
@@ -186,7 +230,11 @@ export async function runCreator(
         fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), taskContent);
 
         sendStatus?.('Creator agent is building the game...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId });
+        // Empty capture projectId when skipping persistence — session_capture's
+        // `if (ctx.projectId)` guard around the UPDATE is what actually blocks
+        // the prod-DB write.
+        const capProjectId = skipPersistence ? '' : projectId;
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: capProjectId });
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
@@ -248,7 +296,7 @@ export async function runCreator(
                 // second capture dir (the first is still on disk under its
                 // own timestamped name). We swap cliResult's path to point
                 // at the retry's capture so admins land on the last run.
-                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId });
+                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: capProjectId });
             } catch (e: any) {
                 return {
                     success: false,
@@ -302,6 +350,16 @@ export async function runCreator(
       })();
       return finalResult;
     } finally {
+        // Caller-provided pre-cleanup hook. Runs BEFORE archive + rmSync so
+        // the caller can snapshot sandbox files (e.g. the final TASK.md,
+        // which may include retry-appended error guidance) into their own
+        // artifact dir. Errors are swallowed so a bad hook can't break the
+        // run's reported result.
+        if (opts?.onBeforeCleanup) {
+            try { opts.onBeforeCleanup(sandboxDir); }
+            catch (e: any) { console.warn(`[CLICreator] onBeforeCleanup failed: ${e?.message}`); }
+        }
+
         // Admin-only snapshot of the sandbox's project/ tree + TASK.md.
         // Runs for both success AND failure so we can diff broken outputs
         // against working ones later. Best-effort — a failed archive must
@@ -369,14 +427,14 @@ async function createSandbox(
     writeFilesToDir(seed, projectDir);
 
     // Reference: game_templates kept whole (40 templates × 4 small JSONs —
-    // cheap and the agent picks one by name). behaviors/systems/ui are
-    // filtered by semantic similarity to the game description so the agent
-    // isn't swimming through hundreds of irrelevant files.
+    // cheap, load-bearing for the "start from a template" workflow, and
+    // agents routinely pick one by name). behaviors/systems/ui are NOT
+    // in the sandbox anymore — they're served by library.sh on demand
+    // (see writeLibraryTool). This is the L2 step from
+    // docs/LIBRARY_TOOL_PLAN.md: the agent gets a compact index + a
+    // retrieval tool instead of hundreds of files it mostly doesn't read.
     const refDir = path.join(sandboxDir, 'reference');
     copyDirRecursive(path.join(RGC_DIR, 'game_templates', 'v0.1'), path.join(refDir, 'game_templates'));
-
-    const picks = await pickRelevantLibrary(description);
-    copyPickedLibraryFiles(picks, refDir);
 
     // If the user had existing project files (e.g. a template they'd
     // been tweaking), drop the whole tree into reference/previous_project/
@@ -427,6 +485,7 @@ async function createSandbox(
 
     writeValidateScripts(sandboxDir);
     writeSearchAssetsTool(sandboxDir);
+    writeLibraryTool(sandboxDir);
 }
 
 function copyDirRecursive(src: string, dest: string): void {
@@ -480,7 +539,9 @@ import {
     initEmbedder,
     embedText,
     embedTexts,
+    embedQuery,
     cosineSimilarity,
+    computeFingerprint,
 } from '../../../embedding_service.js';
 
 const ASSET_EMBEDDINGS_CACHE = path.join(
@@ -526,8 +587,10 @@ function scanAssetPacks(): AssetPackEntry[] {
 
 async function getAssetPackVectors(): Promise<{ packs: AssetPackEntry[]; vectors: number[][] }> {
     const packs = scanAssetPacks();
-    const { createHash } = await import('crypto');
-    const fp = createHash('md5').update(packs.map(p => p.dirName).join('\n')).digest('hex');
+    // Fingerprint must include MODEL_NAME (bundled into computeFingerprint)
+    // AND the exact text being embedded (humanName). A dirName-only hash
+    // lets stale vectors survive a model swap or a humanName relabeling.
+    const fp = computeFingerprint(packs.map(p => ({ key: p.dirName, text: p.humanName })));
 
     if (_assetPackCache && _assetPackCache.fingerprint === fp) {
         return { packs: _assetPackCache.packs, vectors: _assetPackCache.vectors };
@@ -559,7 +622,7 @@ async function generateSuggestedAssets(assetsDir: string, description: string): 
 
     try {
         await initEmbedder();
-        queryVec = await embedText(description);
+        queryVec = await embedQuery(description);
         packData = await getAssetPackVectors();
     } catch (e: any) {
         console.warn('[CLICreator] Asset suggestion embedding failed (non-fatal):', e?.message);
@@ -615,9 +678,9 @@ async function generateSuggestedAssets(assetsDir: string, description: string): 
 
 // Template-format docs + rules live in CLAUDE.md / AGENTS.md, which each CLI
 // auto-loads into its system prompt — no Read call needed.
-const CREATOR_PROMPT = `Read TASK.md for the game description and baseline event list — use those events unless you add a new one to project/systems/event_definitions.ts. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). reference/game_templates/ has working examples; reference/behaviors|systems|ui/ has library files to copy into project/. Fill in the 4 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ under project/. Run "bash validate.sh" when done and fix any errors. If the user's game description in TASK.md is in a non-English language, write all in-game UI text (HUD, menus, buttons, instructions, messages) in that same language.`;
+const CREATOR_PROMPT = `Read TASK.md for the game description and baseline event list — use those events unless you add a new one to project/systems/event_definitions.ts. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). reference/game_templates/ has working examples. For behaviors, systems, and UI panels, use "bash library.sh {list|search|show}" to find and fetch library files on demand — they are NOT in reference/ anymore. When you want to use a library file, fetch it with "library.sh show" and use the Write tool to save it into project/. Fill in the 4 JSON template files plus pinned behaviors/, systems/, ui/, and any custom scripts/ under project/. Run "bash validate.sh" when done and fix any errors. If the user's game description in TASK.md is in a non-English language, write all in-game UI text (HUD, menus, buttons, instructions, messages) in that same language.`;
 
-const CREATOR_PROMPT_WARM = `You have already read the game templates and engine machinery in your previous turns. Now read TASK.md for the game description and baseline event list. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). Create the game template in project/ following the patterns you've already seen. Copy any needed library files from reference/ into project/. Run "bash validate.sh" when done and fix any errors. If the user's game description in TASK.md is in a non-English language, write all in-game UI text (HUD, menus, buttons, instructions, messages) in that same language.`;
+const CREATOR_PROMPT_WARM = `You have already read the game templates and engine machinery in your previous turns. Now read TASK.md for the game description and baseline event list. Use "bash search_assets.sh \\"query\\"" to find 3D models, audio, and textures (do NOT read the full catalog files). Create the game template in project/ following the patterns you've already seen. Library files (behaviors, systems, UI panels) are served by "bash library.sh {list|search|show}" — fetch what you need and Write it into project/. Run "bash validate.sh" when done and fix any errors. If the user's game description in TASK.md is in a non-English language, write all in-game UI text (HUD, menus, buttons, instructions, messages) in that same language.`;
 
 function creatorStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {
@@ -630,7 +693,12 @@ function creatorStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }): Promise<{ text: string; costUsd: number; sessionCapturePath?: string | null; usedWarmSession?: boolean }> {
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }): Promise<{
+    text: string;
+    costUsd: number;
+    sessionCapturePath?: string | null;
+    usedWarmSession?: boolean;
+}> {
     const cli = resolveCLI(cliOverride);
     let usedWarmSession = false;
 
@@ -644,7 +712,11 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                 const result = await spawnCLIAgent({
                     sandboxDir,
                     prompt: CREATOR_PROMPT_WARM,
-                    maxTurns: 120,
+                    // CREATOR_CONTEXT.md tells the agent "15 turns" to drive
+                    // batching behavior; the runtime cap is higher so an
+                    // edge-case run that legitimately needs a few extra
+                    // fix-loop turns doesn't get killed mid-stride.
+                    maxTurns: 35,
                     timeout: 45 * 60 * 1000,
                     claudeModel: 'claude-opus-4-7',
                     continueForked: true,
@@ -667,7 +739,9 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
     const { text, costUsd, sessionCapturePath } = await spawnCLIAgent({
         sandboxDir,
         prompt: CREATOR_PROMPT,
-        maxTurns: 120,
+        // CREATOR_CONTEXT.md tells the agent "15 turns" to drive batching;
+        // runtime cap is higher so edge-case fix loops don't get killed.
+        maxTurns: 35,
         timeout: 45 * 60 * 1000,
         claudeModel: 'claude-opus-4-7',
         statusMapper: creatorStatus,

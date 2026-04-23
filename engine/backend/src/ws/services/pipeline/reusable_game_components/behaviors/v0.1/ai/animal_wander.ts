@@ -1,3 +1,4 @@
+// also: creature behavior, livestock, wildlife roaming, autonomous motion
 // Animal wander — passive animal AI that roams randomly, flees from damage
 class AnimalWanderBehavior extends GameScript {
     _behaviorName = "animal_wander";

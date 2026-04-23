@@ -1,3 +1,4 @@
+// also: trader, vendor, commerce, stall, shop_keeper, transaction
 // Merchant AI — friendly NPC that stays near a shop area
 class MerchantAIBehavior extends GameScript {
     _behaviorName = "merchant_ai"; _items = [];

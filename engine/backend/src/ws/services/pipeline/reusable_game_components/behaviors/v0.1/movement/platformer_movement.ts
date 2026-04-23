@@ -1,3 +1,4 @@
+// also: 2D-platformer, jumping, air-control, level-based, double-jump
 // Platformer movement — WASD relative to camera, jump, double-jump
 class PlatformerMovementBehavior extends GameScript {
     _behaviorName = "platformer_movement";

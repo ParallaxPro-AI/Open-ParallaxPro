@@ -1,3 +1,4 @@
+// also: twin-stick shooter, dungeon crawler, top-down camera, acceleration-based, horizontal-only
 // Top-down walker — WASD movement on the XZ plane, no jumping, no
 // vertical input. Designed for twin-stick shooters and dungeon crawlers
 // where the camera looks straight down. Movement is camera-relative

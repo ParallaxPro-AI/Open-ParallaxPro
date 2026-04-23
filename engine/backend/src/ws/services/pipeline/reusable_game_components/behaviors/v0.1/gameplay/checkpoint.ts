@@ -1,3 +1,4 @@
+// also: race system, lap timing, progress tracking, speedrun mechanics
 // Checkpoint — tracks player progress through checkpoints and laps
 class CheckpointBehavior extends GameScript {
     _behaviorName = "checkpoint";

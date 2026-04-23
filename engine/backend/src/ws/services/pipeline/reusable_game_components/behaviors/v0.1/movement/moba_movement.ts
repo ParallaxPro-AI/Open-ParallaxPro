@@ -1,3 +1,4 @@
+// also: pathfinding, click-to-move, hero, RTS, point-and-click
 // MOBA movement — right-click to move, hero walks to target position
 class MobaMovementBehavior extends GameScript {
     _behaviorName = "moba_movement";

@@ -1,3 +1,4 @@
+// also: plant placement, tower defense, grid-based strategy, wave spawning, resource economy
 // Lawn Defenders engine — single-player lane-defense game state.
 //
 // Owns:

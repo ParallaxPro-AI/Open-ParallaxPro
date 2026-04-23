@@ -1,3 +1,4 @@
+// also: currency farming, supply management, worker production, economy simulation, resource balancing
 // Resource system — tracks minerals, gas, supply for RTS
 class ResourceSystemInstance extends GameScript {
     _startMinerals = 500; _startGas = 200; _maxSupply = 100;

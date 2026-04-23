@@ -1,3 +1,4 @@
+// also: mobs, enemies, respawn, population, creature, spawn
 // World spawner — respawns killed mobs after a delay to keep the world populated.
 // Records the dying entity's name (== entity-def key) so the respawn uses the
 // same type, avoiding a hardcoded fallback name that the validator can't

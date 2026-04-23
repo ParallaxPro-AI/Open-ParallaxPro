@@ -1,3 +1,4 @@
+// also: camera system, multiplayer tracking, network identity, single-player fallback, bird's-eye view
 // Top-down camera that follows the local player's entity. Works in both
 // single-player and multiplayer — the "local player" is determined by the
 // NetworkIdentityComponent.isLocalPlayer flag when multiplayer is active,

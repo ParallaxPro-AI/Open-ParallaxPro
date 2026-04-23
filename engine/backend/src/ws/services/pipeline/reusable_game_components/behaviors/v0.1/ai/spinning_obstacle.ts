@@ -1,3 +1,4 @@
+// also: rotational_hazard, geometry_animation, persistent_rotation, collision_trap
 // Spinning obstacle — rotates entity continuously around an axis
 class SpinningObstacleBehavior extends GameScript {
     _behaviorName = "spinning_obstacle";

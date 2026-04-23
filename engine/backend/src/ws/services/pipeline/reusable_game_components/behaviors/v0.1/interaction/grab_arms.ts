@@ -1,3 +1,4 @@
+// also: climbing, grip, ledge, parkour, climbing-assist
 // Grab arms — Human-Fall-Flat-style hand control. Hold LMB to grip
 // with the left hand, RMB for the right. While a hand is gripping,
 // it stays anchored to whatever it caught (a ledge, a wall panel,

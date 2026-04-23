@@ -1,3 +1,4 @@
+// also: space invaders, arcade, bullet hell, waves, fixed-screen shooter
 // Alien Invasion — single-player retro fixed-screen shooter rules.
 //
 // A grid of aliens marches across the playfield, dropping a row + reversing

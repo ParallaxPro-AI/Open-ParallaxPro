@@ -1,3 +1,4 @@
+// also: bowling, alley game, throw mechanics, projectile tracking, pins
 // Lane-view camera — sits behind the throw line of a long alley
 // (bowling, skee-ball, shuffleboard) and looks down toward the
 // target end. Optionally tracks a focus entity (the rolling ball)

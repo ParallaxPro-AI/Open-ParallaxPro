@@ -5,12 +5,13 @@
 // directory. Replaces the HTTP-based approach that soft-failed when
 // the backend was unreachable (e.g. Docker on remote workers).
 //
-// The 8 validation categories, checked in order (first failure exits):
+// The 9 validation categories, checked in order (first failure exits):
 //   1. Event validation — unknown game events, wrong bus, missing payload fields
 //   2. Reference validation — missing behavior/system files, missing UI panels
 //   3. FSM structural — missing start fields, unknown active_behaviors/systems
 //   4. spawnEntity — unknown entity definition references
 //   5. UI button — ui_event transitions referencing missing panel buttons
+//  5b. postMessage wire-format — panel HTMLs must use type: 'game_command'
 //   6. hud_update key collision — system keys shadowed by FSM reserved keys
 //   7. Inline onclick IIFE — onclick attrs calling IIFE-scoped functions
 //   8. Asset path validation — mesh assets, audio, textures vs asset catalogs
@@ -478,6 +479,44 @@ if (eventData) {
 
 
 // ═════════════════════════════════════════════════════════════════════
+// 5b. postMessage wire-format validation
+// ═════════════════════════════════════════════════════════════════════
+// The engine's html_ui_manager only handles messages with
+// `type: 'game_command'` — any other type is silently dropped and the
+// click does nothing, with no validate.sh failure and no runtime error.
+// Catch the drift here so a typo (or a re-written doc) can't ship a
+// game with every button dead.
+(function() {
+    var errs = [];
+    var entries = Object.entries(uiFiles);
+    for (var i = 0; i < entries.length; i++) {
+        var uiPath = entries[i][0];
+        var html = entries[i][1];
+        var panelName = uiPath.replace('ui/', '').replace('.html', '');
+        // Match `postMessage(` and capture the first-arg object literal.
+        // Lazy `{[\s\S]*?}` is fine — panel payloads are a handful of
+        // fields and don't contain nested objects in practice.
+        var re = /postMessage\s*\(\s*(\{[\s\S]*?\})/g;
+        var m;
+        while ((m = re.exec(html)) !== null) {
+            var obj = m[1];
+            var typeMatch = obj.match(/type\s*:\s*['"]([^'"]+)['"]/);
+            if (typeMatch && typeMatch[1] !== 'game_command') {
+                errs.push(
+                    panelName + '.html: postMessage uses type "' + typeMatch[1] + '" — the engine only routes type: "game_command". ' +
+                    'Every button in this panel is silently dead. Change the type literal to \'game_command\'.'
+                );
+            }
+        }
+    }
+    if (errs.length > 0) {
+        console.error('UI postMessage validation failed: ' + errs.length + ' error(s). ' + errs[0]);
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
 // 6. hud_update key collision validation
 // ═════════════════════════════════════════════════════════════════════
 (function() {
@@ -552,9 +591,16 @@ if (eventData) {
             var keys = topLevelKeys(literal);
             for (var ki = 0; ki < keys.length; ki++) {
                 if (reservedKeys.has(keys[ki])) {
+                    var keyName = keys[ki];
+                    var fix = keyName === 'phase'
+                        ? 'Rename the HUD-side key (the engine reserves "phase" for the FSM\'s current state name).'
+                        : 'Rename the HUD-side key (e.g. "display' + keyName.charAt(0).toUpperCase() + keyName.slice(1) +
+                          '" or "' + keyName + '_display") OR rename the FSM var in 01_flow.json. ' +
+                          'They live in different namespaces but share the lookup table — the FSM var ' +
+                          'shadows your HUD value and the panel never sees your update.';
                     hudErrors.push(
-                        scriptKey + ': hud_update key "' + keys[ki] + '" collides with an FSM-reserved state key. ' +
-                        'Reserved names: ' + Array.from(reservedKeys).sort().join(', ')
+                        scriptKey + ': hud_update key "' + keyName + '" collides with FSM var "' + keyName + '" ' +
+                        '(set in 01_flow.json via set:' + keyName + '=...). ' + fix
                     );
                 }
             }

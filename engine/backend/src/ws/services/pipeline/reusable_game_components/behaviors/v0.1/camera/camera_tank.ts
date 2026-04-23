@@ -1,3 +1,4 @@
+// also: vehicle-follow, tank-game, behind-player, chase-cam
 // Tank camera — chase camera behind the player tank with smooth follow
 class TankCameraBehavior extends GameScript {
     _behaviorName = "camera_tank";

@@ -1,3 +1,4 @@
+// also: GTA-like, law enforcement, vehicle mechanics, theft, sandbox
 // Crime world — wanted system, money, vehicle enter/exit, driving, respawn
 class CrimeWorldSystem extends GameScript {
     _startMoney = 500;

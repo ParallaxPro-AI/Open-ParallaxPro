@@ -1,3 +1,4 @@
+// also: isometric, third-person, fixed camera, cursor peek, angle offset
 // MOBA 1v1 isometric camera — locked 3/4 top-down view of the local
 // champion with an optional peek toward the mouse cursor so the
 // player can see more of the lane they're aiming at.

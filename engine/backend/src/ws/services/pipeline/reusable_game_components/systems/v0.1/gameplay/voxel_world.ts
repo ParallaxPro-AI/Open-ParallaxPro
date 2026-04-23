@@ -1,3 +1,4 @@
+// also: mining, voxels, cube, blocks, survival, gathering
 // Voxel world — block mining, inventory, resource tracking for voxel survival
 class VoxelWorldSystem extends GameScript {
     _inventorySlots = 9;

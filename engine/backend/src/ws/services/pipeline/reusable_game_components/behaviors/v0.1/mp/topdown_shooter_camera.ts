@@ -1,3 +1,4 @@
+// also: surviv.io style, aim bias, cursor offset, smooth follow, bounds clamp
 // Top-down shooter camera with subtle mouse lean.
 //
 // Sits above the local player and offsets slightly toward the cursor so

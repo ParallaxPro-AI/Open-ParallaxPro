@@ -1,3 +1,4 @@
+// also: input handling, voxel game, intent events, hotbar system, authority
 // Block interactor — translates mouse / number-key input into intent
 // events the match system applies. Lives on the local player; reads
 // `this.input` directly each frame, never touches the world grid (the

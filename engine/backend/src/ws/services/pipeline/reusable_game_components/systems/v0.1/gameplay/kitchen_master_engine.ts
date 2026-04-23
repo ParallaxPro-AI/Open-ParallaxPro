@@ -1,3 +1,4 @@
+// also: food prep, recipe progression, time management, cooking mechanics, stage transitions
 // Kitchen Master engine — single-player cooking-mini-game state machine.
 //
 // Owns:

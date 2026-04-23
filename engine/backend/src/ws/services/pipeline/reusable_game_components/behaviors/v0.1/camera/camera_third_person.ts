@@ -1,3 +1,4 @@
+// also: action-game, vehicle-switching, orbit-camera, hybrid-cam
 // Third-person camera — orbit with mouse on foot, chase camera in vehicles
 class ThirdPersonCameraBehavior extends GameScript {
     _behaviorName = "camera_third_person";

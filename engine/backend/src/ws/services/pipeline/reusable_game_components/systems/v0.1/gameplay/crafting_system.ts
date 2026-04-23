@@ -1,3 +1,4 @@
+// also: inventory, items, recipes, building, workshop, construction
 // Crafting system — recipe-based crafting near crafting stations
 class CraftingSystemInstance extends GameScript {
     _recipes = {};

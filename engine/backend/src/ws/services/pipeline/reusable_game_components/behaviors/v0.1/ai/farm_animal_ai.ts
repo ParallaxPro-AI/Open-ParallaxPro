@@ -1,3 +1,4 @@
+// also: livestock, crop animal, passive creature, harvestable NPC, domestic beast
 // Farm animal AI — passive wandering near spawn point, can be harvested
 class FarmAnimalAIBehavior extends GameScript {
     _behaviorName = "farm_animal_ai";

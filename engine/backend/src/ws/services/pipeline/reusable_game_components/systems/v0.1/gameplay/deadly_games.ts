@@ -1,3 +1,4 @@
+// also: battle royale, elimination, minigame, tournament, survival challenge
 // Deadly games — three-round elimination: Red Light Green Light, Glass Bridge, Floor Collapse
 class DeadlyGamesSystem extends GameScript {
     _totalRounds = 3;

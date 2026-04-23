@@ -1,3 +1,4 @@
+// also: lobby-handler, WebRTC-bridge, session-management, HUD-routing
 // MpBridge — bridges the multiplayer session (lobby + WebRTC) to the FSM and
 // UI layer. Runs as a pinned system in every multiplayer game.
 //

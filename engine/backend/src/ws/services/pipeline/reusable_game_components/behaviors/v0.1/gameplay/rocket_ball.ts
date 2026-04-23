@@ -1,3 +1,4 @@
+// also: car soccer, ball physics, multiplayer sports, host authority, networking
 // Giant playable ball — the centerpiece of car-football games.
 //
 // The ball owns its own velocity (updated each frame) and responds to

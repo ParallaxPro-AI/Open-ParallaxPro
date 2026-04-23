@@ -1,3 +1,4 @@
+// also: strategy, waves, enemies, gold, rounds, economy
 // Tower defense engine — wave spawning, tower placement/targeting, economy, lives
 class TDEngineSystem extends GameScript {
     _startGold = 500;

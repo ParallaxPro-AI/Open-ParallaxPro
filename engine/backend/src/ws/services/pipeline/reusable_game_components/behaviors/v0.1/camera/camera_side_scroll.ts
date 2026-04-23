@@ -1,3 +1,4 @@
+// also: 2.5D, metroidvania, platformer, side-view
 // Side-scroll camera — locks Z, follows the player on X/Y with mild
 // look-ahead in the direction of motion. Hard X clamps keep the camera
 // from peeking past the level's logical bounds (set per-level via

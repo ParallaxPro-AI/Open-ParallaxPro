@@ -1,3 +1,4 @@
+// also: battle-royale, top-down-shooter, storm-mechanic, loot-based
 // Shooter Royale — peer-to-peer top-down battle royale match rules.
 //
 // Match flow:

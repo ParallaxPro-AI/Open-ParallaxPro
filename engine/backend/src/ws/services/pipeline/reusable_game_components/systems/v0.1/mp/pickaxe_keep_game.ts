@@ -1,3 +1,4 @@
+// also: mining-sandbox, crafting, inventory, grid-based, procedural-terrain
 // Pickaxe Keep — 2.5D sidescroll mining + crafting + survival sandbox.
 //
 // World model: a sparse grid of 1m cubes living on the z=0 action plane.

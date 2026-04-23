@@ -1,3 +1,4 @@
+// also: turn-based strategy, piece logic, valid moves, board game AI
 // Chess engine — AI opponent with proper move rules
 class ChessEngineSystem extends GameScript {
     onStart() {

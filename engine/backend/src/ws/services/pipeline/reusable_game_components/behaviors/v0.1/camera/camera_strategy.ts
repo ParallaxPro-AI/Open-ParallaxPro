@@ -1,3 +1,4 @@
+// also: RTS-camera, edge-panning, zoom-control, strategy-game
 // Strategy camera — top-down RTS camera with WASD pan and zoom
 class StrategyCameraBehavior extends GameScript {
     _behaviorName = "strategy_camera";

@@ -8,7 +8,9 @@
  *
  * Flow:
  * 1. Hydrate project file tree to sandbox/project/
- * 2. Copy shared library to sandbox/reference/ (read-only)
+ * 2. Drop library.sh + search_assets.sh + validate.sh. The library
+ *    (behaviors / systems / UI panels) is NOT pre-copied — the agent
+ *    fetches pieces on demand via library.sh.
  * 3. Write TASK.md with bug report + project summary
  * 4. Spawn CLI with FIXER_CONTEXT.md as system prompt
  * 5. Read changed/added/deleted files
@@ -27,11 +29,14 @@ import { forkSession, warmIfNeeded, forkPreviousFixSession, registerFixSession }
 import { registerActiveJob, unregisterActiveJob, preemptProjectJob, updateJobSessionType } from './cli_active_jobs.js';
 import type { SessionType } from './cli_active_jobs.js';
 import { preemptGenerationJob } from './generation_jobs.js';
-import { pickRelevantLibrary, copyPickedLibraryFiles } from './library_index.js';
+// Previously used pickRelevantLibrary/copyPickedLibraryFiles to seed
+// reference/behaviors|systems|ui. After L2 of the library-tool plan
+// those files no longer live in the sandbox — library.sh serves them
+// on demand.
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { config } from '../../../config.js';
-import { writeValidateScripts, writeSearchAssetsTool } from './sandbox_validate.js';
+import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
 import { generateAssetCatalog } from './cli_creator.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
@@ -221,17 +226,17 @@ async function createSandbox(
     const projectDir = path.join(sandboxDir, 'project');
     writeFilesToDir(projectFiles, projectDir);
 
-    // Reference: filtered by semantic similarity to the bug report. Instead
-    // of dumping 276 library files for every fix, we ship only the top
-    // candidates — the agent still has escape hatches to pull more in, but
-    // its default exploration surface is tiny.
+    // Reference: behaviors/systems/ui are NOT in the sandbox anymore — they're
+    // served by library.sh on demand (see writeLibraryTool). This is the L2
+    // step from docs/LIBRARY_TOOL_PLAN.md. The agent uses `bash library.sh
+    // search / show` to reach any library file it needs.
     const refDir = path.join(sandboxDir, 'reference');
     fs.mkdirSync(refDir, { recursive: true });
 
-    const picks = await pickRelevantLibrary(description);
-    copyPickedLibraryFiles(picks, refDir);
-
-    // Convenience: top-level event_definitions.ts pointer.
+    // Convenience: event_definitions.ts is referenced by every fix (the
+    // agent checks valid event names before emit/listen). Keep a pointer
+    // copy in reference/ so it's trivially reachable via Read without a
+    // library.sh call.
     const evtDefs = path.join(RGC_DIR, 'systems', 'v0.1', 'event_definitions.ts');
     if (fs.existsSync(evtDefs)) fs.copyFileSync(evtDefs, path.join(refDir, 'event_definitions.ts'));
 
@@ -251,6 +256,7 @@ async function createSandbox(
 
     writeValidateScripts(sandboxDir);
     writeSearchAssetsTool(sandboxDir);
+    writeLibraryTool(sandboxDir);
 }
 
 // ─── CLI spawning ──────────────────────────────────────────────────────────
@@ -258,9 +264,9 @@ async function createSandbox(
 // Engine docs + rules live in CLAUDE.md / AGENTS.md, which each CLI auto-loads
 // into its system prompt — no Read call needed. Keep this prompt to the
 // per-run instructions only.
-const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Edit template files in project/ to fix the bug (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/ — never assembled output). To use a behavior/system not yet in project/, copy it from reference/ into project/ and reference its path from the template JSON. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
+const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Edit template files in project/ to fix the bug (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/ — never assembled output). To use a behavior/system/UI panel not yet in project/, find it with "bash library.sh search \\"<intent>\\"", fetch it with "bash library.sh show <path>", and Write it into project/. The library is NOT in reference/ anymore — use the tool. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
-const FIXER_PROMPT_WARM = `You have already read the library reference materials. Now read TASK.md for the bug report and project state. Read the project files in project/. Fix the bug — edit template files only (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/). Copy library files from reference/ if needed. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
+const FIXER_PROMPT_WARM = `You are already primed with the engine docs. Now read TASK.md for the bug report and project state. Read the project files in project/. Fix the bug — edit template files only (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/). If you need a library behavior/system/UI panel not in project/, use "bash library.sh {search|show}" to find and fetch it, then Write it into project/. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
 function fixerStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {

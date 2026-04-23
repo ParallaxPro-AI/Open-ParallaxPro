@@ -1,3 +1,4 @@
+// also: mouse-look, orbit-camera, hero-follow, action-rpg
 // RPG camera — third-person orbit camera with mouse look
 class RPGCameraBehavior extends GameScript {
     _behaviorName = "camera_rpg"; _distance = 10; _height = 6; _lookHeight = 1.5; _smoothSpeed = 5; _sensitivity = 0.12;

@@ -1,3 +1,4 @@
+// also: roguelike, twin-stick, dungeon, rooms, combat, projectiles
 // Cellar Purge — single-player Isaac-style twin-stick roguelite.
 //
 // Floor layout: 4 rooms in a small cross — start (S), shop (W),

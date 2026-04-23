@@ -1,3 +1,4 @@
+// also: frogger, dodging, procedural generation, movement mechanics, obstacle avoidance
 // Lane Hopper — single-player endless lane-crossing.
 //
 // Procedurally extends a track of 2m-deep lanes ahead of the player

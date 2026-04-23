@@ -1,3 +1,4 @@
+// also: grid-based movement, turn-based, parabolic animation, puzzle mechanics, frogger-style
 // Tile Hopper — grid-based hop movement.
 //
 // The player occupies one tile at a time and hops to an adjacent tile

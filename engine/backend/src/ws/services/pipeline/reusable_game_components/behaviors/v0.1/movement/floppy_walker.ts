@@ -1,3 +1,4 @@
+// also: ragdoll, physics, platformer, party-game, gravity-based
 // Floppy walker — Human-Fall-Flat-style physics-driven movement.
 // Camera-relative WASD applies horizontal acceleration to a dynamic
 // rigidbody capsule; gravity does the falling. Jump is an upward

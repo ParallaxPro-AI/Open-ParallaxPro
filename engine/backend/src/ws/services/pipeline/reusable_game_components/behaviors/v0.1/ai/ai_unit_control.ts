@@ -1,3 +1,4 @@
+// also: tactical unit, command formation, strategic positioning, attack logic
 // AI unit control — AI unit movement and combat during AI turn
 class AIUnitControlBehavior extends GameScript {
     _behaviorName = "ai_unit_control";

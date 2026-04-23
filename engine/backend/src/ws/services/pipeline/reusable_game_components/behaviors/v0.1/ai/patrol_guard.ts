@@ -1,3 +1,4 @@
+// also: sentry, route_walker, perimeter_defense, bodyguard, protection
 // Patrol guard — friendly NPC that walks a patrol route
 class PatrolGuardBehavior extends GameScript {
     _behaviorName = "patrol_guard"; _speed = 2; _range = 8; _dir = 1; _startX = 0; _currentAnim = "";

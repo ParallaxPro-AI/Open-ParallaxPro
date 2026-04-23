@@ -1,3 +1,4 @@
+// also: damage system, regen rate, respawn delay, network damage, death event
 // Player health — takes damage, regenerates, emits player_died. In
 // multiplayer templates also listens to net_player_shot so remote peers
 // can apply damage to our local player, and runs a respawn timer on

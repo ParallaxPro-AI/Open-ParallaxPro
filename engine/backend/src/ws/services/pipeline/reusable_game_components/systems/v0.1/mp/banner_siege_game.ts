@@ -1,3 +1,4 @@
+// also: flag, ctf, team, capture, base, multiplayer
 // Banner Siege — capture-the-flag match rules.
 //
 // Two teams (red, blue) each with a banner parked on a pedestal at their

@@ -1,3 +1,4 @@
+// also: conveyor, oscillation, sine_motion, traversal, dynamic_geometry
 // Moving platform — oscillates entity position along an axis
 class MovingPlatformBehavior extends GameScript {
     _behaviorName = "moving_platform";

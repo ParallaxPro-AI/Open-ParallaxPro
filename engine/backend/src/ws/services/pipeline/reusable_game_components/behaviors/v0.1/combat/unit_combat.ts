@@ -1,3 +1,4 @@
+// also: NPC behavior, AI pathfinding, enemy detection, autonomous fighter
 // Unit combat — melee fighter that moves to and attacks nearest enemy
 class UnitCombatBehavior extends GameScript {
     _behaviorName = "unit_combat"; _damage = 15; _attackRange = 3; _attackRate = 0.8; _speed = 4; _detectRange = 20; _health = 100; _dead = false; _cooldown = 0; _currentAnim = "";

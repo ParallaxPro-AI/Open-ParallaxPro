@@ -1,3 +1,4 @@
+// also: racing, vehicle, steering, acceleration, arcade-driving
 // Arcade car control — WASD/Arrow keys, physics-based velocity
 class CarControlBehavior extends GameScript {
     _behaviorName = "car_control";

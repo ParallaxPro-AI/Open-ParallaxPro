@@ -1,3 +1,4 @@
+// also: round-based competition, local multiplayer, AI opponents, fairness balancing, turn rotation
 // Party engine — minigame rotation, AI players, scoring, round management
 class PartyEngineSystem extends GameScript {
     _totalRounds = 5;

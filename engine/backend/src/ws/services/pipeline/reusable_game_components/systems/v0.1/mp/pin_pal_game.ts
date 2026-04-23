@@ -1,3 +1,4 @@
+// also: bowling, turn-based-sports, pin-scoring, projectile-sports
 // Pin Pal — Wii Sports-style multiplayer turn-based 10-pin bowling.
 //
 // 1-4 players take turns rolling a ball at a 10-pin triangle. Aim

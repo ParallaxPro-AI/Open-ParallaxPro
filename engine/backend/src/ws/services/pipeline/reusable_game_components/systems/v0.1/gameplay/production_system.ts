@@ -1,3 +1,4 @@
+// also: RTS construction, queue-based spawning, resource cost, building system, unit training
 // Production system — unit training and building construction for RTS
 class ProductionSystemInstance extends GameScript {
     _unitCosts = {}; _buildTime = 5; _gameActive = false;

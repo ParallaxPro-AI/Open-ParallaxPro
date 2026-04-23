@@ -1,3 +1,4 @@
+// also: NPC behaviors, strategy AI, faction relations, negotiations, turn-based
 // Diplomacy AI — AI civilization turn processing: build, train, expand, attack
 class DiplomacyAISystem extends GameScript {
     _aiPersonality = "balanced";

@@ -1,3 +1,4 @@
+// also: tower, defense mechanism, targeting, projectile, enemy detection
 // Turret defense — stationary defense that auto-targets and fires at enemies
 class TurretDefenseBehavior extends GameScript {
     _behaviorName = "turret_defense";

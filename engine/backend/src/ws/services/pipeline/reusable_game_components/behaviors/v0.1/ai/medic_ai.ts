@@ -1,3 +1,4 @@
+// also: support, teammate, healing, restoration, health_recovery, buff
 // Medic AI — follows nearby wounded allied units and heals them
 class MedicAIBehavior extends GameScript {
     _behaviorName = "medic_ai"; _speed = 3; _healRange = 4; _healRate = 2; _healAmount = 5; _health = 50; _dead = false; _healTimer = 0; _currentAnim = "";

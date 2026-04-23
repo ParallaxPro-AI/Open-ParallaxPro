@@ -1,3 +1,4 @@
+// also: elimination, battle-royale, combat, phase-gated, death-match
 // Deadly player — WASD movement gated by game phase, used in elimination rounds
 class DeadlyPlayerBehavior extends GameScript {
     _behaviorName = "deadly_player";

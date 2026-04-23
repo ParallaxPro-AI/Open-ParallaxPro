@@ -1,3 +1,4 @@
+// also: minecraft-like, survival, first-person, mining
 // Sandbox camera — first-person camera with mouse look for survival games
 class SandboxCameraBehavior extends GameScript {
     _behaviorName = "camera_sandbox";

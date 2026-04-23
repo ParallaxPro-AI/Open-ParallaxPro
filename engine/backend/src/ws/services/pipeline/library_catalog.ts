@@ -23,12 +23,138 @@ export interface LibraryItem {
     description: string;
 }
 
+export type LibraryKind = 'behaviors' | 'systems' | 'ui' | 'templates';
+
 export interface LibraryCatalog {
     behaviors: LibraryItem[];   // reference/behaviors/v0.1/<relPath>
     systems:   LibraryItem[];   // reference/systems/v0.1/<relPath>
     ui:        LibraryItem[];   // reference/ui/v0.1/<relPath>
     events:    string[];        // all event names from event_definitions.ts
     templates: string[];        // every directory under game_templates/v0.1/
+}
+
+/**
+ * The same items but enriched with kind/category/name — what the
+ * library tool returns from its index + search endpoints.
+ *
+ *   kind:     'behaviors' | 'systems' | 'ui'
+ *   category: first path segment (e.g. "movement", "ai", "hud")
+ *   name:     basename without extension (e.g. "jump", "main_menu")
+ *   summary:  alias for description (renamed for tool output clarity)
+ */
+export interface EnrichedLibraryItem {
+    kind: LibraryKind;
+    relPath: string;
+    category: string;
+    name: string;
+    summary: string;
+}
+
+let cachedEnriched: { kind: LibraryKind; items: EnrichedLibraryItem[] }[] | null = null;
+
+export function getEnrichedLibrary(): Record<LibraryKind, EnrichedLibraryItem[]> {
+    if (!cachedEnriched) {
+        const cat = getLibraryCatalog();
+        cachedEnriched = [
+            { kind: 'behaviors' as const, items: enrich(cat.behaviors, 'behaviors') },
+            { kind: 'systems'   as const, items: enrich(cat.systems,   'systems') },
+            { kind: 'ui'        as const, items: enrich(cat.ui,        'ui') },
+            { kind: 'templates' as const, items: enrichTemplates(cat.templates) },
+        ];
+    }
+    const out: Record<LibraryKind, EnrichedLibraryItem[]> = {
+        behaviors: [], systems: [], ui: [], templates: [],
+    };
+    for (const e of cachedEnriched) out[e.kind] = e.items;
+    return out;
+}
+
+function enrich(items: LibraryItem[], kind: LibraryKind): EnrichedLibraryItem[] {
+    return items.map(i => {
+        const [category, ...rest] = i.relPath.split('/');
+        // Single-file-at-root case: no subcategory — use kind as the grouping.
+        const hasSubdir = rest.length > 0;
+        const name = (hasSubdir ? rest.join('/') : i.relPath).replace(/\.[^.]+$/, '');
+        return {
+            kind,
+            relPath: i.relPath,
+            category: hasSubdir ? category : '_root',
+            name,
+            summary: i.description,
+        };
+    });
+}
+
+/**
+ * Templates are directories (4 JSONs each), so we synthesize an enriched
+ * entry by reading 01_flow.json's name + description. Falls back to the
+ * template id if the JSON isn't parseable or lacks fields.
+ *
+ * relPath is intentionally the id itself (no trailing slash) so the tool
+ * surface can use "templates/<id>" uniformly alongside other kinds.
+ */
+function enrichTemplates(ids: string[]): EnrichedLibraryItem[] {
+    return ids.map(id => {
+        let summary = '';
+        try {
+            const flowPath = path.join(RGC_DIR, 'game_templates', 'v0.1', id, '01_flow.json');
+            if (fs.existsSync(flowPath)) {
+                const parsed = JSON.parse(fs.readFileSync(flowPath, 'utf-8'));
+                // Prefer description; fall back to name.
+                summary = String(parsed?.description || parsed?.name || '').trim();
+            }
+        } catch { /* leave summary empty */ }
+        return {
+            kind: 'templates' as const,
+            relPath: id,
+            category: '_root',
+            name: id,
+            summary,
+        };
+    });
+}
+
+/**
+ * Safe read of a library file. `relPath` is of the form
+ * "<kind>/<path-within-kind>" e.g. "behaviors/movement/jump.ts".
+ * Returns null if the file is outside the library tree or missing.
+ * The relPath is normalized and validated to stay under RGC_DIR/<kind>/v0.1/.
+ */
+export function readLibraryFile(relPath: string): { kind: LibraryKind; relPath: string; content: string } | null {
+    // Split the first segment as kind; the rest is path within the kind root.
+    const firstSlash = relPath.indexOf('/');
+    if (firstSlash < 0) return null;
+    const kind = relPath.slice(0, firstSlash) as LibraryKind;
+    const within = relPath.slice(firstSlash + 1);
+    // Templates are dirs with 4 JSONs — reached via readLibraryTemplate.
+    // This fetch only handles single-file kinds.
+    if (kind !== 'behaviors' && kind !== 'systems' && kind !== 'ui') return null;
+
+    const root = path.join(RGC_DIR, kind, 'v0.1');
+    const full = path.resolve(root, within);
+    if (!full.startsWith(root + path.sep) && full !== root) return null;
+    if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return null;
+    try {
+        return { kind, relPath: within, content: fs.readFileSync(full, 'utf-8') };
+    } catch { return null; }
+}
+
+/**
+ * Read every JSON file in a game_templates/v0.1/<id>/ dir. Returns a
+ * map of filename → content (4 files expected: 01_flow.json,
+ * 02_entities.json, 03_worlds.json, 04_systems.json) or null if the
+ * template doesn't exist.
+ */
+export function readLibraryTemplate(id: string): Record<string, string> | null {
+    if (!/^[a-zA-Z0-9_-]+$/.test(id)) return null; // reject traversal
+    const root = path.join(RGC_DIR, 'game_templates', 'v0.1', id);
+    if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) return null;
+    const out: Record<string, string> = {};
+    for (const entry of fs.readdirSync(root)) {
+        if (!entry.endsWith('.json')) continue;
+        try { out[entry] = fs.readFileSync(path.join(root, entry), 'utf-8'); } catch {}
+    }
+    return Object.keys(out).length > 0 ? out : null;
 }
 
 let cached: LibraryCatalog | null = null;

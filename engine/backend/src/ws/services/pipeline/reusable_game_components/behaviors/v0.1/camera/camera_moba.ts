@@ -1,3 +1,4 @@
+// also: MOBA, top down, isometric angle, RTS, tactical view
 // MOBA camera — fixed-angle top-down view following the hero
 class MobaCameraBehavior extends GameScript {
     _behaviorName = "moba_camera";

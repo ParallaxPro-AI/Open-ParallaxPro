@@ -1,3 +1,4 @@
+// also: basic enemy, standard mob, minion, combat encounter, patrol unit
 // Hostile mob — basic enemy that patrols and attacks the player
 class HostileMobBehavior extends GameScript {
     _behaviorName = "hostile_mob"; _speed = 3; _damage = 10; _detectRange = 15; _attackRange = 2.5; _attackRate = 1.2; _health = 60; _xpReward = 20;

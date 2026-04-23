@@ -1,3 +1,4 @@
+// also: WASD strafing, mouse aim, sprint, reload intent, pickup system
 // Top-down shooter player movement — client-authoritative.
 //
 // WASD locomotion on the xz-plane with the player yaw driven by the

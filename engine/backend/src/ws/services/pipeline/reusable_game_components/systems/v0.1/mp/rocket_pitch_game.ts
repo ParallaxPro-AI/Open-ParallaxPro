@@ -1,3 +1,4 @@
+// also: car-football, vehicle-sports, goal-scoring, boost-mechanics
 // Rocket Pitch — peer-to-peer car-football match rules.
 //
 // Match flow (host-driven, echoed to peers via net_rocket_* events):

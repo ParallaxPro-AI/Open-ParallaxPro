@@ -1,3 +1,4 @@
+// also: camera-relative movement, animation states, vehicle exit, character controller, third-person camera
 // Third-person movement — WASD relative to camera, sprint with Shift, jump with Space
 class ThirdPersonMovementBehavior extends GameScript {
     _behaviorName = "third_person_movement";

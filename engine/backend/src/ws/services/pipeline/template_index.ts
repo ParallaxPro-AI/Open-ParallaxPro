@@ -20,6 +20,7 @@ import {
     initEmbedder,
     embedText,
     embedTexts,
+    embedQuery,
     cosineSimilarity,
     computeFingerprint,
 } from '../../../embedding_service.js';
@@ -157,7 +158,7 @@ export async function pickClosestTemplate(description: string): Promise<Template
 
     if (templateEmbeddings) {
         try {
-            const queryVec = await embedText(description);
+            const queryVec = await embedQuery(description);
             let bestId: string | null = null;
             let bestScore = -Infinity;
             for (const [id, vec] of templateEmbeddings) {
@@ -186,7 +187,7 @@ export async function rankTemplatesBySearch(query: string): Promise<Array<{ id: 
         try { await initPromise; } catch { /* fall through */ }
     }
     if (!templateEmbeddings) throw new Error('template embeddings not ready');
-    const queryVec = await embedText(query);
+    const queryVec = await embedQuery(query);
     const ranked: Array<{ id: string; score: number }> = [];
     for (const [id, vec] of templateEmbeddings) {
         ranked.push({ id, score: cosineSimilarity(queryVec, vec) });

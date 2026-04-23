@@ -1,3 +1,4 @@
+// also: starvation, hunger meter, food mechanic, survival mechanics, attrition
 // Player survival — health, hunger, damage, death, respawn for survival games
 class PlayerSurvivalBehavior extends GameScript {
     _behaviorName = "player_survival";

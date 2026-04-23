@@ -1,3 +1,4 @@
+// also: first person view, mouse look, head bob, aim, pitch yaw
 // FPS camera — attached to the camera entity, follows the player in first person
 class CameraFPSBehavior extends GameScript {
     _behaviorName = "fps_camera";

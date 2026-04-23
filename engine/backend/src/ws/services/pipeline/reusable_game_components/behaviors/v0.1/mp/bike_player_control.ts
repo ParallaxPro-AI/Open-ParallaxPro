@@ -1,3 +1,4 @@
+// also: light cycle, boost meter, trail mechanics, racing, neon cycles, client-side prediction
 // Bike player control — client-authoritative steering for a light cycle.
 //
 // Each peer drives its own bike with A/D (steer), W or Shift (boost),

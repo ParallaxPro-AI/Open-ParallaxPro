@@ -1,3 +1,4 @@
+// also: RPG character, player progression, ability cooldown, character lifecycle
 // Hero combat — health, mana, auto-attack, Q/E/Space abilities, death + respawn
 class HeroCombatBehavior extends GameScript {
     _behaviorName = "hero_combat";

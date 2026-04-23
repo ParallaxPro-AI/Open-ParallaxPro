@@ -1,3 +1,4 @@
+// also: enemy AI, waves, health system, respawn, difficulty scaling
 // Combat survival — tracks kills, manages mob threats, player death
 class CombatSurvivalSystem extends GameScript {
     _kills = 0;

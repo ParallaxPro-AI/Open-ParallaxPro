@@ -1,3 +1,4 @@
+// also: HUD-bridge, state-forwarding, overlay-panels, event-routing
 // UIBridge — generic bridge between game events and HTML UI overlays.
 // Forwards all game events as state to HTML panels via sendState().
 // Does NOT contain game-specific logic — scripts set state via hud_update events.

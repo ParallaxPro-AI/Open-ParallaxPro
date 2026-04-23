@@ -1,3 +1,4 @@
+// also: round switching, view mode, dynamic framing, game state
 // Deadly games camera — adapts per round: chase, side, or overhead view
 class DeadlyCameraBehavior extends GameScript {
     _behaviorName = "camera_deadly";

@@ -1,3 +1,4 @@
+// also: basketball, sport, shooting, quarters, hoop, ball
 // Court Match — NBA 2K style 1v1..4v4 multiplayer basketball.
 //
 // Two teams (home / away), full-court layout with a hoop at each end.

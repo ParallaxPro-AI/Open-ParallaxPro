@@ -29,18 +29,23 @@ project/                          — The user's game (template format). EDIT TH
   systems/mp/mp_bridge.ts         — Multiplayer session bridge (pinned; auto-activated when 01_flow.json has a multiplayer block — do NOT list in active_systems)
   ui/{name}.html                  — Pinned UI panels
   scripts/                        — User-written custom scripts (optional)
-reference/                        — Read-only reference, the latest shared library
-  behaviors/, systems/, ui/, event_definitions.ts
+reference/                        — Read-only
+  event_definitions.ts            — Canonical event schema (convenience pointer)
 TASK.md                           — The user's request + project summary
 search_assets.sh                  — bash search_assets.sh "query" to find assets
+library.sh                        — bash library.sh {list,search,show} to find +
+                                    fetch behaviors, systems, UI panels, and
+                                    templates. They are NOT in reference/ —
+                                    use this tool.
 validate.sh                       — bash validate.sh to validate your output
 ```
 
 ### Editing rules
 
-- To add a behavior the project doesn't pin yet: copy from `reference/behaviors/...`
-  to `project/behaviors/...`, then reference its path in `project/02_entities.json`.
-- Same for systems and UI panels.
+- To add a behavior the project doesn't pin yet: find it with `bash library.sh
+  search "<intent>"`, fetch it with `bash library.sh show <path>`, then `Write`
+  the content into `project/behaviors/...`. Reference its path in
+  `project/02_entities.json`. Same pattern for systems and UI panels.
 - Edit JSON template files for entity changes (mesh, physics, behaviors, placement)
   — do NOT generate scenes/*.json files; the engine assembles them from the templates.
 - New scripts that aren't general behaviors go in `project/scripts/{name}.ts`.
@@ -278,6 +283,24 @@ bash search_assets.sh "grass ground texture" --category Textures --limit 5
 
 The returned `path` values are exactly what you use in entity defs (`mesh.asset`) and scripts (`playSound`/`playMusic`).
 
+## Library tool — `library.sh`
+
+`reference/` holds the shared game-code library (behaviors, systems, UI panels, the 40 shipped templates). Instead of `Read`/`Glob`-ing through it, use `bash library.sh`:
+
+```bash
+bash library.sh list behaviors                              # categorized index + summaries
+bash library.sh search "jumping" "boss fight" "health bar"  # batch semantic search
+bash library.sh show behaviors/movement/jump.ts             # fetch by path
+bash library.sh show movement/jump.ts gameplay/scoring.ts   # kind-inferring + batch
+bash library.sh show templates/platformer                   # all 4 JSONs concatenated
+```
+
+**Kind inference**: a template's `02_entities.json` says `"script": "movement/jump.ts"` (no kind prefix). Pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` based on extension. UI panel ids like `hud/health` auto-append `.html`. Bare names (no extension, no slash) resolve as template ids.
+
+**Batch**: multiple positional args fold into one HTTP call, one tool call, one transcript entry. Anything not found comes back inline as `=== NOT_FOUND: <path> (tried: ...) ===` so partial failures don't need a second call.
+
+**When to use it vs `Read`**: references in library files are library paths — fetch via `library.sh show`. References in `project/` files (the one you're fixing) are the user's own files — read via `Read`.
+
 **Do NOT invent asset paths.** Every `mesh.asset` and `playSound`/`playMusic` path must come from a search result. `validate.sh` will reject non-existent asset paths.
 
 ## Template Format Reference
@@ -504,7 +527,7 @@ Mark entities that should sync across the network with a `network` block:
 
 ### Reusable lobby + HUD UI panels
 
-Pin these from `reference/ui/` — do not rewrite them:
+Pin these UI panels — do not rewrite them. Fetch each with `bash library.sh show ui/<name>.html` (or `show <name>` — bare form, kind inferred), then `Write` into `project/ui/<name>.html`:
 - `ui/lobby_browser.html`, `ui/lobby_host_config.html`, `ui/lobby_room.html`
 - `ui/connecting_overlay.html`, `ui/disconnected_banner.html`
 - `ui/hud/ping.html`, `ui/hud/text_chat.html`, `ui/hud/voice_chat.html`

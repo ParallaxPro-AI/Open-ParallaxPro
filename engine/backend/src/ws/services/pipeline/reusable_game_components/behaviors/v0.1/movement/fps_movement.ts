@@ -1,3 +1,4 @@
+// also: locomotion, first-person, sprint, gravity, physics-based
 // FPS movement — WASD via physics velocity, gravity handled by physics engine
 class FPSMovementBehavior extends GameScript {
     _behaviorName = "fps_movement";

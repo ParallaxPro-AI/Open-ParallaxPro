@@ -1,3 +1,4 @@
+// also: harvesting, resource gathering, supply chain, labor, base return
 // Worker AI — gathers resources and returns to base
 class WorkerAIBehavior extends GameScript {
     _behaviorName = "worker_ai";

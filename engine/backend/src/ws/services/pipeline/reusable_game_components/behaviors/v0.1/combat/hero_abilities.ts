@@ -1,3 +1,4 @@
+// also: ability system, skill tree, spellcasting, mana management, cooldowns
 // Hero abilities — Q/E/R ability attacks with cooldowns and mana cost
 class HeroAbilitiesBehavior extends GameScript {
     _behaviorName = "hero_abilities"; _q_damage = 30; _q_range = 8; _q_cooldown = 3; _q_mana = 15;

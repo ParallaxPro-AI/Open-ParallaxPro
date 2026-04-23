@@ -1,3 +1,4 @@
+// also: creep, wave, moba_unit, enemy_spawn, economic_reward, lane_push
 // Minion AI — walks down lane, attacks nearest enemy, grants gold on death
 class MinionAIBehavior extends GameScript {
     _behaviorName = "minion_ai";

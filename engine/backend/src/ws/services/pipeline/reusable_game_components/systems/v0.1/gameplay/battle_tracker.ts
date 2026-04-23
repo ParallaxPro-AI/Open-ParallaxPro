@@ -1,3 +1,4 @@
+// also: victory condition, kill counter, enemy count, game over, match result
 // Battle tracker — tracks alive count, kills, and triggers victory/defeat
 class BattleTracker extends GameScript {
     _totalEnemies = 0;

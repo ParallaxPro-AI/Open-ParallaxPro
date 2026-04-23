@@ -1,3 +1,4 @@
+// also: parkour, platformer, time trials, checkpoint system, respawn mechanics
 // Course progress — checkpoint tracking, timer, finish/fall detection
 class CourseProgressBehavior extends GameScript {
     _behaviorName = "course_progress";

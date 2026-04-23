@@ -1,3 +1,4 @@
+// also: minigame, couch-coop, party-game, local-multiplayer, casual
 // Party player — WASD movement for human player in party minigames
 class PartyPlayerBehavior extends GameScript {
     _behaviorName = "party_player";

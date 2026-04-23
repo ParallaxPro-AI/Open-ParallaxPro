@@ -1,3 +1,4 @@
+// also: tank unit, heavy armor, melee brute, aggressive charger, heavy weapon
 // Enemy assault AI — heavy armored enemy with strong attacks
 class EnemyAssaultAIBehavior extends GameScript {
     _behaviorName = "enemy_assault_ai"; _speed = 3; _damage = 20; _attackRange = 3; _attackRate = 1.2; _detectRange = 22; _health = 150; _dead = false; _cooldown = 0;

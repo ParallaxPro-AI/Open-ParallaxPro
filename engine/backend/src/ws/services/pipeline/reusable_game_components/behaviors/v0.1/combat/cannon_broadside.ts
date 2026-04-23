@@ -1,3 +1,4 @@
+// also: naval-combat, dual-battery, ship-weapons, multiplayer
 // Cannon broadsides — left click fires port (left) battery, right click
 // fires starboard (right). Each side has independent ammo + reload so a
 // captain can alternate sides for sustained fire. Cannons spawn a quick

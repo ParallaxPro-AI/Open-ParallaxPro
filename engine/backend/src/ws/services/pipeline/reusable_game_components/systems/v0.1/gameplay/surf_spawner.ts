@@ -1,3 +1,4 @@
+// also: infinite, procedural, obstacles, collectibles, power-ups, endless
 // Surf spawner — procedural track, obstacle, coin, and power-up generation for endless runner
 class SurfSpawnerSystem extends GameScript {
     _trackSegLen = 40;

@@ -1,3 +1,4 @@
+// also: pong, paddle, classic-arcade, bat, vertical-movement
 // Pong paddle — W/S or Arrow Up/Down to move paddle vertically
 class PongPaddleBehavior extends GameScript {
     _behaviorName = "pong_paddle";

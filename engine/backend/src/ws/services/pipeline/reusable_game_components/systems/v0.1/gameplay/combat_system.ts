@@ -1,3 +1,4 @@
+// also: unit control, military strategy, victory defeat, base defense
 // Combat system — manages damage, kills, morale for RTS battles
 class CombatSystemInstance extends GameScript {
     _playerKills = 0; _enemyKills = 0; _gameActive = false;

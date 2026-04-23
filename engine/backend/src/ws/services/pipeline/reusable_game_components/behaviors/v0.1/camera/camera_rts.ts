@@ -1,3 +1,4 @@
+// also: real-time-strategy, WASD-panning, top-down, isometric-view
 // RTS camera — top-down with WASD pan and zoom
 class RTSCameraBehavior extends GameScript {
     _behaviorName = "camera_rts";

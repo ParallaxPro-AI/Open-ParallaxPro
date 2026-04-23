@@ -1,3 +1,4 @@
+// also: raid encounter, final boss, elite threat, powerful enemy, champion
 // Boss AI — powerful boss enemy with high health, multiple attack patterns
 class BossAIBehavior extends GameScript {
     _behaviorName = "boss_ai"; _speed = 2.5; _damage = 35; _detectRange = 25; _attackRange = 4; _attackRate = 2; _health = 500; _maxHealth = 500; _xpReward = 200;

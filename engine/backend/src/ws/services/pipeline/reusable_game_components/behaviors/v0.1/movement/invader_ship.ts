@@ -1,3 +1,4 @@
+// also: space-shooter, arcade, bullet, wave, vertical-shmup
 // Invader Ship — retro side-to-side player ship with a single fire
 // button. Arrow keys / A-D drive the ship left and right along a fixed
 // z; Space fires a bullet upward, rate-limited to N on screen at once

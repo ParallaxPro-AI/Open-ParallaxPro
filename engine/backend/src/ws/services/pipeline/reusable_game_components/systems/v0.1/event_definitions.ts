@@ -1,3 +1,4 @@
+// also: event schema, bus contract, payload types, event catalog, lifecycle events
 /**
  * Game event definitions — single source of truth for the `game` event bus.
  * Each event has a name and a payload schema.

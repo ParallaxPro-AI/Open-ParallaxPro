@@ -1,3 +1,4 @@
+// also: crafting, gathering, survival, building, storage
 // Sandbox world — block mining, inventory, resource tracking, item drops/pickup
 class SandboxWorldSystem extends GameScript {
     _inventorySlots = 9;

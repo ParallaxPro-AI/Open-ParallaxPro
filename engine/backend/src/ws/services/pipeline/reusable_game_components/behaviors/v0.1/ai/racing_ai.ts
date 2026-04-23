@@ -1,3 +1,4 @@
+// also: vehicle_pathfinding, track_navigation, competitor_bot, autopilot, lap_racing
 // Racing AI — follows waypoints around the track at a set speed
 class RacingAIBehavior extends GameScript {
     _behaviorName = "racing_ai";

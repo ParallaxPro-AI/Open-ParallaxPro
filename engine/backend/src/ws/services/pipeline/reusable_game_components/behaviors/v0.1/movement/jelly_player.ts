@@ -1,3 +1,4 @@
+// also: physics, party-game, bouncy, third-person, weighty
 // Jelly Player movement — wobbly, bouncy, party-game-feel third-person
 // movement. WASD relative to camera yaw, Space for a slightly-floaty
 // jump, Shift to sprint, Q to dive (commit a forward lunge that stuns

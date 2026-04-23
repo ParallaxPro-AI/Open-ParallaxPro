@@ -1,3 +1,4 @@
+// also: party game, spectator, elimination, multiplayer, third person orbit
 // Party-game chase camera — orbit around the local player on RMB drag,
 // auto-orbit toward the player's facing when idle, and switch to a
 // "spectator drift" mode that orbits the leader once the local peer is

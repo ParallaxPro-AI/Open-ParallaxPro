@@ -1,3 +1,4 @@
+// also: shooting, raycast-hit, ammo-system, multiplayer-weapons
 // FPS combat — shoot with left click, raycast to detect hits
 class FPSCombatBehavior extends GameScript {
     _behaviorName = "fps_combat";

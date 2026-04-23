@@ -1,3 +1,4 @@
+// also: harvester, gatherer, resource farming, npc laborer, automated collector
 // Enemy worker AI — gathers resources for enemy side
 class EnemyWorkerAIBehavior extends GameScript {
     _behaviorName = "enemy_worker_ai"; _speed = 2.5; _health = 30; _dead = false; _tX = 0; _tZ = 0; _mt = 0;

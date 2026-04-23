@@ -1,3 +1,4 @@
+// also: research, progression, era, civilization, unlocks
 // Tech and culture — technology research tree with era gating, culture policies
 class TechCultureSystem extends GameScript {
     _technologies = {};

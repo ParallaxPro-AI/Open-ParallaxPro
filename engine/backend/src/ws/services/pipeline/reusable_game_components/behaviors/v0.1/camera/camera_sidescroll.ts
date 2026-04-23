@@ -1,3 +1,4 @@
+// also: 2.5D-platformer, parallax-view, tilt-bias, isometric-tilt
 // Sidescroll camera — rides at fixed Z offset off the action plane and
 // tracks the local player on XY. Smooth-follow with a soft "look-ahead"
 // in the direction of motion so the player can see what's coming. A tiny
