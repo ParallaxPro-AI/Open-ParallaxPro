@@ -333,7 +333,9 @@
     "done": "完了",
     "close": "閉じる",
     "mismatchTitle": "エンジンバージョンがサポートされていません",
-    "gotIt": "了解"
+    "gotIt": "了解",
+    "saving": "保存中…",
+    "saved": "保存しました"
   },
   "profiler": {
     "title": "パフォーマンス",

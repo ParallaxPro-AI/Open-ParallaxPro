@@ -333,7 +333,9 @@
     "done": "Pronto",
     "close": "Fechar",
     "mismatchTitle": "Versão do motor não suportada",
-    "gotIt": "Entendi"
+    "gotIt": "Entendi",
+    "saving": "Salvando…",
+    "saved": "Salvo"
   },
   "profiler": {
     "title": "Desempenho",

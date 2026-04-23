@@ -333,7 +333,9 @@
     "done": "완료",
     "close": "닫기",
     "mismatchTitle": "엔진 버전이 지원되지 않습니다",
-    "gotIt": "확인"
+    "gotIt": "확인",
+    "saving": "저장 중…",
+    "saved": "저장됨"
   },
   "profiler": {
     "title": "성능",

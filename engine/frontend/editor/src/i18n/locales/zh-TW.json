@@ -333,7 +333,9 @@
     "done": "完成",
     "close": "關閉",
     "mismatchTitle": "不支援此引擎版本",
-    "gotIt": "了解"
+    "gotIt": "了解",
+    "saving": "儲存中…",
+    "saved": "已儲存"
   },
   "profiler": {
     "title": "效能",

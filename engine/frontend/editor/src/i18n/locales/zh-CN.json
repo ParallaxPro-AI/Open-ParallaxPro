@@ -333,7 +333,9 @@
     "done": "完成",
     "close": "关闭",
     "mismatchTitle": "引擎版本不支持",
-    "gotIt": "知道了"
+    "gotIt": "知道了",
+    "saving": "保存中…",
+    "saved": "已保存"
   },
   "profiler": {
     "title": "性能",
