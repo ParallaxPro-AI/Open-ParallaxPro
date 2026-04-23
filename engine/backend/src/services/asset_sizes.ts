@@ -45,6 +45,45 @@ function loadFacingRegistry(): Record<string, FacingEntry> {
     return _facingRegistry;
 }
 
+// ── Rotation helper ──────────────────────────────────────────────────────
+//
+// Build a 3x3 rotation matrix (row-major, Float32Array[9]) that maps from
+// the asset's current axes (front, up) to the engine's canonical axes
+// (-Z forward, +Y up, +X right). Mirrors buildFacingRotation in
+// engine/frontend/editor/src/utils/glb_loader.ts — keep in sync.
+
+const AXIS_VECS: Record<string, [number, number, number]> = {
+    '+x': [ 1,  0,  0], '-x': [-1,  0,  0],
+    '+y': [ 0,  1,  0], '-y': [ 0, -1,  0],
+    '+z': [ 0,  0,  1], '-z': [ 0,  0, -1],
+};
+
+function buildRotationMatrix(front?: string, up?: string): Float32Array | null {
+    if (!front || !up) return null;
+    const f = AXIS_VECS[front], u = AXIS_VECS[up];
+    if (!f || !u) return null;
+    if (f[0] * u[0] + f[1] * u[1] + f[2] * u[2] !== 0) return null;
+    const nf: [number, number, number] = [-f[0], -f[1], -f[2]];
+    const r: [number, number, number] = [
+        u[1] * nf[2] - u[2] * nf[1],
+        u[2] * nf[0] - u[0] * nf[2],
+        u[0] * nf[1] - u[1] * nf[0],
+    ];
+    return new Float32Array([r[0], r[1], r[2], u[0], u[1], u[2], nf[0], nf[1], nf[2]]);
+}
+
+// Apply a rotation matrix to an axis-aligned bounding-box size. The rotated
+// box's new AABB extent along world axis i is the absolute dot product of
+// row i of R with the original size vector.
+function rotateAabbSize(size: [number, number, number], R: Float32Array): [number, number, number] {
+    const [sx, sy, sz] = size;
+    return [
+        Math.abs(R[0]) * sx + Math.abs(R[1]) * sy + Math.abs(R[2]) * sz,
+        Math.abs(R[3]) * sx + Math.abs(R[4]) * sy + Math.abs(R[5]) * sz,
+        Math.abs(R[6]) * sx + Math.abs(R[7]) * sy + Math.abs(R[8]) * sz,
+    ];
+}
+
 function effectiveEntry(packEntry: FacingEntry | undefined, fileName: string): FacingEntry {
     if (!packEntry) return {};
     const out: FacingEntry = { ...packEntry };
@@ -201,7 +240,14 @@ export function getCanonicalSize(filePath: string): [number, number, number] | n
         if (dim > 1e-6) scale = eff.scale_to_meters.target_meters / dim;
     }
 
-    const size: [number, number, number] = [raw.size[0] * scale, raw.size[1] * scale, raw.size[2] * scale];
+    // Apply the registry rotation so the reported W x H x D is always in
+    // canonical axes (X = left-right, Y = up-down, Z = forward-back). Without
+    // this, packs with front=+x/-x would report W and D swapped — the AI
+    // would reason about the wrong axis when planning placements.
+    const R = buildRotationMatrix(eff.front, eff.up);
+    const rotatedSize: [number, number, number] = R ? rotateAabbSize(raw.size, R) : raw.size;
+
+    const size: [number, number, number] = [rotatedSize[0] * scale, rotatedSize[1] * scale, rotatedSize[2] * scale];
     _sizeCache.set(filePath, size);
     return size;
 }
