@@ -68,6 +68,8 @@ export interface CaptureContext {
     prompt?: string;
     dockerSandbox?: boolean;
     hostname?: string;
+    /** Server-side cap on LLM round-trips (`--max-turns`). Stored in metadata so the admin UI can show "steps used / allowed" without parsing the spawn arguments. */
+    maxTurns?: number;
 }
 
 export interface CaptureHandle {
@@ -82,7 +84,7 @@ export interface CaptureHandle {
      */
     noteOpencodeSessionID(id: string): void;
     /** Close streams + copy native session files + write result.json. */
-    finalize(result: { exitCode: number | null; costUsd?: number; text?: string; aborted?: boolean; sessionType?: string; remoteRetry?: boolean }): void;
+    finalize(result: { exitCode: number | null; costUsd?: number; text?: string; aborted?: boolean; sessionType?: string; remoteRetry?: boolean; numTurns?: number }): void;
 }
 
 /**
@@ -124,6 +126,7 @@ export function beginCapture(ctx: CaptureContext): CaptureHandle {
             pid: process.pid,
             startedAt: new Date(startedAt).toISOString(),
             startedAtEpochMs: startedAt,
+            maxTurns: ctx.maxTurns ?? null,
         };
         fs.writeFileSync(path.join(full, 'metadata.json'), JSON.stringify(meta, null, 2));
         stdoutStream = fs.createWriteStream(path.join(full, 'stdout.jsonl'), { flags: 'a' });
@@ -177,7 +180,7 @@ export function beginCapture(ctx: CaptureContext): CaptureHandle {
             }
         },
 
-        finalize({ exitCode, costUsd, text, aborted, sessionType, remoteRetry }) {
+        finalize({ exitCode, costUsd, text, aborted, sessionType, remoteRetry, numTurns }) {
             if (finalized) return;
             finalized = true;
             try { stdoutStream?.end(); } catch {}
@@ -195,6 +198,7 @@ export function beginCapture(ctx: CaptureContext): CaptureHandle {
                         summaryText: text || null,
                         sessionType: sessionType || null,
                         remoteRetry: !!remoteRetry,
+                        numTurns: numTurns ?? null,
                         endedAt: new Date(endedAt).toISOString(),
                         endedAtEpochMs: endedAt,
                         durationMs: endedAt - startedAt,

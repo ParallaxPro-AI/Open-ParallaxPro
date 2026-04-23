@@ -117,6 +117,14 @@ export interface CLIRunResult {
     /** Dollar cost reported by the CLI, if available. Codex does not report it. */
     costUsd: number;
     /**
+     * CLI-reported turn count from the result event. For Claude this counts
+     * each tool round-trip (one assistant message with N tool_use blocks
+     * counts as N), so it can exceed `--max-turns` even on a healthy run.
+     * Use the captured stdout's unique-message-id count if you want LLM
+     * round-trips. Undefined for CLIs that don't report it.
+     */
+    numTurns?: number;
+    /**
      * Absolute path to the session-capture dir on disk. Present only when
      * the caller passed `capture` in SpawnOptions AND capture init succeeded.
      * Admin-only — do NOT leak to user-facing routes or chat dialogue.
@@ -267,6 +275,7 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
                 username: opts.capture.username,
                 prompt: opts.prompt,
                 dockerSandbox: isDockerSandboxEnabled(),
+                maxTurns: opts.maxTurns,
             });
         } catch (e: any) {
             console.warn(`[CLIRunner] Session capture init threw (non-fatal): ${e?.message}`);
@@ -315,6 +324,7 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
                 aborted: !!opts.abortSignal?.aborted,
                 sessionType: opts.continueForked ? (opts.sessionType || 'warm_fork') : 'cold',
                 remoteRetry: isRemoteRetry,
+                numTurns: result.numTurns,
             });
         } catch (e: any) {
             console.warn(`[CLIRunner] Session capture finalize threw (non-fatal): ${e?.message}`);
@@ -362,6 +372,7 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
 
         let resultText = '';
         let costUsd = 0;
+        let numTurns: number | undefined;
         let stderr = '';
 
         streamJSONL(proc.stdout, (event: any) => {
@@ -378,6 +389,7 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
             if (event.type === 'result') {
                 resultText = event.result || '';
                 costUsd = event.total_cost_usd || 0;
+                if (typeof event.num_turns === 'number') numTurns = event.num_turns;
             }
         }, capture);
 
@@ -385,7 +397,7 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
 
         proc.on('close', (code) => {
             if (code === 0 || code === null) {
-                resolve({ text: resultText || 'Changes applied.', costUsd });
+                resolve({ text: resultText || 'Changes applied.', costUsd, numTurns });
             } else {
                 console.error(`[CLIRunner] claude exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
                 reject(new Error(`Fixer CLI exited with code ${code}`));
