@@ -60,19 +60,6 @@ export interface CreatorResult {
      */
     sessionCapturePath?: string | null;
     usedWarmSession?: boolean;
-    /**
-     * Per-phase breakdown populated only when the phased creator pipeline
-     * (Approach B) ran. Undefined for the single-agent path. Lets the
-     * research workbench record per-phase cost/turn telemetry without
-     * re-parsing session captures.
-     */
-    phaseBreakdown?: Array<{
-        phase: string;
-        costUsd: number;
-        turns: number;
-        success: boolean;
-        failureReason?: string;
-    }>;
 }
 
 export interface CreatorOptions {
@@ -359,7 +346,6 @@ export async function runCreator(
             files,
             costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
             usedWarmSession: cliResult.usedWarmSession,
-            phaseBreakdown: cliResult.phaseBreakdown,
         };
       })();
       return finalResult;
@@ -712,35 +698,9 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
     costUsd: number;
     sessionCapturePath?: string | null;
     usedWarmSession?: boolean;
-    phaseBreakdown?: CreatorResult['phaseBreakdown'];
 }> {
     const cli = resolveCLI(cliOverride);
     let usedWarmSession = false;
-
-    // Phased pipeline (Approach B). Skips warm session entirely — each
-    // phase is its own fresh claude -p with a narrow CLAUDE.md. Shared
-    // CLI baseline still caches across phase invocations because it's
-    // byte-identical. See creator_phased.ts.
-    if (cli === 'claude' && config.useCreatorPhased) {
-        sendStatus?.('Running phased creator pipeline...');
-        const { runCreatorPhased } = await import('./creator_phased.js');
-        const result = await runCreatorPhased({
-            sandboxDir,
-            claudeModel: 'claude-opus-4-7',
-            abortSignal,
-            sendStatus,
-        });
-        const summary = result.allPhasesSucceeded
-            ? `Phased run complete — 5/5 phases succeeded.`
-            : `Phased run halted after phase ${result.perPhase.length}. Last failure: ${result.perPhase.at(-1)?.failureReason || 'unknown'}`;
-        return {
-            text: summary,
-            costUsd: result.totalCostUsd,
-            sessionCapturePath: result.lastSessionCapturePath,
-            usedWarmSession: false,
-            phaseBreakdown: result.perPhase,
-        };
-    }
 
     if (cli === 'claude') {
         sendStatus?.('Waiting for warm session...');
