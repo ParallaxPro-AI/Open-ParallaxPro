@@ -347,6 +347,26 @@ Create scripts inside `project/`:
 If a behavior or system already exists in the library, prefer `library.sh show`
 + `Write` into `project/` over rewriting from scratch.
 
+### HARD RULE — orbit cameras & camera-relative movement
+
+When your game needs any of the following, you **MUST** pin the library file
+via `library.sh show <path>` and `Write` it into `project/behaviors/…`. Do
+NOT derive your own orbit math, mouse-look, or camera-relative WASD — the
+sign conventions and yaw handedness are load-bearing and LLMs consistently
+get them wrong (inverted Y, mirrored A/D, W moves opposite the camera).
+
+- **Third-person (mouse-orbit + camera-relative WASD)** — pin both:
+  `library.sh show behaviors/camera/camera_third_person.ts behaviors/movement/third_person_movement.ts`
+- **First-person (mouse-look + WASD)** — pin both:
+  `library.sh show behaviors/camera/camera_fps.ts behaviors/movement/fps_movement.ts`
+- **Isometric RPG / action-RPG orbit** — pin both:
+  `library.sh show behaviors/camera/camera_rpg.ts behaviors/movement/rpg_movement.ts`
+
+Tweak tunables via `params` in `02_entities.json` (distance, height, sensitivity,
+speed, etc.) — don't edit the script body. If your game has a novel camera need
+that doesn't match any of the above (rail camera, fixed-angle, etc.), you may
+write your own — but for standard orbit + camera-relative movement, ALWAYS pin.
+
 ## Script Rules — CRITICAL
 
 1. Use `var` instead of `let`/`const`
