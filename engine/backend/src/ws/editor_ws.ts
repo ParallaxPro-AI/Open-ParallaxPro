@@ -135,7 +135,11 @@ function getRecentChatHistory(projectId: string, chatSessionId: string): string 
             }
             if (!text) continue;
             const label = r.role === 'user' ? 'User' : 'Assistant';
-            lines.push(`**${label}:** ${text.slice(0, 500)}`);
+            // 2000 char cap per message — was 500 but truncated mid-thought
+            // on longer prompts (game briefs, code snippets). 20 messages
+            // × 2000 chars ≈ ~10K tokens worst case, still small relative
+            // to the CLI's TASK.md budget.
+            lines.push(`**${label}:** ${text.slice(0, 2000)}`);
         }
         return lines.join('\n\n');
     } catch { return ''; }
