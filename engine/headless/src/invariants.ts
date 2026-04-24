@@ -247,40 +247,98 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   // Skipped keys: movement (WASD/arrows) — already covered by
   // primary_action_responsive. MouseLeft/Right — handled via click().
   // Escape — owned by the browser's pointer-lock release, not the game.
+  // Detection is STATIC — search for any subscriber that claims to
+  // handle the key. Runtime simulation looked tempting but ran into two
+  // unsolvable problems in practice:
+  //   1. Games with continuously-mutating state (asteroid timers, score
+  //      tickers) made "did anything change after the tap?" always true.
+  //   2. Games whose pause wiring is inside a `gameplay` FSM state never
+  //      exercised that wiring when the invariant ran in `main_menu`,
+  //      producing false positives for LEGITIMATELY-alive keys like the
+  //      clean_driving baseline's P pause.
+  //
+  // Static analysis dodges both: we look for any of
+  //   • a script calling isKeyDown/isKeyPressed/isKeyUp with the key code
+  //   • a flow transition whose `when` names the key's code or its
+  //     inferred action (e.g. "P to pause" → search for "keyboard:pause",
+  //     "input:KeyP", "input:pause")
+  // Dead only if NOTHING claims the key across all scripts and all
+  // transitions in the flow (including nested substates).
+  //
+  // The asteroid run c685f774 has "P to pause" in its HUD but no script
+  // reads KeyP and no flow transition watches `keyboard:pause` —
+  // correctly dead. The clean_driving baseline has a
+  // `when: "keyboard:pause"` transition inside `driving` state —
+  // correctly alive.
   const uiHtmls = p.runtime.files.uiHtmls ?? {};
   if (Object.keys(uiHtmls).length > 0) {
+    const SKIP_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'MouseLeft', 'MouseRight', 'MouseMiddle', 'Escape', 'Tab']);
     const deadKeys: Array<{ key: string; source: string; context: string }> = [];
     const seen = new Set<string>();
-    const SKIP_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'MouseLeft', 'MouseRight', 'MouseMiddle', 'Escape', 'Tab']);
-    for (const [path, html] of Object.entries<string>(uiHtmls)) {
+    const scripts = p.runtime.projectScripts ?? {};
+    const flow = p.runtime.files.flow;
+
+    // Flatten all transitions across the flow tree (including substates).
+    const allTransitions: Array<{ when: string }> = [];
+    const walkStates = (states: any): void => {
+      for (const def of Object.values<any>(states ?? {})) {
+        for (const t of (def?.transitions ?? [])) {
+          if (typeof t?.when === 'string') allTransitions.push({ when: t.when });
+        }
+        if (def?.substates) walkStates(def.substates);
+      }
+    };
+    walkStates(flow?.states);
+
+    for (const [sourcePath, html] of Object.entries<string>(uiHtmls)) {
       const hints = extractKeyHints(html);
       for (const hint of hints) {
         const code = keyLabelToCode(hint.key);
         if (!code || SKIP_KEYS.has(code) || seen.has(code)) continue;
         seen.add(code);
-        const snap = p.snapshot();
-        const fsmBefore = p.fsmState();
-        const stateBefore = JSON.stringify(p.getState() ?? {});
-        const entitiesBefore = p.list().length;
-        try {
-          p.activateAllBehaviors();
-          p.tapKey(code, 100);
-          p.tick(20);
-          const fsmAfter = p.fsmState();
-          const stateAfter = JSON.stringify(p.getState() ?? {});
-          const entitiesAfter = p.list().length;
-          const fsmChanged = fsmBefore !== fsmAfter;
-          const stateChanged = stateBefore !== stateAfter;
-          const entityCountChanged = entitiesBefore !== entitiesAfter;
-          if (!fsmChanged && !stateChanged && !entityCountChanged) {
-            deadKeys.push({ key: code, source: path, context: hint.context });
-          }
-        } catch {
-          // Errors during key simulation don't count as "dead" — the key at
-          // least did something (crashed). The script_health invariant will
-          // pick that up separately.
+
+        // Derive the action name from the hint context ("P to pause" → "pause",
+        // "Esc to exit" → "exit"). Falls back to empty string if the context
+        // has no recognisable verb after the key.
+        const contextRest = hint.context.replace(new RegExp(`^${hint.key}\\s+(to\\s+)?`, 'i'), '').trim();
+        const action = contextRest.split(/\s+/)[0]?.toLowerCase() ?? '';
+
+        // 1) Check script sources for direct key polling. Exclude
+        // `systems/ui/ui_bridge.ts` and similar UI transport shims —
+        // those universally read KeyP / Esc / MouseLeft and emit
+        // `keyboard:<action>` / `ui_event:<panel>:<action>` events,
+        // acting as pass-throughs. Their existence says nothing about
+        // whether the game actually wires the action; the test has to
+        // see a FLOW transition or a GAMEPLAY script for that. Asteroid
+        // run c685f774 shipped the boilerplate ui_bridge with the
+        // `KeyP → keyboard:pause` emit, but its 01_flow.json had no
+        // pause state — the emit went into a void and P was effectively
+        // dead. Excluding the transport layer preserves that catch.
+        const keyRe = new RegExp(`is(Key|Button)(Down|Pressed|Up)\\s*\\(\\s*["']${code}["']`);
+        let hasScriptHandler = false;
+        // The assembler flattens project paths via underscores, so
+        // `systems/ui/ui_bridge.ts` becomes `scripts/ui_ui_bridge.ts`
+        // in runtime.projectScripts. The skiplist pattern has to match
+        // either shape — hence the optional directory prefix.
+        const TRANSPORT_RE = /(^|[\/_])(ui_bridge|mp_bridge|fsm_driver|_entity_label|event_definitions|_event_validator)(_[^/]*)?\.ts$/;
+        for (const [scriptPath, src] of Object.entries(scripts)) {
+          if (TRANSPORT_RE.test(scriptPath)) continue;
+          if (keyRe.test(src)) { hasScriptHandler = true; break; }
         }
-        p.restore(snap);
+
+        // 2) Check flow transitions for a `when` clause that matches.
+        let hasFlowHandler = false;
+        for (const t of allTransitions) {
+          const w = t.when;
+          if (w === `input:${code}`) { hasFlowHandler = true; break; }
+          if (action && (w === `keyboard:${action}` || w === `input:${action}`)) {
+            hasFlowHandler = true; break;
+          }
+        }
+
+        if (!hasScriptHandler && !hasFlowHandler) {
+          deadKeys.push({ key: code, source: sourcePath, context: hint.context });
+        }
       }
     }
     if (deadKeys.length > 0) {
