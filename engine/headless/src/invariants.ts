@@ -266,32 +266,57 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   }
 
   // ── 10. Interactive entities must have colliders ──
-  // Driving bug from run 6a89ff49 (Sonic roll-a-ball): CLI authored ramp /
-  // fence_wall / bumper / coin_pickup with `physics: false`, so they have
-  // no collider. Ball rolls through walls and can't hit coins. This
-  // invariant catches that class up-front by name matching — if you've
-  // named something a wall, it had better collide.
+  // Two detection paths, either fires:
+  //   (a) name-based: the entity's name matches a gameplay-suggestive
+  //       vocabulary (wall, ramp, pickup, enemy, asteroid, ...). Low false
+  //       positive risk — if you named it a wall, it had better collide.
+  //   (b) shape-based: the entity has a visible MeshRenderer with a
+  //       volumetric mesh (cube or custom GLB) placed in the world, AND
+  //       no ColliderComponent. The mesh being custom/cube AND placed
+  //       suggests it's solid geometry the player is meant to interact
+  //       with; a plane (floor/decal) is excluded because planes can
+  //       legitimately be non-collidable (HUD quad, skybox strip).
+  //
+  // `decoration_only` / `no_collide` tags are escape hatches for
+  // intentionally non-collidable meshes.
   results.push(guarded('interactive_entities_have_colliders', () => {
-    const INTERACTIVE_NAME_RE = /^(wall|ramp|fence|boundary|barrier|obstacle|pickup|coin|collectable|collectible|hazard|enemy|trap|pillar|platform|block|brick|stair|floor|wall_.*|fence_.*|.*_wall|.*_ramp|.*_pickup|.*_coin|.*_fence|.*_boundary|.*_hazard|.*_obstacle)$/i;
+    const INTERACTIVE_NAME_RE = /^(wall|ramp|fence|boundary|barrier|obstacle|pickup|coin|collectable|collectible|hazard|enemy|trap|pillar|platform|block|brick|stair|floor|rock|asteroid|boulder|tree|bush|plant|door|gate|key|potion|apple|fruit|health|shield|crate|barrel|shelf|bumper|pad|bomb|mine|tower|turret|zombie|robot|goomba|orc|goblin|skeleton|slime|drone|ufo|ship|pin|target|flag|checkpoint|finish|gem|crystal|star|orb|rune|cookie|powerup|trap|spike|lava|wall_.*|fence_.*|rock_.*|enemy_.*|robot_.*|.*_wall|.*_ramp|.*_pickup|.*_coin|.*_fence|.*_boundary|.*_hazard|.*_obstacle|.*_rock|.*_enemy|.*_target)$/i;
     const scene: any = p.runtime.scene;
     if (!scene) return;
     const missing: Array<{ name: string; reason: string }> = [];
     for (const e of scene.entities.values()) {
       if (!e.active) continue;
-      if (!INTERACTIVE_NAME_RE.test(e.name)) continue;
-      // Skip tag="camera" / "ui" (rare but defensive)
       const tags = e.tags instanceof Set ? Array.from(e.tags) : (Array.isArray(e.tags) ? e.tags : []);
-      if (tags.includes('ui') || tags.includes('camera') || tags.includes('decoration_only') || tags.includes('no_collide')) continue;
+      if (tags.includes('ui') || tags.includes('camera') || tags.includes('decoration_only') || tags.includes('no_collide') || tags.includes('particle') || tags.includes('vfx')) continue;
       const cc = e.getComponent('ColliderComponent');
-      if (!cc) {
-        missing.push({ name: e.name, reason: 'no ColliderComponent' });
+      if (cc) continue;  // already has one — fine
+      const nameMatches = INTERACTIVE_NAME_RE.test(e.name);
+      // Shape-based check (b): volumetric mesh, placed in world, no collider.
+      let shapeSuspect = false;
+      if (!nameMatches) {
+        const mr: any = e.getComponent('MeshRendererComponent');
+        if (mr && mr.gpuMesh) {
+          // meshType can be "custom" (GLB), "cube", "sphere", "capsule",
+          // "cylinder", "cone", "plane", "empty". Treat volumetric
+          // primitives + custom as solids worth flagging; plane/empty are
+          // usually legitimate as non-colliders.
+          const mt = (mr.meshType || '').toLowerCase();
+          if (mt === 'custom' || mt === 'cube' || mt === 'sphere' || mt === 'cylinder' || mt === 'cone' || mt === 'capsule') {
+            shapeSuspect = true;
+          }
+        }
+      }
+      if (nameMatches) {
+        missing.push({ name: e.name, reason: 'interactive name, no collider' });
+      } else if (shapeSuspect) {
+        missing.push({ name: e.name, reason: 'volumetric mesh placed in world, no collider' });
       }
     }
     if (missing.length > 0) {
-      const names = missing.slice(0, 5).map(m => `"${m.name}"`).join(', ');
+      const names = missing.slice(0, 5).map(m => `"${m.name}" (${m.reason})`).join(', ');
       const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
       throw new PlaytestFailure('interactive_no_collider',
-        `${missing.length} interactive entit${missing.length > 1 ? 'ies' : 'y'} lack colliders: ${names}${more}. These entities have gameplay-suggestive names (wall/ramp/pickup/etc.) but the player's physics will pass straight through them. Most likely cause: you set \`physics: false\` on the entity definition in 02_entities.json. Either give them a physics block (\`physics: { type: "static", collider: "box" }\` for walls, \`physics: { type: "static", collider: { shape: "box" }, is_trigger: true }\` for pickups), OR tag them ["decoration_only"] if they truly are decoration and the game shouldn't care about them.`,
+        `${missing.length} entit${missing.length > 1 ? 'ies' : 'y'} lack colliders: ${names}${more}. The player's physics will pass straight through these. Most likely cause: you set \`physics: false\` on the entity in 02_entities.json. Either give them a physics block (\`physics: { type: "static", collider: "box" }\` for walls/obstacles, \`physics: { type: "static", collider: { shape: "box" }, is_trigger: true }\` for pickups/zones), OR add the tag \`"decoration_only"\` if they truly are non-collidable decoration.`,
         { missing: missing.slice(0, 10), total: missing.length });
     }
   }));
@@ -302,11 +327,37 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   // find the first pickup, teleport the player on top of it, tick a few
   // frames, verify either the pickup entity is gone OR a pickup-like event
   // fired.
+  //
+  // Generalizes over static + dynamic spawns: if no pickups are present at
+  // boot, tick 3 seconds to let any spawner system fire, then re-scan.
+  // Also uses an expanded pickup vocabulary matching the enemy/pickup list
+  // in the collider invariant.
+  const PICKUP_NAME_RE = /^(pickup|coin|collectable|collectible|gem|powerup|crystal|star|fruit|apple|cookie|orb|rune|key|potion|heart|health|mushroom|flower|sun_blob)/i;
+  const findPickups = () => [...(p.runtime.scene?.entities.values() ?? [])].filter((e: any) => {
+    if (!e.active) return false;
+    if (PICKUP_NAME_RE.test(e.name)) return true;
+    if (e.tags instanceof Set) {
+      return e.tags.has('pickup') || e.tags.has('coin') || e.tags.has('collectable') || e.tags.has('collectible') || e.tags.has('gem') || e.tags.has('powerup');
+    }
+    if (Array.isArray(e.tags)) {
+      return e.tags.some((t: string) => ['pickup', 'coin', 'collectable', 'collectible', 'gem', 'powerup'].includes(t));
+    }
+    return false;
+  });
   if (player) {
-    const pickups = [...(p.runtime.scene?.entities.values() ?? [])].filter((e: any) =>
-      /^(pickup|coin|collectable|collectible|gem|powerup|crystal|star|fruit)/i.test(e.name) ||
-      (e.tags instanceof Set && (e.tags.has('pickup') || e.tags.has('coin') || e.tags.has('collectable')))
-    );
+    let pickups = findPickups();
+    if (pickups.length === 0) {
+      // No pre-placed pickups — wait for a spawner to run. Most spawners
+      // gate themselves on `active_behaviors` which we toggled above, so
+      // 3 seconds of ticks (180 frames) usually gives them time to fire.
+      const snap = p.snapshot();
+      try {
+        p.activateAllBehaviors();
+        p.tickSeconds(3);
+        pickups = findPickups();
+      } catch {}
+      p.restore(snap);
+    }
     if (pickups.length > 0) {
       const snap = p.snapshot();
       const pickup = pickups[0];
@@ -340,88 +391,107 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   }
 
   // ── 12. Gameplay state with clickable UI must show the cursor ──
-  // Pong bug (run 3772b437): playing state ui_bridge-owned virtual cursor
-  // was hidden, user couldn't click the Restart button mid-game. The flow's
-  // `playing` state lacked `show_cursor` in its on_enter actions.
-  //
-  // Heuristic: if any state after boot in 01_flow.json declares buttons/UI
-  // that should be clickable DURING that state (panels opened in that state
-  // via show_ui: actions) AND the state doesn't include `show_cursor` in
-  // on_enter, flag it.
+  // Two failure modes this catches:
+  //   (a) static: any gameplay-phase state has show_ui: in on_enter but no
+  //       show_cursor (and no deliberate hide_cursor). Classic pattern.
+  //   (b) dynamic: after boot + settle, the scene-level UI actually has
+  //       visible clickable elements (buttons / text inputs), meaning the
+  //       game relies on scene.createButton OR opened a panel from a
+  //       system onStart, AND every non-boot state's on_enter lacks
+  //       show_cursor. Catches the pong/clicker/tic-tac-toe pattern where
+  //       the CLI drew a "Restart" button via scene.createButton straight
+  //       from the gameplay system — those buttons exist, the virtual
+  //       cursor is the only way to click them, but no flow state ever
+  //       enables the cursor.
   const flow: any = p.runtime.files.flow;
   if (flow?.states) {
     const cursorlessClickableStates: Array<{ state: string; reason: string }> = [];
+    let anyStateShowsCursor = false;
     for (const [stateName, stateDef] of Object.entries<any>(flow.states)) {
-      if (stateName === 'boot' || stateName === 'main_menu') continue;  // handled by default
+      if (stateName === 'boot') continue;
       const onEnter: string[] = Array.isArray(stateDef.on_enter) ? stateDef.on_enter : [];
       const opensUI = onEnter.some(op => typeof op === 'string' && /^show_ui:/.test(op));
       const hasShowCursor = onEnter.some(op => typeof op === 'string' && /^show_cursor\b/.test(op));
       const hasHideCursor = onEnter.some(op => typeof op === 'string' && /^hide_cursor\b/.test(op));
-      // Only flag states that open UI (meaning clickable things will appear).
-      // Explicit hide_cursor is a deliberate choice — respect it.
+      if (hasShowCursor) anyStateShowsCursor = true;
       if (opensUI && !hasShowCursor && !hasHideCursor) {
         cursorlessClickableStates.push({ state: stateName, reason: 'opens UI but no show_cursor in on_enter' });
       }
+    }
+    // Dynamic check: are there scene-level clickables that need a cursor
+    // but no state ever enables one?
+    const visibleClickables = p.runtime.ui.listVisible().filter(el =>
+      el.kind === 'button' || el.kind === 'textInput' || el.kind === 'slider' || el.kind === 'dropdown');
+    if (visibleClickables.length > 0 && !anyStateShowsCursor) {
+      cursorlessClickableStates.push({
+        state: '(any gameplay state)',
+        reason: `${visibleClickables.length} clickable UI element(s) were created via scene.createButton / createTextInput but no flow state calls show_cursor — the user has buttons they cannot reach. This commonly happens when the CLI draws Restart / shop / menu buttons from a gameplay system via scene.createButton instead of declaring them in an HTML panel + show_ui:. Fix path A: use show_ui:<panel> with the buttons in an HTML panel. Fix path B: add "show_cursor" to at least one state's on_enter.`,
+      });
     }
     if (cursorlessClickableStates.length > 0) {
       results.push({
         name: 'cursor_visible_during_clickable_ui',
         failure: new PlaytestFailure('cursor_gated_off',
-          `state${cursorlessClickableStates.length > 1 ? 's' : ''} ${cursorlessClickableStates.map(s => `"${s.state}"`).join(', ')} open clickable UI but don't include \`show_cursor\` in \`on_enter\` — the virtual cursor won't be visible and the user can't click the buttons. Add \`"show_cursor"\` to each state's \`on_enter\` array in 01_flow.json.`,
+          `state${cursorlessClickableStates.length > 1 ? 's' : ''} ${cursorlessClickableStates.map(s => `"${s.state}"`).join(', ')} have clickable UI but no show_cursor is called — the virtual cursor isn't visible and the user can't click the buttons. ${cursorlessClickableStates[0].reason}`,
           { states: cursorlessClickableStates }),
       });
     }
   }
 
-  // ── 13. hud_update must stop after game_over ──
+  // ── 13. hud_update must stop after the end-of-match event ──
   // Driving / asteroid bug: score flickers between two values on the
   // game-over screen because the live-HUD system keeps emitting hud_update
   // while the game-over modal animates a final score. Both write the same
-  // DOM element and fight. Detect: after game_over fires, count how many
-  // hud_update events land on the same score key.
+  // DOM element and fight.
+  //
+  // Try a handful of end-event names — games don't always use `game_over`;
+  // common variants from the baseline event list include match_ended /
+  // victory / defeat / game_won / round_ended. If ANY of them triggers
+  // score-key-flicker, flag. Single fail is enough.
+  const END_EVENTS = ['game_over', 'match_ended', 'victory', 'defeat', 'game_won', 'round_ended', 'round_complete', 'level_complete'];
+  const SCORE_LIKE_KEY_RE = /(score|points?|coins?|kills?|streak|combo|gems?|rank)/i;
   if (player) {
-    const snap = p.snapshot();
-    try {
-      p.activateAllBehaviors();
-      // Run the game forward to try to trigger a game_over. Most games end
-      // via either time/score/health threshold or a game_event:game_over
-      // transition — we can't reliably reach either in 2s, so we inject
-      // game_over by emitting the event directly on the game bus. If the
-      // game doesn't listen for game_over, this noop's out.
-      if (p.runtime.scriptScene?.events?.game?.emit) {
-        p.runtime.scriptScene.events.game.emit('game_over', {});
-      }
-      p.tick(30);  // give HUD-system onUpdate half a second to misbehave
-      const gameOverFrame = p.frameCount() - 30;
-      const post = p.eventsFired({ channel: 'ui', name: 'hud_update', sinceFrame: gameOverFrame + 1 });
-      // Flicker-risky keys — game-over modals almost always animate score,
-      // so if the live HUD keeps writing the same key, the two fight over
-      // the DOM and flicker. Other HUD keys (speed/gear/health) don't
-      // usually overlap with the modal and are fine to keep emitting.
-      const SCORE_LIKE_KEY_RE = /(score|points?|coins?|kills?|streak|combo|gems?|rank)/i;
-      const scoreHudUpdates = post.filter(e => {
-        const d = e.data;
-        if (!d || typeof d !== 'object') return false;
-        return Object.keys(d).some(k => SCORE_LIKE_KEY_RE.test(k));
-      });
-      if (scoreHudUpdates.length >= 10) {
-        results.push({
-          name: 'hud_stops_after_game_over',
-          failure: new PlaytestFailure('hud_keeps_updating',
-            `${scoreHudUpdates.length} \`ui.hud_update\` events with a score-like key fired AFTER \`game_over\` — the HUD system keeps pushing live score while the game-over screen owns the display, causing visible flicker between the two writes. Fix: in the gameplay system, listen for \`game_over\` and set \`this._ended = true\`, then guard \`_pushHud\` (or equivalent) with \`if (this._ended) return;\` before emitting hud_update. Non-score keys (speed, gear, health) can keep emitting — only score-class keys flicker.`,
-            {
-              postGameOverUpdates: scoreHudUpdates.length,
-              sampleKeys: scoreHudUpdates[0]?.data ? Object.keys(scoreHudUpdates[0].data) : [],
-              hint: 'Only keys matching /score|points|coins|kills|streak|combo|gems|rank/i flicker; safe to keep emitting other HUD values.',
-            }),
+    let flickerDetected: { endEvent: string; count: number; sampleKeys: string[] } | null = null;
+    for (const endEvent of END_EVENTS) {
+      if (flickerDetected) break;
+      const snap = p.snapshot();
+      try {
+        p.activateAllBehaviors();
+        if (p.runtime.scriptScene?.events?.game?.emit) {
+          p.runtime.scriptScene.events.game.emit(endEvent, {});
+        }
+        p.tick(30);
+        const gameOverFrame = p.frameCount() - 30;
+        const post = p.eventsFired({ channel: 'ui', name: 'hud_update', sinceFrame: gameOverFrame + 1 });
+        const scoreHudUpdates = post.filter(e => {
+          const d = e.data;
+          if (!d || typeof d !== 'object') return false;
+          return Object.keys(d).some(k => SCORE_LIKE_KEY_RE.test(k));
         });
-      } else {
-        results.push({ name: 'hud_stops_after_game_over', failure: null });
-      }
-    } catch (e: any) {
-      // Non-fatal if the game doesn't have a game_over concept at all.
+        if (scoreHudUpdates.length >= 10) {
+          flickerDetected = {
+            endEvent,
+            count: scoreHudUpdates.length,
+            sampleKeys: scoreHudUpdates[0]?.data ? Object.keys(scoreHudUpdates[0].data) : [],
+          };
+        }
+      } catch {}
+      p.restore(snap);
     }
-    p.restore(snap);
+    if (flickerDetected) {
+      results.push({
+        name: 'hud_stops_after_game_over',
+        failure: new PlaytestFailure('hud_keeps_updating',
+          `${flickerDetected.count} \`ui.hud_update\` events with a score-like key fired AFTER \`${flickerDetected.endEvent}\` — the HUD system keeps pushing live score while the end-screen modal animates a final score to the same DOM element. The two writes fight and the display flickers. Fix: in the gameplay system, listen for \`${flickerDetected.endEvent}\` (or whichever end event your game uses) and set \`this._ended = true\`, then guard the hud_update emission with \`if (this._ended) return;\`. Non-score keys (speed, gear, health) don't flicker and can keep emitting.`,
+          {
+            endEvent: flickerDetected.endEvent,
+            postEndUpdates: flickerDetected.count,
+            sampleKeys: flickerDetected.sampleKeys,
+          }),
+      });
+    } else {
+      results.push({ name: 'hud_stops_after_game_over', failure: null });
+    }
   }
 
   // ── 14. Replay consistency — core mechanics work on 2nd playthrough ──
@@ -431,10 +501,20 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   // playthrough = every coin already "collected" and un-pickable.
   // Probe: restart via scene-level `restart_game` event, re-run the pickup
   // check, verify pickup still despawns.
+  //
+  // Uses the same pickup-discovery + dynamic-spawner-wait as the pickup
+  // invariant above so dynamically-spawned coins count.
   if (player) {
-    const pickups2 = [...(p.runtime.scene?.entities.values() ?? [])].filter((e: any) =>
-      /^(pickup|coin|collectable|collectible|gem)/i.test(e.name)
-    );
+    let pickups2 = findPickups();
+    if (pickups2.length < 2) {
+      const snap0 = p.snapshot();
+      try {
+        p.activateAllBehaviors();
+        p.tickSeconds(3);
+        pickups2 = findPickups();
+      } catch {}
+      p.restore(snap0);
+    }
     if (pickups2.length >= 2) {
       const snap = p.snapshot();
       try {
@@ -477,6 +557,141 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         // Non-fatal if restart_game isn't handled — just skip this check.
       }
       p.restore(snap);
+    }
+  }
+
+  // ── 15. FPS / shooter games must hide the player's own mesh ──
+  // Run 502bd348: FPS warehouse game put a full Soldier_Male.glb on the
+  // player entity with no hideFromOwner flag, so the player saw their own
+  // body from inside the head. Engine now supports MeshRendererComponent
+  // hideFromOwner=true (see mesh_renderer_component.ts); this invariant
+  // forces the CLI to set it for camera-on-player FPS setups.
+  if (gameType === 'shooter' || gameType === 'first_person') {
+    if (player) {
+      const playerE: any = p.runtime.scene?.entities.get(player.id);
+      const mr: any = playerE?.getComponent('MeshRendererComponent');
+      if (mr && mr.meshAsset && !mr.hideFromOwner) {
+        // Check if the camera is on the same entity or parented under it.
+        const cam = discoverCamera(p);
+        let cameraOwnedByPlayer = false;
+        if (cam) {
+          const camE: any = p.runtime.scene?.entities.get(cam.id);
+          let cur: any = camE;
+          while (cur) {
+            if (cur.id === player.id) { cameraOwnedByPlayer = true; break; }
+            cur = cur.parent ?? null;
+          }
+        }
+        if (cameraOwnedByPlayer) {
+          results.push({
+            name: 'fps_hides_own_mesh',
+            failure: new PlaytestFailure('own_mesh_visible',
+              `player entity "${playerE.name}" has a visible mesh (asset=${mr.meshAsset}) AND the active camera is on the same entity or a child of it, but \`hideFromOwner\` is not set. In first-person view the player will see their own model's inside, elbows, nose, and neck stump. Fix: add \`hideFromOwner: true\` to the player entity's mesh data in 02_entities.json:\n    "mesh": { "type": "custom", "asset": "${mr.meshAsset}", "hideFromOwner": true }\nOther cameras (spectator, multiplayer peer views) still see the mesh — the flag only hides from the owning camera.`,
+              { playerMesh: mr.meshAsset, player: playerE.name }),
+          });
+        }
+      }
+    }
+  }
+
+  // ── 16. Scene-drawn buttons are an anti-pattern when HTML panels exist ──
+  // Clicker / pong / tic-tac-toe bug: CLI drew "Restart", "Click Cookie",
+  // "Buy grandma" buttons via `scene.createButton` / `this.ui.createButton`
+  // inside a gameplay system's onStart. Those buttons exist as 3D-space
+  // labels/rects without the iframe-space HTML panel, so the ui_bridge
+  // virtual cursor can't click them. The fix is to put all persistent UI
+  // in an HTML panel under `project/ui/` and reference it via a `show_ui:`
+  // action in the flow.
+  //
+  // Flag only when: the project HAS HTML UI panels (proving the author
+  // knows the good path), AND a gameplay system calls createButton. That
+  // narrows to "you had the tools and chose the bad tool," avoiding
+  // false positives on headless test harnesses or in-editor debug buttons.
+  if (Object.keys(p.runtime.files.uiHtmls ?? {}).length > 0) {
+    const systemScripts = Object.entries(p.runtime.files.scripts ?? {})
+      .filter(([k]) => k.startsWith('systems/'));
+    const offenders: Array<{ file: string; line: number; snippet: string }> = [];
+    const BTN_RE = /(scene|this\.scene|this\.ui|ui)\.createButton\s*\(/;
+    for (const [file, src] of systemScripts) {
+      const lines = src.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        if (BTN_RE.test(lines[i])) {
+          offenders.push({ file, line: i + 1, snippet: lines[i].trim().slice(0, 80) });
+          break;  // one hit per file is enough to flag it
+        }
+      }
+    }
+    if (offenders.length > 0) {
+      results.push({
+        name: 'no_scene_createbutton_in_gameplay_systems',
+        failure: new PlaytestFailure('gameplay_ui_in_scene_layer',
+          `${offenders.length} gameplay system${offenders.length > 1 ? 's' : ''} draw persistent buttons via \`scene.createButton\` / \`this.ui.createButton\` instead of declaring them in an HTML panel: ${offenders.slice(0, 3).map(o => `${o.file}:${o.line}`).join(', ')}. Scene-layer buttons render as unstyled rectangles and aren't reachable by the iframe-space virtual cursor — the user sees ugly placeholder buttons they can't click. Fix: move the buttons into \`project/ui/<panel>.html\`, trigger it with \`"show_ui:<panel>"\` in the relevant state's on_enter, and wire the button's click to emit a ui_event that a flow transition listens for. Keep scene.createButton ONLY for 3D-world callouts (waypoint markers, enemy health bars floating in space) — never for menu / HUD / restart-style UI.`,
+          { offenders: offenders.slice(0, 10) }),
+      });
+    }
+  }
+
+  // ── 17. Orphan prefabs — declared but never placed or spawned ──
+  // Run 502bd348: robot_enemy prefab was declared in 02_entities.json and
+  // the warehouse_waves spawner system was registered in the FSM, but the
+  // robots were never visible — likely a spawn-coords or spawner-timing
+  // bug. An invariant that flags "declared but absent at runtime"
+  // independently of how they're supposed to appear catches this class.
+  //
+  // A prefab is "reachable" if:
+  //   (a) it's in 03_worlds placements[].ref, OR
+  //   (b) some script source contains `scene.spawnEntity("<name>")` or
+  //       `scene.hasPrefab("<name>")` or `createEntity("<name>")`
+  //
+  // We ignore prefabs whose names look like pure building-blocks (ground,
+  // camera, boundary) — they're meant to be placed directly; we care about
+  // gameplay-signalling ones (enemy/boss/pickup/coin/wave/robot/...) that
+  // are declared for a reason.
+  const defs = p.runtime.files.entities?.definitions;
+  if (defs && typeof defs === 'object') {
+    const GAMEPLAY_NAME_RE = /(enemy|boss|minion|robot|zombie|goomba|orc|goblin|skeleton|slime|drone|ufo|coin|pickup|collectable|collectible|gem|powerup|crystal|star|orb|rune|cookie|wave|hazard|projectile|bullet|missile|bomb|rocket)/i;
+    const placements = (p.runtime.files.worlds?.worlds ?? []).flatMap((w: any) => (w.placements ?? []));
+    const placed = new Set<string>(placements.map((pl: any) => pl.ref).filter(Boolean));
+    const allScripts = Object.values(p.runtime.files.scripts ?? {}).join('\n');
+    const orphans: string[] = [];
+    for (const name of Object.keys(defs)) {
+      if (placed.has(name)) continue;
+      if (!GAMEPLAY_NAME_RE.test(name)) continue;  // only flag gameplay-named ones
+      // Look for spawnEntity("name") / hasPrefab("name") / createEntity("name") in any script source.
+      const q1 = `spawnEntity("${name}")`;
+      const q2 = `spawnEntity('${name}')`;
+      const q3 = `hasPrefab("${name}")`;
+      const q4 = `createEntity("${name}")`;
+      if (allScripts.includes(q1) || allScripts.includes(q2) || allScripts.includes(q3) || allScripts.includes(q4)) {
+        // It's spawned dynamically — check if any instances appear at runtime.
+        // Tick briefly to let spawners run, then scan.
+        const snap = p.snapshot();
+        let found = false;
+        try {
+          p.activateAllBehaviors();
+          p.tickSeconds(3);
+          const scene: any = p.runtime.scene;
+          if (scene) {
+            for (const e of scene.entities.values()) {
+              if (e.name === name || e.name.startsWith(name + '_') || (e as any).definitionName === name) {
+                found = true; break;
+              }
+            }
+          }
+        } catch {}
+        p.restore(snap);
+        if (!found) orphans.push(name);
+      } else {
+        orphans.push(name);
+      }
+    }
+    if (orphans.length > 0) {
+      results.push({
+        name: 'declared_prefabs_reachable',
+        failure: new PlaytestFailure('orphan_prefab',
+          `${orphans.length} gameplay-named prefab${orphans.length > 1 ? 's are' : ' is'} declared in 02_entities.json but never placed in 03_worlds.json and never materialize at runtime via spawnEntity: ${orphans.slice(0, 5).map(n => `"${n}"`).join(', ')}${orphans.length > 5 ? ` (+${orphans.length - 5} more)` : ''}. Either add placements for them in 03_worlds.json, OR write a spawner system that calls \`scene.spawnEntity("${orphans[0]}")\` from active_systems during the gameplay state. If the spawner system exists but they're still absent after 3s of ticks, check the spawner's active_behaviors/active_systems gating and its spawn coordinates — the robots in run 502bd348 had a spawner registered but spawned outside the visible play area.`,
+          { orphans, total: orphans.length }),
+      });
     }
   }
 
