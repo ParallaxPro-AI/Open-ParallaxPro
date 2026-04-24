@@ -350,6 +350,10 @@ export async function runCreator(
         // the user can guide the next fix (per user direction 2026-04-23).
         const PLAYTEST_MAX_RETRIES = 3;
         let lastVerdict: Awaited<ReturnType<typeof runPlaytest>> | null = null;
+        // Per-attempt verdicts persisted to session capture for later
+        // dashboard rendering. Lets the user see "pass rate across retries"
+        // without re-running the headless harness.
+        const verdictHistory: any[] = [];
         for (let attempt = 0; attempt <= PLAYTEST_MAX_RETRIES; attempt++) {
             if (localSignal.aborted) {
                 return { success: false, summary: 'Aborted before playtest.', templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
@@ -366,6 +370,8 @@ export async function runCreator(
                     durationMs: 0,
                 } as any;
             }
+            verdictHistory.push({ attempt, verdict: lastVerdict, at: Date.now() });
+            writeVerdictHistory(cliResult.sessionCapturePath, verdictHistory);
             if (lastVerdict!.pass) break;
             if (attempt === PLAYTEST_MAX_RETRIES) break;
 
@@ -631,6 +637,26 @@ const ASSET_EMBEDDINGS_CACHE = path.join(
 interface AssetPackEntry {
     dirName: string;
     humanName: string;
+}
+
+/**
+ * Persist the per-attempt playtest verdict history to the session capture
+ * directory. Overwrites each call so the file always reflects the full
+ * current trail. Readers (e.g. the research dashboard's RunDetailPage
+ * via `GET /api/runs/:id/playtest-attempts`) pick it up from there —
+ * no DB schema change needed.
+ */
+function writeVerdictHistory(sessionCapturePath: string | null | undefined, history: any[]): void {
+    if (!sessionCapturePath) return;
+    try {
+        fs.mkdirSync(sessionCapturePath, { recursive: true });
+        fs.writeFileSync(
+            path.join(sessionCapturePath, 'playtest_attempts.json'),
+            JSON.stringify(history, null, 2),
+        );
+    } catch (e: any) {
+        console.warn(`[CLICreator] Failed to write playtest_attempts.json: ${e?.message}`);
+    }
 }
 
 let _assetPackCache: { fingerprint: string; packs: AssetPackEntry[]; vectors: number[][] } | null = null;
