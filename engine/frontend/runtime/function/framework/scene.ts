@@ -392,12 +392,25 @@ export class Scene {
     getMeshInstances(): RenderMeshInstance[] {
         const result: RenderMeshInstance[] = [];
 
-        // Cache camera position for LOD selection
+        // Cache camera position for LOD selection. Also remember the chain of
+        // entity IDs from the camera entity up through its parents — the
+        // `hideFromOwner` check on each MeshRenderer skips the mesh iff its
+        // entity is on that chain (i.e. the camera is this entity or a
+        // descendant of this entity). Standard setup for FPS: player entity
+        // has the visible body mesh, camera is a child of the player; the
+        // mesh is hidden from the player's own view but still renders for
+        // spectators / other cameras in editor mode.
         this._activeCameraPos = null;
+        const cameraOwnerChain = new Set<number>();
         for (const e of this.entities.values()) {
             if (!e.active) continue;
             if (e.getComponent('CameraComponent')) {
                 this._activeCameraPos = e.getWorldPosition();
+                let cur: any = e;
+                while (cur) {
+                    cameraOwnerChain.add(cur.id);
+                    cur = cur.parent ?? null;
+                }
                 break;
             }
         }
@@ -406,6 +419,9 @@ export class Scene {
             if (!entity.active) continue;
             const mr = entity.getComponent('MeshRendererComponent') as MeshRendererComponent | null;
             if (!mr || !mr.visible || !mr.gpuMesh) continue;
+            // Owner-hide: skip meshes whose entity owns (is on the parent
+            // chain of) the active camera.
+            if (mr.hideFromOwner && cameraOwnerChain.has(entity.id)) continue;
 
             // LOD selection
             let activeMesh = mr.gpuMesh;
