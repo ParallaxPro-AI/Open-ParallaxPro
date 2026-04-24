@@ -112,6 +112,61 @@ const CASES: MutationCase[] = [
     },
   },
   {
+    target: 'ground_holds_player_in_gameplay',
+    label: 'frame-150 yanker behavior teleports player into the void',
+    mutate: (dir) => {
+      // Attach a tiny behavior to the player that ticks a frame counter
+      // and teleports below the kill plane at frame 150 — i.e. AFTER the
+      // pre-gameplay 120-tick check passes, BEFORE the gameplay-state
+      // 60-tick re-check completes. Simulates the platformer 7846a351
+      // class where a level-manager teleports the player on gameplay
+      // state entry to a position with no platform beneath. Frame-based
+      // rather than FSM-event-based so the fixture works regardless of
+      // whether the cov harness manages to drive its FSM forward.
+      const bDir = path.join(dir, 'behaviors', 'cov_yank');
+      fs.mkdirSync(bDir, { recursive: true });
+      fs.writeFileSync(path.join(bDir, 'yank.ts'), `class CovYankBehavior extends GameScript {
+    _behaviorName = "cov_yank";
+    // Force-active even before the FSM broadcasts active_behaviors,
+    // since the coverage harness doesn't call activateAllBehaviors().
+    _behaviorActive = true;
+    _frame = 0;
+    _yanked = false;
+    onUpdate(dt) {
+        this._frame += 1;
+        if (this._frame === 150 && !this._yanked) {
+            this._yanked = true;
+            try {
+                var p = this.entity.transform.position;
+                this.scene.setPosition(this.entity.id, p.x, -50, p.z);
+                if (this.scene.setVelocity) this.scene.setVelocity(this.entity.id, { x: 0, y: 0, z: 0 });
+            } catch (e) {}
+        }
+    }
+}
+`);
+      // Wire it onto the player entity + force-active in every state.
+      const j = readJson(path.join(dir, '02_entities.json'));
+      const playerKey = Object.keys(j.definitions).find(k => /^(player|player_sedan|player_car)$/i.test(k))
+        || Object.keys(j.definitions).find(k => Array.isArray(j.definitions[k]?.tags) && j.definitions[k].tags.includes('player'));
+      if (playerKey) {
+        j.definitions[playerKey].behaviors = j.definitions[playerKey].behaviors || [];
+        j.definitions[playerKey].behaviors.push({
+          name: 'cov_yank',
+          script: 'cov_yank/yank.ts',
+        });
+        writeJson(path.join(dir, '02_entities.json'), j);
+      }
+      const flow = readJson(path.join(dir, '01_flow.json'));
+      const addBeh = (def: any) => {
+        if (Array.isArray(def?.active_behaviors)) def.active_behaviors.push('cov_yank');
+        if (def?.substates) for (const s of Object.values<any>(def.substates)) addBeh(s);
+      };
+      for (const s of Object.values<any>(flow.states ?? {})) addBeh(s);
+      writeJson(path.join(dir, '01_flow.json'), flow);
+    },
+  },
+  {
     target: 'spawn_not_overlapping',
     label: 'plant a wall at the player spawn',
     mutate: (dir) => {

@@ -1470,6 +1470,41 @@ Quick mental checklist when something looks wrong but the validator passes:
 
     `this.input.isMouseButtonDown(0)` is safe for *held-button* detection because the raw state is synchronous with what the user actually pressed — only position needs the virtual-cursor bridge. Angry-birds run fd4c9fcd couldn't drag the ball because the slingshot compared raw mouse position against the ball's worldToScreen, and the two lived in different coordinate spaces.
 
+25. **Player-spawn coords come from the placement, NOT a hardcoded constant in the level-manager system**: Level-manager systems often have `_resetPlayer()` / `_softReset()` methods that teleport the player back to a "spawn" position on death/restart. Hardcoding `_spawnY = 2` (or any specific value) decouples the spawn from the actual world geometry — when the placement in `03_worlds.json` puts the player at (0, 11, 0) above a first platform at y=8, but the level-manager teleports to (0, 2, 0) where no platform exists, the player falls forever on every respawn. Platformer run 7846a351 shipped with exactly that bug. **Rule: in `_fullReset()` / `_setupSpawn()` / equivalent, READ the player's authored spawn from its placement and use that:**
+
+    ```ts
+    _fullReset() {
+        var player = this.scene.findEntityByName("Player");
+        if (player) {
+            // Read from the placement, not a magic number.
+            var pp = player.transform.position;
+            this._spawnX = pp.x;
+            this._spawnY = pp.y;
+            this._spawnZ = pp.z;
+        }
+        this._resetPlayer();
+    }
+    ```
+
+    Cache once on first call (the placement only fires once at scene load). Don't re-read on every reset — by then the player may have already been moved by physics. The `ground_holds_player_in_gameplay` invariant drives the FSM into the gameplay state and re-checks fall-through, so this class won't slip past the gate anymore.
+
+26. **Held-action input (drag-to-aim, charge-to-shoot, hold-to-build) needs visible feedback every frame, not just at release**: When the user is holding the mouse to drag a slingshot ball, charging a power meter, or pulling a bow back, your behavior should update the ball's / arrow's / meter's POSITION/SCALE every frame to reflect the current input — not just compute the final value at release. The angry-birds run ccfe0dd4 first-attempt symptom was "I can drag and shoot but I can't see the ball pull back" — the slingshot computed the pull vector but never updated `setPosition` on the ball during aim, only on launch. **Rule: in any aim-and-release behavior, the held-state branch of `onUpdate` should call `setPosition` (or `setScale` for charge meters) using the *current* input each frame, capped to a sane max.** Pattern:
+
+    ```ts
+    if (this._aiming) {
+        // Compute pull from current cursor vs anchor
+        var pullX = this._cursorX - this._anchorX;
+        var pullY = this._cursorY - this._anchorY;
+        var mag = Math.sqrt(pullX*pullX + pullY*pullY);
+        if (mag > this._maxPull) { pullX *= this._maxPull/mag; pullY *= this._maxPull/mag; }
+        // Update visual every frame so the user SEES the pull stretching
+        this.scene.setPosition(this._ballId, this._anchorX + pullX, this._anchorY + pullY, this._anchorZ);
+        this.scene.setVelocity(this._ballId, { x: 0, y: 0, z: 0 });
+    }
+    ```
+
+    On release, apply velocity proportional to the SAME pull vector and let physics take over.
+
 ## Quality Checklist
 
 **Validator-enforced** — `validate.sh` will fail if any of these is missing:
