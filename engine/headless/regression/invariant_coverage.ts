@@ -99,9 +99,17 @@ const CASES: MutationCase[] = [
   },
   {
     target: 'ground_holds_player',
-    label: 'NOT APPLICABLE (Marine Drive has road + sidewalk fallback colliders)',
-    mutate: () => {},
-    skipReason: 'fixture has too many fallback static colliders; removing ground alone does not let the player fall',
+    label: 'strip physics from ALL static entities (ground + roads + sidewalks + …) → player falls',
+    mutate: (dir) => {
+      const j = readJson(path.join(dir, '02_entities.json'));
+      // Keep the player's physics; strip everyone else's so the only floor
+      // is gone — no fallback road/sidewalk to catch the player.
+      for (const [k, v] of Object.entries<any>(j.definitions || {})) {
+        if (k === 'player_sedan' || k === 'camera') continue;
+        if (v?.physics) v.physics = false;
+      }
+      writeJson(path.join(dir, '02_entities.json'), j);
+    },
   },
   {
     target: 'spawn_not_overlapping',
@@ -291,15 +299,46 @@ class CoverageInlinePlatform extends GameScript {
   },
   {
     target: 'fps_hides_own_mesh',
-    label: 'NOT APPLICABLE (driving fixture is not a shooter)',
-    mutate: () => {},
-    skipReason: 'requires gameType=shooter/first_person fixture',
+    label: 'gameType=shooter + camera on player entity + mesh without hideFromOwner',
+    mutate: (dir) => {
+      // Declare the fixture as a shooter so the invariant is gated on.
+      fs.writeFileSync(path.join(dir, 'PLAYTEST.ts'),
+        `export const gameType = "shooter";\nexport const primaryAction = "KeyW";\nexport default async (p) => { p.activateAllBehaviors(); };\n`);
+      const j = readJson(path.join(dir, '02_entities.json'));
+      // Give the player entity a CameraComponent directly — the invariant's
+      // "cameraOwnedByPlayer" walk trivially succeeds when cam.id === player.id.
+      // The sedan already has a mesh asset, which is what triggers the check.
+      if (j.definitions.player_sedan) {
+        j.definitions.player_sedan.camera = { fov: 75 };
+        if (!j.definitions.player_sedan.tags) j.definitions.player_sedan.tags = [];
+        if (!j.definitions.player_sedan.tags.includes('camera')) j.definitions.player_sedan.tags.push('camera');
+        // Ensure hideFromOwner is NOT set (the bug we're testing for).
+        if (j.definitions.player_sedan.mesh) {
+          delete j.definitions.player_sedan.mesh.hideFromOwner;
+        }
+      }
+      writeJson(path.join(dir, '02_entities.json'), j);
+      // Remove the standalone camera placement so the player is the only
+      // camera. Otherwise discoverCamera might find the separate one first.
+      const w = readJson(path.join(dir, '03_worlds.json'));
+      w.worlds[0].placements = (w.worlds[0].placements as any[]).filter(
+        (p: any) => p.ref !== 'camera'
+      );
+      writeJson(path.join(dir, '03_worlds.json'), w);
+    },
   },
   {
     target: 'ui_has_interactable',
-    label: 'NOT APPLICABLE (driving fixture is not ui/clicker)',
-    mutate: () => {},
-    skipReason: 'requires gameType=ui/clicker fixture',
+    label: 'declare gameType=clicker on a fixture that has no scene-layer buttons',
+    mutate: (dir) => {
+      // The Marine Drive fixture has no visible scene.createButton clickables
+      // (its main_menu and game_over are HTML panels, not scene-layer). The
+      // invariant only tests scene-layer clickables via p.runtime.ui.listVisible
+      // (HeadlessUI tracks createText/createButton/etc. calls). Declaring
+      // gameType=clicker without adding any scene.createButton is enough.
+      fs.writeFileSync(path.join(dir, 'PLAYTEST.ts'),
+        `export const gameType = "clicker";\nexport default async (p) => { p.activateAllBehaviors(); };\n`);
+    },
   },
   {
     target: 'cursor_visible_during_clickable_ui',
