@@ -368,7 +368,14 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   // `decoration_only` / `no_collide` tags are escape hatches for
   // intentionally non-collidable meshes.
   results.push(guarded('interactive_entities_have_colliders', () => {
-    const INTERACTIVE_NAME_RE = /^(wall|ramp|fence|boundary|barrier|obstacle|pickup|coin|collectable|collectible|hazard|enemy|trap|pillar|platform|block|brick|stair|floor|rock|asteroid|boulder|tree|bush|plant|door|gate|key|potion|apple|fruit|health|shield|crate|barrel|shelf|bumper|pad|bomb|mine|tower|turret|zombie|robot|goomba|orc|goblin|skeleton|slime|drone|ufo|ship|pin|target|flag|checkpoint|finish|gem|crystal|star|orb|rune|cookie|powerup|trap|spike|lava|wall_.*|fence_.*|rock_.*|enemy_.*|robot_.*|.*_wall|.*_ramp|.*_pickup|.*_coin|.*_fence|.*_boundary|.*_hazard|.*_obstacle|.*_rock|.*_enemy|.*_target)$/i;
+    // Name matching uses word boundaries — catches `platform_large`,
+    // `big_wall`, `concrete_wall_tall`, `enemy_drone`, etc. — without
+    // maintaining parallel prefix/suffix wildcard lists. Platformer run
+    // 3c887c49 shipped with `platform_large/_medium/_small` definitions
+    // that had NO physics block; the old exact-match regex only
+    // matched bare `platform`, so all three variants slipped through
+    // and the player fell into them at spawn.
+    const INTERACTIVE_NAME_RE = /\b(wall|ramp|fence|boundary|barrier|obstacle|pickup|coin|collectable|collectible|hazard|enemy|pillar|platform|block|brick|stair|floor|rock|asteroid|boulder|door|gate|potion|apple|shield|crate|barrel|shelf|bumper|bomb|mine|tower|turret|zombie|robot|goomba|orc|goblin|skeleton|slime|drone|ufo|ship|target|flag|checkpoint|gem|crystal|orb|cookie|powerup|spike|lava)\b/i;
     const scene: any = p.runtime.scene;
     if (!scene) return;
     const missing: Array<{ name: string; reason: string }> = [];
@@ -659,25 +666,22 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       const playerE: any = p.runtime.scene?.entities.get(player.id);
       const mr: any = playerE?.getComponent('MeshRendererComponent');
       if (mr && mr.meshAsset && !mr.hideFromOwner) {
-        // Check if the camera is on the same entity or parented under it.
-        const cam = discoverCamera(p);
-        let cameraOwnedByPlayer = false;
-        if (cam) {
-          const camE: any = p.runtime.scene?.entities.get(cam.id);
-          let cur: any = camE;
-          while (cur) {
-            if (cur.id === player.id) { cameraOwnedByPlayer = true; break; }
-            cur = cur.parent ?? null;
-          }
-        }
-        if (cameraOwnedByPlayer) {
-          results.push({
-            name: 'fps_hides_own_mesh',
-            failure: new PlaytestFailure('own_mesh_visible',
-              `player entity "${playerE.name}" has a visible mesh (asset=${mr.meshAsset}) AND the active camera is on the same entity or a child of it, but \`hideFromOwner\` is not set. In first-person view the player will see their own model's inside, elbows, nose, and neck stump. Fix: add \`hideFromOwner: true\` to the player entity's mesh data in 02_entities.json:\n    "mesh": { "type": "custom", "asset": "${mr.meshAsset}", "hideFromOwner": true }\nOther cameras (spectator, multiplayer peer views) still see the mesh — the flag only hides from the owning camera.`,
-              { playerMesh: mr.meshAsset, player: playerE.name }),
-          });
-        }
+        // Rule: ANY player-tagged entity with a visible mesh in a
+        // shooter/first_person game must set hideFromOwner. The earlier
+        // check required the camera to be a scene-graph descendant of
+        // the player — but the common pattern is a SEPARATE camera
+        // entity with a behavior (fps_camera) that snaps to the player's
+        // position every frame. No parent relationship in the graph, so
+        // the descendant walk missed it, and run 43744221 shipped with
+        // the full Soldier_Male.glb visible through the first-person
+        // camera. Genre alone is sufficient — if it's an FPS and the
+        // player has a mesh, hide it from the owner.
+        results.push({
+          name: 'fps_hides_own_mesh',
+          failure: new PlaytestFailure('own_mesh_visible',
+            `player entity "${playerE.name}" has a visible mesh (asset=${mr.meshAsset}) but \`hideFromOwner\` is not set. In a ${gameType} game the camera sits at the player's head — the player sees their own model's interior, elbows, and neck stump. Fix: add \`hideFromOwner: true\` to the player entity's mesh data in 02_entities.json:\n    "mesh": { "type": "custom", "asset": "${mr.meshAsset}", "hideFromOwner": true }\nOther cameras (spectator, multiplayer peer views) still see the mesh — the flag only hides from the owning camera.`,
+            { playerMesh: mr.meshAsset, player: playerE.name, gameType }),
+        });
       }
     }
   }

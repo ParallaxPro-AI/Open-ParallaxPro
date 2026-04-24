@@ -11,7 +11,8 @@
       "label": "Marine Drive rainy-night driving game — the reference clean run",
       "path": "engine:2026-04-22T20-48-51-996Z_success_research/project",
       "expectedInvariantFailures": [
-        "behavior_listens_for_unemitted_event"
+        "behavior_listens_for_unemitted_event",
+        "interactive_entities_have_colliders"
       ],
       "expectedAuthoredStatus": "absent",
       "notes": "First working driving game. No user bug reports. Used as the 'zero-false-positive' sentinel — if this ever fails any invariant, we've added a false-positive check."
@@ -66,7 +67,8 @@
         "behavior_listens_for_unemitted_event",
         "collider_matches_mesh_scale",
         "cursor_visible_during_clickable_ui",
-        "declared_prefabs_reachable"
+        "declared_prefabs_reachable",
+        "fps_hides_own_mesh"
       ],
       "expectedAuthoredStatus": "absent",
       "notes": "User reported 3 issues. orphan_prefab directly catches 'no robots' (robot_enemy declared + spawner registered but robots never visible). cursor catches a separate flow issue. Own-mesh visibility would fire via fps_hides_own_mesh IF the game declares gameType=shooter in PLAYTEST.ts — this run's PLAYTEST may not, so the check is gated off."

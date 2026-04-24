@@ -188,8 +188,20 @@ class FSMInst {
         }
         this._substate = name;
         this._subTimer = 0;
-        if (s.active_systems) this._applySystems(s.active_systems);
-        if (s.active_behaviors) this._applyBehaviors(s.active_behaviors);
+        // Substate active-lists FALL BACK to the parent state's lists when
+        // the substate doesn't declare its own. Without this, going
+        // `playing → paused → playing` where `paused` declares a reduced
+        // active_behaviors (e.g. [camera] only, to stop gameplay) but
+        // `playing` declares nothing leaves the reduced set in place on
+        // resume — ship_flight / asteroid_drift / etc. stay dormant.
+        // The intent of a substate NOT declaring active_lists is "inherit
+        // parent" (the whole gameplay behavior set), not "keep whatever
+        // was active last." Asteroid run 8028bf94 exposed this.
+        var parent = this._cfg.states[this._state] || {};
+        var sysList = s.active_systems || parent.active_systems;
+        var behList = s.active_behaviors || parent.active_behaviors;
+        if (sysList) this._applySystems(sysList);
+        if (behList) this._applyBehaviors(behList);
         if (s.on_enter) this._runActions(s.on_enter);
     }
 

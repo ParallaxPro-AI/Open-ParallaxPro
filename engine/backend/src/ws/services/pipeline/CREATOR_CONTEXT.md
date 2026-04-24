@@ -1433,6 +1433,43 @@ Quick mental checklist when something looks wrong but the validator passes:
 
     `setPosition`, `setVelocity`, and most scene API accepts either form via an internal `resolveId`, but dict keys and `parseInt(id)` calls don't — always unwrap. The driving "coins respawn but don't collect" bug was the wrapper-as-dict-key version of this.
 
+23. **Standable geometry (platforms, stairs, bridges, ramps) needs an EXPLICIT physics block — don't rely on GLB auto-collision**: When an entity has a custom GLB mesh and no `physics` field, the runtime still creates a MESH-shape collider from the GLB's `.collision.bin` file. The resulting collider's shape is whatever the asset author baked — sometimes taller / wider / lumpier than you'd expect from the visible bounding box. Platformer run 3c887c49 shipped with `platform_large/_medium/_small` having no `physics` block at all; the auto-derived mesh collider collided with the player capsule *above* where the visual top appeared to be, trapping the player inside the platform at spawn. **Rule: every platform / stair / bridge / ramp declares its own simple static physics block:**
+
+    ```json
+    "platform_large": {
+      "mesh": { "type": "custom", "asset": "...", "scale": [4, 1, 4] },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 0.5, 0.5] }
+      },
+      "tags": ["platform"]
+    }
+    ```
+
+    Box colliders give predictable top/side faces for the player's capsule to rest on. The engine multiplies halfExtents by the placement's `transform.scale` at runtime, so pre-scale `[0.5, 0.5, 0.5]` + per-placement `scale: [4, 1, 4]` gives a world-space 4×1×4 box. Spawn the player at least 1.5 units above the platform top to allow gravity to settle them cleanly — do not spawn them flush with or inside the mesh.
+
+24. **`show_cursor` + raw-mouse reads = broken input in pointer-lock-capable games**: When the flow calls `show_cursor`, `ui_bridge.ts` activates a virtual cursor whose position is driven by mouse delta and starts at the iframe center. This virtual cursor is DECOUPLED from the OS pointer position — they can drift far apart. Scripts that read `this.input.getMousePosition()` / `this.input.isMouseButtonDown()` get the OS pointer, while the user aims with the virtual cursor they see on screen. Click-on-object checks fail because they're comparing the wrong coordinate. **Rule: in any game that opts into `show_cursor`, read the virtual cursor's position from `ui_bridge`'s `cursor_move` event (canvas-relative) instead of raw input.** Pattern:
+
+    ```ts
+    onStart() {
+        var self = this;
+        self._cursorX = 0;
+        self._cursorY = 0;
+        this.scene.events.ui.on("cursor_move", function(d) {
+            if (!d) return;
+            self._cursorX = d.x;
+            self._cursorY = d.y;
+        });
+        // cursor_click / cursor_right_click events fire on single-frame press.
+    }
+    onUpdate(dt) {
+        // use this._cursorX / this._cursorY for aim; compare against
+        // scene.worldToScreen(...) which also returns canvas-relative coords.
+    }
+    ```
+
+    `this.input.isMouseButtonDown(0)` is safe for *held-button* detection because the raw state is synchronous with what the user actually pressed — only position needs the virtual-cursor bridge. Angry-birds run fd4c9fcd couldn't drag the ball because the slingshot compared raw mouse position against the ball's worldToScreen, and the two lived in different coordinate spaces.
+
 ## Quality Checklist
 
 **Validator-enforced** — `validate.sh` will fail if any of these is missing:
