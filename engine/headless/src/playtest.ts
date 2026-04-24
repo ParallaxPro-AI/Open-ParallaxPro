@@ -265,6 +265,19 @@ export class Playtest {
   fsmState(): string | null { return this.runtime.currentFsmState; }
   getState(): any { return this.runtime.ui.getState(); }
 
+  /** Events the scriptScene has emitted, optionally filtered. Channels are
+   * "game" | "ui" | "audio" | "input" | "physics" | "network" | "scene" | "core".
+   * Omit both filters to get the whole history (in emit order). */
+  eventsFired(filter?: { channel?: string; name?: string; sinceFrame?: number }): Array<{ channel: string; name: string; data: any; frame: number }> {
+    const all = this.runtime.emittedEvents;
+    if (!filter) return all.slice();
+    return all.filter(e =>
+      (filter.channel === undefined || e.channel === filter.channel) &&
+      (filter.name === undefined || e.name === filter.name) &&
+      (filter.sinceFrame === undefined || e.frame >= filter.sinceFrame),
+    );
+  }
+
   /* ─── Actuation (realistic input) ───────────────────────────────── */
   keyDown(key: string): void { this.runtime.inputSystem.simulateKeyDown(key); }
   keyUp(key: string): void { this.runtime.inputSystem.simulateKeyUp(key); }
@@ -502,9 +515,18 @@ export class Playtest {
         { entity: ref.name, y: p?.y, bound: y });
     }
   }
-  assertEventFired(_name: string, _withinFrames: number = Infinity): void {
-    // The real engine's event bus doesn't expose a history out-of-the-box;
-    // leaving as a no-op pass for v1. Invariants don't use this today — only
-    // authored PLAYTEST scripts might — so we document and move on.
+  /** Assert a named event has fired within the last N frames on the given
+   * channel (default "game"). Backed by the runtime's emittedEvents history
+   * — see Playtest.eventsFired for the raw data. */
+  assertEventFired(name: string, opts: { channel?: string; withinFrames?: number } = {}): void {
+    const channel = opts.channel ?? 'game';
+    const withinFrames = opts.withinFrames ?? Infinity;
+    const sinceFrame = Math.max(0, this.runtime.time.frameCount - withinFrames);
+    const hits = this.eventsFired({ channel, name, sinceFrame });
+    if (hits.length === 0) {
+      throw new PlaytestFailure('event_not_fired',
+        `expected "${channel}" event "${name}" to fire within ${withinFrames === Infinity ? 'the whole run' : `${withinFrames} frames`}; never did`,
+        { event: name, channel, withinFrames });
+    }
   }
 }

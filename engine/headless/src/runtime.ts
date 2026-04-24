@@ -91,6 +91,11 @@ export class Runtime {
   ui = new HeadlessUI();
   audio: any = makeAudioStub();
   scriptErrors: Array<{ source: string; message: string }> = [];
+  /** Every event the scriptScene's EventRegistry has emitted, tagged with
+   * the frame it fired on. Populated via an onEmit hook wired in boot().
+   * Playtest invariants (e.g. "hud_update stops after game_over") use this
+   * to reason about event timing. */
+  emittedEvents: Array<{ channel: string; name: string; data: any; frame: number }> = [];
   classMap = new Map<string, new () => any>();
   projectScripts: Record<string, string> = {};
   scriptScene: any = null;
@@ -272,6 +277,20 @@ export class Runtime {
     this.scriptScene = built.scriptScene;
     this.makeScriptEntity = built.makeScriptEntity;
     this.scriptSystem.setScene(this.scriptScene);
+
+    // Install event-history capture. configure() with only onEmit preserves
+    // the existing getCurrentEntityId hook set inside buildScriptScene. Every
+    // emit across every bus (game/ui/audio/etc.) gets appended to
+    // emittedEvents with the current frame number — lets invariants reason
+    // about timing (e.g. "nothing emits hud_update after game_over fires").
+    if (this.scriptScene.events && typeof this.scriptScene.events.configure === 'function') {
+      const self = this;
+      this.scriptScene.events.configure({
+        onEmit: (channel: string, name: string, data: any) => {
+          self.emittedEvents.push({ channel, name, data, frame: self.time.frameCount });
+        },
+      });
+    }
 
     // Expose projectConfig etc. on the scriptScene the way play_mode_helpers does —
     // some systems read `_projectConfig` / `_mp` / `_engine`.

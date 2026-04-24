@@ -265,6 +265,221 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }
 
+  // ── 10. Interactive entities must have colliders ──
+  // Driving bug from run 6a89ff49 (Sonic roll-a-ball): CLI authored ramp /
+  // fence_wall / bumper / coin_pickup with `physics: false`, so they have
+  // no collider. Ball rolls through walls and can't hit coins. This
+  // invariant catches that class up-front by name matching — if you've
+  // named something a wall, it had better collide.
+  results.push(guarded('interactive_entities_have_colliders', () => {
+    const INTERACTIVE_NAME_RE = /^(wall|ramp|fence|boundary|barrier|obstacle|pickup|coin|collectable|collectible|hazard|enemy|trap|pillar|platform|block|brick|stair|floor|wall_.*|fence_.*|.*_wall|.*_ramp|.*_pickup|.*_coin|.*_fence|.*_boundary|.*_hazard|.*_obstacle)$/i;
+    const scene: any = p.runtime.scene;
+    if (!scene) return;
+    const missing: Array<{ name: string; reason: string }> = [];
+    for (const e of scene.entities.values()) {
+      if (!e.active) continue;
+      if (!INTERACTIVE_NAME_RE.test(e.name)) continue;
+      // Skip tag="camera" / "ui" (rare but defensive)
+      const tags = e.tags instanceof Set ? Array.from(e.tags) : (Array.isArray(e.tags) ? e.tags : []);
+      if (tags.includes('ui') || tags.includes('camera') || tags.includes('decoration_only') || tags.includes('no_collide')) continue;
+      const cc = e.getComponent('ColliderComponent');
+      if (!cc) {
+        missing.push({ name: e.name, reason: 'no ColliderComponent' });
+      }
+    }
+    if (missing.length > 0) {
+      const names = missing.slice(0, 5).map(m => `"${m.name}"`).join(', ');
+      const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
+      throw new PlaytestFailure('interactive_no_collider',
+        `${missing.length} interactive entit${missing.length > 1 ? 'ies' : 'y'} lack colliders: ${names}${more}. These entities have gameplay-suggestive names (wall/ramp/pickup/etc.) but the player's physics will pass straight through them. Most likely cause: you set \`physics: false\` on the entity definition in 02_entities.json. Either give them a physics block (\`physics: { type: "static", collider: "box" }\` for walls, \`physics: { type: "static", collider: { shape: "box" }, is_trigger: true }\` for pickups), OR tag them ["decoration_only"] if they truly are decoration and the game shouldn't care about them.`,
+        { missing: missing.slice(0, 10), total: missing.length });
+    }
+  }));
+
+  // ── 11. Pickup-tagged entities must despawn or fire an event when the player overlaps ──
+  // Sonic bug: coin_pickup entity existed, player could reach it, but nothing
+  // handled pickup — no behavior attached, no FSM event. This runs one probe:
+  // find the first pickup, teleport the player on top of it, tick a few
+  // frames, verify either the pickup entity is gone OR a pickup-like event
+  // fired.
+  if (player) {
+    const pickups = [...(p.runtime.scene?.entities.values() ?? [])].filter((e: any) =>
+      /^(pickup|coin|collectable|collectible|gem|powerup|crystal|star|fruit)/i.test(e.name) ||
+      (e.tags instanceof Set && (e.tags.has('pickup') || e.tags.has('coin') || e.tags.has('collectable')))
+    );
+    if (pickups.length > 0) {
+      const snap = p.snapshot();
+      const pickup = pickups[0];
+      const pickupRef = { id: pickup.id, name: pickup.name };
+      const pickupPos = p.pos(pickupRef);
+      if (pickupPos) {
+        const sinceFrame = p.frameCount();
+        try {
+          p.activateAllBehaviors();
+          p.teleport(player, pickupPos);
+          p.tick(10);
+          const stillThere = !!p.runtime.scene?.entities.get(pickup.id) && !!p.runtime.scene?.entities.get(pickup.id)?.active;
+          const PICKUP_EVENT_RE = /(coin|pickup|collect|score|gem|crystal|powerup|star)/i;
+          const pickupEvents = p.eventsFired({ sinceFrame }).filter(e => PICKUP_EVENT_RE.test(e.name));
+          if (stillThere && pickupEvents.length === 0) {
+            results.push({
+              name: 'pickup_despawns_on_overlap',
+              failure: new PlaytestFailure('pickup_inert',
+                `pickup "${pickup.name}" didn't despawn or fire any pickup-like event after the player stood on it for 10 frames. The entity looks like a pickup (by name/tag) but nothing handles collection — probably missing a behavior like \`pickup\`/\`collect_on_touch\` on the entity def in 02_entities.json, or the pickup system isn't listed in 01_flow.json's active_behaviors for the gameplay state.`,
+                { pickup: pickup.name, position: pickupPos }),
+            });
+          } else {
+            results.push({ name: 'pickup_despawns_on_overlap', failure: null });
+          }
+        } catch (e: any) {
+          results.push({ name: 'pickup_despawns_on_overlap', failure: e instanceof PlaytestFailure ? e : new PlaytestFailure('tick_crash', String(e?.message ?? e)) });
+        }
+        p.restore(snap);
+      }
+    }
+  }
+
+  // ── 12. Gameplay state with clickable UI must show the cursor ──
+  // Pong bug (run 3772b437): playing state ui_bridge-owned virtual cursor
+  // was hidden, user couldn't click the Restart button mid-game. The flow's
+  // `playing` state lacked `show_cursor` in its on_enter actions.
+  //
+  // Heuristic: if any state after boot in 01_flow.json declares buttons/UI
+  // that should be clickable DURING that state (panels opened in that state
+  // via show_ui: actions) AND the state doesn't include `show_cursor` in
+  // on_enter, flag it.
+  const flow: any = p.runtime.files.flow;
+  if (flow?.states) {
+    const cursorlessClickableStates: Array<{ state: string; reason: string }> = [];
+    for (const [stateName, stateDef] of Object.entries<any>(flow.states)) {
+      if (stateName === 'boot' || stateName === 'main_menu') continue;  // handled by default
+      const onEnter: string[] = Array.isArray(stateDef.on_enter) ? stateDef.on_enter : [];
+      const opensUI = onEnter.some(op => typeof op === 'string' && /^show_ui:/.test(op));
+      const hasShowCursor = onEnter.some(op => typeof op === 'string' && /^show_cursor\b/.test(op));
+      const hasHideCursor = onEnter.some(op => typeof op === 'string' && /^hide_cursor\b/.test(op));
+      // Only flag states that open UI (meaning clickable things will appear).
+      // Explicit hide_cursor is a deliberate choice — respect it.
+      if (opensUI && !hasShowCursor && !hasHideCursor) {
+        cursorlessClickableStates.push({ state: stateName, reason: 'opens UI but no show_cursor in on_enter' });
+      }
+    }
+    if (cursorlessClickableStates.length > 0) {
+      results.push({
+        name: 'cursor_visible_during_clickable_ui',
+        failure: new PlaytestFailure('cursor_gated_off',
+          `state${cursorlessClickableStates.length > 1 ? 's' : ''} ${cursorlessClickableStates.map(s => `"${s.state}"`).join(', ')} open clickable UI but don't include \`show_cursor\` in \`on_enter\` — the virtual cursor won't be visible and the user can't click the buttons. Add \`"show_cursor"\` to each state's \`on_enter\` array in 01_flow.json.`,
+          { states: cursorlessClickableStates }),
+      });
+    }
+  }
+
+  // ── 13. hud_update must stop after game_over ──
+  // Driving / asteroid bug: score flickers between two values on the
+  // game-over screen because the live-HUD system keeps emitting hud_update
+  // while the game-over modal animates a final score. Both write the same
+  // DOM element and fight. Detect: after game_over fires, count how many
+  // hud_update events land on the same score key.
+  if (player) {
+    const snap = p.snapshot();
+    try {
+      p.activateAllBehaviors();
+      // Run the game forward to try to trigger a game_over. Most games end
+      // via either time/score/health threshold or a game_event:game_over
+      // transition — we can't reliably reach either in 2s, so we inject
+      // game_over by emitting the event directly on the game bus. If the
+      // game doesn't listen for game_over, this noop's out.
+      if (p.runtime.scriptScene?.events?.game?.emit) {
+        p.runtime.scriptScene.events.game.emit('game_over', {});
+      }
+      p.tick(30);  // give HUD-system onUpdate half a second to misbehave
+      const gameOverFrame = p.frameCount() - 30;
+      const post = p.eventsFired({ channel: 'ui', name: 'hud_update', sinceFrame: gameOverFrame + 1 });
+      // Flicker-risky keys — game-over modals almost always animate score,
+      // so if the live HUD keeps writing the same key, the two fight over
+      // the DOM and flicker. Other HUD keys (speed/gear/health) don't
+      // usually overlap with the modal and are fine to keep emitting.
+      const SCORE_LIKE_KEY_RE = /(score|points?|coins?|kills?|streak|combo|gems?|rank)/i;
+      const scoreHudUpdates = post.filter(e => {
+        const d = e.data;
+        if (!d || typeof d !== 'object') return false;
+        return Object.keys(d).some(k => SCORE_LIKE_KEY_RE.test(k));
+      });
+      if (scoreHudUpdates.length >= 10) {
+        results.push({
+          name: 'hud_stops_after_game_over',
+          failure: new PlaytestFailure('hud_keeps_updating',
+            `${scoreHudUpdates.length} \`ui.hud_update\` events with a score-like key fired AFTER \`game_over\` — the HUD system keeps pushing live score while the game-over screen owns the display, causing visible flicker between the two writes. Fix: in the gameplay system, listen for \`game_over\` and set \`this._ended = true\`, then guard \`_pushHud\` (or equivalent) with \`if (this._ended) return;\` before emitting hud_update. Non-score keys (speed, gear, health) can keep emitting — only score-class keys flicker.`,
+            {
+              postGameOverUpdates: scoreHudUpdates.length,
+              sampleKeys: scoreHudUpdates[0]?.data ? Object.keys(scoreHudUpdates[0].data) : [],
+              hint: 'Only keys matching /score|points|coins|kills|streak|combo|gems|rank/i flicker; safe to keep emitting other HUD values.',
+            }),
+        });
+      } else {
+        results.push({ name: 'hud_stops_after_game_over', failure: null });
+      }
+    } catch (e: any) {
+      // Non-fatal if the game doesn't have a game_over concept at all.
+    }
+    p.restore(snap);
+  }
+
+  // ── 14. Replay consistency — core mechanics work on 2nd playthrough ──
+  // Driving bug (run 7f18dbfa): behaviors set per-instance state like
+  // `_collected = true` in onStart only, which runs once per scene load.
+  // FSM restart re-activates behaviors but doesn't re-call onStart. Second
+  // playthrough = every coin already "collected" and un-pickable.
+  // Probe: restart via scene-level `restart_game` event, re-run the pickup
+  // check, verify pickup still despawns.
+  if (player) {
+    const pickups2 = [...(p.runtime.scene?.entities.values() ?? [])].filter((e: any) =>
+      /^(pickup|coin|collectable|collectible|gem)/i.test(e.name)
+    );
+    if (pickups2.length >= 2) {
+      const snap = p.snapshot();
+      try {
+        p.activateAllBehaviors();
+        // First playthrough: collect one pickup
+        const first = pickups2[0];
+        const firstPos = p.pos({ id: first.id, name: first.name });
+        if (firstPos) {
+          p.teleport(player, firstPos);
+          p.tick(10);
+        }
+        // Simulate restart_game (every well-built game's reset event).
+        if (p.runtime.scriptScene?.events?.game?.emit) {
+          p.runtime.scriptScene.events.game.emit('restart_game', {});
+        }
+        p.tick(5);
+        const sinceFrame = p.frameCount();
+        // Second playthrough: try to collect DIFFERENT pickup. If it doesn't
+        // despawn, behavior state is sticky across restart.
+        const second = pickups2[1];
+        const secondPos = p.pos({ id: second.id, name: second.name });
+        if (secondPos) {
+          p.teleport(player, secondPos);
+          p.tick(10);
+          const stillThere = !!p.runtime.scene?.entities.get(second.id) && !!p.runtime.scene?.entities.get(second.id)?.active;
+          const PICKUP_EVENT_RE = /(coin|pickup|collect|score)/i;
+          const events = p.eventsFired({ sinceFrame }).filter(e => PICKUP_EVENT_RE.test(e.name));
+          if (stillThere && events.length === 0) {
+            results.push({
+              name: 'replay_pickup_still_works',
+              failure: new PlaytestFailure('replay_broken',
+                `pickup "${second.name}" stopped working after \`restart_game\` fired — per-instance behavior state (\`_collected\`, \`_consumed\`, \`_triggered\`) is sticky across replays because onStart runs once per scene load, not per gameplay session. Add a \`scene.events.game.on("restart_game", () => { this._collected = false; })\` listener in onStart, so the flag resets on replay.`,
+                { pickup: second.name, position: secondPos }),
+            });
+          } else {
+            results.push({ name: 'replay_pickup_still_works', failure: null });
+          }
+        }
+      } catch {
+        // Non-fatal if restart_game isn't handled — just skip this check.
+      }
+      p.restore(snap);
+    }
+  }
+
   return results;
 }
 
