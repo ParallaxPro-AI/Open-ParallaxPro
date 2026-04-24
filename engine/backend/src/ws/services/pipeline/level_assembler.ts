@@ -322,6 +322,13 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     if (def.mesh.modelRotationX) meshData.modelRotationX = def.mesh.modelRotationX;
     if (def.mesh.modelRotationY) meshData.modelRotationY = def.mesh.modelRotationY;
     if (def.mesh.modelRotationZ) meshData.modelRotationZ = def.mesh.modelRotationZ;
+    // hideFromOwner — controls whether the mesh is rendered when the
+    // active camera is "inside" this entity (e.g. FPS camera at the
+    // player's head). Needs to be forwarded to MeshRendererComponent
+    // data or the runtime sees `hideFromOwner = false` regardless of
+    // what the JSON declared. This was the "I still see my own mesh"
+    // bug in FPS run 43744221 — JSON said true, renderer saw false.
+    if (def.mesh.hideFromOwner) meshData.hideFromOwner = true;
     // Texture overrides — def-level first, then placement-level (editor edits win).
     if (def.mesh_override || placementOverrides?.materialOverrides) {
       meshData.materialOverrides = { ...(def.mesh_override || {}), ...(placementOverrides?.materialOverrides || {}) };
