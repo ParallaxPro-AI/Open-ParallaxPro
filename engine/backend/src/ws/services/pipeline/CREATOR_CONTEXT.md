@@ -1262,6 +1262,21 @@ export default async (p) => {
 
 Keep it **under 40 lines**. The goal is to catch the game's core loop being broken, not to fully play it. Use cheats (`setDriveInput`, `setVelocity`, `teleport`, `aimAt`, `setScriptField`) to skip past gameplay friction — the LLM can't "play" well and shouldn't try.
 
+### Required: probe at least one game-specific mechanic
+
+The movement check above is the *floor*, not the goal. Tier-1 invariants already verify movement-under-primary-action for 3D games (see the `primary_action_responsive` invariant), so a PLAYTEST.ts that only re-checks movement adds nothing. **Author at least one assertion that exercises the game's actual core loop** — whatever the prompt said the game is *about*. Examples:
+
+- **Driving / coin pickup**: `const coin = p.find("Coin_1"); const coinPos = p.pos(coin); p.teleport(car, coinPos); p.tick(3); // after pickup the coin entity should be gone:` `if (p.find("Coin_1")) throw new Error("coin still present after pickup")`. Alternatively read score state via `p.getState()` or read the score label's text.
+- **Shooter**: `p.aimAt(player, enemy); p.tapKey("MouseLeft"); p.tickSeconds(0.3);` then assert the enemy was destroyed (`if (p.find("enemy_1")) throw ...`) or its health-component dropped (`p.runtime.scene.entities.get(enemyId).getComponent('HealthComponent').current < start`).
+- **Platformer**: `p.tapKey("Space"); p.tick(3); const peakY = p.pos(player).y; ... ; p.assertMoved(player, "y", 1.0, before)` to verify jump actually lifts the player.
+- **Paddle / pong**: `p.mousePosition(400, 100); p.tick(2); p.assertMoved(paddle, "x", 5, before)` — mouse tracking drives the paddle.
+- **Clicker / UI**: `p.clickButtonByText("+1"); p.tick(1); ... ; p.clickButtonByText("+1"); p.tick(1);` — then read the score from `p.getState()` or the tracked UI element's text.
+- **Board**: `p.clickElementById("cell_e4"); p.clickElementById("cell_e5"); p.tick(2);` then read board state from `p.getState()` or from entities and assert the piece moved.
+
+**Anti-pattern**: `setDriveInput`/`keyDown` primary-movement + `assertMoved` + `assertNoErrors`, and nothing else. That's a duplicate of the tier-1 check and doesn't tell us whether the *game* (as opposed to the engine) works. The user's prompt described a specific mechanic — write one probe for that mechanic.
+
+Aim for **1 movement-or-cheat assertion + 1 mechanic-specific assertion + assertNoErrors** — three substantive asserts is plenty.
+
 ### gameType decisions
 
 - **vehicle** — car/plane/boat with throttle+steer controls
