@@ -49,6 +49,17 @@ export class PhysicsSystem {
     private frameContactEvents: { type: 'enter' | 'stay' | 'exit'; a: number; b: number }[] = [];
     private frameTriggerEvents: { type: 'enter' | 'stay' | 'exit'; a: number; b: number }[] = [];
 
+    // Kinematic-rider carry: remember each dynamic body's "supporting
+    // kinematic" (the one it stands on top of) so when the kinematic
+    // moves, we can translate the dynamic by the same delta. Populated
+    // during updateGroundedState (any kinematic that provided an
+    // upward-normal contact becomes the supporter) and consumed at end
+    // of tick. Generalizes moving_platform's per-behavior rider logic
+    // to ANY kinematic body — moving platforms, elevators, trains,
+    // scrolling floors, kinematic vehicles.
+    private riderOfKinematic: Map<number, number> = new Map();  // dynamicEid -> kinematicEid
+    private kinematicLastPos: Map<number, { x: number; y: number; z: number }> = new Map();
+
     getWorld(): RAPIER.World | null { return this.world; }
 
     async initialize(gravity?: Vec3, fixedTimestep?: number): Promise<void> {
@@ -98,6 +109,7 @@ export class PhysicsSystem {
             this.drainCollisionEvents();
             if (scene) {
                 this.updateGroundedState(scene);
+                this.carryKinematicRiders(scene);
                 this.syncPhysicsToEntities(scene);
             }
         }
@@ -618,13 +630,26 @@ export class PhysicsSystem {
             const body = this.entityToBody.get(entityId);
             if (!body) continue;
 
+            // Reset supporting kinematic; we'll rediscover it below.
+            this.riderOfKinematic.delete(entityId);
             for (const [otherEid, otherCol] of this.entityToCollider) {
                 if (otherEid === entityId) continue;
                 try {
                     this.world.contactPair(collider, otherCol, (manifold: any) => {
                         if (!manifold) return;
                         const n = typeof manifold.normal === 'function' ? manifold.normal() : manifold.normal;
-                        if (n && n.y > 0.5) rb.isGrounded = true;
+                        if (n && n.y > 0.5) {
+                            rb.isGrounded = true;
+                            // If the supporting surface is kinematic,
+                            // remember the relationship so end-of-tick
+                            // carry can translate this rider by the
+                            // kinematic's movement delta.
+                            const otherEnt = scene.getEntity(otherEid);
+                            const otherRb = otherEnt?.getComponent('RigidbodyComponent') as RigidbodyComponent | null;
+                            if (otherRb && otherRb.bodyType === BodyType.KINEMATIC) {
+                                this.riderOfKinematic.set(entityId, otherEid);
+                            }
+                        }
                     });
                 } catch {}
                 if (rb.isGrounded) break;
@@ -663,9 +688,69 @@ export class PhysicsSystem {
                 try {
                     const ray = new RAPIER.Ray({ x: t.x, y: t.y, z: t.z }, { x: 0, y: -1, z: 0 });
                     const hit = this.world.castRay(ray, rayLen, true, undefined, undefined, undefined, body);
-                    if (hit && hit.timeOfImpact <= rayLen) rb.isGrounded = true;
+                    if (hit && hit.timeOfImpact <= rayLen) {
+                        rb.isGrounded = true;
+                        // Same supporter bookkeeping as the contact-manifold
+                        // path: if the ray hit a kinematic, record it so
+                        // carryKinematicRiders can translate this rider.
+                        const otherEid = this.colliderHandleToEntity.get(hit.collider?.handle ?? -1);
+                        if (otherEid !== undefined) {
+                            const otherEnt = scene.getEntity(otherEid);
+                            const otherRb = otherEnt?.getComponent('RigidbodyComponent') as RigidbodyComponent | null;
+                            if (otherRb && otherRb.bodyType === BodyType.KINEMATIC) {
+                                this.riderOfKinematic.set(entityId, otherEid);
+                            }
+                        }
+                    }
                 } catch {}
             }
+        }
+    }
+
+    /**
+     * Kinematic-rider carry. Generalizes the moving_platform behavior's
+     * manual rider-translation to ANY kinematic body — platforms, trains,
+     * elevators, scrolling floors, kinematic-controlled vehicles.
+     * Previously each game had to include (and correctly parameterize)
+     * a per-entity script to handle this; now the physics system does
+     * it for every kinematic uniformly.
+     *
+     * Per tick: for every kinematic body, compute its movement delta vs
+     * the previous tick, and for each dynamic body flagged as riding
+     * (via riderOfKinematic from updateGroundedState), translate the
+     * rider by the same delta using Rapier's setTranslation. No velocity
+     * injection — that caused runaway acceleration in the old per-game
+     * carry; position-only is correct because the rider's own velocity
+     * (walking, jumping, gravity) stays intact.
+     */
+    private carryKinematicRiders(scene: Scene): void {
+        if (!this.world) return;
+        for (const [entityId, body] of this.entityToBody) {
+            const entity = scene.getEntity(entityId);
+            if (!entity) continue;
+            const rb = entity.getComponent('RigidbodyComponent') as RigidbodyComponent | null;
+            if (!rb || rb.bodyType !== BodyType.KINEMATIC) continue;
+            const cur = body.translation();
+            const last = this.kinematicLastPos.get(entityId);
+            if (last) {
+                const dx = cur.x - last.x;
+                const dy = cur.y - last.y;
+                const dz = cur.z - last.z;
+                if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 1e-6) {
+                    for (const [riderEid, supportEid] of this.riderOfKinematic) {
+                        if (supportEid !== entityId) continue;
+                        const riderBody = this.entityToBody.get(riderEid);
+                        if (!riderBody) continue;
+                        const rp = riderBody.translation();
+                        riderBody.setTranslation({ x: rp.x + dx, y: rp.y + dy, z: rp.z + dz }, true);
+                    }
+                }
+            }
+            this.kinematicLastPos.set(entityId, { x: cur.x, y: cur.y, z: cur.z });
+        }
+        // GC: remove entries for kinematics that no longer exist.
+        for (const id of this.kinematicLastPos.keys()) {
+            if (!this.entityToBody.has(id)) this.kinematicLastPos.delete(id);
         }
     }
 

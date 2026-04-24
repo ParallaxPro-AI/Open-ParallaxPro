@@ -30,17 +30,18 @@ class PlatformerMovementBehavior extends GameScript {
 
         this._jumpCooldown -= dt;
 
-        // Ground detection: rb.isGrounded is authoritative (contact
-        // manifolds + engine downray fallback). A `|abs(vy)| < 0.5 &&
-        // cooldown` check catches the narrow case where Rapier hasn't
-        // yet generated a persistent contact on a fresh landing; the
-        // cooldown prevents that fallback from re-firing at a jump's
-        // apex and enabling infinite space-spam jumping. Using pos.y
-        // thresholds is NEVER correct — it falsely reports "airborne"
-        // the moment the player is on any box / platform above y=1.
+        // Ground detection uses rb.isGrounded EXCLUSIVELY (contact
+        // manifolds + engine downray fallback in PhysicsSystem). Earlier
+        // versions fell back on `|vy| < 0.5 && cooldown` to catch a
+        // just-landed edge case — but since the engine already does a
+        // short downray on the same frame, the fallback is redundant AND
+        // it fires at the APEX of every jump (vy crosses zero there).
+        // With the cooldown expired (jumps last longer than 0.2s), the
+        // fallback lit up mid-air and granted another jump, producing
+        // the "spam space forever" infinite-jump bug from platformer run
+        // 3c887c49. Trust the engine; no vy-based shortcut.
         var wasGrounded = this._grounded;
-        var rbGrounded = !!(rb && rb.isGrounded);
-        this._grounded = rbGrounded || (Math.abs(vy) < 0.5 && this._jumpCooldown <= 0);
+        this._grounded = !!(rb && rb.isGrounded);
 
         if (this._grounded && !wasGrounded) {
             this._hasDoubleJumped = false;

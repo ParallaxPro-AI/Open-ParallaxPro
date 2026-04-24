@@ -389,6 +389,53 @@ export class Scene {
 
     private _activeCameraPos: Vec3 | null = null;
 
+    /** True if a point is inside an entity's rendered volume. Uses collider
+     * bounds when present (authoritative), else falls back to a capsule
+     * inscribed around the origin scaled by transform.scale. Tolerant
+     * enough for "camera sits at the player's head and we want to hide the
+     * player's mesh" — doesn't need precise mesh bounds. */
+    private _cameraInsideEntity(entity: Entity, camPos: Vec3): boolean {
+        const tc: any = entity.getComponent('TransformComponent');
+        if (!tc) return false;
+        const p = tc.position;
+        const s = tc.scale ?? { x: 1, y: 1, z: 1 };
+        const cc: any = entity.getComponent('ColliderComponent');
+        if (cc) {
+            // Use collider bounds when available — the player capsule
+            // gives a precise inside test.
+            const he: any = cc.halfExtents;
+            if (cc.shapeType === 2 /* CAPSULE */) {
+                const r = (cc.radius ?? 0.5) * Math.max(Math.abs(s.x), Math.abs(s.z));
+                const h = (cc.height ?? 1.2) * Math.abs(s.y);
+                const dx = camPos.x - p.x;
+                const dz = camPos.z - p.z;
+                if (dx * dx + dz * dz > r * r) return false;
+                return camPos.y >= p.y - h * 0.5 - r && camPos.y <= p.y + h * 0.5 + r;
+            }
+            if (cc.shapeType === 1 /* SPHERE */) {
+                const r = (cc.radius ?? 0.5) * Math.max(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z));
+                const dx = camPos.x - p.x, dy = camPos.y - p.y, dz = camPos.z - p.z;
+                return dx * dx + dy * dy + dz * dz <= r * r;
+            }
+            // Default: AABB of halfExtents × scale.
+            if (he && typeof he.x === 'number') {
+                const hx = he.x * Math.abs(s.x);
+                const hy = he.y * Math.abs(s.y);
+                const hz = he.z * Math.abs(s.z);
+                return camPos.x >= p.x - hx && camPos.x <= p.x + hx
+                    && camPos.y >= p.y - hy && camPos.y <= p.y + hy
+                    && camPos.z >= p.z - hz && camPos.z <= p.z + hz;
+            }
+        }
+        // No collider: unit-cube inscribed at origin, scaled by transform.
+        const hx = 0.5 * Math.abs(s.x);
+        const hy = 0.5 * Math.abs(s.y);
+        const hz = 0.5 * Math.abs(s.z);
+        return camPos.x >= p.x - hx && camPos.x <= p.x + hx
+            && camPos.y >= p.y - hy && camPos.y <= p.y + hy
+            && camPos.z >= p.z - hz && camPos.z <= p.z + hz;
+    }
+
     getMeshInstances(): RenderMeshInstance[] {
         const result: RenderMeshInstance[] = [];
 
@@ -419,9 +466,24 @@ export class Scene {
             if (!entity.active) continue;
             const mr = entity.getComponent('MeshRendererComponent') as MeshRendererComponent | null;
             if (!mr || !mr.visible || !mr.gpuMesh) continue;
-            // Owner-hide: skip meshes whose entity owns (is on the parent
-            // chain of) the active camera.
-            if (mr.hideFromOwner && cameraOwnerChain.has(entity.id)) continue;
+            // Owner-hide: skip meshes whose entity is the ancestor chain of
+            // the active camera. Two paths:
+            //   (a) Scene-graph: the camera is a child of this entity. Used
+            //       by games that parent the camera under a player prefab.
+            //   (b) Position-follow: a separate camera entity whose behavior
+            //       snaps it to the player's head each frame (the far more
+            //       common FPS pattern authored by the CLI — run 43744221
+            //       had a top-level Camera entity with a fps_camera behavior
+            //       that set its position from the player's transform, no
+            //       parent link). Detected here by checking whether the
+            //       active camera's WORLD position is inside the mesh
+            //       entity's AABB — "if the camera lives inside your body,
+            //       don't render your body". Independent of scene-graph
+            //       structure, so it catches the behavior-driven pattern.
+            if (mr.hideFromOwner) {
+                if (cameraOwnerChain.has(entity.id)) continue;
+                if (this._activeCameraPos && this._cameraInsideEntity(entity, this._activeCameraPos)) continue;
+            }
 
             // LOD selection
             let activeMesh = mr.gpuMesh;

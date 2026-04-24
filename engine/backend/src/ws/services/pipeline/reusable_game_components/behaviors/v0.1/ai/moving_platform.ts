@@ -123,22 +123,15 @@ class MovingPlatformBehavior extends GameScript {
             if (ep.y < topY - 0.1) continue;
             if (ep.y > topY + this._riderSlabHeight) continue;
 
-            // Translate the rider by the same delta. For horizontal motion
-            // we also nudge velocity so the rider keeps drifting for one
-            // frame after they step off — avoids a visible hitch.
-            var newVel;
-            if (rb.getLinearVelocity) newVel = rb.getLinearVelocity();
-            else newVel = rb.velocity || { x: 0, y: 0, z: 0 };
+            // Teleport the rider by the platform's own delta this frame.
+            // Do NOT inject platform velocity into the rigidbody — a
+            // prior version did `newVel + dx/(1/60)` each frame, which at
+            // 60fps cumulatively adds dx*60 units/sec to the rider's
+            // velocity and blasts them off the platform at ludicrous
+            // speed. Teleport is sufficient: the rider's own velocity
+            // (walking / jumping / gravity) is preserved, and the
+            // platform's movement is applied purely as a position delta.
             this.scene.setPosition(e.id, ep.x + dx, ep.y + dy, ep.z + dz);
-            // Don't overwrite Y velocity — the player may be in the middle
-            // of gravity integration; just transfer XZ so motion feels one-to-one.
-            if (dx !== 0 || dz !== 0) {
-                this.scene.setVelocity(e.id, {
-                    x: newVel.x + dx / (1 / 60),
-                    y: newVel.y,
-                    z: newVel.z + dz / (1 / 60),
-                });
-            }
         }
     }
 }
