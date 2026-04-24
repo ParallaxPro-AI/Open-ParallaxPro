@@ -181,14 +181,22 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }));
   }
 
-  // ── 7. UI has at least one clickable element for UI-dominant games ──
-  if (['ui', 'clicker', 'paddle_2d', 'board'].includes(gameType)) {
+  // ── 7. UI has at least one clickable element for truly UI-only games ──
+  // Narrowed to gameType in {ui, clicker} only. Previously also fired on
+  // paddle_2d (pong/breakout) and board (chess/tictac), which forced the CLI
+  // to bolt a meaningless MENU / Restart button onto the gameplay HUD to
+  // satisfy the check — they don't need clickables DURING play, their UI is
+  // the score display. Those genres still have clickables in main_menu /
+  // game_over states which we don't need to gate here because the main_menu
+  // state is already reached and UI is verified visible via the advertised-
+  // keys-resolve / cursor invariants.
+  if (['ui', 'clicker'].includes(gameType)) {
     results.push(guarded('ui_has_interactable', () => {
       const btns = p.runtime.ui.listVisible().filter(el => el.kind === 'button' || el.kind === 'textInput');
       if (btns.length === 0) {
         throw new PlaytestFailure('ui_unreachable',
           `gameType=${gameType} but no visible clickable UI element exists after 5 ticks.`,
-          { hint: 'Create at least one scene.createButton({ x, y, width, height, text, onClick }) in a system onStart.' });
+          { hint: 'Create at least one scene.createButton({ x, y, width, height, text, onClick }) in a system onStart, or declare clickable UI in an HTML panel opened via show_ui.' });
       }
     }));
   }
@@ -203,6 +211,28 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
           { state: startStateName });
       }
     }));
+  }
+
+  // ── 8b. Pause state must be a substate of gameplay, not a sibling ──
+  //
+  // Driving run cc4f5f19 authored a flat FSM: `gameplay` and `paused` as
+  // sibling top-level states. Resuming fired gameplay.on_enter which
+  // emitted `race_start` — car teleports back to spawn every time the
+  // player un-pauses. The five pinned templates that ship with a pause
+  // (cellar_purge, buccaneer_bay, noodle_jaunt, court_clash, banner_siege)
+  // all correctly nest `paused` as a substate of `gameplay` so on_enter
+  // doesn't re-fire on resume. This invariant enforces that pattern.
+  if (p.runtime.files.flow?.states) {
+    const states: any = p.runtime.files.flow.states;
+    const siblingPause = Object.keys(states).find(k => /^pause[ds]?$/i.test(k));
+    if (siblingPause) {
+      results.push({
+        name: 'pause_state_is_substate_of_gameplay',
+        failure: new PlaytestFailure('pause_at_root',
+          `01_flow.json has a root-level state "${siblingPause}" for pausing. Going gameplay → paused → gameplay re-fires gameplay.on_enter every time the player resumes, which commonly resets the match (emit:game.race_start / match_started / restart_game). Move it INSIDE gameplay as a substate: \`"gameplay": { "start": "playing", "substates": { "playing": {...}, "paused": {...} } }\`. The pinned templates cellar_purge, buccaneer_bay, noodle_jaunt, court_clash, and banner_siege all follow this pattern — library.sh show cellar_purge/01_flow.json for reference.`,
+          { pauseState: siblingPause, pattern: 'sibling pause state' }),
+      });
+    }
   }
 
   // ── 9. Advertised keys must actually DO something ──
