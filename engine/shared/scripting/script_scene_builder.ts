@@ -189,6 +189,25 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
       tc.invalidate?.();
     };
 
+    // Symmetric getter for setRotationEuler. Returns {x,y,z} in degrees,
+    // computed from the quaternion via the standard yaw-pitch-roll (YXZ /
+    // Euler-ZYX intrinsic) decomposition. Generated scripts reach for both
+    // `getRotationEuler()` and `getEulerAngles()` — both are aliases here so
+    // whichever name the author picks Just Works.
+    scriptTransform.getRotationEuler = () => {
+      const { x: qx, y: qy, z: qz, w: qw } = tc.rotation;
+      const rad2deg = 180 / Math.PI;
+      // Yaw = rotation around Y; pitch = X; roll = Z. This is the inverse
+      // of eulerDegreesToQuat above so round-trips are exact.
+      const sinPitch = 2 * (qw * qx - qy * qz);
+      const cp = Math.max(-1, Math.min(1, sinPitch));
+      const pitch = Math.asin(cp);
+      const yaw = Math.atan2(2 * (qw * qy + qx * qz), 1 - 2 * (qx * qx + qy * qy));
+      const roll = Math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qx * qx + qz * qz));
+      return { x: pitch * rad2deg, y: yaw * rad2deg, z: roll * rad2deg };
+    };
+    scriptTransform.getEulerAngles = scriptTransform.getRotationEuler;
+
     // Direction vectors (engine forward is -Z)
     Object.defineProperty(scriptTransform, 'forward', {
       get: () => {
