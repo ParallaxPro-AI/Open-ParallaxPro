@@ -630,10 +630,41 @@ export class PhysicsSystem {
                 if (rb.isGrounded) break;
             }
 
-            // Fallback: if vertical velocity is near zero, assume grounded
+            // Contact-manifold check is authoritative. We used to have a
+            // `abs(linvel.y) < 0.5 → isGrounded = true` fallback here. It
+            // fired at the apex of every jump (vy crosses zero briefly
+            // there) and silently told scripts the character was grounded
+            // mid-air — enabling infinite space-spam jumping in every game
+            // that read rb.isGrounded. If the contact pair doesn't find a
+            // manifold with upward normal, we are NOT grounded; a short
+            // downray fallback below handles the case where Rapier hasn't
+            // generated a persistent contact yet (e.g. just landed this
+            // frame, within narrow-phase numerical tolerance).
             if (!rb.isGrounded) {
-                const lv = body.linvel();
-                if (Math.abs(lv.y) < 0.5) rb.isGrounded = true;
+                // Short downward ray from the body center. Range = 1.2× the
+                // body's Y half-extent + 0.1 tolerance, so a capsule resting
+                // on geometry reports grounded without reporting it mid-air.
+                const t = body.translation();
+                let halfY = 0.5;
+                try {
+                    // collider.halfExtents() / .halfHeight() depending on shape;
+                    // fall back to 0.5 if API not present.
+                    const shape: any = collider.shape;
+                    if (shape?.halfExtents) {
+                        const he = shape.halfExtents();
+                        if (he?.y !== undefined) halfY = he.y;
+                    } else if (typeof shape?.halfHeight === 'function') {
+                        halfY = shape.halfHeight() + (shape.radius ? shape.radius() : 0);
+                    } else if (shape?.radius !== undefined) {
+                        halfY = typeof shape.radius === 'function' ? shape.radius() : shape.radius;
+                    }
+                } catch {}
+                const rayLen = halfY * 1.2 + 0.1;
+                try {
+                    const ray = new RAPIER.Ray({ x: t.x, y: t.y, z: t.z }, { x: 0, y: -1, z: 0 });
+                    const hit = this.world.castRay(ray, rayLen, true, undefined, undefined, undefined, body);
+                    if (hit && hit.timeOfImpact <= rayLen) rb.isGrounded = true;
+                } catch {}
             }
         }
     }
