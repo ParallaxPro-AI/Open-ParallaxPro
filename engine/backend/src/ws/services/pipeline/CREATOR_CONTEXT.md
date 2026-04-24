@@ -1275,6 +1275,8 @@ The movement check above is the *floor*, not the goal. Tier-1 invariants already
 
 **Anti-pattern**: `setDriveInput`/`keyDown` primary-movement + `assertMoved` + `assertNoErrors`, and nothing else. That's a duplicate of the tier-1 check and doesn't tell us whether the *game* (as opposed to the engine) works. The user's prompt described a specific mechanic — write one probe for that mechanic.
 
+**Also an anti-pattern**: skipping the probe because you know the mechanic isn't implemented. If the prompt says "collect coins" and you're about to write a PLAYTEST that doesn't probe coin pickup because there's no pickup behavior attached yet — that's a sign you should go back and IMPLEMENT the pickup behavior in 02_entities / 04_systems first. Shipping a game whose core mechanic isn't wired is strictly worse than shipping one whose PLAYTEST catches the problem. The `interactive_entities_have_colliders` + `pickup_despawns_on_overlap` invariants will catch both classes of omission, but it's cheaper to just do it right the first time.
+
 Aim for **1 movement-or-cheat assertion + 1 mechanic-specific assertion + assertNoErrors** — three substantive asserts is plenty.
 
 ### gameType decisions
@@ -1316,6 +1318,30 @@ Quick mental checklist when something looks wrong but the validator passes:
 6. **Camera looking at nothing**: Camera placement at the same position as the player, or `findEntityByName("Player")` failing because the placement has no explicit `name` field.
 7. **Car / character drives backwards**: Your behavior script hardcodes a heading default (e.g. `_heading = 180`) that doesn't agree with the placement's rotation. The mesh is already normalized to canonical −Z forward by the engine, so you do NOT need `modelRotationY` (leave it at 0 / omit it). To make a vehicle/character face a non-default direction, set `placement.rotation: [0, yawDegrees, 0]` in 03_worlds.json and in your script's `onStart`, read it back via `var e = this.entity.transform.getRotationEuler(); this._heading = e.y;`. Do NOT bake the same rotation into both the placement AND the script state — you'll double-compensate. Symptom: pressing W moves the car ass-first, and A/D feel swapped because your perspective of the car is reversed.
 8. **Advertised key does nothing**: Your HUD HTML has `<span class="kbd">P</span> pause` or `Press X to do Y` text, but pressing that key has no effect. Root cause: the key must both (a) be handled by a system that emits an event (ui_bridge.ts already handles P by emitting `keyboard:pause` / `keyboard:resume`), AND (b) have a transition in `01_flow.json` that listens on the event and moves to the right state. A HUD hint without a matching flow transition is a lie. If you advertise P for pause, your flow needs a `pause` state with `transitions: [{ "when": "ui_event:pause:resume", "goto": "gameplay" }, ...]` AND a transition FROM `gameplay` that listens on whatever event the bridge emits. Check what events the pinned ui_bridge / bridges emit before advertising the key.
+9. **Walls / ramps / pickups have no collision**: You set `physics: false` on interactive entities (walls the player bumps into, ramps they roll up, coins they collect). The assembler skips collider creation entirely for `physics: false`, so the player's rigidbody passes straight through. **Rule: `physics: false` is only correct for pure decoration the player can never touch** — ambient particles, skybox quads, HUD-only entities. Walls, ramps, platforms, fences, bumpers, coins, gems, hazards, enemies, triggers — these ALL need physics. Minimum safe default for static geometry: `"physics": { "type": "static", "collider": { "shape": "box" } }` (the assembler derives half-extents from `transform.scale`). For trigger volumes (pickups, damage zones, zone detectors): add `"is_trigger": true` so they fire collision events without blocking movement. The `interactive_entities_have_colliders` playtest invariant flags any entity whose name matches wall/ramp/pickup/coin/hazard/enemy/fence that's missing a collider.
+10. **First-person game shows your own player model**: In FPS games the camera sits at the player's eye height, so if the player entity has a visible `mesh`, you see your own body from the inside. Fix: set `"hideFromOwner": true` on the player entity's mesh field (or on the mesh under `extra_components: [{ type: "MeshRendererComponent", data: { hideFromOwner: true } }]` in 03_worlds.json). The engine skips rendering that mesh when the active camera is the same entity or its descendant. Other players / spectators / death-cam still see the full model. **This is the ONLY supported way** to hide the player from themselves — don't omit the mesh entirely (then you have no model for multiplayer), and don't hide at script level (races with render pass).
+11. **Behavior state doesn't reset on replay (main_menu → play again)**: Behaviors that track per-instance state like `_collected`, `_consumed`, `_triggered`, `_exploded` must reset that state when the player restarts a match — NOT just in `onStart`. The FSM's restart transition fires a `restart_game` event but does NOT re-call `onStart` on behaviors; scripts stay attached and `_behaviorActive` toggles, but private fields persist. Rule: any behavior that mutates a one-shot flag must subscribe to `restart_game` in `onStart` and reset the flag there. Example:
+
+    ```ts
+    onStart() {
+        this._collected = false;
+        var self = this;
+        this.scene.events.game.on("restart_game", function() { self._collected = false; });
+    }
+    ```
+
+    The `replay_pickup_still_works` invariant simulates a `restart_game` event and re-probes pickups; sticky flags cause a hard failure.
+12. **Score on game-over screen flickers between two values**: Your gameplay system keeps emitting `ui.hud_update` with the live `score` key every frame, while the game-over modal animates the final score to the same DOM element. Both writes target the same `#score` element and race, producing flicker. **Fix**: gate the HUD-push path on a `_ended` flag toggled by the `game_over` event.
+
+    ```ts
+    this.scene.events.game.on("game_over", () => { this._ended = true; });
+    _pushHud() {
+        if (this._ended) return;           // game-over modal owns the score display now
+        this.scene.events.ui.emit("hud_update", { score: this._score, ...other });
+    }
+    ```
+
+    Non-score HUD keys (speed, gear, health) don't flicker and can keep emitting — only score-class keys overlap with the end-of-match modal. The `hud_stops_after_game_over` invariant catches this class.
 
 ## Quality Checklist
 
