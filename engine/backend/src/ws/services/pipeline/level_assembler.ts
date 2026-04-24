@@ -216,6 +216,23 @@ function loadSystemScript(
   }
   if (sys.params && Object.keys(sys.params).length > 0) {
     code = injectParams(code, sys.params);
+    // Rename the class in this per-entity copy so multiple entities
+    // sharing the same script source don't collide on the
+    // scriptRegistry's name-keyed lookup (last-registered wins, which
+    // means every placed instance ends up running with the LAST-loaded
+    // entity's params). Bullet-hell run cf41b9d1 had every grunt sharing
+    // the boss's maxHealth=400 because all eight enemy types loaded
+    // class BHEnemyBehavior with different params, each overwriting the
+    // previous registration. Suffix with the entity name so each gets a
+    // unique class. Only fires when this entity has its own params —
+    // entities reusing the default class stay sharing the original.
+    const safeSuffix = safeName(entityName).replace(/[^A-Za-z0-9_]/g, '_');
+    if (safeSuffix) {
+      code = code.replace(
+        /(class\s+)([A-Z][A-Za-z0-9_]*)(\s+extends\s+GameScript)/,
+        `$1$2_${safeSuffix}$3`,
+      );
+    }
   }
   const key = makeScriptKey(sys.script, entityName, usedKeys);
   usedKeys.add(key);
