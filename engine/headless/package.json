@@ -7,7 +7,9 @@
     "playtest": "./bin/playtest.js"
   },
   "scripts": {
-    "playtest": "tsx src/cli.ts"
+    "playtest": "tsx src/cli.ts",
+    "regression": "tsx regression/run_regression.ts",
+    "regression:update": "tsx regression/run_regression.ts --update"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
