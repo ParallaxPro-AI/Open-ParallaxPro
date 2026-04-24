@@ -39,6 +39,7 @@
       "label": "3D platformer with jumping + moving platforms",
       "path": "research:172f2e3d-a476-4de9-b5b4-4f1ba240566a/project",
       "expectedInvariantFailures": [
+        "avoid_reimplementing_pinned_behaviors",
         "interactive_entities_have_colliders"
       ],
       "expectedAuthoredStatus": "absent",
@@ -59,6 +60,7 @@
       "label": "FPS warehouse shooter — invisible walls + no robots + own-mesh visible",
       "path": "research:502bd348-5c7c-4618-be91-d07cdff95b7b/project",
       "expectedInvariantFailures": [
+        "collider_matches_mesh_scale",
         "cursor_visible_during_clickable_ui",
         "declared_prefabs_reachable"
       ],

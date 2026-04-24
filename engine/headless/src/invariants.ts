@@ -661,6 +661,212 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }
 
+  // ── 16b. Collider size must be consistent with the mesh scale ──
+  //
+  // The engine multiplies authored halfExtents by transform.scale at
+  // collider-creation time. If an author types halfExtents as if they
+  // were world-scale "what I want the collider to end up being" numbers,
+  // the collider comes out transform.scale× bigger than the visible mesh.
+  // Research run 835c86cd (FPS warehouse): wall_block had mesh.scale
+  // [4,4,1] + collider halfExtents [2,2,0.5]. Effective collider was
+  // 8×8×0.5 around a 4×4×1 visible mesh — invisible walls extending 2×
+  // past the geometry the player can see.
+  //
+  // Detection: for entities with primitive-type meshes (cube/sphere/
+  // capsule/plane/cylinder/cone), compare effective-collider-size to
+  // effective-mesh-size. A ratio > 2× OR < 0.5× on any axis is suspect.
+  // Custom GLB meshes skipped (we don't know their pre-scale bounds).
+  {
+    const PRIMITIVE_HALF: Record<string, { x: number; y: number; z: number }> = {
+      cube: { x: 0.5, y: 0.5, z: 0.5 },
+      box: { x: 0.5, y: 0.5, z: 0.5 },
+      sphere: { x: 0.5, y: 0.5, z: 0.5 },
+      capsule: { x: 0.5, y: 0.9, z: 0.5 },  // radius 0.5, height 1.8 → half 0.9 Y
+      cylinder: { x: 0.5, y: 0.5, z: 0.5 },
+      cone: { x: 0.5, y: 0.5, z: 0.5 },
+      plane: { x: 0.5, y: 0.01, z: 0.5 },
+    };
+    const entDefs = p.runtime.files.entities?.definitions;
+    if (entDefs && typeof entDefs === 'object') {
+      const mismatches: Array<{ name: string; axis: string; ratio: number; meshHalf: number; colHalf: number }> = [];
+      for (const [entName, rawDef] of Object.entries<any>(entDefs)) {
+        const mt = (rawDef?.mesh?.type || '').toLowerCase();
+        const prim = PRIMITIVE_HALF[mt];
+        if (!prim) continue;  // custom / empty / unknown — skip
+        const meshScale: any = rawDef?.mesh?.scale ?? [1, 1, 1];
+        const msX = Array.isArray(meshScale) ? (meshScale[0] ?? 1) : (meshScale.x ?? 1);
+        const msY = Array.isArray(meshScale) ? (meshScale[1] ?? 1) : (meshScale.y ?? 1);
+        const msZ = Array.isArray(meshScale) ? (meshScale[2] ?? 1) : (meshScale.z ?? 1);
+        const physCol: any = rawDef?.physics?.collider;
+        if (!physCol || typeof physCol === 'string') continue;  // string shortcut OK
+        const he = physCol.halfExtents;
+        if (!he || !(Array.isArray(he) || typeof he === 'object')) continue;
+        const cx = Array.isArray(he) ? (he[0] ?? 0.5) : (he.x ?? 0.5);
+        const cy = Array.isArray(he) ? (he[1] ?? 0.5) : (he.y ?? 0.5);
+        const cz = Array.isArray(he) ? (he[2] ?? 0.5) : (he.z ?? 0.5);
+        // halfExtents / primitive ratio is independent of scale (scale
+        // applies equally to both mesh-size and collider-size at runtime),
+        // so comparing halfExtents against the primitive unit tells us
+        // "how much bigger/smaller is the collider than its mesh."
+        const rx = cx / prim.x;
+        const ry = cy / prim.y;
+        const rz = cz / prim.z;
+        // Thin slabs (floor planes, decals, billboards) are fine to be
+        // laterally oversized — a ground plane that collides past the
+        // visible edge of the mesh doesn't cause invisible-wall complaints
+        // because the plane is flat. Skip entities whose effective world
+        // Y half-size is less than 0.5m.
+        const effY = cy * Math.abs(msY);
+        if (effY < 0.5) continue;
+        // Flag only if AT LEAST TWO axes are simultaneously off by more
+        // than 2× — a single-axis mismatch is usually a deliberate design
+        // choice (thin wall with wider base, etc.); two axes off is the
+        // "forgot scale multiplies" signature we saw in run 835c86cd
+        // where wall_block had ratios [4, 4, 1].
+        const badAxes: Array<{ axis: string; ratio: number; col: number; prim: number }> = [];
+        if (rx > 2 || rx < 0.5) badAxes.push({ axis: 'x', ratio: rx, col: cx, prim: prim.x });
+        if (ry > 2 || ry < 0.5) badAxes.push({ axis: 'y', ratio: ry, col: cy, prim: prim.y });
+        if (rz > 2 || rz < 0.5) badAxes.push({ axis: 'z', ratio: rz, col: cz, prim: prim.z });
+        if (badAxes.length >= 2) {
+          const worst = badAxes.reduce((a, b) => Math.abs(Math.log(a.ratio)) > Math.abs(Math.log(b.ratio)) ? a : b);
+          mismatches.push({ name: entName, axis: worst.axis, ratio: worst.ratio, meshHalf: worst.prim, colHalf: worst.col });
+        }
+      }
+      if (mismatches.length > 0) {
+        results.push({
+          name: 'collider_matches_mesh_scale',
+          failure: new PlaytestFailure('collider_size_mismatch',
+            `${mismatches.length} entit${mismatches.length > 1 ? 'ies have' : 'y has'} colliders whose effective size disagrees with the mesh by more than 2×: ${mismatches.slice(0, 5).map(m => `"${m.name}" (${m.axis}: collider=${m.colHalf.toFixed(2)} vs mesh=${m.meshHalf.toFixed(2)}, ${m.ratio.toFixed(1)}×)`).join(', ')}. The engine multiplies collider halfExtents by transform.scale at runtime — if you authored halfExtents as world-space target sizes rather than pre-scale fractions, they'll be too big. Fix: for a primitive mesh at scale=[W,H,D], use halfExtents=[0.5,0.5,0.5] for cube (not [W/2, H/2, D/2]). The engine's scale multiply does the rest.`,
+            { mismatches: mismatches.slice(0, 10) }),
+        });
+      }
+    }
+  }
+
+  // ── 16c. Game-over state must hide the gameplay HUD ──
+  //
+  // Tic-tac-toe run 371845ed: game_over_win/lose/draw substates all had
+  // both `show_ui:tictactoe_board` AND `show_ui:game_over` in on_enter.
+  // Board stayed visible BEHIND the modal and the z-index fight made
+  // the game_over screen partially obscured. Rule: a state that shows
+  // a game_over / victory / defeat / results modal should HIDE the
+  // gameplay HUD(s) in the same on_enter.
+  //
+  // Detection: for each state with name matching end-of-match patterns
+  // AND on_enter containing a show_ui for a modal, if the on_enter also
+  // contains a show_ui for a non-modal panel (suggesting the HUD is
+  // being kept visible), flag.
+  {
+    const MODAL_RE = /^(game_over|victory|defeat|results|win|lose|draw|completed|finished|summary)/i;
+    const GAMEOVER_STATE_RE = /game_over|victory|defeat|results|win|lose|draw|ended|completed/i;
+    const states: any = p.runtime.files.flow?.states ?? {};
+    const eachState = (name: string, def: any): Array<[string, any]> => {
+      const out: Array<[string, any]> = [[name, def]];
+      if (def?.substates) {
+        for (const [sn, sd] of Object.entries<any>(def.substates)) out.push(...eachState(sn, sd));
+      }
+      return out;
+    };
+    const flat = Object.entries<any>(states).flatMap(([n, d]) => eachState(n, d));
+    const offenders: Array<{ state: string; modal: string; hudPanel: string }> = [];
+    for (const [stateName, stateDef] of flat) {
+      if (!GAMEOVER_STATE_RE.test(stateName)) continue;
+      const onEnter: string[] = Array.isArray(stateDef?.on_enter) ? stateDef.on_enter : [];
+      const shows = onEnter
+        .filter(op => typeof op === 'string' && op.startsWith('show_ui:'))
+        .map(op => op.slice('show_ui:'.length));
+      const modal = shows.find(s => MODAL_RE.test(s.split('/').pop() || s));
+      if (!modal) continue;
+      const nonModal = shows.find(s => !MODAL_RE.test(s.split('/').pop() || s));
+      if (nonModal) {
+        offenders.push({ state: stateName, modal, hudPanel: nonModal });
+      }
+    }
+    if (offenders.length > 0) {
+      results.push({
+        name: 'game_over_hides_gameplay_hud',
+        failure: new PlaytestFailure('hud_fights_modal',
+          `${offenders.length} end-of-match state${offenders.length > 1 ? 's' : ''} show the game-over modal AND a gameplay HUD simultaneously: ${offenders.slice(0, 3).map(o => `state "${o.state}" shows both modal "${o.modal}" and HUD "${o.hudPanel}"`).join('; ')}. The HUD's z-index ends up higher than the modal in many layouts, partially or fully obscuring the end screen. Fix: in the end-state's on_enter, REPLACE \`show_ui:${offenders[0].hudPanel}\` with \`hide_ui:${offenders[0].hudPanel}\`; mirror with \`show_ui:${offenders[0].hudPanel}\` in on_exit so play-again returns the user to a full HUD.`,
+          { offenders: offenders.slice(0, 5) }),
+      });
+    }
+  }
+
+  // ── 16d. Don't reimplement pinned library behaviors ──
+  //
+  // Run 13231daa (platformer) re-invented moving-platform motion inline
+  // in systems/gameplay/platformer_level.ts — sin() + setPosition in
+  // onUpdate. The pinned behaviors/ai/moving_platform.ts does exactly
+  // this AND carries standing rigidbodies. Without the carry, players
+  // slide off the platform every time it moves.
+  //
+  // Detection: script source grep for fingerprint patterns that match
+  // a known pinned behavior AND the project doesn't reference the
+  // pinned file. Two classes:
+  //   (a) `Math.sin(... * some speed ...) * range` + `setPosition` in
+  //       onUpdate → ad-hoc moving platform
+  //   (b) `findEntitiesByTag("enemy")` + `setVelocity` for melee chase
+  //       without the separation-vector pattern → crowd of enemies
+  //       that'll pile up on the player's feet
+  {
+    const scripts = p.runtime.files.scripts ?? {};
+    const scriptEntries = Object.entries<string>(scripts);
+    const smells: Array<{ file: string; suggestedLibrary: string; why: string }> = [];
+
+    // (a) moving-platform smell: oscillating setPosition without using
+    //     the pinned behavior. Fingerprint: setPosition + Math.sin + tag
+    //     or name mentioning "platform" / "mover".
+    const hasMovingPlatformPinned =
+      scriptEntries.some(([k]) => k.endsWith('/moving_platform.ts') && k.includes('ai/'));
+    if (!hasMovingPlatformPinned) {
+      for (const [file, src] of scriptEntries) {
+        if (!/setPosition\s*\([^)]*Math\.sin/.test(src)) continue;
+        if (!/platform|mover|oscillat|bob/i.test(src)) continue;
+        smells.push({
+          file,
+          suggestedLibrary: 'behaviors/ai/moving_platform.ts',
+          why: 'inline oscillating setPosition — the pinned moving_platform also carries standing rigidbodies, which hand-rolled versions forget',
+        });
+        break;  // one hit per game is enough
+      }
+    }
+
+    // (b) chase-without-separation smell: finds enemies by tag, issues
+    //     chase velocity, no separation vector summed from neighbors.
+    const hasPinnedSeparation =
+      scriptEntries.some(([k]) => k.endsWith('/enemy_chase_with_separation.ts'));
+    if (!hasPinnedSeparation) {
+      for (const [file, src] of scriptEntries) {
+        // Signal: calls setVelocity toward a player target inside a per-
+        // frame update, no separation force loop.
+        if (!/findEntityByName\(["']Player["']\)|findEntitiesByTag\(["']player["']\)/.test(src)) continue;
+        if (!/setVelocity\s*\(/.test(src)) continue;
+        // Negative: if the source loops over same-tag neighbors and does
+        // (pos.x - other.pos.x) separation math, we consider it already
+        // safe.
+        const hasSepLoop = /findEntitiesByTag\([^)]*\)[\s\S]{0,200}(sep|repuls|personal)/i.test(src);
+        if (hasSepLoop) continue;
+        // Only flag if it clearly looks like AI (robot/enemy/zombie/…).
+        if (!/robot|enemy|zombie|ghost|goomba|skeleton|orc|minion|drone|npc/i.test(file + '\n' + src)) continue;
+        smells.push({
+          file,
+          suggestedLibrary: 'behaviors/ai/enemy_chase_with_separation.ts',
+          why: 'enemy chase without personal-space separation — multiple enemies will pile on the player (towers of arms at eye height). The pinned version keeps them flanking instead.',
+        });
+        break;
+      }
+    }
+
+    if (smells.length > 0) {
+      results.push({
+        name: 'avoid_reimplementing_pinned_behaviors',
+        failure: new PlaytestFailure('reimplemented_pinned',
+          `${smells.length} hand-rolled behavior${smells.length > 1 ? 's' : ''} duplicate${smells.length > 1 ? '' : 's'} functionality of pinned library files and usually miss subtleties the pinned versions handle: ${smells.map(s => `${s.file} → use ${s.suggestedLibrary} (${s.why})`).join('; ')}. Fix: \`bash library.sh show ${smells[0].suggestedLibrary}\` to fetch the pinned source, write it into project/behaviors/<path>, and reference it from your entity / system definitions instead of the inline motion.`,
+          { smells }),
+      });
+    }
+  }
+
   // ── 17. Orphan prefabs — declared but never placed or spawned ──
   // Run 502bd348: robot_enemy prefab was declared in 02_entities.json and
   // the warehouse_waves spawner system was registered in the FSM, but the
