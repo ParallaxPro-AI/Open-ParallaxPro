@@ -7,6 +7,9 @@ export interface GameFiles {
   worlds: any;
   systems: any;
   scripts: Record<string, string>;
+  /** Raw HTML of every `ui/**\/*.html` file, keyed by relative path. Exposed
+   * for invariants that scan advertised keybinds from HUD text. */
+  uiHtmls: Record<string, string>;
   playtest?: string;
   root: string;
 }
@@ -34,6 +37,19 @@ export function loadGame(gameDir: string): GameFiles {
   walk(path.join(gameDir, 'scripts'), 'scripts/');
   walk(path.join(gameDir, 'ui'), 'ui/');
 
+  // Separate HTML pass — needed by the advertised-keys invariant which scans
+  // HUD text for keybind hints like `<span class="kbd">P</span> pause`.
+  const uiHtmls: Record<string, string> = {};
+  const walkHtml = (dir: string, prefix: string) => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walkHtml(full, prefix + entry.name + '/');
+      else if (entry.name.endsWith('.html')) uiHtmls[prefix + entry.name] = fs.readFileSync(full, 'utf-8');
+    }
+  };
+  walkHtml(path.join(gameDir, 'ui'), 'ui/');
+
   let playtestSrc: string | undefined;
   for (const name of ['PLAYTEST.ts', 'PLAYTEST.js', 'playtest.ts', 'playtest.js']) {
     const p = path.join(gameDir, name);
@@ -46,6 +62,7 @@ export function loadGame(gameDir: string): GameFiles {
     worlds: readJSON('03_worlds.json'),
     systems: readJSON('04_systems.json'),
     scripts,
+    uiHtmls,
     playtest: playtestSrc,
     root: gameDir,
   };

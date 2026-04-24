@@ -161,6 +161,24 @@ export class Playtest {
     if (rb.velocity) return { x: rb.velocity.x, y: rb.velocity.y, z: rb.velocity.z };
     return { x: 0, y: 0, z: 0 };
   }
+  /** Entity's forward vector (unit-length) derived from its rotation
+   * quaternion. Engine convention: yaw 0 → forward = (0, 0, -1). Used by
+   * invariants to confirm motion direction matches visual facing. */
+  forward(ref: EntityRef | null): Vec3Like | null {
+    if (!ref) return null;
+    const s = this.requireScene();
+    const e: Entity = s.entities.get(ref.id);
+    if (!e) return null;
+    const tc: any = e.getComponent('TransformComponent');
+    if (!tc) return null;
+    const qx = tc.rotation.x, qy = tc.rotation.y, qz = tc.rotation.z, qw = tc.rotation.w;
+    return {
+      x: -(2 * (qx * qz + qw * qy)),
+      y: -(2 * (qy * qz - qw * qx)),
+      z: -(1 - 2 * (qx * qx + qy * qy)),
+    };
+  }
+
   tags(ref: EntityRef | null): string[] {
     if (!ref) return [];
     const s = this.requireScene();
