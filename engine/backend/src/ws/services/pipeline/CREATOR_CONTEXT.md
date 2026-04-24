@@ -1382,6 +1382,18 @@ Quick mental checklist when something looks wrong but the validator passes:
 
 16. **Don't re-implement pinned library behaviors**: If your game has a moving platform, use `library.sh show behaviors/v0.1/ai/moving_platform.ts` and `Write` it in — don't hand-roll platform motion inside a gameplay system. The pinned version (a) carries any dynamic rigidbody standing on the platform (Rapier doesn't do this automatically — missing it is why "I'm on the platform but don't move with it" is such a common complaint), and (b) handles restart_game reset. Same rule for other physical-interaction behaviors: `coin_pickup`, `collect_on_touch`, `chase_camera`, `ball_roll`. When in doubt, `library.sh search "moving platform"` first. The CLI's own reinvention will miss at least one subtlety.
 
+17. **Jump-from-box doesn't work ("can only jump from ground")**: Behaviors that gate jumping on `pos.y < N` hard-code one specific floor height. The moment the player stands on any box, crate, platform, or elevated surface their `pos.y` exceeds the threshold and the behavior reports "airborne" — jumping is blocked exactly when the player needs it most. **Rule: jump gates read `rb.isGrounded`, never `pos.y`.** The engine's `PhysicsSystem.updateGroundedState` populates `rb.isGrounded` every physics tick using contact manifolds plus a short downray fallback, and is correct for any floor height.
+
+    ```ts
+    var rb = this.entity.getComponent("RigidbodyComponent");
+    var grounded = !!(rb && rb.isGrounded);
+    if (this.input.isKeyPressed("Space") && grounded) vy = this._jumpForce;
+    ```
+
+    If you also want a belt-and-suspenders fallback for the one-frame window before Rapier generates a fresh contact, `|vy| < 0.1 && cooldown <= 0` works — but ALWAYS pair it with a `_jumpCooldown` (≥0.2s) so the fallback doesn't re-fire at a jump's apex and recreate infinite space-spam. Never use `pos.y` for grounded detection; never use `|vy| < N` WITHOUT a cooldown.
+
+18. **Runtime-spawned prefab's behavior never runs**: If you spawn a prefab via `scene.spawnEntity("coin")` from inside a gameplay system (typically during a `restart_game` handler that re-seeds pickups / enemies / obstacles), expect its attached behavior scripts to run immediately — the engine auto-attaches them and initializes their `_behaviorActive` from the current FSM state's `active_behaviors` set. BUT: this only works if the behavior NAME is in the current state's `active_behaviors` list. If the state's gameplay phase is a substate (e.g. `gameplay/playing`) and your behavior is only listed under the parent `gameplay`, the spawn may see the substate's set instead. **Rule: every behavior that can appear on a runtime-spawned prefab must be listed in `active_behaviors` at the exact state (or substate) where the spawn happens.** If in doubt, list it at both levels. Symptom: coins respawn visually after Play Again but never collect, or wave-spawned enemies stand still instead of chasing.
+
 ## Quality Checklist
 
 **Validator-enforced** — `validate.sh` will fail if any of these is missing:

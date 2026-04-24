@@ -29,6 +29,20 @@ export class ScriptSystem {
     // tickUpdate so the Profiler sees one frame's worth of work.
     private timings: Map<string, { totalMs: number; calls: number }> = new Map();
 
+    // Latest `active_behaviors` set as emitted by fsm_driver on FSM state
+    // enter. Cached here so that behaviors attached AFTER a state transition
+    // (e.g. prefabs spawned at runtime via scene.spawnEntity from inside a
+    // gameplay system's restart handler) can initialize their
+    // `_behaviorActive` flag from the current set rather than defaulting to
+    // `false` and staying dormant until the next transition — which is how
+    // the driving "coins respawn but don't collect after Play Again"
+    // regression slipped in: coin prefabs spawned by _resetRound arrived
+    // AFTER the FSM had already broadcast `active_behaviors` for the
+    // gameplay state, so their coin_pickup scripts had `_behaviorActive`
+    // stuck at `false` for the rest of the match.
+    private activeBehaviorNames: Set<string> = new Set();
+    private activeBehaviorsSubscribed = false;
+
     private scriptName(script: GameScript): string {
         return (script as any)._behaviorName || script.constructor?.name || 'UnnamedScript';
     }
@@ -172,14 +186,29 @@ export class ScriptSystem {
                         console.error(`Error in onStart for entity ${inst.entityId}:`, e);
                     }
                 }
-                // Auto-register active_behaviors listener for behavior scripts
+                // Auto-register active_behaviors listener for behavior scripts.
+                // The SystemSystem emits `active_behaviors` on every FSM state
+                // enter; we cache the latest set at the ScriptSystem level so
+                // newly-attached behaviors (i.e. prefabs spawned at runtime
+                // AFTER the emit already happened) can initialize their
+                // _behaviorActive from the current set. Without this, a coin
+                // prefab spawned during Play Again would sit with
+                // _behaviorActive=false until the NEXT state transition —
+                // which in most games never comes — and its pickup/AI logic
+                // would silently never run.
                 const behaviorName = (inst.script as any)._behaviorName;
                 if (behaviorName && inst.script.scene?.events?.game) {
                     const script = inst.script as any;
-                    if (script._behaviorActive === undefined) {
-                        script._behaviorActive = false;
+                    if (!this.activeBehaviorsSubscribed) {
+                        this.activeBehaviorsSubscribed = true;
                         inst.script.scene.events.game.on('active_behaviors', (d: any) => {
-                            script._behaviorActive = d.behaviors && d.behaviors.indexOf(behaviorName) >= 0;
+                            this.activeBehaviorNames = new Set(Array.isArray(d?.behaviors) ? d.behaviors : []);
+                        });
+                    }
+                    if (script._behaviorActive === undefined) {
+                        script._behaviorActive = this.activeBehaviorNames.has(behaviorName);
+                        inst.script.scene.events.game.on('active_behaviors', (d: any) => {
+                            script._behaviorActive = Array.isArray(d?.behaviors) && d.behaviors.indexOf(behaviorName) >= 0;
                         });
                     }
                 }
