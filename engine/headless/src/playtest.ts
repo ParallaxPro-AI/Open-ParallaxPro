@@ -192,7 +192,9 @@ export class Playtest {
     const s = this.requireScene();
     const e: Entity = s.entities.get(ref.id);
     const rb: any = e?.getComponent('RigidbodyComponent');
-    return !!rb?.grounded;
+    // Engine canonical is `isGrounded` (set by PhysicsSystem.updateGroundedState).
+    // A `.grounded` alias was used by older code; fall back for back-compat.
+    return !!(rb?.isGrounded ?? rb?.grounded);
   }
   isOverlapping(a: EntityRef, b: EntityRef): boolean {
     const s = this.requireScene();

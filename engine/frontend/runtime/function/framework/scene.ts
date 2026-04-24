@@ -400,30 +400,38 @@ export class Scene {
         const p = tc.position;
         const s = tc.scale ?? { x: 1, y: 1, z: 1 };
         const cc: any = entity.getComponent('ColliderComponent');
+        // Vertical tolerance beyond the collider: an FPS camera is at
+        // player_y + eyeHeight (typically 1.5–1.7m above player center),
+        // which sits just ABOVE a human-height capsule's top. Require
+        // XZ-in-bounds + a Y range that extends the collider upward by
+        // VERTICAL_PAD so the FPS case is captured. Third-person
+        // cameras (3-5m behind/above) fall outside XZ and still render
+        // the player.
+        const VERTICAL_PAD_UP = 2.0;     // catches eyeHeight up to 2m
+        const VERTICAL_PAD_DOWN = 0.5;   // player crouched slightly
         if (cc) {
-            // Use collider bounds when available — the player capsule
-            // gives a precise inside test.
             const he: any = cc.halfExtents;
             if (cc.shapeType === 2 /* CAPSULE */) {
                 const r = (cc.radius ?? 0.5) * Math.max(Math.abs(s.x), Math.abs(s.z));
-                const h = (cc.height ?? 1.2) * Math.abs(s.y);
+                const h = (cc.height ?? 1.0) * Math.abs(s.y);
                 const dx = camPos.x - p.x;
                 const dz = camPos.z - p.z;
                 if (dx * dx + dz * dz > r * r) return false;
-                return camPos.y >= p.y - h * 0.5 - r && camPos.y <= p.y + h * 0.5 + r;
+                return camPos.y >= p.y - h * 0.5 - r - VERTICAL_PAD_DOWN
+                    && camPos.y <= p.y + h * 0.5 + r + VERTICAL_PAD_UP;
             }
             if (cc.shapeType === 1 /* SPHERE */) {
                 const r = (cc.radius ?? 0.5) * Math.max(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z));
                 const dx = camPos.x - p.x, dy = camPos.y - p.y, dz = camPos.z - p.z;
-                return dx * dx + dy * dy + dz * dz <= r * r;
+                return dx * dx + dz * dz <= r * r && Math.abs(dy) <= r + VERTICAL_PAD_UP;
             }
-            // Default: AABB of halfExtents × scale.
+            // Default: AABB of halfExtents × scale + vertical pad.
             if (he && typeof he.x === 'number') {
                 const hx = he.x * Math.abs(s.x);
                 const hy = he.y * Math.abs(s.y);
                 const hz = he.z * Math.abs(s.z);
                 return camPos.x >= p.x - hx && camPos.x <= p.x + hx
-                    && camPos.y >= p.y - hy && camPos.y <= p.y + hy
+                    && camPos.y >= p.y - hy - VERTICAL_PAD_DOWN && camPos.y <= p.y + hy + VERTICAL_PAD_UP
                     && camPos.z >= p.z - hz && camPos.z <= p.z + hz;
             }
         }
@@ -432,7 +440,7 @@ export class Scene {
         const hy = 0.5 * Math.abs(s.y);
         const hz = 0.5 * Math.abs(s.z);
         return camPos.x >= p.x - hx && camPos.x <= p.x + hx
-            && camPos.y >= p.y - hy && camPos.y <= p.y + hy
+            && camPos.y >= p.y - hy - VERTICAL_PAD_DOWN && camPos.y <= p.y + hy + VERTICAL_PAD_UP
             && camPos.z >= p.z - hz && camPos.z <= p.z + hz;
     }
 

@@ -638,7 +638,22 @@ export class PhysicsSystem {
                     this.world.contactPair(collider, otherCol, (manifold: any) => {
                         if (!manifold) return;
                         const n = typeof manifold.normal === 'function' ? manifold.normal() : manifold.normal;
-                        if (n && n.y > 0.5) {
+                        if (!n) return;
+                        // Rapier's contactPair(colA, colB, cb) passes a
+                        // manifold whose normal points FROM colA's surface
+                        // INTO the contact — i.e. from the first arg's
+                        // body outward. When this entity (colA) sits on
+                        // top of `otherCol` (colB), that outward-from-
+                        // colA direction is DOWN, so n.y ≈ -1, not +1.
+                        // The older check tested `n.y > 0.5` and NEVER
+                        // fired for grounded state on ANY surface — the
+                        // only reason scripts functioned was the old
+                        // |vy|<0.5 fallback (since removed). Check both
+                        // axes of the normal: a near-vertical normal
+                        // (|n.y| > 0.5) combined with "other body's
+                        // center is below ours" means we're standing on
+                        // it.
+                        if (Math.abs(n.y) > 0.5) {
                             rb.isGrounded = true;
                             // If the supporting surface is kinematic,
                             // remember the relationship so end-of-tick
