@@ -1343,6 +1343,45 @@ Quick mental checklist when something looks wrong but the validator passes:
 
     Non-score HUD keys (speed, gear, health) don't flicker and can keep emitting — only score-class keys overlap with the end-of-match modal. The `hud_stops_after_game_over` invariant catches this class.
 
+13. **Collider extends past the visible mesh ("invisible walls")**: Collider `halfExtents` are applied **pre-scale**; the engine multiplies them by the entity's `transform.scale` at runtime. If you set `mesh.scale: [4, 4, 1]` AND `collider.halfExtents: [2, 2, 0.5]`, the effective collider becomes `[8, 8, 0.5]` — double the visible mesh. Symptom: player bumps into nothing you can see. **Rule: author halfExtents as if transform.scale is [1,1,1]**. For a unit cube at scale [4,4,1]: use `halfExtents: [0.5, 0.5, 0.5]`. The mesh is a unit primitive, the scale stretches it, and the collider's halfExtents get stretched by the same factor. Same rule for capsule's `radius` + `height`. The `interactive_entities_have_colliders` invariant catches missing colliders but NOT oversized ones — author it right the first time.
+
+14. **Pause state causes match to restart on resume**: If your FSM has both a `gameplay` state AND a sibling `paused` state, going `gameplay → paused → gameplay` re-fires `gameplay.on_enter` every time the player un-pauses. If `on_enter` emits `match_started` / `race_start` / `restart_game`, the match resets silently on resume. **Rule: pause is a SUBSTATE of gameplay, not a sibling.** Structure it like this:
+
+    ```json
+    "gameplay": {
+      "active_systems": [...], "active_behaviors": [...],
+      "start": "playing",
+      "on_enter": ["emit:game.match_started"],
+      "substates": {
+        "playing": {
+          "on_enter": ["show_ui:hud", "show_cursor"],
+          "on_exit": ["hide_ui:hud", "hide_cursor"],
+          "transitions": [{ "when": "keyboard:pause", "goto": "paused" }]
+        },
+        "paused": {
+          "on_enter": ["show_ui:pause_menu", "show_cursor"],
+          "on_exit": ["hide_ui:pause_menu", "hide_cursor"],
+          "transitions": [{ "when": "keyboard:resume", "goto": "playing" }]
+        }
+      }
+    }
+    ```
+
+    Resume now goes `paused → playing` (sub-transition); `gameplay.on_enter` is NOT re-fired. Five pinned templates demonstrate this: `cellar_purge`, `buccaneer_bay`, `noodle_jaunt`, `court_clash`, `banner_siege` — copy the pattern. The `pause_state_is_substate_of_gameplay` invariant catches the broken sibling form.
+
+15. **Game-over modal shows with the gameplay HUD still visible underneath**: The gameplay state's UI (score HUD, board, etc.) stays on screen after `game_over` if you don't explicitly hide it. The modal then fights the HUD for z-index and looks layered. **Rule: any state whose `on_enter` opens a `game_over` / `results` / `summary` modal should ALSO `hide_ui:<the-gameplay-hud>` in that same on_enter.** Example:
+
+    ```json
+    "game_over_win": {
+      "on_enter": ["hide_ui:tictactoe_board", "show_ui:game_over", "show_cursor"],
+      "on_exit": ["hide_ui:game_over", "show_ui:tictactoe_board"]
+    }
+    ```
+
+    Restore the HUD on `on_exit` so play-again returns the user to a full board.
+
+16. **Don't re-implement pinned library behaviors**: If your game has a moving platform, use `library.sh show behaviors/v0.1/ai/moving_platform.ts` and `Write` it in — don't hand-roll platform motion inside a gameplay system. The pinned version (a) carries any dynamic rigidbody standing on the platform (Rapier doesn't do this automatically — missing it is why "I'm on the platform but don't move with it" is such a common complaint), and (b) handles restart_game reset. Same rule for other physical-interaction behaviors: `coin_pickup`, `collect_on_touch`, `chase_camera`, `ball_roll`. When in doubt, `library.sh search "moving platform"` first. The CLI's own reinvention will miss at least one subtlety.
+
 ## Quality Checklist
 
 **Validator-enforced** — `validate.sh` will fail if any of these is missing:
