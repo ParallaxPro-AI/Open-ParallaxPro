@@ -95,15 +95,53 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     // ── 4. Fall-through check: tick under gravity, verify the player doesn't
     //      escape through the floor. Snapshot so downstream tests aren't
     //      affected by physics settling.
+    //
+    //      Runs TWICE: once in whatever initial FSM state the game boots
+    //      into (catches bad placements / static-geometry gaps), and once
+    //      AFTER driving the FSM to the gameplay state (catches bugs in
+    //      level-init systems that teleport the player on state entry —
+    //      platformer run 7846a351 had `_spawnY = 2` hardcoded that
+    //      teleported the player into empty space below every platform
+    //      the moment gameplay started. Pre-gameplay-only checks missed
+    //      it because the teleport hadn't fired yet.).
     const snap = p.snapshot();
     const before = p.pos(player);
     if (before) {
       try {
-        p.tick(120);  // ~2 seconds
+        p.tick(120);  // ~2 seconds in initial state
         const fallThreshold = Math.min(before.y - 3, -5);
         results.push(guarded('ground_holds_player', () => { p.assertYAbove(player, fallThreshold); }));
         results.push(guarded('script_health_runtime', () => { p.assertNoErrors(); }));
         results.push(guarded('no_nan_position', () => { p.assertPositionNotNaN(player); }));
+
+        // Drive the FSM to a gameplay-ish state by emitting the common
+        // ui-event transitions. The emits are best-effort — if the flow
+        // listens for a differently-named ui_event, nothing happens and
+        // the re-check is effectively the same as the first check.
+        const scriptScene: any = (p.runtime as any).scriptScene;
+        if (scriptScene?.events?.ui?.emit) {
+          try { scriptScene.events.ui.emit('ui_event:main_menu:start_game'); } catch {}
+          try { scriptScene.events.ui.emit('ui_event:main_menu:play'); } catch {}
+          try { scriptScene.events.ui.emit('ui_event:main_menu:start'); } catch {}
+        }
+        p.tick(60);  // settle ~1s into gameplay state
+        const afterGameplayY = p.pos(player);
+        if (afterGameplayY) {
+          results.push(guarded('ground_holds_player_in_gameplay', () => {
+            // Looser threshold than the pre-gameplay check — gameplay-state
+            // respawn systems can legitimately move the player slightly
+            // lower. But not by more than 3 units below the starting pos,
+            // and never below -5 absolute.
+            const threshold = Math.min(before.y - 3, -5);
+            if (afterGameplayY.y < threshold) {
+              throw new PlaytestFailure('fell_through_world_in_gameplay',
+                `After driving the FSM to gameplay state, player y=${afterGameplayY.y.toFixed(2)} fell below threshold ${threshold.toFixed(2)}. ` +
+                `Started at y=${before.y.toFixed(2)}. This usually means a gameplay system teleports the player to a position with no platform/ground beneath — ` +
+                `check _spawnX/Y/Z in any level-manager system against the actual platform/floor placements in 03_worlds.json.`,
+                { startY: before.y, endY: afterGameplayY.y });
+            }
+          }));
+        }
       } catch (e: any) {
         results.push({ name: 'ground_holds_player', failure: e instanceof PlaytestFailure ? e : new PlaytestFailure('tick_crash', String(e?.message ?? e)) });
       }

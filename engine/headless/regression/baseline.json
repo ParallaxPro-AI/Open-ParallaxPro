@@ -22,7 +22,10 @@
       "label": "top-down driving / coin-collect (replay + score-flicker complaints)",
       "path": "research:7f18dbfa-0295-421e-8605-eac7acb388d2/project",
       "expectedInvariantFailures": [
-        "cursor_visible_during_clickable_ui"
+        "cursor_visible_during_clickable_ui",
+        "hud_stops_after_game_over",
+        "interactive_entities_have_colliders",
+        "pickup_despawns_on_overlap"
       ],
       "expectedAuthoredStatus": "absent",
       "notes": "User: (1) after main_menu→play_again coins no longer collect, (2) score flickers on game-over screen. Replay + dynamic-coin-spawn edge case doesn't fire today; the cursor invariant catches a related but different issue. Improve later."
@@ -67,7 +70,6 @@
         "behavior_listens_for_unemitted_event",
         "collider_matches_mesh_scale",
         "cursor_visible_during_clickable_ui",
-        "declared_prefabs_reachable",
         "fps_hides_own_mesh"
       ],
       "expectedAuthoredStatus": "absent",
@@ -79,6 +81,7 @@
       "path": "research:6a89ff49-e39b-4297-906c-e290482f092b/project",
       "expectedInvariantFailures": [
         "cursor_visible_during_clickable_ui",
+        "hud_stops_after_game_over",
         "interactive_entities_have_colliders",
         "pickup_despawns_on_overlap",
         "replay_pickup_still_works"
