@@ -373,6 +373,67 @@ class CoverageInlinePlatform extends GameScript {
       writeJson(path.join(dir, '03_worlds.json'), w);
     },
   },
+  {
+    target: 'behavior_listens_for_unemitted_event',
+    label: 'add a behavior that listens for a declared-but-never-emitted event',
+    mutate: (dir) => {
+      // Drop a behavior that registers a listener for an event NOTHING emits.
+      // To pass the assembler's event-schema validator (which checks that
+      // every listened-for name is declared in event_definitions.ts), we
+      // register the event there — BUT add zero emit sites anywhere. The
+      // assembler gate stays happy because the name is declared; the
+      // runtime stays happy because nobody listens to an emit that never
+      // comes; and THIS invariant catches it because no emit source exists
+      // in the flow or any script.
+      const EVT = 'cov_stub_never_emitted_xyz123';
+
+      // 1. Register the event in event_definitions.ts
+      const eventDefPath = path.join(dir, 'systems', 'event_definitions.ts');
+      if (fs.existsSync(eventDefPath)) {
+        let eventSrc = fs.readFileSync(eventDefPath, 'utf-8');
+        // Inject before the closing brace of GAME_EVENTS. Match the last `}`
+        // in the var assignment conservatively.
+        eventSrc = eventSrc.replace(/(\bvar\s+GAME_EVENTS\s*=\s*\{[\s\S]*?)(\n\};)/, `$1\n    ${EVT}: { fields: {} },$2`);
+        fs.writeFileSync(eventDefPath, eventSrc);
+      }
+
+      // 2. Behavior script with the dead listener
+      const bDir = path.join(dir, 'behaviors', 'cov_stub');
+      fs.mkdirSync(bDir, { recursive: true });
+      fs.writeFileSync(path.join(bDir, 'dead_listener.ts'), `// Coverage fixture — intentional dead listener.
+class CovStubDeadListenerBehavior extends GameScript {
+    _behaviorName = "cov_stub_dead_listener";
+    onStart() {
+        var self = this;
+        this.scene.events.game.on("${EVT}", function() {
+            self._unreachable = true;
+        });
+    }
+}
+`);
+
+      // 3. Attach behavior to any existing entity def
+      const j = readJson(path.join(dir, '02_entities.json'));
+      const playerKey = Object.keys(j.definitions).find(k => /player|sedan|car/i.test(k));
+      if (playerKey) {
+        j.definitions[playerKey].behaviors = j.definitions[playerKey].behaviors || [];
+        j.definitions[playerKey].behaviors.push({
+          name: 'cov_stub_dead_listener',
+          script: 'cov_stub/dead_listener.ts',
+        });
+        writeJson(path.join(dir, '02_entities.json'), j);
+      }
+
+      // 4. Register in active_behaviors (every state that has the list)
+      const flow = readJson(path.join(dir, '01_flow.json'));
+      const addTo = (def: any) => {
+        if (Array.isArray(def?.active_behaviors)) def.active_behaviors.push('cov_stub_dead_listener');
+        if (def?.substates) for (const s of Object.values<any>(def.substates)) addTo(s);
+      };
+      for (const s of Object.values<any>(flow.states ?? {})) addTo(s);
+      writeJson(path.join(dir, '01_flow.json'), flow);
+    },
+  },
 ];
 
 function parseArgs(argv: string[]): { only?: string; strict: boolean } {

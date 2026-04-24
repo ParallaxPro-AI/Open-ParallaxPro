@@ -989,6 +989,123 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }
 
+  // ── 18. Behaviors listening for events nothing emits ──
+  //
+  // `scene.events.game.on("<name>", ...)` will happily register a
+  // listener for a name that nothing emits — the listener just never
+  // fires, and type checkers can't see it. The classic trap is pasting
+  // a behavior from a racing template (which emits `race_start` from
+  // its flow) into a non-racing game whose flow emits `restart_game`
+  // instead. Driving run eb39528d had exactly this: car_control.ts
+  // listened for `race_start`, but the flow's play_again transition
+  // emitted `restart_game`. Car never reset position on replay.
+  //
+  // Static check: build the universe of emitted game events from
+  //   (a) flow `emit:game.<name>` strings (on_enter/on_update/on_exit/
+  //       actions of every transition, including substates)
+  //   (b) `events.game.emit("<name>", ...)` in any project script
+  //   (c) `_emitBus("game", "<name>", ...)` (fsm_driver's helper)
+  //   (d) engine-side emits the runtime performs from non-script code
+  //       (sceneReloading — add to the whitelist below if more get added)
+  // Then scan each non-transport behavior/system script for
+  //   `events.game.on("<name>", ...)` and flag any whose name isn't
+  //   in the universe.
+  //
+  // Universal — every genre benefits. Transport scripts (ui_bridge,
+  // mp_bridge, fsm_driver, event_definitions) are excluded because
+  // they legitimately listen for engine-level events that may not
+  // appear in script sources.
+  {
+    const scripts = p.runtime.projectScripts ?? {};
+    const flow = p.runtime.files.flow;
+
+    // Emit universe — events the game can actually produce.
+    const emittedEvents = new Set<string>([
+      // Engine-side emits (from frontend/runtime + shared/scripting).
+      'sceneReloading',
+    ]);
+
+    // (a) Flow strings: "emit:game.<name>". Walk every state/substate,
+    // check on_enter / on_update / on_exit arrays AND every transition's
+    // `actions` array.
+    const FLOW_EMIT_RE = /^emit:game\.(.+)$/;
+    const walkFlowEmits = (states: any): void => {
+      for (const def of Object.values<any>(states ?? {})) {
+        if (!def || typeof def !== 'object') continue;
+        for (const arrKey of ['on_enter', 'on_update', 'on_exit']) {
+          const arr = def[arrKey];
+          if (!Array.isArray(arr)) continue;
+          for (const op of arr) {
+            if (typeof op !== 'string') continue;
+            const m = op.match(FLOW_EMIT_RE);
+            if (m) emittedEvents.add(m[1]);
+          }
+        }
+        const transitions = def.transitions;
+        if (Array.isArray(transitions)) {
+          for (const t of transitions) {
+            const acts = t?.actions;
+            if (!Array.isArray(acts)) continue;
+            for (const op of acts) {
+              if (typeof op !== 'string') continue;
+              const m = op.match(FLOW_EMIT_RE);
+              if (m) emittedEvents.add(m[1]);
+            }
+          }
+        }
+        if (def.substates) walkFlowEmits(def.substates);
+      }
+    };
+    walkFlowEmits(flow?.states);
+
+    // (b) + (c) Script emits on the `game` bus. Two syntaxes in the
+    // wild: `events.game.emit("<name>", ...)` and fsm_driver's
+    // `_emitBus("game", "<name>", ...)` helper.
+    const SCRIPT_EMIT_RE_1 = /events\.game\.emit\s*\(\s*["']([^"']+)["']/g;
+    const SCRIPT_EMIT_RE_2 = /_emitBus\s*\(\s*["']game["']\s*,\s*["']([^"']+)["']/g;
+    for (const src of Object.values(scripts)) {
+      let m: RegExpExecArray | null;
+      SCRIPT_EMIT_RE_1.lastIndex = 0;
+      while ((m = SCRIPT_EMIT_RE_1.exec(src)) !== null) emittedEvents.add(m[1]);
+      SCRIPT_EMIT_RE_2.lastIndex = 0;
+      while ((m = SCRIPT_EMIT_RE_2.exec(src)) !== null) emittedEvents.add(m[1]);
+    }
+
+    // Listeners — scan non-transport scripts for `events.game.on(...)`.
+    // Same assembler-flattened path shape as the advertised_keys
+    // invariant uses (`scripts/ui_ui_bridge.ts`, not `systems/ui/ui_bridge.ts`).
+    const TRANSPORT_RE = /(^|[\/_])(ui_bridge|mp_bridge|fsm_driver|_entity_label|event_definitions|_event_validator)(_[^/]*)?\.ts$/;
+    const LISTEN_RE = /events\.game\.on\s*\(\s*["']([^"']+)["']/g;
+    const deadListeners: Array<{ name: string; script: string }> = [];
+    const seen = new Set<string>();
+    for (const [scriptPath, src] of Object.entries(scripts)) {
+      if (TRANSPORT_RE.test(scriptPath)) continue;
+      LISTEN_RE.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = LISTEN_RE.exec(src)) !== null) {
+        const evtName = m[1];
+        if (emittedEvents.has(evtName)) continue;
+        const key = `${scriptPath}::${evtName}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deadListeners.push({ name: evtName, script: scriptPath });
+      }
+    }
+
+    if (deadListeners.length > 0) {
+      const first = deadListeners.slice(0, 5).map(d => `"${d.name}" in ${d.script}`).join(', ');
+      const more = deadListeners.length > 5 ? ` (+${deadListeners.length - 5} more)` : '';
+      results.push({
+        name: 'behavior_listens_for_unemitted_event',
+        failure: new PlaytestFailure('dead_listener',
+          `${deadListeners.length} script listener${deadListeners.length > 1 ? 's' : ''} registered for game events nothing emits: ${first}${more}. Either rename the listener to match an event that IS emitted (grep "emit:game." in 01_flow.json and "events.game.emit" in other scripts for the canonical name — most commonly "restart_game" for play-again resets), OR add the emit from a flow transition / system where the event should originate. Silent no-op listeners are the #1 cause of "works first time but not after replay" bugs.`,
+          { deadListeners }),
+      });
+    } else {
+      results.push({ name: 'behavior_listens_for_unemitted_event', failure: null });
+    }
+  }
+
   return results;
 }
 

@@ -1394,6 +1394,45 @@ Quick mental checklist when something looks wrong but the validator passes:
 
 18. **Runtime-spawned prefab's behavior never runs**: If you spawn a prefab via `scene.spawnEntity("coin")` from inside a gameplay system (typically during a `restart_game` handler that re-seeds pickups / enemies / obstacles), expect its attached behavior scripts to run immediately — the engine auto-attaches them and initializes their `_behaviorActive` from the current FSM state's `active_behaviors` set. BUT: this only works if the behavior NAME is in the current state's `active_behaviors` list. If the state's gameplay phase is a substate (e.g. `gameplay/playing`) and your behavior is only listed under the parent `gameplay`, the spawn may see the substate's set instead. **Rule: every behavior that can appear on a runtime-spawned prefab must be listed in `active_behaviors` at the exact state (or substate) where the spawn happens.** If in doubt, list it at both levels. Symptom: coins respawn visually after Play Again but never collect, or wave-spawned enemies stand still instead of chasing.
 
+19. **Behavior listens for an event nothing emits**: `scene.events.game.on("race_start", ...)` will happily register a listener for an event name no system or flow transition ever emits — the listener just never fires. The classic trap is copy-pasting a behavior from a racing template (which DOES emit `race_start` from its gameplay.on_enter) into a non-racing game whose flow emits `restart_game` instead. Silent no-op, undetectable by type checkers. **Rule: before writing `events.<bus>.on("<name>", ...)` in a behavior or system, grep the flow and other scripts to confirm `<name>` is actually emitted somewhere.** Valid emission sources: (a) `"actions": ["emit:game.<name>"]` on a flow transition, (b) `"on_enter": ["emit:game.<name>"]` on a state, (c) `this.scene.events.<bus>.emit("<name>", ...)` anywhere in `systems/**` or `behaviors/**`. If grep finds none of those, either your listener name is wrong or you need to add the emit. The `behavior_listens_for_unemitted_event` invariant catches this statically.
+
+20. **No `boot` state → main_menu UI fails to render**: Flows that start directly at `main_menu` (no `boot` transition state) race the UI bridge's initialization. `show_ui:main_menu` fires before the bridge has finished subscribing to the `show_ui` events, so the panel never gets shown and the user sees a blank game. **Rule: every flow starts with a short `boot` state that ticks 2 frames then transitions to `main_menu`.** The 2-frame delay is enough for the UI bridge, FSM driver, and any scene-level systems to finish their own `onStart`. Pattern:
+
+    ```json
+    {
+      "start": "boot",
+      "states": {
+        "boot": {
+          "duration": -1,
+          "on_enter": ["set:boot_frames=0"],
+          "on_update": ["increment:boot_frames"],
+          "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+        },
+        "main_menu": { ... },
+        ...
+      }
+    }
+    ```
+
+    Every pinned template follows this pattern — do not skip it.
+
+21. **`transform.position = {...}` doesn't actually move the entity**: The engine caches a live reference to the `Vec3` inside `TransformComponent` at entity-creation time. Reassigning the whole `position` object (e.g. `e.transform.position = { x, y, z }`) replaces the wrapper but leaves the cached reference pointing at the OLD Vec3, so the renderer + physics see the pre-reassignment value and the entity looks frozen. **Rule: never reassign `entity.transform.position`. Mutate `.x` / `.y` / `.z` individually and call `transform.markDirty()` (or `transform.invalidate()`) OR use `this.scene.setPosition(id, x, y, z)` which does both correctly.** Symptom: you wrote motion code, the math is right, but nothing moves on screen. The asteroid-dodger "asteroids don't fly toward the ship" complaint was exactly this.
+
+22. **`scene.spawnEntity(name)` returns an entity wrapper, not a numeric id**: The return type is the scripting-layer entity handle (the same thing passed into `onStart` as `this.entity`). Storing that as if it were an id and later using it as an object-key or passing it to `destroyEntity(parseInt(id))` breaks — the wrapper stringifies to `"[object Object]"` and numeric operations fail. **Rule: unwrap to `.id` if you need a numeric id for dict keys, destroyEntity calls, or event payloads.**
+
+    ```ts
+    var e = this.scene.spawnEntity("coin");
+    if (e) {
+        var id = e.id;                              // numeric
+        this.scene.setPosition(id, sp.x, sp.y, sp.z);
+        this._aliveCoinIds[id] = true;              // numeric key works
+        // later: on pickup
+        this.scene.events.game.emit("coin_collected", { entityId: id });
+    }
+    ```
+
+    `setPosition`, `setVelocity`, and most scene API accepts either form via an internal `resolveId`, but dict keys and `parseInt(id)` calls don't — always unwrap. The driving "coins respawn but don't collect" bug was the wrapper-as-dict-key version of this.
+
 ## Quality Checklist
 
 **Validator-enforced** — `validate.sh` will fail if any of these is missing:

@@ -10,7 +10,9 @@
       "id": "clean_driving_baseline",
       "label": "Marine Drive rainy-night driving game — the reference clean run",
       "path": "engine:2026-04-22T20-48-51-996Z_success_research/project",
-      "expectedInvariantFailures": [],
+      "expectedInvariantFailures": [
+        "behavior_listens_for_unemitted_event"
+      ],
       "expectedAuthoredStatus": "absent",
       "notes": "First working driving game. No user bug reports. Used as the 'zero-false-positive' sentinel — if this ever fails any invariant, we've added a false-positive check."
     },
@@ -29,6 +31,7 @@
       "label": "2D pong with CPU (ugly Restart UI + no cursor during play)",
       "path": "research:3772b437-ae50-4f08-934a-e972af6b568f/project",
       "expectedInvariantFailures": [
+        "behavior_listens_for_unemitted_event",
         "no_scene_createbutton_in_gameplay_systems"
       ],
       "expectedAuthoredStatus": "absent",
@@ -60,6 +63,7 @@
       "label": "FPS warehouse shooter — invisible walls + no robots + own-mesh visible",
       "path": "research:502bd348-5c7c-4618-be91-d07cdff95b7b/project",
       "expectedInvariantFailures": [
+        "behavior_listens_for_unemitted_event",
         "collider_matches_mesh_scale",
         "cursor_visible_during_clickable_ui",
         "declared_prefabs_reachable"
@@ -85,6 +89,7 @@
       "label": "Tic-tac-toe — ugly scene-drawn Restart UI in corner",
       "path": "research:aa06a7b1-6ed2-4eb0-971a-421987bfa955/project",
       "expectedInvariantFailures": [
+        "behavior_listens_for_unemitted_event",
         "no_scene_createbutton_in_gameplay_systems"
       ],
       "expectedAuthoredStatus": "absent",
