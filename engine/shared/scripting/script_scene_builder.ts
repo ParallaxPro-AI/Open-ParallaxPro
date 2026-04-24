@@ -358,6 +358,38 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
     }
   }
 
+  // ── Helper: attach every ScriptComponent on a freshly-spawned entity ──
+  //
+  // Called from spawnEntity() above. Iterates the entity's ScriptComponent (and
+  // any additionalScripts), attaches each via attachScriptByURL, and copies the
+  // component's declared `properties` bag onto each instance — matching the
+  // editor play-mode flow at play_mode_helpers.ts:540 exactly. Properties on the
+  // primary script come from sc.properties; additionalScripts get their own.
+  function attachScriptsToEntity(entity: any): void {
+    const sc: any = entity.getComponent ? entity.getComponent('ScriptComponent') : null;
+    if (!sc) return;
+    const urls: Array<{ url: string; props: Record<string, any> }> = [];
+    const primaryUrl = sc.scriptURL || sc.scriptAssetUUID;
+    if (primaryUrl) urls.push({ url: primaryUrl, props: sc.properties || {} });
+    if (Array.isArray(sc.additionalScripts)) {
+      for (const add of sc.additionalScripts) {
+        if (add?.scriptURL) urls.push({ url: add.scriptURL, props: add.properties || {} });
+      }
+    }
+    for (const { url, props } of urls) {
+      attachScriptByURL(entity, url);
+      // Apply properties to the latest-attached instance. Find it by walking
+      // scriptSystem's instances for ones on this entity; the freshly-attached
+      // script is the last one with matching entityId + matching class URL.
+      const cls = classMap.get(url);
+      if (!cls) continue;
+      const inst = scriptSystem.findScript(entity.id, cls.name || url);
+      if (inst) {
+        for (const [k, v] of Object.entries(props)) (inst as any)[k] = v;
+      }
+    }
+  }
+
   // ── ScriptScene ──
 
   const scriptScene = {
@@ -433,6 +465,16 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
           );
         }
         ensurePrimitiveMeshes();
+        // Auto-attach any ScriptComponents on the new entity. Scene.instantiatePrefab
+        // creates the entity with all components (including ScriptComponent) but does
+        // NOT call scriptSystem.attachScript — that was only happening at initial
+        // scene-load time via the editor / play-mode-helpers loop. As a result,
+        // prefabs that relied on behaviors (asteroid_forward, enemy_ai, coin_pickup,
+        // …) worked when placed statically in 03_worlds but SILENTLY FAILED when
+        // spawned at runtime via scene.spawnEntity("..."). Wiring it here — the same
+        // layer where the script-facing API lives — covers every runtime spawn path
+        // without a separate engine pass.
+        attachScriptsToEntity(e);
         return makeScriptEntity(e)!;
       }
       throw new Error(
