@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Playtest, PlaytestFailure, EntityRef } from './playtest.js';
+import { analyzeFlow as analyzeHudOverlaps } from './hud_overlap.js';
 
 export interface InvariantResult {
   name: string;
@@ -1687,6 +1688,36 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         });
       } else if (hudHtmls.length > 0) {
         results.push({ name: 'hud_html_field_resolves', failure: null });
+      }
+    }
+  }
+
+  // ── 17b. HUD panels visible together must not visually overlap ────────
+  // Two HUD HTMLs that pin to the same screen corner with intersecting
+  // bounding boxes will draw on top of each other once the player enters
+  // a state that show_ui's both. Strict mode: only fires when geometry
+  // clearly intersects — top/bottom-center pairs check y-overlap only
+  // since x is viewport-relative. The 4x_strategy fix (2026-04-25)
+  // motivated this — generic scoreboard panels stacked on top of
+  // template-specific HUDs in 6+ shipped templates.
+  {
+    const flow: any = p.runtime.files.flow;
+    const uiHtmls = p.runtime.files.uiHtmls ?? {};
+    if (flow?.states && Object.keys(uiHtmls).length > 0) {
+      const overlaps = analyzeHudOverlaps(flow, uiHtmls);
+      if (overlaps.length > 0) {
+        const first = overlaps.slice(0, 4).map(o =>
+          `[${o.state}] ${o.a.ref} (${o.a.anchor}) overlaps ${o.b.ref}`,
+        ).join('; ');
+        const more = overlaps.length > 4 ? ` (+${overlaps.length - 4} more)` : '';
+        results.push({
+          name: 'hud_panels_no_overlap',
+          failure: new PlaytestFailure('hud_overlap',
+            `${overlaps.length} HUD panel pair${overlaps.length > 1 ? 's' : ''} visually overlap during gameplay: ${first}${more}. Two panels pinned to the same screen corner with intersecting CSS positions will draw on top of each other. Either (a) reposition one panel to a different corner / different offset, or (b) drop one of the redundant panels from the gameplay state's show_ui list (often a generic hud/* is duplicated by a game-specific HUD).`,
+            { overlaps: overlaps.slice(0, 20), total: overlaps.length }),
+        });
+      } else {
+        results.push({ name: 'hud_panels_no_overlap', failure: null });
       }
     }
   }
