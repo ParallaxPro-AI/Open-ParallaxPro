@@ -25,9 +25,9 @@
         "type": "custom",
         "asset": "/assets/quaternius/characters/cute_animated_monsters/Penguin.glb",
         "scale": [
-          1,
-          1,
-          1
+          1.8,
+          1.8,
+          1.8
         ]
       },
       "physics": {
@@ -56,9 +56,9 @@
         "type": "custom",
         "asset": "/assets/quaternius/characters/cute_animated_monsters/Panda.glb",
         "scale": [
-          1,
-          1,
-          1
+          1.8,
+          1.8,
+          1.8
         ]
       },
       "physics": false,
@@ -73,9 +73,9 @@
         "type": "custom",
         "asset": "/assets/quaternius/characters/cute_animated_monsters/Mushroom.glb",
         "scale": [
-          1,
-          1,
-          1
+          1.8,
+          1.8,
+          1.8
         ]
       },
       "physics": false,
@@ -90,9 +90,9 @@
         "type": "custom",
         "asset": "/assets/quaternius/characters/cute_animated_monsters/Chicken.glb",
         "scale": [
-          1,
-          1,
-          1
+          1.8,
+          1.8,
+          1.8
         ]
       },
       "physics": false,

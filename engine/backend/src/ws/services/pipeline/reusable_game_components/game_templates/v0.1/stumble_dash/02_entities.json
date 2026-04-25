@@ -5,9 +5,9 @@
         "type": "custom",
         "asset": "/assets/quaternius/characters/cute_animated_monsters/Penguin.glb",
         "scale": [
-          1,
-          1,
-          1
+          1.6,
+          1.6,
+          1.6
         ]
       },
       "physics": {
