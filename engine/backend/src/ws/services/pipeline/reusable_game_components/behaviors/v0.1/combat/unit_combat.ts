@@ -4,7 +4,7 @@
 // specific attack target overrides autonomous targeting until completed.
 class UnitCombatBehavior extends GameScript {
     _behaviorName = "unit_combat"; _damage = 15; _attackRange = 3; _attackRate = 0.8; _speed = 4; _detectRange = 20; _health = 100; _dead = false; _cooldown = 0; _currentAnim = "";
-    _cmdMoveX = 0; _cmdMoveZ = 0; _cmdHasMove = false; _cmdTargetId = "";
+    _cmdMoveX = 0; _cmdMoveZ = 0; _cmdHasMove = false; _cmdTarget = null;
     onStart() {
         var self = this;
         this.scene.events.game.on("entity_damaged", function(d) {
@@ -21,13 +21,33 @@ class UnitCombatBehavior extends GameScript {
             self._cmdMoveX = d.x;
             self._cmdMoveZ = d.z;
             self._cmdHasMove = true;
-            self._cmdTargetId = "";
+            self._cmdTarget = null;
         });
         this.scene.events.game.on("unit_command_attack", function(d) {
             if (!d || d.entityId !== self.entity.id) return;
-            self._cmdTargetId = d.targetId || "";
+            // rts_input passes the target entity ref directly — script_api
+            // doesn't expose findEntityById, so we can't recover it from a
+            // bare id. Fall back to any active enemy at d.targetId via a
+            // tag scan if no ref was provided (covers callers that emit
+            // the older shape).
+            self._cmdTarget = d.target || self._lookupTarget(d.targetId);
             self._cmdHasMove = false;
         });
+    }
+
+    _lookupTarget(id) {
+        if (!id) return null;
+        var pools = [
+            this.scene.findEntitiesByTag("enemy_unit") || [],
+            this.scene.findEntitiesByTag("enemy_building") || [],
+            this.scene.findEntitiesByTag("enemy") || []
+        ];
+        for (var p = 0; p < pools.length; p++) {
+            for (var i = 0; i < pools[p].length; i++) {
+                if (pools[p][i] && pools[p][i].id === id) return pools[p][i];
+            }
+        }
+        return null;
     }
     onUpdate(dt) {
         if (this._dead) return;
@@ -35,10 +55,10 @@ class UnitCombatBehavior extends GameScript {
         var p = this.entity.transform.position;
 
         // 1) Player attack-command — chase the assigned target until dead.
-        if (this._cmdTargetId) {
-            var tgt = this.scene.findEntityById ? this.scene.findEntityById(this._cmdTargetId) : null;
-            if (!tgt || !tgt.active) {
-                this._cmdTargetId = "";
+        if (this._cmdTarget) {
+            var tgt = this._cmdTarget;
+            if (!tgt.active) {
+                this._cmdTarget = null;
             } else {
                 var tp = tgt.transform.position;
                 var dx = tp.x - p.x, dz = tp.z - p.z;
