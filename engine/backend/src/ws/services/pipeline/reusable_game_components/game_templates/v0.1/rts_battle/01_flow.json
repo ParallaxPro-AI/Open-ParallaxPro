@@ -57,6 +57,7 @@
           "description": "Active RTS battle \u2014 build base, gather resources, train army, destroy enemy",
           "active_systems": [
             "rts_input",
+            "rts_health_bars",
             "resource_system",
             "production_system",
             "combat_system",
@@ -82,6 +83,7 @@
             "show_ui:hud/command_panel",
             "show_ui:hud/selection",
             "show_ui:hud/supply",
+            "show_ui:hud/rts_health_bars",
             "emit:game.battle_start",
             "play_sound:/assets/kenney/audio/sci_fi_sounds/spaceEngine_000.ogg"
           ],
@@ -91,7 +93,8 @@
             "hide_ui:hud/unit_panel",
             "hide_ui:hud/command_panel",
             "hide_ui:hud/selection",
-            "hide_ui:hud/supply"
+            "hide_ui:hud/supply",
+            "hide_ui:hud/rts_health_bars"
           ],
           "transitions": [
             {
