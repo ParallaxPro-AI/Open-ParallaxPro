@@ -15,6 +15,7 @@ class PlayerHealthBehavior extends GameScript {
     _respawnTimer = 0;
     _dead = false;
     _lastShooterPeerId = "";
+    _deathPoseTimer = 0;
 
     onStart() {
         var self = this;
@@ -61,6 +62,7 @@ class PlayerHealthBehavior extends GameScript {
             this._health = 0;
             this._dead = true;
             this._respawnTimer = this._respawnDelay;
+            this._deathPoseTimer = 0; // re-play Death immediately in onUpdate
             if (this.entity.playAnimation) {
                 try { this.entity.playAnimation("Death", { loop: false }); } catch (e) { /* no anim */ }
             }
@@ -74,10 +76,25 @@ class PlayerHealthBehavior extends GameScript {
         if (ni && !ni.isLocalPlayer) return;
 
         if (this._dead) {
+            // Re-play Death every couple of seconds so the body stays in
+            // the death pose. Most engines snap loop:false anims back to
+            // the default pose once the clip ends, which leaves the
+            // player standing during the wasted/death screen. Replaying
+            // pins them down for the full duration. The interval has to
+            // be longer than the longest plausible death clip (~1.5s on
+            // kenney/quaternius packs) so we don't restart mid-fall.
+            this._deathPoseTimer -= dt;
+            if (this._deathPoseTimer <= 0) {
+                this._deathPoseTimer = 1.8;
+                if (this.entity.playAnimation) {
+                    try { this.entity.playAnimation("Death", { loop: false }); } catch (e) { /* no anim */ }
+                }
+            }
             // Multiplayer respawn: countdown then refill + emit so the
             // match system can pick a spawn point. Single-player flows
-            // transition to the game_over substate on player_died before
-            // the timer fires, so this branch is harmless there.
+            // transition to a game_over / wasted substate on player_died
+            // and emit player_respawned from the flow on the way back —
+            // the revive() listener handles those.
             this._respawnTimer -= dt;
             if (this._respawnTimer <= 0 && this.scene._mp) {
                 this._dead = false;

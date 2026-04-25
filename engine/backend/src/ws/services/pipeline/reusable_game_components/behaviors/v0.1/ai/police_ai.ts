@@ -43,19 +43,6 @@ class PoliceAIBehavior extends GameScript {
             }
         });
 
-        // World refresh — when the player respawns, dead cops come back
-        // to life on patrol so the city isn't littered with corpses.
-        this.scene.events.game.on("player_respawned", function() {
-            if (self._despawnTimer != null) { clearTimeout(self._despawnTimer); self._despawnTimer = null; }
-            if (!self._dead && self.entity.active) return;
-            self._dead = false;
-            self._health = self._maxHealth;
-            self._fireCooldown = 2;
-            self._currentAnim = "";
-            if (self.entity) self.entity.active = true;
-            self._playAnim("Idle");
-        });
-
         this._playAnim("Idle");
     }
 

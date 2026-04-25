@@ -66,21 +66,6 @@ class PedestrianAIBehavior extends GameScript {
             }
         });
 
-        // World refresh — when the player respawns, dead pedestrians
-        // come back to life so the city isn't littered with corpses.
-        this.scene.events.game.on("player_respawned", function() {
-            if (self._despawnTimer != null) { clearTimeout(self._despawnTimer); self._despawnTimer = null; }
-            if (self._hitResetTimer != null) { clearTimeout(self._hitResetTimer); self._hitResetTimer = null; }
-            if (!self._dead && self.entity.active) return;
-            self._dead = false;
-            self._health = self._maxHealth;
-            self._fleeing = false;
-            self._waitTimer = Math.random() * 2;
-            self._currentAnim = ""; // force re-play below
-            if (self.entity) self.entity.active = true;
-            self._playAnim("Idle");
-        });
-
         this._playAnim("Idle");
     }
 

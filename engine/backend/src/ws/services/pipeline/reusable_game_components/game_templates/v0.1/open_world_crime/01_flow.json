@@ -88,7 +88,8 @@
             "crime_world"
           ],
           "active_behaviors": [
-            "camera_third_person"
+            "camera_third_person",
+            "player_health"
           ],
           "duration": -1,
           "on_enter": [
