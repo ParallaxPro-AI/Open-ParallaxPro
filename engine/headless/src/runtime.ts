@@ -190,7 +190,7 @@ export class Runtime {
 
     // Build the Scene from assembled entities.
     this.scene = Scene.fromJSON(this.toSceneJSON(assembled));
-    this.worldManager.setActiveScene(this.scene);
+    this.worldManager.setActiveScene(this.scene.id);
 
     // Register FSM start state from 01_flow.json if present (the game's
     // fsm_driver.ts system will actually drive the FSM, but tests want to
