@@ -1505,6 +1505,41 @@ Quick mental checklist when something looks wrong but the validator passes:
 
     On release, apply velocity proportional to the SAME pull vector and let physics take over.
 
+27. **Background-decoration entities tag `decoration_only`, do NOT remove the collider**: When you have purely-visual props in your scene — crowd block, spotlight pillar, star decor, parallax background plate, ambient pillar, banner, flag, smoke quad — these don't need physics. The `interactive_entities_have_colliders` invariant flags any entity whose name matches gameplay vocabulary (wall/block/pillar/decor/star/etc.) without a collider. The wrong fix is to silently bolt on a collider so the gate stops complaining; that adds collision the player will run into and the level designer didn't intend. **Rule: tag purely-visual entities with `"tags": ["decoration_only"]` in 02_entities.json.** The invariant excludes that tag from its check, the runtime ignores the missing physics block, and the collision is correctly absent. Use this for anything the player should never bump into. If the entity SHOULD collide (background wall the player can lean on, spotlight pole the player ducks behind), give it real physics — don't tag it `decoration_only` just to silence the gate.
+
+    ```json
+    "crowd_block":         { "mesh": { "type": "cube", "color": [0.4, 0.4, 0.6, 1] }, "tags": ["decoration_only"] },
+    "spotlight_pillar":    { "mesh": { "type": "cylinder", "color": [0.9, 0.9, 0.5, 1] }, "tags": ["decoration_only"] },
+    "stage_banner":        { "mesh": { "asset": "/assets/.../banner.glb" }, "tags": ["decoration_only"] }
+    ```
+
+28. **HUD HTML reads `s.X` — some script must emit `hud_update` with that key**: HUD overlays in `ui/hud/*.html` consume state via `window.addEventListener('message', ...)` and read fields off `e.data.state` (commonly aliased `var s = e.data.state`). Every `s.<key>` your HTML reads must be carried by at least one `events.ui.emit("hud_update", { <key>: ... })` call somewhere in your behaviors / systems, OR by a `state_changed` payload (the FSM driver merges every state's `vars`). The bullethell run bf29c058 shipped with `s.health` / `s.maxHealth` bound to a HP bar and a `bh_player.ts` that emitted `health_changed` on the GAME bus instead of `hud_update` on the UI bus. The HUD bar stayed at 5/5 forever even though damage tracked correctly. **Rule: when adding an HTML field to a HUD panel, also add or extend the matching `hud_update` emit. The `hud_html_field_resolves` invariant catches this statically.** Two valid forwarding patterns:
+
+    ```ts
+    // Pattern A — directly emit hud_update from the owner.
+    this.scene.events.ui.emit("hud_update", { health: this._health, maxHealth: this._maxHealth });
+
+    // Pattern B — forward an existing game-bus event into hud_update.
+    this.scene.events.game.on("health_changed", function(d) {
+        self.scene.events.ui.emit("hud_update", { health: d.health, maxHealth: d.maxHealth });
+    });
+    ```
+
+29. **Action methods (`_doAttack` / `_fire` / `_doSpecial` / `_swing`) must produce visible feedback in their body, every press**: When the player presses an action key, you owe them a visible reaction *that frame* — a swing animation, a projectile spawn, a brief mesh tweak (scale pulse, rotation kick), or a particle/VFX spawn. The fighter run d8f32a95 shipped without any of these: `_doAttack` ran damage logic + cooldown + a symbolic `melee_swing` emit, but had zero `playAnimation` calls anywhere in the artifact. The user said "no animation when im doing an attack." Audio alone is NOT sufficient — the user complaint is visual. A symbolic event emit is NOT sufficient either unless some other script's listener for that event actually animates; iteration 6's fighter emitted `melee_swing` into a void with zero subscribers. **Rule: every action method's body has ONE OR MORE of: `entity.playAnimation(...)`, `transform.scale/.rotation/setRotationEuler` mutation, `scene.spawnEntity(<projectile_or_vfx>)`, OR an emit whose listener verifiably animates.** The `action_has_visible_feedback` invariant catches this. Pattern:
+
+    ```ts
+    _doAttack(kind, damage, range) {
+        // Always-emit visual feedback, regardless of whether the swing connects.
+        if (this.entity.playAnimation) {
+            try { this.entity.playAnimation(kind === "punch" ? "Punch" : "Kick", { loop: false }); } catch (e) { /* missing clip */ }
+        }
+        // Damage / hit logic ...
+        if (hit) {
+            this.scene.events.game.emit("entity_damaged", { entityId: opp.id, amount: damage });
+        }
+    }
+    ```
+
 ## Quality Checklist
 
 **Validator-enforced** — `validate.sh` will fail if any of these is missing:
