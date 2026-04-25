@@ -43,5 +43,11 @@ class StrategyCameraBehavior extends GameScript {
         var offsetY = Math.sin(rad) * this._height;
         this.scene.setPosition(this.entity.id, this._lookX, offsetY, this._lookZ + offsetZ);
         this.entity.transform.lookAt(this._lookX, 0, this._lookZ);
+        // Expose the camera's ground-plane center so other systems (e.g.
+        // civilization_core's M-to-move fallback) can read it. Without
+        // this they default to (0,0,0) and the unit always walks to the
+        // map origin no matter where the camera was panned.
+        this.scene._stratCamX = this._lookX;
+        this.scene._stratCamZ = this._lookZ;
     }
 }
