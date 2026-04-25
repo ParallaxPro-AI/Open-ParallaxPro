@@ -470,23 +470,6 @@
       ],
       "label": false
     },
-    "fence": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Fence.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "prop",
-        "decoration_only"
-      ],
-      "label": false
-    },
     "hay_bale": {
       "mesh": {
         "type": "custom",

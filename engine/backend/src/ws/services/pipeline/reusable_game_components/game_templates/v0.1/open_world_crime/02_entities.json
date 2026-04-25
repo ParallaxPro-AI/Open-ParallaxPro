@@ -623,23 +623,6 @@
       ],
       "label": false
     },
-    "fence": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/kenney/3d_models/city_kit_suburban/fence.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": { "type": "static" },
-      "tags": [
-        "prop",
-        "decoration_only"
-      ],
-      "label": false
-    },
     "barrier": {
       "mesh": {
         "type": "cube",

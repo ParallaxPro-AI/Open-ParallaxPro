@@ -45,15 +45,6 @@
         { "ref": "tree_scenery", "position": [-7.5, 0, -90] },
         { "ref": "tree_scenery", "position": [7.5, 0, -105] },
 
-        { "ref": "fence_scenery", "position": [-6.5, 0, 10] },
-        { "ref": "fence_scenery", "position": [6.5, 0, 10] },
-        { "ref": "fence_scenery", "position": [-6.5, 0, -18] },
-        { "ref": "fence_scenery", "position": [6.5, 0, -18] },
-        { "ref": "fence_scenery", "position": [-6.5, 0, -46] },
-        { "ref": "fence_scenery", "position": [6.5, 0, -46] },
-        { "ref": "fence_scenery", "position": [-6.5, 0, -74] },
-        { "ref": "fence_scenery", "position": [6.5, 0, -74] },
-
         { "ref": "fire_hydrant", "position": [-6.2, 0, 0] },
         { "ref": "fire_hydrant", "position": [6.2, 0, -40] },
         { "ref": "fire_hydrant", "position": [-6.2, 0, -80] }

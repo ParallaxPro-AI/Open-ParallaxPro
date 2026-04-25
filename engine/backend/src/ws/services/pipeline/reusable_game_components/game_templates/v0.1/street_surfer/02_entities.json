@@ -318,23 +318,6 @@
       ],
       "label": false
     },
-    "fence_scenery": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/kenney/3d_models/city_kit_suburban/fence-1x4.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "scenery",
-        "decoration_only"
-      ],
-      "label": false
-    },
     "fire_hydrant": {
       "mesh": {
         "type": "custom",

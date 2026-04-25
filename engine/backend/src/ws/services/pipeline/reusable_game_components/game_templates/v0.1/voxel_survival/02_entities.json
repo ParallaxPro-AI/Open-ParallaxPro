@@ -1774,24 +1774,6 @@
         "village"
       ],
       "label": false
-    },
-    "village_fence": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Fence.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "decoration",
-        "village",
-        "decoration_only"
-      ],
-      "label": false
     }
   }
 }
