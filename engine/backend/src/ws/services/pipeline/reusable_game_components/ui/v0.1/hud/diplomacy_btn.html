@@ -13,7 +13,10 @@
   }
   .diplo-wrap {
     position: fixed;
-    bottom: 200px;
+    /* Stacks above tech_btn (bottom:130, collapsed height ~110 → top edge
+     * ~240). Anything below ~250 makes diplomacy overlap the research
+     * panel's culture/toggle area. */
+    bottom: 250px;
     right: 18px;
     width: 240px;
     pointer-events: auto;
