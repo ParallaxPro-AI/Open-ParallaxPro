@@ -69,6 +69,19 @@ class EntityHealthBarsSystem extends GameScript {
             if (id == null) return;
             delete self._hp[id];
         });
+
+        // Respawn events: hero_combat / player_vitals reset their internal
+        // _health to _maxHealth and re-emit player_respawned (or
+        // entity_respawned) without deactivating the entity. From this
+        // system's POV the row stayed at current=0 since lethal damage
+        // landed, so the bar would never come back. Drop every tracked
+        // row on respawn — _collect re-initialises each entity at full
+        // HP on the next frame.
+        var resetAll = function() {
+            self._hp = {};
+        };
+        this.scene.events.game.on("player_respawned", resetAll);
+        this.scene.events.game.on("entity_respawned", resetAll);
     }
 
     onUpdate(dt) {
