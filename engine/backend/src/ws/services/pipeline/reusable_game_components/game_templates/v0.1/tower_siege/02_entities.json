@@ -262,6 +262,46 @@
         "decoration"
       ],
       "label": false
+    },
+    "enemy_goblin": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Male.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["enemy"],
+      "label": false
+    },
+    "enemy_slime": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/animated_monster_pack/Slime.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["enemy"],
+      "label": false
+    },
+    "enemy_skeleton": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/animated_monster_pack/Skeleton.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["enemy"],
+      "label": false
+    },
+    "enemy_dragon": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/animated_monster_pack/Dragon.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["enemy"],
+      "label": false
     }
   }
 }
