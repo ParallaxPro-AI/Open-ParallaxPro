@@ -33,6 +33,10 @@ class DiplomacyAISystem extends GameScript {
             self._aiState = "peace";
             self._turnsSinceWar = 0;
             self._aiGold = 50;
+            // Count starting AI units so the diplomacy HUD shows a real
+            // number on turn 1 instead of "Enemy army: 0" until the AI
+            // takes its first turn.
+            self._countAIMilitary();
             self._publishHud();
         });
 
@@ -71,17 +75,7 @@ class DiplomacyAISystem extends GameScript {
 
         this._turnsSinceWar++;
 
-        // Count AI entities
-        var aiUnits = this.scene.findEntitiesByTag("unit") || [];
-        var aiMil = [];
-        for (var u = 0; u < aiUnits.length; u++) {
-            if (!aiUnits[u].active) continue;
-            var tags = aiUnits[u].tags || [];
-            for (var t = 0; t < tags.length; t++) {
-                if (tags[t] === "ai") { aiMil.push(aiUnits[u]); break; }
-            }
-        }
-        this._aiMilitary = aiMil.length;
+        this._countAIMilitary();
 
         // Count player military for aggression check
         var playerMil = 0;
@@ -170,6 +164,19 @@ class DiplomacyAISystem extends GameScript {
             aiState: this._aiState,
             aiMilitary: this._aiMilitary
         });
+    }
+
+    _countAIMilitary() {
+        var aiUnits = this.scene.findEntitiesByTag("unit") || [];
+        var n = 0;
+        for (var u = 0; u < aiUnits.length; u++) {
+            if (!aiUnits[u].active) continue;
+            var tags = aiUnits[u].tags || [];
+            for (var t = 0; t < tags.length; t++) {
+                if (tags[t] === "ai") { n++; break; }
+            }
+        }
+        this._aiMilitary = n;
     }
 
     onUpdate(dt) {}

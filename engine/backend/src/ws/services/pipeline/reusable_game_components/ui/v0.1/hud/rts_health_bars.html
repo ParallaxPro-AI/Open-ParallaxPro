@@ -18,6 +18,25 @@
     pointer-events: none;
     z-index: 3;
   }
+  #debug {
+    position: fixed;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: #22d3ee;
+    border: 1px solid rgba(34,211,238,0.5);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-family: 'SF Mono', Menlo, monospace;
+    letter-spacing: 0.5px;
+    z-index: 5;
+    pointer-events: none;
+    user-select: none;
+  }
+  #debug.warn { color: #fbbf24; border-color: rgba(251,191,36,0.5); }
+  #debug.bad  { color: #f87171; border-color: rgba(248,113,113,0.5); }
   .hb {
     position: absolute;
     width: 56px;
@@ -43,6 +62,7 @@
 </style>
 </head>
 <body>
+<div id="debug">healthBars: waiting…</div>
 <div id="layer"></div>
 <script>
 (function () {
@@ -91,8 +111,29 @@
   }
 
   var lastBars = null;
+  var debugEl = document.getElementById('debug');
+  function showDebug(d) {
+    if (!debugEl) return;
+    if (!d) {
+      debugEl.textContent = 'healthBars: no debug data — system not running?';
+      debugEl.className = 'bad';
+      return;
+    }
+    debugEl.textContent =
+      'allies=' + d.allies +
+      ' enemies=' + d.enemies +
+      ' tracked=' + d.tracked +
+      ' onscreen=' + d.onscreen +
+      ' offscreen=' + d.offscreen +
+      ' worldToScreen=' + (d.worldToScreen ? 'yes' : 'NO');
+    if (!d.worldToScreen) debugEl.className = 'bad';
+    else if (d.onscreen === 0) debugEl.className = 'warn';
+    else debugEl.className = '';
+  }
+
   function update(s) {
     if (!s) return;
+    if (s.healthBarsDebug !== undefined) showDebug(s.healthBarsDebug);
     if (s.healthBars !== undefined) {
       lastBars = s.healthBars;
       render(lastBars);

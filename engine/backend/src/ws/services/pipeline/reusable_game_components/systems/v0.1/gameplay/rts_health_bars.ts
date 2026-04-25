@@ -63,10 +63,21 @@ class RTSHealthBarsSystem extends GameScript {
         ], true);
 
         var bars = [];
-        this._project(allies, bars);
-        this._project(enemies, bars);
+        var stats = { tracked: 0, onscreen: 0, offscreen: 0 };
+        this._project(allies, bars, stats);
+        this._project(enemies, bars, stats);
 
-        this.scene.events.ui.emit("hud_update", { healthBars: bars });
+        this.scene.events.ui.emit("hud_update", {
+            healthBars: bars,
+            healthBarsDebug: {
+                allies: allies.length,
+                enemies: enemies.length,
+                tracked: stats.tracked,
+                onscreen: stats.onscreen,
+                offscreen: stats.offscreen,
+                worldToScreen: !!this.scene.worldToScreen
+            }
+        });
     }
 
     // Build a flat, de-duplicated list of {entity, isEnemy} from tag pools,
@@ -111,20 +122,18 @@ class RTSHealthBarsSystem extends GameScript {
         return 100;
     }
 
-    _project(entities, out) {
+    _project(entities, out, stats) {
         for (var i = 0; i < entities.length; i++) {
             var e = entities[i];
             var row = this._hp[e.id];
             if (!row) continue;
             if (row.current <= 0) continue;
+            stats.tracked++;
             var pos = e.transform.position;
             var sp = this.scene.worldToScreen(pos.x, pos.y + this._heightAbove, pos.z);
-            if (!sp) continue;          // off-camera or behind frustum
-            // Only show partial-HP bars for allies' workers / enemies that
-            // haven't been touched yet, to keep the screen quieter — but
-            // always show enemies and damaged allies.
+            if (!sp) { stats.offscreen++; continue; }
+            stats.onscreen++;
             var pct = row.current / row.max;
-            if (!row.isEnemy && pct >= 0.999) continue;
             out.push({
                 id: String(e.id),
                 x: sp.x,
