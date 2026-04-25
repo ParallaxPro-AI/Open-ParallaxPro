@@ -9,7 +9,8 @@
         "showAllies": false,
         "defaultMax": 100,
         "hpOverrides": {},
-        "heightAbove": 1.5
+        "heightAbove": 1.5,
+        "occlusionCheck": true
       }
     },
     "zone_system": {

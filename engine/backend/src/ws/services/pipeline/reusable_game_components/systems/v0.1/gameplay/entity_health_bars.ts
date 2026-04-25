@@ -23,6 +23,13 @@
 //                     HPs; fall back to tag keys (e.g. "tower": 2000) when
 //                     a whole group of units share the same value.
 //   heightAbove     — world-units to lift the bar above origin (default 2.4).
+//   occlusionCheck  — if true, raycast from the camera to each entity's
+//                     bar position and skip bars that are blocked by
+//                     world geometry (walls, terrain). Important for
+//                     first-person games so health bars don't act as
+//                     wallhacks. Off by default — top-down / 3rd-person
+//                     games rarely need it and the per-frame raycast
+//                     adds cost.
 class EntityHealthBarsSystem extends GameScript {
     _allyTags = [];
     _enemyTags = [];
@@ -30,8 +37,10 @@ class EntityHealthBarsSystem extends GameScript {
     _defaultMax = 100;
     _hpOverrides = {};
     _heightAbove = 2.4;
+    _occlusionCheck = false;
 
     _hp = {};
+    _camera = null;
 
     onStart() {
         var self = this;
@@ -162,13 +171,38 @@ class EntityHealthBarsSystem extends GameScript {
     }
 
     _project(entities, out, scale) {
+        // Look up the camera lazily once so first-person occlusion checks
+        // have somewhere to ray from. Cache it so we don't query scene.find
+        // every frame.
+        var cam = this._occlusionCheck ? this._getCamera() : null;
+        var cp = cam ? cam.transform.position : null;
+
         for (var i = 0; i < entities.length; i++) {
             var e = entities[i];
             var row = this._hp[e.id];
             if (!row) continue;
             if (row.current <= 0) continue;
             var pos = e.transform.position;
-            var sp = this.scene.worldToScreen(pos.x, pos.y + this._heightAbove, pos.z);
+            var by = pos.y + this._heightAbove;
+
+            // Wall-hack guard: cast a ray from the camera to the chest
+            // point and only render the bar if the first thing the ray
+            // hits is this entity (or nothing — in which case the path
+            // is clear). Skips bars that would otherwise show through
+            // walls in fps games.
+            if (cp && this.scene.raycast) {
+                var rdx = pos.x - cp.x;
+                var rdy = by - cp.y;
+                var rdz = pos.z - cp.z;
+                var rdist = Math.sqrt(rdx * rdx + rdy * rdy + rdz * rdz);
+                if (rdist > 0.05) {
+                    var inv = 1 / rdist;
+                    var hit = this.scene.raycast(cp.x, cp.y, cp.z, rdx * inv, rdy * inv, rdz * inv, rdist + 0.5);
+                    if (hit && hit.entityId !== e.id && hit.distance < rdist - 0.25) continue;
+                }
+            }
+
+            var sp = this.scene.worldToScreen(pos.x, by, pos.z);
             if (!sp) continue;
             out.push({
                 id: String(e.id),
@@ -180,5 +214,11 @@ class EntityHealthBarsSystem extends GameScript {
                 isEnemy: row.isEnemy
             });
         }
+    }
+
+    _getCamera() {
+        if (this._camera && this._camera.active) return this._camera;
+        this._camera = this.scene.findEntityByName("Camera") || this.scene.findEntityByName("Main Camera") || null;
+        return this._camera;
     }
 }
