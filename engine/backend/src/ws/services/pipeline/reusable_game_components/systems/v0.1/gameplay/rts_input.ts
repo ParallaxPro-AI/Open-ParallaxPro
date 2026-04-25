@@ -15,30 +15,27 @@
 // Behaviors that move units (unit_combat, worker_ai) listen for those
 // events and override their autonomous targeting.
 class RTSInputSystem extends GameScript {
-    _gameActive = false;
     _selectedIds = [];
     _pickRadius = 1.8;
     _enemyPickRadius = 2.2;
 
     onStart() {
         var self = this;
-        this.scene.events.game.on("game_ready", function() {
-            self._gameActive = true;
-            self._selectedIds = [];
-            self._publishHud();
-        });
-        this.scene.events.game.on("battle_start", function() {
-            self._gameActive = true;
-        });
+        // No gameActive gate: membership in the battle state's
+        // active_systems already means the FSM intends this system to
+        // run. A game_ready handler subscribed here would miss the
+        // event because gameplay.on_enter fires it BEFORE the battle
+        // substate spins up its active_systems — that race is what was
+        // silently swallowing every click.
 
-        // ui_bridge already emits these on every left/right click, with the
+        // ui_bridge emits these on every left/right click with the
         // virtual cursor's canvas-relative position baked in.
         this.scene.events.ui.on("cursor_click", function(d) {
-            if (!self._gameActive || !d) return;
+            if (!d) return;
             self._handleLeftClick(d.x, d.y);
         });
         this.scene.events.ui.on("cursor_right_click", function(d) {
-            if (!self._gameActive || !d) return;
+            if (!d) return;
             self._handleRightClick(d.x, d.y);
         });
 
@@ -48,6 +45,10 @@ class RTSInputSystem extends GameScript {
                 if (self._selectedIds[i] === d.entityId) self._selectedIds.splice(i, 1);
             }
         });
+
+        // Publish an initial empty selection so the selection HUD shows
+        // its tip immediately.
+        self._publishHud();
     }
 
     _shiftHeld() {

@@ -57,19 +57,22 @@ class RTSHealthBarsSystem extends GameScript {
     }
 
     onUpdate(dt) {
-        // Always publish a debug payload first so the diagnostic strip
-        // shows whether onUpdate is even running. Without this, an early
-        // return left the HUD stuck on "waiting…" and we couldn't tell
-        // whether the system was loaded.
+        // Membership in the FSM's active_systems list already gates this
+        // — onUpdate only runs when the battle state is active. A
+        // separate _gameActive flag based on game_ready/battle_start was
+        // a redundant gate AND a footgun: gameplay.on_enter emits
+        // game.game_ready BEFORE the battle substate's active_systems
+        // are spun up, so onStart subscribed too late and the handler
+        // never fired. Just always run.
         var debug = {
             running: true,
-            gameActive: !!this._gameActive,
+            gameActive: true,
             hasWorldToScreen: !!(this.scene && this.scene.worldToScreen),
             allies: 0, enemies: 0,
             tracked: 0, onscreen: 0, offscreen: 0
         };
 
-        if (!this._gameActive || !this.scene || !this.scene.worldToScreen) {
+        if (!this.scene || !this.scene.worldToScreen) {
             this.scene.events.ui.emit("hud_update", { healthBars: [], healthBarsDebug: debug });
             return;
         }
