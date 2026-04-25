@@ -1630,6 +1630,356 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }
 
+  // ── 20. FSM action verbs are recognized by the fsm_driver ──────────
+  // Iteration plan §1.2(A): unknown flow-action verbs (e.g. `show_hud`
+  // instead of `show_ui:hud_panel`, `emit_game.X` instead of `emit:game.X`)
+  // are silently dropped by fsm_driver._runAction — the state appears
+  // to do nothing on enter/exit. Static check: every action string in
+  // on_enter / on_exit / on_update / on_timeout matches one of the
+  // verbs the driver recognizes; flag the rest with a Levenshtein
+  // suggestion. Universal — every game has a flow.
+  {
+    const flow: any = p.runtime.files.flow;
+    if (flow?.states) {
+      // Bare-verb allowlist (no prefix).
+      const BARE_VERBS = new Set([
+        'show_cursor', 'hide_cursor', 'stop_music', 'stop_sound',
+      ]);
+      // Prefix verbs that take an argument after `:`.
+      const PREFIX_VERBS = [
+        'goto:', 'set:', 'increment:', 'emit:', 'mp:',
+        'show_ui:', 'hide_ui:', 'notify:', 'play_sound:', 'play_music:',
+        'set_timer:', 'random_action:',
+      ];
+      // Arithmetic forms: `VAR+5`, `VAR-$amount`. Any token of the form
+      // `<word>[+-]<rest>` is accepted.
+      const ARITH_RE = /^[A-Za-z_]\w*[+-].+$/;
+      const recognize = (action: string): boolean => {
+        if (typeof action !== 'string' || action.length === 0) return true;
+        if (BARE_VERBS.has(action)) return true;
+        for (const p of PREFIX_VERBS) if (action.startsWith(p)) return true;
+        if (ARITH_RE.test(action)) return true;
+        return false;
+      };
+      const unknown: Array<{ state: string; hook: string; action: string; suggest?: string }> = [];
+      const allKnown = [...BARE_VERBS, ...PREFIX_VERBS.map(p => p.replace(/:$/, ''))];
+      const editDistance = (a: string, b: string): number => {
+        const m = a.length, n = b.length;
+        if (m === 0) return n; if (n === 0) return m;
+        const dp = new Array(n + 1).fill(0).map((_, j) => j);
+        for (let i = 1; i <= m; i++) {
+          let prev = i - 1;
+          dp[0] = i;
+          for (let j = 1; j <= n; j++) {
+            const cur = dp[j];
+            dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+            prev = cur;
+          }
+        }
+        return dp[n];
+      };
+      const suggestFor = (verb: string): string | undefined => {
+        let best: string | undefined; let bestD = Infinity;
+        const head = verb.split(':')[0] || verb;
+        for (const k of allKnown) {
+          const d = editDistance(head.toLowerCase(), k.toLowerCase());
+          if (d < bestD && d <= Math.max(2, Math.floor(k.length / 3))) { best = k; bestD = d; }
+        }
+        return best;
+      };
+      const walkVerbs = (states: Record<string, any> | undefined, prefix: string = ''): void => {
+        if (!states) return;
+        for (const [name, def] of Object.entries<any>(states)) {
+          const fullName = prefix + name;
+          for (const hook of ['on_enter', 'on_exit', 'on_update', 'on_timeout'] as const) {
+            const list = def?.[hook];
+            if (!Array.isArray(list)) continue;
+            for (const action of list) {
+              if (recognize(action)) continue;
+              unknown.push({ state: fullName, hook, action, suggest: suggestFor(action) });
+            }
+          }
+          if (def?.substates) walkVerbs(def.substates, fullName + '/');
+        }
+      };
+      walkVerbs(flow.states);
+      if (unknown.length > 0) {
+        const sample = unknown.slice(0, 3).map(u =>
+          `${u.state}.${u.hook}: "${u.action}"${u.suggest ? ` (did you mean "${u.suggest}:..."?)` : ''}`,
+        ).join('; ');
+        const more = unknown.length > 3 ? ` (+${unknown.length - 3} more)` : '';
+        results.push({
+          name: 'flow_action_verbs_known',
+          failure: new PlaytestFailure('flow_unknown_verb',
+            `${unknown.length} flow-action verb${unknown.length > 1 ? 's' : ''} not recognized by fsm_driver — silently dropped at runtime, the state will appear to do nothing: ${sample}${more}. Recognized verbs: bare \`show_cursor\`/\`hide_cursor\`/\`stop_music\`/\`stop_sound\`; prefixed \`goto:\`/\`set:\`/\`increment:\`/\`emit:\`/\`mp:\`/\`show_ui:\`/\`hide_ui:\`/\`notify:\`/\`play_sound:\`/\`play_music:\`/\`set_timer:\`/\`random_action:\`; arithmetic \`var+N\`/\`var-$key\`. Anything else is dropped.`,
+            { unknown: unknown.slice(0, 20), total: unknown.length }),
+        });
+      } else {
+        results.push({ name: 'flow_action_verbs_known', failure: null });
+      }
+    }
+  }
+
+  // ── 21. Every state is reachable from `start` ──────────────────────
+  // Orphan states bloat the flow without affecting gameplay — usually
+  // an authoring mistake (forgot to wire a transition into a tutorial
+  // / cutscene state). Static BFS from flow.start; anything not reached
+  // is an orphan.
+  {
+    const flow: any = p.runtime.files.flow;
+    if (flow?.states && flow?.start) {
+      // Build a flat map of stateName → state def, descending into substates.
+      const allStates: Map<string, any> = new Map();
+      const addStates = (states: Record<string, any>, prefix: string = ''): void => {
+        for (const [name, def] of Object.entries<any>(states)) {
+          const full = prefix + name;
+          allStates.set(full, def);
+          if (def?.substates) addStates(def.substates, full + '/');
+        }
+      };
+      addStates(flow.states);
+      // Resolve a transition target string (which may be a relative name,
+      // sibling, or absolute path) against the flat map. Conservative:
+      // try the literal first, then prefix-paths up the parent chain.
+      const resolveTarget = (target: string, fromState: string): string | null => {
+        if (allStates.has(target)) return target;
+        // Try parent's siblings: strip last segment of fromState, append target.
+        const parts = fromState.split('/');
+        for (let i = parts.length - 1; i >= 0; i--) {
+          const candidate = parts.slice(0, i).concat(target).join('/');
+          if (allStates.has(candidate)) return candidate;
+        }
+        return null;
+      };
+      const reached = new Set<string>();
+      const queue: string[] = [flow.start];
+      // Compound start: also add the substate path if start.substates?.start exists.
+      const startDef = allStates.get(flow.start);
+      if (startDef?.substates && startDef?.start) queue.push(`${flow.start}/${startDef.start}`);
+      while (queue.length > 0) {
+        const cur = queue.shift()!;
+        if (reached.has(cur)) continue;
+        reached.add(cur);
+        const def = allStates.get(cur);
+        if (!def) continue;
+        // Compound state's start substate is implicitly reached.
+        if (def.substates && def.start) {
+          const subTarget = `${cur}/${def.start}`;
+          if (allStates.has(subTarget) && !reached.has(subTarget)) queue.push(subTarget);
+        }
+        // Also reach all substates (so a goto to the parent then
+        // substate transitions still find them).
+        if (def.substates) {
+          for (const subName of Object.keys(def.substates)) {
+            const sub = `${cur}/${subName}`;
+            if (allStates.has(sub) && !reached.has(sub)) queue.push(sub);
+          }
+        }
+        for (const t of (def.transitions || []) as any[]) {
+          const target = t?.goto;
+          if (typeof target !== 'string') continue;
+          const resolved = resolveTarget(target, cur);
+          if (resolved && !reached.has(resolved)) queue.push(resolved);
+        }
+        // Also follow goto: actions in on_enter / on_exit etc.
+        for (const hook of ['on_enter', 'on_exit', 'on_update', 'on_timeout'] as const) {
+          const list = def?.[hook];
+          if (!Array.isArray(list)) continue;
+          for (const action of list) {
+            if (typeof action !== 'string' || !action.startsWith('goto:')) continue;
+            const target = action.substring(5);
+            if (target === '_back') continue;
+            const resolved = resolveTarget(target, cur);
+            if (resolved && !reached.has(resolved)) queue.push(resolved);
+          }
+        }
+      }
+      const orphans: string[] = [];
+      for (const name of allStates.keys()) {
+        if (reached.has(name)) continue;
+        // Ignore substates whose parent itself was unreachable — only
+        // the parent counts as the "real" orphan; child noise is a
+        // distraction.
+        const slashIdx = name.lastIndexOf('/');
+        if (slashIdx > 0) {
+          const parent = name.substring(0, slashIdx);
+          if (!reached.has(parent)) continue;
+        }
+        orphans.push(name);
+      }
+      if (orphans.length > 0) {
+        const sample = orphans.slice(0, 5).join(', ');
+        const more = orphans.length > 5 ? ` (+${orphans.length - 5} more)` : '';
+        results.push({
+          name: 'flow_states_reachable',
+          failure: new PlaytestFailure('flow_orphan_state',
+            `${orphans.length} state${orphans.length > 1 ? 's' : ''} unreachable from flow.start ("${flow.start}"): ${sample}${more}. The state exists in 01_flow.json but no transition or goto: action ever leads to it. Either wire a transition INTO the state from somewhere on the reachable graph, or remove the state.`,
+            { orphans: orphans.slice(0, 20), start: flow.start, total: orphans.length }),
+        });
+      } else {
+        results.push({ name: 'flow_states_reachable', failure: null });
+      }
+    }
+  }
+
+  // ── 22. Non-terminal states have at least one exit transition ──────
+  // Dead-end states trap the player: they enter and can never leave.
+  // Treat states whose name implies "this is the end" as terminal
+  // (game_over, victory, level_complete, results, end, finish) — those
+  // are allowed to have no exit.
+  {
+    const flow: any = p.runtime.files.flow;
+    if (flow?.states) {
+      const TERMINAL_RE = /^(game_over|victory|defeat|results|summary|level_complete|completed|finish(ed)?|end|exit|quit|credits|cutscene_end)$/i;
+      const deadEnds: string[] = [];
+      const walk = (states: Record<string, any>, prefix: string = ''): void => {
+        for (const [name, def] of Object.entries<any>(states)) {
+          const full = prefix + name;
+          // Terminal-by-name → allowed to have no exit.
+          if (TERMINAL_RE.test(name)) {
+            if (def?.substates) walk(def.substates, full + '/');
+            continue;
+          }
+          const transitions = Array.isArray(def?.transitions) ? def.transitions : [];
+          // Also count goto: actions in on_enter / on_exit / on_update / on_timeout.
+          let hasGotoAction = false;
+          for (const hook of ['on_enter', 'on_exit', 'on_update', 'on_timeout'] as const) {
+            const list = def?.[hook];
+            if (!Array.isArray(list)) continue;
+            for (const a of list) {
+              if (typeof a === 'string' && a.startsWith('goto:')) { hasGotoAction = true; break; }
+            }
+            if (hasGotoAction) break;
+          }
+          // Compound states with a `start` substate route through the
+          // child — they're not dead-ends from the player's perspective.
+          const hasSubStart = def?.substates && def?.start;
+          if (transitions.length === 0 && !hasGotoAction && !hasSubStart) {
+            deadEnds.push(full);
+          }
+          if (def?.substates) walk(def.substates, full + '/');
+        }
+      };
+      walk(flow.states);
+      if (deadEnds.length > 0) {
+        const sample = deadEnds.slice(0, 5).join(', ');
+        const more = deadEnds.length > 5 ? ` (+${deadEnds.length - 5} more)` : '';
+        results.push({
+          name: 'flow_states_have_exit',
+          failure: new PlaytestFailure('flow_dead_end_state',
+            `${deadEnds.length} non-terminal state${deadEnds.length > 1 ? 's' : ''} with no exit transition — player gets stuck once they enter: ${sample}${more}. Add at least one \`transitions: [{ when: "...", goto: "..." }]\` entry, or rename to a terminal name (game_over / victory / level_complete / etc.) if it really is the end of the session.`,
+            { deadEnds: deadEnds.slice(0, 20), total: deadEnds.length }),
+        });
+      } else {
+        results.push({ name: 'flow_states_have_exit', failure: null });
+      }
+    }
+  }
+
+  // ── 23. System init from on_enter timing trap ──────────────────────
+  // Documented in CREATOR_CONTEXT but unenforced. Pattern: a state's
+  // on_enter emits `game.X` AND the state's active_systems contains a
+  // system whose onStart registers a listener for `game.X`. The system
+  // activates and emits go in the same frame; the listener registers
+  // AFTER the emit fires → event lost forever, the system's
+  // first-time init never runs. Symptom: "match never starts," "boss
+  // never spawns," etc.
+  {
+    const flow: any = p.runtime.files.flow;
+    const systemsJson: any = p.runtime.files.systems;
+    const projScripts: Record<string, string> = p.runtime.projectScripts ?? p.runtime.files.scripts ?? {};
+    // 04_systems.json shape is `{ systems: { name: { script, params } } }`.
+    const systemDefs: Record<string, any> = (systemsJson?.systems && typeof systemsJson.systems === 'object')
+      ? systemsJson.systems
+      : (systemsJson && typeof systemsJson === 'object' ? systemsJson : {});
+    if (flow?.states && Object.keys(systemDefs).length > 0 && Object.keys(projScripts).length > 0) {
+      // Build (systemKey → script-source-text) by joining systemsJson
+      // entries to the assembled script file. The assembler flattens
+      // `systems/gameplay/foo.ts` into `scripts/gameplay_foo.ts`.
+      const systemSrc: Map<string, string> = new Map();
+      for (const [sysName, sysDef] of Object.entries<any>(systemDefs)) {
+        const scriptRef: string | undefined = sysDef?.script;
+        if (!scriptRef) continue;
+        const flat = 'scripts/' + scriptRef.replace(/\//g, '_');
+        const src = projScripts[flat];
+        if (src) systemSrc.set(sysName, src);
+      }
+      // Extract events listened-for in onStart() body. Conservative:
+      // brace-depth scan from `onStart(` to its closing `}`, then grep
+      // events.game.on inside.
+      const onStartListeners = (src: string): Set<string> => {
+        const out = new Set<string>();
+        const idx = src.search(/(?<![.\w])onStart\s*\(/);
+        if (idx < 0) return out;
+        const open = src.indexOf('{', idx);
+        if (open < 0) return out;
+        let depth = 1, i = open + 1;
+        while (i < src.length && depth > 0) {
+          const ch = src[i];
+          if (ch === '"' || ch === "'" || ch === '`') {
+            const q = ch; i++;
+            while (i < src.length && src[i] !== q) { if (src[i] === '\\') i++; i++; }
+            i++; continue;
+          }
+          if (ch === '{') depth++;
+          else if (ch === '}') depth--;
+          i++;
+        }
+        const body = src.slice(open + 1, i - 1);
+        const re = /events\.game\.on\s*\(\s*['"]([^'"]+)['"]/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(body)) !== null) out.add(m[1]);
+        return out;
+      };
+      // Reset-style event names are deliberately re-fired on every
+      // gameplay-enter to drive the same reset/respawn code path. Their
+      // first-time init lives in class-field initializers, so the
+      // first emit landing in a void is by design — only the SECOND+
+      // entry (Play Again) needs the listener. Filter these to avoid
+      // flagging the canonical replay/reset pattern.
+      const RESET_EVENT_RE = /(restart|reset|respawn|new_round|new_game|new_match|round_start|level_start|wave_start)/i;
+      const traps: Array<{ state: string; system: string; event: string }> = [];
+      const walk = (states: Record<string, any>, prefix: string = ''): void => {
+        for (const [name, def] of Object.entries<any>(states)) {
+          const full = prefix + name;
+          const onEnter: any[] = Array.isArray(def?.on_enter) ? def.on_enter : [];
+          const emitted = new Set<string>();
+          for (const a of onEnter) {
+            if (typeof a !== 'string') continue;
+            const m = a.match(/^emit:game\.(\w+)/);
+            if (m && !RESET_EVENT_RE.test(m[1])) emitted.add(m[1]);
+          }
+          if (emitted.size > 0) {
+            const activeSystems: any[] = Array.isArray(def?.active_systems) ? def.active_systems : [];
+            for (const sysName of activeSystems) {
+              if (typeof sysName !== 'string') continue;
+              const src = systemSrc.get(sysName);
+              if (!src) continue;
+              const listens = onStartListeners(src);
+              for (const evt of emitted) {
+                if (listens.has(evt)) traps.push({ state: full, system: sysName, event: evt });
+              }
+            }
+          }
+          if (def?.substates) walk(def.substates, full + '/');
+        }
+      };
+      walk(flow.states);
+      if (traps.length > 0) {
+        const sample = traps.slice(0, 3).map(t => `state "${t.state}" emits "${t.event}" in on_enter while activating system "${t.system}" whose onStart registers \`events.game.on("${t.event}", ...)\``).join('; ');
+        const more = traps.length > 3 ? ` (+${traps.length - 3} more)` : '';
+        results.push({
+          name: 'system_init_no_timing_trap',
+          failure: new PlaytestFailure('flow_init_timing_trap',
+            `${traps.length} on_enter init-event timing trap${traps.length > 1 ? 's' : ''}: ${sample}${more}. The FSM activates the system and fires the emit in the same frame, but the system's listener is registered later by onStart — the emit fires into a void and the system's first-time init never runs. Fix: either (a) move the system's first-time init OUT of the listener and into onStart() directly, or (b) emit the event from a transition's actions instead of the destination state's on_enter (so the system's onStart fires first).`,
+            { traps: traps.slice(0, 20), total: traps.length }),
+        });
+      } else {
+        results.push({ name: 'system_init_no_timing_trap', failure: null });
+      }
+    }
+  }
+
   return results;
 }
 

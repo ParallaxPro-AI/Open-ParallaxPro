@@ -599,6 +599,99 @@ class CovAttackBehavior extends GameScript {
     },
   },
   {
+    target: 'flow_action_verbs_known',
+    label: 'add an unknown flow-action verb to a state on_enter',
+    mutate: (dir) => {
+      const p = path.join(dir, '01_flow.json');
+      const j = readJson(p);
+      // Pick any state and append an unknown verb.
+      const firstStateName = Object.keys(j.states)[0];
+      const st = j.states[firstStateName];
+      st.on_enter = st.on_enter || [];
+      st.on_enter.push('show_hud:bogus_panel');  // typo of show_ui:
+      writeJson(p, j);
+    },
+  },
+  {
+    target: 'flow_states_reachable',
+    label: 'add an orphan state with no transition into it',
+    mutate: (dir) => {
+      const p = path.join(dir, '01_flow.json');
+      const j = readJson(p);
+      j.states.cov_orphan_island = {
+        description: 'coverage-test orphan, never reached',
+        on_enter: ['show_cursor'],
+        transitions: [{ when: 'keyboard:escape', goto: j.start }],
+      };
+      writeJson(p, j);
+    },
+  },
+  {
+    target: 'flow_states_have_exit',
+    label: 'add a non-terminal state with no transitions out',
+    mutate: (dir) => {
+      const p = path.join(dir, '01_flow.json');
+      const j = readJson(p);
+      // First wire a transition INTO our trap so the reachability
+      // invariant doesn't fire instead. Pick the start state and add
+      // a transition to the trap.
+      const startDef = j.states[j.start];
+      if (startDef) {
+        startDef.transitions = startDef.transitions || [];
+        startDef.transitions.push({ when: 'keyboard:trap', goto: 'cov_dead_end' });
+      }
+      j.states.cov_dead_end = {
+        description: 'coverage-test trap state, no exit',
+        on_enter: ['show_cursor'],
+        // No transitions, no goto: action — once you enter, you're stuck.
+      };
+      writeJson(p, j);
+    },
+  },
+  {
+    target: 'system_init_no_timing_trap',
+    label: 'state on_enter emits X and activates a system whose onStart listens for X',
+    mutate: (dir) => {
+      // Drop a coverage system that registers a listener for
+      // `cov_init_evt` in onStart. Then wire it into a state whose
+      // on_enter emits cov_init_evt — the canonical timing trap.
+      const sDir = path.join(dir, 'systems', 'cov_init');
+      fs.mkdirSync(sDir, { recursive: true });
+      fs.writeFileSync(path.join(sDir, 'cov_init_system.ts'), `// Coverage fixture — system that registers a listener in onStart.
+class CovInitSystem extends GameScript {
+    onStart() {
+        var self = this;
+        this.scene.events.game.on("cov_init_evt", function() {
+            self._initHappened = true;
+        });
+    }
+}
+`);
+      // 04_systems.json registration — keyed under top-level `systems`.
+      const sysJson = readJson(path.join(dir, '04_systems.json'));
+      sysJson.systems = sysJson.systems || {};
+      sysJson.systems.cov_init_system = { script: 'cov_init/cov_init_system.ts' };
+      writeJson(path.join(dir, '04_systems.json'), sysJson);
+      // Register the event so the assembler accepts the emit.
+      const evtPath = path.join(dir, 'systems', 'event_definitions.ts');
+      if (fs.existsSync(evtPath)) {
+        let evtSrc = fs.readFileSync(evtPath, 'utf-8');
+        evtSrc = evtSrc.replace(/(\bvar\s+GAME_EVENTS\s*=\s*\{[\s\S]*?)(\n\};)/, `$1\n    cov_init_evt: { fields: {} },$2`);
+        fs.writeFileSync(evtPath, evtSrc);
+      }
+      // Wire it into the start state's active_systems + on_enter.
+      const flow = readJson(path.join(dir, '01_flow.json'));
+      const startDef = flow.states[flow.start];
+      if (startDef) {
+        startDef.active_systems = startDef.active_systems || [];
+        startDef.active_systems.push('cov_init_system');
+        startDef.on_enter = startDef.on_enter || [];
+        startDef.on_enter.push('emit:game.cov_init_evt');
+      }
+      writeJson(path.join(dir, '01_flow.json'), flow);
+    },
+  },
+  {
     target: 'animation_clip_resolves',
     label: 'add a behavior that calls entity.playAnimation with a clip name not in the GLB',
     mutate: (dir) => {
