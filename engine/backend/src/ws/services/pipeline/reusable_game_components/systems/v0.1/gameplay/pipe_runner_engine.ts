@@ -339,7 +339,10 @@ class PipeRunnerEngineSystem extends GameScript {
                 meshType: "sphere",
                 baseColor: [0.95, 0.30, 0.30, 1],
             });
-            if (this.scene.addTag) this.scene.addTag(id, "spawned_mushroom");
+            if (this.scene.addTag) {
+                this.scene.addTag(id, "spawned_mushroom");
+                this.scene.addTag(id, "powerup");
+            }
             this._spawnedItems.push({ id: id, kind: "mushroom", vx: 2.5, vy: 4 });
         }
     }

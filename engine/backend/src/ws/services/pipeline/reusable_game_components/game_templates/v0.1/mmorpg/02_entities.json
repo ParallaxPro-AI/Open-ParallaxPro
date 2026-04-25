@@ -41,7 +41,7 @@
             "manaRegen": 5,
             "attackDamage": 25,
             "attackRange": 3,
-            "attackRate": 1.0,
+            "attackRate": 1,
             "defense": 10,
             "qDamage": 40,
             "qRadius": 4,
@@ -770,7 +770,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 85,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -790,7 +790,7 @@
             "maxHealth": 200,
             "damage": 20,
             "attackRange": 3,
-            "attackRate": 1.0,
+            "attackRate": 1,
             "detectionRange": 16,
             "chaseSpeed": 5,
             "defendsAllies": true
@@ -809,7 +809,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 80,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -829,7 +829,7 @@
             "maxHealth": 200,
             "damage": 18,
             "attackRange": 3,
-            "attackRate": 1.0,
+            "attackRate": 1,
             "detectionRange": 16,
             "chaseSpeed": 5,
             "defendsAllies": true
@@ -848,14 +848,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 40,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "goblin"
+        "goblin",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -866,7 +867,7 @@
             "maxHealth": 80,
             "damage": 8,
             "attackRange": 2.5,
-            "attackRate": 1.0,
+            "attackRate": 1,
             "detectionRange": 14,
             "chaseSpeed": 4,
             "wanderSpeed": 2,
@@ -896,7 +897,8 @@
       "tags": [
         "enemy",
         "goblin",
-        "caster"
+        "caster",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -907,7 +909,7 @@
             "maxHealth": 60,
             "damage": 15,
             "attackRange": 10,
-            "attackRate": 2.0,
+            "attackRate": 2,
             "detectionRange": 16,
             "chaseSpeed": 3,
             "wanderSpeed": 1.5,
@@ -930,14 +932,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 70,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "undead"
+        "undead",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -978,7 +981,8 @@
       "tags": [
         "enemy",
         "undead",
-        "caster"
+        "caster",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -1012,14 +1016,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "shadow"
+        "shadow",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -1054,14 +1059,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 85,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "elite"
+        "elite",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -1097,7 +1103,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 120,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -1105,7 +1111,8 @@
       "tags": [
         "enemy",
         "elite",
-        "boss"
+        "boss",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -1148,7 +1155,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 100,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -1156,7 +1163,8 @@
       "tags": [
         "enemy",
         "boss",
-        "final_boss"
+        "final_boss",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -1167,7 +1175,7 @@
             "maxHealth": 1500,
             "damage": 35,
             "attackRange": 12,
-            "attackRate": 2.0,
+            "attackRate": 2,
             "detectionRange": 25,
             "chaseSpeed": 3,
             "armor": 5,
@@ -1182,7 +1190,7 @@
               {
                 "healthThreshold": 0.3,
                 "enrage": true,
-                "damageMultiplier": 2.0,
+                "damageMultiplier": 2,
                 "aoeRadius": 8,
                 "aoeDamage": 40,
                 "aoeCooldown": 10

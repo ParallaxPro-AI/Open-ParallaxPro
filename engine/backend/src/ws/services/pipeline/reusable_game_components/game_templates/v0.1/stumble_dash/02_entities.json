@@ -198,7 +198,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 99999,
         "freeze_rotation": true,
         "collider": "box"

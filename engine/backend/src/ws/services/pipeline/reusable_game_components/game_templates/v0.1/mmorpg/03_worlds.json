@@ -15,7 +15,7 @@
       "placements": [
         { "ref": "ground", "position": [0, 0, 0] },
         { "ref": "camera", "position": [0, 6, 10] },
-        { "name": "Player", "ref": "player_hero", "position": [0, 1, 8] },
+        { "name": "Hero", "ref": "player_hero", "position": [0, 1, 8] },
 
         { "ref": "stone_wall", "position": [0, 2, -90], "scale": [184, 6, 2] },
         { "ref": "stone_wall", "position": [0, 2, 90], "scale": [184, 6, 2] },

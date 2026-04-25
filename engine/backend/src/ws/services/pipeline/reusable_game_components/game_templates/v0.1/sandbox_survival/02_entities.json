@@ -472,7 +472,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 40,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -507,7 +507,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -542,7 +542,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 5,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -577,14 +577,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 45,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "animal",
-        "neutral"
+        "neutral",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -617,14 +618,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 70,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "undead"
+        "undead",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -657,14 +659,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "undead"
+        "undead",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -697,7 +700,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 65,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -706,7 +709,8 @@
         "enemy",
         "undead",
         "elite",
-        "no_collide"
+        "no_collide",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -739,13 +743,14 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 40,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
-        "enemy"
+        "enemy",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -778,14 +783,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 90,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "boss"
+        "boss",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -796,7 +802,7 @@
             "maxHealth": 250,
             "damage": 25,
             "attackRange": 4,
-            "attackRate": 2.0,
+            "attackRate": 2,
             "detectionRange": 25,
             "chaseSpeed": 4,
             "wanderSpeed": 1.5,
