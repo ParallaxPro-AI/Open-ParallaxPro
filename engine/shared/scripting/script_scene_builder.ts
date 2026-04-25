@@ -189,6 +189,26 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
       tc.invalidate?.();
     };
 
+    // Orient so canonical -Z forward aligns with the given XZ-plane
+    // direction. Up axis is +Y. Zero-length input is a no-op so callers
+    // don't have to special-case "no movement this frame." See
+    // TransformComponent.faceDirection — this wrapper mirrors it
+    // because behavior scripts go through scriptTransform, not the
+    // raw TransformComponent.
+    scriptTransform.faceDirection = (dx: number, dz: number) => {
+      const lenSq = dx * dx + dz * dz;
+      if (lenSq < 1e-8) return;
+      const tx = tc.position.x + dx;
+      const ty = tc.position.y;
+      const tz = tc.position.z + dz;
+      const q = computeLookAtRotation(tc.position.x, tc.position.y, tc.position.z, tx, ty, tz);
+      if (q) {
+        tc.rotation.x = q.x; tc.rotation.y = q.y;
+        tc.rotation.z = q.z; tc.rotation.w = q.w;
+        tc.invalidate?.();
+      }
+    };
+
     // Symmetric getter for setRotationEuler. Returns {x,y,z} in degrees,
     // computed from the quaternion via the standard yaw-pitch-roll (YXZ /
     // Euler-ZYX intrinsic) decomposition. Generated scripts reach for both
