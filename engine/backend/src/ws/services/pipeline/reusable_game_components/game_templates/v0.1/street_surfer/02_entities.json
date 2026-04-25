@@ -29,9 +29,9 @@
             "speedIncrease": 0.18,
             "laneWidth": 2.5,
             "laneSwitchSpeed": 12,
-            "jumpForce": 12,
+            "jumpForce": 17,
             "slideDuration": 0.7,
-            "gravity": 35
+            "gravity": 30
           }
         }
       ]
