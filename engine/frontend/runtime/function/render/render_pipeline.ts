@@ -215,6 +215,17 @@ export class RenderPipeline {
         this.geometryPass.setBuildingTextures(diffuseArray, normalArray, layerProps);
     }
 
+    /**
+     * Drop transient bind-group caches that may have stale buffer
+     * references. Called by RenderSystem.clearSkinningCaches (engine
+     * setEditorMode(true) → Stop) so Play→Stop→Play doesn't render
+     * skinned characters in T-pose against bind groups from the
+     * previous Play.
+     */
+    clearSkinningCaches(): void {
+        this.geometryPass.clearSkinningCaches();
+    }
+
     shutdown(): void {
         this.geometryPass.shutdown();
         this.shadowPass.shutdown();

@@ -852,22 +852,6 @@ export class EditorContext extends EventBus {
                     (audio as any).audioContext.suspend();
                 }
             }
-            // Clear GPU mesh caches so the next Play re-uploads meshes
-            // and rebuilds skinning bind groups. Without this, the cached
-            // GPUMesh from first Play retains bind groups that reference
-            // the first Play's joint-matrices buffer; the second Play's
-            // setupAnimatorFromGLB allocates a NEW buffer (because the
-            // post-snapshot animator's gpuJointMatricesBuffer is null),
-            // and the renderer keeps drawing skinned meshes against the
-            // stale bind group → characters render in T-pose. Iteration-6
-            // user report: "Play→Stop→Play animation does not work."
-            // Re-upload cost is one frame on second Play; correctness
-            // wins over the cache hit.
-            this.gpuMeshCache.clear();
-            this.parsedMeshCache.clear();
-            this.gpuTextureCache.clear();
-            this.gpuNormalMapCache.clear();
-            this.gpuSubMeshesCache?.clear?.();
             this.engine.globalContext.scriptSystem.shutdown();
             const scriptScene = this.engine.globalContext.scriptSystem?.scene;
             if (scriptScene?.events?.clear) scriptScene.events.clear();

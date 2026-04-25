@@ -327,6 +327,13 @@ export class RenderSystem {
         this.renderPipeline.setBuildingTextures(diffuseArray, normalArray, layerProps);
     }
 
+    /** Forwarded to RenderPipeline; called by Engine.setEditorMode(true)
+     *  on Stop so Play→Stop→Play rebuilds skinning bind groups against
+     *  the current joint-matrices buffers. */
+    clearSkinningCaches(): void {
+        this.renderPipeline.clearSkinningCaches();
+    }
+
     shutdown(): void {
         this.particleRenderer.shutdown();
         this.renderPipeline.shutdown();

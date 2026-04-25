@@ -180,6 +180,18 @@ export class ParallaxEngine {
             }
             // Mark scripts as unstarted so onStart re-fires on next Play.
             this.globalContext.scriptSystem.resetForReplay();
+            // Drop cached skinning bind groups. The cache key is
+            // `${idx}_${jointBuf.label}` and every joint buffer uses the
+            // same label `'joint_matrices'` (render_system.ts:267), so
+            // the key is effectively just the model-pool index. Across
+            // a Play→Stop→Play cycle, entity render order can shift and
+            // the cached bind group at a slot ends up referencing the
+            // wrong (model, joint) pair → characters render in T-pose
+            // even though the animator ticks correctly. User report
+            // (iteration 6, multi-game): "after I press Play on the
+            // editor, then Stop, then Play again, the animations all
+            // don't work anymore."
+            try { this.globalContext.renderSystem.clearSkinningCaches(); } catch { /* swallow */ }
         }
     }
 
