@@ -289,14 +289,6 @@ async function boot(): Promise<void> {
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');
 
-    // Research workbench: ephemeral "play this freshly-generated game"
-    // token. Comes in as either /play/research/<token> or ?research_token=X.
-    // Bypasses the public-games fetch + engine-version routing; the
-    // ConvertedScene comes directly from the local engine backend's
-    // in-memory cache. Local-only — endpoint isn't mounted on hosted prod.
-    const researchToken = urlParams.get('research_token')
-        || (pathParts[0] === 'research' ? pathParts[1] : null);
-    const isResearchPlay = !!researchToken;
     // Multiplayer still comes in via /play/multiplayer?room=X. A pathParts
     // check is sufficient when play.html is served at that URL; when the
     // engine-version bootstrap has redirected us into an archived bundle
@@ -313,7 +305,7 @@ async function boot(): Promise<void> {
     const queryOwner = urlParams.get('owner');
     const querySlug = urlParams.get('slug');
 
-    if (!isMultiplayerJoin && !isResearchPlay && pathParts.length < 2 && !(queryOwner && querySlug)) {
+    if (!isMultiplayerJoin && pathParts.length < 2 && !(queryOwner && querySlug)) {
         showError('No game specified.');
         return;
     }
@@ -365,21 +357,7 @@ async function boot(): Promise<void> {
 
     let gameData: any;
 
-    if (isResearchPlay) {
-        try {
-            const res = await fetch(`/api/engine/research/projects/${researchToken}/data`);
-            if (!res.ok) {
-                showError(res.status === 404
-                    ? 'Research play token expired or not found.'
-                    : `Failed to load research game (${res.status}).`);
-                return;
-            }
-            gameData = await res.json();
-        } catch {
-            showError('Network error. Please try again.');
-            return;
-        }
-    } else if (isMultiplayerJoin) {
+    if (isMultiplayerJoin) {
         try {
             const res = await fetch(`/api/engine/multiplayer/rooms/${roomId}/project`);
             if (res.ok) {

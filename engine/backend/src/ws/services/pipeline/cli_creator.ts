@@ -77,39 +77,6 @@ export interface CreatorResult {
     playtestPassed?: boolean;
 }
 
-export interface CreatorOptions {
-    /**
-     * When true, runCreator performs zero writes against the prod engine
-     * DB. Currently that means:
-     *   - skipping the `SELECT project_data FROM projects` lookup that
-     *     hydrates reference/previous_project/ (the run still proceeds,
-     *     just without any prior files to reference);
-     *   - passing an empty-string projectId into session_capture so its
-     *     optional `UPDATE projects SET session_capture_path` is
-     *     skipped by the existing `if (ctx.projectId)` guard.
-     *
-     * Intended for the research/ workbench so it can invoke the same
-     * pipeline prod uses without touching prod data. Default: false —
-     * prod callers never set this, and prod behavior is unchanged.
-     */
-    skipPersistence?: boolean;
-
-    /**
-     * Fires once the sandbox is fully constructed (TASK.md written,
-     * validate scripts written, asset catalogs generated) and the run
-     * is about to be unwound — after any retries have finished and
-     * before the temp dir is deleted. Gets the sandbox directory so
-     * the caller can snapshot files (e.g. the final TASK.md, which
-     * may have been appended to on retry) into their own artifact
-     * area.
-     *
-     * Swallowed errors: the callback runs inside the cleanup `finally`
-     * block; anything thrown is logged but won't affect the returned
-     * CreatorResult. Default: undefined — prod paths don't pass one.
-     */
-    onBeforeCleanup?: (sandboxDir: string) => void;
-}
-
 export async function runCreator(
     projectId: string,
     description: string,
@@ -118,9 +85,7 @@ export async function runCreator(
     abortSignal?: AbortSignal,
     jobId?: string,
     chatHistory?: string,
-    opts?: CreatorOptions,
 ): Promise<CreatorResult> {
-    const skipPersistence = opts?.skipPersistence === true;
     // Local AbortController so the cli_active_jobs entry can kill this
     // run from outside — when a newer FIX_GAME or CREATE_GAME on the
     // same project calls preemptProjectJob, it fires our abort()
@@ -185,23 +150,17 @@ export async function runCreator(
     // the agent's optional use. Read once here, outside the try so a
     // failed DB read doesn't obscure a creation failure. NULL is
     // expected for brand-new projects.
-    //
-    // Research runs pass skipPersistence=true — they don't have a real
-    // prod row to look up, and we want zero writes/reads against the
-    // prod DB from the research path.
     let previousProjectFiles: ProjectFiles | null = null;
-    if (!skipPersistence) {
-        try {
-            const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as { project_data?: string } | undefined;
-            if (row?.project_data) {
-                const pd = parseProjectData(row.project_data);
-                if (!isLegacyProjectData(pd) && pd.files && Object.keys(pd.files).length > 0) {
-                    previousProjectFiles = pd.files;
-                }
+    try {
+        const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as { project_data?: string } | undefined;
+        if (row?.project_data) {
+            const pd = parseProjectData(row.project_data);
+            if (!isLegacyProjectData(pd) && pd.files && Object.keys(pd.files).length > 0) {
+                previousProjectFiles = pd.files;
             }
-        } catch (e: any) {
-            console.warn('[CLICreator] failed to read previous project files:', e?.message);
         }
+    } catch (e: any) {
+        console.warn('[CLICreator] failed to read previous project files:', e?.message);
     }
 
     try {
@@ -245,11 +204,7 @@ export async function runCreator(
         fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), taskContent);
 
         sendStatus?.('Creator agent is building the game...');
-        // Empty capture projectId when skipping persistence — session_capture's
-        // `if (ctx.projectId)` guard around the UPDATE is what actually blocks
-        // the prod-DB write.
-        const capProjectId = skipPersistence ? '' : projectId;
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: capProjectId });
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId });
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
@@ -311,7 +266,7 @@ export async function runCreator(
                 // second capture dir (the first is still on disk under its
                 // own timestamped name). We swap cliResult's path to point
                 // at the retry's capture so admins land on the last run.
-                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: capProjectId });
+                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: projectId });
             } catch (e: any) {
                 return {
                     success: false,
@@ -429,7 +384,7 @@ export async function runCreator(
 
             let retry: { text: string; costUsd: number; sessionCapturePath?: string | null };
             try {
-                retry = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: capProjectId });
+                retry = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: projectId });
             } catch (e: any) {
                 return {
                     success: false,
@@ -507,16 +462,6 @@ export async function runCreator(
       })();
       return finalResult;
     } finally {
-        // Caller-provided pre-cleanup hook. Runs BEFORE archive + rmSync so
-        // the caller can snapshot sandbox files (e.g. the final TASK.md,
-        // which may include retry-appended error guidance) into their own
-        // artifact dir. Errors are swallowed so a bad hook can't break the
-        // run's reported result.
-        if (opts?.onBeforeCleanup) {
-            try { opts.onBeforeCleanup(sandboxDir); }
-            catch (e: any) { console.warn(`[CLICreator] onBeforeCleanup failed: ${e?.message}`); }
-        }
-
         // Admin-only snapshot of the sandbox's project/ tree + TASK.md.
         // Runs for both success AND failure so we can diff broken outputs
         // against working ones later. Best-effort — a failed archive must
