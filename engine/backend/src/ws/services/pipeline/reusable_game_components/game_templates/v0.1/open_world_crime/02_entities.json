@@ -553,7 +553,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "prop"
       ],
@@ -569,7 +569,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "prop"
       ],
@@ -585,7 +585,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "prop"
       ],
@@ -601,7 +601,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "prop"
       ],
@@ -617,7 +617,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "prop"
       ],
@@ -633,7 +633,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "prop",
         "decoration_only"
@@ -662,6 +662,263 @@
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
       }
+    },
+    "fire_hydrant": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/FireHydrant.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "trash_bag_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/TrashBag_1.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "trash_bag_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/TrashBag_2.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "dumpster_green": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/Container_Green.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "dumpster_red": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/Container_Red.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "barrel": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/Barrel.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "pallet": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/Pallet.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "traffic_barrier": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/zombie_apocalypse_kit/TrafficBarrier_1.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "tree_small": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/tree-small.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "planter": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_suburban/planter.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "awning": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/detail-awning-wide.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["prop"],
+      "label": false
+    },
+    "parasol": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/detail-parasol-a.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["prop"],
+      "label": false
+    },
+    "chimney": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_industrial/chimney-medium.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["prop"],
+      "label": false
+    },
+    "industrial_building_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_industrial/building-a.glb",
+        "scale": [1, 1, 1]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "industrial_building_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_industrial/building-h.glb",
+        "scale": [1, 1, 1]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "industrial_building_c": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_industrial/building-m.glb",
+        "scale": [1, 1, 1]
+      },
+      "tags": ["building"],
+      "label": false
+    },
+    "low_detail_building_a": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/low-detail-building-a.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["building"],
+      "label": false
+    },
+    "low_detail_building_b": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/low-detail-building-f.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["building"],
+      "label": false
+    },
+    "low_detail_building_c": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/city_kit_commercial/low-detail-building-wide-a.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": { "type": "static" },
+      "tags": ["building"],
+      "label": false
+    },
+    "garbage_truck": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/garbage-truck.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 3500,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
+    },
+    "firetruck": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/firetruck.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 4000,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
+    },
+    "ambulance": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/ambulance.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 2000,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
+    },
+    "van": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/van.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1800,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
+    },
+    "delivery_van": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/car_kit/delivery.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": {
+        "type": "dynamic",
+        "mass": 1900,
+        "freeze_rotation": true,
+        "collider": "box"
+      },
+      "tags": ["vehicle"]
     }
   }
 }

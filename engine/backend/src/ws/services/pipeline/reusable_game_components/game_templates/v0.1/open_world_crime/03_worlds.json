@@ -660,7 +660,97 @@
             0,
             0
           ]
-        }
+        },
+
+        { "ref": "fire_hydrant", "position": [10, 0, 18] },
+        { "ref": "fire_hydrant", "position": [-10, 0, -18] },
+        { "ref": "fire_hydrant", "position": [10, 0, -42] },
+        { "ref": "fire_hydrant", "position": [-10, 0, 42] },
+        { "ref": "fire_hydrant", "position": [32, 0, 10] },
+        { "ref": "fire_hydrant", "position": [-32, 0, -10] },
+
+        { "ref": "trash_bag_a", "position": [11, 0, 28] },
+        { "ref": "trash_bag_b", "position": [12, 0, 29] },
+        { "ref": "trash_bag_a", "position": [-11, 0, -28] },
+        { "ref": "trash_bag_b", "position": [-12, 0, -29] },
+        { "ref": "trash_bag_a", "position": [-11, 0, 48] },
+        { "ref": "trash_bag_b", "position": [38, 0, -11] },
+
+        { "ref": "dumpster_green", "position": [16, 0, 32] },
+        { "ref": "dumpster_red", "position": [-16, 0, -32] },
+        { "ref": "dumpster_green", "position": [44, 0, 14] },
+        { "ref": "dumpster_red", "position": [-44, 0, 14] },
+
+        { "ref": "planter", "position": [10, 0, 5] },
+        { "ref": "planter", "position": [-10, 0, 5] },
+        { "ref": "planter", "position": [10, 0, -5] },
+        { "ref": "planter", "position": [-10, 0, -5] },
+        { "ref": "planter", "position": [10, 0, 25] },
+        { "ref": "planter", "position": [-10, 0, 25] },
+        { "ref": "planter", "position": [10, 0, -25] },
+        { "ref": "planter", "position": [-10, 0, -25] },
+        { "ref": "planter", "position": [25, 0, 10] },
+        { "ref": "planter", "position": [-25, 0, 10] },
+        { "ref": "planter", "position": [25, 0, -10] },
+        { "ref": "planter", "position": [-25, 0, -10] },
+
+        { "ref": "tree_small", "position": [11, 0, 12] },
+        { "ref": "tree_small", "position": [-11, 0, 12] },
+        { "ref": "tree_small", "position": [11, 0, -12] },
+        { "ref": "tree_small", "position": [-11, 0, -12] },
+        { "ref": "tree_small", "position": [12, 0, 48] },
+        { "ref": "tree_small", "position": [-12, 0, -48] },
+        { "ref": "tree_small", "position": [33, 0, 12] },
+        { "ref": "tree_small", "position": [-33, 0, -12] },
+
+        { "ref": "awning", "position": [42, 2.5, 22], "rotation": [0, 90, 0] },
+        { "ref": "awning", "position": [-42, 2.5, 22], "rotation": [0, -90, 0] },
+        { "ref": "awning", "position": [27, 2.5, 42], "rotation": [0, 0, 0] },
+        { "ref": "awning", "position": [-27, 2.5, 42], "rotation": [0, 0, 0] },
+
+        { "ref": "parasol", "position": [13, 0, 35] },
+        { "ref": "parasol", "position": [-13, 0, 35] },
+        { "ref": "parasol", "position": [16, 0, 35] },
+        { "ref": "parasol", "position": [-16, 0, 35] },
+
+        { "ref": "industrial_building_a", "position": [-30, 0, -65] },
+        { "ref": "industrial_building_b", "position": [-50, 0, -65] },
+        { "ref": "industrial_building_c", "position": [30, 0, -65] },
+        { "ref": "industrial_building_a", "position": [50, 0, -65] },
+
+        { "ref": "chimney", "position": [-30, 0, -75] },
+        { "ref": "chimney", "position": [50, 0, -75] },
+
+        { "ref": "low_detail_building_a", "position": [70, 0, 30] },
+        { "ref": "low_detail_building_b", "position": [70, 0, 0] },
+        { "ref": "low_detail_building_a", "position": [70, 0, -30] },
+        { "ref": "low_detail_building_c", "position": [-70, 0, 30] },
+        { "ref": "low_detail_building_b", "position": [-70, 0, 0] },
+        { "ref": "low_detail_building_a", "position": [-70, 0, -30] },
+        { "ref": "low_detail_building_c", "position": [0, 0, 75] },
+        { "ref": "low_detail_building_a", "position": [-30, 0, 75] },
+        { "ref": "low_detail_building_b", "position": [30, 0, 75] },
+
+        { "ref": "barrel", "position": [18, 0, -28] },
+        { "ref": "barrel", "position": [19, 0, -29] },
+        { "ref": "barrel", "position": [-18, 0, 28] },
+        { "ref": "barrel", "position": [-19, 0, 29] },
+        { "ref": "barrel", "position": [44, 0, -32] },
+        { "ref": "barrel", "position": [45, 0, -33] },
+
+        { "ref": "pallet", "position": [16, 0, -28] },
+        { "ref": "pallet", "position": [-16, 0, 28] },
+        { "ref": "pallet", "position": [42, 0, -32] },
+
+        { "ref": "traffic_barrier", "position": [40, 0, 6], "rotation": [0, 90, 0] },
+        { "ref": "traffic_barrier", "position": [44, 0, 6], "rotation": [0, 90, 0] },
+        { "ref": "traffic_barrier", "position": [-22, 0, -50], "rotation": [0, 0, 0] },
+
+        { "ref": "garbage_truck", "position": [22, 0, -5.5], "rotation": [0, 90, 0] },
+        { "ref": "firetruck", "position": [-35, 0, 5.5], "rotation": [0, 90, 0] },
+        { "ref": "ambulance", "position": [5.5, 0, 50], "rotation": [0, 0, 0] },
+        { "ref": "van", "position": [-5.5, 0, 25], "rotation": [0, 180, 0] },
+        { "ref": "delivery_van", "position": [50, 0, -5.5], "rotation": [0, -90, 0] }
       ]
     }
   ]
