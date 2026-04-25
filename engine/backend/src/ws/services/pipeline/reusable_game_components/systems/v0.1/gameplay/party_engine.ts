@@ -35,6 +35,18 @@ class PartyEngineSystem extends GameScript {
     _coinTimers = [];
     _lastMGs = [];
 
+    // Idempotent animation set: only call playAnimation when the
+    // requested clip differs from the AnimatorComponent's currentClip.
+    // play() resets currentTime=0 on every call, so calling it every
+    // frame from _updateAI's per-frame chase loop froze the AI on the
+    // first frame of "Run". Same fix shape as deadly_games (53c19f6).
+    _setAnim(entity, name) {
+        if (!entity || !entity.playAnimation) return;
+        var animator = entity.getComponent && entity.getComponent("AnimatorComponent");
+        if (animator && animator.currentClip === name && animator.isPlaying) return;
+        entity.playAnimation(name, { loop: true });
+    }
+
     onStart() {
         var self = this;
         this.scene._partyMinigameActive = false;
@@ -604,10 +616,7 @@ class PartyEngineSystem extends GameScript {
                 this.scene.setPosition(this._players[i].id, pp.x + mx, pp.y, pp.z + mz);
                 // Face direction
                 this._players[i].transform.setRotationEuler(0, Math.atan2(dx, -dz) * 180 / Math.PI, 0);
-                // Animate running
-                if (this._players[i].playAnimation) {
-                    this._players[i].playAnimation("Run", { loop: true });
-                }
+                this._setAnim(this._players[i], "Run");
             }
         }
     }
