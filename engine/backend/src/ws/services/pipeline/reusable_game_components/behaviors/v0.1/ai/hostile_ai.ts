@@ -18,13 +18,20 @@ class HostileAIBehavior extends GameScript {
     _targetZ = 0;
     _patrolTimer = 0;
     _startX = 0;
+    _startY = 0;
     _startZ = 0;
     _currentAnim = "";
+    _lastX = 0;
+    _lastZ = 0;
+    _stuckFrames = 0;
 
     onStart() {
         var pos = this.entity.transform.position;
         this._startX = pos.x;
+        this._startY = pos.y;
         this._startZ = pos.z;
+        this._lastX = pos.x;
+        this._lastZ = pos.z;
         this._pickPatrol();
 
         var self = this;
@@ -52,7 +59,7 @@ class HostileAIBehavior extends GameScript {
 
         var pos = this.entity.transform.position;
         var player = this.scene.findEntityByName("Player");
-        if (!player) { this._patrol(dt); return; }
+        if (!player) { this._patrol(dt); this._tickStuck(pos, true); return; }
 
         var pp = player.transform.position;
         var dx = pp.x - pos.x;
@@ -66,15 +73,48 @@ class HostileAIBehavior extends GameScript {
             if (dist > this._attackRange) {
                 this._tryMoveWithSlide(pos, dx / dist, dz / dist, this._speed * dt);
                 this._playAnim("Run");
+                // Only count "stuck" while we're actively trying to
+                // close distance — standing in melee range to attack
+                // isn't stuck, it's working as intended.
+                this._tickStuck(pos, true);
             } else if (this._cooldown <= 0) {
-                // Attack!
                 this._cooldown = this._attackRate;
                 this.scene.events.game.emit("entity_damaged", { targetId: player.id, damage: this._damage, source: "hostile" });
                 if (this.audio) this.audio.playSound("/assets/kenney/audio/rpg_audio/knifeSlice2.ogg", 0.35);
                 this._playAnim("Idle");
+                this._stuckFrames = 0;
             }
         } else {
             this._patrol(dt);
+            this._tickStuck(pos, false);
+        }
+    }
+
+    // setPosition is a teleport that bypasses collision response, so a
+    // mob can end up inside a wall — player builds blocks around it,
+    // slack misses an angled hit, world-gen places a tree on top of a
+    // spawn point. From inside the wall the raycast reads the wall's
+    // back face as a normal hit and the mob freezes there. Detect "I
+    // wanted to move and didn't actually translate" for 1.5s and yank
+    // the mob back to its spawn point — known-safe ground.
+    _tickStuck(pos, urgent) {
+        var dxLast = pos.x - this._lastX;
+        var dzLast = pos.z - this._lastZ;
+        if (dxLast * dxLast + dzLast * dzLast < 0.01) {
+            this._stuckFrames++;
+            // Urgent (chasing) → teleport sooner; patrol → wait longer
+            // since standing for a tick is normal between wander targets.
+            var threshold = urgent ? 90 : 240;
+            if (this._stuckFrames > threshold) {
+                this.scene.setPosition(this.entity.id, this._startX, this._startY, this._startZ);
+                this._lastX = this._startX;
+                this._lastZ = this._startZ;
+                this._stuckFrames = 0;
+            }
+        } else {
+            this._stuckFrames = 0;
+            this._lastX = pos.x;
+            this._lastZ = pos.z;
         }
     }
 
