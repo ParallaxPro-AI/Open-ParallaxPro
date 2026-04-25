@@ -34,9 +34,9 @@
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Chicken.glb",
         "scale": [
-          1,
-          1,
-          1
+          2.5,
+          2.5,
+          2.5
         ]
       },
       "physics": false,
