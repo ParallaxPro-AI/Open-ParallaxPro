@@ -337,7 +337,7 @@
           "ref": "warrior",
           "position": [
             -30,
-            0,
+            1.5,
             30
           ]
         },
@@ -345,7 +345,7 @@
           "ref": "warrior",
           "position": [
             -40,
-            0,
+            1.5,
             30
           ]
         },
@@ -353,7 +353,7 @@
           "ref": "archer",
           "position": [
             -33,
-            0,
+            1.5,
             25
           ]
         },
@@ -361,7 +361,7 @@
           "ref": "archer",
           "position": [
             -37,
-            0,
+            1.5,
             25
           ]
         },
@@ -369,7 +369,7 @@
           "ref": "scout",
           "position": [
             -20,
-            0,
+            1.5,
             28
           ]
         },
@@ -377,7 +377,7 @@
           "ref": "settler",
           "position": [
             -35,
-            0,
+            1.5,
             35
           ]
         },
@@ -409,7 +409,7 @@
           "ref": "swordsman",
           "position": [
             -52,
-            0,
+            1.5,
             10
           ]
         },
@@ -417,7 +417,7 @@
           "ref": "warrior",
           "position": [
             -58,
-            0,
+            1.5,
             12
           ]
         },
@@ -569,7 +569,7 @@
           "ref": "ai_warrior",
           "position": [
             30,
-            0,
+            1.5,
             -30
           ]
         },
@@ -577,7 +577,7 @@
           "ref": "ai_warrior",
           "position": [
             40,
-            0,
+            1.5,
             -30
           ]
         },
@@ -585,7 +585,7 @@
           "ref": "ai_warrior",
           "position": [
             35,
-            0,
+            1.5,
             -26
           ]
         },
@@ -593,7 +593,7 @@
           "ref": "ai_archer",
           "position": [
             33,
-            0,
+            1.5,
             -24
           ]
         },
@@ -601,7 +601,7 @@
           "ref": "ai_archer",
           "position": [
             37,
-            0,
+            1.5,
             -24
           ]
         },
@@ -609,7 +609,7 @@
           "ref": "ai_swordsman",
           "position": [
             32,
-            0,
+            1.5,
             -32
           ]
         },
@@ -617,7 +617,7 @@
           "ref": "ai_swordsman",
           "position": [
             38,
-            0,
+            1.5,
             -32
           ]
         },
@@ -625,7 +625,7 @@
           "ref": "ai_scout",
           "position": [
             20,
-            0,
+            1.5,
             -25
           ]
         },
@@ -633,7 +633,7 @@
           "ref": "ai_settler",
           "position": [
             35,
-            0,
+            1.5,
             -35
           ]
         },
@@ -665,7 +665,7 @@
           "ref": "ai_warrior",
           "position": [
             52,
-            0,
+            1.5,
             -10
           ]
         },
@@ -673,7 +673,7 @@
           "ref": "ai_archer",
           "position": [
             58,
-            0,
+            1.5,
             -12
           ]
         },

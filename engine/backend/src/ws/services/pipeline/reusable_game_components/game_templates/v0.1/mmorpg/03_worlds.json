@@ -4,245 +4,1865 @@
       "id": "etheria",
       "name": "Etheria",
       "lighting": {
-        "ambient": [0.45, 0.48, 0.55],
-        "sun_direction": [0.3, -0.7, 0.2],
-        "sun_color": [1.0, 0.95, 0.85]
+        "ambient": [
+          0.45,
+          0.48,
+          0.55
+        ],
+        "sun_direction": [
+          0.3,
+          -0.7,
+          0.2
+        ],
+        "sun_color": [
+          1.0,
+          0.95,
+          0.85
+        ]
       },
       "terrain": {
-        "size": [200, 200],
-        "color": [0.45, 0.65, 0.85, 1]
+        "size": [
+          200,
+          200
+        ],
+        "color": [
+          0.45,
+          0.65,
+          0.85,
+          1
+        ]
       },
       "placements": [
-        { "ref": "ground", "position": [0, 0, 0] },
-        { "ref": "camera", "position": [0, 6, 10] },
-        { "name": "Hero", "ref": "player_hero", "position": [0, 1, 8] },
-
-        { "ref": "stone_wall", "position": [0, 2, -90], "scale": [184, 6, 2] },
-        { "ref": "stone_wall", "position": [0, 2, 90], "scale": [184, 6, 2] },
-        { "ref": "stone_wall", "position": [-90, 2, 0], "scale": [2, 6, 184] },
-        { "ref": "stone_wall", "position": [90, 2, 0], "scale": [2, 6, 184] },
-
-        { "ref": "town_hall", "position": [0, 0, -5] },
-        { "ref": "house_1", "position": [-14, 0, 0] },
-        { "ref": "house_2", "position": [14, 0, 0] },
-        { "ref": "house_1", "position": [-12, 0, 12] },
-        { "ref": "house_2", "position": [12, 0, 12] },
-        { "ref": "inn", "position": [10, 0, -10] },
-        { "ref": "blacksmith_shop", "position": [-10, 0, -10] },
-        { "ref": "temple", "position": [0, 0, -18] },
-        { "ref": "market", "position": [-6, 0, 6] },
-        { "ref": "stable", "position": [18, 0, 6] },
-        { "ref": "well", "position": [0, 0, 2] },
-        { "ref": "bell_tower", "position": [6, 0, 16] },
-        { "ref": "guard_tower", "position": [-18, 0, -16] },
-        { "ref": "guard_tower", "position": [18, 0, -16] },
-        { "ref": "farm", "position": [-18, 0, 16] },
-        { "ref": "windmill", "position": [-22, 0, 20] },
-        { "ref": "bonfire", "position": [0, 0, 5] },
-        { "ref": "path_stone", "position": [0, 0.01, 0] },
-        { "ref": "path_stone", "position": [0, 0.01, -8] },
-        { "ref": "path_stone", "position": [0, 0.01, 8] },
-        { "ref": "path_stone", "position": [-6, 0.01, 0] },
-        { "ref": "path_stone", "position": [6, 0.01, 0] },
-        { "ref": "path_stone", "position": [0, 0.01, -14] },
-        { "ref": "path_stone", "position": [0, 0.01, 14] },
-        { "ref": "bench", "position": [3, 0, 2] },
-        { "ref": "bench", "position": [-3, 0, 4] },
-        { "ref": "barrel", "position": [-12, 0, -8] },
-        { "ref": "barrel", "position": [12, 0, -8] },
-        { "ref": "barrel", "position": [-8, 0, 12] },
-        { "ref": "hay_bale", "position": [16, 0, 8] },
-        { "ref": "hay_bale", "position": [-20, 0, 14] },
-        { "ref": "cart", "position": [8, 0, 14] },
-        { "ref": "fence", "position": [-16, 0, 18] },
-        { "ref": "fence", "position": [-14, 0, 20] },
-        { "ref": "fence", "position": [16, 0, 18] },
-        { "ref": "torch", "position": [-8, 0, -14] },
-        { "ref": "torch", "position": [8, 0, -14] },
-        { "ref": "torch", "position": [-14, 0, -4] },
-        { "ref": "torch", "position": [14, 0, -4] },
-        { "ref": "torch", "position": [-6, 0, 14] },
-        { "ref": "torch", "position": [6, 0, 10] },
-        { "ref": "quest_elder", "position": [2, 0, -3] },
-        { "ref": "quest_knight", "position": [-2, 0, -16] },
-        { "ref": "merchant", "position": [-4, 0, 7] },
-        { "ref": "healer_npc", "position": [2, 0, -16] },
-        { "ref": "blacksmith_npc", "position": [-8, 0, -9] },
-        { "ref": "innkeeper", "position": [8, 0, -9] },
-        { "ref": "guard_male", "position": [-16, 0, -14] },
-        { "ref": "guard_female", "position": [16, 0, -14] },
-        { "ref": "guard_male", "position": [0, 0, 18] },
-        { "ref": "flowers", "position": [4, 0, 4] },
-        { "ref": "flowers", "position": [-4, 0, 10] },
-        { "ref": "bush", "position": [16, 0, -12] },
-        { "ref": "bush", "position": [-16, 0, 12] },
-        { "ref": "grass_patch", "position": [10, 0, 8] },
-        { "ref": "grass_patch", "position": [-10, 0, -2] },
-        { "ref": "quest_crystal", "position": [0, 2, -4] },
-
-        { "ref": "common_tree", "position": [-30, 0, -30] },
-        { "ref": "common_tree", "position": [-35, 0, -38] },
-        { "ref": "common_tree", "position": [-40, 0, -28] },
-        { "ref": "common_tree", "position": [-28, 0, -42] },
-        { "ref": "common_tree", "position": [-45, 0, -45] },
-        { "ref": "common_tree", "position": [-50, 0, -35] },
-        { "ref": "common_tree_2", "position": [-32, 0, -50] },
-        { "ref": "common_tree_2", "position": [-48, 0, -40] },
-        { "ref": "common_tree_2", "position": [-55, 0, -50] },
-        { "ref": "birch_tree", "position": [-38, 0, -32] },
-        { "ref": "birch_tree", "position": [-52, 0, -28] },
-        { "ref": "birch_tree", "position": [-42, 0, -55] },
-        { "ref": "pine_tree", "position": [-55, 0, -42] },
-        { "ref": "pine_tree", "position": [-30, 0, -55] },
-        { "ref": "bush", "position": [-32, 0, -32] },
-        { "ref": "bush", "position": [-40, 0, -40] },
-        { "ref": "bush", "position": [-48, 0, -35] },
-        { "ref": "bush", "position": [-35, 0, -48] },
-        { "ref": "bush_berries", "position": [-42, 0, -30] },
-        { "ref": "bush_berries", "position": [-50, 0, -45] },
-        { "ref": "flowers", "position": [-28, 0, -35] },
-        { "ref": "flowers", "position": [-45, 0, -38] },
-        { "ref": "grass_patch", "position": [-34, 0, -44] },
-        { "ref": "grass_patch", "position": [-46, 0, -32] },
-        { "ref": "grass_patch", "position": [-38, 0, -52] },
-        { "ref": "rock_large", "position": [-30, 0, -48] },
-        { "ref": "rock_small", "position": [-50, 0, -30] },
-        { "ref": "rock_small", "position": [-55, 0, -55] },
-        { "ref": "crate_stack", "position": [-40, 0, -35] },
-        { "ref": "crate_stack", "position": [-38, 0, -38] },
-        { "ref": "barrel", "position": [-42, 0, -36] },
-        { "ref": "goblin_scout", "position": [-32, 0, -35] },
-        { "ref": "goblin_scout", "position": [-38, 0, -42] },
-        { "ref": "goblin_scout", "position": [-45, 0, -30] },
-        { "ref": "goblin_scout", "position": [-50, 0, -40] },
-        { "ref": "goblin_scout", "position": [-35, 0, -50] },
-        { "ref": "goblin_shaman", "position": [-42, 0, -45] },
-        { "ref": "goblin_shaman", "position": [-48, 0, -50] },
-        { "ref": "goblin_shaman", "position": [-55, 0, -35] },
-        { "ref": "health_potion", "position": [-40, 0.5, -42] },
-
-        { "ref": "ground_swamp", "position": [-40, 0.02, 35] },
-        { "ref": "dead_tree", "position": [-30, 0, 28] },
-        { "ref": "dead_tree", "position": [-38, 0, 32] },
-        { "ref": "dead_tree", "position": [-45, 0, 38] },
-        { "ref": "dead_tree", "position": [-35, 0, 42] },
-        { "ref": "dead_tree", "position": [-50, 0, 35] },
-        { "ref": "dead_tree", "position": [-42, 0, 48] },
-        { "ref": "dead_tree", "position": [-28, 0, 40] },
-        { "ref": "dead_tree", "position": [-55, 0, 42] },
-        { "ref": "willow_tree", "position": [-32, 0, 35] },
-        { "ref": "willow_tree", "position": [-48, 0, 40] },
-        { "ref": "grass_patch", "position": [-35, 0, 30] },
-        { "ref": "grass_patch", "position": [-42, 0, 42] },
-        { "ref": "grass_patch", "position": [-50, 0, 38] },
-        { "ref": "rock_large", "position": [-30, 0, 38] },
-        { "ref": "rock_small", "position": [-45, 0, 30] },
-        { "ref": "bones", "position": [-38, 0, 35] },
-        { "ref": "bones", "position": [-48, 0, 45] },
-        { "ref": "undead_warrior", "position": [-33, 0, 32] },
-        { "ref": "undead_warrior", "position": [-42, 0, 38] },
-        { "ref": "undead_warrior", "position": [-50, 0, 42] },
-        { "ref": "undead_warrior", "position": [-35, 0, 45] },
-        { "ref": "undead_mage", "position": [-40, 0, 40] },
-        { "ref": "undead_mage", "position": [-48, 0, 35] },
-        { "ref": "undead_mage", "position": [-55, 0, 48] },
-        { "ref": "mana_potion", "position": [-42, 0.5, 40] },
-
-        { "ref": "fortress_gate", "position": [35, 0, -30] },
-        { "ref": "fortress_wall", "position": [30, 0, -35] },
-        { "ref": "fortress_wall", "position": [40, 0, -35] },
-        { "ref": "fortress_wall", "position": [30, 0, -45] },
-        { "ref": "fortress_wall", "position": [40, 0, -45] },
-        { "ref": "fortress_tower", "position": [28, 0, -30] },
-        { "ref": "fortress_tower", "position": [42, 0, -30] },
-        { "ref": "barracks", "position": [35, 0, -40] },
-        { "ref": "archery_range", "position": [35, 0, -50] },
-        { "ref": "crate_stack", "position": [32, 0, -38] },
-        { "ref": "crate_stack", "position": [38, 0, -42] },
-        { "ref": "torch", "position": [30, 0, -32] },
-        { "ref": "torch", "position": [40, 0, -32] },
-        { "ref": "torch", "position": [35, 0, -45] },
-        { "ref": "dark_knight", "position": [33, 0, -35] },
-        { "ref": "dark_knight", "position": [37, 0, -38] },
-        { "ref": "dark_knight", "position": [35, 0, -48] },
-        { "ref": "shadow_assassin", "position": [30, 0, -42] },
-        { "ref": "shadow_assassin", "position": [40, 0, -48] },
-        { "ref": "war_chief", "position": [35, 0, -42] },
-        { "ref": "health_potion", "position": [38, 0.5, -38] },
-        { "ref": "gold_pile", "position": [33, 0, -48] },
-
-        { "ref": "stone_wall", "position": [38, 2, 28], "scale": [20, 6, 2] },
-        { "ref": "stone_wall", "position": [38, 2, 48], "scale": [20, 6, 2] },
-        { "ref": "stone_wall", "position": [28, 2, 38], "scale": [2, 6, 22] },
-        { "ref": "stone_wall", "position": [48, 2, 38], "scale": [2, 6, 22] },
-        { "ref": "stone_wall", "position": [38, 5.5, 38], "scale": [22, 1, 22] },
-        { "ref": "dungeon_column", "position": [32, 0, 32] },
-        { "ref": "dungeon_column", "position": [44, 0, 32] },
-        { "ref": "dungeon_column", "position": [32, 0, 44] },
-        { "ref": "dungeon_column", "position": [44, 0, 44] },
-        { "ref": "dungeon_column", "position": [38, 0, 38] },
-        { "ref": "dungeon_torch", "position": [29, 3, 32] },
-        { "ref": "dungeon_torch", "position": [47, 3, 32] },
-        { "ref": "dungeon_torch", "position": [29, 3, 44] },
-        { "ref": "dungeon_torch", "position": [47, 3, 44] },
-        { "ref": "dungeon_torch", "position": [38, 3, 29] },
-        { "ref": "dungeon_torch", "position": [38, 3, 47] },
-        { "ref": "candelabrum", "position": [35, 0, 35] },
-        { "ref": "candelabrum", "position": [41, 0, 41] },
-        { "ref": "treasure_chest", "position": [38, 0, 46] },
-        { "ref": "treasure_chest", "position": [35, 0, 46] },
-        { "ref": "dungeon_chest", "position": [41, 0, 46] },
-        { "ref": "dungeon_potion", "position": [30, 0, 30] },
-        { "ref": "dungeon_potion", "position": [46, 0, 30] },
-        { "ref": "dungeon_potion", "position": [30, 0, 46] },
-        { "ref": "bones", "position": [34, 0, 38] },
-        { "ref": "bones", "position": [42, 0, 36] },
-        { "ref": "bones", "position": [36, 0, 42] },
-        { "ref": "shadow_assassin", "position": [33, 0, 34] },
-        { "ref": "shadow_assassin", "position": [43, 0, 36] },
-        { "ref": "shadow_assassin", "position": [35, 0, 42] },
-        { "ref": "dark_knight", "position": [40, 0, 40] },
-        { "ref": "dark_knight", "position": [36, 0, 36] },
-        { "ref": "dungeon_lord", "position": [38, 0, 42] },
-        { "ref": "gold_pile", "position": [37, 0, 46] },
-        { "ref": "gold_pile", "position": [39, 0, 46] },
-
-        { "ref": "common_tree", "position": [20, 0, 10] },
-        { "ref": "pine_tree", "position": [-20, 0, -15] },
-        { "ref": "common_tree_2", "position": [25, 0, -10] },
-        { "ref": "birch_tree", "position": [-25, 0, 10] },
-        { "ref": "common_tree", "position": [60, 0, 20] },
-        { "ref": "pine_tree", "position": [-60, 0, -20] },
-        { "ref": "common_tree_2", "position": [50, 0, -60] },
-        { "ref": "birch_tree", "position": [-50, 0, 60] },
-        { "ref": "common_tree", "position": [70, 0, -30] },
-        { "ref": "pine_tree", "position": [-70, 0, 30] },
-        { "ref": "willow_tree", "position": [15, 0, 50] },
-        { "ref": "willow_tree", "position": [-15, 0, -50] },
-        { "ref": "bush", "position": [22, 0, 5] },
-        { "ref": "bush", "position": [-22, 0, -8] },
-        { "ref": "bush", "position": [55, 0, -15] },
-        { "ref": "bush", "position": [-55, 0, 15] },
-        { "ref": "flowers", "position": [18, 0, 15] },
-        { "ref": "flowers", "position": [-18, 0, -20] },
-        { "ref": "flowers", "position": [30, 0, 20] },
-        { "ref": "grass_patch", "position": [25, 0, -5] },
-        { "ref": "grass_patch", "position": [-25, 0, 20] },
-        { "ref": "grass_patch", "position": [40, 0, 15] },
-        { "ref": "grass_patch", "position": [-40, 0, -18] },
-        { "ref": "rock_large", "position": [60, 0, 60] },
-        { "ref": "rock_large", "position": [-60, 0, -60] },
-        { "ref": "rock_large", "position": [70, 0, 40] },
-        { "ref": "rock_small", "position": [25, 0, 15] },
-        { "ref": "rock_small", "position": [-25, 0, -25] },
-        { "ref": "rock_small", "position": [45, 0, 55] },
-        { "ref": "rock_small", "position": [-65, 0, 50] },
-        { "ref": "health_potion", "position": [20, 0.5, -20] },
-        { "ref": "mana_potion", "position": [-20, 0.5, 22] },
-        { "ref": "gold_pile", "position": [55, 0, -50] },
-        { "ref": "goblin_scout", "position": [60, 0, -55] },
-        { "ref": "undead_warrior", "position": [-60, 0, 55] },
-        { "ref": "goblin_scout", "position": [65, 0, 25] }
+        {
+          "ref": "ground",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "camera",
+          "position": [
+            0,
+            6,
+            10
+          ]
+        },
+        {
+          "name": "Hero",
+          "ref": "player_hero",
+          "position": [
+            0,
+            1,
+            8
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            0,
+            2,
+            -90
+          ],
+          "scale": [
+            184,
+            6,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            0,
+            2,
+            90
+          ],
+          "scale": [
+            184,
+            6,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            -90,
+            2,
+            0
+          ],
+          "scale": [
+            2,
+            6,
+            184
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            90,
+            2,
+            0
+          ],
+          "scale": [
+            2,
+            6,
+            184
+          ]
+        },
+        {
+          "ref": "town_hall",
+          "position": [
+            0,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "house_1",
+          "position": [
+            -14,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "house_2",
+          "position": [
+            14,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "house_1",
+          "position": [
+            -12,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "house_2",
+          "position": [
+            12,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "inn",
+          "position": [
+            10,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "blacksmith_shop",
+          "position": [
+            -10,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "temple",
+          "position": [
+            0,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "market",
+          "position": [
+            -6,
+            0,
+            6
+          ]
+        },
+        {
+          "ref": "stable",
+          "position": [
+            18,
+            0,
+            6
+          ]
+        },
+        {
+          "ref": "well",
+          "position": [
+            0,
+            0,
+            2
+          ]
+        },
+        {
+          "ref": "bell_tower",
+          "position": [
+            6,
+            0,
+            16
+          ]
+        },
+        {
+          "ref": "guard_tower",
+          "position": [
+            -18,
+            0,
+            -16
+          ]
+        },
+        {
+          "ref": "guard_tower",
+          "position": [
+            18,
+            0,
+            -16
+          ]
+        },
+        {
+          "ref": "farm",
+          "position": [
+            -18,
+            0,
+            16
+          ]
+        },
+        {
+          "ref": "windmill",
+          "position": [
+            -22,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "bonfire",
+          "position": [
+            0,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            0
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            -8
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            8
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            -6,
+            0.01,
+            0
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            6,
+            0.01,
+            0
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            -14
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            14
+          ]
+        },
+        {
+          "ref": "bench",
+          "position": [
+            3,
+            0,
+            2
+          ]
+        },
+        {
+          "ref": "bench",
+          "position": [
+            -3,
+            0,
+            4
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -12,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            12,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -8,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "hay_bale",
+          "position": [
+            16,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "hay_bale",
+          "position": [
+            -20,
+            0,
+            14
+          ]
+        },
+        {
+          "ref": "cart",
+          "position": [
+            8,
+            0,
+            14
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            -16,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            -14,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            16,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            -8,
+            0,
+            -14
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            8,
+            0,
+            -14
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            -14,
+            0,
+            -4
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            14,
+            0,
+            -4
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            -6,
+            0,
+            14
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            6,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "quest_elder",
+          "position": [
+            2,
+            0,
+            -3
+          ]
+        },
+        {
+          "ref": "quest_knight",
+          "position": [
+            -2,
+            0,
+            -16
+          ]
+        },
+        {
+          "ref": "merchant",
+          "position": [
+            -4,
+            0,
+            7
+          ]
+        },
+        {
+          "ref": "healer_npc",
+          "position": [
+            2,
+            0,
+            -16
+          ]
+        },
+        {
+          "ref": "blacksmith_npc",
+          "position": [
+            -8,
+            0,
+            -9
+          ]
+        },
+        {
+          "ref": "innkeeper",
+          "position": [
+            8,
+            0,
+            -9
+          ]
+        },
+        {
+          "ref": "guard_male",
+          "position": [
+            -16,
+            1.0,
+            -14
+          ]
+        },
+        {
+          "ref": "guard_female",
+          "position": [
+            16,
+            1.0,
+            -14
+          ]
+        },
+        {
+          "ref": "guard_male",
+          "position": [
+            0,
+            1.0,
+            18
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            4,
+            0,
+            4
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -4,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            16,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -16,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            10,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -10,
+            0,
+            -2
+          ]
+        },
+        {
+          "ref": "quest_crystal",
+          "position": [
+            0,
+            2,
+            -4
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -30,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -35,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -40,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -28,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -45,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -50,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            -32,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            -48,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            -55,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -38,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -52,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -42,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            -55,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            -30,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -32,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -40,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -48,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -35,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "bush_berries",
+          "position": [
+            -42,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "bush_berries",
+          "position": [
+            -50,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -28,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -45,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -34,
+            0,
+            -44
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -46,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -38,
+            0,
+            -52
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -30,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -50,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -55,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "crate_stack",
+          "position": [
+            -40,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "crate_stack",
+          "position": [
+            -38,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -42,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "goblin_scout",
+          "position": [
+            -32,
+            1.0,
+            -35
+          ]
+        },
+        {
+          "ref": "goblin_scout",
+          "position": [
+            -38,
+            1.0,
+            -42
+          ]
+        },
+        {
+          "ref": "goblin_scout",
+          "position": [
+            -45,
+            1.0,
+            -30
+          ]
+        },
+        {
+          "ref": "goblin_scout",
+          "position": [
+            -50,
+            1.0,
+            -40
+          ]
+        },
+        {
+          "ref": "goblin_scout",
+          "position": [
+            -35,
+            1.0,
+            -50
+          ]
+        },
+        {
+          "ref": "goblin_shaman",
+          "position": [
+            -42,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "goblin_shaman",
+          "position": [
+            -48,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "goblin_shaman",
+          "position": [
+            -55,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "health_potion",
+          "position": [
+            -40,
+            0.5,
+            -42
+          ]
+        },
+        {
+          "ref": "ground_swamp",
+          "position": [
+            -40,
+            0.02,
+            35
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -30,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -38,
+            0,
+            32
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -45,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -35,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -50,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -42,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -28,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -55,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "willow_tree",
+          "position": [
+            -32,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "willow_tree",
+          "position": [
+            -48,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -35,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -42,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -50,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -30,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -45,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "bones",
+          "position": [
+            -38,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "bones",
+          "position": [
+            -48,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "undead_warrior",
+          "position": [
+            -33,
+            1.0,
+            32
+          ]
+        },
+        {
+          "ref": "undead_warrior",
+          "position": [
+            -42,
+            1.0,
+            38
+          ]
+        },
+        {
+          "ref": "undead_warrior",
+          "position": [
+            -50,
+            1.0,
+            42
+          ]
+        },
+        {
+          "ref": "undead_warrior",
+          "position": [
+            -35,
+            1.0,
+            45
+          ]
+        },
+        {
+          "ref": "undead_mage",
+          "position": [
+            -40,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "undead_mage",
+          "position": [
+            -48,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "undead_mage",
+          "position": [
+            -55,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "mana_potion",
+          "position": [
+            -42,
+            0.5,
+            40
+          ]
+        },
+        {
+          "ref": "fortress_gate",
+          "position": [
+            35,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "fortress_wall",
+          "position": [
+            30,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "fortress_wall",
+          "position": [
+            40,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "fortress_wall",
+          "position": [
+            30,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "fortress_wall",
+          "position": [
+            40,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "fortress_tower",
+          "position": [
+            28,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "fortress_tower",
+          "position": [
+            42,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "barracks",
+          "position": [
+            35,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "archery_range",
+          "position": [
+            35,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "crate_stack",
+          "position": [
+            32,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "crate_stack",
+          "position": [
+            38,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            30,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            40,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            35,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "dark_knight",
+          "position": [
+            33,
+            1.0,
+            -35
+          ]
+        },
+        {
+          "ref": "dark_knight",
+          "position": [
+            37,
+            1.0,
+            -38
+          ]
+        },
+        {
+          "ref": "dark_knight",
+          "position": [
+            35,
+            1.0,
+            -48
+          ]
+        },
+        {
+          "ref": "shadow_assassin",
+          "position": [
+            30,
+            1.0,
+            -42
+          ]
+        },
+        {
+          "ref": "shadow_assassin",
+          "position": [
+            40,
+            1.0,
+            -48
+          ]
+        },
+        {
+          "ref": "war_chief",
+          "position": [
+            35,
+            1.0,
+            -42
+          ]
+        },
+        {
+          "ref": "health_potion",
+          "position": [
+            38,
+            0.5,
+            -38
+          ]
+        },
+        {
+          "ref": "gold_pile",
+          "position": [
+            33,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            38,
+            2,
+            28
+          ],
+          "scale": [
+            20,
+            6,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            38,
+            2,
+            48
+          ],
+          "scale": [
+            20,
+            6,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            28,
+            2,
+            38
+          ],
+          "scale": [
+            2,
+            6,
+            22
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            48,
+            2,
+            38
+          ],
+          "scale": [
+            2,
+            6,
+            22
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            38,
+            5.5,
+            38
+          ],
+          "scale": [
+            22,
+            1,
+            22
+          ]
+        },
+        {
+          "ref": "dungeon_column",
+          "position": [
+            32,
+            0,
+            32
+          ]
+        },
+        {
+          "ref": "dungeon_column",
+          "position": [
+            44,
+            0,
+            32
+          ]
+        },
+        {
+          "ref": "dungeon_column",
+          "position": [
+            32,
+            0,
+            44
+          ]
+        },
+        {
+          "ref": "dungeon_column",
+          "position": [
+            44,
+            0,
+            44
+          ]
+        },
+        {
+          "ref": "dungeon_column",
+          "position": [
+            38,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "dungeon_torch",
+          "position": [
+            29,
+            3,
+            32
+          ]
+        },
+        {
+          "ref": "dungeon_torch",
+          "position": [
+            47,
+            3,
+            32
+          ]
+        },
+        {
+          "ref": "dungeon_torch",
+          "position": [
+            29,
+            3,
+            44
+          ]
+        },
+        {
+          "ref": "dungeon_torch",
+          "position": [
+            47,
+            3,
+            44
+          ]
+        },
+        {
+          "ref": "dungeon_torch",
+          "position": [
+            38,
+            3,
+            29
+          ]
+        },
+        {
+          "ref": "dungeon_torch",
+          "position": [
+            38,
+            3,
+            47
+          ]
+        },
+        {
+          "ref": "candelabrum",
+          "position": [
+            35,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "candelabrum",
+          "position": [
+            41,
+            0,
+            41
+          ]
+        },
+        {
+          "ref": "treasure_chest",
+          "position": [
+            38,
+            0,
+            46
+          ]
+        },
+        {
+          "ref": "treasure_chest",
+          "position": [
+            35,
+            0,
+            46
+          ]
+        },
+        {
+          "ref": "dungeon_chest",
+          "position": [
+            41,
+            0,
+            46
+          ]
+        },
+        {
+          "ref": "dungeon_potion",
+          "position": [
+            30,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "dungeon_potion",
+          "position": [
+            46,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "dungeon_potion",
+          "position": [
+            30,
+            0,
+            46
+          ]
+        },
+        {
+          "ref": "bones",
+          "position": [
+            34,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "bones",
+          "position": [
+            42,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "bones",
+          "position": [
+            36,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "shadow_assassin",
+          "position": [
+            33,
+            1.0,
+            34
+          ]
+        },
+        {
+          "ref": "shadow_assassin",
+          "position": [
+            43,
+            1.0,
+            36
+          ]
+        },
+        {
+          "ref": "shadow_assassin",
+          "position": [
+            35,
+            1.0,
+            42
+          ]
+        },
+        {
+          "ref": "dark_knight",
+          "position": [
+            40,
+            1.0,
+            40
+          ]
+        },
+        {
+          "ref": "dark_knight",
+          "position": [
+            36,
+            1.0,
+            36
+          ]
+        },
+        {
+          "ref": "dungeon_lord",
+          "position": [
+            38,
+            1.0,
+            42
+          ]
+        },
+        {
+          "ref": "gold_pile",
+          "position": [
+            37,
+            0,
+            46
+          ]
+        },
+        {
+          "ref": "gold_pile",
+          "position": [
+            39,
+            0,
+            46
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            20,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            -20,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            25,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -25,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            60,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            -60,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            50,
+            0,
+            -60
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -50,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            70,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            -70,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "willow_tree",
+          "position": [
+            15,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "willow_tree",
+          "position": [
+            -15,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            22,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -22,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            55,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -55,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            18,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -18,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            30,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            25,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -25,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            40,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -40,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            60,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -60,
+            0,
+            -60
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            70,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            25,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -25,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            45,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -65,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "health_potion",
+          "position": [
+            20,
+            0.5,
+            -20
+          ]
+        },
+        {
+          "ref": "mana_potion",
+          "position": [
+            -20,
+            0.5,
+            22
+          ]
+        },
+        {
+          "ref": "gold_pile",
+          "position": [
+            55,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "goblin_scout",
+          "position": [
+            60,
+            1.0,
+            -55
+          ]
+        },
+        {
+          "ref": "undead_warrior",
+          "position": [
+            -60,
+            1.0,
+            55
+          ]
+        },
+        {
+          "ref": "goblin_scout",
+          "position": [
+            65,
+            1.0,
+            25
+          ]
+        }
       ]
     }
   ]

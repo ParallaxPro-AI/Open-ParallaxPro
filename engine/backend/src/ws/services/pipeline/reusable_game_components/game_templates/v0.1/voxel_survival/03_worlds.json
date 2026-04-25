@@ -4,295 +4,2241 @@
       "id": "kingdom_valley",
       "name": "Kingdom Valley",
       "lighting": {
-        "ambient": [0.5, 0.55, 0.6],
-        "sun_direction": [0.3, -0.7, 0.2],
-        "sun_color": [1.0, 0.97, 0.88]
+        "ambient": [
+          0.5,
+          0.55,
+          0.6
+        ],
+        "sun_direction": [
+          0.3,
+          -0.7,
+          0.2
+        ],
+        "sun_color": [
+          1.0,
+          0.97,
+          0.88
+        ]
       },
       "terrain": {
-        "size": [160, 160],
-        "color": [0.45, 0.7, 0.85, 1]
+        "size": [
+          160,
+          160
+        ],
+        "color": [
+          0.45,
+          0.7,
+          0.85,
+          1
+        ]
       },
       "placements": [
-        { "ref": "ground_plains", "position": [0, 0, 0] },
-        { "ref": "ground_snow", "position": [42, 0.02, -40] },
-        { "ref": "ground_desert", "position": [42, 0.02, 40] },
-        { "ref": "camera", "position": [0, 1.6, 15] },
-        { "name": "Player", "ref": "player", "position": [0, 1, 15] },
-
-        { "ref": "stone_wall", "position": [0, 2, -72], "scale": [148, 5, 2] },
-        { "ref": "stone_wall", "position": [0, 2, 72], "scale": [148, 5, 2] },
-        { "ref": "stone_wall", "position": [-72, 2, 0], "scale": [2, 5, 148] },
-        { "ref": "stone_wall", "position": [72, 2, 0], "scale": [2, 5, 148] },
-
-        { "ref": "well", "position": [0, 0, 0] },
-        { "ref": "village_house_1", "position": [-10, 0, -8] },
-        { "ref": "village_house_2", "position": [10, 0, -8] },
-        { "ref": "village_house_1", "position": [-10, 0, 6] },
-        { "ref": "village_house_2", "position": [10, 0, 6] },
-        { "ref": "blacksmith", "position": [0, 0, -14] },
-        { "ref": "mill", "position": [-15, 0, 0] },
-        { "ref": "market_stand", "position": [-5, 0, 8] },
-        { "ref": "bell_tower", "position": [5, 0, 12] },
-        { "ref": "path_stone", "position": [-4, 0.01, 0] },
-        { "ref": "path_stone", "position": [4, 0.01, 0] },
-        { "ref": "path_stone", "position": [0, 0.01, -6] },
-        { "ref": "path_stone", "position": [0, 0.01, 6] },
-        { "ref": "path_stone", "position": [0, 0.01, 10] },
-        { "ref": "path_stone", "position": [0, 0.01, 14] },
-        { "ref": "bench", "position": [3, 0, 0] },
-        { "ref": "bench", "position": [-3, 0, 3] },
-        { "ref": "barrel", "position": [-12, 0, -6] },
-        { "ref": "barrel", "position": [12, 0, -6] },
-        { "ref": "barrel", "position": [-8, 0, 10] },
-        { "ref": "village_cart", "position": [8, 0, 10] },
-        { "ref": "torch", "position": [-6, 0, -10] },
-        { "ref": "torch", "position": [6, 0, -10] },
-        { "ref": "torch", "position": [-12, 0, 4] },
-        { "ref": "torch", "position": [12, 0, 4] },
-        { "ref": "torch", "position": [-4, 0, 12] },
-        { "ref": "torch", "position": [4, 0, 8] },
-        { "ref": "bonfire_lit", "position": [0, 0, 3] },
-        { "ref": "village_fence", "position": [-14, 0, -14] },
-        { "ref": "village_fence", "position": [14, 0, -14] },
-        { "ref": "village_fence", "position": [-14, 0, 14] },
-        { "ref": "village_fence", "position": [14, 0, 14] },
-        { "ref": "door", "position": [0, 0, -16] },
-        { "ref": "villager_male", "position": [-3, 0, 2] },
-        { "ref": "villager_female", "position": [4, 0, -2] },
-        { "ref": "villager_female", "position": [-7, 0, 8] },
-        { "ref": "villager_male", "position": [2, 0, -12] },
-        { "ref": "village_guard", "position": [0, 0, 14] },
-        { "ref": "village_guard", "position": [-14, 0, 0] },
-        { "ref": "dog", "position": [6, 0, 2] },
-        { "ref": "cat", "position": [-8, 0, -4] },
-        { "ref": "horse", "position": [14, 0, 0] },
-        { "ref": "horse", "position": [16, 0, 2] },
-
-        { "ref": "crafting_table", "position": [-2, 0, 17] },
-        { "ref": "chest", "position": [2, 0, 17] },
-        { "ref": "furnace", "position": [0, 0, 19] },
-
-        { "ref": "barn", "position": [0, 0, 28] },
-        { "ref": "chicken_coop", "position": [-12, 0, 32] },
-        { "ref": "farm_windmill", "position": [14, 0, 34] },
-        { "ref": "wheat_crop", "position": [-6, 0, 24] },
-        { "ref": "wheat_crop", "position": [-4, 0, 24] },
-        { "ref": "wheat_crop", "position": [-2, 0, 24] },
-        { "ref": "wheat_crop", "position": [0, 0, 24] },
-        { "ref": "corn_crop", "position": [2, 0, 24] },
-        { "ref": "corn_crop", "position": [4, 0, 24] },
-        { "ref": "corn_crop", "position": [6, 0, 24] },
-        { "ref": "corn_crop", "position": [8, 0, 24] },
-        { "ref": "pumpkin", "position": [-5, 0, 30] },
-        { "ref": "pumpkin", "position": [-3, 0, 30] },
-        { "ref": "pumpkin", "position": [-1, 0, 30] },
-        { "ref": "watermelon", "position": [3, 0, 30] },
-        { "ref": "watermelon", "position": [5, 0, 30] },
-        { "ref": "berry_bush", "position": [-10, 0, 36] },
-        { "ref": "berry_bush", "position": [-8, 0, 36] },
-        { "ref": "fence", "position": [-14, 0, 22] },
-        { "ref": "fence", "position": [16, 0, 22] },
-        { "ref": "fence", "position": [-14, 0, 28] },
-        { "ref": "fence", "position": [16, 0, 28] },
-        { "ref": "fence", "position": [-14, 0, 34] },
-        { "ref": "fence", "position": [16, 0, 34] },
-        { "ref": "hay_bale", "position": [10, 0, 28] },
-        { "ref": "hay_bale", "position": [12, 0, 28] },
-        { "ref": "sheep", "position": [-8, 0, 34] },
-        { "ref": "sheep", "position": [8, 0, 32] },
-        { "ref": "pig", "position": [-4, 0, 36] },
-        { "ref": "pig", "position": [4, 0, 36] },
-        { "ref": "chicken", "position": [-11, 0, 33] },
-        { "ref": "chicken", "position": [-13, 0, 31] },
-        { "ref": "chicken", "position": [-12, 0, 34] },
-        { "ref": "cow", "position": [10, 0, 32] },
-        { "ref": "cow", "position": [6, 0, 34] },
-
-        { "ref": "oak_tree", "position": [-28, 0, -25] },
-        { "ref": "oak_tree", "position": [-32, 0, -32] },
-        { "ref": "oak_tree", "position": [-38, 0, -28] },
-        { "ref": "oak_tree", "position": [-25, 0, -38] },
-        { "ref": "oak_tree", "position": [-42, 0, -40] },
-        { "ref": "oak_tree", "position": [-35, 0, -22] },
-        { "ref": "oak_tree", "position": [-45, 0, -35] },
-        { "ref": "oak_tree", "position": [-30, 0, -45] },
-        { "ref": "birch_tree", "position": [-28, 0, -42] },
-        { "ref": "birch_tree", "position": [-40, 0, -25] },
-        { "ref": "birch_tree", "position": [-48, 0, -30] },
-        { "ref": "birch_tree", "position": [-22, 0, -30] },
-        { "ref": "pine_tree", "position": [-36, 0, -48] },
-        { "ref": "pine_tree", "position": [-50, 0, -42] },
-        { "ref": "bush", "position": [-30, 0, -28] },
-        { "ref": "bush", "position": [-35, 0, -35] },
-        { "ref": "bush", "position": [-26, 0, -40] },
-        { "ref": "bush", "position": [-42, 0, -32] },
-        { "ref": "bush", "position": [-48, 0, -38] },
-        { "ref": "mushroom", "position": [-33, 0, -30] },
-        { "ref": "mushroom", "position": [-28, 0, -36] },
-        { "ref": "mushroom", "position": [-40, 0, -44] },
-        { "ref": "flowers", "position": [-25, 0, -28] },
-        { "ref": "flowers", "position": [-35, 0, -40] },
-        { "ref": "flowers", "position": [-45, 0, -28] },
-        { "ref": "flowers", "position": [-30, 0, -50] },
-        { "ref": "tall_grass", "position": [-27, 0, -34] },
-        { "ref": "tall_grass", "position": [-38, 0, -38] },
-        { "ref": "tall_grass", "position": [-44, 0, -26] },
-        { "ref": "tall_grass", "position": [-32, 0, -48] },
-        { "ref": "tall_grass", "position": [-50, 0, -35] },
-        { "ref": "coal_ore", "position": [-30, 0, -38] },
-        { "ref": "coal_ore", "position": [-42, 0, -30] },
-        { "ref": "coal_ore", "position": [-48, 0, -45] },
-        { "ref": "wood_log", "position": [-35, 0, -25] },
-        { "ref": "wood_log", "position": [-28, 0, -48] },
-        { "ref": "rock_large", "position": [-25, 0, -45] },
-        { "ref": "rock_large", "position": [-50, 0, -50] },
-        { "ref": "rock_small", "position": [-38, 0, -22] },
-        { "ref": "rock_small", "position": [-45, 0, -48] },
-        { "ref": "rock_small", "position": [-22, 0, -35] },
-        { "ref": "skeleton", "position": [-35, 0, -42] },
-        { "ref": "goblin", "position": [-45, 0, -38] },
-        { "ref": "skeleton", "position": [-28, 0, -50] },
-
-        { "ref": "pine_tree", "position": [30, 0, -30] },
-        { "ref": "pine_tree", "position": [35, 0, -38] },
-        { "ref": "pine_tree", "position": [40, 0, -28] },
-        { "ref": "pine_tree", "position": [45, 0, -42] },
-        { "ref": "pine_tree", "position": [50, 0, -35] },
-        { "ref": "pine_tree", "position": [38, 0, -50] },
-        { "ref": "snow_block", "position": [32, 0, -32] },
-        { "ref": "snow_block", "position": [34, 0, -32] },
-        { "ref": "snow_block", "position": [33, 1.5, -32] },
-        { "ref": "snow_block", "position": [42, 0, -45] },
-        { "ref": "snow_block", "position": [44, 0, -45] },
-        { "ref": "snow_block", "position": [43, 1.5, -45] },
-        { "ref": "snow_block", "position": [43, 3, -45] },
-        { "ref": "snow_block", "position": [50, 0, -50] },
-        { "ref": "snow_block", "position": [52, 0, -50] },
-        { "ref": "snow_block", "position": [51, 1.5, -50] },
-        { "ref": "ice_block", "position": [36, 0, -40] },
-        { "ref": "ice_block", "position": [48, 0, -48] },
-        { "ref": "ice_block", "position": [55, 0, -42] },
-        { "ref": "crystal_block", "position": [40, 0, -38] },
-        { "ref": "crystal_block", "position": [52, 0, -45] },
-        { "ref": "crystal", "position": [38, 0, -36] },
-        { "ref": "crystal", "position": [48, 0, -40] },
-        { "ref": "crystal", "position": [55, 0, -50] },
-        { "ref": "rock_large", "position": [28, 0, -35] },
-        { "ref": "rock_large", "position": [55, 0, -30] },
-        { "ref": "rock_small", "position": [35, 0, -42] },
-        { "ref": "rock_small", "position": [48, 0, -55] },
-        { "ref": "yeti", "position": [45, 0, -48] },
-        { "ref": "yeti", "position": [38, 0, -55] },
-        { "ref": "skeleton", "position": [52, 0, -38] },
-
-        { "ref": "dead_tree", "position": [-30, 0, 30] },
-        { "ref": "dead_tree", "position": [-38, 0, 35] },
-        { "ref": "dead_tree", "position": [-28, 0, 42] },
-        { "ref": "dead_tree", "position": [-45, 0, 38] },
-        { "ref": "dead_tree", "position": [-35, 0, 48] },
-        { "ref": "dead_tree", "position": [-50, 0, 42] },
-        { "ref": "mushroom", "position": [-32, 0, 32] },
-        { "ref": "mushroom", "position": [-40, 0, 40] },
-        { "ref": "mushroom", "position": [-28, 0, 45] },
-        { "ref": "mushroom", "position": [-48, 0, 35] },
-        { "ref": "mushroom", "position": [-35, 0, 50] },
-        { "ref": "tall_grass", "position": [-33, 0, 35] },
-        { "ref": "tall_grass", "position": [-42, 0, 42] },
-        { "ref": "tall_grass", "position": [-26, 0, 48] },
-        { "ref": "tall_grass", "position": [-50, 0, 38] },
-        { "ref": "dirt_block", "position": [-30, 0, 35] },
-        { "ref": "dirt_block", "position": [-40, 0, 42] },
-        { "ref": "dirt_block", "position": [-48, 0, 48] },
-        { "ref": "coal_block", "position": [-35, 0, 38] },
-        { "ref": "coal_block", "position": [-45, 0, 45] },
-        { "ref": "diamond_block", "position": [-42, 0, 50] },
-        { "ref": "rock_large", "position": [-30, 0, 40] },
-        { "ref": "rock_small", "position": [-46, 0, 32] },
-        { "ref": "zombie", "position": [-35, 0, 35] },
-        { "ref": "zombie", "position": [-42, 0, 45] },
-        { "ref": "goblin", "position": [-48, 0, 40] },
-        { "ref": "skeleton_armor", "position": [-38, 0, 50] },
-
-        { "ref": "palm_tree", "position": [30, 0, 30] },
-        { "ref": "palm_tree", "position": [38, 0, 35] },
-        { "ref": "palm_tree", "position": [45, 0, 42] },
-        { "ref": "palm_tree", "position": [50, 0, 38] },
-        { "ref": "palm_tree", "position": [35, 0, 48] },
-        { "ref": "rock_large", "position": [40, 0, 32] },
-        { "ref": "rock_large", "position": [52, 0, 45] },
-        { "ref": "rock_large", "position": [35, 0, 55] },
-        { "ref": "rock_small", "position": [42, 0, 38] },
-        { "ref": "rock_small", "position": [48, 0, 50] },
-        { "ref": "rock_small", "position": [55, 0, 35] },
-        { "ref": "bush", "position": [32, 0, 35] },
-        { "ref": "bush", "position": [50, 0, 42] },
-        { "ref": "tall_grass", "position": [36, 0, 40] },
-        { "ref": "tall_grass", "position": [44, 0, 48] },
-        { "ref": "stone_block", "position": [48, 0, 35] },
-        { "ref": "stone_block", "position": [50, 0, 35] },
-        { "ref": "stone_block", "position": [49, 1.5, 35] },
-        { "ref": "diamond_ore", "position": [52, 0, 40] },
-        { "ref": "coal_ore", "position": [40, 0, 45] },
-        { "ref": "coal_ore", "position": [55, 0, 48] },
-        { "ref": "skeleton", "position": [45, 0, 50] },
-        { "ref": "goblin", "position": [55, 0, 40] },
-
-        { "ref": "stone_wall", "position": [30, 2, -58], "scale": [10, 6, 2] },
-        { "ref": "stone_wall", "position": [30, 2, -68], "scale": [10, 6, 2] },
-        { "ref": "stone_wall", "position": [25, 2, -63], "scale": [2, 6, 12] },
-        { "ref": "stone_wall", "position": [35, 2, -63], "scale": [2, 6, 12] },
-        { "ref": "stone_wall", "position": [30, 5.5, -63], "scale": [12, 1, 12] },
-        { "ref": "torch", "position": [26, 3, -60] },
-        { "ref": "torch", "position": [34, 3, -60] },
-        { "ref": "torch", "position": [26, 3, -66] },
-        { "ref": "torch", "position": [34, 3, -66] },
-        { "ref": "chest", "position": [30, 0, -67] },
-        { "ref": "chest", "position": [28, 0, -67] },
-        { "ref": "diamond_block", "position": [32, 0, -67] },
-        { "ref": "diamond_block", "position": [30, 0, -65] },
-        { "ref": "lever", "position": [26, 0, -63] },
-        { "ref": "button", "position": [34, 0, -63] },
-        { "ref": "skeleton_armor", "position": [28, 0, -62] },
-        { "ref": "giant", "position": [30, 0, -63] },
-
-        { "ref": "oak_tree", "position": [18, 0, -15] },
-        { "ref": "oak_tree", "position": [-18, 0, 15] },
-        { "ref": "birch_tree", "position": [20, 0, 10] },
-        { "ref": "pine_tree", "position": [-20, 0, -15] },
-        { "ref": "oak_tree", "position": [55, 0, -15] },
-        { "ref": "oak_tree", "position": [-55, 0, 55] },
-        { "ref": "oak_tree", "position": [-55, 0, -55] },
-        { "ref": "pine_tree", "position": [55, 0, 55] },
-        { "ref": "bush", "position": [15, 0, -18] },
-        { "ref": "bush", "position": [-18, 0, 20] },
-        { "ref": "flowers", "position": [12, 0, 15] },
-        { "ref": "flowers", "position": [-15, 0, -18] },
-        { "ref": "flowers", "position": [20, 0, 20] },
-        { "ref": "tall_grass", "position": [16, 0, 8] },
-        { "ref": "tall_grass", "position": [-14, 0, 22] },
-        { "ref": "tall_grass", "position": [22, 0, -5] },
-        { "ref": "tall_grass", "position": [-8, 0, -18] },
-        { "ref": "rock_large", "position": [-60, 0, -60] },
-        { "ref": "rock_large", "position": [60, 0, 60] },
-        { "ref": "rock_small", "position": [18, 0, 5] },
-        { "ref": "rock_small", "position": [-22, 0, -8] },
-        { "ref": "rock_small", "position": [25, 0, 18] },
-        { "ref": "coal_ore", "position": [22, 0, -10] },
-        { "ref": "coal_ore", "position": [-20, 0, 10] },
-        { "ref": "wood_log", "position": [15, 0, -5] },
-        { "ref": "wood_log", "position": [-10, 0, 18] },
-        { "ref": "grass_block", "position": [15, 1, 0] },
-        { "ref": "grass_block", "position": [16.5, 1, 0] },
-        { "ref": "grass_block", "position": [-15, 1, -5] },
-        { "ref": "dirt_block", "position": [-16.5, 1, -5] },
-        { "ref": "stone_block", "position": [22, 0, -18] },
-        { "ref": "metal_block", "position": [-18, 0, -20] },
-        { "ref": "sheep", "position": [18, 0, 12] },
-        { "ref": "pig", "position": [-12, 0, 20] },
-        { "ref": "chicken", "position": [20, 0, 18] },
-        { "ref": "zombie", "position": [-60, 0, -20] },
-        { "ref": "skeleton", "position": [60, 0, -60] },
-        { "ref": "goblin", "position": [-60, 0, 60] }
+        {
+          "ref": "ground_plains",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "ground_snow",
+          "position": [
+            42,
+            0.02,
+            -40
+          ]
+        },
+        {
+          "ref": "ground_desert",
+          "position": [
+            42,
+            0.02,
+            40
+          ]
+        },
+        {
+          "ref": "camera",
+          "position": [
+            0,
+            1.6,
+            15
+          ]
+        },
+        {
+          "name": "Player",
+          "ref": "player",
+          "position": [
+            0,
+            1,
+            15
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            0,
+            2,
+            -72
+          ],
+          "scale": [
+            148,
+            5,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            0,
+            2,
+            72
+          ],
+          "scale": [
+            148,
+            5,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            -72,
+            2,
+            0
+          ],
+          "scale": [
+            2,
+            5,
+            148
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            72,
+            2,
+            0
+          ],
+          "scale": [
+            2,
+            5,
+            148
+          ]
+        },
+        {
+          "ref": "well",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "village_house_1",
+          "position": [
+            -10,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "village_house_2",
+          "position": [
+            10,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "village_house_1",
+          "position": [
+            -10,
+            0,
+            6
+          ]
+        },
+        {
+          "ref": "village_house_2",
+          "position": [
+            10,
+            0,
+            6
+          ]
+        },
+        {
+          "ref": "blacksmith",
+          "position": [
+            0,
+            0,
+            -14
+          ]
+        },
+        {
+          "ref": "mill",
+          "position": [
+            -15,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "market_stand",
+          "position": [
+            -5,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "bell_tower",
+          "position": [
+            5,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            -4,
+            0.01,
+            0
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            4,
+            0.01,
+            0
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            -6
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            6
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            10
+          ]
+        },
+        {
+          "ref": "path_stone",
+          "position": [
+            0,
+            0.01,
+            14
+          ]
+        },
+        {
+          "ref": "bench",
+          "position": [
+            3,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "bench",
+          "position": [
+            -3,
+            0,
+            3
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -12,
+            0,
+            -6
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            12,
+            0,
+            -6
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -8,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "village_cart",
+          "position": [
+            8,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            -6,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            6,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            -12,
+            0,
+            4
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            12,
+            0,
+            4
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            -4,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            4,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "bonfire_lit",
+          "position": [
+            0,
+            0,
+            3
+          ]
+        },
+        {
+          "ref": "village_fence",
+          "position": [
+            -14,
+            0,
+            -14
+          ]
+        },
+        {
+          "ref": "village_fence",
+          "position": [
+            14,
+            0,
+            -14
+          ]
+        },
+        {
+          "ref": "village_fence",
+          "position": [
+            -14,
+            0,
+            14
+          ]
+        },
+        {
+          "ref": "village_fence",
+          "position": [
+            14,
+            0,
+            14
+          ]
+        },
+        {
+          "ref": "door",
+          "position": [
+            0,
+            0,
+            -16
+          ]
+        },
+        {
+          "ref": "villager_male",
+          "position": [
+            -3,
+            1.0,
+            2
+          ]
+        },
+        {
+          "ref": "villager_female",
+          "position": [
+            4,
+            1.0,
+            -2
+          ]
+        },
+        {
+          "ref": "villager_female",
+          "position": [
+            -7,
+            1.0,
+            8
+          ]
+        },
+        {
+          "ref": "villager_male",
+          "position": [
+            2,
+            1.0,
+            -12
+          ]
+        },
+        {
+          "ref": "village_guard",
+          "position": [
+            0,
+            1.0,
+            14
+          ]
+        },
+        {
+          "ref": "village_guard",
+          "position": [
+            -14,
+            1.0,
+            0
+          ]
+        },
+        {
+          "ref": "dog",
+          "position": [
+            6,
+            1.0,
+            2
+          ]
+        },
+        {
+          "ref": "cat",
+          "position": [
+            -8,
+            1.0,
+            -4
+          ]
+        },
+        {
+          "ref": "horse",
+          "position": [
+            14,
+            1.0,
+            0
+          ]
+        },
+        {
+          "ref": "horse",
+          "position": [
+            16,
+            1.0,
+            2
+          ]
+        },
+        {
+          "ref": "crafting_table",
+          "position": [
+            -2,
+            0,
+            17
+          ]
+        },
+        {
+          "ref": "chest",
+          "position": [
+            2,
+            0,
+            17
+          ]
+        },
+        {
+          "ref": "furnace",
+          "position": [
+            0,
+            0,
+            19
+          ]
+        },
+        {
+          "ref": "barn",
+          "position": [
+            0,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "chicken_coop",
+          "position": [
+            -12,
+            0,
+            32
+          ]
+        },
+        {
+          "ref": "farm_windmill",
+          "position": [
+            14,
+            0,
+            34
+          ]
+        },
+        {
+          "ref": "wheat_crop",
+          "position": [
+            -6,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "wheat_crop",
+          "position": [
+            -4,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "wheat_crop",
+          "position": [
+            -2,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "wheat_crop",
+          "position": [
+            0,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "corn_crop",
+          "position": [
+            2,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "corn_crop",
+          "position": [
+            4,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "corn_crop",
+          "position": [
+            6,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "corn_crop",
+          "position": [
+            8,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "pumpkin",
+          "position": [
+            -5,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "pumpkin",
+          "position": [
+            -3,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "pumpkin",
+          "position": [
+            -1,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "watermelon",
+          "position": [
+            3,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "watermelon",
+          "position": [
+            5,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "berry_bush",
+          "position": [
+            -10,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "berry_bush",
+          "position": [
+            -8,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            -14,
+            0,
+            22
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            16,
+            0,
+            22
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            -14,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            16,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            -14,
+            0,
+            34
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            16,
+            0,
+            34
+          ]
+        },
+        {
+          "ref": "hay_bale",
+          "position": [
+            10,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "hay_bale",
+          "position": [
+            12,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "sheep",
+          "position": [
+            -8,
+            1.0,
+            34
+          ]
+        },
+        {
+          "ref": "sheep",
+          "position": [
+            8,
+            1.0,
+            32
+          ]
+        },
+        {
+          "ref": "pig",
+          "position": [
+            -4,
+            1.0,
+            36
+          ]
+        },
+        {
+          "ref": "pig",
+          "position": [
+            4,
+            1.0,
+            36
+          ]
+        },
+        {
+          "ref": "chicken",
+          "position": [
+            -11,
+            1.0,
+            33
+          ]
+        },
+        {
+          "ref": "chicken",
+          "position": [
+            -13,
+            1.0,
+            31
+          ]
+        },
+        {
+          "ref": "chicken",
+          "position": [
+            -12,
+            1.0,
+            34
+          ]
+        },
+        {
+          "ref": "cow",
+          "position": [
+            10,
+            1.0,
+            32
+          ]
+        },
+        {
+          "ref": "cow",
+          "position": [
+            6,
+            1.0,
+            34
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -28,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -32,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -38,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -25,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -42,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -35,
+            0,
+            -22
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -45,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -30,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -28,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -40,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -48,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -22,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            -36,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            -50,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -30,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -35,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -26,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -42,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -48,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "mushroom",
+          "position": [
+            -33,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "mushroom",
+          "position": [
+            -28,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "mushroom",
+          "position": [
+            -40,
+            0,
+            -44
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -25,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -35,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -45,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -30,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -27,
+            0,
+            -34
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -38,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -44,
+            0,
+            -26
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -32,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -50,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "coal_ore",
+          "position": [
+            -30,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "coal_ore",
+          "position": [
+            -42,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "coal_ore",
+          "position": [
+            -48,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "wood_log",
+          "position": [
+            -35,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "wood_log",
+          "position": [
+            -28,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -25,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -50,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -38,
+            0,
+            -22
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -45,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -22,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "skeleton",
+          "position": [
+            -35,
+            1.0,
+            -42
+          ]
+        },
+        {
+          "ref": "goblin",
+          "position": [
+            -45,
+            1.0,
+            -38
+          ]
+        },
+        {
+          "ref": "skeleton",
+          "position": [
+            -28,
+            1.0,
+            -50
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            30,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            35,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            40,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            45,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            50,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            38,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            32,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            34,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            33,
+            1.5,
+            -32
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            42,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            44,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            43,
+            1.5,
+            -45
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            43,
+            3,
+            -45
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            50,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            52,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "snow_block",
+          "position": [
+            51,
+            1.5,
+            -50
+          ]
+        },
+        {
+          "ref": "ice_block",
+          "position": [
+            36,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "ice_block",
+          "position": [
+            48,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "ice_block",
+          "position": [
+            55,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "crystal_block",
+          "position": [
+            40,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "crystal_block",
+          "position": [
+            52,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "crystal",
+          "position": [
+            38,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "crystal",
+          "position": [
+            48,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "crystal",
+          "position": [
+            55,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            28,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            55,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            35,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            48,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "yeti",
+          "position": [
+            45,
+            1.0,
+            -48
+          ]
+        },
+        {
+          "ref": "yeti",
+          "position": [
+            38,
+            1.0,
+            -55
+          ]
+        },
+        {
+          "ref": "skeleton",
+          "position": [
+            52,
+            1.0,
+            -38
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -30,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -38,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -28,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -45,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -35,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            -50,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "mushroom",
+          "position": [
+            -32,
+            0,
+            32
+          ]
+        },
+        {
+          "ref": "mushroom",
+          "position": [
+            -40,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "mushroom",
+          "position": [
+            -28,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "mushroom",
+          "position": [
+            -48,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "mushroom",
+          "position": [
+            -35,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -33,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -42,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -26,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -50,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "dirt_block",
+          "position": [
+            -30,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "dirt_block",
+          "position": [
+            -40,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "dirt_block",
+          "position": [
+            -48,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "coal_block",
+          "position": [
+            -35,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "coal_block",
+          "position": [
+            -45,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "diamond_block",
+          "position": [
+            -42,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -30,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -46,
+            0,
+            32
+          ]
+        },
+        {
+          "ref": "zombie",
+          "position": [
+            -35,
+            1.0,
+            35
+          ]
+        },
+        {
+          "ref": "zombie",
+          "position": [
+            -42,
+            1.0,
+            45
+          ]
+        },
+        {
+          "ref": "goblin",
+          "position": [
+            -48,
+            1.0,
+            40
+          ]
+        },
+        {
+          "ref": "skeleton_armor",
+          "position": [
+            -38,
+            1.0,
+            50
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            30,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            38,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            45,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            50,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            35,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            40,
+            0,
+            32
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            52,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            35,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            42,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            48,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            55,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            32,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            50,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            36,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            44,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "stone_block",
+          "position": [
+            48,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "stone_block",
+          "position": [
+            50,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "stone_block",
+          "position": [
+            49,
+            1.5,
+            35
+          ]
+        },
+        {
+          "ref": "diamond_ore",
+          "position": [
+            52,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "coal_ore",
+          "position": [
+            40,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "coal_ore",
+          "position": [
+            55,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "skeleton",
+          "position": [
+            45,
+            1.0,
+            50
+          ]
+        },
+        {
+          "ref": "goblin",
+          "position": [
+            55,
+            1.0,
+            40
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            30,
+            2,
+            -58
+          ],
+          "scale": [
+            10,
+            6,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            30,
+            2,
+            -68
+          ],
+          "scale": [
+            10,
+            6,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            25,
+            2,
+            -63
+          ],
+          "scale": [
+            2,
+            6,
+            12
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            35,
+            2,
+            -63
+          ],
+          "scale": [
+            2,
+            6,
+            12
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            30,
+            5.5,
+            -63
+          ],
+          "scale": [
+            12,
+            1,
+            12
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            26,
+            3,
+            -60
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            34,
+            3,
+            -60
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            26,
+            3,
+            -66
+          ]
+        },
+        {
+          "ref": "torch",
+          "position": [
+            34,
+            3,
+            -66
+          ]
+        },
+        {
+          "ref": "chest",
+          "position": [
+            30,
+            0,
+            -67
+          ]
+        },
+        {
+          "ref": "chest",
+          "position": [
+            28,
+            0,
+            -67
+          ]
+        },
+        {
+          "ref": "diamond_block",
+          "position": [
+            32,
+            0,
+            -67
+          ]
+        },
+        {
+          "ref": "diamond_block",
+          "position": [
+            30,
+            0,
+            -65
+          ]
+        },
+        {
+          "ref": "lever",
+          "position": [
+            26,
+            0,
+            -63
+          ]
+        },
+        {
+          "ref": "button",
+          "position": [
+            34,
+            0,
+            -63
+          ]
+        },
+        {
+          "ref": "skeleton_armor",
+          "position": [
+            28,
+            1.0,
+            -62
+          ]
+        },
+        {
+          "ref": "giant",
+          "position": [
+            30,
+            1.0,
+            -63
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            18,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -18,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            20,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            -20,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            55,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -55,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "oak_tree",
+          "position": [
+            -55,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            55,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            15,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -18,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            12,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -15,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            20,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            16,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -14,
+            0,
+            22
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            22,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "tall_grass",
+          "position": [
+            -8,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -60,
+            0,
+            -60
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            60,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            18,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -22,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            25,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "coal_ore",
+          "position": [
+            22,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "coal_ore",
+          "position": [
+            -20,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "wood_log",
+          "position": [
+            15,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "wood_log",
+          "position": [
+            -10,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "grass_block",
+          "position": [
+            15,
+            1,
+            0
+          ]
+        },
+        {
+          "ref": "grass_block",
+          "position": [
+            16.5,
+            1,
+            0
+          ]
+        },
+        {
+          "ref": "grass_block",
+          "position": [
+            -15,
+            1,
+            -5
+          ]
+        },
+        {
+          "ref": "dirt_block",
+          "position": [
+            -16.5,
+            1,
+            -5
+          ]
+        },
+        {
+          "ref": "stone_block",
+          "position": [
+            22,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "metal_block",
+          "position": [
+            -18,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "sheep",
+          "position": [
+            18,
+            1.0,
+            12
+          ]
+        },
+        {
+          "ref": "pig",
+          "position": [
+            -12,
+            1.0,
+            20
+          ]
+        },
+        {
+          "ref": "chicken",
+          "position": [
+            20,
+            1.0,
+            18
+          ]
+        },
+        {
+          "ref": "zombie",
+          "position": [
+            -60,
+            1.0,
+            -20
+          ]
+        },
+        {
+          "ref": "skeleton",
+          "position": [
+            60,
+            1.0,
+            -60
+          ]
+        },
+        {
+          "ref": "goblin",
+          "position": [
+            -60,
+            1.0,
+            60
+          ]
+        }
       ]
     }
   ]

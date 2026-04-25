@@ -753,7 +753,7 @@
           "ref": "enemy_soldier",
           "position": [
             -30,
-            0,
+            1.5,
             -25
           ]
         },
@@ -761,7 +761,7 @@
           "ref": "enemy_soldier",
           "position": [
             20,
-            0,
+            1.5,
             -30
           ]
         },
@@ -769,7 +769,7 @@
           "ref": "enemy_female",
           "position": [
             -15,
-            0,
+            1.5,
             10
           ]
         },
@@ -777,7 +777,7 @@
           "ref": "enemy_soldier",
           "position": [
             35,
-            0,
+            1.5,
             15
           ]
         },
@@ -785,7 +785,7 @@
           "ref": "enemy_female",
           "position": [
             -40,
-            0,
+            1.5,
             30
           ]
         },
@@ -793,7 +793,7 @@
           "ref": "enemy_soldier",
           "position": [
             10,
-            0,
+            1.5,
             -40
           ]
         },
@@ -801,7 +801,7 @@
           "ref": "enemy_female",
           "position": [
             30,
-            0,
+            1.5,
             -15
           ]
         },
@@ -809,7 +809,7 @@
           "ref": "enemy_soldier",
           "position": [
             -25,
-            0,
+            1.5,
             -40
           ]
         },
@@ -817,7 +817,7 @@
           "ref": "enemy_soldier",
           "position": [
             45,
-            0,
+            1.5,
             5
           ]
         },
@@ -825,7 +825,7 @@
           "ref": "enemy_female",
           "position": [
             -10,
-            0,
+            1.5,
             -5
           ]
         },
@@ -833,7 +833,7 @@
           "ref": "enemy_soldier",
           "position": [
             15,
-            0,
+            1.5,
             25
           ]
         },
@@ -841,7 +841,7 @@
           "ref": "enemy_female",
           "position": [
             -35,
-            0,
+            1.5,
             0
           ]
         }
