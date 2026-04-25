@@ -433,7 +433,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "prop"
       ],
@@ -513,7 +513,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "prop"
       ],

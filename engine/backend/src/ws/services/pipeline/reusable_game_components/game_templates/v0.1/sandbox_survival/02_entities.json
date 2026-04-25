@@ -233,7 +233,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -250,7 +250,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -267,7 +267,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -284,7 +284,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree"
       ],
@@ -857,7 +857,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "light"
@@ -874,7 +874,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "light"
@@ -891,7 +891,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "shelter"

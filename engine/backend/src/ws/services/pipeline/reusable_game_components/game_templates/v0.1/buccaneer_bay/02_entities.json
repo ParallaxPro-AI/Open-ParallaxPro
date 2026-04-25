@@ -493,7 +493,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "decoration",
         "tree"
@@ -510,7 +510,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "decoration",
         "tree"
@@ -527,7 +527,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "decoration",
         "tree"
