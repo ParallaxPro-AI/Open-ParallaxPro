@@ -99,6 +99,8 @@ class RTSHealthBarsSystem extends GameScript {
         debug.tracked = stats.tracked;
         debug.onscreen = stats.onscreen;
         debug.offscreen = stats.offscreen;
+        if (stats.canvasW) debug.canvasW = stats.canvasW;
+        if (stats.scale) debug.scale = stats.scale;
 
         this.scene.events.ui.emit("hud_update", { healthBars: bars, healthBarsDebug: debug });
     }
@@ -146,6 +148,24 @@ class RTSHealthBarsSystem extends GameScript {
     }
 
     _project(entities, out, stats) {
+        // The HUD iframe gets transform:scale(canvas_w/1920) applied by
+        // html_ui_manager when the canvas is narrower than 1920px (always
+        // is, in practice). Its internal coordinate space stays 1920-wide,
+        // so a worldToScreen result in canvas pixels has to be remapped to
+        // iframe pixels = canvas_px * 1920 / canvas_w. Compute the scale
+        // here once per frame and pass it to the HUD as a multiplier.
+        var canvasW = 1920;
+        if (typeof document !== "undefined") {
+            var c = document.querySelector(".viewport-canvas-container canvas");
+            if (c && c.clientWidth) canvasW = c.clientWidth;
+        }
+        // applyScale only kicks in when the canvas is narrower than 1920;
+        // at >=1920 the iframe is 1:1 with the canvas. transform:scale is
+        // uniform, so the same scale applies to both axes.
+        var scale = (canvasW < 1920) ? (1920 / canvasW) : 1;
+        stats.canvasW = canvasW;
+        stats.scale = scale;
+
         for (var i = 0; i < entities.length; i++) {
             var e = entities[i];
             var row = this._hp[e.id];
@@ -159,8 +179,8 @@ class RTSHealthBarsSystem extends GameScript {
             var pct = row.current / row.max;
             out.push({
                 id: String(e.id),
-                x: sp.x,
-                y: sp.y,
+                x: sp.x * scale,
+                y: sp.y * scale,
                 pct: pct,
                 hp: Math.ceil(row.current),
                 max: Math.ceil(row.max),

@@ -127,7 +127,9 @@
       ' enemies=' + d.enemies +
       ' tracked=' + d.tracked +
       ' onscr=' + d.onscreen +
-      ' offscr=' + d.offscreen;
+      ' offscr=' + d.offscreen +
+      (d.canvasW ? ' canvas=' + d.canvasW : '') +
+      (d.scale ? ' scale=' + d.scale.toFixed(2) : '');
     if (!d.hasWorldToScreen || !d.gameActive) debugEl.className = 'bad';
     else if (d.tracked === 0 || d.onscreen === 0) debugEl.className = 'warn';
     else debugEl.className = '';
