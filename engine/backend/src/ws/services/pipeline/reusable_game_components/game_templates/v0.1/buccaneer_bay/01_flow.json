@@ -136,7 +136,8 @@
       "active_systems": [
         "mp_bridge",
         "pirate_voyage",
-        "ocean_atmosphere"
+        "ocean_atmosphere",
+        "entity_health_bars"
       ],
       "start": "sailing",
       "on_enter": [
@@ -146,7 +147,8 @@
         "show_ui:hud/gold_purse",
         "show_ui:hud/ship_status",
         "show_ui:hud/spyglass_compass",
-        "show_ui:hud/crosshair"
+        "show_ui:hud/crosshair",
+        "show_ui:hud/entity_health_bars"
       ],
       "on_exit": [
         "hide_ui:hud/ping",
@@ -155,6 +157,7 @@
         "hide_ui:hud/ship_status",
         "hide_ui:hud/spyglass_compass",
         "hide_ui:hud/crosshair",
+        "hide_ui:hud/entity_health_bars",
         "hide_ui:pause_menu"
       ],
       "substates": {

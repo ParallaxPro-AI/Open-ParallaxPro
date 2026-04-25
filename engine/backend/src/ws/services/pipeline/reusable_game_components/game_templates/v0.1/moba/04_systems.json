@@ -1,5 +1,21 @@
 {
   "systems": {
+    "entity_health_bars": {
+      "description": "Classic MOBA HP bars over the player's hero, allied minions, towers, and every enemy hero/minion/tower. Heroes 500 HP, towers 1500 HP, minions 80 HP — bars are how the player reads the lane.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player", "hero"],
+        "enemyTags": ["minion", "tower"],
+        "showAllies": true,
+        "defaultMax": 100,
+        "tagHpOverrides": {
+          "hero": 500,
+          "tower": 1500,
+          "minion": 80
+        },
+        "heightAbove": 2.5
+      }
+    },
     "minion_spawner": {
       "description": "Spawns minion waves for both teams periodically",
       "script": "gameplay/minion_spawner.ts",

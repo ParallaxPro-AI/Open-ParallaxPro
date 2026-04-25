@@ -60,7 +60,8 @@
             "sandbox_world",
             "day_night_cycle",
             "mob_spawner",
-            "crafting_system"
+            "crafting_system",
+            "entity_health_bars"
           ],
           "active_behaviors": [
             "sandbox_movement",
@@ -77,6 +78,7 @@
             "show_ui:hud/hotbar",
             "show_ui:hud/crosshair",
             "show_ui:hud/day_indicator",
+            "show_ui:hud/entity_health_bars",
             "emit:game.player_respawned",
             "play_sound:/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
           ],
@@ -84,7 +86,8 @@
             "hide_ui:hud/survival_hud",
             "hide_ui:hud/hotbar",
             "hide_ui:hud/crosshair",
-            "hide_ui:hud/day_indicator"
+            "hide_ui:hud/day_indicator",
+            "hide_ui:hud/entity_health_bars"
           ],
           "transitions": [
             {

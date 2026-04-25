@@ -5,10 +5,26 @@
       "script": "gameplay/rts_input.ts",
       "params": {}
     },
-    "rts_health_bars": {
-      "description": "Tracks current/max HP for every active player- and enemy-side entity (initialised by tag, updated via entity_damaged / entity_healed / entity_killed) and projects each one to screen-space via worldToScreen so the rts_health_bars HUD can render a green ally / red enemy bar above the unit.",
-      "script": "gameplay/rts_health_bars.ts",
-      "params": {}
+    "entity_health_bars": {
+      "description": "World-anchored HP bars over every active player- and enemy-side entity. Tags player_unit/worker/player_building as allies and enemy_unit/enemy_building as enemies; bumps building HP to 500 and tank/mech HP to 150-200 to match the per-behavior _health values in unit_combat / worker_ai.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player_unit", "worker", "player_building"],
+        "enemyTags": ["enemy_unit", "enemy_building"],
+        "showAllies": true,
+        "defaultMax": 100,
+        "tagHpOverrides": {
+          "worker": 40,
+          "player_building": 500,
+          "enemy_building": 500,
+          "battle_mech": 200,
+          "siege_tank": 200,
+          "tank": 150,
+          "mech": 150,
+          "medic": 80
+        },
+        "heightAbove": 2.4
+      }
     },
     "resource_system": {
       "description": "Manages crystal mining, energy harvesting, supply tracking, and resource income — workers deliver gathered resources to the nearest command center or refinery",

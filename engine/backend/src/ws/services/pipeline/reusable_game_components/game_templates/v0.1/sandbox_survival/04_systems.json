@@ -1,5 +1,21 @@
 {
   "systems": {
+    "entity_health_bars": {
+      "description": "Red HP bar over every hostile mob (zombies, skeletons, undead, elites, bosses) so the player can see which threats are about to die. Player HP is in the survival_hud panel — allies are off.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player"],
+        "enemyTags": ["enemy", "hostile"],
+        "showAllies": false,
+        "defaultMax": 100,
+        "tagHpOverrides": {
+          "boss": 500,
+          "elite": 200,
+          "undead": 80
+        },
+        "heightAbove": 2.2
+      }
+    },
     "sandbox_world": {
       "description": "Core sandbox mechanics — block mining and placement, inventory management, resource tracking, tool durability, item drops and pickup",
       "script": "gameplay/sandbox_world.ts",

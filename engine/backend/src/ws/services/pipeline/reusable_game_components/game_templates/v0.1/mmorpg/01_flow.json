@@ -58,6 +58,7 @@
           "description": "Explore the world \u2014 complete quests, fight monsters, loot treasure, level up",
           "active_systems": [
             "mmorpg_interact",
+            "entity_health_bars",
             "quest_system",
             "combat_rpg",
             "loot_xp",
@@ -85,6 +86,7 @@
             "show_ui:hud/xp_bar",
             "show_ui:hud/target_frame",
             "show_ui:hud/chat_log",
+            "show_ui:hud/entity_health_bars",
             "emit:game.player_respawned",
             "play_sound:/assets/kenney/audio/rpg_audio/doorOpen_1.ogg"
           ],
@@ -95,7 +97,8 @@
             "hide_ui:hud/quest_tracker",
             "hide_ui:hud/xp_bar",
             "hide_ui:hud/target_frame",
-            "hide_ui:hud/chat_log"
+            "hide_ui:hud/chat_log",
+            "hide_ui:hud/entity_health_bars"
           ],
           "transitions": [
             {

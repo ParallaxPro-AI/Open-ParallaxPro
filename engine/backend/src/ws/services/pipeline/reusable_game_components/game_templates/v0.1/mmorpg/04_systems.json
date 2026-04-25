@@ -5,6 +5,25 @@
       "script": "gameplay/mmorpg_interact.ts",
       "params": {}
     },
+    "entity_health_bars": {
+      "description": "World-anchored red HP bar over every active hostile mob (goblins / undead / shadow / elites / bosses). Player HP lives in the health_mana panel; allies are off so the screen stays quiet during quest flow.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player", "hero"],
+        "enemyTags": ["enemy", "hostile"],
+        "showAllies": false,
+        "defaultMax": 100,
+        "tagHpOverrides": {
+          "goblin": 50,
+          "undead": 80,
+          "shadow": 100,
+          "elite": 200,
+          "boss": 800,
+          "final_boss": 2000
+        },
+        "heightAbove": 2.5
+      }
+    },
     "quest_system": {
       "description": "Manages quest log, NPC dialogue trees, quest objectives (kill, collect, deliver, explore), quest markers on minimap, quest rewards (XP, gold, items), and quest chain progression through the main storyline",
       "script": "gameplay/quest_system.ts",

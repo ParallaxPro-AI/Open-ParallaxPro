@@ -1,5 +1,19 @@
 {
   "systems": {
+    "entity_health_bars": {
+      "description": "Red HP bar over every hostile vessel — enemy galleons, ghost ships, and sea monsters. Lifted high (4 world-units) so the bar sits above the mast rather than inside the hull. Allies are off; the player's own ship has its dedicated ship_status panel.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player"],
+        "enemyTags": ["enemy", "ghost"],
+        "showAllies": false,
+        "defaultMax": 200,
+        "tagHpOverrides": {
+          "ghost": 300
+        },
+        "heightAbove": 4
+      }
+    },
     "pirate_voyage": {
       "description": "Treasure-hunt match rules — host spawns floating loot, every captain claims gold by sailing through it. Wins on first to scoreToWin gold or highest plunder when round timer expires.",
       "script": "mp/pirate_voyage.ts",

@@ -50,7 +50,8 @@
       "description": "Battle royale",
       "active_systems": [
         "zone_system",
-        "battle_tracker"
+        "battle_tracker",
+        "entity_health_bars"
       ],
       "active_behaviors": [
         "fps_camera",
@@ -64,7 +65,8 @@
         "hide_cursor",
         "show_ui:hud/ammo",
         "show_ui:hud/crosshair",
-        "show_ui:hud/battle_info"
+        "show_ui:hud/battle_info",
+        "show_ui:hud/entity_health_bars"
       ],
       "transitions": [
         {

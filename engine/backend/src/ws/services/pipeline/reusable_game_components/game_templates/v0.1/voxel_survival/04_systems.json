@@ -1,5 +1,21 @@
 {
   "systems": {
+    "entity_health_bars": {
+      "description": "Red HP bar over every hostile mob (zombies, undead, elites, bosses) so the player can see which threats are about to die. Allies are off — first-person, the player's HP is in the vitals panel.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player"],
+        "enemyTags": ["enemy", "hostile"],
+        "showAllies": false,
+        "defaultMax": 100,
+        "tagHpOverrides": {
+          "boss": 500,
+          "elite": 200,
+          "undead": 80
+        },
+        "heightAbove": 2.2
+      }
+    },
     "voxel_world": {
       "description": "Core first-person voxel mechanics — block mining, placement, 36-slot inventory with 9-slot hotbar, tool durability, furnace smelting, ore processing, food cooking, and crafting recipes for tools, weapons, armor, and structures",
       "script": "gameplay/voxel_world.ts",
