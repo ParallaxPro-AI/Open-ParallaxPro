@@ -414,17 +414,12 @@
     },
     "runner_player": {
       "mesh": {
-        "type": "capsule",
-        "color": [
-          0.95,
-          0.2,
-          0.2,
-          1
-        ],
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/platformer_game_kit/Character.glb",
         "scale": [
-          0.85,
-          1.0,
-          0.85
+          1,
+          1,
+          1
         ]
       },
       "physics": {
@@ -440,6 +435,7 @@
       "tags": [
         "player"
       ],
+      "label": false,
       "behaviors": [
         {
           "name": "sidescroll_runner",
