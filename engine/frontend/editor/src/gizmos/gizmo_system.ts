@@ -721,11 +721,31 @@ export class GizmoSystem {
         let positions = (collider as any).collisionPositions as Float32Array | null;
         let indices = (collider as any).collisionIndices as Uint32Array | null;
 
+        // Fallback chain mirrors physics_system.ts MESH branch so the
+        // gizmo matches what the runtime actually simulates:
+        //   1. collider.collisionPositions/Indices (sidecar or autoFit)
+        //   2. mr.meshData.positions/indices (parsed GLB cache)
+        //   3. .collision.bin sidecar fetch (still useful for poly_haven)
+        //   4. mr.gpuMesh.boundMin/boundMax → wireframe box
+        //   5. drawBoxCollider with default 0.5 halfExtents
+        // Without tiers 2 and 4, kenney/quaternius assets that don't ship
+        // a sidecar drew a 1×1×1 box on entities whose actual mesh might
+        // be 0.4m × 5m × 0.4m (streetlight) — the visual lie that
+        // prompted "edit-mode collider is tiny".
+        const mr = entity.getComponent('MeshRendererComponent') as any;
+
         if (!positions || !indices) {
-            const mr = entity.getComponent('MeshRendererComponent') as any;
+            const md = mr?.meshData;
+            if (md?.positions && md?.indices) {
+                positions = md.positions instanceof Float32Array ? md.positions : new Float32Array(md.positions);
+                indices = md.indices instanceof Uint32Array ? md.indices : new Uint32Array(md.indices);
+            }
+        }
+
+        if (!positions || !indices) {
             const meshAsset = mr?.meshAsset as string | undefined;
             if (!meshAsset) {
-                this.drawBoxCollider(g, entity, collider);
+                this.drawBoxFromMeshBounds(g, entity, collider, mr);
                 return;
             }
 
@@ -735,7 +755,7 @@ export class GizmoSystem {
                 positions = cached.positions;
                 indices = cached.indices;
             } else if (cached === null) {
-                this.drawBoxCollider(g, entity, collider);
+                this.drawBoxFromMeshBounds(g, entity, collider, mr);
                 return;
             } else if (!this.meshColliderPending.has(binUrl)) {
                 this.meshColliderPending.add(binUrl);
@@ -759,10 +779,10 @@ export class GizmoSystem {
                     this.meshColliderPending.delete(binUrl);
                     this.meshColliderCache.set(binUrl, null);
                 });
-                this.drawBoxCollider(g, entity, collider);
+                this.drawBoxFromMeshBounds(g, entity, collider, mr);
                 return;
             } else {
-                this.drawBoxCollider(g, entity, collider);
+                this.drawBoxFromMeshBounds(g, entity, collider, mr);
                 return;
             }
         }
@@ -807,6 +827,52 @@ export class GizmoSystem {
             g.closePath();
             g.stroke();
         }
+    }
+
+    // Mesh-bounds fallback for drawMeshCollider when no trimesh data is
+    // available: read mr.gpuMesh.boundMin/boundMax (set by render_system
+    // at upload time, so they reflect any registry transforms that have
+    // been baked into the visible mesh) and draw a wireframe box at
+    // those dimensions. If gpuMesh isn't ready yet, fall through to the
+    // old drawBoxCollider path so we at least show something.
+    private drawBoxFromMeshBounds(g: CanvasRenderingContext2D, entity: any, collider: ColliderComponent, mr: any): void {
+        const gm = mr?.gpuMesh;
+        if (!gm?.boundMin || !gm?.boundMax) {
+            this.drawBoxCollider(g, entity, collider);
+            return;
+        }
+        const bMin = gm.boundMin, bMax = gm.boundMax;
+        const h = new Vec3((bMax.x - bMin.x) * 0.5, (bMax.y - bMin.y) * 0.5, (bMax.z - bMin.z) * 0.5);
+        const c = new Vec3((bMin.x + bMax.x) * 0.5, (bMin.y + bMax.y) * 0.5, (bMin.z + bMax.z) * 0.5);
+
+        const worldMatrix = entity.getWorldMatrix();
+        const localCorners: Vec3[] = [];
+        for (let i = 0; i < 8; i++) {
+            localCorners.push(new Vec3(
+                c.x + ((i & 1) ? h.x : -h.x),
+                c.y + ((i & 2) ? h.y : -h.y),
+                c.z + ((i & 4) ? h.z : -h.z),
+            ));
+        }
+        const screenCorners = localCorners.map(lc => this.worldToScreen(worldMatrix.transformPoint(lc)));
+        if (screenCorners.some(sc => sc === null)) return;
+        const sc = screenCorners as { x: number; y: number }[];
+
+        const edges = [
+            [0, 1], [2, 3], [4, 5], [6, 7],
+            [0, 2], [1, 3], [4, 6], [5, 7],
+            [0, 4], [1, 5], [2, 6], [3, 7],
+        ];
+        g.strokeStyle = 'rgba(0, 255, 128, 0.7)';
+        g.lineWidth = 1.5;
+        g.setLineDash([5, 3]);
+        for (const [a, b] of edges) {
+            g.beginPath();
+            g.moveTo(sc[a].x, sc[a].y);
+            g.lineTo(sc[b].x, sc[b].y);
+            g.stroke();
+        }
+        g.setLineDash([]);
     }
 
     private drawLocalCircle(

@@ -1302,6 +1302,12 @@ export class EditorContext extends EventBus {
         } else {
             col.size = { x: width, y: height, z: depth };
             col.center = { x: centerX, y: centerY, z: centerZ };
+            // Without _forceRecreate, the box collider's halfExtents update
+            // here but Rapier still has the old shape — bodies created
+            // before GLB load stay at the 1×1×1 fallback even after
+            // autoFitCollider runs. Same fix as the trimesh branch above.
+            const rb = entity.getComponent('RigidbodyComponent') as any;
+            if (rb) rb._forceRecreate = true;
         }
         col.markDirty();
     }
