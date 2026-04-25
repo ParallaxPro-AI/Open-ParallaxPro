@@ -75,9 +75,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            16,
-            0.1,
-            2.25
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -133,9 +133,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            16,
-            1.6,
-            0.15
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -167,9 +167,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.15,
-            1.6,
-            2.25
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -415,9 +415,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.2,
-            1.6,
-            0.2
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
