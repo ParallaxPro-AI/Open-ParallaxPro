@@ -688,11 +688,9 @@ if (eventData) {
     var texturePaths = parseCatalog('TEXTURES.md');
     var allAssets = new Set([...modelPaths, ...audioPaths, ...texturePaths]);
 
-    // Skip if no catalogs found (offline/self-hosted dev without assets)
-    if (allAssets.size === 0) {
-        console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
-        process.exit(0);
-    }
+    // Skip if no catalogs found (offline/self-hosted dev without assets).
+    // `return` (not process.exit) so subsequent checks below still run.
+    if (allAssets.size === 0) return;
 
     var assetErrors = [];
 
@@ -770,6 +768,259 @@ if (eventData) {
 // custom meshes are still supported by the engine for legacy projects and
 // edge cases. The 40 templates demonstrate the new convention by example
 // instead of the validator enforcing it.)
+
+
+// ═════════════════════════════════════════════════════════════════════
+// 9. Tag lookups resolve
+// ═════════════════════════════════════════════════════════════════════
+// findEntitiesByTag("X") that returns [] is invisible at runtime — combat
+// targets nothing, AI patrols nothing, the system silently does nothing.
+// This shape broke combat across rts_battle (tag "enemy" / "military"
+// queried, no entity carried either), mmorpg (tag "hostile"),
+// sandbox_survival + voxel_survival ("hostile"), pipe_runner ("powerup",
+// "spawned_mushroom"), multiplayer_zone_royale ("royale_loot"),
+// multiplayer_neon_cycles ("trail").
+//
+// Spawn-aware: a tag counts as "known" if (a) some entity in
+// 02_entities.json carries it, OR (b) any script ever calls addTag(_,"X")
+// (runtime-added), OR (c) a script spawnEntity's a prefab whose def
+// carries that tag.
+function stripCommentsForScan(src) {
+    return src
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:\\])\/\/.*$/gm, '$1');
+}
+(function checkTagLookups() {
+    var knownTags = new Set();
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        var tagsArr = defs[defKeys[di]].tags || [];
+        for (var ti = 0; ti < tagsArr.length; ti++) {
+            if (typeof tagsArr[ti] === 'string') knownTags.add(tagsArr[ti]);
+        }
+    }
+    // Walk all scripts for addTag(...) calls — any literal string arg gets
+    // added to the known set. Match both addTag(id, "X") and entity.addTag("X").
+    var scriptEntries = Object.entries(allScripts);
+    for (var sei = 0; sei < scriptEntries.length; sei++) {
+        var src = stripCommentsForScan(scriptEntries[sei][1]);
+        for (var m of src.matchAll(/\baddTag\s*\([^,)]*(?:,\s*)?["']([^"']+)["']/g)) {
+            knownTags.add(m[1]);
+        }
+    }
+    // Same for tags carried by any spawnEntity("name") target (the spawned
+    // prefab inherits its def's tags). Include tags from the def even if no
+    // placement of that prefab exists in 03_worlds.json.
+    for (var sei2 = 0; sei2 < scriptEntries.length; sei2++) {
+        var src2 = stripCommentsForScan(scriptEntries[sei2][1]);
+        for (var sm of src2.matchAll(/\bspawnEntity\s*\(\s*["']([^"']+)["']/g)) {
+            var prefab = defs[sm[1]];
+            if (!prefab || !prefab.tags) continue;
+            for (var pti = 0; pti < prefab.tags.length; pti++) {
+                if (typeof prefab.tags[pti] === 'string') knownTags.add(prefab.tags[pti]);
+            }
+        }
+    }
+
+    var tagErrors = [];
+    var seen = new Set();
+    for (var sei3 = 0; sei3 < scriptEntries.length; sei3++) {
+        var scriptKey = scriptEntries[sei3][0];
+        var srcRaw = scriptEntries[sei3][1];
+        var src3 = stripCommentsForScan(srcRaw);
+        for (var tm of src3.matchAll(/\bfindEntitiesByTag\s*\(\s*["']([^"']+)["']\s*\)/g)) {
+            var tag = tm[1];
+            if (knownTags.has(tag)) continue;
+            var key = scriptKey + '|' + tag;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            tagErrors.push(
+                scriptKey + ': findEntitiesByTag("' + tag + '") will always return [] — ' +
+                'no entity in 02_entities.json carries tag "' + tag + '", no script calls addTag(_, "' + tag + '"), ' +
+                'and no spawnEntity target prefab carries it. Either tag the relevant entities, addTag at runtime, ' +
+                'or fix the literal in this lookup.'
+            );
+        }
+    }
+    if (tagErrors.length > 0) {
+        console.error('Tag-lookup validation failed: ' + tagErrors.length + ' broken lookup(s). ' + tagErrors[0]);
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
+// 10. Name lookups resolve
+// ═════════════════════════════════════════════════════════════════════
+// findEntityByName("X") that returns null silently disables every
+// downstream branch (camera follow, AI targeting, etc.). The runtime
+// entity name is the title-cased version of the def key
+// (level_assembler.ts:nameFromRef: "player_car" → "Player Car"), unless
+// a 03_worlds.json placement gives an explicit `name` override. Engine's
+// findEntityByName falls back to a case-insensitive scan, so we accept
+// case-insensitive matches.
+(function checkNameLookups() {
+    var knownNames = new Set();
+    function titleCase(key) {
+        return key.split('_').map(function(w) {
+            return w.charAt(0).toUpperCase() + w.slice(1);
+        }).join(' ');
+    }
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        knownNames.add(titleCase(defKeys[di]));
+    }
+    var worlds = loadJSON('03_worlds.json');
+    var worldList = (worlds && worlds.worlds) || worlds || [];
+    if (!Array.isArray(worldList) && worldList && typeof worldList === 'object') {
+        worldList = Object.values(worldList);
+    }
+    for (var wi = 0; wi < (worldList || []).length; wi++) {
+        var placements = (worldList[wi] && worldList[wi].placements) || [];
+        for (var pi = 0; pi < placements.length; pi++) {
+            if (placements[pi] && typeof placements[pi].name === 'string') {
+                knownNames.add(placements[pi].name);
+            }
+        }
+    }
+    // Scripts can rename entities via `entity.name = "..."`. Rare, but
+    // accept these as known to avoid FPs.
+    var scriptEntries = Object.entries(allScripts);
+    for (var sei = 0; sei < scriptEntries.length; sei++) {
+        var src = stripCommentsForScan(scriptEntries[sei][1]);
+        for (var nm of src.matchAll(/\.name\s*=\s*["']([^"']+)["']/g)) knownNames.add(nm[1]);
+    }
+    var lowerNames = new Set();
+    for (var n of knownNames) lowerNames.add(n.toLowerCase());
+
+    // Coalesce `||`-chained fallback lookups so we don't flag a backup
+    // name when the primary one resolves. _entity_label.ts uses
+    // `findEntityByName("Camera") || findEntityByName("Main Camera")` —
+    // the chain is OK as long as at least one member resolves.
+    function isKnown(name) {
+        return knownNames.has(name) || lowerNames.has(name.toLowerCase());
+    }
+
+    var nameErrors = [];
+    var seen = new Set();
+    for (var sei2 = 0; sei2 < scriptEntries.length; sei2++) {
+        var scriptKey = scriptEntries[sei2][0];
+        var src2 = stripCommentsForScan(scriptEntries[sei2][1]);
+        // First, build the set of names that participate in a `||`-chain
+        // where at least one alternative resolves — those are valid.
+        var chainSafe = new Set();
+        for (var cm of src2.matchAll(
+            /findEntityByName\s*\(\s*["']([^"']+)["']\s*\)(\s*\|\|\s*(?:\w+\.)*findEntityByName\s*\(\s*["']([^"']+)["']\s*\))+/g
+        )) {
+            // Re-scan the matched chain to extract every name in it.
+            var chainNames = [];
+            var chainMatches = cm[0].matchAll(/findEntityByName\s*\(\s*["']([^"']+)["']\s*\)/g);
+            for (var cmInner of chainMatches) chainNames.push(cmInner[1]);
+            if (chainNames.some(isKnown)) {
+                for (var cn of chainNames) chainSafe.add(cn);
+            }
+        }
+        for (var fm of src2.matchAll(/\bfindEntityByName\s*\(\s*["']([^"']+)["']\s*\)/g)) {
+            var lookup = fm[1];
+            if (isKnown(lookup) || chainSafe.has(lookup)) continue;
+            var key = scriptKey + '|' + lookup;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            // Build a hint with the closest title-cased candidates so the
+            // author sees the right runtime name to use.
+            var candidates = [];
+            for (var c of knownNames) {
+                if (c.toLowerCase().indexOf(lookup.toLowerCase().split(' ')[0]) >= 0 ||
+                    lookup.toLowerCase().indexOf(c.toLowerCase()) >= 0) candidates.push(c);
+            }
+            var hint = candidates.length > 0
+                ? ' Closest known runtime names: ' + candidates.slice(0, 3).map(function(x) { return '"' + x + '"'; }).join(', ') + '.'
+                : '';
+            nameErrors.push(
+                scriptKey + ': findEntityByName("' + lookup + '") will always return null — ' +
+                'no entity is registered under that name. Runtime entity names are derived by title-casing the ' +
+                '02_entities.json def key (e.g. "player_car" → "Player Car"), or by an explicit `name` field on ' +
+                'a 03_worlds.json placement.' + hint
+            );
+        }
+    }
+    if (nameErrors.length > 0) {
+        console.error('Name-lookup validation failed: ' + nameErrors.length + ' broken lookup(s). ' + nameErrors[0]);
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
+// 11. setPosition(this.entity.id) in onUpdate must run on a kinematic body
+// ═════════════════════════════════════════════════════════════════════
+// Two failure modes share this static signature:
+//   - static rigidbody: collider teleports under riders without firing
+//     carryKinematicRiders, so the player won't ride a moving platform.
+//   - dynamic rigidbody: setPosition routes through rb.teleport which
+//     calls setLinvel(0). Every frame zeros the body's velocity, so
+//     gravity / knockback / authored forces never accumulate — the body
+//     looks alive (visual updates each frame) but no physics actually
+//     applies to it.
+// Either way, if the script fully owns this entity's position, the
+// entity should be physics.type=kinematic. If physics IS supposed to
+// integrate (gravity, knockback), the script should use setLinearVelocity
+// instead of setPosition.
+function extractMethodBody(src, name) {
+    var m = src.match(new RegExp(name + '\\s*\\([^)]*\\)\\s*\\{'));
+    if (!m) return '';
+    var i = m.index + m[0].length;
+    var depth = 1;
+    while (i < src.length && depth > 0) {
+        var c = src[i];
+        if (c === '{') depth++;
+        else if (c === '}') depth--;
+        i++;
+    }
+    return src.slice(m.index, i);
+}
+(function checkScriptOwnedMotion() {
+    var motionErrors = [];
+    var seen = new Set();
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        var key = defKeys[di];
+        var def = defs[key];
+        if (!def || def.physics === false) continue;
+        if (!def.mesh) continue;
+        var ptype = ((def.physics && def.physics.type) || 'static').toLowerCase();
+        if (ptype === 'kinematic') continue;
+        var behaviors = def.behaviors || [];
+        for (var bi = 0; bi < behaviors.length; bi++) {
+            var spath = behaviors[bi].script || behaviors[bi].path;
+            if (!spath) continue;
+            var src = allScripts['behaviors/' + spath.replace(/^\/+/, '')]
+                   || allScripts['systems/' + spath.replace(/^\/+/, '')];
+            if (!src) continue;
+            var clean = stripCommentsForScan(src);
+            var onUpd = extractMethodBody(clean, 'onUpdate') ||
+                        extractMethodBody(clean, 'onFixedUpdate');
+            if (!onUpd) continue;
+            if (!/\b(?:scene|self\.scene|this\.scene)\.setPosition\s*\(\s*(?:this\.entity(?:\.id)?|self\.entity(?:\.id)?)\s*,/.test(onUpd)) continue;
+            var dedupe = key + '|' + spath;
+            if (seen.has(dedupe)) continue;
+            seen.add(dedupe);
+            motionErrors.push(
+                'entity "' + key + '" (physics.type=' + ptype + ') has behavior "' + spath +
+                '" that calls scene.setPosition(this.entity.id, ...) inside onUpdate. ' +
+                (ptype === 'static'
+                    ? 'A static rigidbody can\'t carry riders — physics_system.ts carryKinematicRiders only iterates kinematic bodies, so the player won\'t ride this entity. '
+                    : 'Dynamic + setPosition zeros linear velocity every frame (rb.teleport calls setLinvel(0)), so gravity/knockback/forces never accumulate — the body looks alive but no physics applies. ') +
+                'If the script fully owns position, set physics.type="kinematic" in 02_entities.json. ' +
+                'If physics IS meant to integrate, use scene.setLinearVelocity(this.entity.id, vec) instead of setPosition.'
+            );
+        }
+    }
+    if (motionErrors.length > 0) {
+        console.error('Script-owned-motion validation failed: ' + motionErrors.length + ' entity behavior(s). ' + motionErrors[0]);
+        process.exit(1);
+    }
+})();
 
 
 console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
