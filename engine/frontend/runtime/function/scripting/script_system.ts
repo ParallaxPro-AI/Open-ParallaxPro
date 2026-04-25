@@ -4,6 +4,7 @@ import { InputSystem } from '../input/input_system.js';
 
 interface ScriptInstance {
     entityId: number;
+    scriptName: string;
     script: GameScript;
     started: boolean;
 }
@@ -103,38 +104,52 @@ export class ScriptSystem {
     }
 
     /**
-     * Reset all script instances so the next tickUpdate() re-fires their
-     * `onStart` lifecycle hook. Called by the engine on Play→Stop→Play
-     * transitions so behaviors that initialize event listeners,
-     * animation state, FSM bindings, or per-instance fields in
-     * onStart get a fresh init pass on the second Play.
+     * Tear down all script instances and reinstantiate them from their
+     * registered script classes. Called by the engine on Play→Stop→Play
+     * so the second Play starts with FRESH script state, not the dirty
+     * carry-over from first Play.
      *
-     * Without this reset, `inst.started` stayed `true` across the
-     * second Play and onStart never re-ran. The user-visible symptom
-     * was "after I press Play on the editor, then Stop, then Play
-     * again, the animations all don't work anymore" — behaviors with
-     * an `_currentAnim` cache that was set during first Play matched
-     * the desired anim every frame, so playAnimation never got called
-     * again, and the AnimatorComponent's stale state from first Play
-     * silently no-op'd in renders.
+     * Why full recreation instead of just resetting `started=false`:
+     * behaviors hold per-instance fields like `_currentAnim`,
+     * `_initialized`, `_collected`, `_aliveCount` that get set during
+     * first Play and persist as long as the script object lives. Even
+     * with onStart re-firing, those fields keep their first-Play
+     * values, so:
+     *   - sidescroll_platformer's `if (anim !== this._currentAnim)`
+     *     guard skipped the playAnimation call on second Play because
+     *     `_currentAnim` was already "Idle" from first Play, while
+     *     the engine had reset the AnimatorComponent. Animations
+     *     "all don't work" — user report on multiple games iter 6.
+     *   - any once-only state (`_levelComplete`, `_doorOpened`,
+     *     `_bossDefeated`) carried over visibly broken state.
      *
-     * Note this does NOT clear event listeners registered during the
-     * first Play's onStart. The consequence is that re-fired onStart
-     * may register DUPLICATE listeners. We accept that for now because
-     * removing listeners safely requires every behavior to track its
-     * own subscription handles, which is a much larger refactor.
-     * The duplicate fires are usually idempotent (state setters,
-     * not action emits) so this hasn't been observed to cause user
-     * problems in practice.
+     * Recreating from the registered class restores class-default
+     * field values (e.g. `_currentAnim = ""` initial) so the next
+     * onStart's "set initial anim" code path runs and the
+     * playAnimation call lands on a fresh AnimatorComponent.
+     *
+     * Per-entity event listeners are cleaned up by detachScripts ->
+     * scene._cleanupEntityListeners — no duplicate-listener issue.
      */
     resetForReplay(): void {
+        // Snapshot before mutation (detach mutates this.instances).
+        const snapshots: Array<{ entityId: number; scriptName: string; entity: ScriptEntity }> = [];
         for (const inst of this.instances) {
-            inst.started = false;
-            // Clear the per-script behavior_active cache so the next
-            // active_behaviors emit on second Play overrides whatever
-            // value the first Play left behind.
-            const script = inst.script as any;
-            if (script._behaviorActive !== undefined) script._behaviorActive = undefined;
+            const ent = inst.script.entity;
+            if (!ent) continue;
+            snapshots.push({ entityId: inst.entityId, scriptName: inst.scriptName, entity: ent });
+        }
+        // Detach by entity (covers all scripts on each entity in one call,
+        // including the listener-cleanup hook) — call once per unique entity.
+        const seen = new Set<number>();
+        for (const s of snapshots) {
+            if (seen.has(s.entityId)) continue;
+            seen.add(s.entityId);
+            this.detachScripts(s.entityId);
+        }
+        // Reattach in original order so script-execution order is preserved.
+        for (const s of snapshots) {
+            this.attachScript(s.scriptName, s.entity);
         }
     }
 
@@ -159,6 +174,7 @@ export class ScriptSystem {
 
         this.instances.push({
             entityId: entity.id,
+            scriptName,
             script,
             started: false,
         });
