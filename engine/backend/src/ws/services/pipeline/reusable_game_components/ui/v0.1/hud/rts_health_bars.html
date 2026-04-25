@@ -120,14 +120,16 @@
       return;
     }
     debugEl.textContent =
-      'allies=' + d.allies +
+      'sys=' + (d.running ? 'on' : 'off') +
+      ' active=' + (d.gameActive ? 'yes' : 'NO') +
+      ' w2s=' + (d.hasWorldToScreen ? 'yes' : 'NO') +
+      ' allies=' + d.allies +
       ' enemies=' + d.enemies +
       ' tracked=' + d.tracked +
-      ' onscreen=' + d.onscreen +
-      ' offscreen=' + d.offscreen +
-      ' worldToScreen=' + (d.worldToScreen ? 'yes' : 'NO');
-    if (!d.worldToScreen) debugEl.className = 'bad';
-    else if (d.onscreen === 0) debugEl.className = 'warn';
+      ' onscr=' + d.onscreen +
+      ' offscr=' + d.offscreen;
+    if (!d.hasWorldToScreen || !d.gameActive) debugEl.className = 'bad';
+    else if (d.tracked === 0 || d.onscreen === 0) debugEl.className = 'warn';
     else debugEl.className = '';
   }
 

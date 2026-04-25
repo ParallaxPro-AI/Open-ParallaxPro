@@ -19,6 +19,16 @@ class RTSHealthBarsSystem extends GameScript {
 
     onStart() {
         var self = this;
+        // Heartbeat in onStart so the diagnostic strip moves off
+        // "waiting…" the moment the system loads, even before game_ready.
+        this.scene.events.ui.emit("hud_update", {
+            healthBarsDebug: {
+                running: true, gameActive: false,
+                hasWorldToScreen: !!(this.scene && this.scene.worldToScreen),
+                allies: 0, enemies: 0, tracked: 0, onscreen: 0, offscreen: 0,
+                phase: "onStart"
+            }
+        });
         this.scene.events.game.on("game_ready", function() {
             self._gameActive = true;
             self._hp = {};
@@ -47,11 +57,25 @@ class RTSHealthBarsSystem extends GameScript {
     }
 
     onUpdate(dt) {
-        if (!this._gameActive) return;
-        if (!this.scene.worldToScreen) return;
+        // Always publish a debug payload first so the diagnostic strip
+        // shows whether onUpdate is even running. Without this, an early
+        // return left the HUD stuck on "waiting…" and we couldn't tell
+        // whether the system was loaded.
+        var debug = {
+            running: true,
+            gameActive: !!this._gameActive,
+            hasWorldToScreen: !!(this.scene && this.scene.worldToScreen),
+            allies: 0, enemies: 0,
+            tracked: 0, onscreen: 0, offscreen: 0
+        };
 
-        // Re-scan every frame so newly produced units / spawned enemies pick
-        // up bars without needing a custom spawn event.
+        if (!this._gameActive || !this.scene || !this.scene.worldToScreen) {
+            this.scene.events.ui.emit("hud_update", { healthBars: [], healthBarsDebug: debug });
+            return;
+        }
+
+        // Re-scan every frame so newly produced units / spawned enemies
+        // pick up bars without needing a custom spawn event.
         var allies = this._collect([
             this.scene.findEntitiesByTag("player_unit") || [],
             this.scene.findEntitiesByTag("worker") || [],
@@ -67,17 +91,13 @@ class RTSHealthBarsSystem extends GameScript {
         this._project(allies, bars, stats);
         this._project(enemies, bars, stats);
 
-        this.scene.events.ui.emit("hud_update", {
-            healthBars: bars,
-            healthBarsDebug: {
-                allies: allies.length,
-                enemies: enemies.length,
-                tracked: stats.tracked,
-                onscreen: stats.onscreen,
-                offscreen: stats.offscreen,
-                worldToScreen: !!this.scene.worldToScreen
-            }
-        });
+        debug.allies = allies.length;
+        debug.enemies = enemies.length;
+        debug.tracked = stats.tracked;
+        debug.onscreen = stats.onscreen;
+        debug.offscreen = stats.offscreen;
+
+        this.scene.events.ui.emit("hud_update", { healthBars: bars, healthBarsDebug: debug });
     }
 
     // Build a flat, de-duplicated list of {entity, isEnemy} from tag pools,
