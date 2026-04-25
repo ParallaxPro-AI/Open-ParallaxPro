@@ -1525,6 +1525,19 @@ Quick mental checklist when something looks wrong but the validator passes:
     });
     ```
 
+29a. **Use `entity.transform.faceDirection(dx, dz)` instead of hardcoded `setRotationEuler(0, ±90, 0)` for motion-driven facing**: When a behaviour wants the character/vehicle mesh to face the direction of movement, do NOT compute yaw angles by hand. Hand-rolled angles are coin-flips — `±90`, `0 vs 180`, `Math.atan2(-vx, -vz) * 180/Math.PI` — and the right sign depends on the chosen GLB's intrinsic forward axis. Iteration 6's beat_em_up shipped with `setRotationEuler(0, +90, 0)` for "facing right" and the user reported "the character visual facing direction is opposite." **Rule: any time you'd write `setRotationEuler(0, <yaw>, 0)` to face a movement direction, replace it with `entity.transform.faceDirection(dx, dz)`.** The engine handles the math from a single source of truth (canonical forward = -Z) and works on any GLB. Only use raw `setRotationEuler` for non-motion rotations (steering, fixed orientation, mesh-relative tweaks). The `mesh_facing_tracks_motion` invariant catches mesh-faces-backward statically.
+
+    ```ts
+    // ❌ Old pattern — coin-flip on the sign:
+    if (this._facing > 0)      this.entity.transform.setRotationEuler(0,  90, 0);
+    else if (this._facing < 0) this.entity.transform.setRotationEuler(0, -90, 0);
+
+    // ✅ New pattern — engine handles the axis math:
+    if (Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01) {
+        this.entity.transform.faceDirection(dx, dz);
+    }
+    ```
+
 29. **Action methods (`_doAttack` / `_fire` / `_doSpecial` / `_swing`) must produce visible feedback in their body, every press**: When the player presses an action key, you owe them a visible reaction *that frame* — a swing animation, a projectile spawn, a brief mesh tweak (scale pulse, rotation kick), or a particle/VFX spawn. The fighter run d8f32a95 shipped without any of these: `_doAttack` ran damage logic + cooldown + a symbolic `melee_swing` emit, but had zero `playAnimation` calls anywhere in the artifact. The user said "no animation when im doing an attack." Audio alone is NOT sufficient — the user complaint is visual. A symbolic event emit is NOT sufficient either unless some other script's listener for that event actually animates; iteration 6's fighter emitted `melee_swing` into a void with zero subscribers. **Rule: every action method's body has ONE OR MORE of: `entity.playAnimation(...)`, `transform.scale/.rotation/setRotationEuler` mutation, `scene.spawnEntity(<projectile_or_vfx>)`, OR an emit whose listener verifiably animates.** The `action_has_visible_feedback` invariant catches this. Pattern:
 
     ```ts

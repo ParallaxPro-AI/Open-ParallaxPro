@@ -177,6 +177,60 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
               { primaryAction, moved: d });
           }
         }));
+        // ── Mesh facing tracks dominant motion ──
+        // After holding the primary action for 1s and moving a meaningful
+        // distance, the mesh's visible forward axis should not be 180° out
+        // of phase with the motion vector. Iteration 6's beat_em_up shipped
+        // with `setRotationEuler(0, +90, 0)` for `_facing=+1` (right) on a
+        // GLB whose intrinsic forward axis meant the model pointed AWAY
+        // from movement. The user said "facing direction is opposite."
+        //
+        // The check is universal — every locomotion genre with a visible
+        // character benefits. FPS and shooter strafe legitimately; for
+        // those we relax via the dotThreshold below (only fail on near-
+        // 180° anti-alignment, not mild misalignment from camera-relative
+        // movement). Pure-UI / paddle / clicker games are skipped because
+        // they don't have a "facing" concept.
+        if (!isPureUI && gameType !== 'unknown') {
+          results.push(guarded('mesh_facing_tracks_motion', () => {
+            if (!beforeP || !afterP || !beforeFwd) return;
+            // Skip rotationally-symmetric meshes — a sphere / ball has no
+            // visible "facing" direction so the test is meaningless and
+            // would false-positive on roll-a-ball / sonic-style games.
+            const sceneNow: any = p.runtime.scene;
+            const ent: any = sceneNow?.entities?.get(player.id);
+            const tags: any = ent?.tags;
+            const tagList: string[] = tags instanceof Set ? Array.from(tags) : (Array.isArray(tags) ? tags : []);
+            if (tagList.includes('ball') || tagList.includes('orb') || tagList.includes('sphere')) return;
+            const mr: any = ent?.getComponent?.('MeshRendererComponent');
+            const meshType = (mr?.meshType ?? '').toLowerCase();
+            if (meshType === 'sphere') return;
+            const dx = afterP.x - beforeP.x, dz = afterP.z - beforeP.z;
+            const speed = Math.sqrt(dx * dx + dz * dz);
+            if (speed < 0.5) return;  // didn't move enough to judge
+            const mx = dx / speed, mz = dz / speed;
+            // Sample the CURRENT forward (post-tick), since most behaviours
+            // rotate the mesh while movement is held. beforeFwd is the
+            // pre-input rotation and would miss reactive facing.
+            const afterFwd = p.forward(player) ?? beforeFwd;
+            const dot = mx * afterFwd.x + mz * afterFwd.z;
+            // FPS / shooter / locomotion may strafe — only fail on
+            // near-anti-alignment. Vehicle / platformer / beat_em_up / rpg
+            // / fighting all expect tight alignment.
+            const strafeFriendly = (gameType === 'shooter' || gameType === 'locomotion_3d');
+            const threshold = strafeFriendly ? -0.6 : -0.2;
+            if (dot < threshold) {
+              throw new PlaytestFailure('facing_anti_motion',
+                `character mesh faces OPPOSITE the direction it moves when "${primaryAction}" is held ` +
+                `(forward·motion = ${dot.toFixed(2)}; forward=(${afterFwd.x.toFixed(2)}, ${afterFwd.z.toFixed(2)}) ` +
+                `motion=(${mx.toFixed(2)}, ${mz.toFixed(2)})). The user will see the model walking backwards. ` +
+                `Usual cause: hand-rolled \`setRotationEuler(0, ±90, 0)\` with the wrong sign for the chosen GLB's ` +
+                `intrinsic forward axis. Fix: replace the math with \`this.entity.transform.faceDirection(dx, dz)\` ` +
+                `which uses the engine's canonical -Z forward and works on any GLB without per-asset tuning.`,
+                { dot, forward: { x: afterFwd.x, z: afterFwd.z }, motion: { x: mx, z: mz }, gameType });
+            }
+          }));
+        }
         // Motion-vs-facing for vehicles. Gated to vehicles because locomotion
         // / shooter games may strafe (move sideways or relative to a camera)
         // legitimately; the vehicle contract is tighter — throttle always

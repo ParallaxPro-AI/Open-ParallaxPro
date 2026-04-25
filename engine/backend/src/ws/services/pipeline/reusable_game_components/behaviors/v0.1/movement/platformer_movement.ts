@@ -65,11 +65,12 @@ class PlatformerMovementBehavior extends GameScript {
 
         this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
 
-        // Face movement direction
+        // Face movement direction using engine's canonical -Z forward.
+        // faceDirection handles the rotation math from a single source of
+        // truth so this behaviour stays correct on any GLB.
         var moving = Math.abs(vx) > 0.1 || Math.abs(vz) > 0.1;
         if (moving) {
-            var moveAngle = Math.atan2(-vx, -vz) * 180 / Math.PI;
-            this.entity.transform.setRotationEuler(0, moveAngle, 0);
+            this.entity.transform.faceDirection(vx, vz);
         }
 
         // Animations

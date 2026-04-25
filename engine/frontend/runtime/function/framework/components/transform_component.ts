@@ -114,6 +114,34 @@ export class TransformComponent extends Component {
     }
 
     /**
+     * Orient this entity so its canonical -Z forward axis points along
+     * the given XZ-plane direction. Use for character / vehicle facing
+     * driven by movement input — call once per frame with the current
+     * (dx, dz) input vector. Up-axis is always world +Y.
+     *
+     * Why this exists: every game-author-written behaviour that previously
+     * called `setRotationEuler(0, ±90, 0)` to face left/right was
+     * coin-flipping which sign produced the right visual, because the
+     * mapping depends on the GLB's intrinsic forward vs the engine's
+     * canonical -Z. Iteration 6's beat_em_up shipped with the wrong
+     * sign and the user reported "facing direction is opposite." With
+     * this helper, behaviours say what they MEAN ("face this direction")
+     * and the engine does the math from a single source of truth.
+     *
+     * Zero-length inputs are no-ops so callers don't have to special-case
+     * "no movement this frame."
+     */
+    faceDirection(dx: number, dz: number): void {
+        const lenSq = dx * dx + dz * dz;
+        if (lenSq < MathUtils.EPSILON) return;
+        const worldPos = this.getWorldPosition();
+        // lookAt expects a target point along the desired forward — push
+        // the position 1 unit in the desired direction, then orient.
+        const target = new Vec3(worldPos.x + dx, worldPos.y, worldPos.z + dz);
+        this.lookAt(target);
+    }
+
+    /**
      * Orient this entity to face a target position (forward = -Z).
      */
     lookAt(target: Vec3, up: Vec3 = new Vec3(0, 1, 0)): void {

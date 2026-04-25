@@ -490,6 +490,53 @@ class CovStubDeadListenerBehavior extends GameScript {
     },
   },
   {
+    target: 'mesh_facing_tracks_motion',
+    label: 'replace player movement with one that drives +Z but pins yaw at 180°',
+    mutate: (dir) => {
+      // The driving fixture's car_control does per-frame setRotationEuler
+      // based on _yawDeg, racing any after-the-fact flip we'd add. Rewrite
+      // car_control entirely with a stripped-down movement behaviour that
+      // (a) accepts the same primary action ("KeyW"), (b) moves +Z when
+      // held, and (c) pins the yaw at 180° EVERY frame so the mesh's -Z
+      // forward points along +Z — opposite to motion. This repros
+      // iteration-6 beat_em_up's hardcoded setRotationEuler-with-wrong-sign
+      // class.
+      // Tell the headless harness this is a vehicle game and primary
+      // action is KeyW. Without these exports the invariants block that
+      // contains mesh_facing_tracks_motion never runs.
+      fs.writeFileSync(path.join(dir, 'PLAYTEST.ts'),
+        `export const gameType = "vehicle";\nexport const primaryAction = "KeyW";\nexport default async (p) => { p.activateAllBehaviors(); };\n`);
+      const ccPath = path.join(dir, 'behaviors', 'movement', 'car_control.ts');
+      if (!fs.existsSync(ccPath)) throw new Error('clean fixture missing car_control.ts');
+      fs.writeFileSync(ccPath, `// Coverage fixture replacement — moves +Z but yaw pinned 180° (mesh faces away).
+class CarControlBehavior extends GameScript {
+    _behaviorName = "car_control";
+    _speed = 8;
+    onStart() {
+        // Yaw 180° → engine's -Z canonical forward becomes world +Z facing.
+        try { this.entity.transform.setRotationEuler(0, 180, 0); } catch (e) {}
+    }
+    onUpdate(dt) {
+        // Pin yaw every frame so nothing else can move it.
+        try { this.entity.transform.setRotationEuler(0, 180, 0); } catch (e) {}
+        var pressed = this.input.isKeyDown && this.input.isKeyDown("KeyW");
+        if (!pressed) return;
+        var rb = this.entity.getComponent && this.entity.getComponent("RigidbodyComponent");
+        if (rb && rb.setLinearVelocity) {
+            // Move +Z (motion); mesh forward is +Z too (since yaw=180 flips
+            // canonical -Z forward to +Z), so motion·forward = +1.
+            // Wait — flip means motion·forward = +1, NOT anti-aligned.
+            // We want anti-alignment, so move -Z while mesh faces +Z.
+            rb.setLinearVelocity(0, 0, -this._speed);
+        } else if (this.scene.setVelocity) {
+            this.scene.setVelocity(this.entity.id, { x: 0, y: 0, z: -this._speed });
+        }
+    }
+}
+`);
+    },
+  },
+  {
     target: 'action_has_visible_feedback',
     label: 'add a behavior with _doAttack() that runs damage but no anim/mesh/spawn',
     mutate: (dir) => {
