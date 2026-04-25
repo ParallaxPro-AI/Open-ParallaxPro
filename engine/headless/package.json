@@ -10,7 +10,8 @@
     "playtest": "tsx src/cli.ts",
     "regression": "tsx regression/run_regression.ts",
     "regression:update": "tsx regression/run_regression.ts --update",
-    "coverage": "tsx regression/invariant_coverage.ts"
+    "coverage": "tsx regression/invariant_coverage.ts",
+    "api-smoke": "tsx regression/api_smoke.ts"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
