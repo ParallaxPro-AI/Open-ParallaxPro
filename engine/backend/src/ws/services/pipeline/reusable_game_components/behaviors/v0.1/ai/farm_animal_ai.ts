@@ -33,8 +33,8 @@ class FarmAnimalAIBehavior extends GameScript {
             // raycast hits world geometry.
             var blocked = false;
             if (this.scene.raycast) {
-                var hit = this.scene.raycast(p.x, p.y+0.6, p.z, ux, 0, uz, step+0.8);
-                if (hit && hit.entityId !== this.entity.id) { blocked = true; this._moveTimer = 0; }
+                var hit = this.scene.raycast(p.x, p.y+0.6, p.z, ux, 0, uz, step+1.2);
+                if (hit && hit.entityId !== this.entity.id && hit.distance > 0.15) { blocked = true; this._moveTimer = 0; }
             }
             if (!blocked) {
                 this.scene.setPosition(this.entity.id, p.x+ux*step, p.y, p.z+uz*step);

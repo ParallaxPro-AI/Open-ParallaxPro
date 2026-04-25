@@ -99,27 +99,44 @@ class HostileAIBehavior extends GameScript {
         }
     }
 
-    // Try the desired direction first; if blocked, slide along the wall
-    // by trying a perpendicular direction (left then right). This isn't
-    // full pathfinding — just enough to follow walls around corners
-    // instead of freezing pressed against them.
+    // Try the desired direction, then five fallback angles: 45° and 90°
+    // off either side. Five attempts is enough to follow most wall and
+    // corner shapes without real pathfinding. If everything is blocked,
+    // the entity is jammed (capsule inside geometry) — let the move
+    // through anyway as an escape hatch so the mob doesn't stay welded
+    // to the wall forever.
     _tryMoveWithSlide(pos, ux, uz, step) {
+        // Direct.
         if (this._stepIfClear(pos, ux, uz, step)) return true;
-        // Perpendiculars: rotating (ux, uz) by ±90° gives (-uz, ux) and (uz, -ux).
+        // ±45° — diagonals catch most "almost-aligned" wall hits.
+        var c = 0.7071, s = 0.7071;
+        var lx = ux * c - uz * s, lz = ux * s + uz * c;   // +45° left
+        if (this._stepIfClear(pos, lx, lz, step)) return true;
+        var rx = ux * c + uz * s, rz = -ux * s + uz * c;  // -45° right
+        if (this._stepIfClear(pos, rx, rz, step)) return true;
+        // ±90° — pure sideways slide.
         if (this._stepIfClear(pos, -uz, ux, step)) return true;
         if (this._stepIfClear(pos, uz, -ux, step)) return true;
+        // All five blocked — assume capsule is inside geometry. Force
+        // the original step so the mob can claw its way back out
+        // instead of vibrating in place.
+        this.scene.setPosition(this.entity.id, pos.x + ux * step, pos.y, pos.z + uz * step);
         return false;
     }
 
-    // Capsule-aware horizontal cast. The ray slack is 0.9m, generous
-    // enough to cover a typical capsule radius (~0.4m) plus margin so
-    // the body stops with daylight between it and the wall instead of
-    // teleporting forward and lodging the capsule inside the geometry.
+    // Capsule-aware horizontal cast. Slack is 1.4m: kenney/quaternius
+    // mob capsules are ~0.4m radius, and the proposed step has to clear
+    // not just the centerline ray but the capsule edges too. A snug
+    // 0.9m slack let the mob shoulder-clip into walls on angled
+    // approaches; 1.4m leaves enough daylight that the body stops with
+    // visible space between it and the wall. Also short-circuits
+    // "blocked" when the hit is < 0.15m away (we're already inside the
+    // wall — let the move through so we can escape).
     _stepIfClear(pos, ux, uz, step) {
         if (step <= 0) return false;
         if (this.scene.raycast) {
-            var hit = this.scene.raycast(pos.x, pos.y + 1.0, pos.z, ux, 0, uz, step + 0.9);
-            if (hit && hit.entityId !== this.entity.id) return false;
+            var hit = this.scene.raycast(pos.x, pos.y + 1.0, pos.z, ux, 0, uz, step + 1.4);
+            if (hit && hit.entityId !== this.entity.id && hit.distance > 0.15) return false;
         }
         this.scene.setPosition(this.entity.id, pos.x + ux * step, pos.y, pos.z + uz * step);
         return true;

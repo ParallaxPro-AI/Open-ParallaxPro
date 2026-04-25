@@ -81,8 +81,12 @@ class AnimalWanderBehavior extends GameScript {
             // on the next tick if blocked.
             var blocked = false;
             if (this.scene.raycast) {
-                var hit = this.scene.raycast(pos.x, pos.y + 0.6, pos.z, ux, 0, uz, step + 0.8);
-                if (hit && hit.entityId !== this.entity.id) {
+                // Slack covers capsule radius + safety margin so the
+                // body stops with daylight between it and the wall;
+                // hit.distance < 0.15 means we're already inside the
+                // wall, push through so we can escape.
+                var hit = this.scene.raycast(pos.x, pos.y + 0.6, pos.z, ux, 0, uz, step + 1.2);
+                if (hit && hit.entityId !== this.entity.id && hit.distance > 0.15) {
                     blocked = true;
                     this._moveTimer = 0;
                 }
