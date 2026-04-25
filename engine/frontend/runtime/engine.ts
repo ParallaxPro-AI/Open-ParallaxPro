@@ -159,11 +159,6 @@ export class ParallaxEngine {
      */
     setEditorMode(enabled: boolean): void {
         this.isEditorMode = enabled;
-        if (!enabled) {
-            // DIAGNOSTIC — clear the first-tick dump flag so we get
-            // one log per Play instead of one per session.
-            (this as any)._diagAnimDumpDone = false;
-        }
         if (enabled) {
             this.globalContext.physicsSystem.shutdown();
             // Reset animators so second Play starts from a clean state.
@@ -274,21 +269,6 @@ export class ParallaxEngine {
         perf.beginPhase('animation');
         ctx.animationSystem.tick(deltaTime);
         if (this.activeScene) {
-            // DIAGNOSTIC — emit one log line per Play describing the
-            // animator population, so we can correlate "rebound on
-            // Play" with "anims actually ticking after Play."
-            if (!(this as any)._diagAnimDumpDone && !this.isEditorMode) {
-                (this as any)._diagAnimDumpDone = true;
-                let count = 0, playing = 0, hasBuf = 0;
-                for (const entity of this.activeScene.entities.values()) {
-                    const a: any = entity.getComponent('AnimatorComponent');
-                    if (!a) continue;
-                    count++;
-                    if (a.isPlaying) playing++;
-                    if (a.gpuJointMatricesBuffer) hasBuf++;
-                }
-                console.log(`[TickDiag] first-tick after Play: animators=${count} playing=${playing} hasBuf=${hasBuf}`);
-            }
             for (const entity of this.activeScene.entities.values()) {
                 if (!entity.active) continue;
                 const animator = entity.getComponent('AnimatorComponent') as any;
