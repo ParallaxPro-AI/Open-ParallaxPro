@@ -137,6 +137,9 @@
           1
         ]
       },
+      "physics": {
+        "type": "kinematic"
+      },
       "tags": [
         "platform",
         "moving_platform"
