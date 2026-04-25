@@ -501,9 +501,9 @@ export class Scene {
                 const dy = wp.y - this._activeCameraPos.y;
                 const dz = wp.z - this._activeCameraPos.z;
                 const distSq = dx * dx + dy * dy + dz * dz;
-                if (distSq > 200 * 200 && mr.gpuMeshLOD2) {
+                if (distSq > 400 * 400 && mr.gpuMeshLOD2) {
                     activeMesh = mr.gpuMeshLOD2;
-                } else if (distSq > 80 * 80 && mr.gpuMeshLOD1) {
+                } else if (distSq > 160 * 160 && mr.gpuMeshLOD1) {
                     activeMesh = mr.gpuMeshLOD1;
                 }
             }
