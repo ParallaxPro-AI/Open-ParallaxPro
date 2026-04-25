@@ -74,14 +74,18 @@ class EntityHealthBarsSystem extends GameScript {
         // _health to _maxHealth and re-emit player_respawned (or
         // entity_respawned) without deactivating the entity. From this
         // system's POV the row stayed at current=0 since lethal damage
-        // landed, so the bar would never come back. Drop every tracked
-        // row on respawn — _collect re-initialises each entity at full
-        // HP on the next frame.
-        var resetAll = function() {
-            self._hp = {};
+        // landed, so the bar would never come back. Refill every row
+        // whose current is 0 — the affected entity's HP is now max
+        // again, while partially-damaged enemies keep their state so
+        // they don't visibly "heal" for one frame.
+        var refillDeadRows = function() {
+            for (var id in self._hp) {
+                var row = self._hp[id];
+                if (row && row.current <= 0) row.current = row.max;
+            }
         };
-        this.scene.events.game.on("player_respawned", resetAll);
-        this.scene.events.game.on("entity_respawned", resetAll);
+        this.scene.events.game.on("player_respawned", refillDeadRows);
+        this.scene.events.game.on("entity_respawned", refillDeadRows);
     }
 
     onUpdate(dt) {
