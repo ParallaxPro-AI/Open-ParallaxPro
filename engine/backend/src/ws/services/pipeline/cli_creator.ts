@@ -388,13 +388,40 @@ export async function runCreator(
             if (attempt === PLAYTEST_MAX_RETRIES) break;
 
             const verdictText = renderHuman(lastVerdict!);
+
+            // Extract specific failure classes the retry should handle
+            // with explicit, prescriptive guidance instead of the generic
+            // "fix the problems above" prompt. Iteration 6's beat_em_up
+            // shipped with `reimplemented_pinned` firing all 4 attempts
+            // because the model treated the verdict as advisory and kept
+            // re-authoring its own broken behavior. Here we promote that
+            // specific class to a retry-forcing instruction.
+            const reimplFailures = [
+                ...(lastVerdict?.invariants?.failures ?? []),
+                ...(lastVerdict?.authored?.failures ?? []),
+            ].filter((f: any) => f?.code === 'reimplemented_pinned' || f?.name === 'avoid_reimplementing_pinned_behaviors');
+            let retryFocusBlock = '';
+            if (reimplFailures.length > 0) {
+                const detail: any[] = [];
+                for (const f of reimplFailures) {
+                    const smells = (f as any)?.detail?.smells;
+                    if (Array.isArray(smells)) detail.push(...smells);
+                }
+                if (detail.length > 0) {
+                    const lines = detail.map((s: any) =>
+                        `- DELETE \`project/${s.file}\`. RUN \`bash library.sh show ${s.suggestedLibrary}\`. WRITE the output verbatim into \`project/behaviors/<path>\` (or \`project/systems/<path>\` for systems). Reference it from your entity / system definitions instead of re-authoring it. Reason: ${s.why || 'pinned version handles subtleties (rider-carry, reset-on-restart, sign conventions) that hand-rolled rewrites miss.'}`,
+                    );
+                    retryFocusBlock = `\n\n## RETRY FOCUS — replace hand-rolled behaviors with pinned library versions\n\nThe playtest detected behaviors you wrote by hand that duplicate functionality the pinned library already provides. The pinned version is canonical and tested; your hand-rolled version is missing engine subtleties.\n\nDo this FIRST, before any other edits:\n\n${lines.join('\n')}\n\nDo NOT keep re-authoring these. The library tool is the source of truth. After replacing them, re-run validate.sh.\n`;
+                }
+            }
+
             try {
                 const taskPath = path.join(sandboxDir, 'TASK.md');
                 const existing = fs.readFileSync(taskPath, 'utf-8');
                 fs.writeFileSync(
                     taskPath,
                     existing +
-                        `\n\n# Playtest failed (attempt ${attempt + 1} of ${PLAYTEST_MAX_RETRIES + 1})\n\nThe headless playtest booted your game and found problems:\n\n\`\`\`\n${verdictText}\n\`\`\`\n\nFix the specific problems above, run \`bash validate.sh\` to verify, then finish. Only small targeted edits — do not rewrite unrelated files.`,
+                        `\n\n# Playtest failed (attempt ${attempt + 1} of ${PLAYTEST_MAX_RETRIES + 1})\n\nThe headless playtest booted your game and found problems:\n\n\`\`\`\n${verdictText}\n\`\`\`${retryFocusBlock}\n\nFix the specific problems above, run \`bash validate.sh\` to verify, then finish. Only small targeted edits — do not rewrite unrelated files.`,
                 );
             } catch (e: any) {
                 console.warn(`[CLICreator] Failed to append playtest verdict to TASK.md: ${e?.message}`);
