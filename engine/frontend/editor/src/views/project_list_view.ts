@@ -1046,10 +1046,15 @@ git checkout da571fe   # last commit before template unification`;
     }
 
     private toggleSelectAll(): void {
-        if (this.selectedIds.size === this.projects.length) {
-            this.selectedIds.clear();
+        const filtered = this.getFilteredProjects();
+        const allFilteredSelected =
+            filtered.length > 0 && filtered.every((p) => this.selectedIds.has(p.id));
+        if (allFilteredSelected) {
+            for (const p of filtered) {
+                this.selectedIds.delete(p.id);
+            }
         } else {
-            for (const p of this.projects) {
+            for (const p of filtered) {
                 this.selectedIds.add(p.id);
             }
         }
@@ -1105,13 +1110,17 @@ git checkout da571fe   # last commit before template unification`;
 
     private updateSelectionUI(): void {
         const count = this.selectedIds.size;
-        const total = this.projects.length;
+        const filtered = this.getFilteredProjects();
+        const filteredSelectedCount = filtered.reduce(
+            (n, p) => n + (this.selectedIds.has(p.id) ? 1 : 0),
+            0,
+        );
         this.toolbarEl.style.display = count > 0 ? 'flex' : 'none';
         this.searchRowEl.style.display = count > 0 ? 'none' : '';
-        this.selectCountEl.textContent = `${count} of ${total} selected`;
+        this.selectCountEl.textContent = `${filteredSelectedCount} of ${filtered.length} selected`;
 
-        const allSelected = count === total && total > 0;
-        const someSelected = count > 0 && count < total;
+        const allSelected = filtered.length > 0 && filteredSelectedCount === filtered.length;
+        const someSelected = filteredSelectedCount > 0 && filteredSelectedCount < filtered.length;
         this.selectAllCheckbox.classList.toggle('checked', allSelected);
         this.selectAllCheckbox.classList.toggle('indeterminate', someSelected);
         this.selectAllCheckbox.innerHTML = '';
@@ -1126,7 +1135,6 @@ git checkout da571fe   # last commit before template unification`;
             this.selectAllCheckbox.appendChild(dash);
         }
 
-        const filtered = this.getFilteredProjects();
         const start = (this.currentPage - 1) * this.pageSize;
         const pageProjects = filtered.slice(start, start + this.pageSize);
         const cards = this.gridEl.querySelectorAll('.project-card');
