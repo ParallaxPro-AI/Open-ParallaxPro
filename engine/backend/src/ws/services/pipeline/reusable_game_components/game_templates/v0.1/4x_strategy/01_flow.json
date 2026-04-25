@@ -56,6 +56,7 @@
         "player_turn": {
           "description": "Player's turn \u2014 move units, manage cities, research, build, diplomacy",
           "active_systems": [
+            "civ_input",
             "civilization_core",
             "tech_culture",
             "military_system",

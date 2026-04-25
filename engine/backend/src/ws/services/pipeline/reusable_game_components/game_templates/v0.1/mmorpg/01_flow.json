@@ -57,6 +57,7 @@
         "adventuring": {
           "description": "Explore the world \u2014 complete quests, fight monsters, loot treasure, level up",
           "active_systems": [
+            "mmorpg_interact",
             "quest_system",
             "combat_rpg",
             "loot_xp",
@@ -77,7 +78,7 @@
           ],
           "on_enter": [
             "show_ui:hud/health_mana",
-            "hide_cursor",
+            "show_cursor",
             "show_ui:hud/action_bar",
             "show_ui:hud/minimap",
             "show_ui:hud/quest_tracker",

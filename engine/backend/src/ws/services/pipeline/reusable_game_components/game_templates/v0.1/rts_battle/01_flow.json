@@ -56,6 +56,7 @@
         "battle": {
           "description": "Active RTS battle \u2014 build base, gather resources, train army, destroy enemy",
           "active_systems": [
+            "rts_input",
             "resource_system",
             "production_system",
             "combat_system",

@@ -1,5 +1,10 @@
 {
   "systems": {
+    "rts_input": {
+      "description": "Player input for RTS — virtual cursor tracking, left-click selects player units/buildings (shift-add for multi-select), right-click commands move-to-point or attack-target. Emits unit_command_move and unit_command_attack events that unit_combat / worker_ai honour.",
+      "script": "gameplay/rts_input.ts",
+      "params": {}
+    },
     "resource_system": {
       "description": "Manages crystal mining, energy harvesting, supply tracking, and resource income — workers deliver gathered resources to the nearest command center or refinery",
       "script": "gameplay/resource_system.ts",

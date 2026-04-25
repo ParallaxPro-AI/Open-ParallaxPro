@@ -1,11 +1,69 @@
-<!-- description: RTS unit selection indicator showing currently selected unit name — also: unit picker, active selection, gameplay selection, rts ui, unit control -->
+<!-- description: RTS selection indicator and tip showing currently selected unit count — selection count, click hint, rts ui, unit control -->
 <!DOCTYPE html>
-<html><head><style>
-*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
-.sel{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:4px 14px;font-size:10px;font-weight:600;color:#888;display:none;}
-.sel.visible{display:block;}
-.sn{color:#22d3ee;font-weight:700;}
-</style></head><body>
-<div class="sel" id="sel">Selected: <span class="sn" id="sname">—</span></div>
-<script>(function(){function u(s){if(!s)return;var el=document.getElementById('sel');if(s.selectedUnit){el.style.display='block';document.getElementById('sname').textContent=s.selectedUnit;}else{el.style.display='none';}}window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')u(e.data.state);});})();
-</script></body></html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; background: transparent; }
+  .sel {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: none;
+    user-select: none;
+  }
+  .sel.visible { display: block; }
+  .count { color: #22d3ee; font-weight: 800; }
+  .tip {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-weight: 600;
+    color: #555;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    user-select: none;
+  }
+  .tip.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="tip" id="tip">Left-click to select &middot; Right-click to move/attack &middot; Shift-click to add</div>
+<div class="sel" id="sel"><span class="count" id="cnt">0</span> selected &middot; right-click to command</div>
+<script>
+(function () {
+  var sel = document.getElementById('sel');
+  var tip = document.getElementById('tip');
+  var cnt = document.getElementById('cnt');
+  function update(s) {
+    if (!s) return;
+    var n = (typeof s.selectedCount === 'number') ? s.selectedCount : (s.selectedUnit ? 1 : 0);
+    if (n > 0) {
+      sel.classList.add('visible');
+      tip.classList.add('hidden');
+      cnt.textContent = String(n);
+    } else {
+      sel.classList.remove('visible');
+      tip.classList.remove('hidden');
+    }
+  }
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
+})();
+</script>
+</body>
+</html>
