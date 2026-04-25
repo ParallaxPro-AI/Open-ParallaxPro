@@ -307,5 +307,62 @@ export function createLibraryRouter(): Router {
         res.type('text/plain').send(parts.join('\n\n'));
     });
 
+    /**
+     * GET /animations?path=<asset_path> [&path=...]
+     *
+     * Look up the animation clip names baked into a GLB. Reads the
+     * pre-built manifest at engine/backend/data/glb_clip_manifest.json.
+     * Returns a plain-text list — one clip per line, prefixed with the
+     * asset path so multi-asset queries are unambiguous. Used by the
+     * CLI's `library.sh animations <path>` subcommand so the agent can
+     * verify clip names before authoring `entity.playAnimation("X")`
+     * calls — and the `animation_clip_resolves` invariant uses the
+     * same manifest as the static-analysis source of truth.
+     *
+     * Asset paths take the same form 02_entities.json uses, e.g.
+     *   /assets/quaternius/characters/platformer_game_kit/Character.glb
+     *
+     * Soft-fail: paths not in the manifest emit `=== NOT_FOUND: ... ===`
+     * markers (same shape as /file) so library.sh degrades gracefully.
+     * If the manifest itself is missing, returns a 503 with a hint to
+     * regenerate it via `npx tsx engine/backend/src/scripts/build_glb_clip_manifest.ts`.
+     */
+    router.get('/animations', (req: Request, res: Response) => {
+        const manifestPath = path.resolve(__dirname_lib, '..', '..', 'data', 'glb_clip_manifest.json');
+        if (!fs.existsSync(manifestPath)) {
+            return res.status(503).type('text/plain').send(
+                'glb_clip_manifest.json missing. Regenerate with:\n' +
+                '  npx tsx engine/backend/src/scripts/build_glb_clip_manifest.ts'
+            );
+        }
+        let manifest: Record<string, { clips: string[] }>;
+        try {
+            manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+        } catch (e: any) {
+            return res.status(500).type('text/plain').send(`manifest parse failed: ${e?.message ?? e}`);
+        }
+        const rawP = req.query.path;
+        let paths: string[];
+        if (Array.isArray(rawP))               paths = rawP.map(x => String(x).trim()).filter(Boolean);
+        else if (typeof rawP === 'string')     paths = [rawP.trim()].filter(Boolean);
+        else                                   paths = [];
+        if (paths.length === 0) return res.status(400).json({ error: 'path is required' });
+
+        const parts: string[] = [];
+        for (const p of paths) {
+            const entry = manifest[p];
+            if (!entry) {
+                parts.push(`=== NOT_FOUND: ${p} (not in manifest — check the path matches /assets/<vendor>/<...>/<name>.glb exactly) ===`);
+                continue;
+            }
+            if (entry.clips.length === 0) {
+                parts.push(`=== ${p} ===\n(no animation clips — this GLB is static or uses skeletal data only)`);
+                continue;
+            }
+            parts.push(`=== ${p} ===\n${entry.clips.join('\n')}`);
+        }
+        res.type('text/plain').send(parts.join('\n\n'));
+    });
+
     return router;
 }

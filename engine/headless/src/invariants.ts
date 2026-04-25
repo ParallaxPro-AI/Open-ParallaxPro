@@ -5,6 +5,9 @@
  * missing ground collider, dead controls, onUpdate crashes, unreachable UI).
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Playtest, PlaytestFailure, EntityRef } from './playtest.js';
 
 export interface InvariantResult {
@@ -1533,7 +1536,129 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }
 
+  // ── 19. playAnimation calls reference clips that exist on the GLB ──
+  // Iteration 6's fighter shipped without animation feedback partly
+  // because we couldn't tell from the source whether the chosen clip
+  // names ("Punch", "Spellcast_Long") existed on the bound GLB. The
+  // engine's playAnimation wraps a try/catch around the clip lookup,
+  // so missing clips fail silently — the user sees "no animation"
+  // with no error in the console.
+  //
+  // Static analysis: build a map (entityName → meshAsset) from
+  // 02_entities.json. For each behaviour script attached to an entity,
+  // parse `entity.playAnimation("X", …)` calls. Look up the entity's
+  // GLB clips in `data/glb_clip_manifest.json` (pre-baked at build
+  // time). Validate "X" against the clip list using the same
+  // case-insensitive substring match the engine does
+  // (animator_component.resolveClipName). Fire on unresolved.
+  //
+  // Skip entirely when the manifest is missing (treat as advisory in
+  // dev environments without the manifest pre-built).
+  {
+    const clipManifest = loadGlbClipManifest();
+    const defs: any = p.runtime.files.entities?.definitions;
+    const scripts: Record<string, string> = p.runtime.projectScripts ?? p.runtime.files.scripts ?? {};
+    if (clipManifest && defs && Object.keys(scripts).length > 0) {
+      // Map flattened script path → behaviour list of (entityName, meshAsset).
+      // The level-assembler flattens `behaviors/movement/foo.ts` into
+      // `scripts/movement_foo.ts` (and per-entity copies with a name
+      // suffix when params are injected). We match by the leaf-folder
+      // and filename convention the assembler uses.
+      const behaviourBindings: Map<string, Array<{ entityName: string; meshAsset: string; clips: string[] }>> = new Map();
+      for (const [entityName, def] of Object.entries<any>(defs)) {
+        const meshAsset: string | undefined = def?.mesh?.asset;
+        if (!meshAsset) continue;
+        const manifestEntry = clipManifest[meshAsset];
+        if (!manifestEntry) continue;  // unknown asset (custom upload?) — skip
+        for (const b of (def.behaviors ?? []) as any[]) {
+          const scriptRef: string | undefined = b?.script;
+          if (!scriptRef) continue;
+          // The assembler flattens path slashes to underscores and prefixes `scripts/`.
+          // Plus a per-entity copy when params are injected — matching the
+          // bare flattened key catches the canonical script copy at minimum.
+          const flat = 'scripts/' + scriptRef.replace(/\//g, '_');
+          const list = behaviourBindings.get(flat) ?? [];
+          list.push({ entityName, meshAsset, clips: manifestEntry.clips });
+          behaviourBindings.set(flat, list);
+        }
+      }
+      const PLAY_ANIM_RE = /\bentity\.playAnimation\s*\(\s*['"]([^'"]+)['"]/g;
+      const unresolved: Array<{ script: string; entity: string; clip: string; available: string[] }> = [];
+      const resolveClip = (name: string, clips: string[]): boolean => {
+        if (clips.includes(name)) return true;
+        const lower = name.toLowerCase();
+        for (const c of clips) if (c.toLowerCase().includes(lower)) return true;
+        return false;
+      };
+      for (const [scriptPath, src] of Object.entries(scripts)) {
+        // Match against ANY binding for this script flat-name OR any
+        // per-entity copy of it (`scripts/movement_foo_PlayerName.ts`).
+        const baseName = scriptPath.replace(/_[A-Za-z0-9]+\.ts$/, '.ts');
+        const bindings = behaviourBindings.get(scriptPath) ?? behaviourBindings.get(baseName);
+        if (!bindings || bindings.length === 0) continue;
+        const calls: string[] = [];
+        let m: RegExpExecArray | null;
+        while ((m = PLAY_ANIM_RE.exec(src)) !== null) calls.push(m[1]);
+        PLAY_ANIM_RE.lastIndex = 0;
+        if (calls.length === 0) continue;
+        for (const binding of bindings) {
+          for (const clipName of calls) {
+            if (resolveClip(clipName, binding.clips)) continue;
+            unresolved.push({
+              script: scriptPath,
+              entity: binding.entityName,
+              clip: clipName,
+              available: binding.clips,
+            });
+          }
+        }
+      }
+      if (unresolved.length > 0) {
+        const sample = unresolved.slice(0, 3).map(u =>
+          `"${u.clip}" in ${u.script} on entity "${u.entity}" (available: ${u.available.slice(0, 8).join(', ')}${u.available.length > 8 ? ', …' : ''})`,
+        ).join('; ');
+        const more = unresolved.length > 3 ? ` (+${unresolved.length - 3} more)` : '';
+        results.push({
+          name: 'animation_clip_resolves',
+          failure: new PlaytestFailure('animation_clip_unresolved',
+            `${unresolved.length} \`entity.playAnimation("X", …)\` call${unresolved.length > 1 ? 's' : ''} reference${unresolved.length > 1 ? '' : 's'} clip names that don't exist on the bound GLB: ${sample}${more}. The engine's playAnimation silently no-ops on missing clips so the user sees "no animation" with no error. Fix: pick a clip name from the available list, or call \`bash library.sh animations <asset_path>\` to list valid clips for the chosen GLB.`,
+            { unresolved: unresolved.slice(0, 20), total: unresolved.length }),
+        });
+      } else {
+        results.push({ name: 'animation_clip_resolves', failure: null });
+      }
+    }
+  }
+
   return results;
+}
+
+/**
+ * Lazy-load the pre-baked GLB clip manifest. Path: sibling
+ * engine/backend/data/glb_clip_manifest.json. Cached after first read
+ * because the file is ~378KB and re-parsing per playtest is wasteful.
+ * Returns null if the manifest hasn't been built — the invariant
+ * silently skips in that case so dev environments without the
+ * manifest don't false-fail.
+ */
+let _glbClipManifestCache: Record<string, { clips: string[] }> | null = null;
+let _glbClipManifestTried = false;
+function loadGlbClipManifest(): Record<string, { clips: string[] }> | null {
+  if (_glbClipManifestCache) return _glbClipManifestCache;
+  if (_glbClipManifestTried) return null;
+  _glbClipManifestTried = true;
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    // engine/headless/src/invariants.ts → engine/backend/data/glb_clip_manifest.json
+    // here = engine/headless/src; ..= engine/headless; ../.. = engine
+    const manifestPath = path.resolve(here, '..', '..', 'backend', 'data', 'glb_clip_manifest.json');
+    if (!fs.existsSync(manifestPath)) return null;
+    const raw = fs.readFileSync(manifestPath, 'utf-8');
+    _glbClipManifestCache = JSON.parse(raw);
+    return _glbClipManifestCache;
+  } catch {
+    return null;
+  }
 }
 
 /** Extract keybind hints from raw HUD HTML. Looks for two patterns:

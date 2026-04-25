@@ -1525,6 +1525,26 @@ Quick mental checklist when something looks wrong but the validator passes:
     });
     ```
 
+28b. **Look up valid animation clips before writing `entity.playAnimation("X", …)`**: Different GLBs ship different clip vocabularies. Quaternius's `ultimate_animated_character_pack` includes Punch/Kick/SwordSlash; the `platformer_game_kit` Character has Idle/Run/Jump but no Punch; a robot or vehicle GLB may have no clips at all. The engine's `playAnimation` silently no-ops when the requested clip name doesn't exist on the bound GLB — the user sees "no animation" with no console error. **Rule: before writing `entity.playAnimation("X", …)`, run `bash library.sh animations <asset_path>` to confirm "X" is in the clip list.** Asset paths take the same form 02_entities.json uses (`/assets/quaternius/characters/.../Foo.glb`). The `animation_clip_resolves` playtest invariant catches mismatches at gate time, but checking up-front saves a retry round-trip.
+
+    ```bash
+    # See what clips Kimono_Male.glb ships with:
+    bash library.sh animations /assets/quaternius/characters/ultimate_animated_character_pack/Kimono_Male.glb
+    # → Death, Defeat, Idle, Jump, PickUp, Punch, RecieveHit, Roll,
+    #   Run, Run_Carry, Shoot_OneHanded, SitDown, StandUp, SwordSlash,
+    #   Victory, Walk, Walk_Carry
+    ```
+
+    Then in your behavior:
+
+    ```ts
+    if (this.entity.playAnimation) {
+        try { this.entity.playAnimation("Punch", { loop: false }); } catch (e) { /* missing clip */ }
+    }
+    ```
+
+    If the GLB has no matching clip for the action you want, fall back to a mesh-mutate visual (transform.scale pulse / brief lunge) — see entry 29 for the visible-feedback pattern.
+
 29a. **Use `entity.transform.faceDirection(dx, dz)` instead of hardcoded `setRotationEuler(0, ±90, 0)` for motion-driven facing**: When a behaviour wants the character/vehicle mesh to face the direction of movement, do NOT compute yaw angles by hand. Hand-rolled angles are coin-flips — `±90`, `0 vs 180`, `Math.atan2(-vx, -vz) * 180/Math.PI` — and the right sign depends on the chosen GLB's intrinsic forward axis. Iteration 6's beat_em_up shipped with `setRotationEuler(0, +90, 0)` for "facing right" and the user reported "the character visual facing direction is opposite." **Rule: any time you'd write `setRotationEuler(0, <yaw>, 0)` to face a movement direction, replace it with `entity.transform.faceDirection(dx, dz)`.** The engine handles the math from a single source of truth (canonical forward = -Z) and works on any GLB. Only use raw `setRotationEuler` for non-motion rotations (steering, fixed orientation, mesh-relative tweaks). The `mesh_facing_tracks_motion` invariant catches mesh-faces-backward statically.
 
     ```ts

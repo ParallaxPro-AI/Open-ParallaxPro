@@ -599,6 +599,56 @@ class CovAttackBehavior extends GameScript {
     },
   },
   {
+    target: 'animation_clip_resolves',
+    label: 'add a behavior that calls entity.playAnimation with a clip name not in the GLB',
+    mutate: (dir) => {
+      // The clean driving fixture's player_sedan uses
+      // /assets/quaternius/cars/sedan.glb, which has no animation
+      // clips. We need to attach the behavior to an entity whose GLB
+      // IS in the clip manifest with a known clip set, then call
+      // playAnimation with a name that doesn't match any clip via
+      // either exact or substring case-insensitive lookup.
+      //
+      // Easier path: replace the player's mesh with an animated GLB,
+      // then attach a behavior that calls playAnimation("CovBogusClipXyz").
+      const j = readJson(path.join(dir, '02_entities.json'));
+      const playerKey = Object.keys(j.definitions).find(k => /player|sedan|car/i.test(k));
+      if (!playerKey) throw new Error('clean fixture missing player-like entity');
+      // Use the platformer_game_kit Character.glb — known to be in
+      // the clip manifest with a clear set: Idle/Run/Walk/Jump/etc.
+      // (no clip named "CovBogusClipXyz").
+      j.definitions[playerKey].mesh = {
+        type: 'custom',
+        asset: '/assets/quaternius/characters/platformer_game_kit/Character.glb',
+      };
+      j.definitions[playerKey].behaviors = j.definitions[playerKey].behaviors || [];
+      j.definitions[playerKey].behaviors.push({
+        name: 'cov_bogus_anim',
+        script: 'cov_anim/bogus_clip.ts',
+      });
+      writeJson(path.join(dir, '02_entities.json'), j);
+      const bDir = path.join(dir, 'behaviors', 'cov_anim');
+      fs.mkdirSync(bDir, { recursive: true });
+      fs.writeFileSync(path.join(bDir, 'bogus_clip.ts'), `// Coverage fixture — playAnimation with a clip name not in the GLB.
+class CovBogusAnimBehavior extends GameScript {
+    _behaviorName = "cov_bogus_anim";
+    onStart() {
+        if (this.entity.playAnimation) {
+            try { this.entity.playAnimation("CovBogusClipXyz", { loop: true }); } catch (e) {}
+        }
+    }
+}
+`);
+      const flow = readJson(path.join(dir, '01_flow.json'));
+      const addTo = (def: any) => {
+        if (Array.isArray(def?.active_behaviors)) def.active_behaviors.push('cov_bogus_anim');
+        if (def?.substates) for (const s of Object.values<any>(def.substates)) addTo(s);
+      };
+      for (const s of Object.values<any>(flow.states ?? {})) addTo(s);
+      writeJson(path.join(dir, '01_flow.json'), flow);
+    },
+  },
+  {
     target: 'hud_html_field_resolves',
     label: 'add a HUD HTML that reads a field no script ever provides',
     mutate: (dir) => {

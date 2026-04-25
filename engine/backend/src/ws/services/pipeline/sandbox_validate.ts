@@ -169,7 +169,7 @@ done
 const LIBRARY_SH = `#!/bin/bash
 # library.sh — on-demand access to the reusable game-components library.
 #
-# Three subcommands:
+# Subcommands:
 #
 #   list [KIND]
 #       Show the library index. KIND is one of behaviors | systems | ui |
@@ -227,6 +227,21 @@ const LIBRARY_SH = `#!/bin/bash
 #
 #       Empty results mean no library file or template uses QUERY
 #       literally — check CREATOR_CONTEXT.md for the API's docs.
+#
+#   animations <asset_path> [<asset_path2> ...]
+#       List the animation clip names baked into one or more GLB
+#       assets. Use BEFORE writing entity.playAnimation("X", ...) calls
+#       so X is guaranteed to be a real clip on the chosen GLB.
+#       Different GLBs ship different clip vocabularies — Quaternius
+#       characters might have Punch/Kick/Run, robots might only have
+#       Idle/Walk/Death. The animation_clip_resolves invariant catches
+#       missing clips at gate time, but checking up-front saves a
+#       retry round-trip.
+#
+#       Asset paths take the same form 02_entities.json uses:
+#         /assets/quaternius/characters/ultimate_animated_character_pack/Kimono_Male.glb
+#
+#       Output is one clip name per line under a "=== <path> ===" header.
 #
 # Soft-fails gracefully if the engine backend is unreachable — writes a
 # warning to stderr and exits 0 so a CREATE_GAME run isn't broken by a
@@ -482,6 +497,39 @@ show)
         fi
     else
         echo "WARN: library/file returned HTTP \$HTTP." >&2
+        head -c 400 "\$BODY_FILE" >&2
+        echo >&2
+    fi
+    rm -f "\$BODY_FILE"
+    ;;
+
+animations)
+    if [ \${#POSITIONAL[@]} -eq 0 ]; then
+        echo "Usage: library.sh animations <asset_path> [<asset_path2> ...]" >&2
+        echo "" >&2
+        echo "Look up animation clip names baked into one or more GLB assets." >&2
+        echo "Use the same path form 02_entities.json uses, e.g." >&2
+        echo "  /assets/quaternius/characters/ultimate_animated_character_pack/Kimono_Male.glb" >&2
+        echo "" >&2
+        echo "Use this BEFORE writing entity.playAnimation(\\"X\\", ...) calls so X is a real clip." >&2
+        echo "The animation_clip_resolves invariant catches missing clips, but checking up-front" >&2
+        echo "saves a retry round-trip." >&2
+        exit 1
+    fi
+    QS=""
+    for ASSET in "\${POSITIONAL[@]}"; do
+        if [ -n "\$QS" ]; then QS="\${QS}&"; fi
+        QS="\${QS}path=\$(enc "\$ASSET")"
+    done
+    BODY_FILE=\$(mktemp)
+    HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${URL}/api/engine/internal/library/animations?\${QS}" 2>/dev/null) || HTTP="000"
+    if [ "\$HTTP" != "200" ] && [ -n "\$FALLBACK_URL" ] && [ "\$URL" != "\$FALLBACK_URL" ]; then
+        HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${FALLBACK_URL}/api/engine/internal/library/animations?\${QS}" 2>/dev/null) || HTTP="000"
+    fi
+    if [ "\$HTTP" = "200" ]; then
+        cat "\$BODY_FILE"
+    else
+        echo "WARN: library/animations endpoint returned HTTP \$HTTP" >&2
         head -c 400 "\$BODY_FILE" >&2
         echo >&2
     fi
