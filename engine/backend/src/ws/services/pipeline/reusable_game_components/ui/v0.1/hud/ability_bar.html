@@ -23,6 +23,7 @@
     color: var(--text);
     pointer-events: none;
     overflow: hidden;
+    background: transparent;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -42,6 +43,7 @@
     align-items: center;
     gap: 10px;
     min-width: 340px;
+    pointer-events: auto;
   }
 
   /* Health & Mana bars */
@@ -117,7 +119,14 @@
     color: var(--text);
     position: relative;
     overflow: hidden;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 0.1s ease, border-color 0.12s ease;
+    user-select: none;
   }
+  .ability-key:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.35); }
+  .ability-key.on-cd { cursor: not-allowed; }
+  .ability-key.on-cd:hover { transform: none; }
 
   .ability-key.ready {
     border-color: rgba(34,197,94,0.4);
@@ -223,18 +232,39 @@
       <div class="ability-name">HEAL</div>
     </div>
     <div class="ability">
-      <div class="ability-key ready" id="space-key">
-        <div class="cd-overlay" id="space-cd-overlay"></div>
-        <div class="cd-text hidden" id="space-cd-text"></div>
-        <span style="z-index:2;position:relative;font-size:10px">SPC</span>
+      <div class="ability-key ready" id="r-key">
+        <div class="cd-overlay" id="r-cd-overlay"></div>
+        <div class="cd-text hidden" id="r-cd-text"></div>
+        <span style="z-index:2;position:relative">R</span>
       </div>
-      <div class="ability-name">DASH</div>
+      <div class="ability-name">ULTIMATE</div>
     </div>
   </div>
 </div>
 
 <script>
 (function() {
+  function send(action, payload) {
+    window.parent.postMessage({
+      type: 'game_command',
+      action: action,
+      panel: 'hud/ability_bar',
+      payload: payload || {}
+    }, '*');
+  }
+
+  function wireCast(elId, key) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    el.addEventListener('click', function () {
+      if (el.classList.contains('on-cd')) return;
+      send('cast_ability', { key: key });
+    });
+  }
+  wireCast('q-key', 'q');
+  wireCast('e-key', 'e');
+  wireCast('r-key', 'r');
+
   function updateBar(fillId, textId, current, max, type) {
     var pct = Math.max(0, Math.min(100, (current / max) * 100));
     var fill = document.getElementById(fillId);
@@ -279,8 +309,12 @@
     if (state.eCooldown !== undefined) {
       updateAbility('e-key', 'e-cd-overlay', 'e-cd-text', state.eCooldown, state.eMaxCooldown || 12);
     }
+    if (state.rCooldown !== undefined) {
+      updateAbility('r-key', 'r-cd-overlay', 'r-cd-text', state.rCooldown, state.rMaxCooldown || 15);
+    }
+    // Back-compat: older systems still emit spaceCooldown.
     if (state.spaceCooldown !== undefined) {
-      updateAbility('space-key', 'space-cd-overlay', 'space-cd-text', state.spaceCooldown, state.spaceMaxCooldown || 6);
+      updateAbility('r-key', 'r-cd-overlay', 'r-cd-text', state.spaceCooldown, state.spaceMaxCooldown || 6);
     }
 
     if (state.heroDead !== undefined) {

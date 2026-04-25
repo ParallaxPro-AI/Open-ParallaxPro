@@ -33,10 +33,36 @@ class DiplomacyAISystem extends GameScript {
             self._aiState = "peace";
             self._turnsSinceWar = 0;
             self._aiGold = 50;
+            self._publishHud();
         });
 
         this.scene.events.game.on("ai_turn_start", function() {
             self._processAITurn();
+        });
+
+        // Click-driven diplomacy.
+        this.scene.events.ui.on("ui_event:hud/diplomacy_btn:declare_war", function() {
+            if (self._aiState !== "war") {
+                self._aiState = "war";
+                self._turnsSinceWar = 0;
+                if (self.audio) self.audio.playSound(self._warDeclareSound || "/assets/kenney/audio/sci_fi_sounds/forceField_001.ogg", 0.5);
+                self._publishHud();
+            }
+        });
+        this.scene.events.ui.on("ui_event:hud/diplomacy_btn:propose_peace", function() {
+            if (self._aiState !== "peace") {
+                self._aiState = "peace";
+                self._turnsSinceWar = 0;
+                if (self.audio) self.audio.playSound(self._peaceDeclareSound || "/assets/kenney/audio/interface_sounds/confirmation_004.ogg", 0.5);
+                self._publishHud();
+            }
+        });
+    }
+
+    _publishHud() {
+        this.scene.events.ui.emit("hud_update", {
+            aiState: this._aiState,
+            aiMilitary: this._aiMilitary
         });
     }
 

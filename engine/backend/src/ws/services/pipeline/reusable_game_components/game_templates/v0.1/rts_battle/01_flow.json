@@ -75,7 +75,7 @@
           ],
           "on_enter": [
             "show_ui:hud/resources",
-            "hide_cursor",
+            "show_cursor",
             "show_ui:hud/minimap",
             "show_ui:hud/unit_panel",
             "show_ui:hud/command_panel",

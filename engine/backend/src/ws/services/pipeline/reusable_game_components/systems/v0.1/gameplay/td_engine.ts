@@ -19,6 +19,13 @@ class TDEngineSystem extends GameScript {
     _selectedSpot = 0;
     _cursorEntity = null;
 
+    // Click-to-place state
+    _armedTower = "";  // tower type the user has "armed" via the HUD palette
+    _cursorX = 0;       // virtual-cursor screen position from ui_bridge
+    _cursorY = 0;       //   (raw mouse is frozen by pointer lock; cursor_move is the source of truth)
+    _gotCursor = false;
+    _spotClickRadius = 2.5; // world-units tolerance for clicking near a spot center
+
     // Active enemies and towers
     _enemies = [];
     _towers = [];
@@ -102,6 +109,58 @@ class TDEngineSystem extends GameScript {
 
         this.scene.events.game.on("restart_game", function() {
             self._fullReset();
+        });
+
+        // Track the virtual cursor from ui_bridge. Pointer lock is engaged
+        // in play mode, which freezes the raw mouse reading, so spot
+        // hover/click must be driven by the visible cursor.
+        this.scene.events.ui.on("cursor_move", function(d) {
+            if (!d) return;
+            self._cursorX = d.x;
+            self._cursorY = d.y;
+            self._gotCursor = true;
+        });
+
+        // HUD click handlers — mirror keyboard shortcuts so the game is
+        // fully playable with the mouse alone.
+        this.scene.events.ui.on("ui_event:hud/td_hud:select_spot", function(d) {
+            var p = (d && d.payload) || {};
+            if (typeof p.index === "number" && p.index >= 0 && p.index < self._spots.length) {
+                self._selectedSpot = p.index;
+                self._moveCursor();
+                if (self.audio) self.audio.playSound("/assets/kenney/audio/interface_sounds/drop_002.ogg", 0.2);
+            }
+        });
+        this.scene.events.ui.on("ui_event:hud/td_hud:spot_prev", function() {
+            self._selectedSpot = (self._selectedSpot - 1 + self._spots.length) % self._spots.length;
+            self._moveCursor();
+            if (self.audio) self.audio.playSound("/assets/kenney/audio/interface_sounds/drop_002.ogg", 0.2);
+        });
+        this.scene.events.ui.on("ui_event:hud/td_hud:spot_next", function() {
+            self._selectedSpot = (self._selectedSpot + 1) % self._spots.length;
+            self._moveCursor();
+            if (self.audio) self.audio.playSound("/assets/kenney/audio/interface_sounds/drop_002.ogg", 0.2);
+        });
+        // Clicking a tower card "arms" the type — the next world click on a
+        // spot will place it there. Clicking the same card again disarms.
+        // If no spot click follows, the keyboard 1-4 path still works.
+        this.scene.events.ui.on("ui_event:hud/td_hud:build_tower", function(d) {
+            var p = (d && d.payload) || {};
+            if (!p.type) return;
+            if (self._armedTower === p.type) {
+                self._clearArmed();
+            } else {
+                self._armTower(p.type);
+            }
+        });
+        this.scene.events.ui.on("ui_event:hud/td_hud:upgrade_tower", function() {
+            self._upgradeTower();
+        });
+        this.scene.events.ui.on("ui_event:hud/td_hud:sell_tower", function() {
+            self._sellTower();
+        });
+        this.scene.events.ui.on("ui_event:hud/td_hud:start_wave", function() {
+            if (!self._waveActive) self._startWave();
         });
 
         this._cursorEntity = this.scene.findEntityByName("TowerCursor");
@@ -197,7 +256,8 @@ class TDEngineSystem extends GameScript {
             if (this.audio) this.audio.playSound("/assets/kenney/audio/interface_sounds/drop_002.ogg", 0.2);
         }
 
-        // Build towers 1-4
+        // Build towers 1-4 (immediate at currently selected spot — keeps
+        // keyboard play snappy without going through arm/aim).
         if (this.input.isKeyPressed("Digit1")) this._buildTower("arrow");
         if (this.input.isKeyPressed("Digit2")) this._buildTower("cannon");
         if (this.input.isKeyPressed("Digit3")) this._buildTower("ice");
@@ -213,6 +273,74 @@ class TDEngineSystem extends GameScript {
         if (this.input.isKeyPressed("Space") && !this._waveActive) {
             this._startWave();
         }
+
+        // Cancel armed placement.
+        if (this.input.isKeyPressed("Escape") || this.input.isKeyPressed("MouseRight")) {
+            this._clearArmed();
+        }
+
+        // World-click handling — pick the nearest tower spot under the
+        // cursor. Always selects; if a tower type is armed, also builds.
+        this._tickWorldClick();
+    }
+
+    _tickWorldClick() {
+        if (!this.input || !this.scene.screenPointToGround) return;
+        if (!this._gotCursor) return;
+        var clicked = !!(this.input.isKeyPressed && this.input.isKeyPressed("MouseLeft"));
+        if (!clicked) return;
+
+        var ground = this.scene.screenPointToGround(this._cursorX, this._cursorY, 0);
+        if (!ground) return;
+
+        var spot = this._findSpotNear(ground.x, ground.z);
+        if (spot < 0) {
+            // Empty-space click while armed — disarm so the player isn't
+            // stuck in placement mode after a stray miss.
+            if (this._armedTower) this._clearArmed();
+            return;
+        }
+
+        this._selectedSpot = spot;
+        this._moveCursor();
+
+        if (this._armedTower) {
+            var t = this._armedTower;
+            // Single-shot arm: clear before building so a failed build
+            // (occupied / unaffordable) doesn't leave a stale armed state.
+            this._clearArmed();
+            this._buildTower(t);
+        }
+    }
+
+    _findSpotNear(x, z) {
+        var nearest = -1;
+        var nearDist = this._spotClickRadius * this._spotClickRadius;
+        for (var i = 0; i < this._spots.length; i++) {
+            var sp = this._spots[i];
+            var dx = sp.x - x;
+            var dz = sp.z - z;
+            var d = dx * dx + dz * dz;
+            if (d < nearDist) {
+                nearDist = d;
+                nearest = i;
+            }
+        }
+        return nearest;
+    }
+
+    _armTower(type) {
+        var def = this._towerDefs[type];
+        if (!def) return;
+        // Soft-arm even if unaffordable so the HUD can show the cost
+        // gating; the actual build call will reject and disarm.
+        this._armedTower = type;
+        if (this.audio) this.audio.playSound("/assets/kenney/audio/interface_sounds/confirmation_001.ogg", 0.25);
+    }
+
+    _clearArmed() {
+        if (!this._armedTower) return;
+        this._armedTower = "";
     }
 
     _moveCursor() {
@@ -622,6 +750,16 @@ class TDEngineSystem extends GameScript {
             };
         }
 
+        var spotsView = [];
+        for (var s = 0; s < this._spots.length; s++) {
+            spotsView.push({
+                index: s,
+                occupied: this._spots[s].towerId !== null,
+                type: this._spots[s].towerType,
+                level: this._spots[s].towerLevel
+            });
+        }
+
         this.scene.events.ui.emit("hud_update", {
             gold: this._gold,
             lives: this._lives,
@@ -629,10 +767,20 @@ class TDEngineSystem extends GameScript {
             totalWaves: this._totalWaves,
             waveActive: this._waveActive,
             selectedSpot: this._selectedSpot + 1,
+            selectedSpotIndex: this._selectedSpot,
+            totalSpots: this._spots.length,
             spotOccupied: spot.towerId !== null,
             towerInfo: towerInfo,
             enemyCount: this._enemies.length,
             spawnRemaining: this._spawnQueue.length,
+            armedTower: this._armedTower,
+            spots: spotsView,
+            towers: [
+                { type: "arrow",     cost: this._towerDefs.arrow.cost,     affordable: this._gold >= this._towerDefs.arrow.cost },
+                { type: "cannon",    cost: this._towerDefs.cannon.cost,    affordable: this._gold >= this._towerDefs.cannon.cost },
+                { type: "ice",       cost: this._towerDefs.ice.cost,       affordable: this._gold >= this._towerDefs.ice.cost },
+                { type: "lightning", cost: this._towerDefs.lightning.cost, affordable: this._gold >= this._towerDefs.lightning.cost }
+            ],
             arrowCost: this._towerDefs.arrow.cost,
             cannonCost: this._towerDefs.cannon.cost,
             iceCost: this._towerDefs.ice.cost,

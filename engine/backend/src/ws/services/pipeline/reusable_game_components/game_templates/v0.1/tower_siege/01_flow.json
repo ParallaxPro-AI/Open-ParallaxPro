@@ -58,7 +58,7 @@
       ],
       "on_enter": [
         "show_ui:hud/td_hud",
-        "hide_cursor",
+        "show_cursor",
         "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
       ],
       "transitions": [
