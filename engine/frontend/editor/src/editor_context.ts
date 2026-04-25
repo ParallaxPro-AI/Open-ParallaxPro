@@ -1268,7 +1268,37 @@ export class EditorContext extends EventBus {
             col.height = height;
             col.center = { x: centerX, y: centerY, z: centerZ };
         } else if (col.shapeType === 3) {
-            // Trimesh: vertices encode position, no center offset
+            // Trimesh: vertices encode position, no center offset.
+            //
+            // BUT — if the .collision.bin sidecar didn't load (missing,
+            // fetch failed, or out-of-order with body creation), the
+            // collider's collisionPositions/Indices stay null and
+            // physics_system.ts falls back to a fixed-size 1m³ cuboid
+            // (cuboid(sx*0.5, sy*0.5, sz*0.5) at line 430) — completely
+            // disconnected from the visible mesh, which has been scaled
+            // by the asset-normalization registry (scale_multiplier on
+            // packs like ultimate_fantasy_rts is 10×). Result: a 10m
+            // building with a 1m collider, units walk through walls and
+            // get stuck inside spawn-overlapping structures.
+            //
+            // Fix: if the sidecar didn't populate the trimesh, populate it
+            // from the visible mesh's own geometry (which is already at
+            // the correct scaled size by the time we get here, post-load),
+            // then force a body recreate so Rapier picks up the new shape.
+            if (!col.collisionPositions || !col.collisionIndices) {
+                const mr = entity.getComponent('MeshRendererComponent') as any;
+                const md = mr?.meshData;
+                if (md?.positions && md?.indices) {
+                    col.collisionPositions = md.positions instanceof Float32Array
+                        ? md.positions
+                        : new Float32Array(md.positions);
+                    col.collisionIndices = md.indices instanceof Uint32Array
+                        ? md.indices
+                        : new Uint32Array(md.indices);
+                }
+            }
+            const rb = entity.getComponent('RigidbodyComponent') as any;
+            if (rb) rb._forceRecreate = true;
         } else {
             col.size = { x: width, y: height, z: depth };
             col.center = { x: centerX, y: centerY, z: centerZ };
