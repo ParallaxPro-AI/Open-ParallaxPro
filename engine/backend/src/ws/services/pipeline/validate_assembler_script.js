@@ -1029,4 +1029,73 @@ function extractMethodBody(src, name) {
 })();
 
 
+// ═════════════════════════════════════════════════════════════════════
+// 12. Cuboid collider halfExtents must not be double-scaled
+// ═════════════════════════════════════════════════════════════════════
+// physics_system.ts:378 builds the runtime cuboid as
+// `RAPIER.ColliderDesc.cuboid(he.x * sx, he.y * sy, he.z * sz)` where
+// (sx, sy, sz) is the entity's worldScale, which equals mesh.scale.
+// If the author wrote halfExtents in WORLD units (i.e. matching the
+// visible mesh's halfsize), the runtime collider ends up at
+// mesh.scale²/2 instead of mesh.scale/2 — wildly oversized in any
+// non-unit axis.
+//
+// Caught in noodle_jaunt (player legs sank into floor because collider
+// was 0.25m thick instead of 0.5m visible) and 33 more entities across
+// 9 templates. The unmistakable signature: halfExtents == mesh.scale/2
+// on a primitive-mesh entity (cube/sphere/etc.) with non-unit scale.
+//
+// Fix the LLM/author should apply: `halfExtents` lives in LOCAL units,
+// so [0.5, 0.5, 0.5] (the engine default) plus mesh.scale yields a
+// collider matching the visible cube. Or drop the explicit collider
+// block entirely.
+(function checkColliderHalfExtents() {
+    var heErrors = [];
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        var key = defKeys[di];
+        var def = defs[key];
+        if (!def || def.physics === false || !def.mesh) continue;
+        var col = def.physics && def.physics.collider;
+        if (!col || typeof col !== 'object') continue;
+        var shape = col.shape || col.shapeType;
+        if (shape !== 'cuboid' && shape !== 'box') continue;
+        var he = col.halfExtents;
+        if (!Array.isArray(he) || he.length < 3) continue;
+        var sc = def.mesh.scale;
+        if (!Array.isArray(sc) || sc.length < 3) continue;
+        // Skip unit-scale entities — the engine multiply is a no-op there
+        // and `halfExtents = mesh.scale/2` happens to be the correct
+        // [0.5, 0.5, 0.5] anyway.
+        if (sc[0] === 1 && sc[1] === 1 && sc[2] === 1) continue;
+        var hx = Number(he[0]), hy = Number(he[1]), hz = Number(he[2]);
+        var sx = Number(sc[0]), sy = Number(sc[1]), sz = Number(sc[2]);
+        if (!isFinite(hx) || !isFinite(hy) || !isFinite(hz)) continue;
+        if (!isFinite(sx) || !isFinite(sy) || !isFinite(sz)) continue;
+        var matchX = Math.abs(hx - sx / 2) < 0.01 + 0.05 * Math.abs(sx / 2);
+        var matchY = Math.abs(hy - sy / 2) < 0.01 + 0.05 * Math.abs(sy / 2);
+        var matchZ = Math.abs(hz - sz / 2) < 0.01 + 0.05 * Math.abs(sz / 2);
+        if (!(matchX && matchY && matchZ)) continue;
+        var finalSize = [hx * sx, hy * sy, hz * sz];
+        var visibleHalf = [sx / 2, sy / 2, sz / 2];
+        heErrors.push(
+            'entity "' + key + '" has physics.collider.halfExtents = [' +
+            hx + ', ' + hy + ', ' + hz + '] but mesh.scale = [' +
+            sx + ', ' + sy + ', ' + sz + '] — physics_system multiplies ' +
+            'halfExtents by worldScale (= mesh.scale), so the runtime collider ' +
+            'is sized [' + finalSize.map(function(n) { return n.toFixed(3); }).join(', ') +
+            '] (full half-extents) instead of the intended [' +
+            visibleHalf.map(function(n) { return n.toFixed(3); }).join(', ') +
+            ']. halfExtents is in LOCAL units; use [0.5, 0.5, 0.5] (or drop ' +
+            'the collider block entirely so the engine defaults match the ' +
+            'cube primitive\'s native bounds).'
+        );
+    }
+    if (heErrors.length > 0) {
+        console.error('Collider halfExtents validation failed: ' + heErrors.length + ' entit' + (heErrors.length > 1 ? 'ies' : 'y') + '. ' + heErrors[0]);
+        process.exit(1);
+    }
+})();
+
+
 console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
