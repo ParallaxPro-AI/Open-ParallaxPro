@@ -395,11 +395,8 @@ export class EditorContext extends EventBus {
                 if (currentScene) {
                     this.engine!.setActiveScene(currentScene as any);
                 }
-                // Rebind skinned animators that came back from snapshot
-                // reload with empty loadedClips / null skeleton (toJSON
-                // doesn't serialize runtime fields). setupAnimatorFromGLB
-                // reuses the existing GPU buffer so this is safe to call
-                // even on first Play where the cached path already ran.
+                // DIAGNOSTIC — pre-Play animator-state dump for skinned entities.
+                // Helps pin where the Play→Stop→Play anim-death chain breaks.
                 if (currentScene && this.engine) {
                     const renderSystem = this.engine.globalContext.renderSystem;
                     let rebound = 0;
@@ -408,14 +405,19 @@ export class EditorContext extends EventBus {
                         const url: string | undefined = mr?.meshAsset;
                         if (!url) continue;
                         const animator: any = entity.getComponent('AnimatorComponent');
-                        // Skip if animator already has clips loaded — first
-                        // Play's async load path populated it correctly.
-                        // Only rebind when fields are empty (post-snapshot).
-                        if (animator && animator.loadedClips?.size > 0 && animator.skeleton) continue;
                         const cachedParsed = this.parsedMeshCache.get(url);
-                        if (cachedParsed?.hasSkin && cachedParsed?.skeleton && cachedParsed?.animationClips?.length) {
+                        const hasSkin = !!(cachedParsed?.hasSkin);
+                        if (!hasSkin) continue; // not a skinned entity, nothing to diagnose
+                        const beforeState = animator
+                            ? `loadedClips=${animator.loadedClips?.size ?? 0} skel=${!!animator.skeleton} buf=${!!animator.gpuJointMatricesBuffer} playing=${animator.isPlaying} clip="${animator.currentClip}" gpuMesh=${!!mr.gpuMesh}`
+                            : '(no animator)';
+                        console.log(`[PlayDiag] entity=${entity.id} "${entity.name ?? '?'}" url=${url} ${beforeState}`);
+                        if (animator && animator.loadedClips?.size > 0 && animator.skeleton) continue;
+                        if (cachedParsed.skeleton && cachedParsed.animationClips?.length) {
                             this.setupAnimatorFromGLB(entity, cachedParsed, renderSystem);
                             rebound++;
+                            const afterState = `loadedClips=${animator?.loadedClips?.size ?? 0} skel=${!!animator?.skeleton} buf=${!!animator?.gpuJointMatricesBuffer} playing=${animator?.isPlaying} clip="${animator?.currentClip}"`;
+                            console.log(`[PlayDiag] rebound entity=${entity.id} → ${afterState}`);
                         }
                     }
                     if (rebound > 0) console.log(`[Play] Rebound ${rebound} skinned animator(s) on Play.`);
