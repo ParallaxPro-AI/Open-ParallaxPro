@@ -30,6 +30,26 @@ RUN curl -fsSL https://opencode.ai/install | bash \
     && chmod -R a+rX /opt/opencode \
     && ln -sf /opt/opencode/bin/opencode /usr/local/bin/opencode
 
+# Headless playtest support. The agent's validate.sh runs `playtest project/`
+# inline so failures surface during the agent's own turn budget instead of
+# only on an orchestrator-side respawn. tsx is the runtime — it transpiles
+# the bind-mounted engine TS sources at startup; we install it globally so
+# its bundled Linux esbuild build is used (the host's engine/headless
+# node_modules may be macOS / cross-platform).
+RUN npm install -g --no-fund --no-audit tsx
+
+# Wrapper that runs the headless playtest against the bind-mounted engine
+# source. docker_sandbox.ts mounts the host's engine/ directory RO at
+# /opt/parallaxpro/engine. The Rapier WASM binding (@dimforge/rapier3d-compat)
+# is platform-agnostic, so the bind-mounted host node_modules works directly.
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    '# Wrapper auto-installed by the agent-sandbox image.' \
+    '# Runs the headless playtest cli against a project directory.' \
+    'exec tsx /opt/parallaxpro/engine/headless/src/cli.ts "$@"' \
+    > /usr/local/bin/playtest \
+    && chmod +x /usr/local/bin/playtest
+
 # Reset node base image's entrypoint — docker-entrypoint.sh wraps anything
 # `command -v` can't resolve in `node`, which silently turns our agent
 # invocation into `node opencode ...` → MODULE_NOT_FOUND.

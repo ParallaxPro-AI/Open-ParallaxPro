@@ -791,18 +791,19 @@ node validate_assembler.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
 echo "=== Headless Playtest ==="
-# The orchestrator (cli_creator.ts) always runs the full headless playtest
-# against your project/ after this script returns — that's the authoritative
-# gate, with up to 3 retries if it fails. If the playtest binary happens to
-# be on PATH inside this sandbox, we run it here too so you can see failures
-# during your own turn budget rather than learning about them on a retry.
-# When the binary isn't reachable (default sandbox), we skip — the
-# orchestrator still enforces. A skip is NOT a failure.
+# The agent-sandbox image ships /usr/local/bin/playtest — when present,
+# we run the full headless playtest here so failures surface during the
+# agent's own turn budget instead of only on an orchestrator-side
+# respawn. The orchestrator still runs its own playtest after the CLI
+# exits as the authoritative gate (a buggy validate.sh exit code can't
+# bypass it). When the binary isn't reachable (e.g. dev-host run
+# without the image, or a worker that hasn't rebuilt the image yet) we
+# skip — that's NOT a failure; the orchestrator-side playtest backstops.
 if command -v playtest >/dev/null 2>&1; then
     playtest project/ 2>&1
     if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 else
-    echo "(playtest binary not on PATH in this sandbox — the orchestrator will run it post-CLI)"
+    echo "(playtest binary not on PATH — orchestrator will run the playtest post-CLI)"
 fi
 
 if [ $ERRORS -eq 0 ]; then

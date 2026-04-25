@@ -42,7 +42,7 @@ import { archiveCreatorSandbox } from './sandbox_archive.js';
 import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
 // The headless package lives as a sibling under engine/headless. Both packages
 // run under tsx so cross-package TS imports resolve at runtime without a build.
-import { runPlaytest, renderHuman } from '../../../../../headless/src/index.js';
+import { runPlaytest, renderHuman, syncEventDefinitions } from '../../../../../headless/src/index.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -675,105 +675,11 @@ function writeVerdictHistory(sessionCapturePath: string | null | undefined, hist
     }
 }
 
-/**
- * Sync `project/systems/event_definitions.ts` with the events the CLI's
- * just-regenerated TS sources actually emit/listen-for.
- *
- * Why this exists: CREATOR_CONTEXT tells the CLI it MAY append game-specific
- * events to event_definitions.ts. The first-pass authoring usually keeps the
- * file in sync with the scripts that emit. But the playtest-retry pass is
- * partial-regen — the CLI rewrites a behaviour or system to fix a flagged
- * bug and sometimes introduces a new event name (or restores a removed one)
- * without updating event_definitions.ts. Iteration 6's roguelike
- * (4fccd844) shipped failed because the retry's `dungeon_game.ts` referenced
- * `pickup_overlap` plus six other event names that the assembler couldn't
- * find in event_definitions.ts.
- *
- * This pre-pass scans every TS source under behaviors/, systems/, scripts/
- * and the flow's `emit:game.*` action references, diffs against declared
- * names in event_definitions.ts, and auto-appends any undeclared name with
- * a permissive `{ data: { type: 'any', optional: true } }` schema and a
- * `// auto-declared by retry sync` comment so a later auditor can spot it.
- *
- * The contract the CLI is mentally enforcing ("this event is mine, I declared
- * it") stays valid; the orchestrator just makes the partial edit complete
- * before the assembler validates. Returns the count of events appended so
- * the retry loop can log it.
- */
-function syncEventDefinitions(projectDir: string): { appended: string[] } {
-    const evtPath = path.join(projectDir, 'systems', 'event_definitions.ts');
-    if (!fs.existsSync(evtPath)) return { appended: [] };
-    const src = fs.readFileSync(evtPath, 'utf-8');
-
-    // Parse declared event names — same regex shape the assembler uses.
-    const declared = new Set<string>();
-    for (const m of src.matchAll(/^\s+(\w+)\s*:\s*\{/gm)) {
-        declared.add(m[1]);
-    }
-    for (const nonEvent of ['fields', 'type', 'optional']) declared.delete(nonEvent);
-
-    // Walk all TS sources and collect referenced event names. We stay
-    // conservative: only events.game.(on|emit)('...'|"...") count, plus
-    // emit:game.X actions in 01_flow.json. Anything more exotic (string
-    // concat, dynamic name) we leave alone — it'll fail the assembler
-    // and surface as a real bug instead of being silently auto-declared.
-    const referenced = new Set<string>();
-    const eventCallRe = /events\.game\.(?:on|emit)\s*\(\s*['"]([^'"]+)['"]/g;
-    const scanFile = (p: string) => {
-        try {
-            const s = fs.readFileSync(p, 'utf-8');
-            for (const m of s.matchAll(eventCallRe)) referenced.add(m[1]);
-        } catch {}
-    };
-    const walk = (dir: string) => {
-        if (!fs.existsSync(dir)) return;
-        for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-            const full = path.join(dir, ent.name);
-            if (ent.isDirectory()) walk(full);
-            else if (ent.isFile() && full.endsWith('.ts') && ent.name !== 'event_definitions.ts') scanFile(full);
-        }
-    };
-    walk(path.join(projectDir, 'behaviors'));
-    walk(path.join(projectDir, 'systems'));
-    walk(path.join(projectDir, 'scripts'));
-
-    // 01_flow.json `emit:game.X` actions also count as references.
-    try {
-        const flowSrc = fs.readFileSync(path.join(projectDir, '01_flow.json'), 'utf-8');
-        for (const m of flowSrc.matchAll(/"emit:game\.([^"]+)"/g)) referenced.add(m[1]);
-        // game_event:X transitions don't strictly require a declaration if
-        // some flow action emits it, but the assembler validates them
-        // against declared names too — so include them.
-        for (const m of flowSrc.matchAll(/"game_event:([^"]+)"/g)) referenced.add(m[1]);
-    } catch {}
-
-    const undeclared = [...referenced].filter(n => !declared.has(n));
-    if (undeclared.length === 0) return { appended: [] };
-
-    // Append entries inside the GAME_EVENTS object literal, just before
-    // the closing brace. We locate the LAST `}` paired with the opening
-    // GAME_EVENTS — simplest heuristic that survives the canonical
-    // file shape (entries indented 4 spaces, closing `};` on its own line).
-    const closingRe = /\n\s*\};\s*$/m;
-    const closeMatch = src.match(closingRe);
-    if (!closeMatch || closeMatch.index === undefined) {
-        // Couldn't find the close — bail rather than corrupting the file.
-        console.warn('[CLICreator] syncEventDefinitions: could not locate closing brace; skipping auto-decl');
-        return { appended: [] };
-    }
-    const insertAt = closeMatch.index;
-    const lines: string[] = [];
-    lines.push(''); // blank line before block
-    lines.push('    // auto-declared by retry sync — these events were emitted/listened-for in regenerated');
-    lines.push('    // sources but not declared during the original pass. Permissive `data: any` schema is');
-    lines.push('    // a placeholder; tighten if the payload shape is non-trivial.');
-    for (const name of undeclared) {
-        lines.push(`    ${name}: { fields: { data: { type: 'any', optional: true } } },`);
-    }
-    const updated = src.slice(0, insertAt) + '\n' + lines.join('\n') + src.slice(insertAt);
-    fs.writeFileSync(evtPath, updated, 'utf-8');
-    return { appended: undeclared };
-}
+// syncEventDefinitions lives in engine/headless/src/sync.ts and is imported
+// at the top of this file. The orchestrator-side call between playtest
+// retries (above) ensures event_definitions.ts is in sync BEFORE the
+// retry's assembleGame call. runPlaytest also syncs internally (defense-
+// in-depth for the in-sandbox playtest path).
 
 let _assetPackCache: { fingerprint: string; packs: AssetPackEntry[]; vectors: number[][] } | null = null;
 
@@ -936,8 +842,10 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     // CREATOR_CONTEXT.md tells the agent "15 turns" to drive
                     // batching behavior; the runtime cap is higher so an
                     // edge-case run that legitimately needs a few extra
-                    // fix-loop turns doesn't get killed mid-stride.
-                    maxTurns: 60,
+                    // fix-loop turns doesn't get killed mid-stride. Bumped
+                    // 60→100 to absorb in-session playtest retries when the
+                    // sandbox image carries the playtest binary.
+                    maxTurns: 100,
                     timeout: 45 * 60 * 1000,
                     claudeModel: 'claude-opus-4-7',
                     continueForked: true,
@@ -962,7 +870,9 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         prompt: CREATOR_PROMPT,
         // CREATOR_CONTEXT.md tells the agent "15 turns" to drive batching;
         // runtime cap is higher so edge-case fix loops don't get killed.
-        maxTurns: 60,
+        // Bumped 60→100 to absorb in-session playtest retries when the
+        // sandbox image carries the playtest binary.
+        maxTurns: 100,
         timeout: 45 * 60 * 1000,
         claudeModel: 'claude-opus-4-7',
         statusMapper: creatorStatus,
