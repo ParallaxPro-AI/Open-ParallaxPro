@@ -85,7 +85,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 30,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -120,7 +120,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 30,
         "freeze_rotation": true,
         "collider": "capsule"
