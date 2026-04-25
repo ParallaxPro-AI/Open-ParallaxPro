@@ -190,6 +190,18 @@ var GAME_EVENTS = {
     research_tech:      { fields: { tech: { type: 'string', optional: true } } },
     adopt_policy:       { fields: { policy: { type: 'string', optional: true } } },
 
+    // ── RTS click-driven commands (rts_input → unit_combat / worker_ai) ──
+    unit_command_move:    { fields: { entityId: { type: 'any', optional: true }, x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    unit_command_attack:  { fields: { entityId: { type: 'any', optional: true }, targetId: { type: 'any', optional: true } } },
+    // ── RTS economy / production ──
+    resource_request:     { fields: { minerals: { type: 'number', optional: true }, gas: { type: 'number', optional: true }, supply: { type: 'number', optional: true } } },
+    unit_produced:        { fields: { type: { type: 'string', optional: true }, kind: { type: 'string', optional: true } } },
+
+    // ── MMORPG click interactions (mmorpg_interact) ──
+    target_set:           { fields: { entityId: { type: 'any', optional: true } } },
+    npc_clicked:          { fields: { entityId: { type: 'any', optional: true }, role: { type: 'string', optional: true } } },
+    loot_picked_up:       { fields: { entityId: { type: 'any', optional: true } } },
+
     // ── Climbing / Platformer Extended ──
     climb_start:        { fields: {} },
     summit_reached:     { fields: {} },

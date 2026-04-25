@@ -114,8 +114,16 @@ export class EditorView {
         let projectData: any = null;
         try {
             projectData = await this.ctx.backend.loadProject(projectId);
-        } catch (e) {
-            console.warn('Failed to load project:', e);
+        } catch (e: any) {
+            // Up until now this path silently bounced the user back to the
+            // project list, leaving them no idea why their project wouldn't
+            // open. Most often the cause is an assembler / build failure
+            // ("Failed to build project: ..."), which is exactly the
+            // information they need to fix the underlying template. Surface
+            // it before redirecting.
+            console.error('Failed to load project:', e);
+            const reason = extractLoadFailureMessage(e);
+            try { alert(`Could not open project:\n\n${reason}`); } catch {}
             const base = window.location.pathname.replace(/\?.*/, '');
             window.location.href = base;
             return;
@@ -686,4 +694,21 @@ export class EditorView {
     sendInitialChatMessage(prompt: string): void {
         this.chat.sendInitialMessage(prompt);
     }
+}
+
+// backend_client throws Error("API error <status>: <body>") on non-OK
+// responses. The body is usually a JSON envelope { error: "<message>" }.
+// Strip the wrapping so the alert reads as a plain reason instead of a
+// raw HTTP/JSON line.
+function extractLoadFailureMessage(e: any): string {
+    const raw = (e && typeof e.message === 'string') ? e.message : String(e ?? 'Unknown error');
+    const m = raw.match(/^API error \d+:\s*(.*)$/s);
+    const body = m ? m[1].trim() : raw;
+    if (body.startsWith('{')) {
+        try {
+            const j = JSON.parse(body);
+            if (j && typeof j.error === 'string') return j.error;
+        } catch {}
+    }
+    return body;
 }

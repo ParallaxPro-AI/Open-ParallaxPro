@@ -114,10 +114,11 @@ class RTSInputSystem extends GameScript {
     }
 
     _pickPlayerEntity(x, z) {
-        // Player units, workers, buildings — anything tagged "player" or
-        // "player_building" the user might want to select.
+        // Player units, workers, buildings — the rts_battle template
+        // tags player-side things as "player_unit", "worker", and
+        // "player_building".
         var pools = [
-            this.scene.findEntitiesByTag("player") || [],
+            this.scene.findEntitiesByTag("player_unit") || [],
             this.scene.findEntitiesByTag("worker") || [],
             this.scene.findEntitiesByTag("player_building") || []
         ];
@@ -125,9 +126,11 @@ class RTSInputSystem extends GameScript {
     }
 
     _pickEnemyEntity(x, z) {
+        // Enemy units and buildings — the rts_battle template tags AI
+        // entities as "enemy_unit" / "enemy_building".
         var pools = [
-            this.scene.findEntitiesByTag("enemy") || [],
-            this.scene.findEntitiesByTag("hostile") || []
+            this.scene.findEntitiesByTag("enemy_unit") || [],
+            this.scene.findEntitiesByTag("enemy_building") || []
         ];
         return this._nearestActive(pools, x, z, this._enemyPickRadius);
     }
