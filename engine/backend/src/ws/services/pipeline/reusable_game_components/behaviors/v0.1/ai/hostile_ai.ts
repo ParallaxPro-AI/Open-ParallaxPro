@@ -64,7 +64,7 @@ class HostileAIBehavior extends GameScript {
             this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
 
             if (dist > this._attackRange) {
-                this._tryMove(pos, dx / dist, dz / dist, this._speed * dt);
+                this._tryMoveWithSlide(pos, dx / dist, dz / dist, this._speed * dt);
                 this._playAnim("Run");
             } else if (this._cooldown <= 0) {
                 // Attack!
@@ -88,10 +88,10 @@ class HostileAIBehavior extends GameScript {
         var dist = Math.sqrt(dx * dx + dz * dz);
 
         if (dist > 1.5) {
-            var moved = this._tryMove(pos, dx / dist, dz / dist, this._speed * 0.4 * dt);
+            var moved = this._tryMoveWithSlide(pos, dx / dist, dz / dist, this._speed * 0.4 * dt);
             this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
-            // If we ran into a wall on the way to the patrol target,
-            // pick a new one so we don't sit pressed into the wall.
+            // If every direction is blocked, pick a fresh wander target
+            // so we don't sit pressed into the wall.
             if (!moved) this._pickPatrol();
             this._playAnim("Walk");
         } else {
@@ -99,15 +99,26 @@ class HostileAIBehavior extends GameScript {
         }
     }
 
-    // Attempt a horizontal step. Raycasts forward from chest height to
-    // the proposed new position; if the path is blocked by world
-    // geometry (anything that isn't this entity itself) we skip the
-    // setPosition call so a kinematic mob can't walk through walls.
-    // Returns true if the move actually happened.
-    _tryMove(pos, ux, uz, step) {
+    // Try the desired direction first; if blocked, slide along the wall
+    // by trying a perpendicular direction (left then right). This isn't
+    // full pathfinding — just enough to follow walls around corners
+    // instead of freezing pressed against them.
+    _tryMoveWithSlide(pos, ux, uz, step) {
+        if (this._stepIfClear(pos, ux, uz, step)) return true;
+        // Perpendiculars: rotating (ux, uz) by ±90° gives (-uz, ux) and (uz, -ux).
+        if (this._stepIfClear(pos, -uz, ux, step)) return true;
+        if (this._stepIfClear(pos, uz, -ux, step)) return true;
+        return false;
+    }
+
+    // Capsule-aware horizontal cast. The ray slack is 0.9m, generous
+    // enough to cover a typical capsule radius (~0.4m) plus margin so
+    // the body stops with daylight between it and the wall instead of
+    // teleporting forward and lodging the capsule inside the geometry.
+    _stepIfClear(pos, ux, uz, step) {
         if (step <= 0) return false;
         if (this.scene.raycast) {
-            var hit = this.scene.raycast(pos.x, pos.y + 1.0, pos.z, ux, 0, uz, step + 0.6);
+            var hit = this.scene.raycast(pos.x, pos.y + 1.0, pos.z, ux, 0, uz, step + 0.9);
             if (hit && hit.entityId !== this.entity.id) return false;
         }
         this.scene.setPosition(this.entity.id, pos.x + ux * step, pos.y, pos.z + uz * step);
