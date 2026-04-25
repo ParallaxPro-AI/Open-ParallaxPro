@@ -21,7 +21,7 @@
 //                     Use entity-name keys (e.g. "blue_minion": 200) for
 //                     exact matches when same-tag entities have different
 //                     HPs; fall back to tag keys (e.g. "tower": 2000) when
-//                     a whole class shares a value.
+//                     a whole group of units share the same value.
 //   heightAbove     — world-units to lift the bar above origin (default 2.4).
 class EntityHealthBarsSystem extends GameScript {
     _allyTags = [];
