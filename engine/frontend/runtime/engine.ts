@@ -147,11 +147,34 @@ export class ParallaxEngine {
      * Toggle editor mode. In editor mode, physics/scripts/network are paused.
      * Physics is only shut down when returning to editor mode, not when entering
      * play mode -- the physics state is already clean from the previous stop() call.
+     *
+     * On entering editor mode (Stop), reset per-Play state so a subsequent
+     * Play starts clean: animators get stop()'d so they don't drag stale
+     * currentClip/currentTime into the second Play, and script instances
+     * are marked unstarted so their `onStart` re-fires. Without these,
+     * users observed "animations stop working after Play→Stop→Play"
+     * because behaviors that cached `_currentAnim` from first Play
+     * never called playAnimation again and the animator silently
+     * no-op'd. Documented in iteration-6 user report on multiple games.
      */
     setEditorMode(enabled: boolean): void {
         this.isEditorMode = enabled;
         if (enabled) {
             this.globalContext.physicsSystem.shutdown();
+            // Reset animators so second Play starts from a clean state.
+            // We call stop() (zeros currentTime, isPlaying=false) rather
+            // than onDestroy() (clears clips + skeleton — too aggressive
+            // because we'd have to re-initialize from JSON on next Play).
+            if (this.activeScene) {
+                for (const entity of this.activeScene.entities.values()) {
+                    const animator: any = entity.getComponent('AnimatorComponent');
+                    if (animator?.stop) {
+                        try { animator.stop(); } catch (e) { /* swallow */ }
+                    }
+                }
+            }
+            // Mark scripts as unstarted so onStart re-fires on next Play.
+            this.globalContext.scriptSystem.resetForReplay();
         }
     }
 

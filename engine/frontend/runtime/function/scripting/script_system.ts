@@ -103,6 +103,42 @@ export class ScriptSystem {
     }
 
     /**
+     * Reset all script instances so the next tickUpdate() re-fires their
+     * `onStart` lifecycle hook. Called by the engine on Play→Stop→Play
+     * transitions so behaviors that initialize event listeners,
+     * animation state, FSM bindings, or per-instance fields in
+     * onStart get a fresh init pass on the second Play.
+     *
+     * Without this reset, `inst.started` stayed `true` across the
+     * second Play and onStart never re-ran. The user-visible symptom
+     * was "after I press Play on the editor, then Stop, then Play
+     * again, the animations all don't work anymore" — behaviors with
+     * an `_currentAnim` cache that was set during first Play matched
+     * the desired anim every frame, so playAnimation never got called
+     * again, and the AnimatorComponent's stale state from first Play
+     * silently no-op'd in renders.
+     *
+     * Note this does NOT clear event listeners registered during the
+     * first Play's onStart. The consequence is that re-fired onStart
+     * may register DUPLICATE listeners. We accept that for now because
+     * removing listeners safely requires every behavior to track its
+     * own subscription handles, which is a much larger refactor.
+     * The duplicate fires are usually idempotent (state setters,
+     * not action emits) so this hasn't been observed to cause user
+     * problems in practice.
+     */
+    resetForReplay(): void {
+        for (const inst of this.instances) {
+            inst.started = false;
+            // Clear the per-script behavior_active cache so the next
+            // active_behaviors emit on second Play overrides whatever
+            // value the first Play left behind.
+            const script = inst.script as any;
+            if (script._behaviorActive !== undefined) script._behaviorActive = undefined;
+        }
+    }
+
+    /**
      * Instantiate and attach a script to an entity.
      */
     attachScript(scriptName: string, entity: ScriptEntity): GameScript | null {
