@@ -6,22 +6,26 @@
       "params": {}
     },
     "entity_health_bars": {
-      "description": "World-anchored HP bars over every active player- and enemy-side entity. Tags player_unit/worker/player_building as allies and enemy_unit/enemy_building as enemies; bumps building HP to 500 and tank/mech HP to 150-200 to match the per-behavior _health values in unit_combat / worker_ai.",
+      "description": "World-anchored HP bars over every active player- and enemy-side entity. Values match the per-behavior _health params in 02_entities.json so percentages stay accurate.",
       "script": "gameplay/entity_health_bars.ts",
       "params": {
         "allyTags": ["player_unit", "worker", "player_building"],
         "enemyTags": ["enemy_unit", "enemy_building"],
         "showAllies": true,
         "defaultMax": 100,
-        "tagHpOverrides": {
+        "hpOverrides": {
+          "battle_mech": 500,
+          "mech_walker": 300,
+          "siege_tank": 250,
+          "tank": 200,
+          "scout_mech": 150,
+          "marine": 100,
+          "marine_female": 100,
+          "ghost": 100,
           "worker": 40,
+          "medic": 50,
           "player_building": 500,
-          "enemy_building": 500,
-          "battle_mech": 200,
-          "siege_tank": 200,
-          "tank": 150,
-          "mech": 150,
-          "medic": 80
+          "enemy_building": 500
         },
         "heightAbove": 2.4
       }

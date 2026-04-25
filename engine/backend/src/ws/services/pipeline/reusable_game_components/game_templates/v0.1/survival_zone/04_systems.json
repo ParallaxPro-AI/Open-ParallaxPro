@@ -8,7 +8,7 @@
         "enemyTags": ["enemy"],
         "showAllies": false,
         "defaultMax": 100,
-        "tagHpOverrides": {},
+        "hpOverrides": {},
         "heightAbove": 2.0
       }
     },

@@ -6,20 +6,22 @@
       "params": {}
     },
     "entity_health_bars": {
-      "description": "World-anchored red HP bar over every active hostile mob (goblins / undead / shadow / elites / bosses). Player HP lives in the health_mana panel; allies are off so the screen stays quiet during quest flow.",
+      "description": "Red HP bar over every active hostile mob. Values match the per-behavior _health params in 02_entities.json so percentages stay accurate.",
       "script": "gameplay/entity_health_bars.ts",
       "params": {
         "allyTags": ["player", "hero"],
         "enemyTags": ["enemy", "hostile"],
         "showAllies": false,
         "defaultMax": 100,
-        "tagHpOverrides": {
-          "goblin": 50,
-          "undead": 80,
-          "shadow": 100,
-          "elite": 200,
-          "boss": 800,
-          "final_boss": 2000
+        "hpOverrides": {
+          "dungeon_lord": 1500,
+          "war_chief": 800,
+          "dark_knight": 250,
+          "shadow_assassin": 120,
+          "undead_warrior": 150,
+          "undead_mage": 100,
+          "goblin_scout": 80,
+          "goblin_shaman": 60
         },
         "heightAbove": 2.5
       }

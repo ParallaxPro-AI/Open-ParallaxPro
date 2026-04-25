@@ -1,17 +1,20 @@
 {
   "systems": {
     "entity_health_bars": {
-      "description": "Red HP bar over every hostile mob (zombies, skeletons, undead, elites, bosses) so the player can see which threats are about to die. Player HP is in the survival_hud panel — allies are off.",
+      "description": "Red HP bar over every hostile mob. Values match the per-behavior _health params in 02_entities.json so percentages stay accurate.",
       "script": "gameplay/entity_health_bars.ts",
       "params": {
         "allyTags": ["player"],
         "enemyTags": ["enemy", "hostile"],
         "showAllies": false,
-        "defaultMax": 100,
-        "tagHpOverrides": {
-          "boss": 500,
-          "elite": 200,
-          "undead": 80
+        "defaultMax": 80,
+        "hpOverrides": {
+          "demon": 250,
+          "skeleton_armored": 120,
+          "zombie": 80,
+          "wolf": 60,
+          "skeleton": 60,
+          "goblin": 50
         },
         "heightAbove": 2.2
       }

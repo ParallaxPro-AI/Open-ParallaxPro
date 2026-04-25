@@ -13,35 +13,53 @@
 // Params (set in 04_systems.json):
 //   allyTags        — string[] of tags whose entities count as allies
 //   enemyTags       — string[] of tags whose entities count as enemies
-//   showAllies      — render bars over ally entities too (default false:
-//                     usually the player's HP is already in the HUD bar
-//                     and you only want bars over hostiles).
-//   defaultMax      — fallback max HP for any entity (default 100).
-//   tagHpOverrides  — { tag: hp } per-tag max overrides; first matching
-//                     entity-tag wins. Use to give bosses 1000 HP, etc.
+//   showAllies      — render bars over ally entities too (default false).
+//   defaultMax      — fallback max HP if neither name nor tag matches
+//                     (default 100).
+//   hpOverrides     — { key: hp } map. Lookup priority is:
+//                     entity.name → each tag in entity.tags → defaultMax.
+//                     Use entity-name keys (e.g. "blue_minion": 200) for
+//                     exact matches when same-tag entities have different
+//                     HPs; fall back to tag keys (e.g. "tower": 2000) when
+//                     a whole class shares a value.
 //   heightAbove     — world-units to lift the bar above origin (default 2.4).
 class EntityHealthBarsSystem extends GameScript {
     _allyTags = [];
     _enemyTags = [];
     _showAllies = false;
     _defaultMax = 100;
-    _tagHpOverrides = {};
+    _hpOverrides = {};
     _heightAbove = 2.4;
 
     _hp = {};
 
     onStart() {
         var self = this;
+        // The codebase emits damage events under two shapes:
+        //   { targetId, damage } — used by ~17 behaviors (unit_combat,
+        //     hero_combat, fps_combat, melee_combat, ranged_combat …).
+        //   { entityId, amount } — used by ~7 behaviors (minion_ai,
+        //     hostile_mob, caster_mob, boss_ai …) and matches the
+        //     event_definitions.ts declared schema.
+        // Same split exists for entity_killed (entityId vs targetId) and
+        // for entity_healed. Read whichever is present so per-behavior HP
+        // stays in sync with the bars regardless of which dialect a given
+        // behavior happens to use.
         this.scene.events.game.on("game_ready", function() { self._hp = {}; });
         this.scene.events.game.on("entity_damaged", function(d) {
-            if (!d || d.targetId == null) return;
-            var row = self._hp[d.targetId];
+            if (!d) return;
+            var id = d.targetId != null ? d.targetId : d.entityId;
+            if (id == null) return;
+            var row = self._hp[id];
             if (!row) return;
-            row.current = Math.max(0, row.current - (d.damage || 0));
+            var dmg = (d.damage != null) ? d.damage : (d.amount || 0);
+            row.current = Math.max(0, row.current - dmg);
         });
         this.scene.events.game.on("entity_healed", function(d) {
-            if (!d || d.targetId == null) return;
-            var row = self._hp[d.targetId];
+            if (!d) return;
+            var id = d.targetId != null ? d.targetId : d.entityId;
+            if (id == null) return;
+            var row = self._hp[id];
             if (!row) return;
             row.current = Math.min(row.max, row.current + (d.amount || 0));
         });
@@ -109,11 +127,19 @@ class EntityHealthBarsSystem extends GameScript {
     }
 
     _maxFor(entity) {
-        var tags = entity.tags || [];
-        // Walk tags in entity order, return first override hit.
-        for (var i = 0; i < tags.length; i++) {
-            var v = this._tagHpOverrides[tags[i]];
+        // Most-specific match first: entity name (def key) → tags → default.
+        // Engine sets entity.name from the def key (e.g. "blue_minion").
+        // Some entity types may use a different name field; cover the
+        // common ones defensively.
+        var name = entity.name || (entity.def && entity.def.name) || "";
+        if (name) {
+            var v = this._hpOverrides[name];
             if (typeof v === "number") return v;
+        }
+        var tags = entity.tags || [];
+        for (var i = 0; i < tags.length; i++) {
+            var t = this._hpOverrides[tags[i]];
+            if (typeof t === "number") return t;
         }
         return this._defaultMax;
     }
