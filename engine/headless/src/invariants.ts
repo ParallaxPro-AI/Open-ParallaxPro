@@ -17,6 +17,26 @@ export interface InvariantResult {
   skipReason?: string;
 }
 
+// Tags an entity defines that should exclude it from invariants that
+// look for "interactive" or "pickup-shaped" entities by name. The agents
+// already use `decoration_only` to mark backdrop props; the others are
+// here for cross-genre robustness. Centralised so multiple invariants
+// (interactive_entities_have_colliders, pickup_despawns_on_overlap,
+// replay_pickup_still_works) can share the rule.
+const NON_INTERACTIVE_TAGS = new Set([
+  'decoration_only', 'no_collide', 'vfx', 'particle',
+  'backdrop', 'background', 'effect',
+]);
+function isDecorative(def: any): boolean {
+  const tags = def?.tags;
+  if (!Array.isArray(tags) && !(tags instanceof Set)) return false;
+  const list: string[] = tags instanceof Set ? Array.from(tags) : tags;
+  for (const t of list) {
+    if (typeof t === 'string' && NON_INTERACTIVE_TAGS.has(t)) return true;
+  }
+  return false;
+}
+
 /** Heuristic player discovery against the REAL Scene. Order:
  *   1. Entity tagged "player"
  *   2. Entity whose name contains "player"
@@ -77,7 +97,77 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   const playerEarly = discoverPlayer(p);
   try { p.tick(5); } catch {}
   if (playerEarly) {
-    results.push(guarded('spawn_not_overlapping', () => { p.assertNotStuck(playerEarly); }));
+    // Iteration 7 audit improvement: when spawn overlap fires, compute a
+    // suggested clear-of-ground Y from the overlapping entities' AABBs and
+    // include it in the failure detail so the author has a concrete number
+    // to plug into 03_worlds.json instead of guessing. We re-compute AABBs
+    // inline (the Playtest class's entityAABB is file-private) using the
+    // same TransformComponent + ColliderComponent fields the engine uses.
+    const computeAABB = (ent: any): { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } } | null => {
+      const tc: any = ent?.getComponent?.('TransformComponent');
+      const cc: any = ent?.getComponent?.('ColliderComponent');
+      if (!tc || !cc) return null;
+      const pos = tc.position, sc = tc.scale ?? { x: 1, y: 1, z: 1 };
+      const he = cc.halfExtents;
+      const st = cc.shapeType;
+      if (st === 1) {
+        const r = (cc.radius ?? 0.5) * Math.max(Math.abs(sc.x), Math.abs(sc.y), Math.abs(sc.z));
+        return { min: { x: pos.x - r, y: pos.y - r, z: pos.z - r }, max: { x: pos.x + r, y: pos.y + r, z: pos.z + r } };
+      }
+      if (st === 2) {
+        const r = (cc.radius ?? 0.5) * Math.max(Math.abs(sc.x), Math.abs(sc.z));
+        const h = (cc.height ?? 1.0) * Math.abs(sc.y);
+        return { min: { x: pos.x - r, y: pos.y - h * 0.5, z: pos.z - r }, max: { x: pos.x + r, y: pos.y + h * 0.5, z: pos.z + r } };
+      }
+      if (he && typeof he.x === 'number') {
+        return {
+          min: { x: pos.x - he.x * Math.abs(sc.x), y: pos.y - he.y * Math.abs(sc.y), z: pos.z - he.z * Math.abs(sc.z) },
+          max: { x: pos.x + he.x * Math.abs(sc.x), y: pos.y + he.y * Math.abs(sc.y), z: pos.z + he.z * Math.abs(sc.z) },
+        };
+      }
+      return null;
+    };
+    results.push(guarded('spawn_not_overlapping', () => {
+      try {
+        p.assertNotStuck(playerEarly);
+      } catch (e: any) {
+        if (e instanceof PlaytestFailure && e.code === 'spawn_overlap') {
+          // Augment the existing failure with a suggested Y.
+          const scene: any = p.runtime.scene;
+          const playerE: any = scene?.entities?.get(playerEarly.id);
+          const stuckIn: any[] = (e.detail?.stuckIn as any[]) ?? [];
+          let suggestedY: number | null = null;
+          if (playerE && stuckIn.length > 0) {
+            const playerAabb = computeAABB(playerE);
+            if (playerAabb) {
+              // Pick the highest top-of-AABB among the entities we're stuck in
+              // — that's the surface we want to land on.
+              let groundTop = -Infinity;
+              for (const sref of stuckIn) {
+                const ge: any = scene?.entities?.get(sref.id);
+                const ga = computeAABB(ge);
+                if (ga && ga.max.y > groundTop) groundTop = ga.max.y;
+              }
+              if (isFinite(groundTop)) {
+                const playerHalfH = (playerAabb.max.y - playerAabb.min.y) / 2;
+                suggestedY = groundTop + playerHalfH + 0.02;
+                e.detail = { ...e.detail, suggestedY };
+              }
+            }
+          }
+          if (suggestedY != null) {
+            // Prepend a clear, human-readable suggestion to the hint without
+            // dropping the original message. The orchestrator surfaces hint
+            // verbatim to the author, so prepending "Try y=N." keeps it
+            // first. Also update `message` so callers reading Error.message
+            // see the same enriched text.
+            (e as any).hint = `Try setting the player's spawn y=${suggestedY.toFixed(2)} (just above the highest ground/collider it currently overlaps). ` + e.hint;
+            (e as any).message = `[${e.code}] ${(e as any).hint}`;
+          }
+        }
+        throw e;
+      }
+    }));
     results.push(guarded('spawn_position_valid', () => { p.assertPositionNotNaN(playerEarly); }));
   }
 
@@ -175,9 +265,36 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
           const dx = afterP.x - beforeP.x, dy = afterP.y - beforeP.y, dz = afterP.z - beforeP.z;
           const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
           if (d < 0.1) {
-            throw new PlaytestFailure('controls_dead',
-              `holding "${primaryAction}" for 1s moved player ${d.toFixed(3)} units. Controls appear unwired.`,
-              { primaryAction, moved: d });
+            // Iteration 7 audit improvement: instead of just declaring
+            // "controls dead," probe the other common locomotion keys to
+            // tell the author which key the controls ARE wired to. The
+            // probe path only runs on FAILURE so the success path stays
+            // fast; we snapshot+restore around each probe to keep player
+            // state isolated.
+            const probeKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'MouseLeft'].filter(k => k !== primaryAction);
+            const responsiveKeys: string[] = [];
+            for (const k of probeKeys) {
+              const probeSnap = p.snapshot();
+              const probeBefore = p.pos(player);
+              try {
+                p.keyDown(k); p.tickSeconds(0.5); p.keyUp(k);
+                const probeAfter = p.pos(player);
+                if (probeBefore && probeAfter) {
+                  const moved = Math.hypot(
+                    probeAfter.x - probeBefore.x,
+                    probeAfter.y - probeBefore.y,
+                    probeAfter.z - probeBefore.z,
+                  );
+                  if (moved > 0.1) responsiveKeys.push(k);
+                }
+              } catch {}
+              p.restore(probeSnap);
+            }
+            const hint = responsiveKeys.length > 0
+              ? `Player did NOT move under "${primaryAction}" but DID under: ${responsiveKeys.join(', ')}. Update PLAYTEST.ts's primaryAction or fix the binding so the advertised key matches the wired one.`
+              : `Holding "${primaryAction}" for 1s moved player ${d.toFixed(3)} units, and probing the other common keys (${probeKeys.join(', ')}) didn't move the player either. Controls appear genuinely unwired — check the active behaviors / input bindings.`;
+            throw new PlaytestFailure('controls_dead', hint,
+              { primaryAction, moved: d, probedKeys: probeKeys, responsiveKeys });
           }
         }));
         // ── Mesh facing tracks dominant motion ──
@@ -476,8 +593,13 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     const missing: Array<{ name: string; reason: string }> = [];
     for (const e of scene.entities.values()) {
       if (!e.active) continue;
+      // Centralised decoration check — covers decoration_only/no_collide/vfx/
+      // particle/backdrop/background/effect tags. Iteration 7 audit moved
+      // this in front of the name-regex match so a `Spotlight Pillar`
+      // tagged decoration_only doesn't get flagged just for matching `pillar`.
+      if (isDecorative(e)) continue;
       const tags = e.tags instanceof Set ? Array.from(e.tags) : (Array.isArray(e.tags) ? e.tags : []);
-      if (tags.includes('ui') || tags.includes('camera') || tags.includes('decoration_only') || tags.includes('no_collide') || tags.includes('particle') || tags.includes('vfx')) continue;
+      if (tags.includes('ui') || tags.includes('camera')) continue;
       const cc = e.getComponent('ColliderComponent');
       if (cc) continue;  // already has one — fine
       const nameMatches = INTERACTIVE_NAME_RE.test(e.name);
@@ -503,11 +625,31 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       }
     }
     if (missing.length > 0) {
-      const names = missing.slice(0, 5).map(m => `"${m.name}" (${m.reason})`).join(', ');
-      const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
+      // Aggregation pass: when the offender list is large, cluster names by
+      // the first one or two whitespace-separated words so a forest of
+      // "Spotlight Pillar 1/2/3/..." entries collapses to one summary line.
+      const NAME_PREFIX_RE = /^(\w+(?:\s+\w+)?)/;
+      const aggregateNames: string[] = [];
+      if (missing.length > 6) {
+        const histogram = new Map<string, number>();
+        for (const m of missing) {
+          const pm = m.name.match(NAME_PREFIX_RE);
+          const prefix = pm ? pm[1] : m.name;
+          histogram.set(prefix, (histogram.get(prefix) ?? 0) + 1);
+        }
+        for (const [prefix, count] of histogram.entries()) {
+          if (count >= 4) aggregateNames.push(`${count}x ${prefix}* (interactive name, no collider)`);
+        }
+      }
+      const individuals = missing.slice(0, 5).map(m => `"${m.name}" (${m.reason})`);
+      const remaining = missing.length - 5;
+      const moreInline = remaining > 0 && aggregateNames.length === 0 ? ` (+${remaining} more)` : '';
+      const names = individuals.join(', ') + moreInline + (aggregateNames.length > 0 ? `; ${aggregateNames.join(', ')}` : '');
       throw new PlaytestFailure('interactive_no_collider',
-        `${missing.length} entit${missing.length > 1 ? 'ies' : 'y'} lack colliders: ${names}${more}. The player's physics will pass straight through these. Most likely cause: you set \`physics: false\` on the entity in 02_entities.json. Either give them a physics block (\`physics: { type: "static", collider: "box" }\` for walls/obstacles, \`physics: { type: "static", collider: { shape: "box" }, is_trigger: true }\` for pickups/zones), OR add the tag \`"decoration_only"\` if they truly are non-collidable decoration.`,
-        { missing: missing.slice(0, 10), total: missing.length });
+        `${missing.length} entit${missing.length > 1 ? 'ies' : 'y'} look interactive (by name pattern) but have no collider: ${names}. ` +
+        `If these are non-interactive backdrop / decoration / effect props, add tag "decoration_only" in 02_entities.json so they're skipped from collision and pickup checks. ` +
+        `Only add a physics block if the player is meant to bump into them (e.g. \`physics: { type: "static", collider: "box" }\` for walls/obstacles, \`physics: { type: "static", collider: { shape: "box" }, is_trigger: true }\` for pickups/zones).`,
+        { missing: missing.slice(0, 10), total: missing.length, aggregated: aggregateNames });
     }
   }));
 
@@ -522,10 +664,29 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   // boot, tick 3 seconds to let any spawner system fire, then re-scan.
   // Also uses an expanded pickup vocabulary matching the enemy/pickup list
   // in the collider invariant.
-  const PICKUP_NAME_RE = /^(pickup|coin|collectable|collectible|gem|powerup|crystal|star|fruit|apple|cookie|orb|rune|key|potion|heart|health|mushroom|flower|sun_blob)/i;
+  // Tightened in iteration 7 audit: the original regex matched any entity
+  // whose NAME merely STARTED with `apple|cookie|orb|mushroom|flower|sun_blob|...`,
+  // which false-positively swept up backdrop props (an `apple_tree` decoration
+  // is not a pickup). Now we require either an explicit pickup-shaped suffix
+  // OR a single-word pickup name plus a pickup/collectible tag.
+  const PICKUP_SUFFIX_RE = /(_pickup|_coin|_gem|_collectible|_powerup|_health_pack)$/i;
+  const PICKUP_TAG_NAMES = /^(coin|gem|pickup|collectible|powerup|crystal|shard|key|orb)$/i;
+  function looksLikePickup(name: string, def: any): boolean {
+    if (PICKUP_SUFFIX_RE.test(name)) return true;
+    // Single-word pickup-y names only if the entity carries a pickup-shaped tag.
+    if (PICKUP_TAG_NAMES.test(name)) {
+      const tags = def?.tags;
+      const list: string[] = tags instanceof Set ? Array.from(tags) : (Array.isArray(tags) ? tags : []);
+      if (list.some((t: any) => typeof t === 'string' && /pickup|collectible|coin|gem/i.test(t))) return true;
+    }
+    return false;
+  }
   const findPickups = () => [...(p.runtime.scene?.entities.values() ?? [])].filter((e: any) => {
     if (!e.active) return false;
-    if (PICKUP_NAME_RE.test(e.name)) return true;
+    // Decoration-tagged entities (backdrop trees, vfx particles, etc.) must
+    // NOT be probed as pickups even if their name looks pickup-shaped.
+    if (isDecorative(e)) return false;
+    if (looksLikePickup(e.name, e)) return true;
     if (e.tags instanceof Set) {
       return e.tags.has('pickup') || e.tags.has('coin') || e.tags.has('collectable') || e.tags.has('collectible') || e.tags.has('gem') || e.tags.has('powerup');
     }
@@ -597,16 +758,34 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   if (flow?.states) {
     const cursorlessClickableStates: Array<{ state: string; reason: string }> = [];
     let anyStateShowsCursor = false;
-    for (const [stateName, stateDef] of Object.entries<any>(flow.states)) {
-      if (stateName === 'boot') continue;
-      const onEnter: string[] = Array.isArray(stateDef.on_enter) ? stateDef.on_enter : [];
-      const opensUI = onEnter.some(op => typeof op === 'string' && /^show_ui:/.test(op));
-      const hasShowCursor = onEnter.some(op => typeof op === 'string' && /^show_cursor\b/.test(op));
-      const hasHideCursor = onEnter.some(op => typeof op === 'string' && /^hide_cursor\b/.test(op));
-      if (hasShowCursor) anyStateShowsCursor = true;
-      if (opensUI && !hasShowCursor && !hasHideCursor) {
-        cursorlessClickableStates.push({ state: stateName, reason: 'opens UI but no show_cursor in on_enter' });
+    // Iteration 7 audit improvement: walk substates with PARENT cursor
+    // inheritance — a substate inherits the parent's show_cursor unless it
+    // explicitly contains hide_cursor. Without inheritance, a child
+    // gameplay substate that opens a UI panel would false-flag even when
+    // the parent's on_enter already enables the cursor.
+    const walkCursorStates = (stateName: string, stateDef: any, inheritedShowCursor: boolean): void => {
+      if (stateName === 'boot') {
+        // Still recurse into substates so any nested gameplay states are checked.
+        for (const [sn, sd] of Object.entries<any>(stateDef?.substates ?? {})) {
+          walkCursorStates(sn, sd, inheritedShowCursor);
+        }
+        return;
       }
+      const onEnter: string[] = Array.isArray(stateDef?.on_enter) ? stateDef.on_enter : [];
+      const opensUI = onEnter.some(op => typeof op === 'string' && /^show_ui:/.test(op));
+      const ownShowCursor = onEnter.some(op => typeof op === 'string' && /^show_cursor\b/.test(op));
+      const ownHideCursor = onEnter.some(op => typeof op === 'string' && /^hide_cursor\b/.test(op));
+      const effectiveShowCursor = ownHideCursor ? false : (ownShowCursor || inheritedShowCursor);
+      if (ownShowCursor || inheritedShowCursor) anyStateShowsCursor = true;
+      if (opensUI && !effectiveShowCursor && !ownHideCursor) {
+        cursorlessClickableStates.push({ state: stateName, reason: 'opens UI but no show_cursor in on_enter (or any ancestor)' });
+      }
+      for (const [sn, sd] of Object.entries<any>(stateDef?.substates ?? {})) {
+        walkCursorStates(sn, sd, effectiveShowCursor);
+      }
+    };
+    for (const [stateName, stateDef] of Object.entries<any>(flow.states)) {
+      walkCursorStates(stateName, stateDef, false);
     }
     // Dynamic check: are there scene-level clickables that need a cursor
     // but no state ever enables one?
@@ -647,22 +826,56 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       const snap = p.snapshot();
       try {
         p.activateAllBehaviors();
+        // Iteration 7 audit fix: count only score-keyed values that ACTUALLY
+        // CHANGED post-game-over, not raw emit volume. A live HUD that keeps
+        // emitting `{ score: 42 }` every frame after the match ends doesn't
+        // flicker — only one that emits `{ score: 41 }, { score: 42 }, …`
+        // (or different writers fighting over the same key) does. Track the
+        // last value per score-key and increment a counter only on diffs.
+        const gameOverFrame = p.frameCount();
         if (p.runtime.scriptScene?.events?.game?.emit) {
           p.runtime.scriptScene.events.game.emit(endEvent, {});
         }
+        // Pre-game-over baseline: last value seen per score-keyed key from
+        // the events emitted BEFORE we fired the end event.
+        const lastScoreValues = new Map<string, any>();
+        const preEnd = p.eventsFired({ channel: 'ui', name: 'hud_update' }).filter(e => e.frame <= gameOverFrame);
+        for (const ev of preEnd) {
+          const d = ev.data;
+          if (!d || typeof d !== 'object') continue;
+          for (const k of Object.keys(d)) {
+            if (SCORE_LIKE_KEY_RE.test(k)) lastScoreValues.set(k, d[k]);
+          }
+        }
         p.tick(30);
-        const gameOverFrame = p.frameCount() - 30;
         const post = p.eventsFired({ channel: 'ui', name: 'hud_update', sinceFrame: gameOverFrame + 1 });
-        const scoreHudUpdates = post.filter(e => {
-          const d = e.data;
-          if (!d || typeof d !== 'object') return false;
-          return Object.keys(d).some(k => SCORE_LIKE_KEY_RE.test(k));
-        });
-        if (scoreHudUpdates.length >= 10) {
+        let changedScoreUpdates = 0;
+        const sampleKeysSet = new Set<string>();
+        const eq = (a: any, b: any): boolean => {
+          if (a === b) return true;
+          if (a && typeof a === 'object' && b && typeof b === 'object') {
+            try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+          }
+          return false;
+        };
+        for (const ev of post) {
+          const d = ev.data;
+          if (!d || typeof d !== 'object') continue;
+          for (const k of Object.keys(d)) {
+            if (!SCORE_LIKE_KEY_RE.test(k)) continue;
+            const prev = lastScoreValues.get(k);
+            if (!eq(prev, d[k])) {
+              changedScoreUpdates++;
+              sampleKeysSet.add(k);
+              lastScoreValues.set(k, d[k]);
+            }
+          }
+        }
+        if (changedScoreUpdates >= 3) {
           flickerDetected = {
             endEvent,
-            count: scoreHudUpdates.length,
-            sampleKeys: scoreHudUpdates[0]?.data ? Object.keys(scoreHudUpdates[0].data) : [],
+            count: changedScoreUpdates,
+            sampleKeys: Array.from(sampleKeysSet),
           };
         }
       } catch {}
@@ -672,10 +885,10 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       results.push({
         name: 'hud_stops_after_game_over',
         failure: new PlaytestFailure('hud_keeps_updating',
-          `${flickerDetected.count} \`ui.hud_update\` events with a score-like key fired AFTER \`${flickerDetected.endEvent}\` — the HUD system keeps pushing live score while the end-screen modal animates a final score to the same DOM element. The two writes fight and the display flickers. Fix: in the gameplay system, listen for \`${flickerDetected.endEvent}\` (or whichever end event your game uses) and set \`this._ended = true\`, then guard the hud_update emission with \`if (this._ended) return;\`. Non-score keys (speed, gear, health) don't flicker and can keep emitting.`,
+          `${flickerDetected.count} score-keyed \`ui.hud_update\` value${flickerDetected.count > 1 ? 's' : ''} CHANGED AFTER \`${flickerDetected.endEvent}\` — the HUD system keeps pushing fresh score values while the end-screen modal animates a final score to the same DOM element. The two writes fight and the display flickers. Fix: in the gameplay system, listen for \`${flickerDetected.endEvent}\` (or whichever end event your game uses) and set \`this._ended = true\`, then guard the hud_update emission with \`if (this._ended) return;\`. Non-score keys (speed, gear, health) don't flicker and can keep emitting.`,
           {
             endEvent: flickerDetected.endEvent,
-            postEndUpdates: flickerDetected.count,
+            postEndChangedUpdates: flickerDetected.count,
             sampleKeys: flickerDetected.sampleKeys,
           }),
       });
@@ -756,27 +969,50 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   // body from inside the head. Engine now supports MeshRendererComponent
   // hideFromOwner=true (see mesh_renderer_component.ts); this invariant
   // forces the CLI to set it for camera-on-player FPS setups.
-  if (gameType === 'shooter' || gameType === 'first_person') {
+  // Iteration 7 audit fix: third-person shooters legitimately keep the player
+  // mesh visible (the player needs to see their own avatar). Restrict the
+  // check to gameType==='first_person' OR a shooter where the camera is
+  // actually positioned on the player's head. For any other shooter we skip
+  // entirely with a clear reason — own-mesh visibility is intentional there.
+  const cameraIsOnPlayerHead = (player: EntityRef): boolean => {
+    const cam = discoverCamera(p);
+    if (!cam) return false;
+    const camPos = p.pos(cam);
+    const playerPos = p.pos(player);
+    if (!camPos || !playerPos) return false;
+    const horizontal = Math.hypot(camPos.x - playerPos.x, camPos.z - playerPos.z);
+    const vertical = Math.abs(camPos.y - playerPos.y);
+    return vertical < 1.5 && horizontal < 1.0;
+  };
+  if (gameType === 'first_person' || gameType === 'shooter') {
     if (player) {
-      const playerE: any = p.runtime.scene?.entities.get(player.id);
-      const mr: any = playerE?.getComponent('MeshRendererComponent');
-      if (mr && mr.meshAsset && !mr.hideFromOwner) {
-        // Rule: ANY player-tagged entity with a visible mesh in a
-        // shooter/first_person game must set hideFromOwner. The earlier
-        // check required the camera to be a scene-graph descendant of
-        // the player — but the common pattern is a SEPARATE camera
-        // entity with a behavior (fps_camera) that snaps to the player's
-        // position every frame. No parent relationship in the graph, so
-        // the descendant walk missed it, and run 43744221 shipped with
-        // the full Soldier_Male.glb visible through the first-person
-        // camera. Genre alone is sufficient — if it's an FPS and the
-        // player has a mesh, hide it from the owner.
+      const onHead = gameType === 'first_person' ? true : cameraIsOnPlayerHead(player);
+      if (!onHead) {
         results.push({
           name: 'fps_hides_own_mesh',
-          failure: new PlaytestFailure('own_mesh_visible',
-            `player entity "${playerE.name}" has a visible mesh (asset=${mr.meshAsset}) but \`hideFromOwner\` is not set. In a ${gameType} game the camera sits at the player's head — the player sees their own model's interior, elbows, and neck stump. Fix: add \`hideFromOwner: true\` to the player entity's mesh data in 02_entities.json:\n    "mesh": { "type": "custom", "asset": "${mr.meshAsset}", "hideFromOwner": true }\nOther cameras (spectator, multiplayer peer views) still see the mesh — the flag only hides from the owning camera.`,
-            { playerMesh: mr.meshAsset, player: playerE.name, gameType }),
+          failure: null,
+          skipped: true,
+          skipReason: 'third-person camera or non-FPS shooter — own-mesh visibility is intentional',
         });
+      } else {
+        const playerE: any = p.runtime.scene?.entities.get(player.id);
+        const mr: any = playerE?.getComponent('MeshRendererComponent');
+        if (mr && mr.meshAsset && !mr.hideFromOwner) {
+          // Rule: a player-tagged entity with a visible mesh in an FPS-style
+          // setup (gameType=first_person, OR shooter with camera on head)
+          // must set hideFromOwner. The earlier check required the camera
+          // to be a scene-graph descendant of the player — but the common
+          // pattern is a SEPARATE camera entity with a behavior (fps_camera)
+          // that snaps to the player's position every frame. The runtime
+          // head-position check above catches that pattern without needing
+          // the parent relationship in the scene graph.
+          results.push({
+            name: 'fps_hides_own_mesh',
+            failure: new PlaytestFailure('own_mesh_visible',
+              `player entity "${playerE.name}" has a visible mesh (asset=${mr.meshAsset}) but \`hideFromOwner\` is not set. In a ${gameType} game the camera sits at the player's head — the player sees their own model's interior, elbows, and neck stump. Fix: add \`hideFromOwner: true\` to the player entity's mesh data in 02_entities.json:\n    "mesh": { "type": "custom", "asset": "${mr.meshAsset}", "hideFromOwner": true }\nOther cameras (spectator, multiplayer peer views) still see the mesh — the flag only hides from the owning camera.`,
+              { playerMesh: mr.meshAsset, player: playerE.name, gameType }),
+          });
+        }
       }
     }
   }
@@ -861,13 +1097,17 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         const cx = Array.isArray(he) ? (he[0] ?? 0.5) : (he.x ?? 0.5);
         const cy = Array.isArray(he) ? (he[1] ?? 0.5) : (he.y ?? 0.5);
         const cz = Array.isArray(he) ? (he[2] ?? 0.5) : (he.z ?? 0.5);
-        // halfExtents / primitive ratio is independent of scale (scale
-        // applies equally to both mesh-size and collider-size at runtime),
-        // so comparing halfExtents against the primitive unit tells us
-        // "how much bigger/smaller is the collider than its mesh."
-        const rx = cx / prim.x;
-        const ry = cy / prim.y;
-        const rz = cz / prim.z;
+        // Iteration 7 audit fix: the original formula compared authored
+        // halfExtents against the unit primitive — independent of mesh.scale,
+        // which made the check effectively meaningless. The correct comparison
+        // is collider half-extent vs SCALED visible mesh half-extent. The
+        // engine multiplies BOTH halfExtents and prim by transform.scale at
+        // runtime, so a per-axis ratio of (collider / scaledMesh) tells us
+        // "is the collider bigger or smaller than the visible mesh after
+        // both have been scaled".
+        const rx = cx / (prim.x * Math.abs(msX));
+        const ry = cy / (prim.y * Math.abs(msY));
+        const rz = cz / (prim.z * Math.abs(msZ));
         // Thin slabs (floor planes, decals, billboards) are fine to be
         // laterally oversized — a ground plane that collides past the
         // visible edge of the mesh doesn't cause invisible-wall complaints
@@ -880,20 +1120,20 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         // choice (thin wall with wider base, etc.); two axes off is the
         // "forgot scale multiplies" signature we saw in run 835c86cd
         // where wall_block had ratios [4, 4, 1].
-        const badAxes: Array<{ axis: string; ratio: number; col: number; prim: number }> = [];
-        if (rx > 2 || rx < 0.5) badAxes.push({ axis: 'x', ratio: rx, col: cx, prim: prim.x });
-        if (ry > 2 || ry < 0.5) badAxes.push({ axis: 'y', ratio: ry, col: cy, prim: prim.y });
-        if (rz > 2 || rz < 0.5) badAxes.push({ axis: 'z', ratio: rz, col: cz, prim: prim.z });
+        const badAxes: Array<{ axis: string; ratio: number; col: number; mesh: number }> = [];
+        if (rx > 2 || rx < 0.5) badAxes.push({ axis: 'x', ratio: rx, col: cx, mesh: prim.x * Math.abs(msX) });
+        if (ry > 2 || ry < 0.5) badAxes.push({ axis: 'y', ratio: ry, col: cy, mesh: prim.y * Math.abs(msY) });
+        if (rz > 2 || rz < 0.5) badAxes.push({ axis: 'z', ratio: rz, col: cz, mesh: prim.z * Math.abs(msZ) });
         if (badAxes.length >= 2) {
           const worst = badAxes.reduce((a, b) => Math.abs(Math.log(a.ratio)) > Math.abs(Math.log(b.ratio)) ? a : b);
-          mismatches.push({ name: entName, axis: worst.axis, ratio: worst.ratio, meshHalf: worst.prim, colHalf: worst.col });
+          mismatches.push({ name: entName, axis: worst.axis, ratio: worst.ratio, meshHalf: worst.mesh, colHalf: worst.col });
         }
       }
       if (mismatches.length > 0) {
         results.push({
           name: 'collider_matches_mesh_scale',
           failure: new PlaytestFailure('collider_size_mismatch',
-            `${mismatches.length} entit${mismatches.length > 1 ? 'ies have' : 'y has'} colliders whose effective size disagrees with the mesh by more than 2×: ${mismatches.slice(0, 5).map(m => `"${m.name}" (${m.axis}: collider=${m.colHalf.toFixed(2)} vs mesh=${m.meshHalf.toFixed(2)}, ${m.ratio.toFixed(1)}×)`).join(', ')}. The engine multiplies collider halfExtents by transform.scale at runtime — if you authored halfExtents as world-space target sizes rather than pre-scale fractions, they'll be too big. Fix: for a primitive mesh at scale=[W,H,D], use halfExtents=[0.5,0.5,0.5] for cube (not [W/2, H/2, D/2]). The engine's scale multiply does the rest.`,
+            `${mismatches.length} entit${mismatches.length > 1 ? 'ies have' : 'y has'} colliders whose effective size disagrees with the scaled mesh by more than 2×: ${mismatches.slice(0, 5).map(m => `"${m.name}" (${m.axis}: collider half=${m.colHalf.toFixed(2)} vs scaled mesh half=${m.meshHalf.toFixed(2)}, ${m.ratio.toFixed(1)}×)`).join(', ')}. The engine multiplies collider halfExtents by transform.scale at runtime — if you authored halfExtents as world-space target sizes rather than pre-scale fractions, they'll be too big. Fix: for a primitive mesh at scale=[W,H,D], use halfExtents=[0.5,0.5,0.5] for cube (not [W/2, H/2, D/2]). The engine's scale multiply does the rest.`,
             { mismatches: mismatches.slice(0, 10) }),
         });
       }
@@ -993,16 +1233,33 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     const hasPinnedSeparation =
       scriptEntries.some(([k]) => k.endsWith('/enemy_chase_with_separation.ts'));
     if (!hasPinnedSeparation) {
+      // Iteration 7 audit improvement: broaden the "separation already
+      // implemented" detection to accept hand-rolled patterns. Authors who
+      // wrote their own per-frame distance loop summing position deltas
+      // shouldn't be told to scrap it — the pinned version is one valid
+      // option, theirs is another.
+      const SEPARATION_DETECTED_RE = [
+        /for\s*\(\s*const\s+\w+\s+of\s+\w*[Ee]nem/,                            // for (const other of enemies)
+        /for\s*\(\s*let\s+\w+\s*=\s*0\s*;\s*\w+\s*<\s*\w*[Ee]nem.*length/,      // for (let i = 0; i < enemies.length; ...)
+        /Math\.sqrt.*position|position.*Math\.sqrt/,                           // distance math
+        /\.distanceTo\s*\(/,                                                  // explicit distance call
+        /normalize\s*\(\s*\)\s*\.\s*scale|sub\s*\([^)]+\)\s*\.\s*normalize/,    // direction calc
+      ];
       for (const [file, src] of scriptEntries) {
         // Signal: calls setVelocity toward a player target inside a per-
         // frame update, no separation force loop.
         if (!/findEntityByName\(["']Player["']\)|findEntitiesByTag\(["']player["']\)/.test(src)) continue;
         if (!/setVelocity\s*\(/.test(src)) continue;
-        // Negative: if the source loops over same-tag neighbors and does
-        // (pos.x - other.pos.x) separation math, we consider it already
-        // safe.
+        // Negative (a): legacy "naive" check — looks for sep/repuls/personal
+        // mentioned near a same-tag neighbor lookup.
         const hasSepLoop = /findEntitiesByTag\([^)]*\)[\s\S]{0,200}(sep|repuls|personal)/i.test(src);
         if (hasSepLoop) continue;
+        // Negative (b): broadened detection — iterating neighbors with
+        // distance math anywhere in the file is enough to assume the author
+        // is doing their own separation. Avoids scolding people who
+        // hand-rolled the math correctly.
+        const hasSeparationLogic = SEPARATION_DETECTED_RE.some(re => re.test(src));
+        if (hasSeparationLogic) continue;
         // Only flag if it clearly looks like AI (robot/enemy/zombie/…).
         if (!/robot|enemy|zombie|ghost|goomba|skeleton|orc|minion|drone|npc/i.test(file + '\n' + src)) continue;
         smells.push({
@@ -1018,7 +1275,7 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       results.push({
         name: 'avoid_reimplementing_pinned_behaviors',
         failure: new PlaytestFailure('reimplemented_pinned',
-          `${smells.length} hand-rolled behavior${smells.length > 1 ? 's' : ''} duplicate${smells.length > 1 ? '' : 's'} functionality of pinned library files and usually miss subtleties the pinned versions handle: ${smells.map(s => `${s.file} → use ${s.suggestedLibrary} (${s.why})`).join('; ')}. Fix: \`bash library.sh show ${smells[0].suggestedLibrary}\` to fetch the pinned source, write it into project/behaviors/<path>, and reference it from your entity / system definitions instead of the inline motion.`,
+          `${smells.length} hand-rolled behavior${smells.length > 1 ? 's' : ''} look${smells.length > 1 ? '' : 's'} like ${smells.length > 1 ? '' : 'a '}pinned-library candidate${smells.length > 1 ? 's' : ''}: ${smells.map(s => `${s.file} → ${s.suggestedLibrary} (${s.why})`).join('; ')}. Either fetch the pinned implementation via \`bash library.sh show ${smells[0].suggestedLibrary}\` OR keep your hand-rolled implementation if it includes a per-frame distance loop summing position deltas (the broadened detector treats any neighbor iteration with distance math as "already separating").`,
           { smells }),
       });
     }
@@ -1043,19 +1300,43 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   const defs = p.runtime.files.entities?.definitions;
   if (defs && typeof defs === 'object') {
     const GAMEPLAY_NAME_RE = /(enemy|boss|minion|robot|zombie|goomba|orc|goblin|skeleton|slime|drone|ufo|coin|pickup|collectable|collectible|gem|powerup|crystal|star|orb|rune|cookie|wave|hazard|projectile|bullet|missile|bomb|rocket)/i;
+    // Iteration 7 audit improvement: skip projectile/bullet/missile-shaped
+    // prefabs entirely — they spawn in response to player ACTION (firing a
+    // weapon), not on idle ticks. The orphan check would false-positive on
+    // them every time because the playtest doesn't pull the trigger.
+    const PROJECTILE_SUFFIX_RE = /_(bullet|projectile|missile|rocket|arrow|shot|laser|beam)$/i;
     const placements = (p.runtime.files.worlds?.worlds ?? []).flatMap((w: any) => (w.placements ?? []));
     const placed = new Set<string>(placements.map((pl: any) => pl.ref).filter(Boolean));
     const allScripts = Object.values(p.runtime.files.scripts ?? {}).join('\n');
+    // Iteration 7 audit improvement: scrape template-literal spawn calls so
+    // a `spawnEntity(\`enemy_${pattern}\`)` site marks every prefab whose
+    // name shares the literal head ("enemy_") as potentially spawned. Without
+    // this, dynamically-named projectile/enemy variants false-flag as orphans.
+    const TEMPLATE_SPAWN_RE = /spawnEntity\s*\(\s*`([^`]*)`/g;
+    const templateHeads: string[] = [];
+    let tm: RegExpExecArray | null;
+    while ((tm = TEMPLATE_SPAWN_RE.exec(allScripts)) !== null) {
+      // Take the literal text up to the first `${` or end-of-template; that's
+      // the prefix every concrete name will share.
+      const literal = tm[1];
+      const head = literal.split('${')[0];
+      if (head) templateHeads.push(head);
+    }
     const orphans: string[] = [];
     for (const name of Object.keys(defs)) {
       if (placed.has(name)) continue;
       if (!GAMEPLAY_NAME_RE.test(name)) continue;  // only flag gameplay-named ones
+      if (PROJECTILE_SUFFIX_RE.test(name)) continue;  // skip player-action-spawned things
       // Look for spawnEntity("name") / hasPrefab("name") / createEntity("name") in any script source.
       const q1 = `spawnEntity("${name}")`;
       const q2 = `spawnEntity('${name}')`;
       const q3 = `hasPrefab("${name}")`;
       const q4 = `createEntity("${name}")`;
-      if (allScripts.includes(q1) || allScripts.includes(q2) || allScripts.includes(q3) || allScripts.includes(q4)) {
+      // Template-literal head match: if any spawnEntity(`<head>${…}`) site's
+      // literal head is a prefix of this prefab's name, treat as potentially
+      // spawned and exercise the live runtime check below.
+      const templateMatches = templateHeads.length > 0 && templateHeads.some(h => h.length > 0 && name.startsWith(h));
+      if (allScripts.includes(q1) || allScripts.includes(q2) || allScripts.includes(q3) || allScripts.includes(q4) || templateMatches) {
         // It's spawned dynamically — check if any instances appear at runtime.
         // Tick briefly to let spawners run, then scan.
         const snap = p.snapshot();
