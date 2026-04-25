@@ -1148,6 +1148,188 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }
 
+  // ── 17. HUD HTML reads keys that no script ever provides ──────────────
+  // Iteration 6's bullet_hell run shipped with `s.health` / `s.maxHealth`
+  // bound to a HUD bar that never updated — backend tracked damage but
+  // no script ever called `events.ui.emit("hud_update", { health, maxHealth })`.
+  // The same class hit JRPG (caught by an authored test, not an invariant)
+  // with `bossMaxHP`. The class is generic across every genre with a HUD:
+  // a binding mismatch between the HTML's read and the script's writes.
+  //
+  // Static analysis: scan ui/hud/*.html for `s.<key>` / `state.<key>` reads
+  // in the message handler, then scan all scripts + flow.json for any
+  // place that emits a `hud_update` / `state_changed` payload mentioning
+  // that key, OR sets it on `_state[key] = …` (the ui_bridge merge path).
+  // Implicit FSM-driver-published keys (`phase`, flow `vars`, `<panel>Visible`
+  // from show_ui actions, `_notification` from show_notification) are
+  // treated as provided. Any HUD-read key not in the union fires.
+  {
+    const uiHtmls = p.runtime.files.uiHtmls ?? {};
+    const hudHtmls = Object.entries<string>(uiHtmls).filter(([k]) => /\/hud\//.test(k) || /hud[^/]*\.html$/i.test(k));
+    if (hudHtmls.length > 0) {
+      // Common JS string/array methods + global properties to filter
+      // from `s.<x>` / `state.<x>` matches. Conservative — only filter
+      // names that are clearly never user state keys.
+      const METHOD_NOISE = new Set([
+        'trim', 'slice', 'split', 'replace', 'concat', 'indexOf', 'includes', 'toLowerCase',
+        'toUpperCase', 'toString', 'length', 'charAt', 'charCodeAt', 'startsWith', 'endsWith',
+        'padStart', 'padEnd', 'repeat', 'match', 'matchAll', 'search', 'substring',
+        'substr', 'valueOf', 'forEach', 'map', 'filter', 'reduce', 'find', 'findIndex',
+        'push', 'pop', 'shift', 'unshift', 'sort', 'reverse', 'join', 'flat', 'flatMap',
+        'every', 'some', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable',
+        'constructor', 'prototype', '__proto__',
+      ]);
+
+      // Discover provider keys from scripts + flow.json.
+      const provided = new Set<string>();
+      // Always-published keys: ui_bridge merges show_ui/hide_ui into <panel>Visible
+      // and show_notification into _notification; FSM driver merges `phase`.
+      provided.add('phase');
+      provided.add('_notification');
+
+      const scripts = p.runtime.projectScripts ?? p.runtime.files.scripts ?? {};
+      // Keys mentioned in any object literal payload of hud_update / state_changed.
+      // Object-literal range matching is greedy across newlines — we accept any
+      // `<word>:` inside the matched `{ ... }` block as a provided key.
+      const PAYLOAD_RE = /events\.(?:ui|game)\.emit\s*\(\s*['"](?:hud_update|state_changed)['"]\s*,\s*\{([\s\S]{0,1500}?)\}\s*\)/g;
+      const KEY_IN_PAYLOAD = /(\w+)\s*:/g;
+      // Direct merges into the bridge state: `self._state.foo = …`,
+      // `this._state["foo"] = …`, `state.foo = …`, etc. Catches scripts
+      // that mutate the bridge directly without going through emit.
+      const STATE_SET_RE = /(?:_state|self\._state|this\._state|state)\s*(?:\.(\w+)|\[\s*['"](\w+)['"]\s*\])\s*=/g;
+      // Var-payload fallback: `var payload = { foo: …, bar: … }` — if the
+      // very next call is `emit("hud_update", payload)`, the keys count.
+      // Conservative: just accept any object-literal key that appears in
+      // the same script as an emit("hud_update", <ident>) call.
+      for (const [scriptPath, src] of Object.entries(scripts) as Array<[string, string]>) {
+        for (const m of src.matchAll(PAYLOAD_RE)) {
+          const inner = m[1];
+          for (const km of inner.matchAll(KEY_IN_PAYLOAD)) provided.add(km[1]);
+        }
+        for (const m of src.matchAll(STATE_SET_RE)) {
+          const k = m[1] || m[2];
+          if (k) provided.add(k);
+        }
+        // Var-payload heuristic: scripts that build a payload as a local
+        // variable then pass it to hud_update / state_changed. Two
+        // construction patterns are common:
+        //   1. Initial-literal:  `var d = { score: ..., lives: ... };`
+        //   2. Post-mutation:    `var d = {}; d.score = …; d.p1Health = …;`
+        //                        `var d = { score: 0 }; d.combo = 3;`
+        // The fighter game (run d8f32a95) builds via (2) and would
+        // generate false positives without this extension.
+        const varEmit = /events\.(?:ui|game)\.emit\s*\(\s*['"](?:hud_update|state_changed)['"]\s*,\s*(\w+)\s*\)/g;
+        const varNames = new Set<string>();
+        for (const vm of src.matchAll(varEmit)) varNames.add(vm[1]);
+        if (varNames.size > 0) {
+          const varDeclRe = /(?:var|let|const)\s+(\w+)\s*=\s*\{([\s\S]{0,1500}?)\}\s*;/g;
+          for (const vd of src.matchAll(varDeclRe)) {
+            if (varNames.has(vd[1])) {
+              for (const km of vd[2].matchAll(KEY_IN_PAYLOAD)) provided.add(km[1]);
+            }
+          }
+          // Post-mutation: any `<varname>.<key> = …` or
+          // `<varname>['<key>'] = …` where varname is in our emit set.
+          // Also catches `<varname>.<key>++` etc. — anything that
+          // mutates a property of a payload variable counts as a
+          // provided key. We accept either ident-keyed or string-keyed.
+          for (const vname of varNames) {
+            const dotRe = new RegExp(`\\b${vname}\\s*\\.(\\w+)`, 'g');
+            for (const m of src.matchAll(dotRe)) provided.add(m[1]);
+            const idxRe = new RegExp(`\\b${vname}\\s*\\[\\s*['"](\\w+)['"]\\s*\\]`, 'g');
+            for (const m of src.matchAll(idxRe)) provided.add(m[1]);
+          }
+        }
+        void scriptPath;
+      }
+
+      // Flow.json: `vars` per state are merged into `state_changed` by the
+      // FSM driver; `show_ui` actions create `<panel>Visible` flags.
+      const flow: any = p.runtime.files.flow;
+      const walkFlow = (states: Record<string, any> | undefined): void => {
+        if (!states) return;
+        for (const def of Object.values<any>(states)) {
+          for (const k of Object.keys(def?.vars ?? {})) provided.add(k);
+          for (const hook of ['on_enter', 'on_exit', 'on_update', 'on_timeout'] as const) {
+            const list = def?.[hook];
+            if (!Array.isArray(list)) continue;
+            for (const a of list) {
+              if (typeof a !== 'string') continue;
+              // Match the FULL panel path after `show_ui:` — panel names can
+              // include slashes (`show_ui:hud/clicker`) and dots; the
+              // ui_bridge strips non-alphanumerics before appending
+              // "Visible", so we mirror that here.
+              const showM = a.match(/^show_ui:(.+)$/);
+              if (showM) {
+                const rawPanel = showM[1].trim();
+                // Drop trailing `.html` if present — pinned ui_bridge tolerates both.
+                const noExt = rawPanel.replace(/\.html$/i, '');
+                const panel = noExt.replace(/[^a-zA-Z0-9_]/g, '');
+                if (panel) provided.add(panel + 'Visible');
+              }
+            }
+          }
+          if (def?.substates) walkFlow(def.substates);
+        }
+      };
+      walkFlow(flow?.states);
+
+      // For each HUD HTML, extract `s.<key>` / `state.<key>` reads from
+      // `<script>...</script>` blocks. We only look inside the message
+      // listener handler — a permissive but cheap approach: scan the
+      // whole script tag, but only count names whose alias was assigned
+      // from `e.data.state` (the canonical pattern) OR `e.data` directly.
+      const dead: Array<{ html: string; key: string }> = [];
+      for (const [htmlPath, html] of hudHtmls) {
+        // Pull script-tag contents only — HTML attributes shouldn't drive this.
+        const scriptBlocks: string[] = [];
+        const blockRe = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+        let bm: RegExpExecArray | null;
+        while ((bm = blockRe.exec(html)) !== null) scriptBlocks.push(bm[1]);
+        if (scriptBlocks.length === 0) continue;
+        const js = scriptBlocks.join('\n');
+
+        // Identify aliases assigned from `e.data.state || …` or `e.data`.
+        // The pinned pattern is: `var s = e.data.state || {};` — alias `s`.
+        // Some HUDs use `state` directly. Accept both.
+        const aliasNames = new Set<string>();
+        const aliasRe = /(?:var|let|const)\s+(\w+)\s*=\s*e\.data(?:\.state)?\b/g;
+        let am: RegExpExecArray | null;
+        while ((am = aliasRe.exec(js)) !== null) aliasNames.add(am[1]);
+        // Always treat `state` as an alias if the script reads `state.<key>`
+        // — covers handlers that destructure or pre-bind.
+        aliasNames.add('state');
+
+        const candidates = new Set<string>();
+        for (const alias of aliasNames) {
+          const re = new RegExp(`\\b${alias}\\.(\\w+)`, 'g');
+          let mm: RegExpExecArray | null;
+          while ((mm = re.exec(js)) !== null) candidates.add(mm[1]);
+        }
+
+        for (const k of candidates) {
+          if (METHOD_NOISE.has(k)) continue;
+          if (k.startsWith('_')) continue; // private/internal
+          if (provided.has(k)) continue;
+          dead.push({ html: htmlPath, key: k });
+        }
+      }
+
+      if (dead.length > 0) {
+        const sample = dead.slice(0, 5).map(d => `"s.${d.key}" in ${d.html}`).join(', ');
+        const more = dead.length > 5 ? ` (+${dead.length - 5} more)` : '';
+        results.push({
+          name: 'hud_html_field_resolves',
+          failure: new PlaytestFailure('hud_field_unresolved',
+            `${dead.length} HUD field${dead.length > 1 ? 's' : ''} read from gameState but never emitted by any script: ${sample}${more}. The HUD will display its initial-static value forever. Either (a) emit \`events.ui.emit("hud_update", { ${dead[0].key}: <value> })\` from the behavior/system that owns this state, or (b) remove the unused read from the HUD HTML. Iteration 6's bullet_hell run shipped this exact class for s.health/s.maxHealth — backend tracked damage but the bar stayed full because no \`hud_update\` payload mentioned the key.`,
+            { dead: dead.slice(0, 20), totalDead: dead.length }),
+        });
+      } else if (hudHtmls.length > 0) {
+        results.push({ name: 'hud_html_field_resolves', failure: null });
+      }
+    }
+  }
+
   return results;
 }
 

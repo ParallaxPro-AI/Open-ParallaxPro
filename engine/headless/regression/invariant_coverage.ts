@@ -489,6 +489,31 @@ class CovStubDeadListenerBehavior extends GameScript {
       writeJson(path.join(dir, '01_flow.json'), flow);
     },
   },
+  {
+    target: 'hud_html_field_resolves',
+    label: 'add a HUD HTML that reads a field no script ever provides',
+    mutate: (dir) => {
+      // Drop a HUD panel under ui/hud/ that reads `s.cov_unresolved_field`
+      // from the gameState message but is provided by zero scripts and
+      // zero flow vars. Repros the iteration-6 bullet_hell class
+      // (s.health/s.maxHealth bound to a bar that never updated).
+      const hudDir = path.join(dir, 'ui', 'hud');
+      fs.mkdirSync(hudDir, { recursive: true });
+      fs.writeFileSync(path.join(hudDir, 'cov_field_hud.html'), `<!DOCTYPE html>
+<html><body>
+<div id="x">—</div>
+<script>
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'gameState') return;
+  var s = e.data.state || {};
+  if (typeof s.cov_unresolved_field === 'number') {
+    document.getElementById('x').textContent = s.cov_unresolved_field;
+  }
+});
+</script></body></html>
+`);
+    },
+  },
 ];
 
 function parseArgs(argv: string[]): { only?: string; strict: boolean } {
