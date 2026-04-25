@@ -141,14 +141,12 @@
       "on_enter": [
         "show_ui:hud/ping",
         "hide_cursor",
-        "show_ui:hud/scoreboard",
         "show_ui:hud/court_scoreboard",
         "show_ui:hud/shot_meter",
         "show_ui:hud/possession_indicator"
       ],
       "on_exit": [
         "hide_ui:hud/ping",
-        "hide_ui:hud/scoreboard",
         "hide_ui:hud/court_scoreboard",
         "hide_ui:hud/shot_meter",
         "hide_ui:hud/possession_indicator",
