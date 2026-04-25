@@ -89,6 +89,9 @@
           1
         ]
       },
+      "physics": {
+        "type": "kinematic"
+      },
       "tags": [
         "pedestrian",
         "npc"
@@ -113,6 +116,9 @@
           1,
           1
         ]
+      },
+      "physics": {
+        "type": "kinematic"
       },
       "tags": [
         "pedestrian",
@@ -139,6 +145,9 @@
           1
         ]
       },
+      "physics": {
+        "type": "kinematic"
+      },
       "tags": [
         "pedestrian",
         "npc"
@@ -163,6 +172,9 @@
           1,
           1
         ]
+      },
+      "physics": {
+        "type": "kinematic"
       },
       "tags": [
         "pedestrian",
@@ -189,6 +201,9 @@
           1
         ]
       },
+      "physics": {
+        "type": "kinematic"
+      },
       "tags": [
         "pedestrian",
         "npc"
@@ -213,6 +228,9 @@
           1,
           1
         ]
+      },
+      "physics": {
+        "type": "kinematic"
       },
       "tags": [
         "police",
