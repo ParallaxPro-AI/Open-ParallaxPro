@@ -281,6 +281,9 @@ var GAME_EVENTS = {
     net_player_shot:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_player_killed:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_player_respawn:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Buccaneer Bay (cannon_broadside): visual cannonballs replicated to
+    // remote peers so every captain sees every volley, not just the shooter.
+    net_cannonball_fired:  { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     // Banner Siege / CTF: flag state transitions need to sync so both
     // peers see the banner follow its new owner or return to base.
     net_flag_picked_up:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },

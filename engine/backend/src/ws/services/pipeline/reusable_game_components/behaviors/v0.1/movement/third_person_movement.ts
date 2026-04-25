@@ -40,10 +40,13 @@ class ThirdPersonMovementBehavior extends GameScript {
         this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
 
         var moving = Math.abs(vx) > 0.1 || Math.abs(vz) > 0.1;
-        if (moving) {
-            var moveAngle = Math.atan2(-vx, -vz) * 180 / Math.PI;
-            this.entity.transform.setRotationEuler(0, moveAngle, 0);
-        }
+        // Body always faces the camera direction so the player visibly
+        // looks at whatever they're shooting at — both hip-fire and aim
+        // mode. Strafing now produces sideways motion past a fixed-facing
+        // body instead of the body rotating to follow the strafe.
+        // Negate _tpYaw because setRotationEuler's Y arg uses the
+        // opposite sign convention from the camera's tracked yaw.
+        this.entity.transform.setRotationEuler(0, -(this.scene._tpYaw || 0), 0);
 
         if (moving && sprinting) {
             this._playAnim("Run");

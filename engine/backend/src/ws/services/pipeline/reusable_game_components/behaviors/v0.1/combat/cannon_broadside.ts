@@ -54,6 +54,15 @@ class CannonBroadsideBehavior extends GameScript {
         this.scene.events.game.on("match_ended", function() {
             self._matchOver = true;
         });
+        // Remote peers spawn the same visual cannonball when someone else
+        // fires. The shooter spawns locally in _fireOneBall AND broadcasts;
+        // we ignore the rebroadcast on the sender to avoid double-rendering.
+        this.scene.events.game.on("net_cannonball_fired", function(evt) {
+            var d = (evt && evt.data) || {};
+            var mp = self.scene._mp;
+            if (mp && d.shooterPeerId && d.shooterPeerId === mp.localPeerId) return;
+            self._spawnVisualBall(d.ox, d.oy, d.oz, d.dirX || 0, d.dirZ || 0);
+        });
         this._sendHUD();
     }
 
@@ -191,40 +200,14 @@ class CannonBroadsideBehavior extends GameScript {
         var oz = pos.z + dirZ * this._sideOffset;
         var oy = (pos.y || 0) + this._muzzleHeight;
 
-        // Spawn a short-lived cannonball entity for visual feedback.
-        if (this.scene.createEntity && this.scene.addComponent) {
-            var ballId = this.scene.createEntity("Cannonball");
-            if (ballId != null) {
-                this.scene.setPosition(ballId, ox, oy, oz);
-                this.scene.setScale && this.scene.setScale(ballId, 0.4, 0.4, 0.4);
-                this.scene.addComponent(ballId, "MeshRendererComponent", {
-                    meshType: "sphere",
-                    baseColor: [0.06, 0.06, 0.06, 1],
-                });
-                // Schedule despawn after ~0.6s — matches the visible flight
-                // distance and keeps the scene from accumulating balls.
-                var sceneRef = this.scene;
-                var startMs = Date.now();
-                var bx = ox, bz = oz, by = oy;
-                var endX = ox + dirX * this._range;
-                var endZ = oz + dirZ * this._range;
-                var endY = oy - 1.5;        // gentle arc droop
-                var anim = function() {
-                    var t = Math.min(1, (Date.now() - startMs) / 600);
-                    var nx = bx + (endX - bx) * t;
-                    var nz = bz + (endZ - bz) * t;
-                    var arc = -Math.sin(t * Math.PI) * 0.6;
-                    var ny = by + (endY - by) * t + arc;
-                    if (sceneRef.setPosition) sceneRef.setPosition(ballId, nx, ny, nz);
-                    if (t < 1) {
-                        if (typeof requestAnimationFrame !== "undefined") requestAnimationFrame(anim);
-                    } else {
-                        if (sceneRef.destroyEntity) sceneRef.destroyEntity(ballId);
-                    }
-                };
-                if (typeof requestAnimationFrame !== "undefined") requestAnimationFrame(anim);
-                else if (sceneRef.destroyEntity) setTimeout(function() { sceneRef.destroyEntity(ballId); }, 600);
-            }
+        // Local visual + broadcast so every peer sees it.
+        this._spawnVisualBall(ox, oy, oz, dirX, dirZ);
+        var mpForVisual = this.scene._mp;
+        if (mpForVisual) {
+            mpForVisual.sendNetworkedEvent("cannonball_fired", {
+                ox: ox, oy: oy, oz: oz, dirX: dirX, dirZ: dirZ,
+                shooterPeerId: mpForVisual.localPeerId,
+            });
         }
 
         // Hit detection: short raycast from muzzle along ball direction.
@@ -254,6 +237,41 @@ class CannonBroadsideBehavior extends GameScript {
                 }
             }
         }
+    }
+
+    _spawnVisualBall(ox, oy, oz, dirX, dirZ) {
+        if (!this.scene.createEntity || !this.scene.addComponent) return;
+        var ballId = this.scene.createEntity("Cannonball");
+        if (ballId == null) return;
+        this.scene.setPosition(ballId, ox, oy, oz);
+        this.scene.setScale && this.scene.setScale(ballId, 0.4, 0.4, 0.4);
+        this.scene.addComponent(ballId, "MeshRendererComponent", {
+            meshType: "sphere",
+            baseColor: [0.06, 0.06, 0.06, 1],
+        });
+        // Schedule despawn after ~0.6s — matches the visible flight
+        // distance and keeps the scene from accumulating balls.
+        var sceneRef = this.scene;
+        var startMs = Date.now();
+        var bx = ox, bz = oz, by = oy;
+        var endX = ox + dirX * this._range;
+        var endZ = oz + dirZ * this._range;
+        var endY = oy - 1.5;        // gentle arc droop
+        var anim = function() {
+            var t = Math.min(1, (Date.now() - startMs) / 600);
+            var nx = bx + (endX - bx) * t;
+            var nz = bz + (endZ - bz) * t;
+            var arc = -Math.sin(t * Math.PI) * 0.6;
+            var ny = by + (endY - by) * t + arc;
+            if (sceneRef.setPosition) sceneRef.setPosition(ballId, nx, ny, nz);
+            if (t < 1) {
+                if (typeof requestAnimationFrame !== "undefined") requestAnimationFrame(anim);
+            } else {
+                if (sceneRef.destroyEntity) sceneRef.destroyEntity(ballId);
+            }
+        };
+        if (typeof requestAnimationFrame !== "undefined") requestAnimationFrame(anim);
+        else if (sceneRef.destroyEntity) setTimeout(function() { sceneRef.destroyEntity(ballId); }, 600);
     }
 
     _sendHUD() {

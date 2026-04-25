@@ -386,8 +386,8 @@ const CREATOR_WARM_PROMPT = `You are being pre-warmed for a game creation task. 
 
 1. Read reference/game_templates/INDEX.md to learn what templates exist by name (one-line summary each).
 2. Deep-read these two templates in full (all 4 JSONs each) to internalize the schema and patterns:
-   - reference/game_templates/rts_battle/{01_flow,02_entities,03_worlds,04_systems}.json — single-player exemplar (RTS, tech tree, AI escalation)
-   - reference/game_templates/multiplayer_coin_grab/{01_flow,02_entities,03_worlds,04_systems}.json — minimal multiplayer exemplar (P2P lobby + FFA gameplay, 6KB total — for richer mp patterns like voice chat / transform sync, fetch buccaneer_bay on demand via library.sh)
+   - reference/game_templates/open_world_crime/{01_flow,02_entities,03_worlds,04_systems}.json — single-player exemplar (open-world third-person action / combat)
+   - reference/game_templates/buccaneer_bay/{01_flow,02_entities,03_worlds,04_systems}.json — multiplayer exemplar (1-6 captain P2P sea adventure: lobby browser, voice chat, transform sync, ship combat, AI sea encounters — for a minimal mp pattern, fetch multiplayer_coin_grab on demand via library.sh)
    Do NOT read other templates — if a specific run needs one, the real task will Read it then.
 3. Read the engine machinery in project/systems/ — these files are pre-installed in every game.
 4. Do NOT read the asset catalog files (assets/3D_MODELS.md etc.) — use "bash search_assets.sh \\"query\\"" to find assets when you need them during the real task.

@@ -25,6 +25,8 @@ class ShipSailBehavior extends GameScript {
     _pitchAmplitude = 2;      // degrees of bow rise/fall
     _bobFreq = 0.55;          // Hz of the wave bob
     _waterLine = 0.0;         // y-position the ship floats at when level
+    _collisionLead = 5.0;     // distance ahead of origin to start the forward raycast (ship half-length)
+    _collisionPadding = 0.5;  // extra distance past the proposed move to treat as a collision
     _sailUpSound = "";
     _sailDownSound = "";
 
@@ -144,6 +146,30 @@ class ShipSailBehavior extends GameScript {
         if (nx > bound) nx = bound;
         if (nz < -bound) nz = -bound;
         if (nz > bound) nz = bound;
+        // Collision: cast a ray from the entity origin along the motion
+        // vector. Length = halfLength + per-frame move + small padding.
+        // Our own collider is excluded via entity.id, so the ray flies
+        // through us. We only block when the hit is past the bow
+        // (distance >= _collisionLead): hits at smaller distances mean
+        // we're already overlapping something and need to escape, not
+        // get pinned harder. _curSpeed is zeroed so a held-W throttle
+        // doesn't re-ram the obstacle every frame.
+        var moveDx = nx - pos.x;
+        var moveDz = nz - pos.z;
+        var moveDist = Math.sqrt(moveDx * moveDx + moveDz * moveDz);
+        if (moveDist > 0.001 && this.scene.raycast) {
+            var dxN = moveDx / moveDist;
+            var dzN = moveDz / moveDist;
+            var rayLen = this._collisionLead + moveDist + this._collisionPadding;
+            var hit = this.scene.raycast(pos.x, this._waterLine + 0.5, pos.z,
+                                         dxN, 0, dzN,
+                                         rayLen,
+                                         this.entity.id);
+            if (hit && hit.distance >= this._collisionLead) {
+                nx = pos.x; nz = pos.z;
+                this._curSpeed = 0;
+            }
+        }
         if (this.scene.setPosition) this.scene.setPosition(this.entity.id, nx, this._waterLine, nz);
 
         // Apply yaw + wave bob. Wave bob rolls the hull side-to-side and
