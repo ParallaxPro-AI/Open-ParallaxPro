@@ -600,6 +600,9 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       if (isDecorative(e)) continue;
       const tags = e.tags instanceof Set ? Array.from(e.tags) : (Array.isArray(e.tags) ? e.tags : []);
       if (tags.includes('ui') || tags.includes('camera')) continue;
+      // System host entities (system_<name> tag) are bookkeeping shells
+      // for system scripts, not collidable game-world objects.
+      if (tags.some((t: any) => typeof t === 'string' && t.startsWith('system_'))) continue;
       const cc = e.getComponent('ColliderComponent');
       if (cc) continue;  // already has one — fine
       const nameMatches = INTERACTIVE_NAME_RE.test(e.name);
@@ -1440,15 +1443,28 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
 
     // (b) + (c) Script emits on the `game` bus. Two syntaxes in the
     // wild: `events.game.emit("<name>", ...)` and fsm_driver's
-    // `_emitBus("game", "<name>", ...)` helper.
+    // `_emitBus("game", "<name>", ...)` helper. Also the alias-then-emit
+    // pattern (e.g. `var gbus = events.game; gbus.emit("...", ...)`)
+    // which mp_bridge uses for perf — the invariant treats any
+    // `<word>.emit("string", ...)` as an emit if the same script also
+    // sets up the alias from events.game.
     const SCRIPT_EMIT_RE_1 = /events\.game\.emit\s*\(\s*["']([^"']+)["']/g;
     const SCRIPT_EMIT_RE_2 = /_emitBus\s*\(\s*["']game["']\s*,\s*["']([^"']+)["']/g;
+    const SCRIPT_EMIT_RE_3 = /\b\w+\.emit\s*\(\s*["']([^"']+)["']/g;
+    const ALIAS_RE = /\b(?:var|let|const)\s+\w+\s*=\s*[^;=]*events\.game\b/;
     for (const src of Object.values(scripts)) {
       let m: RegExpExecArray | null;
       SCRIPT_EMIT_RE_1.lastIndex = 0;
       while ((m = SCRIPT_EMIT_RE_1.exec(src)) !== null) emittedEvents.add(m[1]);
       SCRIPT_EMIT_RE_2.lastIndex = 0;
       while ((m = SCRIPT_EMIT_RE_2.exec(src)) !== null) emittedEvents.add(m[1]);
+      // Only collect aliased emits when the source declares an alias of
+      // events.game — otherwise `someUnrelated.emit("x")` would falsely
+      // satisfy a listener for "x".
+      if (ALIAS_RE.test(src)) {
+        SCRIPT_EMIT_RE_3.lastIndex = 0;
+        while ((m = SCRIPT_EMIT_RE_3.exec(src)) !== null) emittedEvents.add(m[1]);
+      }
     }
 
     // Listeners — scan non-transport scripts for `events.game.on(...)`.
@@ -1456,6 +1472,12 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     // invariant uses (`scripts/ui_ui_bridge.ts`, not `systems/ui/ui_bridge.ts`).
     const TRANSPORT_RE = /(^|[\/_])(ui_bridge|mp_bridge|fsm_driver|_entity_label|event_definitions|_event_validator)(_[^/]*)?\.ts$/;
     const LISTEN_RE = /events\.game\.on\s*\(\s*["']([^"']+)["']/g;
+    // Multiplayer transport events are dispatched by mp_bridge with a
+    // dynamic suffix (`gbus.emit("net_" + event, ...)`) so the literal
+    // name never appears in source. Any `net_<name>` and `mp_<name>`
+    // listener is assumed live as long as the project includes mp_bridge.
+    const TRANSPORT_EVENT_RE = /^(net_|mp_)/;
+    const hasMpBridge = Object.keys(scripts).some(p => /mp_bridge/.test(p));
     const deadListeners: Array<{ name: string; script: string }> = [];
     const seen = new Set<string>();
     for (const [scriptPath, src] of Object.entries(scripts)) {
@@ -1465,6 +1487,7 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       while ((m = LISTEN_RE.exec(src)) !== null) {
         const evtName = m[1];
         if (emittedEvents.has(evtName)) continue;
+        if (hasMpBridge && TRANSPORT_EVENT_RE.test(evtName)) continue;
         const key = `${scriptPath}::${evtName}`;
         if (seen.has(key)) continue;
         seen.add(key);

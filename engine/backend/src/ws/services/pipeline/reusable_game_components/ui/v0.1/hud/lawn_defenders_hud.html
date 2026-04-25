@@ -281,24 +281,20 @@
     cardCdEls[k] = document.getElementById('cd-' + k);
   });
 
-  // Card click → emit ui_command. The engine listens for
-  // ui_event:hud/lawn_defenders_hud:select_plant via the standard
-  // UIBridge plumbing, same shape as every other lobby + HUD button.
   Object.keys(cardEls).forEach(function (kind) {
     cardEls[kind].addEventListener('click', function () {
       window.parent.postMessage({
-        type: 'ui_command',
+        type: 'game_command',
         action: 'select_plant',
         panel: 'hud/lawn_defenders_hud',
         payload: { plant: kind },
       }, '*');
     });
   });
-  // Right-click anywhere (when over palette) cancels the armed plant.
   palette.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     window.parent.postMessage({
-      type: 'ui_command',
+      type: 'game_command',
       action: 'cancel_plant',
       panel: 'hud/lawn_defenders_hud',
       payload: {},
