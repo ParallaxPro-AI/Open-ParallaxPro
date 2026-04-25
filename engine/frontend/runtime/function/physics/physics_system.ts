@@ -10,6 +10,27 @@ import { VehicleComponent } from '../framework/components/vehicle_component.js';
 import { TerrainComponent } from '../framework/components/terrain_component.js';
 import { MeshRendererComponent } from '../framework/components/mesh_renderer_component.js';
 
+// Filter Rapier3d-compat's harmless WASM-init deprecation warning before
+// it fires below. Rapier's internal `__wbg_init(wasmBytes)` call passes
+// a Uint8Array — not a plain object — and the bundled WASM bridge prints
+// "using deprecated parameters for the initialization function; pass a
+// single object instead" via `console.warn` on every fresh load. The WASM
+// still loads and physics runs. But every in-sandbox `validate.sh` run
+// surfaces this line to the agent's tool_result and burns context, so we
+// scrub it at the source. Override is module-local: a one-time console
+// patch on the global object, harmless to other callers (the only
+// strings filtered are in the NOISE list).
+const __rapierNoisePatterns = [
+    'using deprecated parameters for the initialization function',
+];
+const __origConsoleWarn = console.warn.bind(console);
+console.warn = ((...args: any[]) => {
+    for (const a of args) {
+        if (typeof a === 'string' && __rapierNoisePatterns.some(n => a.includes(n))) return;
+    }
+    __origConsoleWarn(...args);
+}) as typeof console.warn;
+
 let rapierInitialized = false;
 const rapierInitPromise = RAPIER.init().then(() => { rapierInitialized = true; });
 
