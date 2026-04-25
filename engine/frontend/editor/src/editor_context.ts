@@ -395,6 +395,37 @@ export class EditorContext extends EventBus {
                 if (currentScene) {
                     this.engine!.setActiveScene(currentScene as any);
                 }
+                // Rebind every skinned-mesh animator. After Stop reloads the
+                // scene from snapshot, AnimatorComponents come back with
+                // empty loadedClips / null skeleton / null
+                // gpuJointMatricesBuffer (toJSON only saves clip-name→uuid
+                // and speed; skeleton + clip data are runtime-only). The
+                // cached path of loadMeshAsset normally re-fires
+                // setupAnimatorFromGLB, BUT only for entities whose
+                // meshAsset URL exactly matches the one being looked up.
+                // On second Play that path can race the script-attach order
+                // and not all entities get re-bound; the symptom is "first
+                // Play animations work, second Play they don't." Force a
+                // full rebind here against parsedMeshCache so every skinned
+                // entity ends up with a populated animator before scripts
+                // start ticking. Uncached assets that haven't loaded yet
+                // get re-bound when the async load completes via the
+                // existing line 1146-1148 path.
+                if (currentScene && this.engine) {
+                    const renderSystem = this.engine.globalContext.renderSystem;
+                    let rebound = 0;
+                    for (const entity of currentScene.entities.values()) {
+                        const mr: any = entity.getComponent('MeshRendererComponent');
+                        const url: string | undefined = mr?.meshAsset;
+                        if (!url) continue;
+                        const cachedParsed = this.parsedMeshCache.get(url);
+                        if (cachedParsed?.hasSkin && cachedParsed?.skeleton && cachedParsed?.animationClips?.length) {
+                            this.setupAnimatorFromGLB(entity, cachedParsed, renderSystem);
+                            rebound++;
+                        }
+                    }
+                    if (rebound > 0) console.log(`[Play] Rebound ${rebound} skinned animator(s) on Play.`);
+                }
                 this.engine!.setEditorMode(false);
                 this.emit('playModeChanged', true);
                 if (this._playModeReadyResolve) {
