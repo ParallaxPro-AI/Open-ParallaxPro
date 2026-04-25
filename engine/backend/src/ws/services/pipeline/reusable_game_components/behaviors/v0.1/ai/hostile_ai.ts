@@ -64,7 +64,7 @@ class HostileAIBehavior extends GameScript {
             this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
 
             if (dist > this._attackRange) {
-                this.scene.setPosition(this.entity.id, pos.x + (dx / dist) * this._speed * dt, pos.y, pos.z + (dz / dist) * this._speed * dt);
+                this._tryMove(pos, dx / dist, dz / dist, this._speed * dt);
                 this._playAnim("Run");
             } else if (this._cooldown <= 0) {
                 // Attack!
@@ -88,12 +88,30 @@ class HostileAIBehavior extends GameScript {
         var dist = Math.sqrt(dx * dx + dz * dz);
 
         if (dist > 1.5) {
-            this.scene.setPosition(this.entity.id, pos.x + (dx / dist) * this._speed * 0.4 * dt, pos.y, pos.z + (dz / dist) * this._speed * 0.4 * dt);
+            var moved = this._tryMove(pos, dx / dist, dz / dist, this._speed * 0.4 * dt);
             this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
+            // If we ran into a wall on the way to the patrol target,
+            // pick a new one so we don't sit pressed into the wall.
+            if (!moved) this._pickPatrol();
             this._playAnim("Walk");
         } else {
             this._playAnim("Idle");
         }
+    }
+
+    // Attempt a horizontal step. Raycasts forward from chest height to
+    // the proposed new position; if the path is blocked by world
+    // geometry (anything that isn't this entity itself) we skip the
+    // setPosition call so a kinematic mob can't walk through walls.
+    // Returns true if the move actually happened.
+    _tryMove(pos, ux, uz, step) {
+        if (step <= 0) return false;
+        if (this.scene.raycast) {
+            var hit = this.scene.raycast(pos.x, pos.y + 1.0, pos.z, ux, 0, uz, step + 0.6);
+            if (hit && hit.entityId !== this.entity.id) return false;
+        }
+        this.scene.setPosition(this.entity.id, pos.x + ux * step, pos.y, pos.z + uz * step);
+        return true;
     }
 
     _playAnim(name) {

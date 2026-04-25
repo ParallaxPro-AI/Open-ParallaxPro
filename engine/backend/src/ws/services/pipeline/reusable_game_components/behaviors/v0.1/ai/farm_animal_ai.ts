@@ -27,7 +27,18 @@ class FarmAnimalAIBehavior extends GameScript {
         var p = this.entity.transform.position;
         var dx = this._targetX-p.x, dz = this._targetZ-p.z, dist = Math.sqrt(dx*dx+dz*dz);
         if (dist > 1) {
-            this.scene.setPosition(this.entity.id, p.x+(dx/dist)*this._speed*dt, p.y, p.z+(dz/dist)*this._speed*dt);
+            var ux = dx/dist, uz = dz/dist, step = this._speed*dt;
+            // Wall guard so kinematic farm animals don't teleport through
+            // walls/fences. Skip the step (and re-target next tick) if
+            // raycast hits world geometry.
+            var blocked = false;
+            if (this.scene.raycast) {
+                var hit = this.scene.raycast(p.x, p.y+0.6, p.z, ux, 0, uz, step+0.5);
+                if (hit && hit.entityId !== this.entity.id) { blocked = true; this._moveTimer = 0; }
+            }
+            if (!blocked) {
+                this.scene.setPosition(this.entity.id, p.x+ux*step, p.y, p.z+uz*step);
+            }
             this.entity.transform.setRotationEuler(0, Math.atan2(-dx,-dz)*180/Math.PI, 0);
             if (this.entity.playAnimation) this.entity.playAnimation(this._walkAnim || "Walk", { loop: true });
         } else { if (this.entity.playAnimation) this.entity.playAnimation("Idle", { loop: true }); }
