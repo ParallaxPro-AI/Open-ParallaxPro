@@ -70,26 +70,7 @@ class AnimalWanderBehavior extends GameScript {
 
         if (dist > 1) {
             var speed = this._fleeing ? this._speed * 2 : this._speed;
-            var step = speed * dt;
-            var ux = dx / dist;
-            var uz = dz / dist;
-            // Wall guard: kinematic colliders don't push back on
-            // setPosition teleports, so without this raycast the animal
-            // walks straight through stone/wood walls. Cast horizontally
-            // a bit further than the step we're about to take and skip
-            // the move if we'd cross a wall. Picks a new wander target
-            // on the next tick if blocked.
-            var blocked = false;
-            if (this.scene.raycast) {
-                var hit = this.scene.raycast(pos.x, pos.y + 0.6, pos.z, ux, 0, uz, step + 0.7);
-                if (hit && hit.entityId !== this.entity.id) {
-                    blocked = true;
-                    this._moveTimer = 0;
-                }
-            }
-            if (!blocked) {
-                this.scene.setPosition(this.entity.id, pos.x + ux * step, pos.y, pos.z + uz * step);
-            }
+            this.scene.setPosition(this.entity.id, pos.x + (dx / dist) * speed * dt, pos.y, pos.z + (dz / dist) * speed * dt);
             this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
             this._playAnim("Walk");
         } else {
