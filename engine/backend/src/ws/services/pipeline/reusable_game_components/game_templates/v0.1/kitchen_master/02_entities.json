@@ -7,7 +7,7 @@
         "scale": [40, 14, 1]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": ["decoration_only"],
       "label": false
     },
     "tile_band": {

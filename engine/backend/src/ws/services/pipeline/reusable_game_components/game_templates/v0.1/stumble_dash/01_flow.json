@@ -28,6 +28,7 @@
         "emit:game.race_start",
         "show_ui:hud/course_hud",
         "show_ui:hud/race_countdown",
+        "hide_cursor",
         "play_sound:/assets/kenney/audio/interface_sounds/pepSound1.ogg"
       ],
       "transitions": [{
@@ -65,7 +66,7 @@
         "hide_cursor"
       ],
       "transitions": [
-        { "when": "ui_event:game_over:play_again", "goto": "countdown" },
+        { "when": "ui_event:game_over:play_again", "goto": "countdown", "actions": ["emit:game.restart_game"] },
         { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
       ]
     }

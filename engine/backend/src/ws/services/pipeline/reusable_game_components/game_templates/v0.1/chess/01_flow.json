@@ -101,7 +101,8 @@
           "transitions": [
             {
               "when": "ai_timer>=60",
-              "goto": "ai_move"
+              "goto": "ai_move",
+              "actions": ["emit:game.ai_turn"]
             }
           ]
         },
@@ -115,7 +116,6 @@
           ],
           "duration": -1,
           "on_enter": [
-            "emit:game.ai_turn",
             "set:ai_done_timer=0"
           ],
           "on_update": [

@@ -503,7 +503,8 @@
       "physics": false,
       "tags": [
         "neon",
-        "decor"
+        "decor",
+        "decoration_only"
       ],
       "label": false
     },

@@ -4,206 +4,1463 @@
       "id": "pangaea",
       "name": "Pangaea",
       "lighting": {
-        "ambient": [0.5, 0.52, 0.58],
-        "sun_direction": [0.35, -0.7, 0.2],
-        "sun_color": [1.0, 0.96, 0.88]
+        "ambient": [
+          0.5,
+          0.52,
+          0.58
+        ],
+        "sun_direction": [
+          0.35,
+          -0.7,
+          0.2
+        ],
+        "sun_color": [
+          1.0,
+          0.96,
+          0.88
+        ]
       },
       "terrain": {
-        "size": [180, 180],
-        "color": [0.45, 0.65, 0.85, 1]
+        "size": [
+          180,
+          180
+        ],
+        "color": [
+          0.45,
+          0.65,
+          0.85,
+          1
+        ]
       },
       "placements": [
-        { "ref": "ground_plains", "position": [0, 0, 0] },
-        { "ref": "ground_desert", "position": [50, 0.02, 40] },
-        { "ref": "ground_tundra", "position": [50, 0.02, -50] },
-        { "ref": "camera", "position": [-35, 40, 42] },
-
-        { "ref": "stone_wall", "position": [0, 2.5, -85], "scale": [174, 6, 2] },
-        { "ref": "stone_wall", "position": [0, 2.5, 85], "scale": [174, 6, 2] },
-        { "ref": "stone_wall", "position": [-85, 2.5, 0], "scale": [2, 6, 174] },
-        { "ref": "stone_wall", "position": [85, 2.5, 0], "scale": [2, 6, 174] },
-
-        { "ref": "city_center", "position": [-35, 0, 30] },
-        { "ref": "housing", "position": [-28, 0, 28] },
-        { "ref": "housing", "position": [-42, 0, 28] },
-        { "ref": "campus", "position": [-35, 0, 22] },
-        { "ref": "commercial_hub", "position": [-28, 0, 34] },
-        { "ref": "encampment", "position": [-42, 0, 34] },
-        { "ref": "granary", "position": [-35, 0, 38] },
-        { "ref": "storage", "position": [-30, 0, 24] },
-        { "ref": "city_walls", "position": [-25, 0, 30] },
-        { "ref": "city_walls", "position": [-45, 0, 30] },
-        { "ref": "city_walls", "position": [-35, 0, 20] },
-        { "ref": "wall_tower", "position": [-25, 0, 24] },
-        { "ref": "wall_tower", "position": [-45, 0, 24] },
-        { "ref": "watchtower", "position": [-25, 0, 38] },
-        { "ref": "windmill", "position": [-48, 0, 36] },
-        { "ref": "crate_stack", "position": [-30, 0, 36] },
-        { "ref": "barrel", "position": [-40, 0, 36] },
-        { "ref": "logs", "position": [-32, 0, 26] },
-
-        { "ref": "gold_deposit", "position": [-50, 0, 28] },
-        { "ref": "stone_quarry", "position": [-25, 0, 20] },
-        { "ref": "wheat_resource", "position": [-40, 0, 40] },
-        { "ref": "wheat_resource", "position": [-35, 0, 42] },
-        { "ref": "lumber_camp", "position": [-55, 0, 35] },
-        { "ref": "iron_mine", "position": [-22, 0, 35] },
-        { "ref": "farm_improvement", "position": [-38, 0, 44] },
-        { "ref": "farm_improvement", "position": [-32, 0, 44] },
-        { "ref": "lumber_mill", "position": [-55, 0, 30] },
-
-        { "ref": "warrior", "position": [-30, 0, 30] },
-        { "ref": "warrior", "position": [-40, 0, 30] },
-        { "ref": "archer", "position": [-33, 0, 25] },
-        { "ref": "archer", "position": [-37, 0, 25] },
-        { "ref": "scout", "position": [-20, 0, 28] },
-        { "ref": "settler", "position": [-35, 0, 35] },
-
-        { "ref": "city_small", "position": [-55, 0, 10] },
-        { "ref": "granary", "position": [-55, 0, 16] },
-        { "ref": "encampment", "position": [-50, 0, 8] },
-        { "ref": "swordsman", "position": [-52, 0, 10] },
-        { "ref": "warrior", "position": [-58, 0, 12] },
-        { "ref": "stone_quarry", "position": [-60, 0, 5] },
-        { "ref": "wheat_resource", "position": [-50, 0, 16] },
-        { "ref": "mine_improvement", "position": [-62, 0, 8] },
-
-        { "ref": "ai_city_center", "position": [35, 0, -30] },
-        { "ref": "ai_housing", "position": [28, 0, -28] },
-        { "ref": "ai_housing", "position": [42, 0, -28] },
-        { "ref": "ai_encampment", "position": [35, 0, -22] },
-        { "ref": "ai_granary", "position": [28, 0, -34] },
-        { "ref": "ai_granary", "position": [42, 0, -34] },
-        { "ref": "ai_walls", "position": [25, 0, -30] },
-        { "ref": "ai_walls", "position": [45, 0, -30] },
-        { "ref": "ai_walls", "position": [35, 0, -20] },
-        { "ref": "ai_wonder", "position": [35, 0, -38] },
-
-        { "ref": "gold_deposit", "position": [50, 0, -28] },
-        { "ref": "stone_quarry", "position": [25, 0, -20] },
-        { "ref": "wheat_resource", "position": [40, 0, -38] },
-        { "ref": "lumber_camp", "position": [55, 0, -35] },
-        { "ref": "iron_mine", "position": [22, 0, -35] },
-
-        { "ref": "ai_warrior", "position": [30, 0, -30] },
-        { "ref": "ai_warrior", "position": [40, 0, -30] },
-        { "ref": "ai_warrior", "position": [35, 0, -26] },
-        { "ref": "ai_archer", "position": [33, 0, -24] },
-        { "ref": "ai_archer", "position": [37, 0, -24] },
-        { "ref": "ai_swordsman", "position": [32, 0, -32] },
-        { "ref": "ai_swordsman", "position": [38, 0, -32] },
-        { "ref": "ai_scout", "position": [20, 0, -25] },
-        { "ref": "ai_settler", "position": [35, 0, -35] },
-
-        { "ref": "ai_city_small", "position": [55, 0, -10] },
-        { "ref": "ai_encampment", "position": [50, 0, -8] },
-        { "ref": "ai_granary", "position": [55, 0, -16] },
-        { "ref": "ai_warrior", "position": [52, 0, -10] },
-        { "ref": "ai_archer", "position": [58, 0, -12] },
-
-        { "ref": "mountain_large", "position": [-5, 0, -5] },
-        { "ref": "mountain", "position": [5, 0, 5] },
-        { "ref": "mountain_single", "position": [-10, 0, 5] },
-        { "ref": "mountain_single", "position": [10, 0, -5] },
-        { "ref": "mountain", "position": [0, 0, -12] },
-        { "ref": "mountain_single", "position": [0, 0, 12] },
-        { "ref": "rock_formation", "position": [-15, 0, 0] },
-        { "ref": "rock_formation", "position": [15, 0, 0] },
-        { "ref": "rock_formation", "position": [0, 0, -18] },
-        { "ref": "rock_formation", "position": [0, 0, 18] },
-        { "ref": "gold_deposit", "position": [-8, 0, 10] },
-        { "ref": "gold_deposit", "position": [8, 0, -10] },
-        { "ref": "iron_mine", "position": [-12, 0, -8] },
-        { "ref": "ancient_ruins", "position": [12, 0, 8] },
-        { "ref": "ancient_ruins", "position": [-18, 0, -15] },
-
-        { "ref": "common_tree", "position": [-50, 0, -25] },
-        { "ref": "common_tree", "position": [-55, 0, -30] },
-        { "ref": "common_tree", "position": [-60, 0, -28] },
-        { "ref": "common_tree", "position": [-48, 0, -35] },
-        { "ref": "common_tree", "position": [-65, 0, -25] },
-        { "ref": "common_tree_2", "position": [-52, 0, -38] },
-        { "ref": "common_tree_2", "position": [-58, 0, -42] },
-        { "ref": "common_tree_2", "position": [-45, 0, -40] },
-        { "ref": "birch_tree", "position": [-55, 0, -45] },
-        { "ref": "birch_tree", "position": [-62, 0, -35] },
-        { "ref": "birch_tree", "position": [-70, 0, -30] },
-        { "ref": "willow_tree", "position": [-50, 0, -50] },
-        { "ref": "willow_tree", "position": [-68, 0, -40] },
-        { "ref": "bush", "position": [-52, 0, -28] },
-        { "ref": "bush", "position": [-60, 0, -38] },
-        { "ref": "bush", "position": [-45, 0, -32] },
-        { "ref": "flowers", "position": [-48, 0, -30] },
-        { "ref": "flowers", "position": [-62, 0, -42] },
-        { "ref": "grass_patch", "position": [-55, 0, -32] },
-        { "ref": "grass_patch", "position": [-65, 0, -38] },
-        { "ref": "lumber_camp", "position": [-58, 0, -28] },
-        { "ref": "lumber_camp", "position": [-65, 0, -35] },
-
-        { "ref": "palm_tree", "position": [40, 0, 35] },
-        { "ref": "palm_tree", "position": [48, 0, 42] },
-        { "ref": "palm_tree", "position": [55, 0, 38] },
-        { "ref": "palm_tree", "position": [60, 0, 45] },
-        { "ref": "palm_tree", "position": [45, 0, 50] },
-        { "ref": "cactus", "position": [50, 0, 35] },
-        { "ref": "cactus", "position": [58, 0, 42] },
-        { "ref": "cactus", "position": [65, 0, 38] },
-        { "ref": "cactus", "position": [52, 0, 48] },
-        { "ref": "rock_large", "position": [55, 0, 50] },
-        { "ref": "rock_small", "position": [42, 0, 38] },
-        { "ref": "rock_small", "position": [62, 0, 45] },
-        { "ref": "gold_deposit", "position": [58, 0, 35] },
-        { "ref": "stone_quarry", "position": [48, 0, 48] },
-
-        { "ref": "pine_snow", "position": [40, 0, -50] },
-        { "ref": "pine_snow", "position": [48, 0, -55] },
-        { "ref": "pine_snow", "position": [55, 0, -48] },
-        { "ref": "pine_snow", "position": [60, 0, -55] },
-        { "ref": "pine_snow", "position": [65, 0, -50] },
-        { "ref": "pine_snow", "position": [50, 0, -60] },
-        { "ref": "dead_tree", "position": [58, 0, -58] },
-        { "ref": "dead_tree", "position": [45, 0, -52] },
-        { "ref": "rock_large", "position": [52, 0, -52] },
-        { "ref": "rock_small", "position": [60, 0, -48] },
-        { "ref": "rock_small", "position": [55, 0, -62] },
-        { "ref": "stone_quarry", "position": [48, 0, -58] },
-
-        { "ref": "common_tree", "position": [-25, 0, 50] },
-        { "ref": "pine_tree", "position": [25, 0, 55] },
-        { "ref": "common_tree_2", "position": [-70, 0, 50] },
-        { "ref": "birch_tree", "position": [70, 0, -60] },
-        { "ref": "common_tree", "position": [-20, 0, -50] },
-        { "ref": "pine_tree", "position": [20, 0, 50] },
-        { "ref": "willow_tree", "position": [-65, 0, 60] },
-        { "ref": "common_tree", "position": [65, 0, 60] },
-        { "ref": "palm_tree", "position": [70, 0, 25] },
-        { "ref": "bush", "position": [-30, 0, 45] },
-        { "ref": "bush", "position": [30, 0, 15] },
-        { "ref": "bush", "position": [-15, 0, -40] },
-        { "ref": "bush", "position": [15, 0, 40] },
-        { "ref": "flowers", "position": [-25, 0, 20] },
-        { "ref": "flowers", "position": [25, 0, -20] },
-        { "ref": "flowers", "position": [-40, 0, 55] },
-        { "ref": "grass_patch", "position": [-20, 0, 35] },
-        { "ref": "grass_patch", "position": [20, 0, -35] },
-        { "ref": "grass_patch", "position": [-50, 0, 55] },
-        { "ref": "grass_patch", "position": [50, 0, 20] },
-        { "ref": "rock_large", "position": [-70, 0, -65] },
-        { "ref": "rock_large", "position": [70, 0, 65] },
-        { "ref": "rock_large", "position": [-75, 0, 35] },
-        { "ref": "rock_small", "position": [75, 0, -35] },
-        { "ref": "rock_small", "position": [-30, 0, -55] },
-        { "ref": "rock_small", "position": [30, 0, 55] },
-        { "ref": "rock_small", "position": [-60, 0, 65] },
-
-        { "ref": "gold_deposit", "position": [-70, 0, 40] },
-        { "ref": "wheat_resource", "position": [-30, 0, 55] },
-        { "ref": "wheat_resource", "position": [30, 0, 60] },
-        { "ref": "stone_quarry", "position": [-65, 0, -55] },
-        { "ref": "iron_mine", "position": [65, 0, 15] },
-        { "ref": "lumber_camp", "position": [-25, 0, -45] },
-        { "ref": "ancient_ruins", "position": [-60, 0, 55] },
-        { "ref": "ancient_ruins", "position": [60, 0, 55] }
+        {
+          "ref": "ground_plains",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "ground_desert",
+          "position": [
+            50,
+            0.02,
+            40
+          ]
+        },
+        {
+          "ref": "ground_tundra",
+          "position": [
+            50,
+            0.02,
+            -50
+          ]
+        },
+        {
+          "ref": "camera",
+          "position": [
+            -35,
+            40,
+            42
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            0,
+            2.5,
+            -85
+          ],
+          "scale": [
+            174,
+            6,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            0,
+            2.5,
+            85
+          ],
+          "scale": [
+            174,
+            6,
+            2
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            -85,
+            2.5,
+            0
+          ],
+          "scale": [
+            2,
+            6,
+            174
+          ]
+        },
+        {
+          "ref": "stone_wall",
+          "position": [
+            85,
+            2.5,
+            0
+          ],
+          "scale": [
+            2,
+            6,
+            174
+          ]
+        },
+        {
+          "ref": "city_center",
+          "position": [
+            -35,
+            1.5,
+            30
+          ]
+        },
+        {
+          "ref": "housing",
+          "position": [
+            -28,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "housing",
+          "position": [
+            -42,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "campus",
+          "position": [
+            -35,
+            0,
+            22
+          ]
+        },
+        {
+          "ref": "commercial_hub",
+          "position": [
+            -28,
+            0,
+            34
+          ]
+        },
+        {
+          "ref": "encampment",
+          "position": [
+            -42,
+            0,
+            34
+          ]
+        },
+        {
+          "ref": "granary",
+          "position": [
+            -35,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "storage",
+          "position": [
+            -30,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "city_walls",
+          "position": [
+            -25,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "city_walls",
+          "position": [
+            -45,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "city_walls",
+          "position": [
+            -35,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "wall_tower",
+          "position": [
+            -25,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "wall_tower",
+          "position": [
+            -45,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "watchtower",
+          "position": [
+            -25,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "windmill",
+          "position": [
+            -48,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "crate_stack",
+          "position": [
+            -30,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -40,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "logs",
+          "position": [
+            -32,
+            0,
+            26
+          ]
+        },
+        {
+          "ref": "gold_deposit",
+          "position": [
+            -50,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "stone_quarry",
+          "position": [
+            -25,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "wheat_resource",
+          "position": [
+            -40,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "wheat_resource",
+          "position": [
+            -35,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "lumber_camp",
+          "position": [
+            -55,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "iron_mine",
+          "position": [
+            -22,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "farm_improvement",
+          "position": [
+            -38,
+            0,
+            44
+          ]
+        },
+        {
+          "ref": "farm_improvement",
+          "position": [
+            -32,
+            0,
+            44
+          ]
+        },
+        {
+          "ref": "lumber_mill",
+          "position": [
+            -55,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "warrior",
+          "position": [
+            -30,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "warrior",
+          "position": [
+            -40,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "archer",
+          "position": [
+            -33,
+            0,
+            25
+          ]
+        },
+        {
+          "ref": "archer",
+          "position": [
+            -37,
+            0,
+            25
+          ]
+        },
+        {
+          "ref": "scout",
+          "position": [
+            -20,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "settler",
+          "position": [
+            -35,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "city_small",
+          "position": [
+            -55,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "granary",
+          "position": [
+            -55,
+            0,
+            16
+          ]
+        },
+        {
+          "ref": "encampment",
+          "position": [
+            -50,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "swordsman",
+          "position": [
+            -52,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "warrior",
+          "position": [
+            -58,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "stone_quarry",
+          "position": [
+            -60,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "wheat_resource",
+          "position": [
+            -50,
+            0,
+            16
+          ]
+        },
+        {
+          "ref": "mine_improvement",
+          "position": [
+            -62,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "ai_city_center",
+          "position": [
+            35,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "ai_housing",
+          "position": [
+            28,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "ai_housing",
+          "position": [
+            42,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "ai_encampment",
+          "position": [
+            35,
+            0,
+            -22
+          ]
+        },
+        {
+          "ref": "ai_granary",
+          "position": [
+            28,
+            0,
+            -34
+          ]
+        },
+        {
+          "ref": "ai_granary",
+          "position": [
+            42,
+            0,
+            -34
+          ]
+        },
+        {
+          "ref": "ai_walls",
+          "position": [
+            25,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "ai_walls",
+          "position": [
+            45,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "ai_walls",
+          "position": [
+            35,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "ai_wonder",
+          "position": [
+            35,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "gold_deposit",
+          "position": [
+            50,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "stone_quarry",
+          "position": [
+            25,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "wheat_resource",
+          "position": [
+            40,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "lumber_camp",
+          "position": [
+            55,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "iron_mine",
+          "position": [
+            22,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "ai_warrior",
+          "position": [
+            30,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "ai_warrior",
+          "position": [
+            40,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "ai_warrior",
+          "position": [
+            35,
+            0,
+            -26
+          ]
+        },
+        {
+          "ref": "ai_archer",
+          "position": [
+            33,
+            0,
+            -24
+          ]
+        },
+        {
+          "ref": "ai_archer",
+          "position": [
+            37,
+            0,
+            -24
+          ]
+        },
+        {
+          "ref": "ai_swordsman",
+          "position": [
+            32,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "ai_swordsman",
+          "position": [
+            38,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "ai_scout",
+          "position": [
+            20,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "ai_settler",
+          "position": [
+            35,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "ai_city_small",
+          "position": [
+            55,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "ai_encampment",
+          "position": [
+            50,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "ai_granary",
+          "position": [
+            55,
+            0,
+            -16
+          ]
+        },
+        {
+          "ref": "ai_warrior",
+          "position": [
+            52,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "ai_archer",
+          "position": [
+            58,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "mountain_large",
+          "position": [
+            -5,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "mountain",
+          "position": [
+            5,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "mountain_single",
+          "position": [
+            -10,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "mountain_single",
+          "position": [
+            10,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "mountain",
+          "position": [
+            0,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "mountain_single",
+          "position": [
+            0,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "rock_formation",
+          "position": [
+            -15,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "rock_formation",
+          "position": [
+            15,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "rock_formation",
+          "position": [
+            0,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "rock_formation",
+          "position": [
+            0,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "gold_deposit",
+          "position": [
+            -8,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "gold_deposit",
+          "position": [
+            8,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "iron_mine",
+          "position": [
+            -12,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "ancient_ruins",
+          "position": [
+            12,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "ancient_ruins",
+          "position": [
+            -18,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -50,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -55,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -60,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -48,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -65,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            -52,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            -58,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            -45,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -55,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -62,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            -70,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "willow_tree",
+          "position": [
+            -50,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "willow_tree",
+          "position": [
+            -68,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -52,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -60,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -45,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -48,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -62,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -55,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -65,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "lumber_camp",
+          "position": [
+            -58,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "lumber_camp",
+          "position": [
+            -65,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            40,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            48,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            55,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            60,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            45,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "cactus",
+          "position": [
+            50,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "cactus",
+          "position": [
+            58,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "cactus",
+          "position": [
+            65,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "cactus",
+          "position": [
+            52,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            55,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            42,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            62,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "gold_deposit",
+          "position": [
+            58,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "stone_quarry",
+          "position": [
+            48,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "pine_snow",
+          "position": [
+            40,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "pine_snow",
+          "position": [
+            48,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "pine_snow",
+          "position": [
+            55,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "pine_snow",
+          "position": [
+            60,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "pine_snow",
+          "position": [
+            65,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "pine_snow",
+          "position": [
+            50,
+            0,
+            -60
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            58,
+            0,
+            -58
+          ]
+        },
+        {
+          "ref": "dead_tree",
+          "position": [
+            45,
+            0,
+            -52
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            52,
+            0,
+            -52
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            60,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            55,
+            0,
+            -62
+          ]
+        },
+        {
+          "ref": "stone_quarry",
+          "position": [
+            48,
+            0,
+            -58
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -25,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            25,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "common_tree_2",
+          "position": [
+            -70,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "birch_tree",
+          "position": [
+            70,
+            0,
+            -60
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            -20,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "pine_tree",
+          "position": [
+            20,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "willow_tree",
+          "position": [
+            -65,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "common_tree",
+          "position": [
+            65,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "palm_tree",
+          "position": [
+            70,
+            0,
+            25
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -30,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            30,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -15,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            15,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -25,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            25,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "flowers",
+          "position": [
+            -40,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -20,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            20,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            -50,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "grass_patch",
+          "position": [
+            50,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -70,
+            0,
+            -65
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            70,
+            0,
+            65
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -75,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            75,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -30,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            30,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -60,
+            0,
+            65
+          ]
+        },
+        {
+          "ref": "gold_deposit",
+          "position": [
+            -70,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "wheat_resource",
+          "position": [
+            -30,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "wheat_resource",
+          "position": [
+            30,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "stone_quarry",
+          "position": [
+            -65,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "iron_mine",
+          "position": [
+            65,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "lumber_camp",
+          "position": [
+            -25,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "ancient_ruins",
+          "position": [
+            -60,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "ancient_ruins",
+          "position": [
+            60,
+            0,
+            55
+          ]
+        }
       ]
     }
   ]

@@ -3,36 +3,61 @@
   "name": "Open World Crime",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "CRIME CITY", "gameSubtitle": "Open World" }
+    "main_menu": {
+      "gameTitle": "CRIME CITY",
+      "gameSubtitle": "Open World"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize systems",
-      "active_systems": ["crime_world"],
+      "active_systems": [
+        "crime_world"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
       "transitions": [
-        { "when": "boot_frames>=2", "goto": "main_menu" }
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
       ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay"
+        }
       ]
     },
     "gameplay": {
       "description": "Open world gameplay",
       "start": "free_roam",
-      "on_enter": ["emit:game.game_ready"],
+      "on_enter": [
+        "emit:game.game_ready"
+      ],
       "on_exit": [],
       "substates": {
         "free_roam": {
-          "description": "Free roam — explore, drive, fight",
-          "active_systems": ["crime_world"],
+          "description": "Free roam \u2014 explore, drive, fight",
+          "active_systems": [
+            "crime_world"
+          ],
           "active_behaviors": [
             "third_person_movement",
             "camera_third_person",
@@ -43,34 +68,57 @@
           ],
           "on_enter": [
             "show_ui:hud/crime_hud",
+            "hide_ui:hud/crosshair",
+            "hide_cursor",
             "emit:game.player_respawned"
           ],
           "on_exit": [
             "hide_ui:hud/crime_hud"
           ],
           "transitions": [
-            { "when": "game_event:player_died", "goto": "wasted" }
+            {
+              "when": "game_event:player_died",
+              "goto": "wasted"
+            }
           ]
         },
         "wasted": {
-          "description": "Player killed — respawn after delay",
-          "active_systems": ["crime_world"],
-          "active_behaviors": ["camera_third_person"],
+          "description": "Player killed \u2014 respawn after delay",
+          "active_systems": [
+            "crime_world"
+          ],
+          "active_behaviors": [
+            "camera_third_person"
+          ],
           "duration": -1,
           "on_enter": [
             "show_ui:hud/wasted",
+            "hide_cursor",
             "set:respawn_timer=0",
             "play_sound:/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_000.ogg"
           ],
-          "on_update": ["increment:respawn_timer"],
-          "on_exit": ["hide_ui:hud/wasted"],
+          "on_update": [
+            "increment:respawn_timer"
+          ],
+          "on_exit": [
+            "hide_ui:hud/wasted"
+          ],
           "transitions": [
-            { "when": "respawn_timer>=210", "goto": "free_roam" }
+            {
+              "when": "respawn_timer>=210",
+              "goto": "free_roam",
+              "actions": [
+                "emit:game.match_started"
+              ]
+            }
           ]
         }
       },
       "transitions": [
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

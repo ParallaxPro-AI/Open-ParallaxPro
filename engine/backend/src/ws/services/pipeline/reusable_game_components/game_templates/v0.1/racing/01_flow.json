@@ -50,6 +50,7 @@
         "emit:game.race_start",
         "show_ui:hud/speedometer",
         "show_ui:hud/race_countdown",
+        "hide_cursor",
         "play_sound:/assets/kenney/audio/interface_sounds/pepSound1.ogg"
       ],
       "transitions": [

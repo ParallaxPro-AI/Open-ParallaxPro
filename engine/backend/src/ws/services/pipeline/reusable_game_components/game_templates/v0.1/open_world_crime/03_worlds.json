@@ -4,94 +4,663 @@
       "id": "crime_city",
       "name": "Crime City",
       "lighting": {
-        "ambient": [0.35, 0.35, 0.4],
-        "sun_direction": [0.4, -0.7, 0.3],
-        "sun_color": [1.0, 0.92, 0.8]
+        "ambient": [
+          0.35,
+          0.35,
+          0.4
+        ],
+        "sun_direction": [
+          0.4,
+          -0.7,
+          0.3
+        ],
+        "sun_color": [
+          1.0,
+          0.92,
+          0.8
+        ]
       },
       "placements": [
-        { "ref": "ground", "position": [0, 0, 0] },
-        { "ref": "camera", "position": [0, 4, 8] },
-        { "name": "Player", "ref": "player", "position": [0, 0, 0] },
-
-        { "ref": "road", "position": [0, 0.02, 0], "scale": [12, 1, 140] },
-        { "ref": "road", "position": [0, 0.025, 0], "scale": [140, 1, 12] },
-
-        { "ref": "sidewalk", "position": [8, 0.015, 0], "scale": [4, 1, 140] },
-        { "ref": "sidewalk", "position": [-8, 0.015, 0], "scale": [4, 1, 140] },
-        { "ref": "sidewalk", "position": [0, 0.015, 8], "scale": [140, 1, 4] },
-        { "ref": "sidewalk", "position": [0, 0.015, -8], "scale": [140, 1, 4] },
-
-        { "ref": "building_skyscraper_a", "position": [28, 0, 28] },
-        { "ref": "building_commercial_a", "position": [45, 0, 25] },
-        { "ref": "building_commercial_b", "position": [30, 0, 45] },
-        { "ref": "building_commercial_c", "position": [50, 0, 45] },
-
-        { "ref": "building_skyscraper_b", "position": [-28, 0, 30] },
-        { "ref": "building_commercial_a", "position": [-48, 0, 25] },
-        { "ref": "building_commercial_c", "position": [-35, 0, 48] },
-
-        { "ref": "building_suburban_a", "position": [25, 0, -25] },
-        { "ref": "building_suburban_b", "position": [42, 0, -22] },
-        { "ref": "building_suburban_c", "position": [30, 0, -42] },
-        { "ref": "building_suburban_a", "position": [50, 0, -40] },
-
-        { "ref": "building_commercial_b", "position": [-25, 0, -28] },
-        { "ref": "building_suburban_b", "position": [-45, 0, -25] },
-        { "ref": "building_suburban_c", "position": [-30, 0, -45] },
-        { "ref": "building_commercial_a", "position": [-50, 0, -48] },
-
-        { "ref": "car_sedan", "position": [5.5, 0, 18], "rotation": [0, 0, 0] },
-        { "ref": "car_sports", "position": [-5.5, 0, -22], "rotation": [0, 180, 0] },
-        { "ref": "car_suv", "position": [22, 0, 5.5], "rotation": [0, 90, 0] },
-        { "ref": "car_taxi", "position": [-18, 0, -5.5], "rotation": [0, -90, 0] },
-        { "ref": "car_sedan", "position": [5.5, 0, -40], "rotation": [0, 0, 0] },
-        { "ref": "car_sports", "position": [-5.5, 0, 42], "rotation": [0, 180, 0] },
-        { "ref": "police_car", "position": [35, 0, 5.5], "rotation": [0, 90, 0] },
-        { "ref": "police_car", "position": [-5.5, 0, -50], "rotation": [0, 180, 0] },
-
-        { "ref": "pedestrian_a", "position": [12, 0, 15] },
-        { "ref": "pedestrian_b", "position": [-14, 0, 20] },
-        { "ref": "pedestrian_c", "position": [18, 0, -12] },
-        { "ref": "pedestrian_d", "position": [-10, 0, -18] },
-        { "ref": "pedestrian_e", "position": [30, 0, 12] },
-        { "ref": "pedestrian_a", "position": [-25, 0, -35] },
-
-        { "ref": "police_officer", "position": [14, 0, -8] },
-        { "ref": "police_officer", "position": [-18, 0, 14] },
-        { "ref": "police_officer", "position": [40, 0, -15] },
-
-        { "ref": "traffic_light", "position": [7, 0, 7] },
-        { "ref": "traffic_light", "position": [-7, 0, -7] },
-        { "ref": "traffic_light", "position": [7, 0, -7], "rotation": [0, 90, 0] },
-        { "ref": "traffic_light", "position": [-7, 0, 7], "rotation": [0, -90, 0] },
-
-        { "ref": "street_light", "position": [7, 0, 22] },
-        { "ref": "street_light", "position": [-7, 0, 35] },
-        { "ref": "street_light", "position": [7, 0, -25] },
-        { "ref": "street_light", "position": [-7, 0, -40] },
-        { "ref": "street_light", "position": [25, 0, 7] },
-        { "ref": "street_light", "position": [45, 0, -7] },
-        { "ref": "street_light", "position": [-25, 0, 7] },
-        { "ref": "street_light", "position": [-40, 0, -7] },
-
-        { "ref": "stop_sign", "position": [7, 0, 55] },
-        { "ref": "stop_sign", "position": [-7, 0, -55], "rotation": [0, 180, 0] },
-
-        { "ref": "tree", "position": [20, 0, -18] },
-        { "ref": "tree", "position": [38, 0, -35] },
-        { "ref": "tree", "position": [50, 0, -18] },
-        { "ref": "tree", "position": [-20, 0, -35] },
-        { "ref": "tree", "position": [-48, 0, -42] },
-        { "ref": "tree", "position": [15, 0, 38] },
-        { "ref": "tree", "position": [-42, 0, 40] },
-
-        { "ref": "cone", "position": [40, 0, 8] },
-        { "ref": "cone", "position": [42, 0, 8] },
-        { "ref": "cone", "position": [44, 0, 8] },
-        { "ref": "barrier", "position": [42, 0.5, 10] },
-
-        { "ref": "fence", "position": [18, 0, -15], "rotation": [0, 0, 0] },
-        { "ref": "fence", "position": [22, 0, -15], "rotation": [0, 0, 0] }
+        {
+          "ref": "ground",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "camera",
+          "position": [
+            0,
+            4,
+            8
+          ]
+        },
+        {
+          "name": "Player",
+          "ref": "player",
+          "position": [
+            0,
+            1.5,
+            0
+          ]
+        },
+        {
+          "ref": "road",
+          "position": [
+            0,
+            0.02,
+            0
+          ],
+          "scale": [
+            12,
+            1,
+            140
+          ]
+        },
+        {
+          "ref": "road",
+          "position": [
+            0,
+            0.025,
+            0
+          ],
+          "scale": [
+            140,
+            1,
+            12
+          ]
+        },
+        {
+          "ref": "sidewalk",
+          "position": [
+            8,
+            0.015,
+            0
+          ],
+          "scale": [
+            4,
+            1,
+            140
+          ]
+        },
+        {
+          "ref": "sidewalk",
+          "position": [
+            -8,
+            0.015,
+            0
+          ],
+          "scale": [
+            4,
+            1,
+            140
+          ]
+        },
+        {
+          "ref": "sidewalk",
+          "position": [
+            0,
+            0.015,
+            8
+          ],
+          "scale": [
+            140,
+            1,
+            4
+          ]
+        },
+        {
+          "ref": "sidewalk",
+          "position": [
+            0,
+            0.015,
+            -8
+          ],
+          "scale": [
+            140,
+            1,
+            4
+          ]
+        },
+        {
+          "ref": "building_skyscraper_a",
+          "position": [
+            28,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "building_commercial_a",
+          "position": [
+            45,
+            0,
+            25
+          ]
+        },
+        {
+          "ref": "building_commercial_b",
+          "position": [
+            30,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "building_commercial_c",
+          "position": [
+            50,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "building_skyscraper_b",
+          "position": [
+            -28,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "building_commercial_a",
+          "position": [
+            -48,
+            0,
+            25
+          ]
+        },
+        {
+          "ref": "building_commercial_c",
+          "position": [
+            -35,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "building_suburban_a",
+          "position": [
+            25,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "building_suburban_b",
+          "position": [
+            42,
+            0,
+            -22
+          ]
+        },
+        {
+          "ref": "building_suburban_c",
+          "position": [
+            30,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "building_suburban_a",
+          "position": [
+            50,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "building_commercial_b",
+          "position": [
+            -25,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "building_suburban_b",
+          "position": [
+            -45,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "building_suburban_c",
+          "position": [
+            -30,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "building_commercial_a",
+          "position": [
+            -50,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "car_sedan",
+          "position": [
+            5.5,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "car_sports",
+          "position": [
+            -5.5,
+            0,
+            -22
+          ],
+          "rotation": [
+            0,
+            180,
+            0
+          ]
+        },
+        {
+          "ref": "car_suv",
+          "position": [
+            22,
+            0,
+            5.5
+          ],
+          "rotation": [
+            0,
+            90,
+            0
+          ]
+        },
+        {
+          "ref": "car_taxi",
+          "position": [
+            -18,
+            0,
+            -5.5
+          ],
+          "rotation": [
+            0,
+            -90,
+            0
+          ]
+        },
+        {
+          "ref": "car_sedan",
+          "position": [
+            5.5,
+            0,
+            -40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "car_sports",
+          "position": [
+            -5.5,
+            0,
+            42
+          ],
+          "rotation": [
+            0,
+            180,
+            0
+          ]
+        },
+        {
+          "ref": "police_car",
+          "position": [
+            35,
+            0,
+            5.5
+          ],
+          "rotation": [
+            0,
+            90,
+            0
+          ]
+        },
+        {
+          "ref": "police_car",
+          "position": [
+            -5.5,
+            0,
+            -50
+          ],
+          "rotation": [
+            0,
+            180,
+            0
+          ]
+        },
+        {
+          "ref": "pedestrian_a",
+          "position": [
+            12,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "pedestrian_b",
+          "position": [
+            -14,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "pedestrian_c",
+          "position": [
+            18,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "pedestrian_d",
+          "position": [
+            -10,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "pedestrian_e",
+          "position": [
+            30,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "pedestrian_a",
+          "position": [
+            -25,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "police_officer",
+          "position": [
+            14,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "police_officer",
+          "position": [
+            -18,
+            0,
+            14
+          ]
+        },
+        {
+          "ref": "police_officer",
+          "position": [
+            40,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "traffic_light",
+          "position": [
+            7,
+            0,
+            7
+          ]
+        },
+        {
+          "ref": "traffic_light",
+          "position": [
+            -7,
+            0,
+            -7
+          ]
+        },
+        {
+          "ref": "traffic_light",
+          "position": [
+            7,
+            0,
+            -7
+          ],
+          "rotation": [
+            0,
+            90,
+            0
+          ]
+        },
+        {
+          "ref": "traffic_light",
+          "position": [
+            -7,
+            0,
+            7
+          ],
+          "rotation": [
+            0,
+            -90,
+            0
+          ]
+        },
+        {
+          "ref": "street_light",
+          "position": [
+            7,
+            0,
+            22
+          ]
+        },
+        {
+          "ref": "street_light",
+          "position": [
+            -7,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "street_light",
+          "position": [
+            7,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "street_light",
+          "position": [
+            -7,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "street_light",
+          "position": [
+            25,
+            0,
+            7
+          ]
+        },
+        {
+          "ref": "street_light",
+          "position": [
+            45,
+            0,
+            -7
+          ]
+        },
+        {
+          "ref": "street_light",
+          "position": [
+            -25,
+            0,
+            7
+          ]
+        },
+        {
+          "ref": "street_light",
+          "position": [
+            -40,
+            0,
+            -7
+          ]
+        },
+        {
+          "ref": "stop_sign",
+          "position": [
+            7,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "stop_sign",
+          "position": [
+            -7,
+            0,
+            -55
+          ],
+          "rotation": [
+            0,
+            180,
+            0
+          ]
+        },
+        {
+          "ref": "tree",
+          "position": [
+            20,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "tree",
+          "position": [
+            38,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "tree",
+          "position": [
+            50,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "tree",
+          "position": [
+            -20,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "tree",
+          "position": [
+            -48,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "tree",
+          "position": [
+            15,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "tree",
+          "position": [
+            -42,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "cone",
+          "position": [
+            40,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "cone",
+          "position": [
+            42,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "cone",
+          "position": [
+            44,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "barrier",
+          "position": [
+            42,
+            0.5,
+            10
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            18,
+            0,
+            -15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "fence",
+          "position": [
+            22,
+            0,
+            -15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
       ]
     }
   ]

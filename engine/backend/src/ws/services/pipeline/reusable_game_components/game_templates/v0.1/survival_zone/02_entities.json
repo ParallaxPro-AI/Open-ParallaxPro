@@ -433,7 +433,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

@@ -299,29 +299,8 @@
       "physics": false,
       "tags": [
         "coin",
-        "pickup"
-      ],
-      "label": false
-    },
-    "mushroom_powerup": {
-      "mesh": {
-        "type": "sphere",
-        "color": [
-          0.95,
-          0.3,
-          0.3,
-          1
-        ],
-        "scale": [
-          0.7,
-          0.7,
-          0.7
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "powerup",
-        "mushroom"
+        "pickup",
+        "decoration_only"
       ],
       "label": false
     },
@@ -384,7 +363,8 @@
       },
       "physics": false,
       "tags": [
-        "flag"
+        "flag",
+        "decoration_only"
       ],
       "label": false
     },
@@ -405,7 +385,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -426,7 +407,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

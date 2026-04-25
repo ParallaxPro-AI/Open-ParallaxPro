@@ -70,7 +70,11 @@
             "height": 4,
             "lookHeight": 1.5,
             "smoothSpeed": 6,
-            "sensitivity": 0.15
+            "sensitivity": 0.15,
+            "aimDistance": 3.5,
+            "aimHeight": 2.0,
+            "aimShoulderOffset": 1.2,
+            "aimSensitivity": 0.08
           }
         }
       ]
@@ -613,7 +617,8 @@
       },
       "physics": false,
       "tags": [
-        "prop"
+        "prop",
+        "decoration_only"
       ],
       "label": false
     },

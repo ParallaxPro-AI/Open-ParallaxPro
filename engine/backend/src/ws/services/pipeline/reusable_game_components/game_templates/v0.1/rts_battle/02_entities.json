@@ -105,24 +105,6 @@
       ],
       "label": false
     },
-    "starport": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/House_Open.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "tags": [
-        "building",
-        "player_building",
-        "production",
-        "starport"
-      ],
-      "label": false
-    },
     "supply_depot": {
       "mesh": {
         "type": "custom",
@@ -677,42 +659,6 @@
         }
       ]
     },
-    "bomber": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Spaceship_BarbaraTheBee.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "unit",
-        "player_unit",
-        "air"
-      ],
-      "behaviors": [
-        {
-          "name": "ranged_combat",
-          "script": "combat/ranged_combat.ts",
-          "params": {
-            "health": 200,
-            "maxHealth": 200,
-            "damage": 30,
-            "attackRange": 8,
-            "attackRate": 2.0,
-            "moveSpeed": 5,
-            "splashRadius": 3,
-            "canAttackAir": false,
-            "isFlying": true,
-            "flyHeight": 7,
-            "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_004.ogg"
-          }
-        }
-      ]
-    },
     "hive": {
       "mesh": {
         "type": "custom",
@@ -978,7 +924,8 @@
         "unit",
         "enemy_unit",
         "air",
-        "heavy"
+        "heavy",
+        "decoration_only"
       ],
       "behaviors": [
         {
@@ -999,43 +946,6 @@
         }
       ]
     },
-    "ufo_heavy": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/kenney/3d_models/tower_defense_kit/enemy-ufo-c.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "unit",
-        "enemy_unit",
-        "air",
-        "elite"
-      ],
-      "behaviors": [
-        {
-          "name": "enemy_assault_ai",
-          "script": "ai/enemy_assault_ai.ts",
-          "params": {
-            "health": 400,
-            "maxHealth": 400,
-            "damage": 35,
-            "attackRange": 14,
-            "attackRate": 2.0,
-            "moveSpeed": 3,
-            "splashRadius": 3,
-            "armor": 3,
-            "isFlying": true,
-            "flyHeight": 7,
-            "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_003.ogg"
-          }
-        }
-      ]
-    },
     "crystal_node": {
       "mesh": {
         "type": "custom",
@@ -1049,7 +959,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "mineral"
+        "mineral",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1067,7 +978,8 @@
       "tags": [
         "resource",
         "mineral",
-        "rich"
+        "rich",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1152,7 +1064,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1173,7 +1086,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1213,7 +1127,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1309,7 +1224,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1390,7 +1306,8 @@
       "physics": false,
       "tags": [
         "decoration",
-        "sensor"
+        "sensor",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1406,7 +1323,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

@@ -77,7 +77,8 @@
       },
       "physics": false,
       "tags": [
-        "tower_spot"
+        "tower_spot",
+        "decoration_only"
       ],
       "label": false
     },
@@ -197,74 +198,6 @@
       ],
       "label": false
     },
-    "enemy_goblin": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Goblin_Male.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "enemy",
-        "goblin"
-      ],
-      "label": false
-    },
-    "enemy_slime": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/characters/animated_monster_pack/Slime.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "enemy",
-        "slime"
-      ],
-      "label": false
-    },
-    "enemy_skeleton": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/characters/animated_monster_pack/Skeleton.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "enemy",
-        "skeleton"
-      ],
-      "label": false
-    },
-    "enemy_dragon": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/characters/animated_monster_pack/Dragon.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "enemy",
-        "dragon"
-      ],
-      "label": false
-    },
     "tree_detail": {
       "mesh": {
         "type": "custom",
@@ -309,7 +242,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

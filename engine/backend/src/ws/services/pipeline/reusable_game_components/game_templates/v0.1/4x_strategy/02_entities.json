@@ -987,7 +987,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "iron"
+        "iron",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1284,7 +1285,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1300,7 +1302,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1351,7 +1354,8 @@
       "physics": false,
       "tags": [
         "improvement",
-        "production"
+        "production",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1431,7 +1435,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1447,7 +1452,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

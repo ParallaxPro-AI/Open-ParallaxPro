@@ -626,7 +626,8 @@
             "health": 15,
             "product": "egg",
             "breedable": true,
-            "layInterval": 90
+            "layInterval": 90,
+            "walkAnim": "Run"
           }
         }
       ]
@@ -1314,7 +1315,8 @@
       },
       "physics": false,
       "tags": [
-        "structure"
+        "structure",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1383,7 +1385,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -1400,7 +1403,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -1417,7 +1421,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -1434,7 +1439,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1657,7 +1663,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1673,7 +1680,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1774,7 +1782,8 @@
       "physics": false,
       "tags": [
         "decoration",
-        "village"
+        "village",
+        "decoration_only"
       ],
       "label": false
     }

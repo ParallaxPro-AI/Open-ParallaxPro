@@ -38,6 +38,7 @@
           "active_behaviors": ["pong_paddle", "board_camera"],
           "on_enter": [
             "show_ui:hud/pong_score",
+            "hide_cursor",
             "emit:game.new_round"
           ],
           "on_exit": [

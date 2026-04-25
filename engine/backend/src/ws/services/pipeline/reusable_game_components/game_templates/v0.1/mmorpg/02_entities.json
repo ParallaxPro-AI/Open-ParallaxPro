@@ -482,7 +482,8 @@
       },
       "physics": false,
       "tags": [
-        "prop"
+        "prop",
+        "decoration_only"
       ],
       "label": false
     },
@@ -530,7 +531,8 @@
       },
       "physics": false,
       "tags": [
-        "prop"
+        "prop",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1379,7 +1381,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1493,7 +1496,8 @@
       "physics": false,
       "tags": [
         "loot",
-        "collectible"
+        "collectible",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1544,7 +1548,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -1561,7 +1566,8 @@
       "physics": false,
       "tags": [
         "loot",
-        "collectible"
+        "collectible",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1578,7 +1584,8 @@
       "physics": false,
       "tags": [
         "loot",
-        "collectible"
+        "collectible",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1595,7 +1602,8 @@
       "physics": false,
       "tags": [
         "quest",
-        "marker"
+        "marker",
+        "decoration_only"
       ],
       "label": false
     },

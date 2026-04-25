@@ -308,7 +308,8 @@
       "physics": false,
       "tags": [
         "rock",
-        "decor"
+        "decor",
+        "decoration_only"
       ],
       "label": false
     },

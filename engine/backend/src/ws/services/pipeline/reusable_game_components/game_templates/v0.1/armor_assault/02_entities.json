@@ -61,57 +61,6 @@
         }
       ]
     },
-    "enemy_tank_light": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/characters/tank_pack/Tank2.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "enemy",
-        "tank_light"
-      ],
-      "label": false
-    },
-    "enemy_tank_medium": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/characters/tank_pack/Tank3.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "enemy",
-        "tank_medium"
-      ],
-      "label": false
-    },
-    "enemy_tank_heavy": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/characters/tank_pack/Tank4.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "enemy",
-        "tank_heavy"
-      ],
-      "label": false
-    },
     "ground": {
       "mesh": {
         "type": "plane",
@@ -185,7 +134,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -287,7 +237,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     }

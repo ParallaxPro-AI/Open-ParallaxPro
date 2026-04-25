@@ -18,7 +18,7 @@
           "shape": "cuboid",
           "halfExtents": [
             2.4,
-            1.5,
+            3.0,
             5.0
           ]
         }
@@ -172,6 +172,10 @@
           12
         ]
       },
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "island"
       ],
@@ -194,6 +198,10 @@
           0.5,
           6
         ]
+      },
+      "physics": {
+        "type": "static",
+        "collider": "box"
       },
       "tags": [
         "island"
@@ -221,7 +229,7 @@
           "shape": "cuboid",
           "halfExtents": [
             1.8,
-            1.4,
+            2.0,
             4.0
           ]
         }
@@ -438,7 +446,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -537,7 +546,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -553,7 +563,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -569,7 +580,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -583,7 +595,10 @@
           1
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "decoration"
       ],
@@ -599,7 +614,10 @@
           1
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "decoration",
         "structure"
@@ -616,7 +634,10 @@
           1
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "decoration",
         "structure"
@@ -633,7 +654,10 @@
           1
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "decoration",
         "structure"
@@ -650,7 +674,10 @@
           1
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "decoration"
       ],
@@ -666,7 +693,10 @@
           1
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "decoration"
       ],
@@ -682,7 +712,10 @@
           1
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "decoration",
         "npc"
@@ -702,7 +735,8 @@
       "physics": false,
       "tags": [
         "decoration",
-        "npc"
+        "npc",
+        "decoration_only"
       ],
       "label": false
     },

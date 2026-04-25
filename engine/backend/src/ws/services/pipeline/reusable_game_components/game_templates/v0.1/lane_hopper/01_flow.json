@@ -23,15 +23,15 @@
       "description": "Title",
       "on_enter": ["show_ui:main_menu", "show_cursor"],
       "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
-      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing" }]
+      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing", "actions": ["emit:game.game_ready"] }]
     },
     "playing": {
       "description": "Endless lanes",
       "active_systems": ["lane_hopper_game"],
       "active_behaviors": ["tile_hopper", "camera_tile_hopper"],
       "on_enter": [
-        "emit:game.game_ready",
         "show_ui:hud/lane_hopper_hud",
+        "hide_cursor",
         "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
       ],
       "on_exit": ["hide_ui:hud/lane_hopper_hud"],

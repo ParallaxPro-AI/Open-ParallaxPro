@@ -12,37 +12,68 @@
       "pauseTitle": "PAUSED",
       "pauseHint": "Press <span class=\"pm-kbd\">P</span> to resume",
       "pauseButtons": [
-        { "action": "resume",      "label": "Resume", "primary": true },
-        { "action": "leave_match", "label": "Quit Run", "danger": true }
+        {
+          "action": "resume",
+          "label": "Resume",
+          "primary": true
+        },
+        {
+          "action": "leave_match",
+          "label": "Quit Run",
+          "danger": true
+        }
       ]
     }
   },
   "states": {
     "boot": {
       "description": "Initialize systems",
-      "active_systems": ["liminal_loop_game"],
+      "active_systems": [
+        "liminal_loop_game"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
       "transitions": [
-        { "when": "boot_frames>=2", "goto": "main_menu" }
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
       ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.match_started"
+          ]
+        }
       ]
     },
     "gameplay": {
       "description": "Run the corridor",
-      "active_systems": ["liminal_loop_game"],
+      "active_systems": [
+        "liminal_loop_game"
+      ],
       "start": "playing",
       "on_enter": [
         "show_ui:hud/liminal_loop_hud",
-        "emit:game.match_started"
+        "hide_cursor"
       ],
       "on_exit": [
         "hide_ui:hud/liminal_loop_hud",
@@ -50,34 +81,75 @@
       ],
       "substates": {
         "playing": {
-          "active_behaviors": ["fps_camera", "fps_movement"],
-          "on_enter": ["hide_cursor"],
+          "active_behaviors": [
+            "fps_camera",
+            "fps_movement"
+          ],
+          "on_enter": [
+            "hide_cursor"
+          ],
           "transitions": [
-            { "when": "keyboard:pause", "goto": "paused" }
+            {
+              "when": "keyboard:pause",
+              "goto": "paused"
+            }
           ]
         },
         "paused": {
           "active_behaviors": [],
-          "on_enter": ["show_ui:pause_menu", "show_cursor"],
-          "on_exit":  ["hide_ui:pause_menu", "hide_cursor"],
+          "on_enter": [
+            "show_ui:pause_menu",
+            "show_cursor"
+          ],
+          "on_exit": [
+            "hide_ui:pause_menu",
+            "hide_cursor"
+          ],
           "transitions": [
-            { "when": "keyboard:resume",            "goto": "playing" },
-            { "when": "ui_event:pause_menu:resume", "goto": "playing" }
+            {
+              "when": "keyboard:resume",
+              "goto": "playing"
+            },
+            {
+              "when": "ui_event:pause_menu:resume",
+              "goto": "playing"
+            }
           ]
         }
       },
       "transitions": [
-        { "when": "game_event:match_ended",          "goto": "game_over" },
-        { "when": "ui_event:pause_menu:leave_match", "goto": "main_menu" }
+        {
+          "when": "game_event:match_ended",
+          "goto": "game_over"
+        },
+        {
+          "when": "ui_event:pause_menu:leave_match",
+          "goto": "main_menu"
+        }
       ]
     },
     "game_over": {
       "description": "Run summary",
-      "on_enter": ["show_ui:game_over", "show_cursor"],
-      "on_exit":  ["hide_ui:game_over", "hide_cursor"],
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:game_over:play_again", "goto": "gameplay" },
-        { "when": "ui_event:game_over:main_menu",  "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.match_started"
+          ]
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

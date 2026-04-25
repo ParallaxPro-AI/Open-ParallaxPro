@@ -105,7 +105,8 @@
       },
       "physics": false,
       "tags": [
-        "ground"
+        "ground",
+        "decoration_only"
       ],
       "label": false,
       "mesh_override": {
@@ -428,7 +429,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false,
       "mesh_override": {

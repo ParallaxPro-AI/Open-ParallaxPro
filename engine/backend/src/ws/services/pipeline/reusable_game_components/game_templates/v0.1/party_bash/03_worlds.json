@@ -4,43 +4,264 @@
       "id": "party_arena",
       "name": "Party Arena",
       "lighting": {
-        "ambient": [0.55, 0.55, 0.6],
-        "sun_direction": [0.3, -0.8, 0.2],
-        "sun_color": [1.0, 0.97, 0.9]
+        "ambient": [
+          0.55,
+          0.55,
+          0.6
+        ],
+        "sun_direction": [
+          0.3,
+          -0.8,
+          0.2
+        ],
+        "sun_color": [
+          1.0,
+          0.97,
+          0.9
+        ]
       },
       "placements": [
-        { "ref": "camera", "position": [0, 25, 16] },
-
-        { "ref": "arena_floor", "position": [0, -0.25, 0] },
-
-        { "ref": "arena_border", "position": [0, 0.05, -11.5],  "scale": [23, 0.3, 0.5] },
-        { "ref": "arena_border", "position": [0, 0.05, 11.5],   "scale": [23, 0.3, 0.5] },
-        { "ref": "arena_border", "position": [-11.5, 0.05, 0],  "scale": [0.5, 0.3, 23] },
-        { "ref": "arena_border", "position": [11.5, 0.05, 0],   "scale": [0.5, 0.3, 23] },
-
-        { "name": "P_Penguin",  "ref": "player_penguin",  "position": [-5, 1, -5] },
-        { "name": "P_Panda",    "ref": "player_panda",    "position": [5, 1, -5] },
-        { "name": "P_Mushroom", "ref": "player_mushroom", "position": [-5, 1, 5] },
-        { "name": "P_Chicken",  "ref": "player_chicken",  "position": [5, 1, 5] },
-
-        { "ref": "flag_blue",  "position": [-12, 0, -12] },
-        { "ref": "flag_green", "position": [12, 0, -12] },
-        { "ref": "flag_red",   "position": [-12, 0, 12] },
-        { "ref": "flag_blue",  "position": [12, 0, 12] },
-        { "ref": "flag_green", "position": [0, 0, -13] },
-        { "ref": "flag_red",   "position": [0, 0, 13] },
-
-        { "ref": "food_donut",   "position": [-14, 0.5, -6] },
-        { "ref": "food_cupcake", "position": [14, 0.5, -3] },
-        { "ref": "food_icecream","position": [-14, 0.5, 4] },
-        { "ref": "food_burger",  "position": [14, 0.5, 7] },
-        { "ref": "food_pizza",   "position": [-7, 0.5, -14] },
-        { "ref": "food_cake",    "position": [7, 0.5, 14] },
-        { "ref": "food_donut",   "position": [7, 0.5, -14] },
-        { "ref": "food_icecream","position": [-7, 0.5, 14] },
-
-        { "ref": "windmill_deco", "position": [-16, 0, -16] },
-        { "ref": "windmill_deco", "position": [16, 0, 16] }
+        {
+          "ref": "camera",
+          "position": [
+            0,
+            25,
+            16
+          ]
+        },
+        {
+          "ref": "arena_floor",
+          "position": [
+            0,
+            -0.25,
+            0
+          ]
+        },
+        {
+          "ref": "arena_border",
+          "position": [
+            0,
+            0.05,
+            -11.5
+          ],
+          "scale": [
+            23,
+            0.3,
+            0.5
+          ]
+        },
+        {
+          "ref": "arena_border",
+          "position": [
+            0,
+            0.05,
+            11.5
+          ],
+          "scale": [
+            23,
+            0.3,
+            0.5
+          ]
+        },
+        {
+          "ref": "arena_border",
+          "position": [
+            -11.5,
+            0.05,
+            0
+          ],
+          "scale": [
+            0.5,
+            0.3,
+            23
+          ]
+        },
+        {
+          "ref": "arena_border",
+          "position": [
+            11.5,
+            0.05,
+            0
+          ],
+          "scale": [
+            0.5,
+            0.3,
+            23
+          ]
+        },
+        {
+          "name": "P_Penguin",
+          "ref": "player_penguin",
+          "position": [
+            -5,
+            1,
+            -5
+          ]
+        },
+        {
+          "name": "P_Panda",
+          "ref": "player_panda",
+          "position": [
+            5,
+            1,
+            -5
+          ]
+        },
+        {
+          "name": "P_Mushroom",
+          "ref": "player_mushroom",
+          "position": [
+            -5,
+            1,
+            5
+          ]
+        },
+        {
+          "name": "P_Chicken",
+          "ref": "player_chicken",
+          "position": [
+            5,
+            1,
+            5
+          ]
+        },
+        {
+          "ref": "flag_blue",
+          "position": [
+            -12,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "flag_green",
+          "position": [
+            12,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "flag_red",
+          "position": [
+            -12,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "flag_blue",
+          "position": [
+            12,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "flag_green",
+          "position": [
+            0,
+            0,
+            -13
+          ]
+        },
+        {
+          "ref": "flag_red",
+          "position": [
+            0,
+            0,
+            13
+          ]
+        },
+        {
+          "ref": "food_donut",
+          "position": [
+            -14,
+            0.5,
+            -6
+          ]
+        },
+        {
+          "ref": "food_cupcake",
+          "position": [
+            14,
+            0.5,
+            -3
+          ]
+        },
+        {
+          "ref": "food_icecream",
+          "position": [
+            -14,
+            0.5,
+            4
+          ]
+        },
+        {
+          "ref": "food_burger",
+          "position": [
+            14,
+            0.5,
+            7
+          ]
+        },
+        {
+          "ref": "food_pizza",
+          "position": [
+            -7,
+            0.5,
+            -14
+          ]
+        },
+        {
+          "ref": "food_cake",
+          "position": [
+            7,
+            0.5,
+            14
+          ]
+        },
+        {
+          "ref": "food_donut",
+          "position": [
+            7,
+            0.5,
+            -14
+          ]
+        },
+        {
+          "ref": "food_icecream",
+          "position": [
+            -7,
+            0.5,
+            14
+          ]
+        },
+        {
+          "ref": "windmill_deco",
+          "position": [
+            -16,
+            0,
+            -16
+          ]
+        },
+        {
+          "ref": "windmill_deco",
+          "position": [
+            16,
+            0,
+            16
+          ]
+        },
+        {
+          "ref": "coin_party",
+          "position": [
+            0,
+            -50,
+            0
+          ],
+          "name": "_seed_coin"
+        }
       ]
     }
   ]

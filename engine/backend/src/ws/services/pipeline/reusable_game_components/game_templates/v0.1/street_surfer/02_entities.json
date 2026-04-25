@@ -222,93 +222,6 @@
       ],
       "label": false
     },
-    "coin": {
-      "mesh": {
-        "type": "cylinder",
-        "scale": [
-          0.4,
-          0.08,
-          0.4
-        ],
-        "color": [
-          1.0,
-          0.85,
-          0.0,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "coin"
-      ],
-      "label": false
-    },
-    "powerup_magnet": {
-      "mesh": {
-        "type": "cube",
-        "scale": [
-          0.55,
-          0.55,
-          0.55
-        ],
-        "color": [
-          0.2,
-          0.5,
-          1.0,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "powerup",
-        "magnet"
-      ],
-      "label": false
-    },
-    "powerup_shield": {
-      "mesh": {
-        "type": "sphere",
-        "scale": [
-          0.55,
-          0.55,
-          0.55
-        ],
-        "color": [
-          0.15,
-          0.85,
-          0.4,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "powerup",
-        "shield"
-      ],
-      "label": false
-    },
-    "powerup_multiplier": {
-      "mesh": {
-        "type": "cube",
-        "scale": [
-          0.55,
-          0.55,
-          0.55
-        ],
-        "color": [
-          0.75,
-          0.3,
-          0.9,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "powerup",
-        "score_multi"
-      ],
-      "label": false
-    },
     "building_a": {
       "mesh": {
         "type": "custom",
@@ -417,7 +330,8 @@
       },
       "physics": false,
       "tags": [
-        "scenery"
+        "scenery",
+        "decoration_only"
       ],
       "label": false
     },

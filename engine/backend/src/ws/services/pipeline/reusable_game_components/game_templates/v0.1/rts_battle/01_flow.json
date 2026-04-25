@@ -3,33 +3,58 @@
   "name": "RTS Battle",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "IRON COMMAND", "gameSubtitle": "Galactic Warfare" }
+    "main_menu": {
+      "gameTitle": "IRON COMMAND",
+      "gameSubtitle": "Galactic Warfare"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize RTS systems",
-      "active_systems": ["resource_system", "production_system"],
+      "active_systems": [
+        "resource_system",
+        "production_system"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
-      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit": ["hide_ui:main_menu"],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay"
+        }
       ]
     },
     "gameplay": {
       "description": "Real-time strategy gameplay",
       "start": "battle",
-      "on_enter": ["emit:game.game_ready"],
+      "on_enter": [
+        "emit:game.game_ready"
+      ],
       "on_exit": [],
       "substates": {
         "battle": {
-          "description": "Active RTS battle — build base, gather resources, train army, destroy enemy",
+          "description": "Active RTS battle \u2014 build base, gather resources, train army, destroy enemy",
           "active_systems": [
             "resource_system",
             "production_system",
@@ -50,6 +75,7 @@
           ],
           "on_enter": [
             "show_ui:hud/resources",
+            "hide_cursor",
             "show_ui:hud/minimap",
             "show_ui:hud/unit_panel",
             "show_ui:hud/command_panel",
@@ -67,14 +93,24 @@
             "hide_ui:hud/supply"
           ],
           "transitions": [
-            { "when": "game_event:victory", "goto": "victory" },
-            { "when": "game_event:defeat", "goto": "defeat" }
+            {
+              "when": "game_event:victory",
+              "goto": "victory"
+            },
+            {
+              "when": "game_event:defeat",
+              "goto": "defeat"
+            }
           ]
         },
         "victory": {
           "description": "Player destroyed enemy base",
-          "active_systems": ["resource_system"],
-          "active_behaviors": ["rts_camera"],
+          "active_systems": [
+            "resource_system"
+          ],
+          "active_behaviors": [
+            "rts_camera"
+          ],
           "on_enter": [
             "show_ui:game_over",
             "show_cursor",
@@ -85,13 +121,20 @@
             "emit:game.game_ready"
           ],
           "transitions": [
-            { "when": "ui_event:game_over:play_again", "goto": "battle" }
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "battle"
+            }
           ]
         },
         "defeat": {
           "description": "Player base destroyed",
-          "active_systems": ["resource_system"],
-          "active_behaviors": ["rts_camera"],
+          "active_systems": [
+            "resource_system"
+          ],
+          "active_behaviors": [
+            "rts_camera"
+          ],
           "on_enter": [
             "show_ui:game_over",
             "show_cursor",
@@ -102,12 +145,18 @@
             "emit:game.game_ready"
           ],
           "transitions": [
-            { "when": "ui_event:game_over:play_again", "goto": "battle" }
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "battle"
+            }
           ]
         }
       },
       "transitions": [
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

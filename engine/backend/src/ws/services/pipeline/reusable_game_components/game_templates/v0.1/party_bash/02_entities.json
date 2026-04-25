@@ -169,27 +169,6 @@
       ],
       "label": false
     },
-    "coin_party": {
-      "mesh": {
-        "type": "sphere",
-        "scale": [
-          0.5,
-          0.5,
-          0.5
-        ],
-        "color": [
-          1.0,
-          0.85,
-          0.0,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "coin"
-      ],
-      "label": false
-    },
     "hazard_bar": {
       "mesh": {
         "type": "cube",
@@ -226,7 +205,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -242,7 +222,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -258,7 +239,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -371,6 +353,28 @@
       "physics": false,
       "tags": [
         "decoration"
+      ],
+      "label": false
+    },
+    "coin_party": {
+      "mesh": {
+        "type": "sphere",
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "color": [
+          1.0,
+          0.85,
+          0.0,
+          1
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "coin",
+        "no_collide"
       ],
       "label": false
     }

@@ -3,30 +3,63 @@
   "name": "Party Bash",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "PARTY BASH", "gameSubtitle": "Minigame Madness" }
+    "main_menu": {
+      "gameTitle": "PARTY BASH",
+      "gameSubtitle": "Minigame Madness"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize",
       "duration": -1,
-      "active_systems": ["party_engine"],
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
-      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+      "active_systems": [
+        "party_engine"
+      ],
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
-      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing" }]
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "playing",
+          "actions": [
+            "emit:game.game_ready"
+          ]
+        }
+      ]
     },
     "playing": {
-      "description": "Party game — rotating minigames across 5 rounds",
-      "active_systems": ["party_engine"],
-      "active_behaviors": ["party_player", "camera_party"],
+      "description": "Party game \u2014 rotating minigames across 5 rounds",
+      "active_systems": [
+        "party_engine"
+      ],
+      "active_behaviors": [
+        "party_player",
+        "camera_party"
+      ],
       "on_enter": [
-        "emit:game.game_ready",
         "show_ui:hud/party_hud",
+        "hide_cursor",
         "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
       ],
       "transitions": [
@@ -42,7 +75,9 @@
     },
     "game_over": {
       "description": "Final results",
-      "active_behaviors": ["camera_party"],
+      "active_behaviors": [
+        "camera_party"
+      ],
       "on_enter": [
         "show_ui:game_over",
         "show_cursor"
@@ -56,9 +91,15 @@
         {
           "when": "ui_event:game_over:play_again",
           "goto": "playing",
-          "actions": ["emit:game.restart_game"]
+          "actions": [
+            "emit:game.restart_game",
+            "emit:game.game_ready"
+          ]
         },
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

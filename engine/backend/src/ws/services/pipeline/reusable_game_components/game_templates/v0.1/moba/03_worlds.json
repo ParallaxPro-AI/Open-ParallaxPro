@@ -24,7 +24,7 @@
         { "ref": "ballista", "position": [58, 0, 8] },
         { "ref": "ballista", "position": [58, 0, -8] },
 
-        { "name": "Hero", "ref": "hero", "position": [-45, 0, 0] },
+        { "name": "Hero", "ref": "hero", "position": [-45, 1.2, 0] },
         { "ref": "camera", "position": [-45, 20, 14] },
 
         { "ref": "wall", "position": [0, 1.5, 22], "scale": [160, 3, 1] },
