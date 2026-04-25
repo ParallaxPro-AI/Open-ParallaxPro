@@ -271,13 +271,13 @@ export class GeometryPass {
      * Play→Stop→Play (via setEditorMode(true)) so the next Play rebuilds
      * bind groups against whatever joint-matrices buffers the
      * AnimatorComponents currently reference. Cache keys use
-     * `${idx}_${jointBuf.label}` and every joint buffer is created with
-     * the constant label `'joint_matrices'`, so the key is effectively
-     * just `idx`. If entities ever change render-order across Plays,
-     * the cached bind group at slot `idx` ends up pointing at a stale
-     * (model, joint) pair → characters render in T-pose. Cheap to
-     * rebuild — bind groups are pool-allocated and the cache fills
-     * back up within the first frame.
+     * `${idx}_${jointBuf.label}` where each joint buffer now has a unique
+     * label (`joint_matrices_<id>`). Without that uniqueness the key
+     * collapsed to just `idx`, and two characters that took the same
+     * draw-order slot would share a stale bind group → one rendered with
+     * the other's joint matrices (the deadly_games "arms in the air"
+     * report). The Play→Stop reset also flushes any stale entries left
+     * by entity destruction during the previous Play.
      */
     clearSkinningCaches(): void {
         this.skinnedModelBindGroupCache.clear();
