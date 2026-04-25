@@ -3,7 +3,7 @@
     "player": {
       "mesh": {
         "type": "custom",
-        "asset": "/assets/quaternius/3d_models/cube_world/Character_Female_1.glb",
+        "asset": "/assets/quaternius/characters/cube_world/Character_Female_1.glb",
         "scale": [
           1,
           1,
