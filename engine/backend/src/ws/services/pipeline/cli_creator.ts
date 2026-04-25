@@ -63,6 +63,18 @@ export interface CreatorResult {
      */
     sessionCapturePath?: string | null;
     usedWarmSession?: boolean;
+    /**
+     * Whether the headless playtest's final attempt verdict was a pass.
+     *  - `true`  → pipeline succeeded AND playtest gate passed.
+     *  - `false` → pipeline produced a buildable artifact but the playtest
+     *              gate is still red after retry-budget exhaustion. The
+     *              orchestrator maps this to `final_status='playtest_unresolved'`
+     *              so the dashboard can distinguish "shipped + verified"
+     *              from "shipped + known broken." Pre-existing callers that
+     *              don't read this field continue to see `success: true`.
+     *  - `undefined` → playtest gate didn't run (creator failed before it).
+     */
+    playtestPassed?: boolean;
 }
 
 export interface CreatorOptions {
@@ -431,6 +443,7 @@ export async function runCreator(
             files,
             costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
             usedWarmSession: cliResult.usedWarmSession,
+            playtestPassed,
         };
       })();
       return finalResult;
