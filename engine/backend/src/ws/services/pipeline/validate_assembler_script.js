@@ -404,19 +404,71 @@ if (eventData) {
 // ═════════════════════════════════════════════════════════════════════
 // 4. spawnEntity validation
 // ═════════════════════════════════════════════════════════════════════
+//
+// Catches the tower_siege / armor_assault class of bug: scripts call
+// spawnEntity but the entity name comes from a hardcoded data table
+// (e.g. _enemyDefs.light.entity = "enemy_tank_light", _waveData = [{
+// type: "enemy_goblin" }]) — and that name is missing from the
+// template's 02_entities.json. The literal-arg check misses these
+// because the spawnEntity call site looks like spawnEntity(def.entity)
+// or spawnEntity(type) with a variable.
+//
+// Three patterns checked, only inside scripts that actually call
+// .spawnEntity(:
+//   a. .spawnEntity("X")               — direct literal arg
+//   b. entity: "X" / type: "X" / etc.  — data-table field values that
+//                                        flow into spawnEntity
+//   c. _*Stats = { X: { ... } }        — stat-table object keys that
+//                                        double as entity names
+// Heuristic guard for (b)+(c): only flag values that look like
+// snake_case entity keys (contain an underscore). Filters out generic
+// values like "shot", "ammo", "rotation" which use the same field
+// name conventions but aren't entity references.
 (function() {
     var validPrefabs = new Set(Object.keys(defs));
     var spawnErrors = [];
     var scriptEntries = Object.entries(allScripts);
+
+    var TABLE_FIELD_RE = /(?:entity|type|spawnRef|entityType|enemyType)\s*:\s*['"]([a-z][A-Za-z0-9_]*)['"]/g;
+    var STATS_BLOCK_RE = /_(?:enemy|unit|monster|spawn|wave|tower|ally|boss)\w*Stats\s*=\s*\{([^}]+)\}/gi;
+    var STATS_KEY_RE = /^\s*([a-z][a-z0-9_]*)\s*:\s*\{/gm;
+    var ENTITY_KEY_RE = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/;
+    function looksLikeEntityKey(s) { return ENTITY_KEY_RE.test(s); }
+
+    function flag(scriptKey, name, kind) {
+        if (validPrefabs.has(name)) return;
+        var valid = Array.from(validPrefabs).sort().join(', ') || '(none)';
+        spawnErrors.push(
+            scriptKey + ': [' + kind + '] "' + name + '" — references unknown entity definition. Valid names: ' + valid
+        );
+    }
+
     for (var sei = 0; sei < scriptEntries.length; sei++) {
         var scriptKey = scriptEntries[sei][0];
         var source = scriptEntries[sei][1];
+
+        // Skip files that don't call spawnEntity. createEntity is the
+        // bare-entity API and accepts arbitrary names by design.
+        if (!/\.spawnEntity\s*\(/.test(source)) continue;
+
+        // (a) direct literal args
+        var seen = new Set();
         for (var m of source.matchAll(/\.spawnEntity\s*\(\s*['"]([^'"]+)['"]/g)) {
-            if (!validPrefabs.has(m[1])) {
-                var valid = Array.from(validPrefabs).sort().join(', ') || '(none)';
-                spawnErrors.push(
-                    scriptKey + ': spawnEntity("' + m[1] + '") references unknown entity definition. Valid names: ' + valid
-                );
+            if (!seen.has('a:' + m[1])) { seen.add('a:' + m[1]); flag(scriptKey, m[1], 'spawnEntity literal'); }
+        }
+        // (b) data-table field values
+        for (var tm of source.matchAll(TABLE_FIELD_RE)) {
+            var v = tm[1];
+            if (!looksLikeEntityKey(v)) continue;
+            if (!seen.has('b:' + v)) { seen.add('b:' + v); flag(scriptKey, v, 'data-table entity ref'); }
+        }
+        // (c) _*Stats object-literal keys
+        for (var bm of source.matchAll(STATS_BLOCK_RE)) {
+            var block = bm[1];
+            for (var km of block.matchAll(STATS_KEY_RE)) {
+                var k = km[1];
+                if (!looksLikeEntityKey(k)) continue;
+                if (!seen.has('c:' + k)) { seen.add('c:' + k); flag(scriptKey, k, '_*Stats key'); }
             }
         }
     }
