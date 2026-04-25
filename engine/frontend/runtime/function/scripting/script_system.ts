@@ -4,6 +4,7 @@ import { InputSystem } from '../input/input_system.js';
 
 interface ScriptInstance {
     entityId: number;
+    scriptName: string;
     script: GameScript;
     started: boolean;
 }
@@ -28,6 +29,20 @@ export class ScriptSystem {
     // across all entities that share the name. Reset at the start of each
     // tickUpdate so the Profiler sees one frame's worth of work.
     private timings: Map<string, { totalMs: number; calls: number }> = new Map();
+
+    // Latest `active_behaviors` set as emitted by fsm_driver on FSM state
+    // enter. Cached here so that behaviors attached AFTER a state transition
+    // (e.g. prefabs spawned at runtime via scene.spawnEntity from inside a
+    // gameplay system's restart handler) can initialize their
+    // `_behaviorActive` flag from the current set rather than defaulting to
+    // `false` and staying dormant until the next transition — which is how
+    // the driving "coins respawn but don't collect after Play Again"
+    // regression slipped in: coin prefabs spawned by _resetRound arrived
+    // AFTER the FSM had already broadcast `active_behaviors` for the
+    // gameplay state, so their coin_pickup scripts had `_behaviorActive`
+    // stuck at `false` for the rest of the match.
+    private activeBehaviorNames: Set<string> = new Set();
+    private activeBehaviorsSubscribed = false;
 
     private scriptName(script: GameScript): string {
         return (script as any)._behaviorName || script.constructor?.name || 'UnnamedScript';
@@ -89,6 +104,56 @@ export class ScriptSystem {
     }
 
     /**
+     * Tear down all script instances and reinstantiate them from their
+     * registered script classes. Called by the engine on Play→Stop→Play
+     * so the second Play starts with FRESH script state, not the dirty
+     * carry-over from first Play.
+     *
+     * Why full recreation instead of just resetting `started=false`:
+     * behaviors hold per-instance fields like `_currentAnim`,
+     * `_initialized`, `_collected`, `_aliveCount` that get set during
+     * first Play and persist as long as the script object lives. Even
+     * with onStart re-firing, those fields keep their first-Play
+     * values, so:
+     *   - sidescroll_platformer's `if (anim !== this._currentAnim)`
+     *     guard skipped the playAnimation call on second Play because
+     *     `_currentAnim` was already "Idle" from first Play, while
+     *     the engine had reset the AnimatorComponent. Animations
+     *     "all don't work" — user report on multiple games iter 6.
+     *   - any once-only state (`_levelComplete`, `_doorOpened`,
+     *     `_bossDefeated`) carried over visibly broken state.
+     *
+     * Recreating from the registered class restores class-default
+     * field values (e.g. `_currentAnim = ""` initial) so the next
+     * onStart's "set initial anim" code path runs and the
+     * playAnimation call lands on a fresh AnimatorComponent.
+     *
+     * Per-entity event listeners are cleaned up by detachScripts ->
+     * scene._cleanupEntityListeners — no duplicate-listener issue.
+     */
+    resetForReplay(): void {
+        // Snapshot before mutation (detach mutates this.instances).
+        const snapshots: Array<{ entityId: number; scriptName: string; entity: ScriptEntity }> = [];
+        for (const inst of this.instances) {
+            const ent = inst.script.entity;
+            if (!ent) continue;
+            snapshots.push({ entityId: inst.entityId, scriptName: inst.scriptName, entity: ent });
+        }
+        // Detach by entity (covers all scripts on each entity in one call,
+        // including the listener-cleanup hook) — call once per unique entity.
+        const seen = new Set<number>();
+        for (const s of snapshots) {
+            if (seen.has(s.entityId)) continue;
+            seen.add(s.entityId);
+            this.detachScripts(s.entityId);
+        }
+        // Reattach in original order so script-execution order is preserved.
+        for (const s of snapshots) {
+            this.attachScript(s.scriptName, s.entity);
+        }
+    }
+
+    /**
      * Instantiate and attach a script to an entity.
      */
     attachScript(scriptName: string, entity: ScriptEntity): GameScript | null {
@@ -109,6 +174,7 @@ export class ScriptSystem {
 
         this.instances.push({
             entityId: entity.id,
+            scriptName,
             script,
             started: false,
         });
@@ -172,14 +238,29 @@ export class ScriptSystem {
                         console.error(`Error in onStart for entity ${inst.entityId}:`, e);
                     }
                 }
-                // Auto-register active_behaviors listener for behavior scripts
+                // Auto-register active_behaviors listener for behavior scripts.
+                // The SystemSystem emits `active_behaviors` on every FSM state
+                // enter; we cache the latest set at the ScriptSystem level so
+                // newly-attached behaviors (i.e. prefabs spawned at runtime
+                // AFTER the emit already happened) can initialize their
+                // _behaviorActive from the current set. Without this, a coin
+                // prefab spawned during Play Again would sit with
+                // _behaviorActive=false until the NEXT state transition —
+                // which in most games never comes — and its pickup/AI logic
+                // would silently never run.
                 const behaviorName = (inst.script as any)._behaviorName;
                 if (behaviorName && inst.script.scene?.events?.game) {
                     const script = inst.script as any;
-                    if (script._behaviorActive === undefined) {
-                        script._behaviorActive = false;
+                    if (!this.activeBehaviorsSubscribed) {
+                        this.activeBehaviorsSubscribed = true;
                         inst.script.scene.events.game.on('active_behaviors', (d: any) => {
-                            script._behaviorActive = d.behaviors && d.behaviors.indexOf(behaviorName) >= 0;
+                            this.activeBehaviorNames = new Set(Array.isArray(d?.behaviors) ? d.behaviors : []);
+                        });
+                    }
+                    if (script._behaviorActive === undefined) {
+                        script._behaviorActive = this.activeBehaviorNames.has(behaviorName);
+                        inst.script.scene.events.game.on('active_behaviors', (d: any) => {
+                            script._behaviorActive = Array.isArray(d?.behaviors) && d.behaviors.indexOf(behaviorName) >= 0;
                         });
                     }
                 }

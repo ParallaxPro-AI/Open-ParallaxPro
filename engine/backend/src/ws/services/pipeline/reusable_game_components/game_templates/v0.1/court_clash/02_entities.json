@@ -4,21 +4,34 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
-        "scale": [0.42, 0.42, 0.42],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "kinematic",
-        "collider": { "shape": "capsule", "halfHeight": 0.55, "radius": 0.4 }
+        "collider": {
+          "shape": "capsule",
+          "halfHeight": 0.55,
+          "radius": 0.4
+        }
       },
       "network": {
         "syncTransform": true,
         "syncInterval": 33,
         "ownership": "local_player",
         "predictLocally": true,
-        "networkedVars": ["health"]
+        "networkedVars": [
+          "health"
+        ]
       },
-      "tags": ["player", "baller", "networked"],
+      "tags": [
+        "player",
+        "baller",
+        "networked"
+      ],
       "behaviors": [
         {
           "name": "baller_dribble",
@@ -53,10 +66,13 @@
         }
       ]
     },
-
     "camera": {
-      "camera": { "fov": 60 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 60
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "camera_courtside",
@@ -72,252 +88,478 @@
         }
       ]
     },
-
     "court_floor": {
       "mesh": {
         "type": "plane",
-        "color": [0.78, 0.55, 0.32, 1],
-        "scale": [54, 1, 30]
+        "color": [
+          0.78,
+          0.55,
+          0.32,
+          1
+        ],
+        "scale": [
+          54,
+          1,
+          30
+        ]
       },
       "physics": false,
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
       }
     },
-
     "court_apron": {
       "mesh": {
         "type": "plane",
-        "color": [0.18, 0.18, 0.22, 1],
-        "scale": [80, 1, 60]
+        "color": [
+          0.18,
+          0.18,
+          0.22,
+          1
+        ],
+        "scale": [
+          80,
+          1,
+          60
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_07.png"
       }
     },
-
     "court_line": {
       "mesh": {
         "type": "cube",
-        "color": [0.95, 0.92, 0.85, 1],
-        "scale": [54, 0.04, 0.18]
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          54,
+          0.04,
+          0.18
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "court_line_short": {
       "mesh": {
         "type": "cube",
-        "color": [0.95, 0.92, 0.85, 1],
-        "scale": [0.18, 0.04, 30]
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          0.18,
+          0.04,
+          30
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "free_throw_arc": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.95, 0.92, 0.85, 0.85],
-        "scale": [12, 0.04, 12]
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          0.85
+        ],
+        "scale": [
+          12,
+          0.04,
+          12
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "three_point_arc": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.95, 0.92, 0.85, 0.6],
-        "scale": [15, 0.03, 15]
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          0.6
+        ],
+        "scale": [
+          15,
+          0.03,
+          15
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "center_circle": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.95, 0.92, 0.85, 0.7],
-        "scale": [4, 0.04, 4]
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          0.7
+        ],
+        "scale": [
+          4,
+          0.04,
+          4
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "hoop_post_home": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.20, 0.20, 0.22, 1],
-        "scale": [0.4, 4.5, 0.4]
+        "color": [
+          0.2,
+          0.2,
+          0.22,
+          1
+        ],
+        "scale": [
+          0.4,
+          4.5,
+          0.4
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "hoop_post_away": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.20, 0.20, 0.22, 1],
-        "scale": [0.4, 4.5, 0.4]
+        "color": [
+          0.2,
+          0.2,
+          0.22,
+          1
+        ],
+        "scale": [
+          0.4,
+          4.5,
+          0.4
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "hoop_back_home": {
       "mesh": {
         "type": "cube",
-        "color": [0.95, 0.92, 0.85, 1],
-        "scale": [3.0, 1.8, 0.18]
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          3.0,
+          1.8,
+          0.18
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "hoop_back_away": {
       "mesh": {
         "type": "cube",
-        "color": [0.95, 0.92, 0.85, 1],
-        "scale": [3.0, 1.8, 0.18]
+        "color": [
+          0.95,
+          0.92,
+          0.85,
+          1
+        ],
+        "scale": [
+          3.0,
+          1.8,
+          0.18
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "hoop_rim_home": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.96, 0.45, 0.15, 1],
-        "scale": [1.2, 0.18, 1.2]
+        "color": [
+          0.96,
+          0.45,
+          0.15,
+          1
+        ],
+        "scale": [
+          1.2,
+          0.18,
+          1.2
+        ]
       },
       "physics": false,
-      "tags": ["hoop_home", "decoration"],
+      "tags": [
+        "hoop_home",
+        "decoration"
+      ],
       "label": false
     },
     "hoop_rim_away": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.96, 0.45, 0.15, 1],
-        "scale": [1.2, 0.18, 1.2]
+        "color": [
+          0.96,
+          0.45,
+          0.15,
+          1
+        ],
+        "scale": [
+          1.2,
+          0.18,
+          1.2
+        ]
       },
       "physics": false,
-      "tags": ["hoop_away", "decoration"],
+      "tags": [
+        "hoop_away",
+        "decoration"
+      ],
       "label": false
     },
     "hoop_net_home": {
       "mesh": {
         "type": "cylinder",
-        "color": [1.0, 1.0, 1.0, 0.5],
-        "scale": [1.0, 0.8, 1.0]
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          0.5
+        ],
+        "scale": [
+          1.0,
+          0.8,
+          1.0
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "hoop_net_away": {
       "mesh": {
         "type": "cylinder",
-        "color": [1.0, 1.0, 1.0, 0.5],
-        "scale": [1.0, 0.8, 1.0]
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          0.5
+        ],
+        "scale": [
+          1.0,
+          0.8,
+          1.0
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "stadium_wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.32, 0.30, 0.35, 1],
-        "scale": [60, 8, 0.6]
+        "color": [
+          0.32,
+          0.3,
+          0.35,
+          1
+        ],
+        "scale": [
+          60,
+          8,
+          0.6
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
       }
     },
-
     "lobby_lamp_post": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.18, 0.18, 0.22, 1],
-        "scale": [0.18, 5, 0.18]
+        "color": [
+          0.18,
+          0.18,
+          0.22,
+          1
+        ],
+        "scale": [
+          0.18,
+          5,
+          0.18
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "lobby_lamp": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.95, 0.92, 0.55, 1],
-        "scale": [0.5, 1.0, 0.5]
+        "color": [
+          0.95,
+          0.92,
+          0.55,
+          1
+        ],
+        "scale": [
+          0.5,
+          1.0,
+          0.5
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "spectator_male": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual2_Male.glb",
-        "scale": [0.5, 0.5, 0.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "spectator_female": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Female.glb",
-        "scale": [0.5, 0.5, 0.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "spectator_bald": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Bald.glb",
-        "scale": [0.5, 0.5, 0.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "scoreboard_billboard": {
       "mesh": {
         "type": "cube",
-        "color": [0.96, 0.30, 0.30, 1],
-        "scale": [10, 5, 0.3]
+        "color": [
+          0.96,
+          0.3,
+          0.3,
+          1
+        ],
+        "scale": [
+          10,
+          5,
+          0.3
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "trophy_chest": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/pirate_kit/Prop_Chest_Gold.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     }
   }

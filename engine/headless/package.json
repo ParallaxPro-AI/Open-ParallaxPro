@@ -1,0 +1,20 @@
+{
+  "name": "parallaxpro-engine-headless",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Headless playtest runtime used by CREATE_GAME to verify generated games are actually playable before shipping to users.",
+  "bin": {
+    "playtest": "./bin/playtest.js"
+  },
+  "scripts": {
+    "playtest": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.3",
+    "tsx": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

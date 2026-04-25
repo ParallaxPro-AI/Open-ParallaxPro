@@ -449,7 +449,7 @@ class TDEngineSystem extends GameScript {
                     pos.z + (dz / dist) * speed * dt
                 );
                 // Face direction
-                e.entity.transform.setRotationEuler(0, Math.atan2(dx, dz) * 180 / Math.PI, 0);
+                e.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
             }
         }
     }
@@ -476,7 +476,7 @@ class TDEngineSystem extends GameScript {
             // Rotate tower toward target
             var tdx = target.entity.transform.position.x - tp.x;
             var tdz = target.entity.transform.position.z - tp.z;
-            tw.entity.transform.setRotationEuler(0, Math.atan2(tdx, tdz) * 180 / Math.PI, 0);
+            tw.entity.transform.setRotationEuler(0, Math.atan2(-tdx, -tdz) * 180 / Math.PI, 0);
 
             // Apply damage by tower type
             switch (tw.special) {

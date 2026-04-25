@@ -4,23 +4,39 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/realistic_car_pack/SportsCar.glb",
-        "scale": [1.2, 1.2, 1.2],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "kinematic",
         "mass": 1200,
         "freeze_rotation": true,
-        "collider": { "shape": "cuboid", "halfExtents": [1.0, 0.5, 2.0] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            1.0,
+            0.5,
+            2.0
+          ]
+        }
       },
       "network": {
         "syncTransform": true,
         "syncInterval": 50,
         "ownership": "local_player",
         "predictLocally": true,
-        "networkedVars": ["health"]
+        "networkedVars": [
+          "health"
+        ]
       },
-      "tags": ["player", "kart", "networked"],
+      "tags": [
+        "player",
+        "kart",
+        "networked"
+      ],
       "behaviors": [
         {
           "name": "kart_drive",
@@ -52,10 +68,13 @@
         }
       ]
     },
-
     "camera": {
-      "camera": { "fov": 60 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 60
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "camera_kart",
@@ -74,29 +93,50 @@
         }
       ]
     },
-
     "ground_grass": {
       "mesh": {
         "type": "plane",
-        "color": [0.30, 0.55, 0.25, 1],
-        "scale": [600, 1, 600]
+        "color": [
+          0.3,
+          0.55,
+          0.25,
+          1
+        ],
+        "scale": [
+          600,
+          1,
+          600
+        ]
       },
       "physics": false,
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
       }
     },
-
     "track_strip_long": {
       "mesh": {
         "type": "cube",
-        "color": [0.18, 0.18, 0.20, 1],
-        "scale": [120, 0.05, 14]
+        "color": [
+          0.18,
+          0.18,
+          0.2,
+          1
+        ],
+        "scale": [
+          120,
+          0.05,
+          14
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "road"],
+      "tags": [
+        "decoration",
+        "road"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
@@ -105,11 +145,23 @@
     "track_strip_short": {
       "mesh": {
         "type": "cube",
-        "color": [0.18, 0.18, 0.20, 1],
-        "scale": [70, 0.05, 14]
+        "color": [
+          0.18,
+          0.18,
+          0.2,
+          1
+        ],
+        "scale": [
+          70,
+          0.05,
+          14
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "road"],
+      "tags": [
+        "decoration",
+        "road"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
@@ -118,166 +170,296 @@
     "track_corner": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.18, 0.18, 0.20, 1],
-        "scale": [28, 0.05, 28]
+        "color": [
+          0.18,
+          0.18,
+          0.2,
+          1
+        ],
+        "scale": [
+          28,
+          0.05,
+          28
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "road"],
+      "tags": [
+        "decoration",
+        "road"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
       }
     },
-
     "track_kerb": {
       "mesh": {
         "type": "cube",
-        "color": [0.95, 0.30, 0.30, 1],
-        "scale": [10, 0.18, 0.6]
+        "color": [
+          0.95,
+          0.3,
+          0.3,
+          1
+        ],
+        "scale": [
+          10,
+          0.18,
+          0.6
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "checkpoint_marker": {
       "mesh": {
         "type": "cube",
-        "color": [0.95, 0.85, 0.20, 0.55],
-        "scale": [12, 4, 0.4]
+        "color": [
+          0.95,
+          0.85,
+          0.2,
+          0.55
+        ],
+        "scale": [
+          12,
+          4,
+          0.4
+        ]
       },
       "physics": false,
-      "tags": ["checkpoint", "decoration"],
+      "tags": [
+        "checkpoint",
+        "decoration"
+      ],
       "label": false
     },
-
     "start_finish_pad": {
       "mesh": {
         "type": "cube",
-        "color": [1.0, 1.0, 1.0, 1.0],
-        "scale": [14, 0.06, 1.2]
+        "color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "scale": [
+          14,
+          0.06,
+          1.2
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "item_box_anchor": {
       "mesh": {
         "type": "cube",
-        "color": [1.0, 0.85, 0.20, 0.0],
-        "scale": [0.05, 0.05, 0.05]
+        "color": [
+          1.0,
+          0.85,
+          0.2,
+          0.0
+        ],
+        "scale": [
+          0.05,
+          0.05,
+          0.05
+        ]
       },
       "physics": false,
-      "tags": ["item_box"],
+      "tags": [
+        "item_box"
+      ],
       "label": false
     },
-
     "track_railing_in": {
       "mesh": {
         "type": "cube",
-        "color": [0.78, 0.55, 0.32, 1],
-        "scale": [100, 1.5, 0.4]
+        "color": [
+          0.78,
+          0.55,
+          0.32,
+          1
+        ],
+        "scale": [
+          100,
+          1.5,
+          0.4
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
       }
     },
-
     "festival_arch": {
       "mesh": {
         "type": "cube",
-        "color": [0.96, 0.55, 0.18, 1],
-        "scale": [16, 0.6, 1.0]
+        "color": [
+          0.96,
+          0.55,
+          0.18,
+          1
+        ],
+        "scale": [
+          16,
+          0.6,
+          1.0
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "festival_pillar": {
       "mesh": {
         "type": "cube",
-        "color": [0.96, 0.55, 0.18, 1],
-        "scale": [1.0, 9, 1.0]
+        "color": [
+          0.96,
+          0.55,
+          0.18,
+          1
+        ],
+        "scale": [
+          1.0,
+          9,
+          1.0
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "spectator_male": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
-        "scale": [0.55, 0.55, 0.55]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "spectator_female": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Female.glb",
-        "scale": [0.55, 0.55, 0.55]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "park_tree": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree4.glb",
-        "scale": [2.4, 2.4, 2.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "tree"],
+      "tags": [
+        "decoration",
+        "tree"
+      ],
       "label": false
     },
     "park_pine": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree2.glb",
-        "scale": [2.0, 2.0, 2.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration", "tree"],
+      "tags": [
+        "decoration",
+        "tree"
+      ],
       "label": false
     },
     "park_bush": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Bush1.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "park_rock": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Rock1.glb",
-        "scale": [1.8, 1.8, 1.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "stand_billboard": {
       "mesh": {
         "type": "cube",
-        "color": [0.96, 0.30, 0.30, 1],
-        "scale": [12, 6, 0.4]
+        "color": [
+          0.96,
+          0.3,
+          0.3,
+          1
+        ],
+        "scale": [
+          12,
+          6,
+          0.4
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     }
   }

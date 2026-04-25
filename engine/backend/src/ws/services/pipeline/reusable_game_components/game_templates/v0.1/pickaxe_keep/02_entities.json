@@ -4,8 +4,11 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Character_Male_1.glb",
-        "scale": [1.0, 1.0, 1.0],
-        "modelRotationY": 0
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "dynamic",
@@ -18,9 +21,14 @@
         "syncInterval": 33,
         "ownership": "local_player",
         "predictLocally": true,
-        "networkedVars": ["health"]
+        "networkedVars": [
+          "health"
+        ]
       },
-      "tags": ["player", "networked"],
+      "tags": [
+        "player",
+        "networked"
+      ],
       "behaviors": [
         {
           "name": "sidescroll_platformer",
@@ -45,10 +53,13 @@
         }
       ]
     },
-
     "camera": {
-      "camera": { "fov": 55 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 55
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "camera_sidescroll",
@@ -64,101 +75,205 @@
         }
       ]
     },
-
     "sky_back": {
       "mesh": {
         "type": "plane",
-        "color": [0.42, 0.55, 0.78, 1],
-        "scale": [200, 1, 80]
+        "color": [
+          0.42,
+          0.55,
+          0.78,
+          1
+        ],
+        "scale": [
+          200,
+          1,
+          80
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_06.png"
       }
     },
-
     "background_hill": {
       "mesh": {
         "type": "cube",
-        "color": [0.20, 0.32, 0.45, 1],
-        "scale": [40, 18, 1]
+        "color": [
+          0.2,
+          0.32,
+          0.45,
+          1
+        ],
+        "scale": [
+          40,
+          18,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "background_hill_far": {
       "mesh": {
         "type": "cube",
-        "color": [0.30, 0.38, 0.52, 1],
-        "scale": [60, 22, 1]
+        "color": [
+          0.3,
+          0.38,
+          0.52,
+          1
+        ],
+        "scale": [
+          60,
+          22,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "cloud_a": {
       "mesh": {
         "type": "cube",
-        "color": [0.92, 0.95, 1.0, 1],
-        "scale": [4, 1.2, 0.5]
+        "color": [
+          0.92,
+          0.95,
+          1.0,
+          1
+        ],
+        "scale": [
+          4,
+          1.2,
+          0.5
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "cloud_b": {
       "mesh": {
         "type": "cube",
-        "color": [0.95, 0.96, 1.0, 1],
-        "scale": [6, 1.6, 0.5]
+        "color": [
+          0.95,
+          0.96,
+          1.0,
+          1
+        ],
+        "scale": [
+          6,
+          1.6,
+          0.5
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "world_floor_plate": {
       "mesh": {
         "type": "cube",
-        "color": [0.10, 0.10, 0.14, 1],
-        "scale": [120, 1, 1]
+        "color": [
+          0.1,
+          0.1,
+          0.14,
+          1
+        ],
+        "scale": [
+          120,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [60, 0.5, 0.5] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            60,
+            0.5,
+            0.5
+          ]
+        }
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false
     },
-
     "world_left_wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.12, 0.12, 0.18, 1],
-        "scale": [1, 60, 1]
+        "color": [
+          0.12,
+          0.12,
+          0.18,
+          1
+        ],
+        "scale": [
+          1,
+          60,
+          1
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [0.5, 30, 0.5] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            0.5,
+            30,
+            0.5
+          ]
+        }
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false
     },
     "world_right_wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.12, 0.12, 0.18, 1],
-        "scale": [1, 60, 1]
+        "color": [
+          0.12,
+          0.12,
+          0.18,
+          1
+        ],
+        "scale": [
+          1,
+          60,
+          1
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [0.5, 30, 0.5] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            0.5,
+            30,
+            0.5
+          ]
+        }
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false
     }
   }

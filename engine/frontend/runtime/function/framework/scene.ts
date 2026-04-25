@@ -389,15 +389,83 @@ export class Scene {
 
     private _activeCameraPos: Vec3 | null = null;
 
+    /** True if a point is inside an entity's rendered volume. Uses collider
+     * bounds when present (authoritative), else falls back to a capsule
+     * inscribed around the origin scaled by transform.scale. Tolerant
+     * enough for "camera sits at the player's head and we want to hide the
+     * player's mesh" — doesn't need precise mesh bounds. */
+    private _cameraInsideEntity(entity: Entity, camPos: Vec3): boolean {
+        const tc: any = entity.getComponent('TransformComponent');
+        if (!tc) return false;
+        const p = tc.position;
+        const s = tc.scale ?? { x: 1, y: 1, z: 1 };
+        const cc: any = entity.getComponent('ColliderComponent');
+        // Vertical tolerance beyond the collider: an FPS camera is at
+        // player_y + eyeHeight (typically 1.5–1.7m above player center),
+        // which sits just ABOVE a human-height capsule's top. Require
+        // XZ-in-bounds + a Y range that extends the collider upward by
+        // VERTICAL_PAD so the FPS case is captured. Third-person
+        // cameras (3-5m behind/above) fall outside XZ and still render
+        // the player.
+        const VERTICAL_PAD_UP = 2.0;     // catches eyeHeight up to 2m
+        const VERTICAL_PAD_DOWN = 0.5;   // player crouched slightly
+        if (cc) {
+            const he: any = cc.halfExtents;
+            if (cc.shapeType === 2 /* CAPSULE */) {
+                const r = (cc.radius ?? 0.5) * Math.max(Math.abs(s.x), Math.abs(s.z));
+                const h = (cc.height ?? 1.0) * Math.abs(s.y);
+                const dx = camPos.x - p.x;
+                const dz = camPos.z - p.z;
+                if (dx * dx + dz * dz > r * r) return false;
+                return camPos.y >= p.y - h * 0.5 - r - VERTICAL_PAD_DOWN
+                    && camPos.y <= p.y + h * 0.5 + r + VERTICAL_PAD_UP;
+            }
+            if (cc.shapeType === 1 /* SPHERE */) {
+                const r = (cc.radius ?? 0.5) * Math.max(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z));
+                const dx = camPos.x - p.x, dy = camPos.y - p.y, dz = camPos.z - p.z;
+                return dx * dx + dz * dz <= r * r && Math.abs(dy) <= r + VERTICAL_PAD_UP;
+            }
+            // Default: AABB of halfExtents × scale + vertical pad.
+            if (he && typeof he.x === 'number') {
+                const hx = he.x * Math.abs(s.x);
+                const hy = he.y * Math.abs(s.y);
+                const hz = he.z * Math.abs(s.z);
+                return camPos.x >= p.x - hx && camPos.x <= p.x + hx
+                    && camPos.y >= p.y - hy - VERTICAL_PAD_DOWN && camPos.y <= p.y + hy + VERTICAL_PAD_UP
+                    && camPos.z >= p.z - hz && camPos.z <= p.z + hz;
+            }
+        }
+        // No collider: unit-cube inscribed at origin, scaled by transform.
+        const hx = 0.5 * Math.abs(s.x);
+        const hy = 0.5 * Math.abs(s.y);
+        const hz = 0.5 * Math.abs(s.z);
+        return camPos.x >= p.x - hx && camPos.x <= p.x + hx
+            && camPos.y >= p.y - hy - VERTICAL_PAD_DOWN && camPos.y <= p.y + hy + VERTICAL_PAD_UP
+            && camPos.z >= p.z - hz && camPos.z <= p.z + hz;
+    }
+
     getMeshInstances(): RenderMeshInstance[] {
         const result: RenderMeshInstance[] = [];
 
-        // Cache camera position for LOD selection
+        // Cache camera position for LOD selection. Also remember the chain of
+        // entity IDs from the camera entity up through its parents — the
+        // `hideFromOwner` check on each MeshRenderer skips the mesh iff its
+        // entity is on that chain (i.e. the camera is this entity or a
+        // descendant of this entity). Standard setup for FPS: player entity
+        // has the visible body mesh, camera is a child of the player; the
+        // mesh is hidden from the player's own view but still renders for
+        // spectators / other cameras in editor mode.
         this._activeCameraPos = null;
+        const cameraOwnerChain = new Set<number>();
         for (const e of this.entities.values()) {
             if (!e.active) continue;
             if (e.getComponent('CameraComponent')) {
                 this._activeCameraPos = e.getWorldPosition();
+                let cur: any = e;
+                while (cur) {
+                    cameraOwnerChain.add(cur.id);
+                    cur = cur.parent ?? null;
+                }
                 break;
             }
         }
@@ -406,6 +474,24 @@ export class Scene {
             if (!entity.active) continue;
             const mr = entity.getComponent('MeshRendererComponent') as MeshRendererComponent | null;
             if (!mr || !mr.visible || !mr.gpuMesh) continue;
+            // Owner-hide: skip meshes whose entity is the ancestor chain of
+            // the active camera. Two paths:
+            //   (a) Scene-graph: the camera is a child of this entity. Used
+            //       by games that parent the camera under a player prefab.
+            //   (b) Position-follow: a separate camera entity whose behavior
+            //       snaps it to the player's head each frame (the far more
+            //       common FPS pattern authored by the CLI — run 43744221
+            //       had a top-level Camera entity with a fps_camera behavior
+            //       that set its position from the player's transform, no
+            //       parent link). Detected here by checking whether the
+            //       active camera's WORLD position is inside the mesh
+            //       entity's AABB — "if the camera lives inside your body,
+            //       don't render your body". Independent of scene-graph
+            //       structure, so it catches the behavior-driven pattern.
+            if (mr.hideFromOwner) {
+                if (cameraOwnerChain.has(entity.id)) continue;
+                if (this._activeCameraPos && this._cameraInsideEntity(entity, this._activeCameraPos)) continue;
+            }
 
             // LOD selection
             let activeMesh = mr.gpuMesh;
@@ -433,23 +519,60 @@ export class Scene {
             // keys its GPU-buffer pool by Mat4 identity. A fresh Mat4 per
             // frame creates a fresh GPUBuffer + GPUBindGroup per frame and
             // the pool grows without bound.
-            if (mr.modelRotationX !== 0 || mr.modelRotationY !== 0 || mr.modelRotationZ !== 0 || mr.modelOffsetY !== 0) {
-                // Mesh-local transform only needs to be rebuilt when the
-                // rotation/offset values themselves change — ordinarily
-                // they're set once on the prefab and never touched again.
+            //
+            // Two contributors to the mesh-local transform:
+            //   (a) per-entity modelRotation* / modelOffsetY (legacy / artist tweaks)
+            //   (b) per-mesh registry facing transform on the parsed mesh
+            //       (only present for SKINNED meshes — for static meshes the
+            //       loader bakes it into vertex positions already)
+            const facingRot = (mr.meshData as any)?.facingRotMatrix as Float32Array | undefined;
+            const facingScale = (mr.meshData as any)?.facingScale as number | undefined;
+            const hasFacing = !!facingRot || (facingScale !== undefined && facingScale !== 1);
+            const hasUserXform = mr.modelRotationX !== 0 || mr.modelRotationY !== 0 || mr.modelRotationZ !== 0 || mr.modelOffsetY !== 0;
+
+            if (hasUserXform || hasFacing) {
+                // Cache invalidation: rebuild on rotation/offset change OR when
+                // meshData identity changes (new mesh asset → maybe different facing).
                 if (mr._meshTransformCache === null ||
                     mr._meshTransformRotX !== mr.modelRotationX ||
                     mr._meshTransformRotY !== mr.modelRotationY ||
                     mr._meshTransformRotZ !== mr.modelRotationZ ||
-                    mr._meshTransformOffY !== mr.modelOffsetY) {
+                    mr._meshTransformOffY !== mr.modelOffsetY ||
+                    mr._meshTransformMeshData !== mr.meshData) {
                     const deg2rad = Math.PI / 180;
                     const meshRot = Quat.fromEuler(mr.modelRotationX * deg2rad, mr.modelRotationY * deg2rad, mr.modelRotationZ * deg2rad);
                     const meshOffset = new Vec3(0, mr.modelOffsetY, 0);
-                    mr._meshTransformCache = Mat4.compose(meshOffset, meshRot, new Vec3(1, 1, 1));
+                    const userXform = Mat4.compose(meshOffset, meshRot, new Vec3(1, 1, 1));
+
+                    if (hasFacing) {
+                        // Build facing 4x4 from the row-major 3x3 rotation matrix
+                        // and uniform scale. Mat4 stores column-major.
+                        const s = (facingScale ?? 1);
+                        const facingMat = new Mat4();
+                        if (facingRot) {
+                            const R = facingRot;
+                            facingMat.set(
+                                R[0] * s, R[3] * s, R[6] * s, 0,   // col 0
+                                R[1] * s, R[4] * s, R[7] * s, 0,   // col 1
+                                R[2] * s, R[5] * s, R[8] * s, 0,   // col 2
+                                0,        0,        0,        1,
+                            );
+                        } else {
+                            // Pure scale, no rotation
+                            facingMat.setIdentity();
+                            facingMat.data[0] = s; facingMat.data[5] = s; facingMat.data[10] = s;
+                        }
+                        // Apply facing first (innermost), then user xform
+                        mr._meshTransformCache = userXform.multiply(facingMat);
+                    } else {
+                        mr._meshTransformCache = userXform;
+                    }
+
                     mr._meshTransformRotX = mr.modelRotationX;
                     mr._meshTransformRotY = mr.modelRotationY;
                     mr._meshTransformRotZ = mr.modelRotationZ;
                     mr._meshTransformOffY = mr.modelOffsetY;
+                    mr._meshTransformMeshData = mr.meshData;
                 }
                 // Composite world × meshTransform into a persistent output
                 // buffer. Mat4.multiply(out) mutates 'out' in place and

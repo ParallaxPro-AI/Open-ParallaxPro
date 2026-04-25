@@ -61,7 +61,7 @@ class HostileAIBehavior extends GameScript {
 
         if (dist < this._detectRange) {
             // Chase player
-            this.entity.transform.setRotationEuler(0, Math.atan2(dx, dz) * 180 / Math.PI, 0);
+            this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
 
             if (dist > this._attackRange) {
                 this.scene.setPosition(this.entity.id, pos.x + (dx / dist) * this._speed * dt, pos.y, pos.z + (dz / dist) * this._speed * dt);
@@ -89,7 +89,7 @@ class HostileAIBehavior extends GameScript {
 
         if (dist > 1.5) {
             this.scene.setPosition(this.entity.id, pos.x + (dx / dist) * this._speed * 0.4 * dt, pos.y, pos.z + (dz / dist) * this._speed * 0.4 * dt);
-            this.entity.transform.setRotationEuler(0, Math.atan2(dx, dz) * 180 / Math.PI, 0);
+            this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
             this._playAnim("Walk");
         } else {
             this._playAnim("Idle");

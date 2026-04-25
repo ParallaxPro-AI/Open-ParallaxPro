@@ -237,7 +237,10 @@ router.post('/', async (req, res) => {
     // the name asynchronously below once the LLM responds.
     const baseName = templateId || 'project';
     const name = nextCountedName(req.user!.id, baseName);
-    const projectData = { projectConfig: { name }, files: seed.files };
+    // Newly-created projects opt into the asset-normalization registry by
+    // default. Legacy projects (saved before this field existed) leave it
+    // undefined → engine treats as false → unchanged render behavior.
+    const projectData = { projectConfig: { name, useFacingRegistry: true }, files: seed.files };
 
     stmtInsert.run(id, req.user!.id, name, serializeProjectData(projectData));
     for (const p of _plugins) { if (p.onProjectCreate) p.onProjectCreate(id, req.user!.id, req.user!.username ?? null); }

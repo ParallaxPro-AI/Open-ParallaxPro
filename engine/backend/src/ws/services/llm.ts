@@ -160,7 +160,35 @@ async function _callLLMStreamInner(
 
     const { baseUrl, model, apiKey, maxTokens } = config.ai;
 
+    // Idle-stall guard: if Groq (or any OpenAI-compatible upstream) stops
+    // emitting bytes mid-stream, the underlying fetch Promise never rejects
+    // and the chat just hangs forever. A single wall-clock timeout on the
+    // whole request is wrong — real replies can legitimately stream for
+    // 30-60s. What we want is INACTIVITY cutoff: reset on every chunk; fire
+    // only if the upstream has been silent too long.
+    //
+    // Implementation: own an internal AbortController. Idle timer aborts it
+    // on silence; the caller's abortSignal (if any) is forwarded to it too.
+    const STALL_TIMEOUT_MS = 10_000;
+    const internal = new AbortController();
+    let stalled = false;
+    let idleTimer: NodeJS.Timeout | null = null;
+    const resetIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+            stalled = true;
+            internal.abort();
+        }, STALL_TIMEOUT_MS);
+    };
+
+    const upstreamAbort = () => internal.abort();
+    if (abortSignal) {
+        if (abortSignal.aborted) internal.abort();
+        else abortSignal.addEventListener('abort', upstreamAbort, { once: true });
+    }
+
     try {
+        resetIdle();
         const res = await fetch(`${baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
@@ -174,7 +202,7 @@ async function _callLLMStreamInner(
                 stream_options: { include_usage: true },
                 messages: messages.map(m => ({ role: m.role, content: m.content })),
             }),
-            signal: abortSignal,
+            signal: internal.signal,
         });
 
         if (!res.ok) {
@@ -190,6 +218,7 @@ async function _callLLMStreamInner(
         let buffer = '';
 
         while (true) {
+            resetIdle();
             const { done, value } = await reader.read();
             if (done) break;
 
@@ -223,8 +252,15 @@ async function _callLLMStreamInner(
 
         callbacks.onDone(fullText, usage);
     } catch (e: any) {
+        if (stalled) {
+            callbacks.onError(`LLM upstream stalled — no bytes received for ${STALL_TIMEOUT_MS / 1000}s. This is usually a Groq brownout; retry in a few seconds.`);
+            return;
+        }
         if (e.name === 'AbortError') return;
         callbacks.onError(e.message ?? 'LLM request failed');
+    } finally {
+        if (idleTimer) clearTimeout(idleTimer);
+        if (abortSignal) abortSignal.removeEventListener('abort', upstreamAbort);
     }
 }
 

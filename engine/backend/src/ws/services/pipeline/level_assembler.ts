@@ -114,6 +114,42 @@ function safeName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]/, '_$&');
 }
 
+/** Flatten a collider spec (either a string shortcut or the object form with
+ * shape/halfExtents/radius/height) into the shape ColliderComponent.initialize
+ * consumes: { shapeType, size?, halfExtents?, radius?, height? }. Accepts both
+ * `cuboid` (game-template vocabulary) and `box` (engine vocabulary); both map
+ * to the BOX shape. Defaults match pre-fix behaviour for back-compat. */
+function buildColliderData(shape: string, src: any): any {
+  const normShape = shape === 'cuboid' ? 'box' : (shape === 'ball' ? 'sphere' : shape);
+  const data: any = { shapeType: normShape };
+  if (normShape === 'sphere') {
+    data.radius = (src?.radius ?? 0.5);
+  } else if (normShape === 'capsule') {
+    data.radius = (src?.radius ?? 0.5);
+    data.height = (src?.height ?? 1.0);
+  } else if (normShape === 'box') {
+    // Source may provide `halfExtents: [hx, hy, hz]` (array) or
+    // `{ x, y, z }` (object), or `size: [...]` / `{...}` as the full size.
+    const he = src?.halfExtents;
+    if (Array.isArray(he)) {
+      data.halfExtents = { x: he[0] ?? 0.5, y: he[1] ?? 0.5, z: he[2] ?? 0.5 };
+    } else if (he && typeof he === 'object') {
+      data.halfExtents = { x: he.x ?? 0.5, y: he.y ?? 0.5, z: he.z ?? 0.5 };
+    } else {
+      const sz = src?.size;
+      if (Array.isArray(sz)) {
+        data.size = { x: sz[0] ?? 1, y: sz[1] ?? 1, z: sz[2] ?? 1 };
+      } else if (sz && typeof sz === 'object') {
+        data.size = { x: sz.x ?? 1, y: sz.y ?? 1, z: sz.z ?? 1 };
+      } else {
+        data.size = { x: 1, y: 1, z: 1 };
+      }
+    }
+  }
+  if (src?.center) data.center = { x: src.center.x ?? src.center[0] ?? 0, y: src.center.y ?? src.center[1] ?? 0, z: src.center.z ?? src.center[2] ?? 0 };
+  return data;
+}
+
 function tryLoadScript(scriptPath: string, behaviorsDir?: string, systemsDir?: string): string | null {
   const relative = scriptPath.replace(/^\/+/, '');
   const behaviorsFull = path.join(behaviorsDir || BEHAVIORS_DIR, relative);
@@ -180,6 +216,23 @@ function loadSystemScript(
   }
   if (sys.params && Object.keys(sys.params).length > 0) {
     code = injectParams(code, sys.params);
+    // Rename the class in this per-entity copy so multiple entities
+    // sharing the same script source don't collide on the
+    // scriptRegistry's name-keyed lookup (last-registered wins, which
+    // means every placed instance ends up running with the LAST-loaded
+    // entity's params). Bullet-hell run cf41b9d1 had every grunt sharing
+    // the boss's maxHealth=400 because all eight enemy types loaded
+    // class BHEnemyBehavior with different params, each overwriting the
+    // previous registration. Suffix with the entity name so each gets a
+    // unique class. Only fires when this entity has its own params —
+    // entities reusing the default class stay sharing the original.
+    const safeSuffix = safeName(entityName).replace(/[^A-Za-z0-9_]/g, '_');
+    if (safeSuffix) {
+      code = code.replace(
+        /(class\s+)([A-Z][A-Za-z0-9_]*)(\s+extends\s+GameScript)/,
+        `$1$2_${safeSuffix}$3`,
+      );
+    }
   }
   const key = makeScriptKey(sys.script, entityName, usedKeys);
   usedKeys.add(key);
@@ -286,6 +339,13 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     if (def.mesh.modelRotationX) meshData.modelRotationX = def.mesh.modelRotationX;
     if (def.mesh.modelRotationY) meshData.modelRotationY = def.mesh.modelRotationY;
     if (def.mesh.modelRotationZ) meshData.modelRotationZ = def.mesh.modelRotationZ;
+    // hideFromOwner — controls whether the mesh is rendered when the
+    // active camera is "inside" this entity (e.g. FPS camera at the
+    // player's head). Needs to be forwarded to MeshRendererComponent
+    // data or the runtime sees `hideFromOwner = false` regardless of
+    // what the JSON declared. This was the "I still see my own mesh"
+    // bug in FPS run 43744221 — JSON said true, renderer saw false.
+    if (def.mesh.hideFromOwner) meshData.hideFromOwner = true;
     // Texture overrides — def-level first, then placement-level (editor edits win).
     if (def.mesh_override || placementOverrides?.materialOverrides) {
       meshData.materialOverrides = { ...(def.mesh_override || {}), ...(placementOverrides?.materialOverrides || {}) };
@@ -310,17 +370,29 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
       mass: p.mass || 1,
       freezeRotation: p.freeze_rotation || false,
     }});
-    // Collider shape: explicit override > mesh-based default
-    const colShape = p.collider
-      || (isCustomMesh ? 'mesh' : (def.mesh?.type === 'sphere' ? 'sphere' : 'box'));
-    const colData: any = { shapeType: colShape };
-    if (colShape === 'capsule') {
-      colData.radius = 0.5;
-      colData.height = 1.0;
-    } else if (colShape === 'sphere') {
-      colData.radius = 0.5;
+    // Collider shape: explicit override > mesh-based default.
+    //
+    // The `physics.collider` field in 02_entities.json can be:
+    //   - a string shortcut — "box" | "cuboid" | "sphere" | "ball" | "capsule" | "mesh"
+    //   - an object — { shape: "cuboid", halfExtents: [hx,hy,hz] } | { shape: "sphere", radius: r }
+    //     | { shape: "capsule", radius: r, height: h } | { shape: "mesh" }
+    //
+    // Previously this code read only the string form: for the object form it
+    // wrote `shapeType: <whole object>` and then fell through to `size: {1,1,1}`,
+    // which ColliderComponent.initialize interpreted as a 1-unit cube regardless
+    // of the authored size. That silently scaled every hand-tuned collider
+    // (the marine-drive sedan authored as 1.8×1×4 became a 1×1×1 cube). Fix:
+    // normalise both forms into the flat fields ColliderComponent expects.
+    let colData: any;
+    const rawCol = p.collider;
+    const meshFallbackShape = isCustomMesh ? 'mesh' : (def.mesh?.type === 'sphere' ? 'sphere' : 'box');
+    if (typeof rawCol === 'string') {
+      colData = buildColliderData(rawCol, null);
+    } else if (rawCol && typeof rawCol === 'object') {
+      const shape = (rawCol as any).shape ?? (rawCol as any).shapeType ?? meshFallbackShape;
+      colData = buildColliderData(shape, rawCol);
     } else {
-      colData.size = { x: 1, y: 1, z: 1 };
+      colData = buildColliderData(meshFallbackShape, null);
     }
     if (p.is_trigger) colData.isTrigger = true;
     components.push({ type: 'ColliderComponent', data: colData });

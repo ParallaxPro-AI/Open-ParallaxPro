@@ -399,6 +399,13 @@ function walkGLBFiles(dir: string): string[] {
   return results;
 }
 
+// .collision.bin sidecars are baked from RAW glTF geometry. The asset-
+// normalization registry (MODEL_FACING.json) is consulted at game runtime,
+// not at bake time, so the same .collision.bin works for both legacy
+// projects (registry off) and new projects (registry on). The runtime
+// collider loader applies the registry transform in-memory when the
+// `useFacingRegistry` project flag is on.
+
 export async function generateCollisionMeshes(assetsDir: string): Promise<void> {
   if (!fs.existsSync(assetsDir)) return;
 
@@ -426,8 +433,6 @@ export async function generateCollisionMeshes(assetsDir: string): Promise<void> 
 
       let { positions, indices } = mesh;
       const triCount = indices.length / 3;
-
-      // Decimate large meshes
       if (triCount > DECIMATE_THRESHOLD) {
         const target = Math.min(MAX_PHYSICS_TRIS, Math.max(DECIMATE_THRESHOLD, Math.floor(triCount * 0.1)));
         const decimated = decimateMesh(positions, indices, target);

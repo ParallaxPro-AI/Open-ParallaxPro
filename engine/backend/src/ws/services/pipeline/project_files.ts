@@ -20,6 +20,13 @@ export type ProjectFiles = Record<string, string>;
 export interface ProjectData {
     projectConfig: {
         name: string;
+        /**
+         * Per-project opt-in for the asset-normalization registry
+         * (MODEL_FACING.json). New projects are seeded with `true`. Legacy
+         * projects (saved before the registry existed) have it absent →
+         * engine treats as false → original render behavior preserved.
+         */
+        useFacingRegistry?: boolean;
     };
     files: ProjectFiles;
 }
@@ -128,7 +135,7 @@ export function emptyTemplateFiles(): ProjectFiles {
 /** Default project data with a name and empty 4-file template. */
 export function defaultProjectData(name: string): ProjectData {
     return {
-        projectConfig: { name },
+        projectConfig: { name, useFacingRegistry: true },
         files: emptyTemplateFiles(),
     };
 }

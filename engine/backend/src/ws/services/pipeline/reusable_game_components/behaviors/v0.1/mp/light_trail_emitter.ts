@@ -129,7 +129,7 @@ class LightTrailEmitterBehavior extends GameScript {
         var midZ = (z1 + z2) * 0.5;
         // Atan2 (dx, dz) — same convention as the bike (yaw 0 = +Z).
         // setRotationEuler takes degrees, so convert before applying below.
-        var yawDeg = Math.atan2(dx, dz) * 180 / Math.PI;
+        var yawDeg = Math.atan2(-dx, -dz) * 180 / Math.PI;
 
         var name = "Trail_" + peerId.slice(0, 6) + "_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
         var id = scene.createEntity(name);

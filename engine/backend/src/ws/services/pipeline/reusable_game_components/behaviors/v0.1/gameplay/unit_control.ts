@@ -77,7 +77,7 @@ class UnitControlBehavior extends GameScript {
                     pos.y,
                     pos.z + (dz / dist) * speed * dt
                 );
-                this.entity.transform.setRotationEuler(0, Math.atan2(dx, dz) * 180 / Math.PI, 0);
+                this.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
                 this._playAnim("Run");
             }
         } else {

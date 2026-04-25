@@ -8,7 +8,7 @@ class HostileMobBehavior extends GameScript {
     _pickT(){this._tX=this._startX+(Math.random()-0.5)*16;this._tZ=this._startZ+(Math.random()-0.5)*16;this._patrolTimer=4+Math.random()*4;}
     onUpdate(dt){if(this._dead)return;this._cooldown-=dt;var pos=this.entity.transform.position;var player=this.scene.findEntityByName("Hero");
         if(player){var pp=player.transform.position;var dx=pp.x-pos.x,dz=pp.z-pos.z,dist=Math.sqrt(dx*dx+dz*dz);
-            if(dist<this._detectRange){this.entity.transform.setRotationEuler(0,Math.atan2(dx,dz)*180/Math.PI,0);
+            if(dist<this._detectRange){this.entity.transform.setRotationEuler(0,Math.atan2(-dx,-dz)*180/Math.PI,0);
                 if(dist>this._attackRange){this.scene.setPosition(this.entity.id,pos.x+(dx/dist)*this._speed*dt,pos.y,pos.z+(dz/dist)*this._speed*dt);this._playAnim("Run");}
                 else if(this._cooldown<=0){this._cooldown=this._attackRate;this.scene.events.game.emit("entity_damaged",{targetId:player.id,damage:this._damage,source:"mob"});this._playAnim("Idle");}
                 return;}}

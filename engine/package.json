@@ -1,0 +1,12 @@
+{
+  "name": "parallaxpro-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared dependency root for the ParallaxPro engine. Declared here so Node's module resolution (which walks up from frontend/runtime/function/physics/ looking for @dimforge/rapier3d-compat) finds the WASM physics binding when the engine is loaded headless from engine/backend or engine/headless. The frontend editor ships its own copy inside engine/frontend/editor for vite bundling — do not remove that.",
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.3"
+  },
+  "devDependencies": {
+    "@webgpu/types": "^0.1.40"
+  }
+}

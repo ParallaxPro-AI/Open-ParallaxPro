@@ -28,6 +28,16 @@ export class MeshRendererComponent extends Component {
     receiveShadows: boolean = true;
     visible: boolean = true;
 
+    /**
+     * Hide this mesh from the active camera when the camera entity is this
+     * entity (or a descendant of it). Standard setup for first-person games:
+     * put the player's visible body mesh on the same entity as the FPS
+     * camera (or parent the camera under the player), set this flag, and the
+     * owner never sees their own mesh while other players / spectators still
+     * do. Cost at render time is one parent-chain walk per mesh per frame.
+     */
+    hideFromOwner: boolean = false;
+
     /** Model-space rotation (degrees) for aligning GLB models with engine's -Z forward */
     modelRotationX: number = 0;
     modelRotationY: number = 0;
@@ -69,6 +79,10 @@ export class MeshRendererComponent extends Component {
     _meshTransformRotY: number = NaN;
     _meshTransformRotZ: number = NaN;
     _meshTransformOffY: number = NaN;
+    /** Identity ref of the meshData when the cache was last built — invalidate
+     *  when meshData is swapped (so registry facingRotMatrix/facingScale on
+     *  the new asset get composed into the transform). */
+    _meshTransformMeshData: any = null;
     _modelMatrixCache: any = null;     // Mat4 for world × mesh-transform
 
     // -- Lifecycle ------------------------------------------------------------
@@ -111,6 +125,7 @@ export class MeshRendererComponent extends Component {
         this.castShadows = data.castShadows ?? true;
         this.receiveShadows = data.receiveShadows ?? true;
         this.visible = data.visible ?? true;
+        this.hideFromOwner = data.hideFromOwner ?? false;
         this.modelRotationX = data.modelRotationX ?? 0;
         this.modelRotationY = data.modelRotationY ?? 0;
         this.modelRotationZ = data.modelRotationZ ?? 0;
@@ -134,6 +149,7 @@ export class MeshRendererComponent extends Component {
             castShadows: this.castShadows,
             receiveShadows: this.receiveShadows,
             visible: this.visible,
+            hideFromOwner: this.hideFromOwner,
             modelRotationX: this.modelRotationX,
             modelRotationY: this.modelRotationY,
             modelRotationZ: this.modelRotationZ,

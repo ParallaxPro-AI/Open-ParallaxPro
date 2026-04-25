@@ -195,7 +195,7 @@ class JellyPlayerBehavior extends GameScript {
         // Face the movement direction (or keep last facing if not moving).
         var horizSpeed = Math.sqrt(this._vx * this._vx + this._vz * this._vz);
         if (horizSpeed > 0.5) {
-            var faceAngle = Math.atan2(this._vx, this._vz) * 180 / Math.PI;
+            var faceAngle = Math.atan2(-this._vx, -this._vz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, faceAngle, 0);
         }
 

@@ -1,43 +1,77 @@
 {
   "definitions": {
     "camera": {
-      "camera": { "fov": 55 },
-      "tags": ["camera"],
-      "transform": { "position": [0, 26, 8] },
+      "camera": {
+        "fov": 55
+      },
+      "tags": [
+        "camera"
+      ],
+      "transform": {
+        "position": [
+          0,
+          26,
+          8
+        ]
+      },
       "behaviors": [
         {
           "name": "topdown_shooter_camera",
           "script": "mp/topdown_shooter_camera.ts",
-          "params": { "height": 26, "tiltOffsetZ": 8, "leanStrength": 0.35, "maxLean": 7, "followSmooth": 8, "boundsHalf": 54 }
+          "params": {
+            "height": 26,
+            "tiltOffsetZ": 8,
+            "leanStrength": 0.35,
+            "maxLean": 7,
+            "followSmooth": 8,
+            "boundsHalf": 54
+          }
         }
       ]
     },
-
     "player": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
-        "scale": [0.95, 0.95, 0.95],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "kinematic",
-        "collider": { "shape": "capsule", "halfHeight": 0.6, "radius": 0.45 }
+        "collider": {
+          "shape": "capsule",
+          "halfHeight": 0.6,
+          "radius": 0.45
+        }
       },
       "network": {
         "syncTransform": true,
         "syncInterval": 33,
         "ownership": "local_player",
         "predictLocally": true,
-        "networkedVars": ["health"]
+        "networkedVars": [
+          "health"
+        ]
       },
-      "tags": ["player", "networked"],
+      "tags": [
+        "player",
+        "networked"
+      ],
       "label": true,
       "behaviors": [
         {
           "name": "player_shooter_movement",
           "script": "mp/player_shooter_movement.ts",
-          "params": { "speed": 6.0, "sprintMult": 1.45, "turnSpeed": 18, "boundsHalf": 58, "cameraHeight": 26 }
+          "params": {
+            "speed": 6.0,
+            "sprintMult": 1.45,
+            "turnSpeed": 18,
+            "boundsHalf": 58,
+            "cameraHeight": 26
+          }
         },
         {
           "name": "mp_hitscan_weapon",
@@ -61,300 +95,468 @@
         }
       ]
     },
-
     "ground": {
       "mesh": {
         "type": "cube",
-        "color": [0.18, 0.22, 0.16, 1],
-        "scale": [130, 0.2, 130]
+        "color": [
+          0.18,
+          0.22,
+          0.16,
+          1
+        ],
+        "scale": [
+          130,
+          0.2,
+          130
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_08.png"
       }
     },
-
     "ground_path": {
       "mesh": {
         "type": "cube",
-        "color": [0.32, 0.28, 0.22, 1],
-        "scale": [8, 0.22, 30]
+        "color": [
+          0.32,
+          0.28,
+          0.22,
+          1
+        ],
+        "scale": [
+          8,
+          0.22,
+          30
+        ]
       },
       "physics": false,
-      "tags": ["ground_path"],
+      "tags": [
+        "ground_path"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
       }
     },
-
     "storm_ring": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.65, 0.2, 0.9, 0.35],
-        "scale": [120, 0.1, 120],
-        "emissive": [0.55, 0.18, 0.85],
+        "color": [
+          0.65,
+          0.2,
+          0.9,
+          0.35
+        ],
+        "scale": [
+          120,
+          0.1,
+          120
+        ],
+        "emissive": [
+          0.55,
+          0.18,
+          0.85
+        ],
         "emissiveIntensity": 1.0
       },
       "physics": false,
-      "tags": ["storm", "decor"],
+      "tags": [
+        "storm",
+        "decor"
+      ],
       "label": false
     },
-
     "tree_1": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree1.glb",
-        "scale": [2.2, 2.2, 2.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["tree", "obstacle"],
+      "tags": [
+        "tree",
+        "obstacle"
+      ],
       "label": false
     },
-
     "tree_2": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree2.glb",
-        "scale": [2.4, 2.4, 2.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["tree", "obstacle"],
+      "tags": [
+        "tree",
+        "obstacle"
+      ],
       "label": false
     },
-
     "tree_3": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree3.glb",
-        "scale": [2.0, 2.0, 2.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["tree", "obstacle"],
+      "tags": [
+        "tree",
+        "obstacle"
+      ],
       "label": false
     },
-
     "tree_4": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Tree4.glb",
-        "scale": [2.4, 2.4, 2.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["tree", "obstacle"],
+      "tags": [
+        "tree",
+        "obstacle"
+      ],
       "label": false
     },
-
     "rock_1": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Rock1.glb",
-        "scale": [1.8, 1.8, 1.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["rock", "obstacle"],
+      "tags": [
+        "rock",
+        "obstacle"
+      ],
       "label": false
     },
-
     "rock_2": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Rock2.glb",
-        "scale": [2.0, 2.0, 2.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["rock", "obstacle"],
+      "tags": [
+        "rock",
+        "obstacle"
+      ],
       "label": false
     },
-
     "rock_3": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Rock3.glb",
-        "scale": [2.2, 2.2, 2.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["rock", "obstacle"],
+      "tags": [
+        "rock",
+        "obstacle"
+      ],
       "label": false
     },
-
     "bush_1": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Bush1.glb",
-        "scale": [1.5, 1.5, 1.5]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["bush", "decor"],
+      "tags": [
+        "bush",
+        "decor"
+      ],
       "label": false
     },
-
     "bush_2": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Bush2.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["bush", "decor"],
+      "tags": [
+        "bush",
+        "decor"
+      ],
       "label": false
     },
-
     "bush_3": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Bush3.glb",
-        "scale": [1.6, 1.6, 1.6]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["bush", "decor"],
+      "tags": [
+        "bush",
+        "decor"
+      ],
       "label": false
     },
-
     "grass_1": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/simple_nature_pack/Grass1.glb",
-        "scale": [1.4, 1.4, 1.4]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["grass", "decor"],
+      "tags": [
+        "grass",
+        "decor"
+      ],
       "label": false
     },
-
     "building_small": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/buildings_pack/Building1_Small.glb",
-        "scale": [1.1, 1.1, 1.1]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["building", "obstacle"],
+      "tags": [
+        "building",
+        "obstacle"
+      ],
       "label": false
     },
-
     "house_1": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/buildings_pack/House1.glb",
-        "scale": [1.3, 1.3, 1.3]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["building", "obstacle"],
+      "tags": [
+        "building",
+        "obstacle"
+      ],
       "label": false
     },
-
     "shop_building": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/buildings_pack/Shop.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": {
         "type": "static",
         "collider": "box"
       },
-      "tags": ["building", "obstacle"],
+      "tags": [
+        "building",
+        "obstacle"
+      ],
       "label": false
     },
-
     "weapon_display_rifle": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/scifi_gun_pack/Rifle.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["weapon_deco", "decor"],
+      "tags": [
+        "weapon_deco",
+        "decor"
+      ],
       "label": false
     },
-
     "weapon_display_pistol": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/scifi_gun_pack/Pistol.glb",
-        "scale": [0.9, 0.9, 0.9]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["weapon_deco", "decor"],
+      "tags": [
+        "weapon_deco",
+        "decor"
+      ],
       "label": false
     },
-
     "weapon_display_sniper": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/scifi_gun_pack/Sniper_rifle.glb",
-        "scale": [0.8, 0.8, 0.8]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["weapon_deco", "decor"],
+      "tags": [
+        "weapon_deco",
+        "decor"
+      ],
       "label": false
     },
-
     "weapon_display_shotgun": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/survival_pack/Shotgun_1.glb",
-        "scale": [0.9, 0.9, 0.9]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["weapon_deco", "decor"],
+      "tags": [
+        "weapon_deco",
+        "decor"
+      ],
       "label": false
     },
-
     "supply_drop_marker": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.95, 0.55, 0.2, 1],
-        "scale": [1.8, 0.15, 1.8],
-        "emissive": [1.0, 0.55, 0.2],
+        "color": [
+          0.95,
+          0.55,
+          0.2,
+          1
+        ],
+        "scale": [
+          1.8,
+          0.15,
+          1.8
+        ],
+        "emissive": [
+          1.0,
+          0.55,
+          0.2
+        ],
         "emissiveIntensity": 1.4
       },
       "physics": false,
-      "tags": ["supply_drop", "decor"],
+      "tags": [
+        "supply_drop",
+        "decor"
+      ],
       "label": false
     },
-
     "sky_dome": {
       "mesh": {
         "type": "sphere",
-        "color": [0.05, 0.07, 0.14, 1],
-        "scale": [180, 180, 180]
+        "color": [
+          0.05,
+          0.07,
+          0.14,
+          1
+        ],
+        "scale": [
+          180,
+          180,
+          180
+        ]
       },
       "physics": false,
-      "tags": ["sky"],
+      "tags": [
+        "sky"
+      ],
       "label": false
     }
   }

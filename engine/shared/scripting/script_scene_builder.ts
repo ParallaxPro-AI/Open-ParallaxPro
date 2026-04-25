@@ -189,6 +189,45 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
       tc.invalidate?.();
     };
 
+    // Orient so canonical -Z forward aligns with the given XZ-plane
+    // direction. Up axis is +Y. Zero-length input is a no-op so callers
+    // don't have to special-case "no movement this frame." See
+    // TransformComponent.faceDirection — this wrapper mirrors it
+    // because behavior scripts go through scriptTransform, not the
+    // raw TransformComponent.
+    scriptTransform.faceDirection = (dx: number, dz: number) => {
+      const lenSq = dx * dx + dz * dz;
+      if (lenSq < 1e-8) return;
+      const tx = tc.position.x + dx;
+      const ty = tc.position.y;
+      const tz = tc.position.z + dz;
+      const q = computeLookAtRotation(tc.position.x, tc.position.y, tc.position.z, tx, ty, tz);
+      if (q) {
+        tc.rotation.x = q.x; tc.rotation.y = q.y;
+        tc.rotation.z = q.z; tc.rotation.w = q.w;
+        tc.invalidate?.();
+      }
+    };
+
+    // Symmetric getter for setRotationEuler. Returns {x,y,z} in degrees,
+    // computed from the quaternion via the standard yaw-pitch-roll (YXZ /
+    // Euler-ZYX intrinsic) decomposition. Generated scripts reach for both
+    // `getRotationEuler()` and `getEulerAngles()` — both are aliases here so
+    // whichever name the author picks Just Works.
+    scriptTransform.getRotationEuler = () => {
+      const { x: qx, y: qy, z: qz, w: qw } = tc.rotation;
+      const rad2deg = 180 / Math.PI;
+      // Yaw = rotation around Y; pitch = X; roll = Z. This is the inverse
+      // of eulerDegreesToQuat above so round-trips are exact.
+      const sinPitch = 2 * (qw * qx - qy * qz);
+      const cp = Math.max(-1, Math.min(1, sinPitch));
+      const pitch = Math.asin(cp);
+      const yaw = Math.atan2(2 * (qw * qy + qx * qz), 1 - 2 * (qx * qx + qy * qy));
+      const roll = Math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qx * qx + qz * qz));
+      return { x: pitch * rad2deg, y: yaw * rad2deg, z: roll * rad2deg };
+    };
+    scriptTransform.getEulerAngles = scriptTransform.getRotationEuler;
+
     // Direction vectors (engine forward is -Z)
     Object.defineProperty(scriptTransform, 'forward', {
       get: () => {
@@ -339,6 +378,38 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
     }
   }
 
+  // ── Helper: attach every ScriptComponent on a freshly-spawned entity ──
+  //
+  // Called from spawnEntity() above. Iterates the entity's ScriptComponent (and
+  // any additionalScripts), attaches each via attachScriptByURL, and copies the
+  // component's declared `properties` bag onto each instance — matching the
+  // editor play-mode flow at play_mode_helpers.ts:540 exactly. Properties on the
+  // primary script come from sc.properties; additionalScripts get their own.
+  function attachScriptsToEntity(entity: any): void {
+    const sc: any = entity.getComponent ? entity.getComponent('ScriptComponent') : null;
+    if (!sc) return;
+    const urls: Array<{ url: string; props: Record<string, any> }> = [];
+    const primaryUrl = sc.scriptURL || sc.scriptAssetUUID;
+    if (primaryUrl) urls.push({ url: primaryUrl, props: sc.properties || {} });
+    if (Array.isArray(sc.additionalScripts)) {
+      for (const add of sc.additionalScripts) {
+        if (add?.scriptURL) urls.push({ url: add.scriptURL, props: add.properties || {} });
+      }
+    }
+    for (const { url, props } of urls) {
+      attachScriptByURL(entity, url);
+      // Apply properties to the latest-attached instance. Find it by walking
+      // scriptSystem's instances for ones on this entity; the freshly-attached
+      // script is the last one with matching entityId + matching class URL.
+      const cls = classMap.get(url);
+      if (!cls) continue;
+      const inst = scriptSystem.findScript(entity.id, cls.name || url);
+      if (inst) {
+        for (const [k, v] of Object.entries(props)) (inst as any)[k] = v;
+      }
+    }
+  }
+
   // ── ScriptScene ──
 
   const scriptScene = {
@@ -414,6 +485,16 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
           );
         }
         ensurePrimitiveMeshes();
+        // Auto-attach any ScriptComponents on the new entity. Scene.instantiatePrefab
+        // creates the entity with all components (including ScriptComponent) but does
+        // NOT call scriptSystem.attachScript — that was only happening at initial
+        // scene-load time via the editor / play-mode-helpers loop. As a result,
+        // prefabs that relied on behaviors (asteroid_forward, enemy_ai, coin_pickup,
+        // …) worked when placed statically in 03_worlds but SILENTLY FAILED when
+        // spawned at runtime via scene.spawnEntity("..."). Wiring it here — the same
+        // layer where the script-facing API lives — covers every runtime spawn path
+        // without a separate engine pass.
+        attachScriptsToEntity(e);
         return makeScriptEntity(e)!;
       }
       throw new Error(

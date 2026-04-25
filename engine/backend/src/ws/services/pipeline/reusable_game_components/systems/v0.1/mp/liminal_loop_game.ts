@@ -243,7 +243,7 @@ class LiminalLoopGameSystem extends GameScript {
                     meshAsset: "/assets/quaternius/3d_models/cube_world/Character_Male_2.glb",
                     baseColor: [0.65, 0.65, 0.7, 1],
                 });
-                scene.setRotationEuler && scene.setRotationEuler(id, 0, 180, 0);
+                // REMOVED (registry handles facing now): scene.setRotationEuler && scene.setRotationEuler(id, 0, 180, 0);
                 if (scene.addTag) scene.addTag(id, "ll_anomaly");
                 this._anomalyEntityIds.push(id);
             }

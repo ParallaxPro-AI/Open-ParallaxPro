@@ -8,6 +8,7 @@ import {
     cosineSimilarity
 } from '../embedding_service.js';
 import { tryConsumeEmbedBudget } from '../middleware/embed_rate_limit.js';
+import { getCanonicalSize } from '../services/asset_sizes.js';
 
 const router = Router();
 
@@ -230,7 +231,7 @@ export function assetExists(assetPath: string): boolean {
  * Search assets programmatically (used by AI tool calls).
  * Uses semantic embedding search when available, falls back to substring matching.
  */
-export async function searchAssets(opts: { category?: string; search?: string; source?: string; pack?: string; limit?: number }): Promise<{ name: string; path: string; category: string; pack: string }[]> {
+export async function searchAssets(opts: { category?: string; search?: string; source?: string; pack?: string; limit?: number }): Promise<{ name: string; path: string; category: string; pack: string; size?: [number, number, number] }[]> {
     let filtered = assetCache;
     if (opts.category) filtered = filtered.filter(a => a.category === opts.category);
     if (opts.source) filtered = filtered.filter(a => a.source === opts.source);
@@ -253,6 +254,7 @@ export async function searchAssets(opts: { category?: string; search?: string; s
             path: `/assets/${s.asset.filePath}`,
             category: s.asset.category,
             pack: s.asset.pack,
+            size: getCanonicalSize(s.asset.filePath) ?? undefined,
         }));
     }
 
@@ -266,6 +268,7 @@ export async function searchAssets(opts: { category?: string; search?: string; s
         path: `/assets/${a.filePath}`,
         category: a.category,
         pack: a.pack,
+        size: getCanonicalSize(a.filePath) ?? undefined,
     }));
 }
 console.log(`[Assets] ${assetCache.length} assets scanned`);

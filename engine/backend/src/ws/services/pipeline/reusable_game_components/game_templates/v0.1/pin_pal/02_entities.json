@@ -1,8 +1,12 @@
 {
   "definitions": {
     "camera": {
-      "camera": { "fov": 55 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 55
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "camera_lane_view",
@@ -23,201 +27,377 @@
         }
       ]
     },
-
     "pp_room_floor": {
       "mesh": {
         "type": "plane",
-        "color": [0.10, 0.12, 0.18, 1],
-        "scale": [60, 1, 40]
+        "color": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "scale": [
+          60,
+          1,
+          40
+        ]
       },
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
       }
     },
-
     "pp_lane_floor": {
       "mesh": {
         "type": "cube",
-        "color": [0.95, 0.78, 0.40, 1],
-        "scale": [26, 0.10, 2.0]
+        "color": [
+          0.95,
+          0.78,
+          0.4,
+          1
+        ],
+        "scale": [
+          26,
+          0.1,
+          2.0
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [13, 0.05, 1.0] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            13,
+            0.05,
+            1.0
+          ]
+        }
       },
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_07.png"
       }
     },
-
     "pp_gutter": {
       "mesh": {
         "type": "cube",
-        "color": [0.18, 0.14, 0.20, 1],
-        "scale": [26, 0.06, 0.5]
+        "color": [
+          0.18,
+          0.14,
+          0.2,
+          1
+        ],
+        "scale": [
+          26,
+          0.06,
+          0.5
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [13, 0.03, 0.25] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            13,
+            0.03,
+            0.25
+          ]
+        }
       },
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
       }
     },
-
     "pp_lane_rail": {
       "mesh": {
         "type": "cube",
-        "color": [0.30, 0.20, 0.16, 1],
-        "scale": [26, 0.40, 0.18]
+        "color": [
+          0.3,
+          0.2,
+          0.16,
+          1
+        ],
+        "scale": [
+          26,
+          0.4,
+          0.18
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [13, 0.20, 0.09] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            13,
+            0.2,
+            0.09
+          ]
+        }
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
       }
     },
-
     "pp_throw_line": {
       "mesh": {
         "type": "cube",
-        "color": [0.65, 0.18, 0.14, 1],
-        "scale": [0.08, 0.06, 2.0]
+        "color": [
+          0.65,
+          0.18,
+          0.14,
+          1
+        ],
+        "scale": [
+          0.08,
+          0.06,
+          2.0
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "pp_pin": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.97, 0.97, 0.97, 1],
-        "scale": [0.20, 0.40, 0.20]
+        "color": [
+          0.97,
+          0.97,
+          0.97,
+          1
+        ],
+        "scale": [
+          0.2,
+          0.4,
+          0.2
+        ]
       },
       "physics": {
         "type": "dynamic",
         "mass": 1.5,
         "freeze_rotation": false,
-        "collider": { "shape": "capsule", "radius": 0.10, "height": 0.30 }
+        "collider": {
+          "shape": "capsule",
+          "radius": 0.1,
+          "height": 0.3
+        }
       },
-      "tags": ["pp_pin"],
+      "tags": [
+        "pp_pin"
+      ],
       "label": false
     },
-
     "pp_pin_red_band": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.85, 0.20, 0.18, 1],
-        "scale": [0.205, 0.05, 0.205]
+        "color": [
+          0.85,
+          0.2,
+          0.18,
+          1
+        ],
+        "scale": [
+          0.205,
+          0.05,
+          0.205
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "pp_room_back_wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.20, 0.15, 0.22, 1],
-        "scale": [60, 8, 0.5]
+        "color": [
+          0.2,
+          0.15,
+          0.22,
+          1
+        ],
+        "scale": [
+          60,
+          8,
+          0.5
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [30, 4, 0.25] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            30,
+            4,
+            0.25
+          ]
+        }
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
       }
     },
-
     "pp_room_side_wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.20, 0.15, 0.22, 1],
-        "scale": [0.5, 8, 40]
+        "color": [
+          0.2,
+          0.15,
+          0.22,
+          1
+        ],
+        "scale": [
+          0.5,
+          8,
+          40
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [0.25, 4, 20] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            0.25,
+            4,
+            20
+          ]
+        }
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
       }
     },
-
     "pp_pin_backstop": {
       "mesh": {
         "type": "cube",
-        "color": [0.30, 0.22, 0.30, 1],
-        "scale": [4, 4, 0.4]
+        "color": [
+          0.3,
+          0.22,
+          0.3,
+          1
+        ],
+        "scale": [
+          4,
+          4,
+          0.4
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [2, 2, 0.2] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            2,
+            2,
+            0.2
+          ]
+        }
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_03.png"
       }
     },
-
     "pp_lamp": {
       "mesh": {
         "type": "cube",
-        "color": [1.0, 0.96, 0.85, 1],
-        "scale": [3.0, 0.10, 1.0]
+        "color": [
+          1.0,
+          0.96,
+          0.85,
+          1
+        ],
+        "scale": [
+          3.0,
+          0.1,
+          1.0
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "pp_score_pillar": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
-        "scale": [2.0, 3.0, 2.0]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "pp_chair": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/cube_world/Character_Female_1.glb",
-        "scale": [1.2, 1.2, 1.2]
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
-
     "pp_arch_banner": {
       "mesh": {
         "type": "cube",
-        "color": [0.98, 0.45, 0.55, 1],
-        "scale": [4.0, 0.5, 0.20]
+        "color": [
+          0.98,
+          0.45,
+          0.55,
+          1
+        ],
+        "scale": [
+          4.0,
+          0.5,
+          0.2
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     }
   }

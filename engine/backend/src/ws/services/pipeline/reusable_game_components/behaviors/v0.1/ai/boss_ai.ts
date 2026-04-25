@@ -9,7 +9,7 @@ class BossAIBehavior extends GameScript {
         if(s.audio)s.audio.playSound("/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_000.ogg",0.6);}});}
     onUpdate(dt){if(this._dead)return;this._cooldown-=dt;this._aoeTimer-=dt;var pos=this.entity.transform.position;var player=this.scene.findEntityByName("Hero");if(!player)return;
         var pp=player.transform.position;var dx=pp.x-pos.x,dz=pp.z-pos.z,dist=Math.sqrt(dx*dx+dz*dz);
-        if(dist<this._detectRange){this.entity.transform.setRotationEuler(0,Math.atan2(dx,dz)*180/Math.PI,0);
+        if(dist<this._detectRange){this.entity.transform.setRotationEuler(0,Math.atan2(-dx,-dz)*180/Math.PI,0);
             if(dist>this._attackRange){this.scene.setPosition(this.entity.id,pos.x+(dx/dist)*this._speed*dt,pos.y,pos.z+(dz/dist)*this._speed*dt);this._playAnim("Run");}
             else if(this._cooldown<=0){this._cooldown=this._attackRate;this.scene.events.game.emit("entity_damaged",{targetId:player.id,damage:this._damage,source:"boss"});
                 if(this.audio)this.audio.playSound("/assets/kenney/audio/impact_sounds/impactPunch_heavy_004.ogg",0.5);this._playAnim("Idle");}}

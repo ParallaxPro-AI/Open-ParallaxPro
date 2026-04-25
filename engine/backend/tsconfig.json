@@ -10,7 +10,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": ["node", "@webgpu/types"]
   },
   "include": ["src/**/*.ts", "../shared/**/*.ts"],
   "exclude": [

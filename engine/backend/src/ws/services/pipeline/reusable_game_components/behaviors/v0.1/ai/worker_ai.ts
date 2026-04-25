@@ -10,7 +10,7 @@ class WorkerAIBehavior extends GameScript {
     onUpdate(dt) { if (this._dead) return;
         if (!this._moving) { this._targetX = this.entity.transform.position.x + (Math.random()-0.5)*this._gatherRange*2; this._targetZ = this.entity.transform.position.z + (Math.random()-0.5)*this._gatherRange*2; this._moving = true; }
         var p = this.entity.transform.position; var dx = this._targetX-p.x, dz = this._targetZ-p.z, dist = Math.sqrt(dx*dx+dz*dz);
-        if (dist < 1) { this._moving = false; this._playAnim("Idle"); } else { this.scene.setPosition(this.entity.id, p.x+(dx/dist)*this._speed*dt, p.y, p.z+(dz/dist)*this._speed*dt); this.entity.transform.setRotationEuler(0, Math.atan2(dx,dz)*180/Math.PI, 0); this._playAnim("Walk"); }
+        if (dist < 1) { this._moving = false; this._playAnim("Idle"); } else { this.scene.setPosition(this.entity.id, p.x+(dx/dist)*this._speed*dt, p.y, p.z+(dz/dist)*this._speed*dt); this.entity.transform.setRotationEuler(0, Math.atan2(-dx,-dz)*180/Math.PI, 0); this._playAnim("Walk"); }
     }
     _playAnim(n) { if (this._currentAnim===n) return; this._currentAnim=n; if (this.entity.playAnimation) this.entity.playAnimation(n,{loop:true}); }
 }

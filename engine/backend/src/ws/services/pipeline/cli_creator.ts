@@ -18,7 +18,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../../../config.js';
-import { assembleGame } from './level_assembler.js';
+import { assembleGame, invalidateEventDefsCache } from './level_assembler.js';
 import {
     ProjectFiles,
     writeFilesToDir,
@@ -40,6 +40,9 @@ import { isDockerSandboxEnabled } from './docker_sandbox.js';
 // on demand — so the imports are unused here.
 import { archiveCreatorSandbox } from './sandbox_archive.js';
 import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
+// The headless package lives as a sibling under engine/headless. Both packages
+// run under tsx so cross-package TS imports resolve at runtime without a build.
+import { runPlaytest, renderHuman } from '../../../../../headless/src/index.js';
 
 const __dirname_creator = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_creator, 'reusable_game_components');
@@ -60,39 +63,18 @@ export interface CreatorResult {
      */
     sessionCapturePath?: string | null;
     usedWarmSession?: boolean;
-}
-
-export interface CreatorOptions {
     /**
-     * When true, runCreator performs zero writes against the prod engine
-     * DB. Currently that means:
-     *   - skipping the `SELECT project_data FROM projects` lookup that
-     *     hydrates reference/previous_project/ (the run still proceeds,
-     *     just without any prior files to reference);
-     *   - passing an empty-string projectId into session_capture so its
-     *     optional `UPDATE projects SET session_capture_path` is
-     *     skipped by the existing `if (ctx.projectId)` guard.
-     *
-     * Intended for the research/ workbench so it can invoke the same
-     * pipeline prod uses without touching prod data. Default: false —
-     * prod callers never set this, and prod behavior is unchanged.
+     * Whether the headless playtest's final attempt verdict was a pass.
+     *  - `true`  → pipeline succeeded AND playtest gate passed.
+     *  - `false` → pipeline produced a buildable artifact but the playtest
+     *              gate is still red after retry-budget exhaustion. The
+     *              orchestrator maps this to `final_status='playtest_unresolved'`
+     *              so the dashboard can distinguish "shipped + verified"
+     *              from "shipped + known broken." Pre-existing callers that
+     *              don't read this field continue to see `success: true`.
+     *  - `undefined` → playtest gate didn't run (creator failed before it).
      */
-    skipPersistence?: boolean;
-
-    /**
-     * Fires once the sandbox is fully constructed (TASK.md written,
-     * validate scripts written, asset catalogs generated) and the run
-     * is about to be unwound — after any retries have finished and
-     * before the temp dir is deleted. Gets the sandbox directory so
-     * the caller can snapshot files (e.g. the final TASK.md, which
-     * may have been appended to on retry) into their own artifact
-     * area.
-     *
-     * Swallowed errors: the callback runs inside the cleanup `finally`
-     * block; anything thrown is logged but won't affect the returned
-     * CreatorResult. Default: undefined — prod paths don't pass one.
-     */
-    onBeforeCleanup?: (sandboxDir: string) => void;
+    playtestPassed?: boolean;
 }
 
 export async function runCreator(
@@ -103,9 +85,7 @@ export async function runCreator(
     abortSignal?: AbortSignal,
     jobId?: string,
     chatHistory?: string,
-    opts?: CreatorOptions,
 ): Promise<CreatorResult> {
-    const skipPersistence = opts?.skipPersistence === true;
     // Local AbortController so the cli_active_jobs entry can kill this
     // run from outside — when a newer FIX_GAME or CREATE_GAME on the
     // same project calls preemptProjectJob, it fires our abort()
@@ -170,23 +150,17 @@ export async function runCreator(
     // the agent's optional use. Read once here, outside the try so a
     // failed DB read doesn't obscure a creation failure. NULL is
     // expected for brand-new projects.
-    //
-    // Research runs pass skipPersistence=true — they don't have a real
-    // prod row to look up, and we want zero writes/reads against the
-    // prod DB from the research path.
     let previousProjectFiles: ProjectFiles | null = null;
-    if (!skipPersistence) {
-        try {
-            const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as { project_data?: string } | undefined;
-            if (row?.project_data) {
-                const pd = parseProjectData(row.project_data);
-                if (!isLegacyProjectData(pd) && pd.files && Object.keys(pd.files).length > 0) {
-                    previousProjectFiles = pd.files;
-                }
+    try {
+        const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as { project_data?: string } | undefined;
+        if (row?.project_data) {
+            const pd = parseProjectData(row.project_data);
+            if (!isLegacyProjectData(pd) && pd.files && Object.keys(pd.files).length > 0) {
+                previousProjectFiles = pd.files;
             }
-        } catch (e: any) {
-            console.warn('[CLICreator] failed to read previous project files:', e?.message);
         }
+    } catch (e: any) {
+        console.warn('[CLICreator] failed to read previous project files:', e?.message);
     }
 
     try {
@@ -230,11 +204,7 @@ export async function runCreator(
         fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), taskContent);
 
         sendStatus?.('Creator agent is building the game...');
-        // Empty capture projectId when skipping persistence — session_capture's
-        // `if (ctx.projectId)` guard around the UPDATE is what actually blocks
-        // the prod-DB write.
-        const capProjectId = skipPersistence ? '' : projectId;
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: capProjectId });
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId });
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
@@ -296,7 +266,7 @@ export async function runCreator(
                 // second capture dir (the first is still on disk under its
                 // own timestamped name). We swap cliResult's path to point
                 // at the retry's capture so admins land on the last run.
-                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: capProjectId });
+                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: projectId });
             } catch (e: any) {
                 return {
                     success: false,
@@ -339,27 +309,159 @@ export async function runCreator(
             }
         }
 
+        // ── Headless playtest gate ─────────────────────────────────────────
+        // The assembler catches structural bugs; the playtest catches
+        // behavioural ones — player stuck at spawn, missing ground collider,
+        // dead controls, onUpdate crashes, unreachable UI. Up to 3 retries.
+        // After the cap we ship with the verdict attached to the summary so
+        // the user can guide the next fix (per user direction 2026-04-23).
+        const PLAYTEST_MAX_RETRIES = 3;
+        let lastVerdict: Awaited<ReturnType<typeof runPlaytest>> | null = null;
+        // Per-attempt verdicts persisted to session capture for later
+        // dashboard rendering. Lets the user see "pass rate across retries"
+        // without re-running the headless harness.
+        const verdictHistory: any[] = [];
+        for (let attempt = 0; attempt <= PLAYTEST_MAX_RETRIES; attempt++) {
+            if (localSignal.aborted) {
+                return { success: false, summary: 'Aborted before playtest.', templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
+            }
+            sendStatus?.(attempt === 0 ? 'Running headless playtest...' : `Playtest retry ${attempt}/${PLAYTEST_MAX_RETRIES}...`);
+            try {
+                lastVerdict = await runPlaytest(projectDir, { timeoutMs: 30_000 });
+            } catch (e: any) {
+                lastVerdict = {
+                    pass: false,
+                    invariants: { total: 1, passed: 0, failed: 1, skipped: 0, failures: [{ name: 'runner_crash', code: 'runner_crash', message: String(e?.message ?? e), detail: {} }] },
+                    authored: { total: 0, passed: 0, failed: 0, failures: [] },
+                    scriptErrors: [],
+                    durationMs: 0,
+                } as any;
+            }
+            verdictHistory.push({ attempt, verdict: lastVerdict, at: Date.now() });
+            writeVerdictHistory(cliResult.sessionCapturePath, verdictHistory);
+            if (lastVerdict!.pass) break;
+            if (attempt === PLAYTEST_MAX_RETRIES) break;
+
+            const verdictText = renderHuman(lastVerdict!);
+
+            // Extract specific failure classes the retry should handle
+            // with explicit, prescriptive guidance instead of the generic
+            // "fix the problems above" prompt. Iteration 6's beat_em_up
+            // shipped with `reimplemented_pinned` firing all 4 attempts
+            // because the model treated the verdict as advisory and kept
+            // re-authoring its own broken behavior. Here we promote that
+            // specific class to a retry-forcing instruction.
+            const reimplFailures = [
+                ...(lastVerdict?.invariants?.failures ?? []),
+                ...(lastVerdict?.authored?.failures ?? []),
+            ].filter((f: any) => f?.code === 'reimplemented_pinned' || f?.name === 'avoid_reimplementing_pinned_behaviors');
+            let retryFocusBlock = '';
+            if (reimplFailures.length > 0) {
+                const detail: any[] = [];
+                for (const f of reimplFailures) {
+                    const smells = (f as any)?.detail?.smells;
+                    if (Array.isArray(smells)) detail.push(...smells);
+                }
+                if (detail.length > 0) {
+                    const lines = detail.map((s: any) =>
+                        `- DELETE \`project/${s.file}\`. RUN \`bash library.sh show ${s.suggestedLibrary}\`. WRITE the output verbatim into \`project/behaviors/<path>\` (or \`project/systems/<path>\` for systems). Reference it from your entity / system definitions instead of re-authoring it. Reason: ${s.why || 'pinned version handles subtleties (rider-carry, reset-on-restart, sign conventions) that hand-rolled rewrites miss.'}`,
+                    );
+                    retryFocusBlock = `\n\n## RETRY FOCUS — replace hand-rolled behaviors with pinned library versions\n\nThe playtest detected behaviors you wrote by hand that duplicate functionality the pinned library already provides. The pinned version is canonical and tested; your hand-rolled version is missing engine subtleties.\n\nDo this FIRST, before any other edits:\n\n${lines.join('\n')}\n\nDo NOT keep re-authoring these. The library tool is the source of truth. After replacing them, re-run validate.sh.\n`;
+                }
+            }
+
+            try {
+                const taskPath = path.join(sandboxDir, 'TASK.md');
+                const existing = fs.readFileSync(taskPath, 'utf-8');
+                fs.writeFileSync(
+                    taskPath,
+                    existing +
+                        `\n\n# Playtest failed (attempt ${attempt + 1} of ${PLAYTEST_MAX_RETRIES + 1})\n\nThe headless playtest booted your game and found problems:\n\n\`\`\`\n${verdictText}\n\`\`\`${retryFocusBlock}\n\nFix the specific problems above, run \`bash validate.sh\` to verify, then finish. Only small targeted edits — do not rewrite unrelated files.`,
+                );
+            } catch (e: any) {
+                console.warn(`[CLICreator] Failed to append playtest verdict to TASK.md: ${e?.message}`);
+            }
+
+            let retry: { text: string; costUsd: number; sessionCapturePath?: string | null };
+            try {
+                retry = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: projectId });
+            } catch (e: any) {
+                return {
+                    success: false,
+                    summary: `Playtest failed on attempt ${attempt + 1}; retry spawn errored: ${e?.message || e}\n\n${verdictText}`,
+                    templateId, files,
+                    costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
+                };
+            }
+            cliResult.costUsd += retry.costUsd;
+            if (retry.text) cliResult.text = retry.text;
+            if (retry.sessionCapturePath) cliResult.sessionCapturePath = retry.sessionCapturePath;
+
+            files = readFilesFromDir(projectDir);
+            if (!files['01_flow.json'] || !files['02_entities.json']) {
+                return { success: false, summary: `Playtest retry removed required files.`, templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
+            }
+            // Pre-pass: invalidate the assembler's event-defs cache and
+            // auto-declare any event names referenced by the retry's
+            // regenerated TS that aren't yet in event_definitions.ts.
+            //
+            // Iteration 6's roguelike (4fccd844) shipped failed for two
+            // reasons that compound here:
+            //   1. `_eventDefsCache` in level_assembler is keyed on
+            //      systems-dir; the first assembleGame call populates it
+            //      with the canonical baseline. The retry's edit to
+            //      event_definitions.ts (CLI added `pickup_overlap`) is
+            //      invisible to that cached parse, so the next
+            //      assembleGame validates against stale data and rejects
+            //      the new event name. Confirmed by simulating the sync
+            //      against the failed artifact: 0 truly-undeclared events.
+            //   2. Defense-in-depth: in cases where the CLI does forget
+            //      to update event_definitions.ts (partial regen), the
+            //      sync auto-appends so the contract is restored.
+            try {
+                invalidateEventDefsCache(path.join(projectDir, 'systems'));
+                const sync = syncEventDefinitions(projectDir);
+                if (sync.appended.length > 0) {
+                    console.log(`[CLICreator] Auto-declared ${sync.appended.length} undeclared event(s) in event_definitions.ts after retry: ${sync.appended.join(', ')}`);
+                    // Re-invalidate after the file write so the next
+                    // assembleGame parses the appended entries.
+                    invalidateEventDefsCache(path.join(projectDir, 'systems'));
+                    // Refresh the in-memory file map so the orchestrator
+                    // writes the updated file out to the artifact dir.
+                    files = readFilesFromDir(projectDir);
+                }
+            } catch (syncErr: any) {
+                console.warn(`[CLICreator] syncEventDefinitions failed: ${syncErr?.message}`);
+            }
+            // Re-run assembler each retry — a playtest fix can regress structural validity.
+            try {
+                assembleGame(projectDir, { behaviors: path.join(projectDir, 'behaviors'), systems: path.join(projectDir, 'systems'), ui: path.join(projectDir, 'ui') });
+            } catch (assembleRetryErr: any) {
+                return {
+                    success: false,
+                    summary: `Playtest retry broke assembler: ${assembleRetryErr?.message || assembleRetryErr}`,
+                    templateId, files,
+                    costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
+                };
+            }
+        }
+
+        const playtestPassed = !!lastVerdict?.pass;
+
         return {
             success: true,
-            summary: cliResult.text || `Created "${templateId}".`,
+            summary: playtestPassed
+                ? (cliResult.text || `Created "${templateId}".`)
+                : `Created "${templateId}" but playtest did not pass after ${PLAYTEST_MAX_RETRIES + 1} attempts:\n\n${lastVerdict ? renderHuman(lastVerdict) : '(no verdict)'}\n\nShipping anyway so the user can guide the next fix.`,
             templateId,
             files,
             costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath,
             usedWarmSession: cliResult.usedWarmSession,
+            playtestPassed,
         };
       })();
       return finalResult;
     } finally {
-        // Caller-provided pre-cleanup hook. Runs BEFORE archive + rmSync so
-        // the caller can snapshot sandbox files (e.g. the final TASK.md,
-        // which may include retry-appended error guidance) into their own
-        // artifact dir. Errors are swallowed so a bad hook can't break the
-        // run's reported result.
-        if (opts?.onBeforeCleanup) {
-            try { opts.onBeforeCleanup(sandboxDir); }
-            catch (e: any) { console.warn(`[CLICreator] onBeforeCleanup failed: ${e?.message}`); }
-        }
-
         // Admin-only snapshot of the sandbox's project/ tree + TASK.md.
         // Runs for both success AND failure so we can diff broken outputs
         // against working ones later. Best-effort — a failed archive must
@@ -430,8 +532,7 @@ async function createSandbox(
     // cheap, load-bearing for the "start from a template" workflow, and
     // agents routinely pick one by name). behaviors/systems/ui are NOT
     // in the sandbox anymore — they're served by library.sh on demand
-    // (see writeLibraryTool). This is the L2 step from
-    // docs/LIBRARY_TOOL_PLAN.md: the agent gets a compact index + a
+    // (see writeLibraryTool). The agent gets a compact index + a
     // retrieval tool instead of hundreds of files it mostly doesn't read.
     const refDir = path.join(sandboxDir, 'reference');
     copyDirRecursive(path.join(RGC_DIR, 'game_templates', 'v0.1'), path.join(refDir, 'game_templates'));
@@ -552,6 +653,126 @@ const ASSET_EMBEDDINGS_CACHE = path.join(
 interface AssetPackEntry {
     dirName: string;
     humanName: string;
+}
+
+/**
+ * Persist the per-attempt playtest verdict history to the session capture
+ * directory. Overwrites each call so the file always reflects the full
+ * current trail. Readers (e.g. the research dashboard's RunDetailPage
+ * via `GET /api/runs/:id/playtest-attempts`) pick it up from there —
+ * no DB schema change needed.
+ */
+function writeVerdictHistory(sessionCapturePath: string | null | undefined, history: any[]): void {
+    if (!sessionCapturePath) return;
+    try {
+        fs.mkdirSync(sessionCapturePath, { recursive: true });
+        fs.writeFileSync(
+            path.join(sessionCapturePath, 'playtest_attempts.json'),
+            JSON.stringify(history, null, 2),
+        );
+    } catch (e: any) {
+        console.warn(`[CLICreator] Failed to write playtest_attempts.json: ${e?.message}`);
+    }
+}
+
+/**
+ * Sync `project/systems/event_definitions.ts` with the events the CLI's
+ * just-regenerated TS sources actually emit/listen-for.
+ *
+ * Why this exists: CREATOR_CONTEXT tells the CLI it MAY append game-specific
+ * events to event_definitions.ts. The first-pass authoring usually keeps the
+ * file in sync with the scripts that emit. But the playtest-retry pass is
+ * partial-regen — the CLI rewrites a behaviour or system to fix a flagged
+ * bug and sometimes introduces a new event name (or restores a removed one)
+ * without updating event_definitions.ts. Iteration 6's roguelike
+ * (4fccd844) shipped failed because the retry's `dungeon_game.ts` referenced
+ * `pickup_overlap` plus six other event names that the assembler couldn't
+ * find in event_definitions.ts.
+ *
+ * This pre-pass scans every TS source under behaviors/, systems/, scripts/
+ * and the flow's `emit:game.*` action references, diffs against declared
+ * names in event_definitions.ts, and auto-appends any undeclared name with
+ * a permissive `{ data: { type: 'any', optional: true } }` schema and a
+ * `// auto-declared by retry sync` comment so a later auditor can spot it.
+ *
+ * The contract the CLI is mentally enforcing ("this event is mine, I declared
+ * it") stays valid; the orchestrator just makes the partial edit complete
+ * before the assembler validates. Returns the count of events appended so
+ * the retry loop can log it.
+ */
+function syncEventDefinitions(projectDir: string): { appended: string[] } {
+    const evtPath = path.join(projectDir, 'systems', 'event_definitions.ts');
+    if (!fs.existsSync(evtPath)) return { appended: [] };
+    const src = fs.readFileSync(evtPath, 'utf-8');
+
+    // Parse declared event names — same regex shape the assembler uses.
+    const declared = new Set<string>();
+    for (const m of src.matchAll(/^\s+(\w+)\s*:\s*\{/gm)) {
+        declared.add(m[1]);
+    }
+    for (const nonEvent of ['fields', 'type', 'optional']) declared.delete(nonEvent);
+
+    // Walk all TS sources and collect referenced event names. We stay
+    // conservative: only events.game.(on|emit)('...'|"...") count, plus
+    // emit:game.X actions in 01_flow.json. Anything more exotic (string
+    // concat, dynamic name) we leave alone — it'll fail the assembler
+    // and surface as a real bug instead of being silently auto-declared.
+    const referenced = new Set<string>();
+    const eventCallRe = /events\.game\.(?:on|emit)\s*\(\s*['"]([^'"]+)['"]/g;
+    const scanFile = (p: string) => {
+        try {
+            const s = fs.readFileSync(p, 'utf-8');
+            for (const m of s.matchAll(eventCallRe)) referenced.add(m[1]);
+        } catch {}
+    };
+    const walk = (dir: string) => {
+        if (!fs.existsSync(dir)) return;
+        for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, ent.name);
+            if (ent.isDirectory()) walk(full);
+            else if (ent.isFile() && full.endsWith('.ts') && ent.name !== 'event_definitions.ts') scanFile(full);
+        }
+    };
+    walk(path.join(projectDir, 'behaviors'));
+    walk(path.join(projectDir, 'systems'));
+    walk(path.join(projectDir, 'scripts'));
+
+    // 01_flow.json `emit:game.X` actions also count as references.
+    try {
+        const flowSrc = fs.readFileSync(path.join(projectDir, '01_flow.json'), 'utf-8');
+        for (const m of flowSrc.matchAll(/"emit:game\.([^"]+)"/g)) referenced.add(m[1]);
+        // game_event:X transitions don't strictly require a declaration if
+        // some flow action emits it, but the assembler validates them
+        // against declared names too — so include them.
+        for (const m of flowSrc.matchAll(/"game_event:([^"]+)"/g)) referenced.add(m[1]);
+    } catch {}
+
+    const undeclared = [...referenced].filter(n => !declared.has(n));
+    if (undeclared.length === 0) return { appended: [] };
+
+    // Append entries inside the GAME_EVENTS object literal, just before
+    // the closing brace. We locate the LAST `}` paired with the opening
+    // GAME_EVENTS — simplest heuristic that survives the canonical
+    // file shape (entries indented 4 spaces, closing `};` on its own line).
+    const closingRe = /\n\s*\};\s*$/m;
+    const closeMatch = src.match(closingRe);
+    if (!closeMatch || closeMatch.index === undefined) {
+        // Couldn't find the close — bail rather than corrupting the file.
+        console.warn('[CLICreator] syncEventDefinitions: could not locate closing brace; skipping auto-decl');
+        return { appended: [] };
+    }
+    const insertAt = closeMatch.index;
+    const lines: string[] = [];
+    lines.push(''); // blank line before block
+    lines.push('    // auto-declared by retry sync — these events were emitted/listened-for in regenerated');
+    lines.push('    // sources but not declared during the original pass. Permissive `data: any` schema is');
+    lines.push('    // a placeholder; tighten if the payload shape is non-trivial.');
+    for (const name of undeclared) {
+        lines.push(`    ${name}: { fields: { data: { type: 'any', optional: true } } },`);
+    }
+    const updated = src.slice(0, insertAt) + '\n' + lines.join('\n') + src.slice(insertAt);
+    fs.writeFileSync(evtPath, updated, 'utf-8');
+    return { appended: undeclared };
 }
 
 let _assetPackCache: { fingerprint: string; packs: AssetPackEntry[]; vectors: number[][] } | null = null;

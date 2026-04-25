@@ -98,7 +98,7 @@ class TopdownWalkerBehavior extends GameScript {
         // Face direction of motion (top-down, model rotates around Y).
         var sp = Math.sqrt(this._vx * this._vx + this._vz * this._vz);
         if (sp > 0.5) {
-            var ang = Math.atan2(this._vx, this._vz) * 180 / Math.PI;
+            var ang = Math.atan2(-this._vx, -this._vz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, ang, 0);
         }
 

@@ -67,6 +67,7 @@ project/                           — EDIT THESE
   systems/mp/mp_bridge.ts          — Multiplayer session bridge (already pinned; the assembler auto-activates it whenever 01_flow.json has a multiplayer block — do NOT list it in active_systems)
   ui/{name}.html                   — UI panels
   scripts/{name}.ts                — Custom user scripts (optional)
+  PLAYTEST.ts                      — Required. Headless playtest scenario (see Validation)
 reference/                         — Read-only references
   game_templates/INDEX.md          — One-line summary of every template (read first to pick by name)
   game_templates/...               — Working examples (40 templates, all 4 JSONs each)
@@ -143,7 +144,7 @@ Behaviors, systems, and UI panels are NOT in `reference/` — they live behind `
 {
   "definitions": {
     "player": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/...", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/..." },
       "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png" },
       "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
       "tags": ["player"],
@@ -165,9 +166,71 @@ Behaviors, systems, and UI panels are NOT in `reference/` — they live behind `
 `mesh.type`: `custom` (GLB/GLTF from `asset`), `plane`, `cube`, `sphere`, `cylinder`, `cone`, `capsule`, `empty` (no geometry).
 
 For `custom` meshes:
-- `asset`: path from the asset catalog (see `assets/3D_MODELS.md`).
-- `scale`: `[x, y, z]` — uniform usually.
-- `modelRotationY` / `modelRotationX` / `modelRotationZ`: bake a rotation into the loaded mesh (**degrees**). Use `modelRotationY: 180` when the asset's "forward" faces the wrong way (common for Quaternius character packs).
+- `asset`: path from the asset catalog — find with `bash search_assets.sh "..."`.
+- `scale`: **OMIT.** The engine reads `MODEL_FACING.json` and auto-scales every model to its real-world meter size (4.5 m sedan, 1.75 m human, 8 m tree, …). Don't pass `scale` to "fix" a model that looks tiny or huge — that's a registry gap; flag it and the registry will cover all assets in that pack forever. Use placement-level `scale` in 03_worlds.json only for per-instance tweaks (e.g. one giant boss enemy).
+- **Orientation**: don't worry about it. The engine auto-rotates every model so it faces canonical −Z. To make an entity face a specific direction in the world, set `placement.rotation: [0, yawDegrees, 0]` in 03_worlds.json — yaw 0 = facing −Z.
+
+### Canonical convention (the engine guarantees this for every loaded model)
+
+| Axis     | Direction | Meaning                                     |
+|----------|-----------|---------------------------------------------|
+| **+Y**   | up        | gravity is −Y                               |
+| **−Z**   | forward   | what the model "faces" (windshield, eyes)   |
+| **+X**   | right     | from the model's own POV                    |
+| **1 unit** | = 1 meter | sedan length ≈ 4.5, human height ≈ 1.75   |
+| **origin**  | bottom-center | feet/wheels at Y=0, centered on X/Z   |
+
+Right-handed. To make an entity face north/east/south/west, don't compute Euler angles by hand — use `placement.rotation = [0, yawDegrees, 0]` where yaw 0 = canonical forward (−Z = north).
+
+### Sizing rules of thumb (use the size info from `search_assets.sh`)
+
+`search_assets.sh` results now end each line with the model's canonical bounding-box size after the registry's scale:
+
+```
+/assets/kenney/3d_models/car_kit/sedan.glb  (3D Models, car_kit)  3.00x2.60x5.10m
+                                                                   │    │    │
+                                                                   │    │    └─ depth along Z (front↔back)
+                                                                   │    └────── height along Y (ground↔sky)
+                                                                   └─────────── width along X (left↔right)
+```
+
+**Axis mapping**: `W x H x D` = **X-extent × Y-extent × Z-extent**, in meters.
+The model faces **−Z** by default (canonical forward, see above), so **D is the model's length from tail to nose**. For a car: W ≈ 3 (side-to-side), H ≈ 2.6 (ground to roof), D ≈ 5.1 (trunk to headlights).
+
+**How to use this for collision / spacing**: a model placed at `position: [x, y, z]` with no rotation occupies roughly this volume:
+- from `x − W/2` to `x + W/2` (along X)
+- from `y` to `y + H` (Y starts at the placement — the origin is the bottom-center, so Y=placement_y is the feet / wheels)
+- from `z − D/2` to `z + D/2` (along Z)
+
+So to avoid overlap between two instances on flat ground:
+```
+|x_A − x_B| ≥ (W_A + W_B) / 2 + ε     (X-axis separation)
+|z_A − z_B| ≥ (D_A + D_B) / 2 + ε     (Z-axis separation)
+```
+…or the distance along ANY axis must exceed the combined half-extents along that axis. Use ε ≈ 0.2 m as a safety buffer.
+
+If the placement has `rotation: [0, yaw, 0]`, the AABB rotates too — for yaw = 90°, swap W and D in the formulas.
+
+**Reference scales for human-piloted gameplay:**
+- **Player walk speed** ≈ 5 m/s · **sprint** ≈ 8 m/s · **vehicle top speed** ≈ 15–30 m/s
+- **Standing jump distance** ≈ 2 m horizontal, **double jump** ≈ 3.5 m
+- **Standing jump height** ≈ 1.2 m, **double jump** ≈ 2.5 m
+- **Comfortable platform spacing** ≈ 2–3 m gap (must be < jump distance)
+- **Door frame** = 2.1 m tall · **ceiling clearance** ≈ 2.5 m for player + camera
+- **Driving lane width** ≈ 4 m (slightly wider than vehicle W)
+- **Combat engagement range**: melee ≈ 2 m, gun ≈ 30 m, sniper ≈ 100 m
+- **Camera follow distance**: third-person 5 m back + 3 m up · top-down ≈ 15 m up
+
+**Placement spacing rules:**
+- **Trees in a forest**: a medium tree reports `~3x8x3m` → space centers ≥ 3 m apart (≥ W + ε)
+- **Buildings on a city block**: align front facades with sidewalks; keep ≥ 1 m gap (W_facade / 2 + ε) between neighbors
+- **Crowd / NPC spawns**: humans report `~0.5x1.75x0.3m` → space centers ≥ 1 m apart so they don't clip
+- **Pickups (coins, health)**: place at `y = 0.5 + H/2` so the player walks through the center
+- **Walls**: if a wall reports `6x3x0.3m` (W×H×D) and runs along X, lay several end-to-end at ΔX = 6 m (one W per step) with matching rotation
+
+If a result line **lacks the size suffix**, the GLB couldn't be inspected (rare — usually a malformed file, a non-GLB asset, or a brand-new pack the cache hasn't seen yet). Pick a different model, or assume a conservative ~1 m for a single-mesh prop.
+
+**Implication for AI scripts:** when you `lookAt` a target, the model's −Z aligns to that direction automatically. When you set `transform.rotation` from a velocity, use `Math.atan2(velocity.x, velocity.z)` and assign as Y-yaw — no per-asset offsets.
 
 For primitive meshes:
 - `color`: `[r, g, b, a]` 0–1. Applied to the mesh's default material.
@@ -284,6 +347,26 @@ Create scripts inside `project/`:
 
 If a behavior or system already exists in the library, prefer `library.sh show`
 + `Write` into `project/` over rewriting from scratch.
+
+### HARD RULE — orbit cameras & camera-relative movement
+
+When your game needs any of the following, you **MUST** pin the library file
+via `library.sh show <path>` and `Write` it into `project/behaviors/…`. Do
+NOT derive your own orbit math, mouse-look, or camera-relative WASD — the
+sign conventions and yaw handedness are load-bearing and LLMs consistently
+get them wrong (inverted Y, mirrored A/D, W moves opposite the camera).
+
+- **Third-person (mouse-orbit + camera-relative WASD)** — pin both:
+  `library.sh show behaviors/camera/camera_third_person.ts behaviors/movement/third_person_movement.ts`
+- **First-person (mouse-look + WASD)** — pin both:
+  `library.sh show behaviors/camera/camera_fps.ts behaviors/movement/fps_movement.ts`
+- **Isometric RPG / action-RPG orbit** — pin both:
+  `library.sh show behaviors/camera/camera_rpg.ts behaviors/movement/rpg_movement.ts`
+
+Tweak tunables via `params` in `02_entities.json` (distance, height, sensitivity,
+speed, etc.) — don't edit the script body. If your game has a novel camera need
+that doesn't match any of the above (rail camera, fixed-angle, etc.), you may
+write your own — but for standard orbit + camera-relative movement, ALWAYS pin.
 
 ## Script Rules — CRITICAL
 
@@ -1134,6 +1217,83 @@ scripts need to share per-frame context without growing a plumbing layer.
 ## Validation
 After creating all files, run `bash validate.sh`. Fix any errors before finishing.
 
+`validate.sh` now runs a **headless playtest** as part of its final stage — it actually boots the game in a node-side simulated engine, ticks physics and scripts, simulates input, and rejects games that aren't playable (player spawns inside a wall, missing ground collider, dead controls, onUpdate crashes, UI with no clickable elements, etc.).
+
+### PLAYTEST.ts (required)
+
+Every game must include a `project/PLAYTEST.ts` file — a short scenario the playtest engine runs to verify the game works end-to-end. This is the agent's explicit theory of what makes the game playable. Without it, only invariant checks run; with it, the playtest can exercise game-specific mechanics with cheats instead of trying to "play" the game.
+
+Contract:
+
+```ts
+export const gameType = "vehicle";           // "vehicle" | "locomotion_3d" | "platformer" | "shooter" | "paddle_2d" | "board" | "clicker" | "ui" | "unknown"
+export const primaryAction = "KeyW";         // the key a fresh player would press first; omit for pure-UI games
+
+export default async (p) => {
+  // IMPORTANT: call this first. Behavior scripts are gated on an
+  // `active_behaviors` event the FSM driver emits per state — outside of the
+  // gameplay state, behaviors sit inactive and `onUpdate` never runs. The
+  // playtest can't easily drive the FSM through boot → main_menu → gameplay
+  // via UI clicks, so this cheat flips every behavior's `_behaviorActive` to
+  // true so movement / combat / systems all run immediately.
+  p.activateAllBehaviors();
+
+  // `p` is a Playtest handle. Core API:
+  //   p.find(name)            / p.findByTag(tag)              → EntityRef | null
+  //   p.pos(ref) / p.vel(ref)                                 → Vec3 | null
+  //   p.tick(n) / p.tickSeconds(s)                            → advance sim
+  //   p.keyDown/keyUp/tapKey  / p.click(x, y) / p.clickButtonByText(text)
+  //   p.teleport(ref, {x,y,z}) / p.setVelocity(ref, v) / p.setDriveInput({throttle,steer,brake})
+  //   p.spawn(prefabName, pos?) / p.aimAt(shooter, target) / p.setScriptField(ref, className, field, value)
+  //   p.assertExists / assertNotStuck / assertMoved(ref, "xz", min, fromPos)
+  //   p.assertNoErrors / assertYAbove / assertPositionNotNaN
+  //   p.snapshot() / p.restore()   — cheap rewind for multi-probe scripts
+
+  const player = p.findByTag("player");
+  p.assertExists(player, "player");
+
+  // Cheat route first — does the physics engine actually react to input?
+  const before = p.pos(player);
+  p.setDriveInput({ throttle: 1 });        // 2D paddle: use p.keyDown("ArrowRight") etc.
+  p.tickSeconds(1);
+  p.assertMoved(player, "xz", 0.5, before);
+};
+```
+
+Keep it **under 40 lines**. The goal is to catch the game's core loop being broken, not to fully play it. Use cheats (`setDriveInput`, `setVelocity`, `teleport`, `aimAt`, `setScriptField`) to skip past gameplay friction — the LLM can't "play" well and shouldn't try.
+
+### Required: probe at least one game-specific mechanic
+
+The movement check above is the *floor*, not the goal. Tier-1 invariants already verify movement-under-primary-action for 3D games (see the `primary_action_responsive` invariant), so a PLAYTEST.ts that only re-checks movement adds nothing. **Author at least one assertion that exercises the game's actual core loop** — whatever the prompt said the game is *about*. Examples:
+
+- **Driving / coin pickup**: `const coin = p.find("Coin_1"); const coinPos = p.pos(coin); p.teleport(car, coinPos); p.tick(3); // after pickup the coin entity should be gone:` `if (p.find("Coin_1")) throw new Error("coin still present after pickup")`. Alternatively read score state via `p.getState()` or read the score label's text.
+- **Shooter**: `p.aimAt(player, enemy); p.tapKey("MouseLeft"); p.tickSeconds(0.3);` then assert the enemy was destroyed (`if (p.find("enemy_1")) throw ...`) or its health-component dropped (`p.runtime.scene.entities.get(enemyId).getComponent('HealthComponent').current < start`).
+- **Platformer**: `p.tapKey("Space"); p.tick(3); const peakY = p.pos(player).y; ... ; p.assertMoved(player, "y", 1.0, before)` to verify jump actually lifts the player.
+- **Paddle / pong**: `p.mousePosition(400, 100); p.tick(2); p.assertMoved(paddle, "x", 5, before)` — mouse tracking drives the paddle.
+- **Clicker / UI**: `p.clickButtonByText("+1"); p.tick(1); ... ; p.clickButtonByText("+1"); p.tick(1);` — then read the score from `p.getState()` or the tracked UI element's text.
+- **Board**: `p.clickElementById("cell_e4"); p.clickElementById("cell_e5"); p.tick(2);` then read board state from `p.getState()` or from entities and assert the piece moved.
+
+**Anti-pattern**: `setDriveInput`/`keyDown` primary-movement + `assertMoved` + `assertNoErrors`, and nothing else. That's a duplicate of the tier-1 check and doesn't tell us whether the *game* (as opposed to the engine) works. The user's prompt described a specific mechanic — write one probe for that mechanic.
+
+**Also an anti-pattern**: skipping the probe because you know the mechanic isn't implemented. If the prompt says "collect coins" and you're about to write a PLAYTEST that doesn't probe coin pickup because there's no pickup behavior attached yet — that's a sign you should go back and IMPLEMENT the pickup behavior in 02_entities / 04_systems first. Shipping a game whose core mechanic isn't wired is strictly worse than shipping one whose PLAYTEST catches the problem. The `interactive_entities_have_colliders` + `pickup_despawns_on_overlap` invariants will catch both classes of omission, but it's cheaper to just do it right the first time.
+
+Aim for **1 movement-or-cheat assertion + 1 mechanic-specific assertion + assertNoErrors** — three substantive asserts is plenty.
+
+### gameType decisions
+
+- **vehicle** — car/plane/boat with throttle+steer controls
+- **locomotion_3d** — 3D character walking (WASD + jump)
+- **platformer** — 2D/3D platformer with jump
+- **shooter** — FPS / third-person shooter
+- **paddle_2d** — pong / breakout / paddle-like
+- **board** — chess / checkers / turn-based
+- **clicker** — pure-UI clicker / idle game
+- **ui** — menu-driven, no 3D player
+- **unknown** — only if nothing else fits; invariants will run but no genre-specific checks
+
+Picking the right `gameType` turns on the matching invariant profile: 3D types require a camera and a responsive player; UI types require at least one clickable button; board types skip physics checks entirely.
+
+
 The assembler's checks are strict — see the "Silent-failure watch-list" above
 for what it now rejects (typos in `active_behaviors`/`active_systems`, missing
 `start`, button-wiring gaps).
@@ -1156,6 +1316,262 @@ Quick mental checklist when something looks wrong but the validator passes:
 4. **Falling through ground**: Ground entity has `physics: false` or no collider, or its collider is smaller than the visible mesh.
 5. **Script not running**: Entity is inactive (placement `"active": false`), OR the behavior's `_behaviorName` doesn't match what `01_flow.json`'s `active_behaviors` expects.
 6. **Camera looking at nothing**: Camera placement at the same position as the player, or `findEntityByName("Player")` failing because the placement has no explicit `name` field.
+7. **Car / character drives backwards**: Your behavior script hardcodes a heading default (e.g. `_heading = 180`) that doesn't agree with the placement's rotation. The mesh is already normalized to canonical −Z forward by the engine, so you do NOT need `modelRotationY` (leave it at 0 / omit it). To make a vehicle/character face a non-default direction, set `placement.rotation: [0, yawDegrees, 0]` in 03_worlds.json and in your script's `onStart`, read it back via `var e = this.entity.transform.getRotationEuler(); this._heading = e.y;`. Do NOT bake the same rotation into both the placement AND the script state — you'll double-compensate. Symptom: pressing W moves the car ass-first, and A/D feel swapped because your perspective of the car is reversed.
+8. **Advertised key does nothing**: Your HUD HTML has `<span class="kbd">P</span> pause` or `Press X to do Y` text, but pressing that key has no effect. Root cause: the key must both (a) be handled by a system that emits an event (ui_bridge.ts already handles P by emitting `keyboard:pause` / `keyboard:resume`), AND (b) have a transition in `01_flow.json` that listens on the event and moves to the right state. A HUD hint without a matching flow transition is a lie. If you advertise P for pause, your flow needs a `pause` state with `transitions: [{ "when": "ui_event:pause:resume", "goto": "gameplay" }, ...]` AND a transition FROM `gameplay` that listens on whatever event the bridge emits. Check what events the pinned ui_bridge / bridges emit before advertising the key.
+9. **Walls / ramps / pickups have no collision**: You set `physics: false` on interactive entities (walls the player bumps into, ramps they roll up, coins they collect). The assembler skips collider creation entirely for `physics: false`, so the player's rigidbody passes straight through. **Rule: `physics: false` is only correct for pure decoration the player can never touch** — ambient particles, skybox quads, HUD-only entities. Walls, ramps, platforms, fences, bumpers, coins, gems, hazards, enemies, triggers — these ALL need physics. Minimum safe default for static geometry: `"physics": { "type": "static", "collider": { "shape": "box" } }` (the assembler derives half-extents from `transform.scale`). For trigger volumes (pickups, damage zones, zone detectors): add `"is_trigger": true` so they fire collision events without blocking movement. The `interactive_entities_have_colliders` playtest invariant flags any entity whose name matches wall/ramp/pickup/coin/hazard/enemy/fence that's missing a collider.
+10. **First-person game shows your own player model**: In FPS games the camera sits at the player's eye height, so if the player entity has a visible `mesh`, you see your own body from the inside. Fix: set `"hideFromOwner": true` on the player entity's mesh field (or on the mesh under `extra_components: [{ type: "MeshRendererComponent", data: { hideFromOwner: true } }]` in 03_worlds.json). The engine skips rendering that mesh when the active camera is the same entity or its descendant. Other players / spectators / death-cam still see the full model. **This is the ONLY supported way** to hide the player from themselves — don't omit the mesh entirely (then you have no model for multiplayer), and don't hide at script level (races with render pass).
+11. **Behavior state doesn't reset on replay (main_menu → play again)**: Behaviors that track per-instance state like `_collected`, `_consumed`, `_triggered`, `_exploded` must reset that state when the player restarts a match — NOT just in `onStart`. The FSM's restart transition fires a `restart_game` event but does NOT re-call `onStart` on behaviors; scripts stay attached and `_behaviorActive` toggles, but private fields persist. Rule: any behavior that mutates a one-shot flag must subscribe to `restart_game` in `onStart` and reset the flag there. Example:
+
+    ```ts
+    onStart() {
+        this._collected = false;
+        var self = this;
+        this.scene.events.game.on("restart_game", function() { self._collected = false; });
+    }
+    ```
+
+    The `replay_pickup_still_works` invariant simulates a `restart_game` event and re-probes pickups; sticky flags cause a hard failure.
+12. **Score on game-over screen flickers between two values**: Your gameplay system keeps emitting `ui.hud_update` with the live `score` key every frame, while the game-over modal animates the final score to the same DOM element. Both writes target the same `#score` element and race, producing flicker. **Fix**: gate the HUD-push path on a `_ended` flag toggled by the `game_over` event.
+
+    ```ts
+    this.scene.events.game.on("game_over", () => { this._ended = true; });
+    _pushHud() {
+        if (this._ended) return;           // game-over modal owns the score display now
+        this.scene.events.ui.emit("hud_update", { score: this._score, ...other });
+    }
+    ```
+
+    Non-score HUD keys (speed, gear, health) don't flicker and can keep emitting — only score-class keys overlap with the end-of-match modal. The `hud_stops_after_game_over` invariant catches this class.
+
+13. **Collider extends past the visible mesh ("invisible walls")**: Collider `halfExtents` are applied **pre-scale**; the engine multiplies them by the entity's `transform.scale` at runtime. If you set `mesh.scale: [4, 4, 1]` AND `collider.halfExtents: [2, 2, 0.5]`, the effective collider becomes `[8, 8, 0.5]` — double the visible mesh. Symptom: player bumps into nothing you can see. **Rule: author halfExtents as if transform.scale is [1,1,1]**. For a unit cube at scale [4,4,1]: use `halfExtents: [0.5, 0.5, 0.5]`. The mesh is a unit primitive, the scale stretches it, and the collider's halfExtents get stretched by the same factor. Same rule for capsule's `radius` + `height`. The `interactive_entities_have_colliders` invariant catches missing colliders but NOT oversized ones — author it right the first time.
+
+14. **Pause state causes match to restart on resume**: If your FSM has both a `gameplay` state AND a sibling `paused` state, going `gameplay → paused → gameplay` re-fires `gameplay.on_enter` every time the player un-pauses. If `on_enter` emits `match_started` / `race_start` / `restart_game`, the match resets silently on resume. **Rule: pause is a SUBSTATE of gameplay, not a sibling.** Structure it like this:
+
+    ```json
+    "gameplay": {
+      "active_systems": [...], "active_behaviors": [...],
+      "start": "playing",
+      "on_enter": ["emit:game.match_started"],
+      "substates": {
+        "playing": {
+          "on_enter": ["show_ui:hud", "show_cursor"],
+          "on_exit": ["hide_ui:hud", "hide_cursor"],
+          "transitions": [{ "when": "keyboard:pause", "goto": "paused" }]
+        },
+        "paused": {
+          "on_enter": ["show_ui:pause_menu", "show_cursor"],
+          "on_exit": ["hide_ui:pause_menu", "hide_cursor"],
+          "transitions": [{ "when": "keyboard:resume", "goto": "playing" }]
+        }
+      }
+    }
+    ```
+
+    Resume now goes `paused → playing` (sub-transition); `gameplay.on_enter` is NOT re-fired. Five pinned templates demonstrate this: `cellar_purge`, `buccaneer_bay`, `noodle_jaunt`, `court_clash`, `banner_siege` — copy the pattern. The `pause_state_is_substate_of_gameplay` invariant catches the broken sibling form.
+
+15. **Game-over modal shows with the gameplay HUD still visible underneath**: The gameplay state's UI (score HUD, board, etc.) stays on screen after `game_over` if you don't explicitly hide it. The modal then fights the HUD for z-index and looks layered. **Rule: any state whose `on_enter` opens a `game_over` / `results` / `summary` modal should ALSO `hide_ui:<the-gameplay-hud>` in that same on_enter.** Example:
+
+    ```json
+    "game_over_win": {
+      "on_enter": ["hide_ui:tictactoe_board", "show_ui:game_over", "show_cursor"],
+      "on_exit": ["hide_ui:game_over", "show_ui:tictactoe_board"]
+    }
+    ```
+
+    Restore the HUD on `on_exit` so play-again returns the user to a full board.
+
+16. **Don't re-implement pinned library behaviors**: If your game has a moving platform, use `library.sh show behaviors/v0.1/ai/moving_platform.ts` and `Write` it in — don't hand-roll platform motion inside a gameplay system. The pinned version (a) carries any dynamic rigidbody standing on the platform (Rapier doesn't do this automatically — missing it is why "I'm on the platform but don't move with it" is such a common complaint), and (b) handles restart_game reset. Same rule for other physical-interaction behaviors: `coin_pickup`, `collect_on_touch`, `chase_camera`, `ball_roll`. When in doubt, `library.sh search "moving platform"` first. The CLI's own reinvention will miss at least one subtlety.
+
+17. **Jump-from-box doesn't work ("can only jump from ground")**: Behaviors that gate jumping on `pos.y < N` hard-code one specific floor height. The moment the player stands on any box, crate, platform, or elevated surface their `pos.y` exceeds the threshold and the behavior reports "airborne" — jumping is blocked exactly when the player needs it most. **Rule: jump gates read `rb.isGrounded`, never `pos.y`.** The engine's `PhysicsSystem.updateGroundedState` populates `rb.isGrounded` every physics tick using contact manifolds plus a short downray fallback, and is correct for any floor height.
+
+    ```ts
+    var rb = this.entity.getComponent("RigidbodyComponent");
+    var grounded = !!(rb && rb.isGrounded);
+    if (this.input.isKeyPressed("Space") && grounded) vy = this._jumpForce;
+    ```
+
+    If you also want a belt-and-suspenders fallback for the one-frame window before Rapier generates a fresh contact, `|vy| < 0.1 && cooldown <= 0` works — but ALWAYS pair it with a `_jumpCooldown` (≥0.2s) so the fallback doesn't re-fire at a jump's apex and recreate infinite space-spam. Never use `pos.y` for grounded detection; never use `|vy| < N` WITHOUT a cooldown.
+
+18. **Runtime-spawned prefab's behavior never runs**: If you spawn a prefab via `scene.spawnEntity("coin")` from inside a gameplay system (typically during a `restart_game` handler that re-seeds pickups / enemies / obstacles), expect its attached behavior scripts to run immediately — the engine auto-attaches them and initializes their `_behaviorActive` from the current FSM state's `active_behaviors` set. BUT: this only works if the behavior NAME is in the current state's `active_behaviors` list. If the state's gameplay phase is a substate (e.g. `gameplay/playing`) and your behavior is only listed under the parent `gameplay`, the spawn may see the substate's set instead. **Rule: every behavior that can appear on a runtime-spawned prefab must be listed in `active_behaviors` at the exact state (or substate) where the spawn happens.** If in doubt, list it at both levels. Symptom: coins respawn visually after Play Again but never collect, or wave-spawned enemies stand still instead of chasing.
+
+19. **Behavior listens for an event nothing emits**: `scene.events.game.on("race_start", ...)` will happily register a listener for an event name no system or flow transition ever emits — the listener just never fires. The classic trap is copy-pasting a behavior from a racing template (which DOES emit `race_start` from its gameplay.on_enter) into a non-racing game whose flow emits `restart_game` instead. Silent no-op, undetectable by type checkers. **Rule: before writing `events.<bus>.on("<name>", ...)` in a behavior or system, grep the flow and other scripts to confirm `<name>` is actually emitted somewhere.** Valid emission sources: (a) `"actions": ["emit:game.<name>"]` on a flow transition, (b) `"on_enter": ["emit:game.<name>"]` on a state, (c) `this.scene.events.<bus>.emit("<name>", ...)` anywhere in `systems/**` or `behaviors/**`. If grep finds none of those, either your listener name is wrong or you need to add the emit. The `behavior_listens_for_unemitted_event` invariant catches this statically.
+
+20. **No `boot` state → main_menu UI fails to render**: Flows that start directly at `main_menu` (no `boot` transition state) race the UI bridge's initialization. `show_ui:main_menu` fires before the bridge has finished subscribing to the `show_ui` events, so the panel never gets shown and the user sees a blank game. **Rule: every flow starts with a short `boot` state that ticks 2 frames then transitions to `main_menu`.** The 2-frame delay is enough for the UI bridge, FSM driver, and any scene-level systems to finish their own `onStart`. Pattern:
+
+    ```json
+    {
+      "start": "boot",
+      "states": {
+        "boot": {
+          "duration": -1,
+          "on_enter": ["set:boot_frames=0"],
+          "on_update": ["increment:boot_frames"],
+          "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+        },
+        "main_menu": { ... },
+        ...
+      }
+    }
+    ```
+
+    Every pinned template follows this pattern — do not skip it.
+
+21. **`transform.position = {...}` doesn't actually move the entity**: The engine caches a live reference to the `Vec3` inside `TransformComponent` at entity-creation time. Reassigning the whole `position` object (e.g. `e.transform.position = { x, y, z }`) replaces the wrapper but leaves the cached reference pointing at the OLD Vec3, so the renderer + physics see the pre-reassignment value and the entity looks frozen. **Rule: never reassign `entity.transform.position`. Mutate `.x` / `.y` / `.z` individually and call `transform.markDirty()` (or `transform.invalidate()`) OR use `this.scene.setPosition(id, x, y, z)` which does both correctly.** Symptom: you wrote motion code, the math is right, but nothing moves on screen. The asteroid-dodger "asteroids don't fly toward the ship" complaint was exactly this.
+
+22. **`scene.spawnEntity(name)` returns an entity wrapper, not a numeric id**: The return type is the scripting-layer entity handle (the same thing passed into `onStart` as `this.entity`). Storing that as if it were an id and later using it as an object-key or passing it to `destroyEntity(parseInt(id))` breaks — the wrapper stringifies to `"[object Object]"` and numeric operations fail. **Rule: unwrap to `.id` if you need a numeric id for dict keys, destroyEntity calls, or event payloads.**
+
+    ```ts
+    var e = this.scene.spawnEntity("coin");
+    if (e) {
+        var id = e.id;                              // numeric
+        this.scene.setPosition(id, sp.x, sp.y, sp.z);
+        this._aliveCoinIds[id] = true;              // numeric key works
+        // later: on pickup
+        this.scene.events.game.emit("coin_collected", { entityId: id });
+    }
+    ```
+
+    `setPosition`, `setVelocity`, and most scene API accepts either form via an internal `resolveId`, but dict keys and `parseInt(id)` calls don't — always unwrap. The driving "coins respawn but don't collect" bug was the wrapper-as-dict-key version of this.
+
+23. **Standable geometry (platforms, stairs, bridges, ramps) needs an EXPLICIT physics block — don't rely on GLB auto-collision**: When an entity has a custom GLB mesh and no `physics` field, the runtime still creates a MESH-shape collider from the GLB's `.collision.bin` file. The resulting collider's shape is whatever the asset author baked — sometimes taller / wider / lumpier than you'd expect from the visible bounding box. Platformer run 3c887c49 shipped with `platform_large/_medium/_small` having no `physics` block at all; the auto-derived mesh collider collided with the player capsule *above* where the visual top appeared to be, trapping the player inside the platform at spawn. **Rule: every platform / stair / bridge / ramp declares its own simple static physics block:**
+
+    ```json
+    "platform_large": {
+      "mesh": { "type": "custom", "asset": "...", "scale": [4, 1, 4] },
+      "physics": {
+        "type": "static",
+        "collider": { "shape": "cuboid", "halfExtents": [0.5, 0.5, 0.5] }
+      },
+      "tags": ["platform"]
+    }
+    ```
+
+    Box colliders give predictable top/side faces for the player's capsule to rest on. The engine multiplies halfExtents by the placement's `transform.scale` at runtime, so pre-scale `[0.5, 0.5, 0.5]` + per-placement `scale: [4, 1, 4]` gives a world-space 4×1×4 box. Spawn the player at least 1.5 units above the platform top to allow gravity to settle them cleanly — do not spawn them flush with or inside the mesh.
+
+24. **`show_cursor` + raw-mouse reads = broken input in pointer-lock-capable games**: When the flow calls `show_cursor`, `ui_bridge.ts` activates a virtual cursor whose position is driven by mouse delta and starts at the iframe center. This virtual cursor is DECOUPLED from the OS pointer position — they can drift far apart. Scripts that read `this.input.getMousePosition()` / `this.input.isMouseButtonDown()` get the OS pointer, while the user aims with the virtual cursor they see on screen. Click-on-object checks fail because they're comparing the wrong coordinate. **Rule: in any game that opts into `show_cursor`, read the virtual cursor's position from `ui_bridge`'s `cursor_move` event (canvas-relative) instead of raw input.** Pattern:
+
+    ```ts
+    onStart() {
+        var self = this;
+        self._cursorX = 0;
+        self._cursorY = 0;
+        this.scene.events.ui.on("cursor_move", function(d) {
+            if (!d) return;
+            self._cursorX = d.x;
+            self._cursorY = d.y;
+        });
+        // cursor_click / cursor_right_click events fire on single-frame press.
+    }
+    onUpdate(dt) {
+        // use this._cursorX / this._cursorY for aim; compare against
+        // scene.worldToScreen(...) which also returns canvas-relative coords.
+    }
+    ```
+
+    `this.input.isMouseButtonDown(0)` is safe for *held-button* detection because the raw state is synchronous with what the user actually pressed — only position needs the virtual-cursor bridge. Angry-birds run fd4c9fcd couldn't drag the ball because the slingshot compared raw mouse position against the ball's worldToScreen, and the two lived in different coordinate spaces.
+
+25. **Player-spawn coords come from the placement, NOT a hardcoded constant in the level-manager system**: Level-manager systems often have `_resetPlayer()` / `_softReset()` methods that teleport the player back to a "spawn" position on death/restart. Hardcoding `_spawnY = 2` (or any specific value) decouples the spawn from the actual world geometry — when the placement in `03_worlds.json` puts the player at (0, 11, 0) above a first platform at y=8, but the level-manager teleports to (0, 2, 0) where no platform exists, the player falls forever on every respawn. Platformer run 7846a351 shipped with exactly that bug. **Rule: in `_fullReset()` / `_setupSpawn()` / equivalent, READ the player's authored spawn from its placement and use that:**
+
+    ```ts
+    _fullReset() {
+        var player = this.scene.findEntityByName("Player");
+        if (player) {
+            // Read from the placement, not a magic number.
+            var pp = player.transform.position;
+            this._spawnX = pp.x;
+            this._spawnY = pp.y;
+            this._spawnZ = pp.z;
+        }
+        this._resetPlayer();
+    }
+    ```
+
+    Cache once on first call (the placement only fires once at scene load). Don't re-read on every reset — by then the player may have already been moved by physics. The `ground_holds_player_in_gameplay` invariant drives the FSM into the gameplay state and re-checks fall-through, so this class won't slip past the gate anymore.
+
+26. **Held-action input (drag-to-aim, charge-to-shoot, hold-to-build) needs visible feedback every frame, not just at release**: When the user is holding the mouse to drag a slingshot ball, charging a power meter, or pulling a bow back, your behavior should update the ball's / arrow's / meter's POSITION/SCALE every frame to reflect the current input — not just compute the final value at release. The angry-birds run ccfe0dd4 first-attempt symptom was "I can drag and shoot but I can't see the ball pull back" — the slingshot computed the pull vector but never updated `setPosition` on the ball during aim, only on launch. **Rule: in any aim-and-release behavior, the held-state branch of `onUpdate` should call `setPosition` (or `setScale` for charge meters) using the *current* input each frame, capped to a sane max.** Pattern:
+
+    ```ts
+    if (this._aiming) {
+        // Compute pull from current cursor vs anchor
+        var pullX = this._cursorX - this._anchorX;
+        var pullY = this._cursorY - this._anchorY;
+        var mag = Math.sqrt(pullX*pullX + pullY*pullY);
+        if (mag > this._maxPull) { pullX *= this._maxPull/mag; pullY *= this._maxPull/mag; }
+        // Update visual every frame so the user SEES the pull stretching
+        this.scene.setPosition(this._ballId, this._anchorX + pullX, this._anchorY + pullY, this._anchorZ);
+        this.scene.setVelocity(this._ballId, { x: 0, y: 0, z: 0 });
+    }
+    ```
+
+    On release, apply velocity proportional to the SAME pull vector and let physics take over.
+
+27. **Background-decoration entities tag `decoration_only`, do NOT remove the collider**: When you have purely-visual props in your scene — crowd block, spotlight pillar, star decor, parallax background plate, ambient pillar, banner, flag, smoke quad — these don't need physics. The `interactive_entities_have_colliders` invariant flags any entity whose name matches gameplay vocabulary (wall/block/pillar/decor/star/etc.) without a collider. The wrong fix is to silently bolt on a collider so the gate stops complaining; that adds collision the player will run into and the level designer didn't intend. **Rule: tag purely-visual entities with `"tags": ["decoration_only"]` in 02_entities.json.** The invariant excludes that tag from its check, the runtime ignores the missing physics block, and the collision is correctly absent. Use this for anything the player should never bump into. If the entity SHOULD collide (background wall the player can lean on, spotlight pole the player ducks behind), give it real physics — don't tag it `decoration_only` just to silence the gate.
+
+    ```json
+    "crowd_block":         { "mesh": { "type": "cube", "color": [0.4, 0.4, 0.6, 1] }, "tags": ["decoration_only"] },
+    "spotlight_pillar":    { "mesh": { "type": "cylinder", "color": [0.9, 0.9, 0.5, 1] }, "tags": ["decoration_only"] },
+    "stage_banner":        { "mesh": { "asset": "/assets/.../banner.glb" }, "tags": ["decoration_only"] }
+    ```
+
+28. **HUD HTML reads `s.X` — some script must emit `hud_update` with that key**: HUD overlays in `ui/hud/*.html` consume state via `window.addEventListener('message', ...)` and read fields off `e.data.state` (commonly aliased `var s = e.data.state`). Every `s.<key>` your HTML reads must be carried by at least one `events.ui.emit("hud_update", { <key>: ... })` call somewhere in your behaviors / systems, OR by a `state_changed` payload (the FSM driver merges every state's `vars`). The bullethell run bf29c058 shipped with `s.health` / `s.maxHealth` bound to a HP bar and a `bh_player.ts` that emitted `health_changed` on the GAME bus instead of `hud_update` on the UI bus. The HUD bar stayed at 5/5 forever even though damage tracked correctly. **Rule: when adding an HTML field to a HUD panel, also add or extend the matching `hud_update` emit. The `hud_html_field_resolves` invariant catches this statically.** Two valid forwarding patterns:
+
+    ```ts
+    // Pattern A — directly emit hud_update from the owner.
+    this.scene.events.ui.emit("hud_update", { health: this._health, maxHealth: this._maxHealth });
+
+    // Pattern B — forward an existing game-bus event into hud_update.
+    this.scene.events.game.on("health_changed", function(d) {
+        self.scene.events.ui.emit("hud_update", { health: d.health, maxHealth: d.maxHealth });
+    });
+    ```
+
+28b. **Look up valid animation clips before writing `entity.playAnimation("X", …)`**: Different GLBs ship different clip vocabularies. Quaternius's `ultimate_animated_character_pack` includes Punch/Kick/SwordSlash; the `platformer_game_kit` Character has Idle/Run/Jump but no Punch; a robot or vehicle GLB may have no clips at all. The engine's `playAnimation` silently no-ops when the requested clip name doesn't exist on the bound GLB — the user sees "no animation" with no console error. **Rule: before writing `entity.playAnimation("X", …)`, run `bash library.sh animations <asset_path>` to confirm "X" is in the clip list.** Asset paths take the same form 02_entities.json uses (`/assets/quaternius/characters/.../Foo.glb`). The `animation_clip_resolves` playtest invariant catches mismatches at gate time, but checking up-front saves a retry round-trip.
+
+    ```bash
+    # See what clips Kimono_Male.glb ships with:
+    bash library.sh animations /assets/quaternius/characters/ultimate_animated_character_pack/Kimono_Male.glb
+    # → Death, Defeat, Idle, Jump, PickUp, Punch, RecieveHit, Roll,
+    #   Run, Run_Carry, Shoot_OneHanded, SitDown, StandUp, SwordSlash,
+    #   Victory, Walk, Walk_Carry
+    ```
+
+    Then in your behavior:
+
+    ```ts
+    if (this.entity.playAnimation) {
+        try { this.entity.playAnimation("Punch", { loop: false }); } catch (e) { /* missing clip */ }
+    }
+    ```
+
+    If the GLB has no matching clip for the action you want, fall back to a mesh-mutate visual (transform.scale pulse / brief lunge) — see entry 29 for the visible-feedback pattern.
+
+29a. **Use `entity.transform.faceDirection(dx, dz)` instead of hardcoded `setRotationEuler(0, ±90, 0)` for motion-driven facing**: When a behaviour wants the character/vehicle mesh to face the direction of movement, do NOT compute yaw angles by hand. Hand-rolled angles are coin-flips — `±90`, `0 vs 180`, `Math.atan2(-vx, -vz) * 180/Math.PI` — and the right sign depends on the chosen GLB's intrinsic forward axis. Iteration 6's beat_em_up shipped with `setRotationEuler(0, +90, 0)` for "facing right" and the user reported "the character visual facing direction is opposite." **Rule: any time you'd write `setRotationEuler(0, <yaw>, 0)` to face a movement direction, replace it with `entity.transform.faceDirection(dx, dz)`.** The engine handles the math from a single source of truth (canonical forward = -Z) and works on any GLB. Only use raw `setRotationEuler` for non-motion rotations (steering, fixed orientation, mesh-relative tweaks). The `mesh_facing_tracks_motion` invariant catches mesh-faces-backward statically.
+
+    ```ts
+    // ❌ Old pattern — coin-flip on the sign:
+    if (this._facing > 0)      this.entity.transform.setRotationEuler(0,  90, 0);
+    else if (this._facing < 0) this.entity.transform.setRotationEuler(0, -90, 0);
+
+    // ✅ New pattern — engine handles the axis math:
+    if (Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01) {
+        this.entity.transform.faceDirection(dx, dz);
+    }
+    ```
+
+29. **Action methods (`_doAttack` / `_fire` / `_doSpecial` / `_swing`) must produce visible feedback in their body, every press**: When the player presses an action key, you owe them a visible reaction *that frame* — a swing animation, a projectile spawn, a brief mesh tweak (scale pulse, rotation kick), or a particle/VFX spawn. The fighter run d8f32a95 shipped without any of these: `_doAttack` ran damage logic + cooldown + a symbolic `melee_swing` emit, but had zero `playAnimation` calls anywhere in the artifact. The user said "no animation when im doing an attack." Audio alone is NOT sufficient — the user complaint is visual. A symbolic event emit is NOT sufficient either unless some other script's listener for that event actually animates; iteration 6's fighter emitted `melee_swing` into a void with zero subscribers. **Rule: every action method's body has ONE OR MORE of: `entity.playAnimation(...)`, `transform.scale/.rotation/setRotationEuler` mutation, `scene.spawnEntity(<projectile_or_vfx>)`, OR an emit whose listener verifiably animates.** The `action_has_visible_feedback` invariant catches this. Pattern:
+
+    ```ts
+    _doAttack(kind, damage, range) {
+        // Always-emit visual feedback, regardless of whether the swing connects.
+        if (this.entity.playAnimation) {
+            try { this.entity.playAnimation(kind === "punch" ? "Punch" : "Kick", { loop: false }); } catch (e) { /* missing clip */ }
+        }
+        // Damage / hit logic ...
+        if (hit) {
+            this.scene.events.game.emit("entity_damaged", { entityId: opp.id, amount: damage });
+        }
+    }
+    ```
 
 ## Quality Checklist
 
@@ -1169,6 +1585,7 @@ Quick mental checklist when something looks wrong but the validator passes:
 - [ ] Every `ui_event:panel:action` transition matches an `emit('action')` literal in that panel's HTML.
 - [ ] Every `game_event:<name>` matches an event declared in `project/systems/event_definitions.ts`.
 - [ ] The root flow has `start`, and every compound state has its own `start`.
+- [ ] `PLAYTEST.ts` exists, sets `gameType`, and default-exports an async function that asserts at least one core-loop property of the game (player moves when primary action held, UI button progresses state, etc.).
 
 **Aspirational (good games have these, but validator won't fail without them):**
 - [ ] Flow has boot → main_menu → gameplay → game_over.

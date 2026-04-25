@@ -151,7 +151,16 @@ var results = data.results || [];
 if (results.length === 0) { console.log('[' + q + '] No results.'); }
 else {
     console.log('[' + q + '] ' + results.length + ' result(s):');
-    for (var r of results) console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')');
+    for (var r of results) {
+        // Canonical size in meters (W × H × D after MODEL_FACING.json scale).
+        // Use it to plan placements: spacing >= max width avoids overlap,
+        // height tells you whether to clear it with a jump, etc.
+        var sz = '';
+        if (Array.isArray(r.size) && r.size.length === 3) {
+            sz = '  ' + r.size[0].toFixed(2) + 'x' + r.size[1].toFixed(2) + 'x' + r.size[2].toFixed(2) + 'm';
+        }
+        console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')' + sz);
+    }
 }
 " "\$RESP" "\$QUERY"
 done
@@ -160,7 +169,7 @@ done
 const LIBRARY_SH = `#!/bin/bash
 # library.sh — on-demand access to the reusable game-components library.
 #
-# Three subcommands:
+# Subcommands:
 #
 #   list [KIND]
 #       Show the library index. KIND is one of behaviors | systems | ui |
@@ -219,6 +228,21 @@ const LIBRARY_SH = `#!/bin/bash
 #       Empty results mean no library file or template uses QUERY
 #       literally — check CREATOR_CONTEXT.md for the API's docs.
 #
+#   animations <asset_path> [<asset_path2> ...]
+#       List the animation clip names baked into one or more GLB
+#       assets. Use BEFORE writing entity.playAnimation("X", ...) calls
+#       so X is guaranteed to be a real clip on the chosen GLB.
+#       Different GLBs ship different clip vocabularies — Quaternius
+#       characters might have Punch/Kick/Run, robots might only have
+#       Idle/Walk/Death. The animation_clip_resolves invariant catches
+#       missing clips at gate time, but checking up-front saves a
+#       retry round-trip.
+#
+#       Asset paths take the same form 02_entities.json uses:
+#         /assets/quaternius/characters/ultimate_animated_character_pack/Kimono_Male.glb
+#
+#       Output is one clip name per line under a "=== <path> ===" header.
+#
 # Soft-fails gracefully if the engine backend is unreachable — writes a
 # warning to stderr and exits 0 so a CREATE_GAME run isn't broken by a
 # transient. Reads URL + token from .search_config.json (same file the
@@ -238,14 +262,39 @@ if [ ! -f .search_config.json ]; then
 fi
 
 URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.url||'')")
+FALLBACK_URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.fallbackUrl||'')")
 TOKEN=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.token||'')")
 
-if [ -z "\$URL" ]; then
+if [ -z "\$URL" ] && [ -z "\$FALLBACK_URL" ]; then
     echo "WARN: no backend URL in .search_config.json." >&2
     exit 0
 fi
 
 enc() { node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$1"; }
+
+# Try local engine URL first, then fall back to the public URL (typically
+# the prod CDN / main server). On worker hosts where the docker bridge
+# can't reach \`host.docker.internal\`, the local URL fails fast and the
+# fallback carries the call. Mirrors the URL/FALLBACK_URL pattern that
+# search_assets.sh already uses. Echos response body on success; returns
+# non-zero only when BOTH attempts fail.
+fetch_lib() {
+    local rel="\$1"
+    local resp
+    if [ -n "\$URL" ]; then
+        resp=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/\${rel}" 2>/dev/null) && {
+            printf '%s' "\$resp"
+            return 0
+        }
+    fi
+    if [ -n "\$FALLBACK_URL" ]; then
+        resp=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${FALLBACK_URL}/api/engine/internal/\${rel}" 2>/dev/null) && {
+            printf '%s' "\$resp"
+            return 0
+        }
+    fi
+    return 1
+}
 
 # Parse flags from remaining args
 POSITIONAL=()
@@ -285,7 +334,7 @@ list)
     if [ \${#POSITIONAL[@]} -gt 0 ]; then
         QS="?kind=\$(enc "\${POSITIONAL[0]}")"
     fi
-    RESP=\$(curl -sf --max-time 5 "\${HDR[@]}" "\${URL}/api/engine/internal/library/index\${QS}" 2>/dev/null) || {
+    RESP=\$(fetch_lib "library/index\${QS}") || {
         echo "WARN: library/index endpoint unreachable." >&2
         exit 0
     }
@@ -370,7 +419,7 @@ search)
     [ -n "\$CATEGORY" ] && QS="\${QS}&category=\$(enc "\$CATEGORY")"
     [ -n "\$LIMIT" ]    && QS="\${QS}&limit=\${LIMIT}"
 
-    RESP=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/library/search?\${QS}" 2>/dev/null) || {
+    RESP=\$(fetch_lib "library/search?\${QS}") || {
         echo "WARN: library/search endpoint unreachable." >&2
         exit 0
     }
@@ -420,7 +469,16 @@ show)
     # "=== NOT_FOUND: ... ===" marker that multi-path already uses, so
     # the agent sees a consistent error shape across single and multi.
     BODY_FILE=\$(mktemp 2>/dev/null || echo /tmp/libsh.\$\$.body)
-    HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${URL}/api/engine/internal/library/file?\${QS}" 2>/dev/null) || HTTP="000"
+    HTTP="000"
+    if [ -n "\$URL" ]; then
+        HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${URL}/api/engine/internal/library/file?\${QS}" 2>/dev/null) || HTTP="000"
+    fi
+    # Only retry via fallback on a true network failure. A 404 means the
+    # path really doesn't exist and the local backend already answered —
+    # retrying a mirror would just double-404 for no reason.
+    if { [ "\$HTTP" = "000" ] || [ -z "\$HTTP" ]; } && [ -n "\$FALLBACK_URL" ]; then
+        HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${FALLBACK_URL}/api/engine/internal/library/file?\${QS}" 2>/dev/null) || HTTP="000"
+    fi
     if [ "\$HTTP" = "000" ] || [ -z "\$HTTP" ]; then
         echo "WARN: library/file endpoint unreachable." >&2
     elif [ "\$HTTP" = "404" ]; then
@@ -445,6 +503,39 @@ show)
     rm -f "\$BODY_FILE"
     ;;
 
+animations)
+    if [ \${#POSITIONAL[@]} -eq 0 ]; then
+        echo "Usage: library.sh animations <asset_path> [<asset_path2> ...]" >&2
+        echo "" >&2
+        echo "Look up animation clip names baked into one or more GLB assets." >&2
+        echo "Use the same path form 02_entities.json uses, e.g." >&2
+        echo "  /assets/quaternius/characters/ultimate_animated_character_pack/Kimono_Male.glb" >&2
+        echo "" >&2
+        echo "Use this BEFORE writing entity.playAnimation(\\"X\\", ...) calls so X is a real clip." >&2
+        echo "The animation_clip_resolves invariant catches missing clips, but checking up-front" >&2
+        echo "saves a retry round-trip." >&2
+        exit 1
+    fi
+    QS=""
+    for ASSET in "\${POSITIONAL[@]}"; do
+        if [ -n "\$QS" ]; then QS="\${QS}&"; fi
+        QS="\${QS}path=\$(enc "\$ASSET")"
+    done
+    BODY_FILE=\$(mktemp)
+    HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${URL}/api/engine/internal/library/animations?\${QS}" 2>/dev/null) || HTTP="000"
+    if [ "\$HTTP" != "200" ] && [ -n "\$FALLBACK_URL" ] && [ "\$URL" != "\$FALLBACK_URL" ]; then
+        HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${FALLBACK_URL}/api/engine/internal/library/animations?\${QS}" 2>/dev/null) || HTTP="000"
+    fi
+    if [ "\$HTTP" = "200" ]; then
+        cat "\$BODY_FILE"
+    else
+        echo "WARN: library/animations endpoint returned HTTP \$HTTP" >&2
+        head -c 400 "\$BODY_FILE" >&2
+        echo >&2
+    fi
+    rm -f "\$BODY_FILE"
+    ;;
+
 examples)
     if [ \${#POSITIONAL[@]} -eq 0 ]; then
         echo "Usage: library.sh examples QUERY [--limit N]" >&2
@@ -452,7 +543,7 @@ examples)
     fi
     QS="q=\$(enc "\${POSITIONAL[0]}")"
     [ -n "\$LIMIT" ] && QS="\${QS}&limit=\${LIMIT}"
-    RESP=\$(curl -sf --max-time 10 "\${HDR[@]}" "\${URL}/api/engine/internal/library/examples?\${QS}" 2>/dev/null) || {
+    RESP=\$(fetch_lib "library/examples?\${QS}") || {
         echo "WARN: library/examples endpoint unreachable." >&2
         exit 0
     }
@@ -698,6 +789,21 @@ echo "=== Assembler Check (strict) ==="
 # invalid mesh/audio/texture asset paths. Runs entirely offline.
 node validate_assembler.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
+
+echo "=== Headless Playtest ==="
+# The orchestrator (cli_creator.ts) always runs the full headless playtest
+# against your project/ after this script returns — that's the authoritative
+# gate, with up to 3 retries if it fails. If the playtest binary happens to
+# be on PATH inside this sandbox, we run it here too so you can see failures
+# during your own turn budget rather than learning about them on a retry.
+# When the binary isn't reachable (default sandbox), we skip — the
+# orchestrator still enforces. A skip is NOT a failure.
+if command -v playtest >/dev/null 2>&1; then
+    playtest project/ 2>&1
+    if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
+else
+    echo "(playtest binary not on PATH in this sandbox — the orchestrator will run it post-CLI)"
+fi
 
 if [ $ERRORS -eq 0 ]; then
     echo "All checks passed."

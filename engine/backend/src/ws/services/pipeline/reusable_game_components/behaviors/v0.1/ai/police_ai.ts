@@ -68,7 +68,7 @@ class PoliceAIBehavior extends GameScript {
         var effectiveRange = this._detectionRange + wantedLevel * 15;
 
         if (wantedLevel > 0 && dist < effectiveRange) {
-            var angle = Math.atan2(dx, dz) * 180 / Math.PI;
+            var angle = Math.atan2(-dx, -dz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, angle, 0);
 
             if (dist > this._fireRange * 0.6) {

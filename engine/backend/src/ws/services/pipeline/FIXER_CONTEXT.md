@@ -421,7 +421,7 @@ These are the recurring pitfalls that flip a clean fix into a multi-iteration lo
 {
   "definitions": {
     "player": {
-      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/...", "scale": [0.4, 0.4, 0.4], "modelRotationY": 180 },
+      "mesh": { "type": "custom", "asset": "/assets/quaternius/characters/..." },
       "mesh_override": { "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png" },
       "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
       "tags": ["player"],
@@ -444,12 +444,78 @@ These are the recurring pitfalls that flip a clean fix into a multi-iteration lo
 
 For `custom` meshes:
 - `asset`: path from the asset catalog — use `bash search_assets.sh` to find it.
-- `scale`: `[x, y, z]` — uniform usually.
-- `modelRotationY` / `modelRotationX` / `modelRotationZ`: bake a rotation into the loaded mesh (**degrees**). Use `modelRotationY: 180` when the asset's "forward" faces the wrong way (common for Quaternius character packs).
+- `scale`: `[x, y, z]` — **OMIT** for new entities. The engine reads `MODEL_FACING.json` and auto-scales every model to its real-world meter size. Don't pass `scale` to "fix" a model that looks tiny or huge — that's a registry gap. **For LEGACY entities (pre-existing) that already have `mesh.scale` set:** leave it alone unless the project's `useFacingRegistry` flag is `true` (in which case the registry will double-apply scale and you should remove the `mesh.scale` field).
+- `modelRotationY` / `modelRotationX` / `modelRotationZ`: **deprecated for registered packs.** The engine auto-rotates every model so it faces canonical −Z. **For LEGACY entities** that already have these fields: leave them when `useFacingRegistry` is absent (registry is off, the manual rotation is doing real work); remove them when the project has `useFacingRegistry: true` (the registry's per-pack rotation is fighting them).
 
 For primitive meshes:
 - `color`: `[r, g, b, a]` 0–1. Applied to the mesh's default material.
-- `scale`: same as above.
+- `scale`: required — primitives have no source dimensions; their `scale` IS their size in meters.
+
+### Canonical convention (the engine guarantees this for every loaded model)
+
+| Axis     | Direction | Meaning                                     |
+|----------|-----------|---------------------------------------------|
+| **+Y**   | up        | gravity is −Y                               |
+| **−Z**   | forward   | what the model "faces" (windshield, eyes)   |
+| **+X**   | right     | from the model's own POV                    |
+| **1 unit** | = 1 meter | sedan length ≈ 4.5, human height ≈ 1.75   |
+| **origin**  | bottom-center | feet/wheels at Y=0, centered on X/Z   |
+
+Right-handed. To make an entity face north/east/south/west, don't compute Euler angles by hand — use `placement.rotation = [0, yawDegrees, 0]` where yaw 0 = canonical forward (−Z = north).
+
+This convention is active when `projectConfig.useFacingRegistry === true`, the default for newly-created projects. Legacy projects (saved before the registry existed) leave the flag absent — for those, the engine returns raw GLBs and per-entity `mesh.scale` / `modelRotationY` values still apply unchanged. **As a fixer, check the project's `useFacingRegistry` flag before editing mesh fields** — see "Legacy vs new project" below.
+
+### Legacy vs new project — which mode is this fix in?
+
+Look at `projectConfig.useFacingRegistry` (stored in the project metadata). The engine treats:
+- `true` → registry mode — `MODEL_FACING.json` rotation + scale apply automatically; `mesh.scale` / `mesh.modelRotation*` on custom meshes will FIGHT the registry. Remove them when fixing visual bugs in registered packs.
+- absent / `false` → legacy mode — engine returns raw GLBs; per-entity `mesh.scale` / `mesh.modelRotation*` are doing real work, do NOT remove them when fixing.
+
+When in doubt: if the existing entities are heavy with `mesh.scale: [0.4, …]` and `modelRotationY: 180` patterns, it's a legacy project. Preserve those values when editing.
+
+### Sizing rules of thumb (use the size info from `search_assets.sh`)
+
+`search_assets.sh` results end each line with the model's canonical bounding-box size after the registry's scale (only meaningful when `useFacingRegistry` is on):
+
+```
+/assets/kenney/3d_models/car_kit/sedan.glb  (3D Models, car_kit)  3.00x2.60x5.10m
+                                                                   │    │    │
+                                                                   │    │    └─ depth along Z (front↔back)
+                                                                   │    └────── height along Y (ground↔sky)
+                                                                   └─────────── width along X (left↔right)
+```
+
+**Axis mapping**: `W x H x D` = **X-extent × Y-extent × Z-extent**, in meters.
+The model faces **−Z** by default, so **D is the model's length from tail to nose**.
+
+**How to use this for fixing collision / spacing bugs**: a model placed at `position: [x, y, z]` with no rotation occupies roughly:
+- from `x − W/2` to `x + W/2` (along X)
+- from `y` to `y + H` (origin is bottom-center, so feet / wheels at placement_y)
+- from `z − D/2` to `z + D/2` (along Z)
+
+To avoid overlap between two instances on flat ground:
+```
+|x_A − x_B| ≥ (W_A + W_B) / 2 + ε     (X-axis separation)
+|z_A − z_B| ≥ (D_A + D_B) / 2 + ε     (Z-axis separation)
+```
+…or the distance along ANY axis must exceed the combined half-extents along that axis. Use ε ≈ 0.2 m buffer.
+
+If the placement has `rotation: [0, yaw, 0]`, the AABB rotates too — for yaw = 90°, swap W and D.
+
+**Reference scales for human-piloted gameplay:**
+- **Player walk** ≈ 5 m/s · **sprint** ≈ 8 m/s · **vehicle top** ≈ 15–30 m/s
+- **Standing jump** ≈ 2 m forward / 1.2 m up · **double jump** ≈ 3.5 m / 2.5 m
+- **Door frame** = 2.1 m tall · **ceiling clearance** ≈ 2.5 m
+- **Driving lane width** ≈ 4 m
+- **Combat engagement range**: melee ≈ 2 m, gun ≈ 30 m, sniper ≈ 100 m
+
+**Common bugs the size info helps you fix:**
+- "Things overlap" → check `(W_A + W_B) / 2` against actual centre-to-centre distance
+- "Player can't jump to the platform" → spacing > 2–3 m on flat ground, > 1.2 m vertical
+- "Buildings clip into ground" → placement_y < 0, OR origin assumption wrong; check size H
+- "Pickup is unreachable" → must be at `y = 0.5 + H/2` so player walks through the centre
+
+If a search result line lacks the size suffix, the GLB couldn't be inspected (rare). Pick a different model or assume conservative ~1 m for a single-mesh prop.
 
 ### Material overrides
 

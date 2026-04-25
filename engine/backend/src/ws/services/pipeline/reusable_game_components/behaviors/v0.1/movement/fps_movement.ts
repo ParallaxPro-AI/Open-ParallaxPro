@@ -7,11 +7,24 @@ class FPSMovementBehavior extends GameScript {
     _jumpForce = 7;
     _canJump = true;
     _matchOver = false;
+    _currentAnim = "";
 
     onStart() {
         var self = this;
         this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
         this.scene.events.game.on("match_started", function() { self._matchOver = false; });
+        // Kick off Idle so the model isn't stuck in T-pose at spawn.
+        this._playAnim("Idle");
+    }
+
+    // Switch animation only on change so the engine doesn't restart from
+    // frame 0 every tick. No-op if the model lacks the named clip.
+    _playAnim(name) {
+        if (this._currentAnim === name) return;
+        this._currentAnim = name;
+        if (this.entity.playAnimation) {
+            try { this.entity.playAnimation(name, { loop: true }); } catch (e) {}
+        }
     }
 
     onUpdate(dt) {
@@ -45,7 +58,6 @@ class FPSMovementBehavior extends GameScript {
         var vz = (-Math.cos(yaw) * forward + Math.sin(yaw) * strafe) * speed;
 
         // Get current vertical velocity from physics, keep it (gravity)
-        var pos = this.entity.transform.position;
         var vy = 0;
         var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
         if (rb && rb.getLinearVelocity) {
@@ -53,9 +65,22 @@ class FPSMovementBehavior extends GameScript {
             vy = vel.y || 0;
         }
 
-        // Jump when grounded (close to ground)
-        if (this.input.isKeyPressed("Space") && pos.y < 1.0) {
+        // Jump when grounded. Read rb.isGrounded (populated every physics
+        // tick by PhysicsSystem.updateGroundedState via contact manifolds
+        // + a short downray fallback). A `pos.y < N` threshold bakes in
+        // one specific floor height and falsely reports "airborne" the
+        // moment the player stands on a box, crate, or elevated platform —
+        // which blocks jumping from those surfaces to higher ground.
+        // A 0.3s cooldown prevents the `vertically-resting` fallback from
+        // re-firing at a jump's apex and recreating the infinite-jump bug.
+        if (this._jumpCooldown === undefined) this._jumpCooldown = 0;
+        this._jumpCooldown -= dt;
+        var grounded = !!(rb && rb.isGrounded);
+        var verticallyResting = Math.abs(vy) < 0.1 && this._jumpCooldown <= 0;
+        var canJump = grounded || verticallyResting;
+        if (this.input.isKeyPressed("Space") && canJump) {
             vy = this._jumpForce;
+            this._jumpCooldown = 0.3;
         }
 
         this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
@@ -68,5 +93,15 @@ class FPSMovementBehavior extends GameScript {
         // other peers see a soldier running backwards relative to where
         // they're looking.
         this.entity.transform.setRotationEuler(0, -(this.scene._fpsYaw || 0), 0);
+
+        // Animation state: Jump while airborne, Run when sprinting and
+        // moving, Walk when moving normally, Idle otherwise. Names match
+        // the standard Quaternius animated character pack.
+        var moving = (forward !== 0 || strafe !== 0);
+        var airborne = !grounded;
+        if (airborne)                                this._playAnim("Jump");
+        else if (moving && speed === this._sprintSpeed) this._playAnim("Run");
+        else if (moving)                             this._playAnim("Walk");
+        else                                         this._playAnim("Idle");
     }
 }

@@ -6,6 +6,6 @@ class EnemyWorkerAIBehavior extends GameScript {
     _pickT() { var p=this.entity.transform.position; this._tX=p.x+(Math.random()-0.5)*20; this._tZ=p.z+(Math.random()-0.5)*20; this._mt=4+Math.random()*4; }
     onUpdate(dt) { if(this._dead) return; this._mt-=dt; if(this._mt<=0)this._pickT();
         var p=this.entity.transform.position,dx=this._tX-p.x,dz=this._tZ-p.z,d=Math.sqrt(dx*dx+dz*dz);
-        if(d>1){this.scene.setPosition(this.entity.id,p.x+(dx/d)*this._speed*dt,p.y,p.z+(dz/d)*this._speed*dt);this.entity.transform.setRotationEuler(0,Math.atan2(dx,dz)*180/Math.PI,0);}
+        if(d>1){this.scene.setPosition(this.entity.id,p.x+(dx/d)*this._speed*dt,p.y,p.z+(dz/d)*this._speed*dt);this.entity.transform.setRotationEuler(0,Math.atan2(-dx,-dz)*180/Math.PI,0);}
     }
 }

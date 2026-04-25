@@ -100,11 +100,14 @@ class SidescrollPlatformerBehavior extends GameScript {
 
         this.scene.setVelocity(this.entity.id, { x: targetVx, y: vy, z: 0 });
 
-        // Face the movement direction. Camera looks along -Z, so yaw 90
-        // faces +X (right) and yaw -90 faces -X (left). This keeps the
-        // model visually consistent when dashing in either direction.
-        if (strafe > 0.01)      this.entity.transform.setRotationEuler(0,  this._facingDeg, 0);
-        else if (strafe < -0.01) this.entity.transform.setRotationEuler(0, -this._facingDeg, 0);
+        // Face the movement direction using the engine's canonical -Z
+        // forward. faceDirection(dx, dz) handles the per-asset axis
+        // mapping so behaviours don't have to coin-flip ±90° yaw values
+        // and risk shipping mesh-faces-backwards (iteration 6 beat_em_up
+        // class). Skip when not strafing so the mesh holds its last
+        // direction during pure idle.
+        if (strafe > 0.01)      this.entity.transform.faceDirection(1, 0);
+        else if (strafe < -0.01) this.entity.transform.faceDirection(-1, 0);
 
         // Animation — Run / Jump_Start / Idle. No-op if the mesh has no
         // matching clip; wrapped in try/catch to survive unknown clips.

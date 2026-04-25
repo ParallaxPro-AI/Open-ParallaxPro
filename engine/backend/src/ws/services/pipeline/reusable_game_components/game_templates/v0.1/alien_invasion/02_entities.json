@@ -1,111 +1,218 @@
 {
   "definitions": {
     "camera": {
-      "camera": { "fov": 48 },
-      "tags": ["camera"],
-      "transform": { "position": [0, 26, 28] },
+      "camera": {
+        "fov": 48
+      },
+      "tags": [
+        "camera"
+      ],
+      "transform": {
+        "position": [
+          0,
+          26,
+          28
+        ]
+      },
       "behaviors": [
         {
           "name": "camera_invader_fixed",
           "script": "camera/camera_invader_fixed.ts",
-          "params": { "posX": 0, "posY": 26, "posZ": 28, "lookX": 0, "lookY": 0, "lookZ": -8 }
+          "params": {
+            "posX": 0,
+            "posY": 26,
+            "posZ": 28,
+            "lookX": 0,
+            "lookY": 0,
+            "lookZ": -8
+          }
         }
       ]
     },
-
     "player": {
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/ultimate_spaceships/Spitfire.glb",
-        "scale": [1.0, 1.0, 1.0],
-        "modelRotationY": 180
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["player"],
+      "tags": [
+        "player"
+      ],
       "label": false,
       "behaviors": [
         {
           "name": "invader_ship",
           "script": "movement/invader_ship.ts",
-          "params": { "speed": 14, "boundsHalfX": 18, "fixedY": 1, "fixedZ": 9, "fireCooldown": 0.25 }
+          "params": {
+            "speed": 14,
+            "boundsHalfX": 18,
+            "fixedY": 1,
+            "fixedZ": 9,
+            "fireCooldown": 0.25
+          }
         }
       ]
     },
-
     "playfield": {
       "mesh": {
         "type": "cube",
-        "color": [0.03, 0.05, 0.1, 1],
-        "scale": [48, 0.3, 44]
+        "color": [
+          0.03,
+          0.05,
+          0.1,
+          1
+        ],
+        "scale": [
+          48,
+          0.3,
+          44
+        ]
       },
       "physics": false,
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_04.png"
       }
     },
-
     "playfield_grid_line": {
       "mesh": {
         "type": "cube",
-        "color": [0.1, 0.9, 0.75, 1],
-        "scale": [40, 0.03, 0.08],
-        "emissive": [0.15, 1.0, 0.85],
+        "color": [
+          0.1,
+          0.9,
+          0.75,
+          1
+        ],
+        "scale": [
+          40,
+          0.03,
+          0.08
+        ],
+        "emissive": [
+          0.15,
+          1.0,
+          0.85
+        ],
         "emissiveIntensity": 1.6
       },
       "physics": false,
-      "tags": ["grid_line", "decor"],
+      "tags": [
+        "grid_line",
+        "decor"
+      ],
       "label": false
     },
-
     "playfield_side_wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.15, 0.1, 0.2, 1],
-        "scale": [0.4, 4, 44],
-        "emissive": [0.25, 0.1, 0.4],
+        "color": [
+          0.15,
+          0.1,
+          0.2,
+          1
+        ],
+        "scale": [
+          0.4,
+          4,
+          44
+        ],
+        "emissive": [
+          0.25,
+          0.1,
+          0.4
+        ],
         "emissiveIntensity": 0.6
       },
       "physics": false,
-      "tags": ["wall", "decor"],
+      "tags": [
+        "wall",
+        "decor"
+      ],
       "label": false
     },
-
     "player_baseline": {
       "mesh": {
         "type": "cube",
-        "color": [0.2, 0.95, 0.7, 1],
-        "scale": [40, 0.05, 0.15],
-        "emissive": [0.25, 1.0, 0.75],
+        "color": [
+          0.2,
+          0.95,
+          0.7,
+          1
+        ],
+        "scale": [
+          40,
+          0.05,
+          0.15
+        ],
+        "emissive": [
+          0.25,
+          1.0,
+          0.75
+        ],
         "emissiveIntensity": 2.2
       },
       "physics": false,
-      "tags": ["baseline", "decor"],
+      "tags": [
+        "baseline",
+        "decor"
+      ],
       "label": false
     },
-
     "bg_star": {
       "mesh": {
         "type": "sphere",
-        "color": [1, 1, 1, 1],
-        "scale": [0.1, 0.1, 0.1],
-        "emissive": [1, 1, 1],
+        "color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scale": [
+          0.1,
+          0.1,
+          0.1
+        ],
+        "emissive": [
+          1,
+          1,
+          1
+        ],
         "emissiveIntensity": 3.0
       },
       "physics": false,
-      "tags": ["star", "decor"],
+      "tags": [
+        "star",
+        "decor"
+      ],
       "label": false
     },
-
     "sky_dome": {
       "mesh": {
         "type": "sphere",
-        "color": [0.012, 0.015, 0.045, 1],
-        "scale": [240, 240, 240]
+        "color": [
+          0.012,
+          0.015,
+          0.045,
+          1
+        ],
+        "scale": [
+          240,
+          240,
+          240
+        ]
       },
       "physics": false,
-      "tags": ["sky"],
+      "tags": [
+        "sky"
+      ],
       "label": false
     }
   }

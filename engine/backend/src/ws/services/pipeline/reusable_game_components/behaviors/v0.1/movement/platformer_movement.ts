@@ -30,9 +30,18 @@ class PlatformerMovementBehavior extends GameScript {
 
         this._jumpCooldown -= dt;
 
-        // Ground detection via velocity check
+        // Ground detection uses rb.isGrounded EXCLUSIVELY (contact
+        // manifolds + engine downray fallback in PhysicsSystem). Earlier
+        // versions fell back on `|vy| < 0.5 && cooldown` to catch a
+        // just-landed edge case — but since the engine already does a
+        // short downray on the same frame, the fallback is redundant AND
+        // it fires at the APEX of every jump (vy crosses zero there).
+        // With the cooldown expired (jumps last longer than 0.2s), the
+        // fallback lit up mid-air and granted another jump, producing
+        // the "spam space forever" infinite-jump bug from platformer run
+        // 3c887c49. Trust the engine; no vy-based shortcut.
         var wasGrounded = this._grounded;
-        this._grounded = Math.abs(vy) < 0.5 && this._jumpCooldown <= 0;
+        this._grounded = !!(rb && rb.isGrounded);
 
         if (this._grounded && !wasGrounded) {
             this._hasDoubleJumped = false;
@@ -56,11 +65,12 @@ class PlatformerMovementBehavior extends GameScript {
 
         this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
 
-        // Face movement direction
+        // Face movement direction using engine's canonical -Z forward.
+        // faceDirection handles the rotation math from a single source of
+        // truth so this behaviour stays correct on any GLB.
         var moving = Math.abs(vx) > 0.1 || Math.abs(vz) > 0.1;
         if (moving) {
-            var moveAngle = Math.atan2(vx, vz) * 180 / Math.PI;
-            this.entity.transform.setRotationEuler(0, moveAngle, 0);
+            this.entity.transform.faceDirection(vx, vz);
         }
 
         // Animations
