@@ -153,7 +153,8 @@
           "transitions": [
             {
               "when": "ui_event:game_over:play_again",
-              "goto": "white_turn"
+              "goto": "white_turn",
+              "actions": ["emit:game.restart_game"]
             }
           ]
         },
@@ -173,7 +174,8 @@
           "transitions": [
             {
               "when": "ui_event:game_over:play_again",
-              "goto": "white_turn"
+              "goto": "white_turn",
+              "actions": ["emit:game.restart_game"]
             }
           ]
         },
@@ -193,7 +195,8 @@
           "transitions": [
             {
               "when": "ui_event:game_over:play_again",
-              "goto": "white_turn"
+              "goto": "white_turn",
+              "actions": ["emit:game.restart_game"]
             }
           ]
         }

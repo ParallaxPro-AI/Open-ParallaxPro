@@ -54,7 +54,7 @@
           "on_enter": ["show_ui:game_over", "show_cursor"],
           "on_exit": ["hide_ui:game_over", "hide_cursor"],
           "transitions": [
-            { "when": "ui_event:game_over:play_again", "goto": "playing" }
+            { "when": "ui_event:game_over:play_again", "goto": "playing", "actions": ["emit:game.game_ready"] }
           ]
         }
       },
