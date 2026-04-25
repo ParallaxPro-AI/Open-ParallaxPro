@@ -31,6 +31,7 @@
  */
 
 import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'url';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -38,6 +39,17 @@ import * as fs from 'fs';
 type AgentId = 'claude' | 'codex' | 'opencode' | 'copilot';
 
 const HOME = os.homedir();
+
+// Absolute host path of `engine/` (this file lives at
+// engine/backend/src/ws/services/pipeline/docker_sandbox.ts → 5 levels up).
+// Bind-mounted into the container at ENGINE_MOUNT so the in-sandbox
+// `playtest` wrapper can run the headless cli against the live engine
+// source. RO so a misbehaving CLI can't mutate engine code.
+const ENGINE_DIR_HOST = (() => {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    return path.resolve(here, '..', '..', '..', '..', '..');
+})();
+const ENGINE_MOUNT = '/opt/parallaxpro/engine';
 
 /**
  * Per-CLI auth paths we bind-mount (RW so token refresh works).
@@ -161,6 +173,12 @@ export function wrapSpawn(
         // match the host paths cli_fixer expects to read.
         '-v', `${sandboxDir}:${sandboxDir}`,
         '-w', sandboxDir,
+        // Engine source bind-mounted RO so the image's `/usr/local/bin/playtest`
+        // wrapper can run the headless cli against the live source. RO blocks
+        // a misbehaving CLI from mutating shared code; the playtest only
+        // needs to READ. Path is fixed (`/opt/parallaxpro/engine`) inside the
+        // container so the wrapper can hardcode it.
+        '-v', `${ENGINE_DIR_HOST}:${ENGINE_MOUNT}:ro`,
     ];
 
     // The container has no /home/<user> baked in, so docker auto-creates it

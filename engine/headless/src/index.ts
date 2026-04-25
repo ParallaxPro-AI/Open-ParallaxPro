@@ -9,8 +9,9 @@ import { Runtime, RuntimeOptions } from './runtime.js';
 import { Playtest, PlaytestFailure } from './playtest.js';
 import { runInvariants, InvariantResult } from './invariants.js';
 import { buildVerdict, Verdict, renderHuman } from './verdict.js';
+import { syncEventDefinitions } from './sync.js';
 
-export { Playtest, PlaytestFailure, Runtime, buildVerdict, renderHuman, loadGame };
+export { Playtest, PlaytestFailure, Runtime, buildVerdict, renderHuman, loadGame, syncEventDefinitions };
 export type { Verdict };
 
 export interface RunOptions extends RuntimeOptions {
@@ -19,6 +20,17 @@ export interface RunOptions extends RuntimeOptions {
 
 export async function runPlaytest(gameDir: string, opts: RunOptions = {}): Promise<Verdict> {
   const start = Date.now();
+
+  // Auto-declare any event names referenced by project sources but missing
+  // from event_definitions.ts. Idempotent — only writes if there's
+  // something to append. Runs before loadGame so the loaded source is
+  // post-sync.
+  try { syncEventDefinitions(gameDir); } catch (e: any) {
+    // Sync failure is non-fatal — the playtest will still run, and any
+    // strict-mode emit failure surfaces as a real invariant failure.
+    console.warn(`[runPlaytest] sync skipped: ${e?.message ?? e}`);
+  }
+
   const files = loadGame(gameDir);
 
   // Missing required files is a hard fail (mirrors existing cli_creator guard).
