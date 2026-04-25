@@ -657,6 +657,69 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }));
 
+  // ── 10b. Static-rigidbody entities must not move during play. ──
+  //
+  // Caught the platformer template's `moving_platform` having no physics
+  // block (so level_assembler defaulted it to STATIC). PlatformerLevelSystem
+  // then drove its transform via scene.setPosition every frame; the static
+  // collider got teleported under the player via rb.teleport, but the
+  // engine's carryKinematicRiders only iterates KINEMATIC bodies, so the
+  // player was never registered as a rider and never translated by the
+  // platform's per-frame delta — symptom: "have to walk to stay on it."
+  //
+  // Detection: snapshot static-RB positions after a brief settle (so
+  // boot-time placement adjustments don't trip us), activate behaviors,
+  // tick ~1.5s, flag anything that drifted. Threshold 0.05m is well
+  // above Rapier's resting-contact jitter for static bodies (which is
+  // effectively zero) but small enough to catch any continuously-moved
+  // platform.
+  results.push(guarded('static_bodies_dont_move', () => {
+    const scene: any = p.runtime.scene;
+    if (!scene) return;
+    // BodyType.STATIC === 0 (engine/shared/types/physics_enums.ts).
+    const STATIC = 0;
+    type Snap = { x: number; y: number; z: number; name: string };
+    const snap = (): Map<number, Snap> => {
+      const m = new Map<number, Snap>();
+      for (const e of scene.entities.values()) {
+        if (!e.active) continue;
+        const rb: any = e.getComponent('RigidbodyComponent');
+        if (!rb || rb.bodyType !== STATIC) continue;
+        const tc: any = e.getComponent('TransformComponent');
+        if (!tc) continue;
+        m.set(e.id, { x: tc.position.x, y: tc.position.y, z: tc.position.z, name: e.name });
+      }
+      return m;
+    };
+    // Brief settle, then sample, then run.
+    try { p.tick(10); } catch {}
+    const before = snap();
+    p.activateAllBehaviors();
+    try { p.tick(90); } catch {}
+    const moved: Array<{ name: string; dist: number }> = [];
+    for (const [id, prev] of before) {
+      const e = scene.entities.get(id);
+      if (!e) continue;
+      const tc: any = e.getComponent('TransformComponent');
+      if (!tc) continue;
+      const dx = tc.position.x - prev.x;
+      const dy = tc.position.y - prev.y;
+      const dz = tc.position.z - prev.z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist > 0.05) moved.push({ name: prev.name, dist });
+    }
+    if (moved.length > 0) {
+      moved.sort((a, b) => b.dist - a.dist);
+      const top = moved.slice(0, 5).map(m => `"${m.name}" (drifted ${m.dist.toFixed(2)}m)`).join(', ');
+      const more = moved.length > 5 ? ` (+${moved.length - 5} more)` : '';
+      throw new PlaytestFailure('static_body_moved',
+        `${moved.length} static-rigidbody entit${moved.length > 1 ? 'ies' : 'y'} had ${moved.length > 1 ? 'their' : 'its'} position changed during play: ${top}${more}. ` +
+        `Static bodies can't carry riders — physics_system.ts \`carryKinematicRiders\` only iterates KINEMATIC bodies, so the player won't ride a moving platform and other dynamic objects won't react to the moving collider's velocity. ` +
+        `Set \`physics: { type: "kinematic" }\` on these entities in 02_entities.json so the engine drives them via setNextKinematicTranslation and translates riders by the per-frame delta.`,
+        { moved: moved.slice(0, 10), total: moved.length });
+    }
+  }));
+
   // ── 11. Pickup-tagged entities must despawn or fire an event when the player overlaps ──
   // Sonic bug: coin_pickup entity existed, player could reach it, but nothing
   // handled pickup — no behavior attached, no FSM event. This runs one probe:
