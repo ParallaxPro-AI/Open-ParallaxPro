@@ -395,22 +395,11 @@ export class EditorContext extends EventBus {
                 if (currentScene) {
                     this.engine!.setActiveScene(currentScene as any);
                 }
-                // Rebind every skinned-mesh animator. After Stop reloads the
-                // scene from snapshot, AnimatorComponents come back with
-                // empty loadedClips / null skeleton / null
-                // gpuJointMatricesBuffer (toJSON only saves clip-name→uuid
-                // and speed; skeleton + clip data are runtime-only). The
-                // cached path of loadMeshAsset normally re-fires
-                // setupAnimatorFromGLB, BUT only for entities whose
-                // meshAsset URL exactly matches the one being looked up.
-                // On second Play that path can race the script-attach order
-                // and not all entities get re-bound; the symptom is "first
-                // Play animations work, second Play they don't." Force a
-                // full rebind here against parsedMeshCache so every skinned
-                // entity ends up with a populated animator before scripts
-                // start ticking. Uncached assets that haven't loaded yet
-                // get re-bound when the async load completes via the
-                // existing line 1146-1148 path.
+                // Rebind skinned animators that came back from snapshot
+                // reload with empty loadedClips / null skeleton (toJSON
+                // doesn't serialize runtime fields). setupAnimatorFromGLB
+                // reuses the existing GPU buffer so this is safe to call
+                // even on first Play where the cached path already ran.
                 if (currentScene && this.engine) {
                     const renderSystem = this.engine.globalContext.renderSystem;
                     let rebound = 0;
@@ -418,6 +407,11 @@ export class EditorContext extends EventBus {
                         const mr: any = entity.getComponent('MeshRendererComponent');
                         const url: string | undefined = mr?.meshAsset;
                         if (!url) continue;
+                        const animator: any = entity.getComponent('AnimatorComponent');
+                        // Skip if animator already has clips loaded — first
+                        // Play's async load path populated it correctly.
+                        // Only rebind when fields are empty (post-snapshot).
+                        if (animator && animator.loadedClips?.size > 0 && animator.skeleton) continue;
                         const cachedParsed = this.parsedMeshCache.get(url);
                         if (cachedParsed?.hasSkin && cachedParsed?.skeleton && cachedParsed?.animationClips?.length) {
                             this.setupAnimatorFromGLB(entity, cachedParsed, renderSystem);
@@ -1301,7 +1295,24 @@ export class EditorContext extends EventBus {
 
         const boneCount = skeleton.bones.length;
         animator.skeleton = skeleton;
-        animator.jointMatrices = new Float32Array(boneCount * 16);
+
+        // Reuse the existing jointMatrices array + GPU buffer if the
+        // bone count hasn't changed. WebGPU bind groups created against
+        // a specific GPUBuffer reference go stale when the buffer is
+        // replaced — the renderer reads `animator.gpuJointMatricesBuffer`
+        // each frame, so a swap silently breaks any cached bind groups
+        // that were keyed by the old buffer. Iteration-6 Play→Stop→Play
+        // anim-death class: the snapshot reload empties the runtime
+        // fields, the cached path of loadMeshAsset re-fires
+        // setupAnimatorFromGLB which previously REPLACED the buffer
+        // unconditionally — characters rendered in T-pose because the
+        // renderer's bind group still pointed at the old buffer.
+        if (!animator.jointMatrices || animator.jointMatrices.length !== boneCount * 16) {
+            animator.jointMatrices = new Float32Array(boneCount * 16);
+        }
+        if (!animator.gpuJointMatricesBuffer) {
+            animator.gpuJointMatricesBuffer = renderSystem.createJointMatricesBuffer(boneCount);
+        }
 
         const clipNames: string[] = [];
         for (const clip of clips) {
@@ -1310,7 +1321,6 @@ export class EditorContext extends EventBus {
             clipNames.push(clip.name);
         }
         animator.availableClipNames = clipNames;
-        animator.gpuJointMatricesBuffer = renderSystem.createJointMatricesBuffer(boneCount);
 
         for (let i = 0; i < boneCount; i++) {
             const off = i * 16;
