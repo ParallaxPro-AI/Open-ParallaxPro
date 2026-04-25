@@ -29,14 +29,6 @@ class SoccerMatchSystem extends GameScript {
             self._fullReset();
         });
 
-        this.scene.events.game.on("race_start", function() {
-            if (self._matchOver) {
-                self._fullReset();
-            }
-            self._resetPositions();
-            self._matchActive = false;
-        });
-
         this.scene.events.game.on("race_started", function() {
             self._matchActive = true;
         });

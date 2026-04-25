@@ -4,7 +4,6 @@ class QuestSystemInstance extends GameScript {
     _quests = {}; _activeQuests = []; _completedQuests = []; _gameActive = false;
     onStart() { var s=this;
         this.scene.events.game.on("game_ready",function(){s._activeQuests=[];s._completedQuests=[];s._gameActive=true;});
-        this.scene.events.game.on("accept_quest",function(d){if(d&&d.questId)s._activeQuests.push(d.questId);});
         this.scene.events.game.on("entity_killed",function(d){s._checkObjectives("kill",1);});
     }
     _checkObjectives(type,count){

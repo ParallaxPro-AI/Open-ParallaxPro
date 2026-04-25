@@ -19,12 +19,6 @@ class TechCultureSystem extends GameScript {
         var self = this;
         this.scene.events.game.on("game_ready", function() { self._reset(); });
         this.scene.events.game.on("turn_start", function() { self._processTechTurn(); });
-        this.scene.events.game.on("research_tech", function(data) {
-            if (data && data.tech) self._startResearch(data.tech);
-        });
-        this.scene.events.game.on("adopt_policy", function(data) {
-            if (data && data.policy) self._adoptPolicy(data.policy);
-        });
         this._reset();
     }
 

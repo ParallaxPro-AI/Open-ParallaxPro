@@ -53,6 +53,7 @@ class SurfSpawnerSystem extends GameScript {
 
         this.scene.events.game.on("game_over", function() {
             self._gameActive = false;
+            self._ended = true;
             if (self._score > self._highScore) self._highScore = self._score;
             self.scene.events.ui.emit("hud_update", {
                 _gameOver: {
@@ -482,6 +483,7 @@ class SurfSpawnerSystem extends GameScript {
     }
 
     _updateHud() {
+        if (!this._gameActive || this._ended) return;
         this.scene.events.ui.emit("hud_update", {
             score: this._score,
             coins: this._coins,

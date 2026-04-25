@@ -149,9 +149,6 @@ class ShooterRoyaleGameSystem extends GameScript {
         this.scene.events.game.on("royale_heal_pressed", function() {
             self._tryHealSelf();
         });
-        this.scene.events.game.on("royale_pickup_request", function(data) {
-            self._onPickupRequest(data || {});
-        });
         this.scene.events.game.on("royale_pickup_pressed", function(data) {
             // Manual "E/F grab" is also just a pickup_request after the
             // loot_crate behavior forwards its chosen loot. We don't do

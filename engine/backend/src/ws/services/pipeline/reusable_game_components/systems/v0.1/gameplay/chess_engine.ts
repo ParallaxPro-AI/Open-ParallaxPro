@@ -6,44 +6,6 @@ class ChessEngineSystem extends GameScript {
         this.scene.events.game.on("ai_turn", function() {
             self._makeAiMove();
         });
-
-        // Multiplayer: apply a move received from the remote player
-        this.scene.events.game.on("apply_remote_move", function(data) {
-            if (!data || data.from === undefined || data.to === undefined) return;
-            // Find the piece at the 'from' position
-            var color = data.color || "black";
-            var pieces = self.scene.findEntitiesByTag(color) || [];
-            var fromX = data.from.x, fromZ = data.from.z;
-            var toX = data.to.x, toZ = data.to.z;
-            var piece = null;
-            for (var i = 0; i < pieces.length; i++) {
-                var pp = pieces[i].transform.position;
-                if (Math.round(pp.x) === fromX && Math.round(pp.z) === fromZ) {
-                    piece = pieces[i];
-                    break;
-                }
-            }
-            if (!piece) return;
-
-            // Capture opponent piece if present
-            var oppColor = color === "white" ? "black" : "white";
-            var oppPieces = self.scene.findEntitiesByTag(oppColor) || [];
-            for (var j = 0; j < oppPieces.length; j++) {
-                var op = oppPieces[j].transform.position;
-                if (Math.round(op.x) === toX && Math.round(op.z) === toZ) {
-                    self.scene.destroyEntity(oppPieces[j].id);
-                    break;
-                }
-            }
-
-            // Move the piece
-            var py = piece.transform.position.y;
-            self.scene.setPosition(piece.id, toX, py, toZ);
-
-            // Emit moveMade so FSM transitions turns
-            var moveEvt = {};
-            self.scene.events.game.emit("move_made", moveEvt);
-        });
     }
 
     _isOccupiedByBlack(x, z) {

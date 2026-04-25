@@ -10,9 +10,6 @@ class CraftingSystemInstance extends GameScript {
     onStart() {
         var self = this;
         this.scene.events.game.on("game_ready", function() { self._gameActive = true; });
-        this.scene.events.game.on("craft_item", function(data) {
-            if (data && data.recipe) self._craft(data.recipe);
-        });
     }
 
     _craft(recipeId) {

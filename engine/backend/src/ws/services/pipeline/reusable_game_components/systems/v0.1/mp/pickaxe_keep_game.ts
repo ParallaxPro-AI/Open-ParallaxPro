@@ -596,6 +596,13 @@ class PickaxeKeepGameSystem extends GameScript {
         if (tool === "iron_sword")   dmg = 30;
         if (tool === "stone_sword")  dmg = 24;
         if (tool === "wood_sword")   dmg = 20;
+        // Visible/audible attack feedback.
+        if (this.audio) this.audio.playSound("/assets/kenney/audio/impact_sounds/impactPunch_medium_001.ogg", 0.45);
+        var localChar = this.scene.findEntityByName ? this.scene.findEntityByName("Player") : null;
+        if (localChar && localChar.transform && localChar.transform.setRotationEuler) {
+            // Brief swing nudge — tiny rotation pulse the player can see.
+            localChar.transform.setRotationEuler(0, this._yaw || 0, 8);
+        }
         this._damageEnemy(nearestId, dmg);
     }
 

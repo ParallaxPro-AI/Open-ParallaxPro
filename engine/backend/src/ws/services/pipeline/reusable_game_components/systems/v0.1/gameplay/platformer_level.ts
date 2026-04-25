@@ -181,7 +181,7 @@ class PlatformerLevelSystem extends GameScript {
         // Enemy interaction
         if (this._invincibleTimer <= 0) {
             var enemies = this.scene.findEntitiesByTag("enemy") || [];
-            for (var e = 0; e < enemies.length; e++) {
+            for (let e = 0; e < enemies.length; e++) {
                 if (!enemies[e].active) continue;
                 var ep = enemies[e].transform.position;
                 var edx = pp.x - ep.x, edz = pp.z - ep.z;

@@ -656,6 +656,7 @@ class DeadlyGamesSystem extends GameScript {
         for (var i = 0; i < this._contestants.length; i++) {
             if (!this._contestants[i].alive) continue;
             var c = this._contestants[i];
+            if (!c.entity) continue;
             var row = Math.floor(idx / 5);
             var col = idx % 5;
 

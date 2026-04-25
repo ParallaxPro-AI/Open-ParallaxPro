@@ -33,9 +33,6 @@ class PlayerSurvivalBehavior extends GameScript {
             self._hunger = self._maxHunger;
         });
 
-        this.scene.events.game.on("eat_food", function(data) {
-            self._hunger = Math.min(self._maxHunger, self._hunger + (data.amount || 20));
-        });
     }
 
     onUpdate(dt) {

@@ -44,17 +44,6 @@ class JellyPlayerBehavior extends GameScript {
         this.scene.events.game.on("match_ended",   function() { self._matchOver = true; });
         this.scene.events.game.on("match_started", function() { self._matchOver = false; });
 
-        // Match system tells us we got bumped by a spinner / hit by an
-        // obstacle. We freeze input for `force * stunPerForce` seconds.
-        this.scene.events.game.on("jj_obstacle_hit", function(data) {
-            var mp = self.scene._mp;
-            if (!mp || !data || data.peerId !== mp.localPeerId) return;
-            // Stun length scales with bump force; cap at 1s so it's
-            // unpleasant but never frustrating.
-            var s = Math.min(1.0, 0.25 + (Number(data.force) || 1) * 0.15);
-            self._stunUntil = (self.scene.time && self.scene.time.time || 0) + s;
-        });
-
         // Eliminated → spectator-only.
         this.scene.events.game.on("jj_player_eliminated", function(data) {
             var mp2 = self.scene._mp;

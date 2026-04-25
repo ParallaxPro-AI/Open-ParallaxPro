@@ -42,7 +42,7 @@ class JellyJamGameSystem extends GameScript {
     _courseLength = 80;              // along +X
     _courseHalfWidth = 8;            // ±Z
     _hudUpdateInterval = 0.15;
-    _enemyUpdateInterval = 0.2;      // unused (no enemies) — left for symmetry
+    _aiTickInterval = 0.2;           // reserved for future AI; jelly_jam is PvP-only
     _minPlayers = 1;
 
     // ─── Runtime state ──────────────────────────────────────────────

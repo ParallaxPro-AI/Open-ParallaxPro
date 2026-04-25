@@ -29,7 +29,7 @@ class FarmAnimalAIBehavior extends GameScript {
         if (dist > 1) {
             this.scene.setPosition(this.entity.id, p.x+(dx/dist)*this._speed*dt, p.y, p.z+(dz/dist)*this._speed*dt);
             this.entity.transform.setRotationEuler(0, Math.atan2(-dx,-dz)*180/Math.PI, 0);
-            if (this.entity.playAnimation) this.entity.playAnimation("Walk", { loop: true });
+            if (this.entity.playAnimation) this.entity.playAnimation(this._walkAnim || "Walk", { loop: true });
         } else { if (this.entity.playAnimation) this.entity.playAnimation("Idle", { loop: true }); }
     }
 }

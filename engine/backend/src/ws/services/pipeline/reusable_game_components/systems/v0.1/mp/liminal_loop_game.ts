@@ -73,13 +73,6 @@ class LiminalLoopGameSystem extends GameScript {
         this._initMatch();
         this.scene.events.game.on("match_started", function() { self._initMatch(); });
 
-        this.scene.events.game.on("mp_below_min_players", function() {
-            // Single-player so this rarely fires, but keep the cleanup
-            // path so the scene doesn't get stuck on host migration.
-            if (self._phase === "gameover") return;
-            self._phase = "gameover";
-            self._endMatch("abandoned");
-        });
     }
 
     onUpdate(dt) {

@@ -276,35 +276,6 @@
       document.getElementById('speed-bar').style.width = pct + '%';
     }
 
-    if (state.position !== undefined) {
-      document.getElementById('pos-num').textContent = state.position;
-      document.getElementById('pos-suffix').textContent = getSuffix(state.position);
-    }
-
-    if (state.totalRacers !== undefined) {
-      document.getElementById('pos-total').textContent = '/ ' + state.totalRacers;
-    }
-
-    if (state.lap !== undefined) {
-      var displayLap = Math.min(state.lap + 1, state.maxLaps || 3);
-      document.getElementById('lap-current').textContent = displayLap;
-    }
-
-    if (state.maxLaps !== undefined) {
-      document.getElementById('lap-max').textContent = state.maxLaps;
-    }
-
-    if (state.lapTime !== undefined) {
-      document.getElementById('lap-time').textContent = formatTime(state.lapTime);
-    }
-
-    if (state.raceTime !== undefined) {
-      document.getElementById('race-time').textContent = formatTime(state.raceTime);
-    }
-
-    if (state.bestLap !== undefined && state.bestLap > 0 && state.bestLap < 999) {
-      document.getElementById('best-lap').textContent = formatTime(state.bestLap);
-    }
   }
 
   window.addEventListener('message', function(e) {

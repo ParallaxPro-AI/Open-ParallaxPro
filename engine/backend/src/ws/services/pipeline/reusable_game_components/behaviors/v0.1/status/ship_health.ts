@@ -35,25 +35,11 @@ class ShipHealthBehavior extends GameScript {
             if (!data || data.entityId !== self.entity.id) return;
             self._applyDamage(data.amount || 10, "");
         });
-        this.scene.events.game.on("net_player_shot", function(evt) {
-            if (self._sunk) return;
-            var d = (evt && evt.data) || {};
-            var mp = self.scene._mp;
-            if (!mp) return;
-            if (d.targetPeerId !== mp.localPeerId) return;
-            self._applyDamage(Number(d.damage) || 10, d.shooterPeerId || "");
-        });
-        this.scene.events.game.on("entity_healed", function(data) {
-            if (data && data.entityId && data.entityId !== self.entity.id) return;
-            self._hull = Math.min(self._maxHull, self._hull + (data && data.amount || 10));
-            self._sendHUD();
-        });
         this.scene.events.game.on("match_started", function() {
             self._hull = self._maxHull;
             self._sunk = false;
             self._sinkTimer = 0;
             self._respawnTimer = 0;
-            // Reset to floating Y in case match_end left the hull underwater.
             if (self.scene.setPosition) {
                 var p = self.entity.transform.position;
                 self.scene.setPosition(self.entity.id, p.x, self._hull0Y, p.z);

@@ -28,20 +28,6 @@ class PlayerHealthBehavior extends GameScript {
             if (data.entityId !== self.entity.id) return;
             self._applyDamage(data.amount || 10, "");
         });
-        this.scene.events.game.on("net_player_shot", function(evt) {
-            if (self._dead) return;
-            var d = (evt && evt.data) || {};
-            var mp = self.scene._mp;
-            if (!mp) return;
-            if (d.targetPeerId !== mp.localPeerId) return;
-            self._applyDamage(Number(d.damage) || 10, d.shooterPeerId || "");
-        });
-        this.scene.events.game.on("entity_healed", function(data) {
-            if (data.entityId && data.entityId !== self.entity.id) return;
-            self._health = Math.min(self._maxHealth, self._health + (data.amount || 10));
-            self._dead = false;
-            self._sendHUD();
-        });
         // Reset state at the start of each match (for multiplayer "play again").
         this.scene.events.game.on("match_started", function() {
             self._health = self._maxHealth;
