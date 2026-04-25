@@ -37,8 +37,16 @@ const VALIDATE_ASSEMBLER_JS = fs.readFileSync(
     'utf-8',
 );
 
+// Absolute host path of `engine/`. validate.sh substitutes this in for
+// __ENGINE_DIR_HOST__ as a non-Docker fallback so `bash validate.sh` can
+// run the playtest via `tsx <enginePath>/headless/src/cli.ts` when the
+// sandbox image's `/usr/local/bin/playtest` wrapper isn't available
+// (i.e. local-host dev without DOCKER_SANDBOX=1).
+const ENGINE_DIR_HOST = path.resolve(__dirname_sv, '..', '..', '..', '..', '..');
+
 export function writeValidateScripts(sandboxDir: string): void {
-    fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), VALIDATE_SH, { mode: 0o755 });
+    const sh = VALIDATE_SH.replaceAll('__ENGINE_DIR_HOST__', ENGINE_DIR_HOST);
+    fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), sh, { mode: 0o755 });
     fs.writeFileSync(path.join(sandboxDir, 'validate_headless.js'), VALIDATE_HEADLESS_JS);
     fs.writeFileSync(path.join(sandboxDir, 'validate_assembler.js'), VALIDATE_ASSEMBLER_JS);
 }
@@ -791,20 +799,27 @@ node validate_assembler.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
 echo "=== Headless Playtest ==="
-# The agent-sandbox image ships /usr/local/bin/playtest — when present,
-# we run the full headless playtest here so failures surface during the
-# agent's own turn budget instead of only on an orchestrator-side
-# respawn. The orchestrator still runs its own playtest after the CLI
-# exits as the authoritative gate (a buggy validate.sh exit code can't
-# bypass it). When the binary isn't reachable (e.g. dev-host run
-# without the image, or a worker that hasn't rebuilt the image yet) we
-# skip — that's NOT a failure; the orchestrator-side playtest backstops.
+# Three resolution paths in priority order:
+#   1. /usr/local/bin/playtest — shipped by the agent-sandbox Docker image.
+#      Wins inside any DOCKER_SANDBOX=1 container that's been rebuilt.
+#   2. tsx against the host engine source — used by local-host dev (no
+#      Docker) and any other case where the binary isn't on PATH but the
+#      engine source exists at the substituted path. ENGINE_DIR_HOST is
+#      resolved at sandbox-creation time by sandbox_validate.writeValidateScripts.
+#   3. Skip — final fallback for sandboxes that have neither (e.g. a
+#      worker that hasn't rebuilt the image AND can't reach the source).
+#      Skip is NOT a failure; the orchestrator-side playtest backstops.
 if command -v playtest >/dev/null 2>&1; then
     playtest project/ 2>&1
-    if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
+    PT_RC=$?
+elif [ -x "__ENGINE_DIR_HOST__/headless/node_modules/.bin/tsx" ] && [ -f "__ENGINE_DIR_HOST__/headless/src/cli.ts" ]; then
+    "__ENGINE_DIR_HOST__/headless/node_modules/.bin/tsx" "__ENGINE_DIR_HOST__/headless/src/cli.ts" project/ 2>&1
+    PT_RC=$?
 else
-    echo "(playtest binary not on PATH — orchestrator will run the playtest post-CLI)"
+    echo "(no playtest available in this sandbox — orchestrator will run it post-CLI)"
+    PT_RC=0
 fi
+if [ $PT_RC -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
 if [ $ERRORS -eq 0 ]; then
     echo "All checks passed."
