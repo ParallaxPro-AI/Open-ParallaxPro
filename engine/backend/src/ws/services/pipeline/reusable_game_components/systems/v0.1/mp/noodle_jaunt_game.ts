@@ -347,22 +347,16 @@ class NoodleJauntGameSystem extends GameScript {
     }
 
     _stampLocalNetworkIdentity() {
+        var mp = this.scene._mp;
+        if (!mp) return;
         var ent = this._findLocalPlayerEntity();
         if (!ent) return;
         var ni = ent.getComponent("NetworkIdentityComponent");
-        if (!ni) return;
-        // Always stamp isLocalPlayer — floppy_walker / grab_arms /
-        // camera_third_person all early-return when ni && !ni.isLocalPlayer,
-        // and the player entity carries a NetworkIdentityComponent
-        // because of its `network: { syncTransform: true, ... }` def. If
-        // we skipped this in singleplayer (no MP bridge) the local
-        // player never received WASD / jump / camera input.
-        var mp = this.scene._mp;
-        if (mp) {
+        if (ni) {
             ni.networkId = this._hashPeerId(mp.localPeerId);
             ni.ownerId = mp.localPeerId;
+            ni.isLocalPlayer = true;
         }
-        ni.isLocalPlayer = true;
     }
 
     // ═══════════════════════════════════════════════════════════════════
