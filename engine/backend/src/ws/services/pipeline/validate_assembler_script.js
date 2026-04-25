@@ -1002,6 +1002,12 @@ function extractMethodBody(src, name) {
                         extractMethodBody(clean, 'onFixedUpdate');
             if (!onUpd) continue;
             if (!/\b(?:scene|self\.scene|this\.scene)\.setPosition\s*\(\s*(?:this\.entity(?:\.id)?|self\.entity(?:\.id)?)\s*,/.test(onUpd)) continue;
+            // Skip if the same onUpdate also drives velocity — the
+            // setPosition is a targeted teleport (Z-lock, fall-through
+            // recovery, etc.) and physics integration is otherwise
+            // intended. The bug shape we're after is "script fully owns
+            // position", which precludes setVelocity calls.
+            if (/\b(?:scene|self\.scene|this\.scene)\.(?:setVelocity|setLinearVelocity)\s*\(/.test(onUpd)) continue;
             var dedupe = key + '|' + spath;
             if (seen.has(dedupe)) continue;
             seen.add(dedupe);
