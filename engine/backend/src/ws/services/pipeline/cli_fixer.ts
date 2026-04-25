@@ -227,9 +227,8 @@ async function createSandbox(
     writeFilesToDir(projectFiles, projectDir);
 
     // Reference: behaviors/systems/ui are NOT in the sandbox anymore — they're
-    // served by library.sh on demand (see writeLibraryTool). This is the L2
-    // step from docs/LIBRARY_TOOL_PLAN.md. The agent uses `bash library.sh
-    // search / show` to reach any library file it needs.
+    // served by library.sh on demand (see writeLibraryTool). The agent uses
+    // `bash library.sh search / show` to reach any library file it needs.
     const refDir = path.join(sandboxDir, 'reference');
     fs.mkdirSync(refDir, { recursive: true });
 

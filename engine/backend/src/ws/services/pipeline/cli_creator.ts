@@ -587,8 +587,7 @@ async function createSandbox(
     // cheap, load-bearing for the "start from a template" workflow, and
     // agents routinely pick one by name). behaviors/systems/ui are NOT
     // in the sandbox anymore — they're served by library.sh on demand
-    // (see writeLibraryTool). This is the L2 step from
-    // docs/LIBRARY_TOOL_PLAN.md: the agent gets a compact index + a
+    // (see writeLibraryTool). The agent gets a compact index + a
     // retrieval tool instead of hundreds of files it mostly doesn't read.
     const refDir = path.join(sandboxDir, 'reference');
     copyDirRecursive(path.join(RGC_DIR, 'game_templates', 'v0.1'), path.join(refDir, 'game_templates'));
