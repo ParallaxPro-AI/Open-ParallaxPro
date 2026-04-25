@@ -28,14 +28,28 @@ class PlayerHealthBehavior extends GameScript {
             if (data.entityId !== self.entity.id) return;
             self._applyDamage(data.amount || 10, "");
         });
-        // Reset state at the start of each match (for multiplayer "play again").
-        this.scene.events.game.on("match_started", function() {
+        var revive = function() {
             self._health = self._maxHealth;
             self._dead = false;
             self._respawnTimer = 0;
             self._timeSinceDamage = 0;
+            self._lastShooterPeerId = "";
+            // Without this, the player stays stuck on the last frame of
+            // the Death animation after respawning. third_person_movement
+            // (and similar movement scripts) cache the current anim and
+            // skip re-issuing playAnimation when "Idle" matches the cache,
+            // so they won't unstick the animator on their own.
+            if (self.entity && self.entity.playAnimation) {
+                try { self.entity.playAnimation("Idle", { loop: true }); } catch (e) { /* no anim */ }
+            }
             self._sendHUD();
-        });
+        };
+        // Multiplayer "play again" emits match_started; single-player flows
+        // emit player_respawned when transitioning from a wasted/death
+        // substate back to gameplay (open_world_crime → wasted → free_roam,
+        // mmorpg → death_respawn → adventuring, voxel_survival …).
+        this.scene.events.game.on("match_started", revive);
+        this.scene.events.game.on("player_respawned", revive);
         this._sendHUD();
     }
 

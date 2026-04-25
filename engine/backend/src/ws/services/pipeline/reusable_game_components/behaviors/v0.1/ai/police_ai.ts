@@ -8,6 +8,7 @@ class PoliceAIBehavior extends GameScript {
     _damage = 12;
     _fireRate = 1.2;
     _health = 150;
+    _maxHealth = 150;
     _fireCooldown = 2;
     _dead = false;
     _currentAnim = "";
@@ -15,6 +16,7 @@ class PoliceAIBehavior extends GameScript {
     _patrolTimer = 0;
     _startX = 0;
     _startZ = 0;
+    _despawnTimer = null;
 
     onStart() {
         var pos = this.entity.transform.position;
@@ -31,7 +33,7 @@ class PoliceAIBehavior extends GameScript {
                 self._playAnim("Death");
                 self.scene.events.game.emit("entity_killed", { entityId: self.entity.id });
                 if (self.audio) self.audio.playSound("/assets/kenney/audio/impact_sounds/impactSoft_heavy_002.ogg", 0.4);
-                setTimeout(function() { self.entity.active = false; }, 3000);
+                self._despawnTimer = setTimeout(function() { self.entity.active = false; }, 3000);
             } else {
                 self._playAnim("RecieveHit");
                 var s = self;
@@ -39,6 +41,19 @@ class PoliceAIBehavior extends GameScript {
                 // Getting shot at? Increase wanted level via event
                 self.scene.events.game.emit("crime_committed", {});
             }
+        });
+
+        // World refresh — when the player respawns, dead cops come back
+        // to life on patrol so the city isn't littered with corpses.
+        this.scene.events.game.on("player_respawned", function() {
+            if (self._despawnTimer != null) { clearTimeout(self._despawnTimer); self._despawnTimer = null; }
+            if (!self._dead && self.entity.active) return;
+            self._dead = false;
+            self._health = self._maxHealth;
+            self._fireCooldown = 2;
+            self._currentAnim = "";
+            if (self.entity) self.entity.active = true;
+            self._playAnim("Idle");
         });
 
         this._playAnim("Idle");

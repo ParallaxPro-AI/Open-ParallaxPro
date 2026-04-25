@@ -9,9 +9,12 @@ class PedestrianAIBehavior extends GameScript {
     _waitTimer = 0;
     _fleeing = false;
     _dead = false;
+    _maxHealth = 50;
     _currentAnim = "";
     _startX = 0;
     _startZ = 0;
+    _despawnTimer = null;
+    _hitResetTimer = null;
 
     onStart() {
         var pos = this.entity.transform.position;
@@ -51,13 +54,31 @@ class PedestrianAIBehavior extends GameScript {
                 self._playAnim("Death");
                 self.scene.events.game.emit("entity_killed", { entityId: self.entity.id });
                 if (self.audio) self.audio.playSound("/assets/kenney/audio/impact_sounds/impactSoft_heavy_000.ogg", 0.4);
-                setTimeout(function() { self.entity.active = false; }, 3000);
+                // Track the handle so the respawn revive can cancel it —
+                // otherwise the timer fires after revive and yanks the
+                // newly-alive ped back to inactive.
+                self._despawnTimer = setTimeout(function() { self.entity.active = false; }, 3000);
             } else {
                 self._playAnim("RecieveHit");
-                setTimeout(function() {
+                self._hitResetTimer = setTimeout(function() {
                     if (!self._dead) self._currentAnim = "";
                 }, 500);
             }
+        });
+
+        // World refresh — when the player respawns, dead pedestrians
+        // come back to life so the city isn't littered with corpses.
+        this.scene.events.game.on("player_respawned", function() {
+            if (self._despawnTimer != null) { clearTimeout(self._despawnTimer); self._despawnTimer = null; }
+            if (self._hitResetTimer != null) { clearTimeout(self._hitResetTimer); self._hitResetTimer = null; }
+            if (!self._dead && self.entity.active) return;
+            self._dead = false;
+            self._health = self._maxHealth;
+            self._fleeing = false;
+            self._waitTimer = Math.random() * 2;
+            self._currentAnim = ""; // force re-play below
+            if (self.entity) self.entity.active = true;
+            self._playAnim("Idle");
         });
 
         this._playAnim("Idle");
