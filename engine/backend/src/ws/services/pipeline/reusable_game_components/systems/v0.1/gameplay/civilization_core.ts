@@ -220,7 +220,14 @@ class CivilizationCoreSystem extends GameScript {
     }
 
     onUpdate(dt) {
-        if (!this._gameActive) return;
+        // FSM membership in active_systems gates onUpdate already — the
+        // _gameActive flag is still meaningful for _processTurn (we
+        // don't want to advance turns after victory/defeat sets it
+        // false), but as an onUpdate early-return it was redundant AND
+        // a footgun: gameplay.on_enter emits game_ready and the
+        // player_turn substate boots its systems AFTER, so onStart can
+        // race the event. The fullReset in onStart handles the normal
+        // case; we no longer block here.
 
         // Unit selection with Tab
         if (this.input.isKeyPressed("Tab")) {

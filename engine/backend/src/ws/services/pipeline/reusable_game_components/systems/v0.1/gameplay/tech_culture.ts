@@ -17,6 +17,9 @@ class TechCultureSystem extends GameScript {
 
     onStart() {
         var self = this;
+        // Seed defensively — game_ready fires before this substate's
+        // systems boot, so the handler below races (see 5a29bbe).
+        this._reset();
         this.scene.events.game.on("game_ready", function() { self._reset(); });
         this.scene.events.game.on("turn_start", function() { self._processTechTurn(); });
 

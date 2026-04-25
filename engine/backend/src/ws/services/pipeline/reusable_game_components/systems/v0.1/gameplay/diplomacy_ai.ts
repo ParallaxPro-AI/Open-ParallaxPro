@@ -28,6 +28,15 @@ class DiplomacyAISystem extends GameScript {
 
     onStart() {
         var self = this;
+        // Seed _gameActive defensively. game_ready fires from
+        // gameplay.on_enter BEFORE the player_turn substate boots its
+        // active_systems, so this onStart subscribes too late and the
+        // event handler below never runs — _aiMilitary stayed 0 and
+        // ai_turn_start would early-return forever. Same race as
+        // 5a29bbe (rts_battle).
+        this._gameActive = true;
+        this._countAIMilitary();
+        this._publishHud();
         this.scene.events.game.on("game_ready", function() {
             self._gameActive = true;
             self._aiState = "peace";

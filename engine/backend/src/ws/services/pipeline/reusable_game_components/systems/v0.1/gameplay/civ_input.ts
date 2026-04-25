@@ -34,7 +34,13 @@ class CivInputSystem extends GameScript {
     }
 
     onUpdate(dt) {
-        if (!this._gameActive) return;
+        // Membership in player_turn.active_systems already gates this —
+        // the FSM only ticks us during the player's turn. The previous
+        // `_gameActive` gate based on the game_ready event was a race:
+        // gameplay.on_enter emits game.game_ready BEFORE the player_turn
+        // substate's active_systems boot up, so onStart subscribed too
+        // late and the handler never fired. Same shape as the rts_battle
+        // fix in 5a29bbe.
         if (!this.input || !this.scene.screenPointToGround) return;
 
         var leftClicked = !!(this.input.isKeyPressed && this.input.isKeyPressed("MouseLeft"));
