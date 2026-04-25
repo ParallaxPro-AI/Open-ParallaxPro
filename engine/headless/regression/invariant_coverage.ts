@@ -490,6 +490,68 @@ class CovStubDeadListenerBehavior extends GameScript {
     },
   },
   {
+    target: 'action_has_visible_feedback',
+    label: 'add a behavior with _doAttack() that runs damage but no anim/mesh/spawn',
+    mutate: (dir) => {
+      // Drop a behavior whose _doAttack does damage logic but produces
+      // zero visible feedback — no playAnimation, no transform tweak,
+      // no spawn, and only a symbolic emit nothing listens for.
+      // Repros iteration-6 fighter (d8f32a95) `_doAttack` shape.
+      const bDir = path.join(dir, 'behaviors', 'cov_action');
+      fs.mkdirSync(bDir, { recursive: true });
+      fs.writeFileSync(path.join(bDir, 'cov_attack.ts'), `// Coverage fixture — action method with no visible feedback.
+class CovAttackBehavior extends GameScript {
+    _behaviorName = "cov_attack";
+    _cdTimer = 0;
+    _cooldown = 0.4;
+    onUpdate(dt) {
+        if (this._cdTimer > 0) this._cdTimer -= dt;
+        if (this._cdTimer <= 0 && this.input && this.input.isKeyPressed && this.input.isKeyPressed("KeyF")) {
+            this._doAttack(10, 1.5);
+            this._cdTimer = this._cooldown;
+        }
+    }
+    _doAttack(damage, range) {
+        // Damage / hit detection / event emission, but NO visible
+        // feedback — no playAnimation, no transform tweak, no spawn.
+        // Symbolic emit goes to a void (nothing listens).
+        this.scene.events.game.emit("attack_swing", { dmg: damage });
+        this._lastAttackAt = Date.now();
+        var d = damage * range;
+        if (d > 0) {
+            // do nothing visible
+        }
+    }
+}
+`);
+      const j = readJson(path.join(dir, '02_entities.json'));
+      const playerKey = Object.keys(j.definitions).find(k => /player|sedan|car/i.test(k));
+      if (playerKey) {
+        j.definitions[playerKey].behaviors = j.definitions[playerKey].behaviors || [];
+        j.definitions[playerKey].behaviors.push({ name: 'cov_attack', script: 'cov_action/cov_attack.ts' });
+        writeJson(path.join(dir, '02_entities.json'), j);
+      }
+      // Register attack_swing in event_definitions so the assembler
+      // accepts the emit (otherwise event validation will fail before
+      // the playtest invariant runs).
+      const evtPath = path.join(dir, 'systems', 'event_definitions.ts');
+      if (fs.existsSync(evtPath)) {
+        let evtSrc = fs.readFileSync(evtPath, 'utf-8');
+        evtSrc = evtSrc.replace(/(\bvar\s+GAME_EVENTS\s*=\s*\{[\s\S]*?)(\n\};)/, `$1\n    attack_swing: { fields: { dmg: { type: 'number', optional: true } } },$2`);
+        fs.writeFileSync(evtPath, evtSrc);
+      }
+      // Add cov_attack to active_behaviors of every state so the invariant
+      // includes it in the analysis space.
+      const flow = readJson(path.join(dir, '01_flow.json'));
+      const addTo = (def: any) => {
+        if (Array.isArray(def?.active_behaviors)) def.active_behaviors.push('cov_attack');
+        if (def?.substates) for (const s of Object.values<any>(def.substates)) addTo(s);
+      };
+      for (const s of Object.values<any>(flow.states ?? {})) addTo(s);
+      writeJson(path.join(dir, '01_flow.json'), flow);
+    },
+  },
+  {
     target: 'hud_html_field_resolves',
     label: 'add a HUD HTML that reads a field no script ever provides',
     mutate: (dir) => {

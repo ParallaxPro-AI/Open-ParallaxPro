@@ -1330,6 +1330,155 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }
 
+  // ── 18. Action methods must produce visible feedback ──────────────────
+  // Iteration 6's fighting game (d8f32a95) shipped without any attack
+  // animation — the user pressed F/G/H, damage applied, but the
+  // character mesh never moved or played a clip. Same class affects
+  // beat-em-up `_doPunch`, FPS `_doShoot`, RTS `_doAttack`, etc.
+  //
+  // Static analysis: find every behavior method whose name matches an
+  // action verb (attack/punch/kick/shoot/fire/swing/slash/stab/cast/
+  // dash/special). Inside its body require ONE of:
+  //   - `playAnimation(...)` call
+  //   - emit of an event whose name contains a feedback verb
+  //     (swing/anim/fire/shoot/hit/attack — downstream animation-system
+  //     trigger)
+  //   - mesh-transform mutation (transform.scale, transform.rotation)
+  //   - audio.playSound(...) (audible feedback is acceptable when
+  //     visual is genuinely impractical, e.g. invisible projectile)
+  //
+  // Method body extracted by brace-depth counting from the method
+  // header. Conservative naming match avoids false positives on
+  // gameplay-system helpers like `_spawnEnemy`.
+  {
+    // Negative lookbehind for `.` excludes method-call sites
+    // (`this._fire()`) — we want only method declarations.
+    const ACTION_METHOD_RE = /(?<![.\w])(?:_?do[A-Z]\w*|_?on[A-Z]\w*|_?perform[A-Z]\w*|_(?:attack|punch|kick|shoot|fire|swing|slash|stab|cast|dash|special))\s*\(/g;
+    const ACTION_VERB_RE = /^_?(?:do|on|perform)?(?:Attack|Punch|Kick|Shoot|Fire|Swing|Slash|Stab|Cast|Dash|Special|Strike|Smash|Hit|Throw|Bash|Whip)/i;
+    const FEEDBACK_VERB_RE = /(?:swing|anim|fire|shoot|hit|attack|punch|kick|swing|slash|cast|dash|special)/i;
+    const scripts2 = p.runtime.projectScripts ?? p.runtime.files.scripts ?? {};
+    const missing: Array<{ script: string; method: string }> = [];
+
+    const extractMethodBody = (src: string, headerStart: number): string | null => {
+      // Find the opening brace that starts the method body.
+      const open = src.indexOf('{', headerStart);
+      if (open < 0) return null;
+      let depth = 1;
+      let i = open + 1;
+      while (i < src.length && depth > 0) {
+        const ch = src[i];
+        if (ch === '"' || ch === "'" || ch === '`') {
+          // Skip string literal
+          const quote = ch;
+          i++;
+          while (i < src.length && src[i] !== quote) {
+            if (src[i] === '\\') i++;
+            i++;
+          }
+          i++;
+          continue;
+        }
+        if (ch === '/' && src[i + 1] === '/') {
+          // Line comment
+          while (i < src.length && src[i] !== '\n') i++;
+          continue;
+        }
+        if (ch === '/' && src[i + 1] === '*') {
+          // Block comment
+          i += 2;
+          while (i < src.length - 1 && !(src[i] === '*' && src[i + 1] === '/')) i++;
+          i += 2;
+          continue;
+        }
+        if (ch === '{') depth++;
+        else if (ch === '}') depth--;
+        i++;
+      }
+      if (depth !== 0) return null;
+      return src.slice(open + 1, i - 1);
+    };
+
+    // Pre-scan: for each script, for each event name listened-for, build a
+    // map name → set of listener bodies. Used so that if an action method
+    // emits `<verb>_swing`, we can verify that some listener for that
+    // event actually calls playAnimation. A symbolic emit into a void
+    // doesn't count — that's iteration 6's fighter (`melee_swing` is
+    // emitted but has zero listeners and zero playAnimation calls
+    // anywhere in the artifact).
+    const listenersAnimating = new Set<string>();
+    for (const [scriptPath, src] of Object.entries(scripts2) as Array<[string, string]>) {
+      const onRe = /events\.(?:game|ui)\.on\s*\(\s*['"]([^'"]+)['"]\s*,/g;
+      let om: RegExpExecArray | null;
+      while ((om = onRe.exec(src)) !== null) {
+        const evtName = om[1];
+        // Find body of the listener — open brace after `function() {`
+        // or arrow `=> {`.
+        const after = src.slice(om.index + om[0].length, om.index + om[0].length + 600);
+        if (/playAnimation\s*\(/.test(after) || /transform\.(?:scale|rotation|setRotation|setScale)/.test(after) || /setRotationEuler\b/.test(after)) {
+          listenersAnimating.add(evtName);
+        }
+      }
+      void scriptPath;
+    }
+
+    for (const [scriptPath, src] of Object.entries(scripts2) as Array<[string, string]>) {
+      // Skip pinned-library / transport / engine machinery.
+      if (/_event_validator|event_definitions|fsm_driver|ui_bridge|mp_bridge|_entity_label/.test(scriptPath)) continue;
+      let m: RegExpExecArray | null;
+      while ((m = ACTION_METHOD_RE.exec(src)) !== null) {
+        // Reset header to start of token, drop the trailing `(`.
+        const fullName = m[0].replace(/\s*\($/, '');
+        if (!ACTION_VERB_RE.test(fullName)) continue;
+        const body = extractMethodBody(src, m.index);
+        if (body == null || body.length < 5) continue;
+        const hasAnim = /\bplayAnimation\s*\(/.test(body);
+        const hasMeshMutate = /\btransform\.(?:scale|rotation|setRotation|setScale)/.test(body)
+          || /\bsetRotationEuler\b/.test(body)
+          || /\bplayParticle\b|\bemitParticles\b/.test(body);
+        // Spawning a visible entity (bullet, projectile, hit-spark prefab,
+        // VFX prefab) counts as visible feedback — the bullet appears
+        // mid-air, the user sees the action's effect. bullethell `_fire()`
+        // works this way.
+        const hasSpawn = /\bspawnEntity\s*\(/.test(body) || /\binstantiatePrefab\s*\(/.test(body);
+        // Feedback-via-event-bus only counts if SOMETHING listens for
+        // that event AND that listener actually animates. A bare emit
+        // is symbolic — no visual effect for the user. Iteration 6's
+        // fighter emitted `melee_swing` into a void.
+        const hasValidFeedbackEmit = (() => {
+          const emitRe = /events\.(?:game|ui)\.emit\s*\(\s*['"]([^'"]+)['"]/g;
+          let em: RegExpExecArray | null;
+          while ((em = emitRe.exec(body)) !== null) {
+            const evtName = em[1];
+            if (FEEDBACK_VERB_RE.test(evtName) && listenersAnimating.has(evtName)) return true;
+          }
+          return false;
+        })();
+        if (!hasAnim && !hasMeshMutate && !hasSpawn && !hasValidFeedbackEmit) {
+          // Final fallback: if body is very small (< 4 statements) and
+          // delegates to another method (`this._<verb>(…)`), assume the
+          // delegate provides feedback. Conservative — avoids false
+          // positives on dispatcher methods.
+          if (/this\._\w+\s*\(/.test(body) && body.split(';').length <= 6) continue;
+          missing.push({ script: scriptPath, method: fullName });
+        }
+      }
+      ACTION_METHOD_RE.lastIndex = 0;
+    }
+
+    if (missing.length > 0) {
+      const sample = missing.slice(0, 5).map(m => `${m.method}() in ${m.script}`).join(', ');
+      const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
+      results.push({
+        name: 'action_has_visible_feedback',
+        failure: new PlaytestFailure('action_no_feedback',
+          `${missing.length} action method${missing.length > 1 ? 's' : ''} run damage/effects but produce zero visible/audible feedback for the player: ${sample}${more}. The user presses the key, the action fires (cooldown, damage, hit detection all run), but nothing visibly changes. Add ONE of: \`this.entity.playAnimation("Punch", { loop: false })\`, an event emit like \`events.game.emit("attack_swing", { … })\` for an animation system to react, a brief mesh tweak (transform.scale pulse), or \`this.audio.playSound(…)\`. Iteration 6's fighting game (d8f32a95) shipped this exact class for _doAttack/_doPunch/_doKick/_doSpecial — damage worked but the user said "no animation when im doing an attack."`,
+          { missing: missing.slice(0, 20), totalMissing: missing.length }),
+      });
+    } else {
+      results.push({ name: 'action_has_visible_feedback', failure: null });
+    }
+  }
+
   return results;
 }
 
