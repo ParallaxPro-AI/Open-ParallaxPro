@@ -224,22 +224,26 @@ class CoinGrabGameSystem extends GameScript {
     _spawnCoin() {
         // Idempotent — onStart + match_started both call _initMatch on the
         // first frame, so we'd double-spawn without this guard.
-        var existing = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
+        var existing = this._findCoinEntity();
         if (existing) {
             var rp = this._randomCoinPosition();
             this.scene.setPosition(existing.id, rp.x, rp.y, rp.z);
             return;
         }
         var scene = this.scene;
-        var id = scene.createEntity ? scene.createEntity(this._coinEntityName) : null;
-        if (id == null) return;
         var pos = this._randomCoinPosition();
+
+        // Use the prefab path on both sides (host inline + remote-peer
+        // adapter spawn) so every peer renders the same Coin.glb mesh.
+        // Inlining a custom-mesh MeshRendererComponent at runtime via
+        // addComponent doesn't pull in the GLB the same way the prefab
+        // pipeline does (asset registration happens at level build), so
+        // the host saw a fallback sphere while remotes saw the prefab.
+        var coinEnt = scene.spawnEntity ? scene.spawnEntity("coin") : null;
+        if (!coinEnt) return;
+        var id = coinEnt.id;
+        if (coinEnt.name !== this._coinEntityName) coinEnt.name = this._coinEntityName;
         scene.setPosition(id, pos.x, pos.y, pos.z);
-        scene.setScale && scene.setScale(id, 1.2, 1.2, 1.2);
-        scene.addComponent(id, "MeshRendererComponent", {
-            meshType: "custom",
-            meshAsset: this._coinAsset,
-        });
         scene.addComponent(id, "NetworkIdentityComponent", {
             networkId: 1,
             ownerId: -1,
@@ -247,9 +251,10 @@ class CoinGrabGameSystem extends GameScript {
             syncTransform: true,
         });
         if (scene.addTag) {
-            scene.addTag(id, "coin");
             scene.addTag(id, "networked");
+            // "coin" tag already on the prefab.
         }
+
         // Tell other peers to spawn their own coin visual at the same spot.
         // Subsequent transform changes flow via the host's snapshot broadcast.
         var mp = this.scene._mp;
@@ -264,8 +269,22 @@ class CoinGrabGameSystem extends GameScript {
         }
     }
 
+    _findCoinEntity() {
+        if (this.scene.findEntityByName) {
+            var byName = this.scene.findEntityByName(this._coinEntityName);
+            if (byName) return byName;
+        }
+        // Fallback: prefab-spawned entity may carry the prefab key as its
+        // default name until we rename it; tag lookup catches both cases.
+        if (this.scene.findEntitiesByTag) {
+            var byTag = this.scene.findEntitiesByTag("coin");
+            if (byTag && byTag.length > 0) return byTag[0];
+        }
+        return null;
+    }
+
     _relocateCoinLocally(x, z) {
-        var coin = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
+        var coin = this._findCoinEntity();
         if (!coin) return;
         this.scene.setPosition(coin.id, x, 1, z);
     }
@@ -277,7 +296,7 @@ class CoinGrabGameSystem extends GameScript {
         // coin while the relocation event is in flight.
         if (this._lastLocalGrabAt && (Date.now() - this._lastLocalGrabAt) < 250) return;
 
-        var coin = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
+        var coin = this._findCoinEntity();
         if (!coin) return;
 
         var player = this._findLocalPlayerEntity();
@@ -440,7 +459,7 @@ class CoinGrabGameSystem extends GameScript {
     }
 
     _spinCoin(dt) {
-        var coin = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
+        var coin = this._findCoinEntity();
         if (!coin || !coin.transform || !coin.transform.setRotationEuler) return;
         this._coinYaw += this._coinSpinRadPerSec * dt;
         if (this._coinYaw > Math.PI * 2) this._coinYaw -= Math.PI * 2;
