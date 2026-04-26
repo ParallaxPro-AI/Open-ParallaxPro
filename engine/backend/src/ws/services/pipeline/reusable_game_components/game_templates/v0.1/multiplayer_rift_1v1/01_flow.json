@@ -50,6 +50,7 @@
       ],
       "on_enter": [
         "mp:leave_lobby",
+        "hide_ui:hud/voice_chat",
         "show_ui:main_menu",
         "show_cursor"
       ],
@@ -96,6 +97,7 @@
       ],
       "on_enter": [
         "show_ui:lobby_room",
+        "show_ui:hud/voice_chat",
         "show_cursor"
       ],
       "on_exit": [
@@ -130,6 +132,7 @@
         "camera_moba_1v1"
       ],
       "on_enter": [
+        "show_ui:hud/voice_chat",
         "show_ui:hud/ping",
         "show_ui:hud/rift_hud",
         "show_cursor"
