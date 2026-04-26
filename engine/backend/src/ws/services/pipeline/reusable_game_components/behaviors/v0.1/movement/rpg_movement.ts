@@ -18,7 +18,12 @@ class RPGMovementBehavior extends GameScript {
         if(this.input.isKeyPressed("Space")&&pos.y<1.5&&Math.abs(vy)<0.5){vy=this._jumpForce;}
         this.scene.setVelocity(this.entity.id,{x:vx,y:vy,z:vz});
         if(Math.abs(vx)>0.5||Math.abs(vz)>0.5){this._playAnim(sprint?"Run":"Walk");
-            this.entity.transform.setRotationEuler(0,Math.atan2(vx,-vz)*180/Math.PI,0);}
+            // Negate both args so the player faces the direction of
+            // motion. setRotationEuler's Y is CCW-from-above (right-hand
+            // rule), so atan2(vx,-vz) was rotating the model 180° opposite
+            // to the velocity vector — character moonwalked when looking
+            // around in third-person.
+            this.entity.transform.setRotationEuler(0,Math.atan2(-vx,-vz)*180/Math.PI,0);}
         else{this._playAnim("Idle");}
     }
     _playAnim(n){if(this._currentAnim===n)return;this._currentAnim=n;if(this.entity.playAnimation)this.entity.playAnimation(n,{loop:true});}
