@@ -200,10 +200,49 @@ By default, EDIT blocks modify the active scene. Use switchScene() to modify a d
 `;
 
 /**
+ * Detect whether the project is the seeded blank scaffold (no template
+ * loaded, no user-authored scripts/UI). Mirrors the empty-project guard
+ * in executor.ts:FIX_GAME case so the LLM and the runtime agree on the
+ * same emptiness criterion.
+ */
+function isProjectEmpty(projectData: any): boolean {
+    if (!projectData?.files || typeof projectData.files !== 'object') return false;
+    const files = projectData.files as Record<string, string>;
+    const ENGINE_INFRA_RE = /(^|\/)(_[^/]+|event_definitions|ui_bridge|mp_bridge|fsm_driver|_event_validator)\.ts$/;
+    const STOCK_UI_PANELS = new Set(['ui/main_menu.html', 'ui/pause_menu.html', 'ui/game_over.html']);
+    const filePaths = Object.keys(files);
+    const userScripts = filePaths.filter(p =>
+        (p.startsWith('behaviors/') || p.startsWith('systems/') || p.startsWith('scripts/')) &&
+        p.endsWith('.ts') &&
+        !ENGINE_INFRA_RE.test(p)
+    );
+    const userPanels = filePaths.filter(p => p.startsWith('ui/') && p.endsWith('.html') && !STOCK_UI_PANELS.has(p));
+    let flowName = '';
+    let flowId = '';
+    try {
+        const flowJson = JSON.parse(files['01_flow.json'] || '{}');
+        flowName = String(flowJson?.name || '').trim();
+        flowId = String(flowJson?.id || '').trim();
+    } catch {}
+    const flowLooksUntouched = flowId === 'empty' || flowName === 'Untitled Game';
+    return userScripts.length === 0 && userPanels.length === 0 && flowLooksUntouched;
+}
+
+/**
  * Build a compact project summary for the AI.
  */
 export function getProjectSummary(projectData: any, activeSceneKey?: string): string {
     if (!projectData) return '';
+
+    // Empty-project banner. When the project is the seeded blank scaffold
+    // (no template loaded yet), make this the FIRST thing the LLM sees in
+    // the project context. The runtime backend hard-blocks FIX_GAME on
+    // empty projects (see executor.ts), but emitting FIX_GAME first costs
+    // a turn and confuses the user when they see the wrong tag in the
+    // chat. Telling the LLM up-front avoids the misfire entirely.
+    if (isProjectEmpty(projectData)) {
+        return `\n[PROJECT STATE: EMPTY — NO GAME LOADED]\nThis is a fresh project. The only files present are the 4 template JSON skeletons (id: "empty", name: "Untitled Game") and engine machinery. There is NO user game to fix.\n\nFor THIS turn (and until a template is loaded), the only valid tools are:\n  • LOAD_TEMPLATE — to find a template that's a rough fit for whatever the user described.\n  • OFFER_CREATE_GAME — to ask the user about a fresh from-scratch build (requires user confirmation, runs CREATE_GAME later).\n  • EDIT — only for trivial scene-cosmetic tweaks if the user explicitly asks for one (rare on an empty project).\n\nFIX_GAME is HARD-BLOCKED on empty projects — calling it returns an error tool result and wastes a turn. Do not call it. If the user's request looks like a feature/UI/system spec, treat it as a fresh game-build request: search templates first, then offer create-from-scratch if no match.\n[END PROJECT STATE]\n`;
+    }
 
     const parts: string[] = [];
 
