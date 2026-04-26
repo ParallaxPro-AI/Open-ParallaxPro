@@ -1315,7 +1315,26 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         /\.distanceTo\s*\(/,                                                  // explicit distance call
         /normalize\s*\(\s*\)\s*\.\s*scale|sub\s*\([^)]+\)\s*\.\s*normalize/,    // direction calc
       ];
+      // Require positive evidence of an enemy COLLECTION before flagging.
+      // The whole reason this invariant exists is "multiple enemies pile
+      // on the player" — if there's only ever one enemy, there's nothing
+      // to separate from, and chase logic alone is not the smell. The
+      // engine's only way to address a population is `findEntitiesByTag`,
+      // so requiring a tag-query with an enemy-shaped tag literal is a
+      // tight necessary-condition that sheds the false-positives we
+      // were seeing on non-AI games (marble run flagged because it has
+      // `findEntityByName("Player")` to grab the marble + a velocity-
+      // reset call — both signals true, neither related to AI).
+      // Tag literal must CONTAIN an enemy-shaped substring (so creative
+      // names like "skeleton_warrior" or "wave_enemy_v2" still count).
+      // Tight enough to skip generic tags like "pickup", "hazard",
+      // "platform", "marble" — those don't substring-match any of these.
+      const ENEMY_TAG_QUERY_RE =
+        /findEntitiesByTag\(\s*["'][a-zA-Z0-9_]*?(enemy|enemies|robot|zombie|ghost|goomba|skeleton|orc|minion|drone|npc|monster|mob|chaser|pursuer|hunter|hostile)[a-zA-Z0-9_]*?["']\s*\)/i;
       for (const [file, src] of scriptEntries) {
+        // Hard prerequisite: the file must address enemies as a population
+        // (separation only makes sense between members of a population).
+        if (!ENEMY_TAG_QUERY_RE.test(src)) continue;
         // Signal: calls setVelocity toward a player target inside a per-
         // frame update, no separation force loop.
         if (!/findEntityByName\(["']Player["']\)|findEntitiesByTag\(["']player["']\)/.test(src)) continue;
@@ -1330,8 +1349,6 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         // hand-rolled the math correctly.
         const hasSeparationLogic = SEPARATION_DETECTED_RE.some(re => re.test(src));
         if (hasSeparationLogic) continue;
-        // Only flag if it clearly looks like AI (robot/enemy/zombie/…).
-        if (!/robot|enemy|zombie|ghost|goomba|skeleton|orc|minion|drone|npc/i.test(file + '\n' + src)) continue;
         smells.push({
           file,
           suggestedLibrary: 'behaviors/ai/enemy_chase_with_separation.ts',
