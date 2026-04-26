@@ -67,8 +67,12 @@ export interface EnginePlugin {
     /** Hook: called when a project is deleted */
     onProjectDelete?: (projectId: string, userId: number) => void;
 
-    /** Hook: called when a project is created (prompt/template/empty) */
-    onProjectCreate?: (projectId: string, userId: number, username: string | null) => void;
+    /** Hook: called when a project is created (prompt/template/empty).
+     *  `prompt` is the user's typed game brief if they created via the
+     *  prompt flow — null for empty/template flows. Hosted plugins use
+     *  this to mirror the prompt into the landing-page admin tracker
+     *  alongside hero-form submissions. */
+    onProjectCreate?: (projectId: string, userId: number, username: string | null, prompt: string | null) => void;
 
     /** Hook: called when a background CREATE_GAME job settles (success, failure,
      *  abort). Hosted deployments use this to email the user, report token

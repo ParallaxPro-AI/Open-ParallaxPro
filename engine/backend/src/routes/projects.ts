@@ -243,7 +243,11 @@ router.post('/', async (req, res) => {
     const projectData = { projectConfig: { name, useFacingRegistry: true }, files: seed.files };
 
     stmtInsert.run(id, req.user!.id, name, serializeProjectData(projectData));
-    for (const p of _plugins) { if (p.onProjectCreate) p.onProjectCreate(id, req.user!.id, req.user!.username ?? null); }
+    // Pass the user-typed prompt through (template / empty flows leave
+    // it null). Hosted plugins use it to mirror into the idea_prompts
+    // tracker alongside landing-page hero submissions.
+    const userPrompt = typeof prompt === 'string' && prompt.trim() ? prompt.trim() : null;
+    for (const p of _plugins) { if (p.onProjectCreate) p.onProjectCreate(id, req.user!.id, req.user!.username ?? null, userPrompt); }
 
     res.json({ id, name });
 
