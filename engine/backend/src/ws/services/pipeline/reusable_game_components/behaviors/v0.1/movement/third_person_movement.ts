@@ -33,7 +33,7 @@ class ThirdPersonMovementBehavior extends GameScript {
         }
 
         var pos = this.entity.transform.position;
-        if (this.input.isKeyPressed("Space") && pos.y < 1.0) {
+        if (this.input.isKeyPressed("Space") && pos.y < 1.0 && Math.abs(vy) < 0.5) {
             vy = this._jumpForce;
         }
 
