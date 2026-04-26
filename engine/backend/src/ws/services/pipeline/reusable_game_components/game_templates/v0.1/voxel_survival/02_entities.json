@@ -4,6 +4,7 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Character_Male_2.glb",
+        "hideFromOwner": true,
         "scale": [
           1,
           1,
@@ -36,7 +37,7 @@
           "params": {
             "mineRange": 4.5,
             "placeRange": 5,
-            "mineRate": 1.0,
+            "mineRate": 1,
             "mineSound": "/assets/kenney/audio/impact_sounds/impactPlate_medium_004.ogg",
             "placeSound": "/assets/kenney/audio/impact_sounds/impactPlate_light_004.ogg"
           }
@@ -51,7 +52,7 @@
             "bowDamage": 8,
             "bowRange": 25,
             "bowFireRate": 1.5,
-            "bowDrawTime": 1.0,
+            "bowDrawTime": 1,
             "meleeSound": "/assets/kenney/audio/impact_sounds/impactPlate_medium_000.ogg",
             "bowSound": "/assets/kenney/audio/sci_fi_sounds/laserSmall_002.ogg"
           }
@@ -292,7 +293,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -309,7 +310,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -326,7 +327,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -343,7 +344,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree"
       ],
@@ -359,7 +360,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -527,7 +528,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 40,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -565,7 +566,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -603,7 +604,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 5,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -626,7 +627,8 @@
             "health": 15,
             "product": "egg",
             "breedable": true,
-            "layInterval": 90
+            "layInterval": 90,
+            "walkAnim": "Run"
           }
         }
       ]
@@ -642,7 +644,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 80,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -680,7 +682,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 120,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -718,7 +720,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 20,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -757,7 +759,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 8,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -795,14 +797,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 70,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "undead"
+        "undead",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -840,14 +843,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "undead"
+        "undead",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -886,7 +890,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 65,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -894,7 +898,8 @@
       "tags": [
         "enemy",
         "undead",
-        "elite"
+        "elite",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -932,13 +937,14 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 40,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
-        "enemy"
+        "enemy",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -975,14 +981,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 200,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "boss"
+        "boss",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -993,7 +1000,7 @@
             "maxHealth": 400,
             "damage": 30,
             "attackRange": 4,
-            "attackRate": 2.0,
+            "attackRate": 2,
             "detectionRange": 18,
             "chaseSpeed": 3,
             "wanderSpeed": 1,
@@ -1021,14 +1028,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 150,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "elite"
+        "elite",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -1278,7 +1286,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "light"
@@ -1295,7 +1303,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "light"
@@ -1314,7 +1322,8 @@
       },
       "physics": false,
       "tags": [
-        "structure"
+        "structure",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1344,7 +1353,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "interactive",
@@ -1362,7 +1371,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "interactive",
@@ -1383,7 +1392,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -1400,7 +1410,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -1417,7 +1428,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -1434,7 +1446,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1449,7 +1462,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 65,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -1485,7 +1498,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 60,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -1521,7 +1534,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 80,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -1541,7 +1554,7 @@
             "maxHealth": 150,
             "damage": 15,
             "attackRange": 3,
-            "attackRate": 1.0,
+            "attackRate": 1,
             "detectionRange": 16,
             "chaseSpeed": 5,
             "defendsVillagers": true
@@ -1657,7 +1670,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1673,7 +1687,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1748,23 +1763,6 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/3d_models/medieval_village_pack/Path_Straight.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "decoration",
-        "village"
-      ],
-      "label": false
-    },
-    "village_fence": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/3d_models/medieval_village_pack/Fence.glb",
         "scale": [
           1,
           1,

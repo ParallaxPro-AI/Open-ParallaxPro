@@ -337,11 +337,6 @@
     if (state.gameSubtitle) {
       document.getElementById('game-subtitle').textContent = state.gameSubtitle;
     }
-    if (state.phase === 'playing' || state.phase === 'game') {
-      document.getElementById('menu-container').classList.add('hidden');
-    } else if (state.phase === 'menu') {
-      document.getElementById('menu-container').classList.remove('hidden');
-    }
     if (state.versionText) {
       document.getElementById('footer').textContent = state.versionText;
     }

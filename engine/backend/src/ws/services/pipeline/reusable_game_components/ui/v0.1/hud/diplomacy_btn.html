@@ -1,44 +1,135 @@
-<!-- description: diplomatic status indicator showing peace or war with enemy army count — war state, alliance, enemy strength, relations, troop count -->
+<!-- description: 4X diplomacy panel — current war/peace state, enemy army size, clickable Declare War / Propose Peace toggle -->
 <!DOCTYPE html>
 <html>
 <head>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Inter', system-ui, sans-serif; pointer-events: none; overflow: hidden; }
-  .diplo-wrap { position: fixed; bottom: 14px; right: 80px; pointer-events: none; }
-  .diplo-info {
-    background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;
-    padding: 6px 12px; text-align: center;
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #f0f0f0;
+    pointer-events: none;
+    overflow: hidden;
+    background: transparent;
   }
-  .diplo-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 1px; }
-  .diplo-val { font-size: 12px; font-weight: 800; }
+  .diplo-wrap {
+    position: fixed;
+    /* Stacks above tech_btn (bottom:130, collapsed height ~110 → top edge
+     * ~240). Anything below ~250 makes diplomacy overlap the research
+     * panel's culture/toggle area. */
+    bottom: 250px;
+    right: 18px;
+    width: 240px;
+    pointer-events: auto;
+  }
+  .diplo-info {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+    pointer-events: auto;
+  }
+  .diplo-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .diplo-val {
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
   .diplo-peace { color: #22c55e; }
   .diplo-war { color: #ef4444; }
-  .diplo-mil { font-size: 10px; color: #888; margin-top: 2px; }
+  .diplo-mil {
+    font-size: 10px;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  .diplo-action {
+    width: 100%;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    pointer-events: auto;
+    border: 1px solid transparent;
+    transition: filter 0.12s ease, transform 0.12s ease;
+    user-select: none;
+  }
+  .diplo-action:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .diplo-action:active { transform: translateY(0); }
+  .diplo-action.war {
+    background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+    border-color: rgba(248, 113, 113, 0.6);
+    color: #fee2e2;
+  }
+  .diplo-action.peace {
+    background: linear-gradient(135deg, #15803d, #166534);
+    border-color: rgba(74, 222, 128, 0.6);
+    color: #dcfce7;
+  }
 </style>
 </head>
 <body>
 <div class="diplo-wrap">
   <div class="diplo-info">
-    <div class="diplo-label">DIPLOMACY</div>
-    <div class="diplo-val" id="diploState"><span class="diplo-peace">Peace</span></div>
+    <div class="diplo-label">Diplomacy</div>
+    <div class="diplo-val" id="diploState"><span class="diplo-peace">&#9774; Peace</span></div>
     <div class="diplo-mil">Enemy army: <span id="aiMil">0</span></div>
+    <button class="diplo-action war" id="actionBtn">Declare War</button>
   </div>
 </div>
+
 <script>
-(function(){
-  function update(s){if(!s)return;
-    if(s.aiState!==undefined){
-      var el=document.getElementById('diploState');
-      if(el){
-        if(s.aiState==='war')el.innerHTML='<span class="diplo-war">&#9876; AT WAR</span>';
-        else el.innerHTML='<span class="diplo-peace">&#9774; Peace</span>';
+(function () {
+  function send(action) {
+    window.parent.postMessage({
+      type: 'game_command',
+      action: action,
+      panel: 'hud/diplomacy_btn'
+    }, '*');
+  }
+
+  var stateEl = document.getElementById('diploState');
+  var milEl = document.getElementById('aiMil');
+  var btn = document.getElementById('actionBtn');
+  var current = 'peace';
+
+  btn.addEventListener('click', function () {
+    if (current === 'war') send('propose_peace');
+    else send('declare_war');
+  });
+
+  function update(s) {
+    if (!s) return;
+    if (s.aiState !== undefined) {
+      current = s.aiState;
+      if (current === 'war') {
+        stateEl.innerHTML = '<span class="diplo-war">&#9876; AT WAR</span>';
+        btn.textContent = 'Propose Peace';
+        btn.classList.remove('war');
+        btn.classList.add('peace');
+      } else {
+        stateEl.innerHTML = '<span class="diplo-peace">&#9774; Peace</span>';
+        btn.textContent = 'Declare War';
+        btn.classList.remove('peace');
+        btn.classList.add('war');
       }
     }
-    if(s.aiMilitary!==undefined)document.getElementById('aiMil').textContent=s.aiMilitary;
+    if (s.aiMilitary !== undefined) milEl.textContent = s.aiMilitary;
   }
-  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
 })();
 </script>
 </body>

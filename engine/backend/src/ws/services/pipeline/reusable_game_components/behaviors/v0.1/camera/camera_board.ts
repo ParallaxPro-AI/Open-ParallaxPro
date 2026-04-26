@@ -8,14 +8,6 @@ class CameraBoardBehavior extends GameScript {
     _centerZ = 3.5;
     _yaw = 0;
 
-    onStart() {
-        var self = this;
-        // Allow other systems to set the camera yaw (e.g. for multiplayer color swap)
-        this.scene.events.game.on("set_camera_yaw", function(data) {
-            if (data.yaw !== undefined) self._yaw = data.yaw;
-        });
-    }
-
     onUpdate(dt) {
 
         // Right-click drag to orbit

@@ -1,5 +1,10 @@
 {
   "systems": {
+    "civ_input": {
+      "description": "Player input for the 4X player turn — left-click on a player unit selects it (emits select_unit), left-click on an enemy AI unit issues attack_unit, left-click on empty ground issues move_unit. Enables click-driven play that matches the genre.",
+      "script": "gameplay/civ_input.ts",
+      "params": {}
+    },
     "civilization_core": {
       "description": "Turn-based civilization management — turn counter, city population growth, food/production/gold yields per turn, housing limits, territory borders, era progression triggers, building construction queues, settler founding new cities, and victory condition evaluation each turn",
       "script": "gameplay/civilization_core.ts",

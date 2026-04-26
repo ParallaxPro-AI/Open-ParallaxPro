@@ -3,34 +3,74 @@
     "back_wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.94, 0.88, 0.78, 1],
-        "scale": [40, 14, 1]
+        "color": [
+          0.94,
+          0.88,
+          0.78,
+          1
+        ],
+        "scale": [
+          40,
+          14,
+          1
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration_only"
+      ],
       "label": false
     },
     "tile_band": {
       "mesh": {
         "type": "cube",
-        "color": [0.86, 0.74, 0.62, 1],
-        "scale": [40, 0.6, 1.05]
+        "color": [
+          0.86,
+          0.74,
+          0.62,
+          1
+        ],
+        "scale": [
+          40,
+          0.6,
+          1.05
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "counter": {
       "mesh": {
         "type": "cube",
-        "color": [0.78, 0.62, 0.42, 1],
-        "scale": [16, 1, 8]
+        "color": [
+          0.78,
+          0.62,
+          0.42,
+          1
+        ],
+        "scale": [
+          16,
+          1,
+          8
+        ]
       },
       "physics": {
         "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [8, 0.5, 4] }
+        "collider": {
+          "shape": "cuboid",
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        }
       },
-      "tags": ["counter"],
+      "tags": [
+        "counter"
+      ],
       "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_07.png"
@@ -39,209 +79,456 @@
     "counter_edge": {
       "mesh": {
         "type": "cube",
-        "color": [0.55, 0.40, 0.24, 1],
-        "scale": [16, 0.4, 0.4]
+        "color": [
+          0.55,
+          0.4,
+          0.24,
+          1
+        ],
+        "scale": [
+          16,
+          0.4,
+          0.4
+        ]
       },
       "physics": false,
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "cutting_board": {
       "mesh": {
         "type": "cube",
-        "color": [0.85, 0.68, 0.42, 1],
-        "scale": [4, 0.18, 3]
+        "color": [
+          0.85,
+          0.68,
+          0.42,
+          1
+        ],
+        "scale": [
+          4,
+          0.18,
+          3
+        ]
       },
       "physics": false,
-      "tags": ["station", "chop_station"],
+      "tags": [
+        "station",
+        "chop_station"
+      ],
       "label": false
     },
     "knife_handle": {
       "mesh": {
         "type": "cube",
-        "color": [0.45, 0.28, 0.16, 1],
-        "scale": [0.4, 0.4, 1.2]
+        "color": [
+          0.45,
+          0.28,
+          0.16,
+          1
+        ],
+        "scale": [
+          0.4,
+          0.4,
+          1.2
+        ]
       },
       "physics": false,
-      "tags": ["tool"],
+      "tags": [
+        "tool"
+      ],
       "label": false
     },
     "knife_blade": {
       "mesh": {
         "type": "cube",
-        "color": [0.85, 0.85, 0.92, 1],
-        "scale": [0.08, 0.5, 1.6]
+        "color": [
+          0.85,
+          0.85,
+          0.92,
+          1
+        ],
+        "scale": [
+          0.08,
+          0.5,
+          1.6
+        ]
       },
       "physics": false,
-      "tags": ["tool"],
+      "tags": [
+        "tool"
+      ],
       "label": false
     },
     "bowl_outer": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.96, 0.96, 0.94, 1],
-        "scale": [2.6, 0.9, 2.6]
+        "color": [
+          0.96,
+          0.96,
+          0.94,
+          1
+        ],
+        "scale": [
+          2.6,
+          0.9,
+          2.6
+        ]
       },
       "physics": false,
-      "tags": ["station", "mix_station"],
+      "tags": [
+        "station",
+        "mix_station"
+      ],
       "label": false
     },
     "bowl_inner": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.86, 0.78, 0.62, 1],
-        "scale": [2.2, 0.18, 2.2]
+        "color": [
+          0.86,
+          0.78,
+          0.62,
+          1
+        ],
+        "scale": [
+          2.2,
+          0.18,
+          2.2
+        ]
       },
       "physics": false,
-      "tags": ["station", "mix_station"],
+      "tags": [
+        "station",
+        "mix_station"
+      ],
       "label": false
     },
     "spoon_handle": {
       "mesh": {
         "type": "cube",
-        "color": [0.55, 0.36, 0.18, 1],
-        "scale": [0.20, 0.18, 1.6]
+        "color": [
+          0.55,
+          0.36,
+          0.18,
+          1
+        ],
+        "scale": [
+          0.2,
+          0.18,
+          1.6
+        ]
       },
       "physics": false,
-      "tags": ["tool"],
+      "tags": [
+        "tool"
+      ],
       "label": false
     },
     "spoon_head": {
       "mesh": {
         "type": "sphere",
-        "color": [0.55, 0.36, 0.18, 1],
-        "scale": [0.6, 0.18, 0.6]
+        "color": [
+          0.55,
+          0.36,
+          0.18,
+          1
+        ],
+        "scale": [
+          0.6,
+          0.18,
+          0.6
+        ]
       },
       "physics": false,
-      "tags": ["tool"],
+      "tags": [
+        "tool"
+      ],
       "label": false
     },
     "stove_burner": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.20, 0.20, 0.22, 1],
-        "scale": [3, 0.4, 3]
+        "color": [
+          0.2,
+          0.2,
+          0.22,
+          1
+        ],
+        "scale": [
+          3,
+          0.4,
+          3
+        ]
       },
       "physics": false,
-      "tags": ["station", "fry_station"],
+      "tags": [
+        "station",
+        "fry_station"
+      ],
       "label": false
     },
     "stove_glow": {
       "mesh": {
         "type": "cylinder",
-        "color": [1.0, 0.45, 0.15, 1],
-        "scale": [2.4, 0.06, 2.4]
+        "color": [
+          1.0,
+          0.45,
+          0.15,
+          1
+        ],
+        "scale": [
+          2.4,
+          0.06,
+          2.4
+        ]
       },
       "physics": false,
-      "tags": ["station", "fry_station"],
+      "tags": [
+        "station",
+        "fry_station"
+      ],
       "label": false
     },
     "pan_outer": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.18, 0.18, 0.20, 1],
-        "scale": [2.6, 0.45, 2.6]
+        "color": [
+          0.18,
+          0.18,
+          0.2,
+          1
+        ],
+        "scale": [
+          2.6,
+          0.45,
+          2.6
+        ]
       },
       "physics": false,
-      "tags": ["station", "fry_station"],
+      "tags": [
+        "station",
+        "fry_station"
+      ],
       "label": false
     },
     "pan_handle": {
       "mesh": {
         "type": "cube",
-        "color": [0.30, 0.20, 0.12, 1],
-        "scale": [0.4, 0.3, 2.2]
+        "color": [
+          0.3,
+          0.2,
+          0.12,
+          1
+        ],
+        "scale": [
+          0.4,
+          0.3,
+          2.2
+        ]
       },
       "physics": false,
-      "tags": ["station", "fry_station"],
+      "tags": [
+        "station",
+        "fry_station"
+      ],
       "label": false
     },
     "plate_disc": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.97, 0.97, 0.95, 1],
-        "scale": [2.6, 0.16, 2.6]
+        "color": [
+          0.97,
+          0.97,
+          0.95,
+          1
+        ],
+        "scale": [
+          2.6,
+          0.16,
+          2.6
+        ]
       },
       "physics": false,
-      "tags": ["station", "plate_station"],
+      "tags": [
+        "station",
+        "plate_station"
+      ],
       "label": false
     },
     "plate_inner": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.92, 0.92, 0.90, 1],
-        "scale": [2.2, 0.06, 2.2]
+        "color": [
+          0.92,
+          0.92,
+          0.9,
+          1
+        ],
+        "scale": [
+          2.2,
+          0.06,
+          2.2
+        ]
       },
       "physics": false,
-      "tags": ["station", "plate_station"],
+      "tags": [
+        "station",
+        "plate_station"
+      ],
       "label": false
     },
     "carrot_chunk": {
       "mesh": {
         "type": "cube",
-        "color": [1.0, 0.55, 0.20, 1],
-        "scale": [0.55, 0.55, 0.55]
+        "color": [
+          1.0,
+          0.55,
+          0.2,
+          1
+        ],
+        "scale": [
+          0.55,
+          0.55,
+          0.55
+        ]
       },
       "physics": false,
-      "tags": ["ingredient", "carrot"],
+      "tags": [
+        "ingredient",
+        "carrot"
+      ],
       "label": false
     },
     "egg_blob": {
       "mesh": {
         "type": "sphere",
-        "color": [0.96, 0.92, 0.75, 1],
-        "scale": [0.55, 0.4, 0.55]
+        "color": [
+          0.96,
+          0.92,
+          0.75,
+          1
+        ],
+        "scale": [
+          0.55,
+          0.4,
+          0.55
+        ]
       },
       "physics": false,
-      "tags": ["ingredient"],
+      "tags": [
+        "ingredient"
+      ],
       "label": false
     },
     "patty_disc": {
       "mesh": {
         "type": "cylinder",
-        "color": [0.62, 0.34, 0.18, 1],
-        "scale": [1.4, 0.30, 1.4]
+        "color": [
+          0.62,
+          0.34,
+          0.18,
+          1
+        ],
+        "scale": [
+          1.4,
+          0.3,
+          1.4
+        ]
       },
       "physics": false,
-      "tags": ["ingredient", "patty"],
+      "tags": [
+        "ingredient",
+        "patty"
+      ],
       "label": false
     },
     "garnish_leaf": {
       "mesh": {
         "type": "cube",
-        "color": [0.30, 0.75, 0.30, 1],
-        "scale": [0.5, 0.10, 0.5]
+        "color": [
+          0.3,
+          0.75,
+          0.3,
+          1
+        ],
+        "scale": [
+          0.5,
+          0.1,
+          0.5
+        ]
       },
       "physics": false,
-      "tags": ["ingredient", "garnish"],
+      "tags": [
+        "ingredient",
+        "garnish"
+      ],
       "label": false
     },
     "sauce_drop": {
       "mesh": {
         "type": "sphere",
-        "color": [0.85, 0.18, 0.16, 1],
-        "scale": [0.4, 0.25, 0.4]
+        "color": [
+          0.85,
+          0.18,
+          0.16,
+          1
+        ],
+        "scale": [
+          0.4,
+          0.25,
+          0.4
+        ]
       },
       "physics": false,
-      "tags": ["ingredient", "sauce"],
+      "tags": [
+        "ingredient",
+        "sauce"
+      ],
       "label": false
     },
     "spark_fx": {
       "mesh": {
         "type": "sphere",
-        "color": [1.0, 0.85, 0.30, 1],
-        "scale": [0.30, 0.30, 0.30]
+        "color": [
+          1.0,
+          0.85,
+          0.3,
+          1
+        ],
+        "scale": [
+          0.3,
+          0.3,
+          0.3
+        ]
       },
       "physics": false,
-      "tags": ["fx"],
+      "tags": [
+        "fx"
+      ],
       "label": false
     },
     "camera": {
-      "camera": { "fov": 55, "near": 0.4, "far": 200 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 55,
+        "near": 0.4,
+        "far": 200
+      },
+      "tags": [
+        "camera"
+      ],
       "transform": {
-        "position": [0, 8, 6],
-        "rotation": [-55, 0, 0]
+        "position": [
+          0,
+          8,
+          6
+        ],
+        "rotation": [
+          -55,
+          0,
+          0
+        ]
       }
     }
   }

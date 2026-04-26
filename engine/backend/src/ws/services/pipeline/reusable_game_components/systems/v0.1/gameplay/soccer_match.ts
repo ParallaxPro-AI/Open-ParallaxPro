@@ -29,15 +29,14 @@ class SoccerMatchSystem extends GameScript {
             self._fullReset();
         });
 
-        this.scene.events.game.on("race_start", function() {
-            if (self._matchOver) {
-                self._fullReset();
-            }
-            self._resetPositions();
-            self._matchActive = false;
-        });
-
         this.scene.events.game.on("race_started", function() {
+            // Snap ball + every player back to their kickoff spot before
+            // the whistle. Covers the initial kickoff and the post-goal
+            // restart (flow re-fires race_started after the celebration
+            // → kickoff substates). Without this, the ball respawned at
+            // centre but players stayed wherever the goal scramble left
+            // them, so kickoff was never actually a kickoff.
+            self._resetPositions();
             self._matchActive = true;
         });
 
@@ -319,7 +318,7 @@ class SoccerMatchSystem extends GameScript {
                     mx = Math.max(-52, Math.min(52, mx));
                     mz = Math.max(-32, Math.min(32, mz));
                     this.scene.setPosition(ai.entity.id, mx, 0, mz);
-                    ai.entity.transform.setRotationEuler(0, Math.atan2(cdx, -cdz) * 180 / Math.PI, 0);
+                    ai.entity.transform.setRotationEuler(0, Math.atan2(-cdx, -cdz) * 180 / Math.PI, 0);
                     isMoving = true;
                 }
 
@@ -351,7 +350,7 @@ class SoccerMatchSystem extends GameScript {
                         0,
                         ap.z + (hz / hd) * driftSpeed * dt
                     );
-                    ai.entity.transform.setRotationEuler(0, Math.atan2(hx, -hz) * 180 / Math.PI, 0);
+                    ai.entity.transform.setRotationEuler(0, Math.atan2(-hx, -hz) * 180 / Math.PI, 0);
                     isMoving = true;
                 }
             }

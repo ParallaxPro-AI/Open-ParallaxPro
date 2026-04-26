@@ -17,14 +17,23 @@ class TechCultureSystem extends GameScript {
 
     onStart() {
         var self = this;
+        // Seed defensively — game_ready fires before this substate's
+        // systems boot, so the handler below races (see 5a29bbe).
+        this._reset();
         this.scene.events.game.on("game_ready", function() { self._reset(); });
         this.scene.events.game.on("turn_start", function() { self._processTechTurn(); });
-        this.scene.events.game.on("research_tech", function(data) {
-            if (data && data.tech) self._startResearch(data.tech);
+
+        // Click-driven research / policy selection.
+        this.scene.events.ui.on("ui_event:hud/tech_btn:select_tech", function(d) {
+            var p = (d && d.payload) || {};
+            if (p.techId) self._startResearch(p.techId);
+            self._updateHud();
         });
-        this.scene.events.game.on("adopt_policy", function(data) {
-            if (data && data.policy) self._adoptPolicy(data.policy);
+        this.scene.events.ui.on("ui_event:hud/tech_btn:adopt_policy", function(d) {
+            var p = (d && d.payload) || {};
+            if (p.policyId) self._adoptPolicy(p.policyId);
         });
+
         this._reset();
     }
 
@@ -123,6 +132,48 @@ class TechCultureSystem extends GameScript {
         if (this._currentTech && this._technologies[this._currentTech]) {
             techCost = this._technologies[this._currentTech].cost;
         }
+
+        // Build a list of available (researchable) techs so the HUD can
+        // render clickable cards. A tech is researchable if not yet done
+        // and its prereqs are all in the researched set.
+        var techIds = Object.keys(this._technologies);
+        var techList = [];
+        for (var i = 0; i < techIds.length; i++) {
+            var id = techIds[i];
+            var t = this._technologies[id];
+            var done = this._researched.indexOf(id) >= 0;
+            var prereqsMet = true;
+            if (t.prereqs) {
+                for (var p = 0; p < t.prereqs.length; p++) {
+                    if (this._researched.indexOf(t.prereqs[p]) < 0) { prereqsMet = false; break; }
+                }
+            }
+            techList.push({
+                id: id,
+                era: t.era,
+                cost: t.cost,
+                done: done,
+                researchable: !done && prereqsMet,
+                isCurrent: id === this._currentTech,
+                prereqs: t.prereqs || [],
+                unlocks: t.unlocks || []
+            });
+        }
+
+        var policyIds = Object.keys(this._culturePolicies);
+        var policyList = [];
+        for (var k = 0; k < policyIds.length; k++) {
+            var pid = policyIds[k];
+            var pol = this._culturePolicies[pid];
+            policyList.push({
+                id: pid,
+                cost: pol.cost,
+                effect: pol.effect,
+                adopted: this._adoptedPolicies.indexOf(pid) >= 0,
+                affordable: this._culturePool >= pol.cost
+            });
+        }
+
         this.scene.events.ui.emit("hud_update", {
             currentTech: this._currentTech,
             techProgress: this._researchProgress,
@@ -130,7 +181,9 @@ class TechCultureSystem extends GameScript {
             techsResearched: this._researched.length,
             totalTechs: Object.keys(this._technologies).length,
             culturePool: Math.floor(this._culturePool),
-            policiesAdopted: this._adoptedPolicies.length
+            policiesAdopted: this._adoptedPolicies.length,
+            techList: techList,
+            policyList: policyList
         });
         // Share with other systems
         this.scene._civScience = this.scene._civScience || 3;

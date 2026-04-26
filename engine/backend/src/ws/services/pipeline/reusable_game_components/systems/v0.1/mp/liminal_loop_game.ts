@@ -73,13 +73,6 @@ class LiminalLoopGameSystem extends GameScript {
         this._initMatch();
         this.scene.events.game.on("match_started", function() { self._initMatch(); });
 
-        this.scene.events.game.on("mp_below_min_players", function() {
-            // Single-player so this rarely fires, but keep the cleanup
-            // path so the scene doesn't get stuck on host migration.
-            if (self._phase === "gameover") return;
-            self._phase = "gameover";
-            self._endMatch("abandoned");
-        });
     }
 
     onUpdate(dt) {
@@ -94,9 +87,15 @@ class LiminalLoopGameSystem extends GameScript {
 
         if (this._phase === "active") {
             // Only the host (or a single-player) decides what counts as
-            // a choice. Watching peers just see the hallway.
+            // a choice. Watching peers just see the hallway. Single-
+            // player tolerant: scene._mp is always populated by
+            // play_mode_helpers, so checking only `mp.isHost` falsely
+            // returns here in solo runs (isHost defaults to false until
+            // a lobby elects one). Gating on `mp.roster` (null in solo)
+            // means the host check only applies when an actual lobby
+            // is connected.
             var mp = this.scene._mp;
-            if (mp && !mp.isHost) return;
+            if (mp && mp.roster && !mp.isHost) return;
 
             var p = this._readPlayerPos();
             if (!p) return;
@@ -413,10 +412,12 @@ class LiminalLoopGameSystem extends GameScript {
         // Place at center of corridor, facing the far end.
         this.scene.setPosition(p.id, this._spawnX, this._spawnY, this._spawnZ);
         this.scene.setVelocity && this.scene.setVelocity(p.id, { x: 0, y: 0, z: 0 });
-        // Reset the FPS yaw so the camera faces +X (toward the far end).
-        // FPS camera writes to scene._fpsYaw — overwriting it here gives
-        // the player a clean orientation each iteration.
-        this.scene._fpsYaw = 0;
+        // Corridor runs along +X with the far-end exit sign at x≈13.5.
+        // Camera convention: yaw=0 looks -Z, yaw=90 looks +X. Emit the
+        // yaw-reset event so camera_fps adopts it (camera ignores plain
+        // writes to scene._fpsYaw — that field is its outbound mirror).
+        this.scene.events.game.emit("set_camera_yaw", { yaw: 90, pitch: 0 });
+        this.scene._fpsYaw = 90;
     }
 
     // ═══════════════════════════════════════════════════════════════════

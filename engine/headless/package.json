@@ -7,7 +7,8 @@
     "playtest": "./bin/playtest.js"
   },
   "scripts": {
-    "playtest": "tsx src/cli.ts"
+    "playtest": "tsx src/cli.ts",
+    "audit-hud-overlap": "tsx src/audit_hud_overlap_cli.ts"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",

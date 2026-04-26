@@ -1,49 +1,55 @@
 // also: turn-based strategy, piece logic, valid moves, board game AI
 // Chess engine — AI opponent with proper move rules
 class ChessEngineSystem extends GameScript {
+    // Snapshot of every piece's starting transform, captured on first
+    // onStart. Restored on restart_game so Play Again actually resets
+    // the board — without this, captured pieces stayed deactivated and
+    // surviving pieces stayed wherever they finished the previous match,
+    // so "Play Again" started mid-checkmate.
+    _initialPieces = [];
+
     onStart() {
         var self = this;
         this.scene.events.game.on("ai_turn", function() {
             self._makeAiMove();
         });
 
-        // Multiplayer: apply a move received from the remote player
-        this.scene.events.game.on("apply_remote_move", function(data) {
-            if (!data || data.from === undefined || data.to === undefined) return;
-            // Find the piece at the 'from' position
-            var color = data.color || "black";
-            var pieces = self.scene.findEntitiesByTag(color) || [];
-            var fromX = data.from.x, fromZ = data.from.z;
-            var toX = data.to.x, toZ = data.to.z;
-            var piece = null;
-            for (var i = 0; i < pieces.length; i++) {
-                var pp = pieces[i].transform.position;
-                if (Math.round(pp.x) === fromX && Math.round(pp.z) === fromZ) {
-                    piece = pieces[i];
-                    break;
+        // Capture board state once. The pieces are placed in 03_worlds.json
+        // so this fires on the very first tick after world load.
+        this._captureInitialBoard();
+
+        // Restore board on Play Again.
+        this.scene.events.game.on("restart_game", function() { self._restoreInitialBoard(); });
+        this.scene.events.game.on("game_ready", function() { self._restoreInitialBoard(); });
+    }
+
+    _captureInitialBoard() {
+        var pieces = this.scene.findEntitiesByTag("piece") || [];
+        this._initialPieces = [];
+        for (var i = 0; i < pieces.length; i++) {
+            var p = pieces[i];
+            if (!p) continue;
+            var pos = p.transform && p.transform.position;
+            if (!pos) continue;
+            this._initialPieces.push({ id: p.id, x: pos.x, y: pos.y, z: pos.z });
+        }
+    }
+
+    _restoreInitialBoard() {
+        for (var i = 0; i < this._initialPieces.length; i++) {
+            var s = this._initialPieces[i];
+            var ent = this.scene.getEntity ? this.scene.getEntity(s.id) : null;
+            // Some scenes proxy entities via findEntityByName; fall back if needed.
+            if (!ent && this.scene.getAllEntities) {
+                var all = this.scene.getAllEntities();
+                for (var k = 0; k < all.length; k++) {
+                    if (all[k].id === s.id) { ent = all[k]; break; }
                 }
             }
-            if (!piece) return;
-
-            // Capture opponent piece if present
-            var oppColor = color === "white" ? "black" : "white";
-            var oppPieces = self.scene.findEntitiesByTag(oppColor) || [];
-            for (var j = 0; j < oppPieces.length; j++) {
-                var op = oppPieces[j].transform.position;
-                if (Math.round(op.x) === toX && Math.round(op.z) === toZ) {
-                    self.scene.destroyEntity(oppPieces[j].id);
-                    break;
-                }
-            }
-
-            // Move the piece
-            var py = piece.transform.position.y;
-            self.scene.setPosition(piece.id, toX, py, toZ);
-
-            // Emit moveMade so FSM transitions turns
-            var moveEvt = {};
-            self.scene.events.game.emit("move_made", moveEvt);
-        });
+            if (!ent) continue;
+            ent.active = true;
+            if (this.scene.setPosition) this.scene.setPosition(s.id, s.x, s.y, s.z);
+        }
     }
 
     _isOccupiedByBlack(x, z) {

@@ -427,6 +427,29 @@ export class PhysicsSystem {
                     return RAPIER.ColliderDesc.trimesh(positions, indices);
                 }
 
+                // Last-resort fallback: neither the .collision.bin sidecar
+                // nor the visible mesh's geometry has populated yet (GLB
+                // still loading on first tick). Use the renderer's gpuMesh
+                // bounds if they're available — those are computed at
+                // upload time from the same vertex positions the visible
+                // mesh draws with, so they reflect any registry transform
+                // (scale_multiplier, facing rotation) that's been baked in.
+                // Without this, custom-mesh entities started life with a
+                // hardcoded cuboid(0.5,0.5,0.5) that never matched their
+                // 10×-scaled visible mesh, and editor_context.ts's
+                // autoFitCollider only runs once the GLB finishes loading.
+                const mrFallback = entity.getComponent('MeshRendererComponent') as any;
+                const gm = mrFallback?.gpuMesh;
+                if (gm?.boundMin && gm?.boundMax) {
+                    const wx = (gm.boundMax.x - gm.boundMin.x) * 0.5 * sx;
+                    const wy = (gm.boundMax.y - gm.boundMin.y) * 0.5 * sy;
+                    const wz = (gm.boundMax.z - gm.boundMin.z) * 0.5 * sz;
+                    return RAPIER.ColliderDesc.cuboid(
+                        Math.max(0.01, wx),
+                        Math.max(0.01, wy),
+                        Math.max(0.01, wz),
+                    );
+                }
                 return RAPIER.ColliderDesc.cuboid(sx * 0.5, sy * 0.5, sz * 0.5);
             }
             case ShapeType.TERRAIN: {

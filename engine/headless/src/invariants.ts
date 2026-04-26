@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Playtest, PlaytestFailure, EntityRef } from './playtest.js';
+import { analyzeFlow as analyzeHudOverlaps } from './hud_overlap.js';
 
 export interface InvariantResult {
   name: string;
@@ -600,6 +601,9 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       if (isDecorative(e)) continue;
       const tags = e.tags instanceof Set ? Array.from(e.tags) : (Array.isArray(e.tags) ? e.tags : []);
       if (tags.includes('ui') || tags.includes('camera')) continue;
+      // System host entities (system_<name> tag) are bookkeeping shells
+      // for system scripts, not collidable game-world objects.
+      if (tags.some((t: any) => typeof t === 'string' && t.startsWith('system_'))) continue;
       const cc = e.getComponent('ColliderComponent');
       if (cc) continue;  // already has one — fine
       const nameMatches = INTERACTIVE_NAME_RE.test(e.name);
@@ -650,6 +654,69 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         `If these are non-interactive backdrop / decoration / effect props, add tag "decoration_only" in 02_entities.json so they're skipped from collision and pickup checks. ` +
         `Only add a physics block if the player is meant to bump into them (e.g. \`physics: { type: "static", collider: "box" }\` for walls/obstacles, \`physics: { type: "static", collider: { shape: "box" }, is_trigger: true }\` for pickups/zones).`,
         { missing: missing.slice(0, 10), total: missing.length, aggregated: aggregateNames });
+    }
+  }));
+
+  // ── 10b. Static-rigidbody entities must not move during play. ──
+  //
+  // Caught the platformer template's `moving_platform` having no physics
+  // block (so level_assembler defaulted it to STATIC). PlatformerLevelSystem
+  // then drove its transform via scene.setPosition every frame; the static
+  // collider got teleported under the player via rb.teleport, but the
+  // engine's carryKinematicRiders only iterates KINEMATIC bodies, so the
+  // player was never registered as a rider and never translated by the
+  // platform's per-frame delta — symptom: "have to walk to stay on it."
+  //
+  // Detection: snapshot static-RB positions after a brief settle (so
+  // boot-time placement adjustments don't trip us), activate behaviors,
+  // tick ~1.5s, flag anything that drifted. Threshold 0.05m is well
+  // above Rapier's resting-contact jitter for static bodies (which is
+  // effectively zero) but small enough to catch any continuously-moved
+  // platform.
+  results.push(guarded('static_bodies_dont_move', () => {
+    const scene: any = p.runtime.scene;
+    if (!scene) return;
+    // BodyType.STATIC === 0 (engine/shared/types/physics_enums.ts).
+    const STATIC = 0;
+    type Snap = { x: number; y: number; z: number; name: string };
+    const snap = (): Map<number, Snap> => {
+      const m = new Map<number, Snap>();
+      for (const e of scene.entities.values()) {
+        if (!e.active) continue;
+        const rb: any = e.getComponent('RigidbodyComponent');
+        if (!rb || rb.bodyType !== STATIC) continue;
+        const tc: any = e.getComponent('TransformComponent');
+        if (!tc) continue;
+        m.set(e.id, { x: tc.position.x, y: tc.position.y, z: tc.position.z, name: e.name });
+      }
+      return m;
+    };
+    // Brief settle, then sample, then run.
+    try { p.tick(10); } catch {}
+    const before = snap();
+    p.activateAllBehaviors();
+    try { p.tick(90); } catch {}
+    const moved: Array<{ name: string; dist: number }> = [];
+    for (const [id, prev] of before) {
+      const e = scene.entities.get(id);
+      if (!e) continue;
+      const tc: any = e.getComponent('TransformComponent');
+      if (!tc) continue;
+      const dx = tc.position.x - prev.x;
+      const dy = tc.position.y - prev.y;
+      const dz = tc.position.z - prev.z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist > 0.05) moved.push({ name: prev.name, dist });
+    }
+    if (moved.length > 0) {
+      moved.sort((a, b) => b.dist - a.dist);
+      const top = moved.slice(0, 5).map(m => `"${m.name}" (drifted ${m.dist.toFixed(2)}m)`).join(', ');
+      const more = moved.length > 5 ? ` (+${moved.length - 5} more)` : '';
+      throw new PlaytestFailure('static_body_moved',
+        `${moved.length} static-rigidbody entit${moved.length > 1 ? 'ies' : 'y'} had ${moved.length > 1 ? 'their' : 'its'} position changed during play: ${top}${more}. ` +
+        `Static bodies can't carry riders — physics_system.ts \`carryKinematicRiders\` only iterates KINEMATIC bodies, so the player won't ride a moving platform and other dynamic objects won't react to the moving collider's velocity. ` +
+        `Set \`physics: { type: "kinematic" }\` on these entities in 02_entities.json so the engine drives them via setNextKinematicTranslation and translates riders by the per-frame delta.`,
+        { moved: moved.slice(0, 10), total: moved.length });
     }
   }));
 
@@ -1097,17 +1164,18 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         const cx = Array.isArray(he) ? (he[0] ?? 0.5) : (he.x ?? 0.5);
         const cy = Array.isArray(he) ? (he[1] ?? 0.5) : (he.y ?? 0.5);
         const cz = Array.isArray(he) ? (he[2] ?? 0.5) : (he.z ?? 0.5);
-        // Iteration 7 audit fix: the original formula compared authored
-        // halfExtents against the unit primitive — independent of mesh.scale,
-        // which made the check effectively meaningless. The correct comparison
-        // is collider half-extent vs SCALED visible mesh half-extent. The
-        // engine multiplies BOTH halfExtents and prim by transform.scale at
-        // runtime, so a per-axis ratio of (collider / scaledMesh) tells us
-        // "is the collider bigger or smaller than the visible mesh after
-        // both have been scaled".
-        const rx = cx / (prim.x * Math.abs(msX));
-        const ry = cy / (prim.y * Math.abs(msY));
-        const rz = cz / (prim.z * Math.abs(msZ));
+        // The engine multiplies BOTH authored halfExtents and the unit
+        // primitive by transform.scale at runtime (physics_system.ts:376
+        // `he.x * sx`). So engine-final-collider-half = cx * msX and
+        // engine-final-mesh-half = prim.x * msX. Their ratio simplifies
+        // to cx / prim.x — msX cancels. The previous formula left msX in
+        // the denominator, which (a) flagged any wall with msX > 2 as a
+        // false positive and (b) silently passed the very wall_block case
+        // from 835c86cd (cx=2, prim=0.5, msX=4 → 1.0, "fine") that this
+        // check was designed to catch.
+        const rx = cx / prim.x;
+        const ry = cy / prim.y;
+        const rz = cz / prim.z;
         // Thin slabs (floor planes, decals, billboards) are fine to be
         // laterally oversized — a ground plane that collides past the
         // visible edge of the mesh doesn't cause invisible-wall complaints
@@ -1119,11 +1187,13 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         // than 2× — a single-axis mismatch is usually a deliberate design
         // choice (thin wall with wider base, etc.); two axes off is the
         // "forgot scale multiplies" signature we saw in run 835c86cd
-        // where wall_block had ratios [4, 4, 1].
+        // where wall_block had ratios [4, 4, 1]. Reported col/mesh values
+        // are engine-final (post-scale) so the numbers in the failure
+        // message match what the user sees in the editor.
         const badAxes: Array<{ axis: string; ratio: number; col: number; mesh: number }> = [];
-        if (rx > 2 || rx < 0.5) badAxes.push({ axis: 'x', ratio: rx, col: cx, mesh: prim.x * Math.abs(msX) });
-        if (ry > 2 || ry < 0.5) badAxes.push({ axis: 'y', ratio: ry, col: cy, mesh: prim.y * Math.abs(msY) });
-        if (rz > 2 || rz < 0.5) badAxes.push({ axis: 'z', ratio: rz, col: cz, mesh: prim.z * Math.abs(msZ) });
+        if (rx > 2 || rx < 0.5) badAxes.push({ axis: 'x', ratio: rx, col: cx * Math.abs(msX), mesh: prim.x * Math.abs(msX) });
+        if (ry > 2 || ry < 0.5) badAxes.push({ axis: 'y', ratio: ry, col: cy * Math.abs(msY), mesh: prim.y * Math.abs(msY) });
+        if (rz > 2 || rz < 0.5) badAxes.push({ axis: 'z', ratio: rz, col: cz * Math.abs(msZ), mesh: prim.z * Math.abs(msZ) });
         if (badAxes.length >= 2) {
           const worst = badAxes.reduce((a, b) => Math.abs(Math.log(a.ratio)) > Math.abs(Math.log(b.ratio)) ? a : b);
           mismatches.push({ name: entName, axis: worst.axis, ratio: worst.ratio, meshHalf: worst.mesh, colHalf: worst.col });
@@ -1245,7 +1315,26 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         /\.distanceTo\s*\(/,                                                  // explicit distance call
         /normalize\s*\(\s*\)\s*\.\s*scale|sub\s*\([^)]+\)\s*\.\s*normalize/,    // direction calc
       ];
+      // Require positive evidence of an enemy COLLECTION before flagging.
+      // The whole reason this invariant exists is "multiple enemies pile
+      // on the player" — if there's only ever one enemy, there's nothing
+      // to separate from, and chase logic alone is not the smell. The
+      // engine's only way to address a population is `findEntitiesByTag`,
+      // so requiring a tag-query with an enemy-shaped tag literal is a
+      // tight necessary-condition that sheds the false-positives we
+      // were seeing on non-AI games (marble run flagged because it has
+      // `findEntityByName("Player")` to grab the marble + a velocity-
+      // reset call — both signals true, neither related to AI).
+      // Tag literal must CONTAIN an enemy-shaped substring (so creative
+      // names like "skeleton_warrior" or "wave_enemy_v2" still count).
+      // Tight enough to skip generic tags like "pickup", "hazard",
+      // "platform", "marble" — those don't substring-match any of these.
+      const ENEMY_TAG_QUERY_RE =
+        /findEntitiesByTag\(\s*["'][a-zA-Z0-9_]*?(enemy|enemies|robot|zombie|ghost|goomba|skeleton|orc|minion|drone|npc|monster|mob|chaser|pursuer|hunter|hostile)[a-zA-Z0-9_]*?["']\s*\)/i;
       for (const [file, src] of scriptEntries) {
+        // Hard prerequisite: the file must address enemies as a population
+        // (separation only makes sense between members of a population).
+        if (!ENEMY_TAG_QUERY_RE.test(src)) continue;
         // Signal: calls setVelocity toward a player target inside a per-
         // frame update, no separation force loop.
         if (!/findEntityByName\(["']Player["']\)|findEntitiesByTag\(["']player["']\)/.test(src)) continue;
@@ -1260,8 +1349,6 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         // hand-rolled the math correctly.
         const hasSeparationLogic = SEPARATION_DETECTED_RE.some(re => re.test(src));
         if (hasSeparationLogic) continue;
-        // Only flag if it clearly looks like AI (robot/enemy/zombie/…).
-        if (!/robot|enemy|zombie|ghost|goomba|skeleton|orc|minion|drone|npc/i.test(file + '\n' + src)) continue;
         smells.push({
           file,
           suggestedLibrary: 'behaviors/ai/enemy_chase_with_separation.ts',
@@ -1440,15 +1527,28 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
 
     // (b) + (c) Script emits on the `game` bus. Two syntaxes in the
     // wild: `events.game.emit("<name>", ...)` and fsm_driver's
-    // `_emitBus("game", "<name>", ...)` helper.
+    // `_emitBus("game", "<name>", ...)` helper. Also the alias-then-emit
+    // pattern (e.g. `var gbus = events.game; gbus.emit("...", ...)`)
+    // which mp_bridge uses for perf — the invariant treats any
+    // `<word>.emit("string", ...)` as an emit if the same script also
+    // sets up the alias from events.game.
     const SCRIPT_EMIT_RE_1 = /events\.game\.emit\s*\(\s*["']([^"']+)["']/g;
     const SCRIPT_EMIT_RE_2 = /_emitBus\s*\(\s*["']game["']\s*,\s*["']([^"']+)["']/g;
+    const SCRIPT_EMIT_RE_3 = /\b\w+\.emit\s*\(\s*["']([^"']+)["']/g;
+    const ALIAS_RE = /\b(?:var|let|const)\s+\w+\s*=\s*[^;=]*events\.game\b/;
     for (const src of Object.values(scripts)) {
       let m: RegExpExecArray | null;
       SCRIPT_EMIT_RE_1.lastIndex = 0;
       while ((m = SCRIPT_EMIT_RE_1.exec(src)) !== null) emittedEvents.add(m[1]);
       SCRIPT_EMIT_RE_2.lastIndex = 0;
       while ((m = SCRIPT_EMIT_RE_2.exec(src)) !== null) emittedEvents.add(m[1]);
+      // Only collect aliased emits when the source declares an alias of
+      // events.game — otherwise `someUnrelated.emit("x")` would falsely
+      // satisfy a listener for "x".
+      if (ALIAS_RE.test(src)) {
+        SCRIPT_EMIT_RE_3.lastIndex = 0;
+        while ((m = SCRIPT_EMIT_RE_3.exec(src)) !== null) emittedEvents.add(m[1]);
+      }
     }
 
     // Listeners — scan non-transport scripts for `events.game.on(...)`.
@@ -1456,6 +1556,12 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     // invariant uses (`scripts/ui_ui_bridge.ts`, not `systems/ui/ui_bridge.ts`).
     const TRANSPORT_RE = /(^|[\/_])(ui_bridge|mp_bridge|fsm_driver|_entity_label|event_definitions|_event_validator)(_[^/]*)?\.ts$/;
     const LISTEN_RE = /events\.game\.on\s*\(\s*["']([^"']+)["']/g;
+    // Multiplayer transport events are dispatched by mp_bridge with a
+    // dynamic suffix (`gbus.emit("net_" + event, ...)`) so the literal
+    // name never appears in source. Any `net_<name>` and `mp_<name>`
+    // listener is assumed live as long as the project includes mp_bridge.
+    const TRANSPORT_EVENT_RE = /^(net_|mp_)/;
+    const hasMpBridge = Object.keys(scripts).some(p => /mp_bridge/.test(p));
     const deadListeners: Array<{ name: string; script: string }> = [];
     const seen = new Set<string>();
     for (const [scriptPath, src] of Object.entries(scripts)) {
@@ -1465,6 +1571,7 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       while ((m = LISTEN_RE.exec(src)) !== null) {
         const evtName = m[1];
         if (emittedEvents.has(evtName)) continue;
+        if (hasMpBridge && TRANSPORT_EVENT_RE.test(evtName)) continue;
         const key = `${scriptPath}::${evtName}`;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -1664,6 +1771,36 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         });
       } else if (hudHtmls.length > 0) {
         results.push({ name: 'hud_html_field_resolves', failure: null });
+      }
+    }
+  }
+
+  // ── 17b. HUD panels visible together must not visually overlap ────────
+  // Two HUD HTMLs that pin to the same screen corner with intersecting
+  // bounding boxes will draw on top of each other once the player enters
+  // a state that show_ui's both. Strict mode: only fires when geometry
+  // clearly intersects — top/bottom-center pairs check y-overlap only
+  // since x is viewport-relative. The 4x_strategy fix (2026-04-25)
+  // motivated this — generic scoreboard panels stacked on top of
+  // template-specific HUDs in 6+ shipped templates.
+  {
+    const flow: any = p.runtime.files.flow;
+    const uiHtmls = p.runtime.files.uiHtmls ?? {};
+    if (flow?.states && Object.keys(uiHtmls).length > 0) {
+      const overlaps = analyzeHudOverlaps(flow, uiHtmls);
+      if (overlaps.length > 0) {
+        const first = overlaps.slice(0, 4).map(o =>
+          `[${o.state}] ${o.a.ref} (${o.a.anchor}) overlaps ${o.b.ref}`,
+        ).join('; ');
+        const more = overlaps.length > 4 ? ` (+${overlaps.length - 4} more)` : '';
+        results.push({
+          name: 'hud_panels_no_overlap',
+          failure: new PlaytestFailure('hud_overlap',
+            `${overlaps.length} HUD panel pair${overlaps.length > 1 ? 's' : ''} visually overlap during gameplay: ${first}${more}. Two panels pinned to the same screen corner with intersecting CSS positions will draw on top of each other. Either (a) reposition one panel to a different corner / different offset, or (b) drop one of the redundant panels from the gameplay state's show_ui list (often a generic hud/* is duplicated by a game-specific HUD).`,
+            { overlaps: overlaps.slice(0, 20), total: overlaps.length }),
+        });
+      } else {
+        results.push({ name: 'hud_panels_no_overlap', failure: null });
       }
     }
   }

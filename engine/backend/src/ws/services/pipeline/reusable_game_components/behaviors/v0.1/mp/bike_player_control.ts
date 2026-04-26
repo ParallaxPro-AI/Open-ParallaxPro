@@ -210,7 +210,12 @@ class BikePlayerControlBehavior extends GameScript {
         // radians here is what was making A/D feel like a translate instead
         // of a steer — the visual rotation was clamped to tiny angles while
         // the motion math used the full radian value.
-        this.entity.transform.setRotationEuler(0, this._yawDeg, 0);
+        // +180 visual offset: motion math uses forward = (sin, cos) (+Z at
+        // yaw 0), but the GLB's native forward is -Z. Without the offset
+        // the bike's nose points opposite the direction of travel — looks
+        // like the rider is going in reverse. _yawDeg stays as the logical
+        // motion-direction yaw so camera/trail/match math is unchanged.
+        this.entity.transform.setRotationEuler(0, this._yawDeg + 180, 0);
         this.entity.transform.markDirty && this.entity.transform.markDirty();
 
         this._registerSelf();
@@ -237,12 +242,18 @@ class BikePlayerControlBehavior extends GameScript {
         // scriptTransform exposes rotation as a quaternion but has no
         // getRotationEuler, so derive yaw from the quat directly. Assumes
         // yaw-dominant rotations (no significant pitch/roll on the bike).
+        // The visual rotation carries a +180 offset vs the logical motion
+        // yaw (see onUpdate), so subtract it back out and re-wrap so all
+        // callers receive a value in the same convention as _yawDeg.
         if (!this.entity.transform) return 0;
         var q = this.entity.transform.rotation;
         if (!q) return 0;
         var qx = q.x || 0, qy = q.y || 0, qz = q.z || 0, qw = q.w != null ? q.w : 1;
         var yawRad = Math.atan2(2 * (qw * qy + qx * qz), 1 - 2 * (qy * qy + qx * qx));
-        return yawRad * 180 / Math.PI;
+        var deg = yawRad * 180 / Math.PI - 180;
+        if (deg > 180) deg -= 360;
+        else if (deg < -180) deg += 360;
+        return deg;
     }
 
     _registerSelf() {

@@ -74,7 +74,10 @@ class BallerDribbleBehavior extends GameScript {
             var nfwd = fwd / moveLen, nstrafe = strafe / moveLen;
             this._xVel = nstrafe * maxSpeed;
             this._zVel = -nfwd * maxSpeed;
-            this._moveYaw = Math.atan2(nstrafe, -nfwd);
+            // Negate both args so the model faces the direction of motion
+            // (engine Y-rotation is CCW-from-above; the unnegated form
+            // points the player 180° opposite the velocity vector).
+            this._moveYaw = Math.atan2(-nstrafe, nfwd);
         } else {
             this._xVel = 0;
             this._zVel = 0;

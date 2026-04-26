@@ -31,14 +31,6 @@ class CameraPartyChaseBehavior extends GameScript {
     _shakeT = 0;
 
     onStart() {
-        var self = this;
-        // Camera shake whenever a spinner whacks our local player.
-        this.scene.events.game.on("jj_obstacle_hit", function(data) {
-            var mp = self.scene._mp;
-            if (!mp || !data || data.peerId !== mp.localPeerId) return;
-            self._shakeMag = Math.min(0.6, 0.18 + (Number(data.force) || 1) * 0.1);
-            self._shakeT = 0.35;
-        });
     }
 
     onUpdate(dt) {

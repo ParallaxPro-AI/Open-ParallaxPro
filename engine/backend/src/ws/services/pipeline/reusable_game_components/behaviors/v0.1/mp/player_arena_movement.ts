@@ -4,7 +4,8 @@
 // Each peer drives their own local player with WASD. Remote players show
 // up via proxy entities spawned by the DefaultNetworkAdapter and updated
 // from snapshots; they don't have this behavior attached, so this script
-// never tries to move someone else's player.
+// never tries to move someone else's player. (System-side
+// _tickRemoteAnimations in coin_grab_game drives the proxy's anim.)
 //
 // The local player's transform is broadcast every sim tick by the
 // MultiplayerSession, so other peers see us move. Sprint holds Shift.
@@ -12,6 +13,7 @@ class PlayerArenaMovementBehavior extends GameScript {
     _behaviorName = "player_arena_movement";
     _speed = 6;
     _turnSpeed = 4;
+    _currentAnim = "";
 
     onUpdate(dt) {
         var ni = this.entity.getComponent
@@ -31,7 +33,12 @@ class PlayerArenaMovementBehavior extends GameScript {
         pos.z -= forward * speed * dt;
 
         if (Math.abs(forward) + Math.abs(strafe) > 0.1) {
-            var targetYaw = Math.atan2(strafe, -forward);
+            // Motion direction is (strafe, 0, -forward); the GLB's native
+            // forward is -Z, so the rotation that aligns the model's nose
+            // with motion is atan2(-strafe, forward). Previously this was
+            // atan2(strafe, -forward), 180° off — invisible on the old
+            // capsule but obvious now that the player is a Knight model.
+            var targetYaw = Math.atan2(-strafe, forward);
             var curYaw = this.entity.transform.getRotationEuler
                 ? this.entity.transform.getRotationEuler().y
                 : 0;
@@ -49,5 +56,17 @@ class PlayerArenaMovementBehavior extends GameScript {
         if (pos.z >  19) pos.z =  19;
 
         this.entity.transform.markDirty && this.entity.transform.markDirty();
+
+        // Animation hint. Threshold matches the sprint multiplier above
+        // (base 6 → ~6, sprint ×1.6 → ~9.6) so the Run clip kicks in
+        // only when actually sprinting.
+        var moving = (Math.abs(forward) + Math.abs(strafe)) > 0.1;
+        var anim = !moving ? "Idle" : (sprint ? "Run" : "Walk");
+        if (anim !== this._currentAnim) {
+            this._currentAnim = anim;
+            if (this.entity.playAnimation) {
+                try { this.entity.playAnimation(anim, { loop: true }); } catch (e) { /* missing clip */ }
+            }
+        }
     }
 }

@@ -149,9 +149,6 @@ class ShooterRoyaleGameSystem extends GameScript {
         this.scene.events.game.on("royale_heal_pressed", function() {
             self._tryHealSelf();
         });
-        this.scene.events.game.on("royale_pickup_request", function(data) {
-            self._onPickupRequest(data || {});
-        });
         this.scene.events.game.on("royale_pickup_pressed", function(data) {
             // Manual "E/F grab" is also just a pickup_request after the
             // loot_crate behavior forwards its chosen loot. We don't do
@@ -185,6 +182,8 @@ class ShooterRoyaleGameSystem extends GameScript {
             }
         }
         if (!this._initialized || this._matchEnded) return;
+
+        this._tickRemoteAnimations(dt);
 
         this._matchElapsed += dt;
         this._phaseTimer -= dt;
@@ -1105,5 +1104,53 @@ class ShooterRoyaleGameSystem extends GameScript {
         this._phase = phase;
         this._phaseTimer = seconds;
         this.scene.events.game.emit("phase_changed", { phase: phase });
+    }
+
+    // Drive Idle/Walk/Run/Jump on every remote shooter proxy. The
+    // network adapter spawns proxies with skipBehaviors=true, so
+    // player_shooter_movement never runs there to call playAnimation.
+    // Without this loop other peers see the moving proxy stuck in the
+    // GLB's bind pose / last clip. Velocity is derived from observed
+    // position deltas because the owner's velocity isn't a networkedVar.
+    // Note: player_shooter_movement doesn't drive playAnimation for the
+    // local player either, so the local soldier is also frozen — this
+    // loop only fixes the remote view; the local-side gap is separate.
+    _tickRemoteAnimations(dt) {
+        var all = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+        if (!all || all.length === 0) return;
+        if (!this._remoteAnimState) this._remoteAnimState = {};
+        var step = dt > 0 ? dt : 1 / 60;
+        for (var i = 0; i < all.length; i++) {
+            var p = all[i];
+            if (!p || !p.transform || !p.playAnimation) continue;
+            var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+            if (!ni || ni.isLocalPlayer) continue;
+            var key = String(ni.ownerId || ni.networkId || p.id);
+            var st = this._remoteAnimState[key];
+            var pos = p.transform.position;
+            if (!st) {
+                this._remoteAnimState[key] = { x: pos.x, y: pos.y, z: pos.z, anim: "" };
+                continue;
+            }
+            var dx = (pos.x - st.x) / step;
+            var dz = (pos.z - st.z) / step;
+            st.x = pos.x; st.y = pos.y; st.z = pos.z;
+
+            var spd = Math.sqrt(dx * dx + dz * dz);
+            var grounded = true;
+            if (this.scene.raycast) {
+                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
+                grounded = !!(hit && hit.entityId);
+            }
+            var anim;
+            if (!grounded)      anim = "Jump";
+            else if (spd > 7.5) anim = "Run";
+            else if (spd > 0.5) anim = "Walk";
+            else                anim = "Idle";
+            if (anim !== st.anim) {
+                st.anim = anim;
+                try { p.playAnimation(anim, { loop: true }); } catch (e) { /* missing clip */ }
+            }
+        }
     }
 }

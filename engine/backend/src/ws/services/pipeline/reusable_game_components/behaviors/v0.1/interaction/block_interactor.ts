@@ -25,6 +25,16 @@ class BlockInteractorBehavior extends GameScript {
     _holdPlaceTimer = 0;
     _matchOver = false;
     _inventoryOpen = false;
+    // Track the virtual cursor (the visible aim reticle that ui_bridge
+    // integrates from mouse delta). Pickaxe Keep enables show_cursor in
+    // its FSM, so the player's perceived aim point is the virtual
+    // cursor — not the raw OS mouse position. Using getMousePosition()
+    // here would mine/place at the wrong spot whenever the OS cursor
+    // and virtual cursor diverge (which happens whenever pointer-lock
+    // is on, the mouse leaves the canvas, or the page is scaled).
+    _cursorX = 0;
+    _cursorY = 0;
+    _gotCursor = false;
 
     onStart() {
         var self = this;
@@ -32,6 +42,12 @@ class BlockInteractorBehavior extends GameScript {
         this.scene.events.game.on("match_started", function() { self._matchOver = false; });
         this.scene.events.game.on("pk_toggle_inventory", function() {
             self._inventoryOpen = !self._inventoryOpen;
+        });
+        this.scene.events.ui.on("cursor_move", function(d) {
+            if (!d) return;
+            self._cursorX = d.x;
+            self._cursorY = d.y;
+            self._gotCursor = true;
         });
     }
 
@@ -65,8 +81,11 @@ class BlockInteractorBehavior extends GameScript {
         // Mining / placing — both are click-and-hold: tap to fire one
         // intent, hold to repeat at _mineHoldRate / _placeHoldRate. The
         // match system handles cooldowns on its own for mining time.
-        var mouse = this.input.getMousePosition ? this.input.getMousePosition() : null;
-        if (!mouse) return;
+        // Aim with the virtual cursor (visible reticle), not the raw OS
+        // mouse — they diverge under pointer lock and CSS-scaled
+        // canvases, and the player aims at what they SEE.
+        if (!this._gotCursor) return;
+        var mouse = { x: this._cursorX, y: this._cursorY };
 
         // Left-click = mine / attack
         var lDown = this.input.isKeyDown ? this.input.isKeyDown("MouseLeft") : false;

@@ -4,143 +4,952 @@
       "id": "buccaneer_bay",
       "name": "Buccaneer Bay",
       "environment": {
-        "ambientColor": [0.55, 0.65, 0.78],
+        "ambientColor": [
+          0.55,
+          0.65,
+          0.78
+        ],
         "ambientIntensity": 0.6,
-        "sunColor": [1.00, 0.95, 0.85],
+        "sunColor": [
+          1.0,
+          0.95,
+          0.85
+        ],
         "sunIntensity": 1.05,
-        "fog": { "enabled": true, "color": [0.65, 0.80, 0.95], "near": 80, "far": 240 },
-        "gravity": [0, -9.81, 0]
+        "fog": {
+          "enabled": true,
+          "color": [
+            0.65,
+            0.8,
+            0.95
+          ],
+          "near": 80,
+          "far": 240
+        },
+        "gravity": [
+          0,
+          -9.81,
+          0
+        ]
       },
       "lighting": {
-        "ambient": [0.55, 0.65, 0.78],
-        "sun_direction": [0.4, -0.7, 0.3],
-        "sun_color": [1.00, 0.95, 0.85],
+        "ambient": [
+          0.55,
+          0.65,
+          0.78
+        ],
+        "sun_direction": [
+          0.4,
+          -0.7,
+          0.3
+        ],
+        "sun_color": [
+          1.0,
+          0.95,
+          0.85
+        ],
         "shadowDistance": 220
       },
       "placements": [
-        { "ref": "ocean_floor", "position": [0, -2.5, 0] },
-        { "ref": "ocean_surface", "position": [0, 0, 0] },
-
-        { "ref": "camera", "position": [0, 8, 16] },
-        { "name": "Player", "ref": "player", "position": [0, 0, 0] },
-
-        { "ref": "border_buoy", "position": [-150, 0.5, -150] },
-        { "ref": "border_buoy", "position": [ 150, 0.5, -150] },
-        { "ref": "border_buoy", "position": [-150, 0.5,  150] },
-        { "ref": "border_buoy", "position": [ 150, 0.5,  150] },
-        { "ref": "border_buoy", "position": [   0, 0.5, -150] },
-        { "ref": "border_buoy", "position": [   0, 0.5,  150] },
-        { "ref": "border_buoy", "position": [-150, 0.5,    0] },
-        { "ref": "border_buoy", "position": [ 150, 0.5,    0] },
-
-        { "ref": "sand_island", "position": [40, 0.2, 40], "scale": [16, 0.6, 16] },
-        { "ref": "tavern_house", "position": [40, 0.7, 40] },
-        { "ref": "fishery_house", "position": [46, 0.7, 36] },
-        { "ref": "sawmill_house", "position": [34, 0.7, 36] },
-        { "ref": "dock_long", "position": [40, 0.4, 50], "rotation": [0, 0, 0] },
-        { "ref": "dock_pole", "position": [38, 0.4, 53] },
-        { "ref": "dock_pole", "position": [42, 0.4, 53] },
-        { "ref": "palm_a", "position": [33, 0.7, 42] },
-        { "ref": "palm_b", "position": [47, 0.7, 38] },
-        { "ref": "palm_c", "position": [44, 0.7, 45] },
-        { "ref": "rock_a", "position": [37, 0.7, 33] },
-        { "ref": "rock_b", "position": [49, 0.7, 42] },
-        { "ref": "barrel_decor", "position": [42, 0.7, 47] },
-        { "ref": "anchor_decor", "position": [38, 0.7, 49] },
-        { "ref": "captain_statue", "position": [40, 0.7, 38] },
-
-        { "ref": "sand_island", "position": [-55, 0.2, 30], "scale": [18, 0.6, 18] },
-        { "ref": "cliff_face", "position": [-55, 0.4, 30] },
-        { "ref": "cliff_face", "position": [-58, 0.4, 36], "rotation": [0, 60, 0] },
-        { "ref": "cliff_face", "position": [-52, 0.4, 24], "rotation": [0, -60, 0] },
-        { "ref": "skull_decor", "position": [-55, 1.5, 28] },
-        { "ref": "bones_decor", "position": [-52, 0.6, 32] },
-        { "ref": "bones_decor", "position": [-58, 0.6, 28] },
-        { "ref": "treasure_chest_gold", "position": [-55, 0.6, 30] },
-        { "ref": "treasure_chest_closed", "position": [-53, 0.6, 28] },
-        { "ref": "gold_pile", "position": [-56, 0.6, 31] },
-        { "ref": "gold_bag", "position": [-55, 0.6, 33] },
-        { "ref": "skeleton_decor", "position": [-54, 0.6, 30] },
-        { "ref": "palm_a", "position": [-49, 0.7, 28] },
-        { "ref": "palm_c", "position": [-60, 0.7, 36] },
-        { "ref": "rock_c", "position": [-62, 0.7, 30] },
-
-        { "ref": "sand_island", "position": [60, 0.2, -50], "scale": [14, 0.6, 14] },
-        { "ref": "palm_a", "position": [62, 0.7, -48] },
-        { "ref": "palm_b", "position": [55, 0.7, -52] },
-        { "ref": "palm_c", "position": [65, 0.7, -55] },
-        { "ref": "rock_a", "position": [58, 0.7, -45] },
-        { "ref": "treasure_chest_gold", "position": [60, 0.6, -50] },
-        { "ref": "gold_pile", "position": [62, 0.6, -50] },
-        { "ref": "barrel_decor", "position": [58, 0.6, -50] },
-        { "ref": "anchor_decor", "position": [60, 0.6, -53] },
-
-        { "ref": "sand_island", "position": [-40, 0.2, -55], "scale": [13, 0.6, 13] },
-        { "ref": "palm_b", "position": [-40, 0.7, -50] },
-        { "ref": "palm_c", "position": [-44, 0.7, -58] },
-        { "ref": "rock_b", "position": [-38, 0.7, -60] },
-        { "ref": "rock_c", "position": [-46, 0.7, -52] },
-        { "ref": "treasure_chest_closed", "position": [-40, 0.6, -55] },
-        { "ref": "skeleton_decor", "position": [-42, 0.6, -57] },
-        { "ref": "skull_decor", "position": [-39, 0.6, -56] },
-        { "ref": "bones_decor", "position": [-44, 0.6, -54] },
-        { "ref": "barrel_decor", "position": [-37, 0.6, -52] },
-
-        { "ref": "sand_atoll_small", "position": [85, 0.2, 10] },
-        { "ref": "palm_a", "position": [85, 0.7, 10] },
-        { "ref": "rock_a", "position": [88, 0.7, 12] },
-
-        { "ref": "sand_atoll_small", "position": [-80, 0.2, -15] },
-        { "ref": "palm_c", "position": [-80, 0.7, -15] },
-        { "ref": "rock_b", "position": [-78, 0.7, -18] },
-
-        { "ref": "sand_atoll_small", "position": [10, 0.2, 80] },
-        { "ref": "palm_b", "position": [10, 0.7, 80] },
-        { "ref": "rock_c", "position": [13, 0.7, 82] },
-
-        { "ref": "sand_atoll_small", "position": [-15, 0.2, -85] },
-        { "ref": "palm_a", "position": [-15, 0.7, -85] },
-        { "ref": "rock_a", "position": [-18, 0.7, -87] },
-
-        { "ref": "sand_atoll_small", "position": [110, 0.2, -75] },
-        { "ref": "palm_b", "position": [110, 0.7, -75] },
-        { "ref": "skull_decor", "position": [110, 1.5, -75] },
-        { "ref": "treasure_chest_closed", "position": [108, 0.6, -75] },
-        { "ref": "rock_b", "position": [113, 0.7, -73] },
-
-        { "ref": "sand_atoll_small", "position": [-100, 0.2, 80] },
-        { "ref": "palm_c", "position": [-100, 0.7, 80] },
-        { "ref": "treasure_chest_gold", "position": [-100, 0.6, 80] },
-        { "ref": "rock_c", "position": [-103, 0.7, 82] },
-
-        { "ref": "ghost_ship_small", "position": [25, 0, -25], "rotation": [0, 45, 0] },
-        { "ref": "ghost_ship_small", "position": [-30, 0, 60], "rotation": [0, -120, 0] },
-        { "ref": "ghost_ship_small", "position": [80, 0, -10], "rotation": [0, 200, 0] },
-
-        { "ref": "kraken_tentacle", "position": [25, -3, 25] },
-        { "ref": "kraken_tentacle", "position": [-25, -3, -25] },
-        { "ref": "kraken_tentacle", "position": [70, -3, 70] },
-        { "ref": "kraken_tentacle", "position": [-70, -3, 60] },
-
-        { "ref": "shark_patrol", "position": [15, -1, 50] },
-        { "ref": "shark_patrol", "position": [50, -1, 15] },
-        { "ref": "shark_patrol", "position": [-50, -1, -15] },
-        { "ref": "shark_patrol", "position": [-15, -1, -50] },
-
-        { "ref": "fish_tuna", "position": [12, 0, 12] },
-        { "ref": "fish_tuna", "position": [-15, 0, 18] },
-        { "ref": "fish_clown", "position": [22, 0, -8] },
-        { "ref": "fish_tang", "position": [-8, 0, -22] },
-        { "ref": "dolphin_pod", "position": [40, 0.3, -20] },
-        { "ref": "dolphin_pod", "position": [-30, 0.3, 20] },
-        { "ref": "whale_distant", "position": [120, 0.5, 110] },
-
-        { "ref": "rock_a", "position": [70, 0, 0] },
-        { "ref": "rock_b", "position": [-70, 0, 0] },
-        { "ref": "rock_c", "position": [0, 0, 70] },
-        { "ref": "rock_a", "position": [0, 0, -70] },
-        { "ref": "rock_b", "position": [120, 0, 60] },
-        { "ref": "rock_c", "position": [-120, 0, -60] }
+        {
+          "ref": "ocean_floor",
+          "position": [
+            0,
+            -2.5,
+            0
+          ]
+        },
+        {
+          "ref": "ocean_surface",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "camera",
+          "position": [
+            0,
+            8,
+            16
+          ]
+        },
+        {
+          "name": "Player",
+          "ref": "player",
+          "position": [
+            0,
+            4.0,
+            0
+          ]
+        },
+        {
+          "ref": "border_buoy",
+          "position": [
+            -150,
+            0.5,
+            -150
+          ]
+        },
+        {
+          "ref": "border_buoy",
+          "position": [
+            150,
+            0.5,
+            -150
+          ]
+        },
+        {
+          "ref": "border_buoy",
+          "position": [
+            -150,
+            0.5,
+            150
+          ]
+        },
+        {
+          "ref": "border_buoy",
+          "position": [
+            150,
+            0.5,
+            150
+          ]
+        },
+        {
+          "ref": "border_buoy",
+          "position": [
+            0,
+            0.5,
+            -150
+          ]
+        },
+        {
+          "ref": "border_buoy",
+          "position": [
+            0,
+            0.5,
+            150
+          ]
+        },
+        {
+          "ref": "border_buoy",
+          "position": [
+            -150,
+            0.5,
+            0
+          ]
+        },
+        {
+          "ref": "border_buoy",
+          "position": [
+            150,
+            0.5,
+            0
+          ]
+        },
+        {
+          "ref": "sand_island",
+          "position": [
+            40,
+            0.2,
+            40
+          ],
+          "scale": [
+            16,
+            0.6,
+            16
+          ]
+        },
+        {
+          "ref": "tavern_house",
+          "position": [
+            40,
+            0.7,
+            40
+          ]
+        },
+        {
+          "ref": "fishery_house",
+          "position": [
+            46,
+            0.7,
+            36
+          ]
+        },
+        {
+          "ref": "sawmill_house",
+          "position": [
+            34,
+            0.7,
+            36
+          ]
+        },
+        {
+          "ref": "dock_long",
+          "position": [
+            40,
+            0.4,
+            50
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "dock_pole",
+          "position": [
+            38,
+            0.4,
+            53
+          ]
+        },
+        {
+          "ref": "dock_pole",
+          "position": [
+            42,
+            0.4,
+            53
+          ]
+        },
+        {
+          "ref": "palm_a",
+          "position": [
+            33,
+            0.7,
+            42
+          ]
+        },
+        {
+          "ref": "palm_b",
+          "position": [
+            47,
+            0.7,
+            38
+          ]
+        },
+        {
+          "ref": "palm_c",
+          "position": [
+            44,
+            0.7,
+            45
+          ]
+        },
+        {
+          "ref": "rock_a",
+          "position": [
+            37,
+            0.7,
+            33
+          ]
+        },
+        {
+          "ref": "rock_b",
+          "position": [
+            49,
+            0.7,
+            42
+          ]
+        },
+        {
+          "ref": "barrel_decor",
+          "position": [
+            42,
+            0.7,
+            47
+          ]
+        },
+        {
+          "ref": "anchor_decor",
+          "position": [
+            38,
+            0.7,
+            49
+          ]
+        },
+        {
+          "ref": "captain_statue",
+          "position": [
+            40,
+            0.7,
+            38
+          ]
+        },
+        {
+          "ref": "sand_island",
+          "position": [
+            -55,
+            0.2,
+            30
+          ],
+          "scale": [
+            18,
+            0.6,
+            18
+          ]
+        },
+        {
+          "ref": "cliff_face",
+          "position": [
+            -55,
+            0.4,
+            30
+          ]
+        },
+        {
+          "ref": "cliff_face",
+          "position": [
+            -58,
+            0.4,
+            36
+          ],
+          "rotation": [
+            0,
+            60,
+            0
+          ]
+        },
+        {
+          "ref": "cliff_face",
+          "position": [
+            -52,
+            0.4,
+            24
+          ],
+          "rotation": [
+            0,
+            -60,
+            0
+          ]
+        },
+        {
+          "ref": "skull_decor",
+          "position": [
+            -55,
+            1.5,
+            28
+          ]
+        },
+        {
+          "ref": "bones_decor",
+          "position": [
+            -52,
+            0.6,
+            32
+          ]
+        },
+        {
+          "ref": "bones_decor",
+          "position": [
+            -58,
+            0.6,
+            28
+          ]
+        },
+        {
+          "ref": "treasure_chest_gold",
+          "position": [
+            -55,
+            0.6,
+            30
+          ]
+        },
+        {
+          "ref": "treasure_chest_closed",
+          "position": [
+            -53,
+            0.6,
+            28
+          ]
+        },
+        {
+          "ref": "gold_pile",
+          "position": [
+            -56,
+            0.6,
+            31
+          ]
+        },
+        {
+          "ref": "gold_bag",
+          "position": [
+            -55,
+            0.6,
+            33
+          ]
+        },
+        {
+          "ref": "skeleton_decor",
+          "position": [
+            -54,
+            0.6,
+            30
+          ]
+        },
+        {
+          "ref": "palm_a",
+          "position": [
+            -49,
+            0.7,
+            28
+          ]
+        },
+        {
+          "ref": "palm_c",
+          "position": [
+            -60,
+            0.7,
+            36
+          ]
+        },
+        {
+          "ref": "rock_c",
+          "position": [
+            -62,
+            0.7,
+            30
+          ]
+        },
+        {
+          "ref": "sand_island",
+          "position": [
+            60,
+            0.2,
+            -50
+          ],
+          "scale": [
+            14,
+            0.6,
+            14
+          ]
+        },
+        {
+          "ref": "palm_a",
+          "position": [
+            62,
+            0.7,
+            -48
+          ]
+        },
+        {
+          "ref": "palm_b",
+          "position": [
+            55,
+            0.7,
+            -52
+          ]
+        },
+        {
+          "ref": "palm_c",
+          "position": [
+            65,
+            0.7,
+            -55
+          ]
+        },
+        {
+          "ref": "rock_a",
+          "position": [
+            58,
+            0.7,
+            -45
+          ]
+        },
+        {
+          "ref": "treasure_chest_gold",
+          "position": [
+            60,
+            0.6,
+            -50
+          ]
+        },
+        {
+          "ref": "gold_pile",
+          "position": [
+            62,
+            0.6,
+            -50
+          ]
+        },
+        {
+          "ref": "barrel_decor",
+          "position": [
+            58,
+            0.6,
+            -50
+          ]
+        },
+        {
+          "ref": "anchor_decor",
+          "position": [
+            60,
+            0.6,
+            -53
+          ]
+        },
+        {
+          "ref": "sand_island",
+          "position": [
+            -40,
+            0.2,
+            -55
+          ],
+          "scale": [
+            13,
+            0.6,
+            13
+          ]
+        },
+        {
+          "ref": "palm_b",
+          "position": [
+            -40,
+            0.7,
+            -50
+          ]
+        },
+        {
+          "ref": "palm_c",
+          "position": [
+            -44,
+            0.7,
+            -58
+          ]
+        },
+        {
+          "ref": "rock_b",
+          "position": [
+            -38,
+            0.7,
+            -60
+          ]
+        },
+        {
+          "ref": "rock_c",
+          "position": [
+            -46,
+            0.7,
+            -52
+          ]
+        },
+        {
+          "ref": "treasure_chest_closed",
+          "position": [
+            -40,
+            0.6,
+            -55
+          ]
+        },
+        {
+          "ref": "skeleton_decor",
+          "position": [
+            -42,
+            0.6,
+            -57
+          ]
+        },
+        {
+          "ref": "skull_decor",
+          "position": [
+            -39,
+            0.6,
+            -56
+          ]
+        },
+        {
+          "ref": "bones_decor",
+          "position": [
+            -44,
+            0.6,
+            -54
+          ]
+        },
+        {
+          "ref": "barrel_decor",
+          "position": [
+            -37,
+            0.6,
+            -52
+          ]
+        },
+        {
+          "ref": "sand_atoll_small",
+          "position": [
+            85,
+            0.2,
+            10
+          ]
+        },
+        {
+          "ref": "palm_a",
+          "position": [
+            85,
+            0.7,
+            10
+          ]
+        },
+        {
+          "ref": "rock_a",
+          "position": [
+            88,
+            0.7,
+            12
+          ]
+        },
+        {
+          "ref": "sand_atoll_small",
+          "position": [
+            -80,
+            0.2,
+            -15
+          ]
+        },
+        {
+          "ref": "palm_c",
+          "position": [
+            -80,
+            0.7,
+            -15
+          ]
+        },
+        {
+          "ref": "rock_b",
+          "position": [
+            -78,
+            0.7,
+            -18
+          ]
+        },
+        {
+          "ref": "sand_atoll_small",
+          "position": [
+            10,
+            0.2,
+            80
+          ]
+        },
+        {
+          "ref": "palm_b",
+          "position": [
+            10,
+            0.7,
+            80
+          ]
+        },
+        {
+          "ref": "rock_c",
+          "position": [
+            13,
+            0.7,
+            82
+          ]
+        },
+        {
+          "ref": "sand_atoll_small",
+          "position": [
+            -15,
+            0.2,
+            -85
+          ]
+        },
+        {
+          "ref": "palm_a",
+          "position": [
+            -15,
+            0.7,
+            -85
+          ]
+        },
+        {
+          "ref": "rock_a",
+          "position": [
+            -18,
+            0.7,
+            -87
+          ]
+        },
+        {
+          "ref": "sand_atoll_small",
+          "position": [
+            110,
+            0.2,
+            -75
+          ]
+        },
+        {
+          "ref": "palm_b",
+          "position": [
+            110,
+            0.7,
+            -75
+          ]
+        },
+        {
+          "ref": "skull_decor",
+          "position": [
+            110,
+            1.5,
+            -75
+          ]
+        },
+        {
+          "ref": "treasure_chest_closed",
+          "position": [
+            108,
+            0.6,
+            -75
+          ]
+        },
+        {
+          "ref": "rock_b",
+          "position": [
+            113,
+            0.7,
+            -73
+          ]
+        },
+        {
+          "ref": "sand_atoll_small",
+          "position": [
+            -100,
+            0.2,
+            80
+          ]
+        },
+        {
+          "ref": "palm_c",
+          "position": [
+            -100,
+            0.7,
+            80
+          ]
+        },
+        {
+          "ref": "treasure_chest_gold",
+          "position": [
+            -100,
+            0.6,
+            80
+          ]
+        },
+        {
+          "ref": "rock_c",
+          "position": [
+            -103,
+            0.7,
+            82
+          ]
+        },
+        {
+          "ref": "ghost_ship_small",
+          "position": [
+            25,
+            0,
+            -25
+          ],
+          "rotation": [
+            0,
+            45,
+            0
+          ]
+        },
+        {
+          "ref": "ghost_ship_small",
+          "position": [
+            -30,
+            0,
+            60
+          ],
+          "rotation": [
+            0,
+            -120,
+            0
+          ]
+        },
+        {
+          "ref": "ghost_ship_small",
+          "position": [
+            80,
+            0,
+            -10
+          ],
+          "rotation": [
+            0,
+            200,
+            0
+          ]
+        },
+        {
+          "ref": "kraken_tentacle",
+          "position": [
+            25,
+            -3,
+            25
+          ]
+        },
+        {
+          "ref": "kraken_tentacle",
+          "position": [
+            -25,
+            -3,
+            -25
+          ]
+        },
+        {
+          "ref": "kraken_tentacle",
+          "position": [
+            70,
+            -3,
+            70
+          ]
+        },
+        {
+          "ref": "kraken_tentacle",
+          "position": [
+            -70,
+            -3,
+            60
+          ]
+        },
+        {
+          "ref": "shark_patrol",
+          "position": [
+            15,
+            -1,
+            50
+          ]
+        },
+        {
+          "ref": "shark_patrol",
+          "position": [
+            50,
+            -1,
+            15
+          ]
+        },
+        {
+          "ref": "shark_patrol",
+          "position": [
+            -50,
+            -1,
+            -15
+          ]
+        },
+        {
+          "ref": "shark_patrol",
+          "position": [
+            -15,
+            -1,
+            -50
+          ]
+        },
+        {
+          "ref": "fish_tuna",
+          "position": [
+            12,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "fish_tuna",
+          "position": [
+            -15,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "fish_clown",
+          "position": [
+            22,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "fish_tang",
+          "position": [
+            -8,
+            0,
+            -22
+          ]
+        },
+        {
+          "ref": "dolphin_pod",
+          "position": [
+            40,
+            0.3,
+            -20
+          ]
+        },
+        {
+          "ref": "dolphin_pod",
+          "position": [
+            -30,
+            0.3,
+            20
+          ]
+        },
+        {
+          "ref": "whale_distant",
+          "position": [
+            120,
+            0.5,
+            110
+          ]
+        },
+        {
+          "ref": "rock_a",
+          "position": [
+            70,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "rock_b",
+          "position": [
+            -70,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "rock_c",
+          "position": [
+            0,
+            0,
+            70
+          ]
+        },
+        {
+          "ref": "rock_a",
+          "position": [
+            0,
+            0,
+            -70
+          ]
+        },
+        {
+          "ref": "rock_b",
+          "position": [
+            120,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "rock_c",
+          "position": [
+            -120,
+            0,
+            -60
+          ]
+        }
       ]
     }
   ]

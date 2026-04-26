@@ -20,6 +20,10 @@ class MilitarySystem extends GameScript {
 
     onStart() {
         var self = this;
+        // Seed defensively — game_ready fires before this substate boots
+        // its systems, so the handler below races (see 5a29bbe).
+        this._gameActive = true;
+        this._combatLog = [];
         this.scene.events.game.on("game_ready", function() {
             self._gameActive = true;
             self._combatLog = [];

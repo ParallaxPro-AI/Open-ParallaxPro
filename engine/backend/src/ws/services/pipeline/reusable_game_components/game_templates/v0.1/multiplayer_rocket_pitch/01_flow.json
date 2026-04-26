@@ -22,76 +22,160 @@
   "states": {
     "boot": {
       "description": "Initialize",
-      "active_systems": ["mp_bridge", "rocket_pitch_game"],
-      "active_behaviors": ["camera_rocket_chase"],
+      "active_systems": [
+        "mp_bridge",
+        "rocket_pitch_game"
+      ],
+      "active_behaviors": [
+        "camera_rocket_chase"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
-      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
     },
     "main_menu": {
       "description": "Title",
-      "active_systems": ["mp_bridge"],
+      "active_systems": [
+        "mp_bridge"
+      ],
       "on_enter": [
         "mp:leave_lobby",
         "hide_ui:hud/voice_chat",
-        "hide_ui:hud/text_chat",
         "show_ui:main_menu",
         "show_cursor"
       ],
-      "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
-      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "lobby_browser" }]
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "lobby_browser"
+        }
+      ]
     },
     "lobby_browser": {
       "description": "Browse lobbies",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["show_ui:lobby_browser", "show_cursor", "mp:refresh_lobbies"],
-      "on_exit":  ["hide_ui:lobby_browser", "hide_ui:lobby_host_config"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "show_ui:lobby_browser",
+        "show_cursor",
+        "mp:refresh_lobbies"
+      ],
+      "on_exit": [
+        "hide_ui:lobby_browser",
+        "hide_ui:lobby_host_config"
+      ],
       "transitions": [
-        { "when": "mp_event:phase_in_lobby", "goto": "lobby_room" },
-        { "when": "mp_event:back_to_menu", "goto": "main_menu" }
+        {
+          "when": "mp_event:phase_in_lobby",
+          "goto": "lobby_room"
+        },
+        {
+          "when": "mp_event:back_to_menu",
+          "goto": "main_menu"
+        }
       ]
     },
     "lobby_room": {
       "description": "Pre-match roster",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["show_ui:lobby_room", "show_ui:hud/text_chat", "show_ui:hud/voice_chat", "show_cursor"],
-      "on_exit":  ["hide_ui:lobby_room"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "show_ui:lobby_room",
+        "show_ui:hud/voice_chat",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:lobby_room"
+      ],
       "transitions": [
-        { "when": "mp_event:phase_in_game", "goto": "gameplay" },
-        { "when": "mp_event:phase_browsing", "goto": "lobby_browser" },
-        { "when": "mp_event:phase_disconnected", "goto": "main_menu" }
+        {
+          "when": "mp_event:phase_in_game",
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.match_started"
+          ]
+        },
+        {
+          "when": "mp_event:phase_browsing",
+          "goto": "lobby_browser"
+        },
+        {
+          "when": "mp_event:phase_disconnected",
+          "goto": "main_menu"
+        }
       ]
     },
     "gameplay": {
-      "description": "Match — kickoff, play, celebrate, repeat",
-      "active_systems": ["mp_bridge", "rocket_pitch_game"],
-      "active_behaviors": ["rocket_car_control", "camera_rocket_chase", "rocket_ball", "rocket_bot_ai"],
+      "description": "Match \u2014 kickoff, play, celebrate, repeat",
+      "active_systems": [
+        "mp_bridge",
+        "rocket_pitch_game"
+      ],
+      "active_behaviors": [
+        "rocket_car_control",
+        "camera_rocket_chase",
+        "rocket_ball",
+        "rocket_bot_ai"
+      ],
       "on_enter": [
         "show_ui:hud/ping",
-        "show_ui:hud/text_chat",
-        "show_ui:hud/voice_chat",
         "show_ui:hud/rocket_hud",
-        "hide_cursor",
-        "emit:game.match_started"
+        "show_ui:hud/voice_chat",
+        "hide_cursor"
       ],
       "on_exit": [
         "hide_ui:hud/ping",
         "hide_ui:hud/rocket_hud"
       ],
       "transitions": [
-        { "when": "mp_event:phase_disconnected", "goto": "main_menu" },
-        { "when": "game_event:match_ended", "goto": "game_over" }
+        {
+          "when": "mp_event:phase_disconnected",
+          "goto": "main_menu"
+        },
+        {
+          "when": "game_event:match_ended",
+          "goto": "game_over"
+        }
       ]
     },
     "game_over": {
       "description": "Match summary",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["show_ui:game_over", "show_cursor"],
-      "on_exit":  ["hide_ui:game_over", "hide_cursor"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:game_over:play_again", "goto": "lobby_room" },
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "lobby_room"
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

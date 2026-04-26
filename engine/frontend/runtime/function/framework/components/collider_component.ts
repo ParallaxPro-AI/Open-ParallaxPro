@@ -18,6 +18,11 @@ export class ColliderComponent extends Component {
     height: number = 1.0;
     meshAssetUUID: string = '';
     isTrigger: boolean = false;
+    /** When true, editor_context.autoFitCollider skips this entity so the
+     * authored halfExtents/radius/height stick. Use for hand-tuned colliders
+     * that should be tighter than the visible mesh AABB (e.g. tank chassis
+     * without the gun barrel). */
+    disableAutoFit: boolean = false;
 
     /** Cached collision mesh data (runtime only, loaded from IndexedDB) */
     collisionPositions: Float32Array | null = null;
@@ -75,6 +80,7 @@ export class ColliderComponent extends Component {
         this.height = data.height ?? 1.0;
         this.meshAssetUUID = data.meshAssetUUID ?? '';
         this.isTrigger = data.isTrigger ?? false;
+        this.disableAutoFit = data.disableAutoFit ?? false;
 
         this.markDirty();
     }
@@ -90,6 +96,7 @@ export class ColliderComponent extends Component {
             height: this.height,
             meshAssetUUID: this.meshAssetUUID,
             isTrigger: this.isTrigger,
+            disableAutoFit: this.disableAutoFit,
         };
     }
 }

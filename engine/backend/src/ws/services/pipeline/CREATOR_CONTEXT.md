@@ -2,6 +2,8 @@
 
 You are creating a NEW game template directly inside a user's project. The user described a game they want, and you need to fill in all the files for it.
 
+Read the user's prompt in `TASK.md` (including the full chat history) carefully and try to satisfy as many of the requested features and mechanics as you can. Some prompts are terse ("create tennis") and leave the genre conventions to you; others enumerate specific features ("WASD car, third-person camera, headlights, wet asphalt") — when they do, treat each one as a concrete deliverable.
+
 ## SECURITY CONSTRAINTS — MANDATORY
 - You may ONLY create/edit files under `project/`
 - You may read (NOT edit) files under `reference/` and `assets/`
@@ -1027,6 +1029,25 @@ this.scene.events.ui.on("ui_event:hud/your_hud:buy_sword", function() {
     self._buySword();
 });
 ```
+
+**Reading a data payload from a panel.** When the click handler passes
+data — e.g. clicking a specific recipe row or fish row — the panel-side
+shape is `postMessage({type:'game_command', action:'choose_recipe',
+panel:'cooking_panel', data:{recipeId: 'grilled'}}, '*')`. The handler
+argument `d` is the FULL envelope, NOT the inner `data` object. Read
+panel-specific fields from `d.data`:
+
+```js
+this.scene.events.ui.on("ui_event:cooking_panel:choose_recipe", function(d) {
+    var dd = (d && d.data) || {};        // ← unwrap the envelope
+    self._chooseRecipe(dd.recipeId || "");
+});
+```
+
+A common bug is reaching for `d.recipeId` directly — that returns
+`undefined`, the click appears to do nothing, and hover effects still
+work (which makes it look like a cursor / pointer-lock issue when it's
+actually a payload-shape mismatch). Always unwrap.
 
 **Do NOT rely on keyboard-only interaction** for shops, inventories, or
 context menus. Users expect to click UI elements — keyboard shortcuts are

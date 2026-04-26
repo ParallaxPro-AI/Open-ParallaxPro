@@ -66,12 +66,6 @@ class KartDriveBehavior extends GameScript {
         });
         this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
 
-        // Race start countdown — grant a tiny boost on race_started.
-        this.scene.events.game.on("race_started", function() {
-            self._speed = 0;
-            self._slip = 0;
-        });
-
         // Kart_race grants boost rewards via the existing player_repair
         // event (reused as "give the local kart a boost")
         this.scene.events.game.on("player_repair", function(d) {

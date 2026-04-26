@@ -1,5 +1,35 @@
 {
   "systems": {
+    "rts_input": {
+      "description": "Player input for RTS — virtual cursor tracking, left-click selects player units/buildings (shift-add for multi-select), right-click commands move-to-point or attack-target. Emits unit_command_move and unit_command_attack events that unit_combat / worker_ai honour.",
+      "script": "gameplay/rts_input.ts",
+      "params": {}
+    },
+    "entity_health_bars": {
+      "description": "World-anchored HP bars over every active player- and enemy-side entity. Values match the per-behavior _health params in 02_entities.json so percentages stay accurate.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player_unit", "worker", "player_building"],
+        "enemyTags": ["enemy_unit", "enemy_building"],
+        "showAllies": true,
+        "defaultMax": 100,
+        "hpOverrides": {
+          "battle_mech": 500,
+          "mech_walker": 300,
+          "siege_tank": 250,
+          "tank": 200,
+          "scout_mech": 150,
+          "marine": 100,
+          "marine_female": 100,
+          "ghost": 100,
+          "worker": 40,
+          "medic": 50,
+          "player_building": 500,
+          "enemy_building": 500
+        },
+        "heightAbove": 2.4
+      }
+    },
     "resource_system": {
       "description": "Manages crystal mining, energy harvesting, supply tracking, and resource income — workers deliver gathered resources to the nearest command center or refinery",
       "script": "gameplay/resource_system.ts",

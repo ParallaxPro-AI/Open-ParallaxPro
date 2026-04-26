@@ -3,7 +3,7 @@
     "player": {
       "mesh": {
         "type": "custom",
-        "asset": "/assets/quaternius/3d_models/cube_world/Character_Male_1.glb",
+        "asset": "/assets/quaternius/characters/cube_world/Character_Male_1.glb",
         "scale": [
           1,
           1,
@@ -203,7 +203,7 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            60,
+            0.5,
             0.5,
             0.5
           ]
@@ -235,7 +235,7 @@
           "shape": "cuboid",
           "halfExtents": [
             0.5,
-            30,
+            0.5,
             0.5
           ]
         }
@@ -266,7 +266,7 @@
           "shape": "cuboid",
           "halfExtents": [
             0.5,
-            30,
+            0.5,
             0.5
           ]
         }

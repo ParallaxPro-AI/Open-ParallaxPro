@@ -12,25 +12,48 @@
   "states": {
     "boot": {
       "description": "Initialize systems",
-      "active_systems": ["pipe_runner_engine"],
+      "active_systems": [
+        "pipe_runner_engine"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
       "transitions": [
-        { "when": "boot_frames>=2", "goto": "main_menu" }
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
       ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.game_ready"
+          ]
+        }
       ]
     },
     "gameplay": {
       "description": "Run, jump, stomp, reach the flag",
-      "active_systems": ["pipe_runner_engine"],
+      "active_systems": [
+        "pipe_runner_engine"
+      ],
       "active_behaviors": [
         "sidescroll_runner",
         "stomper_enemy",
@@ -38,24 +61,45 @@
       ],
       "on_enter": [
         "show_ui:hud/runner_hud",
-        "hide_cursor",
-        "emit:game.game_ready"
+        "hide_cursor"
       ],
       "on_exit": [
         "hide_ui:hud/runner_hud"
       ],
       "transitions": [
-        { "when": "game_event:game_over", "goto": "game_over" },
-        { "when": "game_event:game_won", "goto": "game_over" }
+        {
+          "when": "game_event:game_over",
+          "goto": "game_over"
+        },
+        {
+          "when": "game_event:game_won",
+          "goto": "game_over"
+        }
       ]
     },
     "game_over": {
-      "description": "Run ended — flag reached or lives exhausted",
-      "on_enter": ["show_ui:game_over", "show_cursor"],
-      "on_exit": ["hide_ui:game_over", "hide_cursor"],
+      "description": "Run ended \u2014 flag reached or lives exhausted",
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:game_over:play_again", "goto": "gameplay", "actions": ["emit:game.restart_game"] },
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.restart_game",
+            "emit:game.game_ready"
+          ]
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

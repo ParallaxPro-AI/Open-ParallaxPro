@@ -21,6 +21,9 @@ class CoinGrabGameSystem extends GameScript {
     _roundDurationSec = 180;
     _scoreToWin = 10;
     _pickupRadius = 1.5;
+    _coinSpinRadPerSec = 3.5;
+    _coinSound = "";
+    _winSound = "";
 
     _scores = {};
     _elapsed = 0;
@@ -28,7 +31,10 @@ class CoinGrabGameSystem extends GameScript {
     _initialized = false;
     _coinCheckTimer = 0;
     _coinEntityName = "Coin";
+    _coinAsset = "/assets/quaternius/3d_models/platformer_game_kit/Coin.glb";
+    _coinYaw = 0;
     _lastLocalGrabAt = 0;
+    _winSoundPlayed = false;
 
     onStart() {
         var self = this;
@@ -45,6 +51,11 @@ class CoinGrabGameSystem extends GameScript {
             self._scores[d.peerId] = d.score || 0;
             if (typeof d.coinX === "number" && typeof d.coinZ === "number") {
                 self._relocateCoinLocally(d.coinX, d.coinZ);
+            }
+            // Quieter than the local grab so the player can still hear
+            // their own pickups dominate.
+            if (self._coinSound && self.audio) {
+                try { self.audio.playSound(self._coinSound, 0.25); } catch (e) { /* missing clip */ }
             }
             self._pushScoreboard();
         });
@@ -108,6 +119,18 @@ class CoinGrabGameSystem extends GameScript {
             this._checkLocalPickup();
         }
 
+        // Cosmetic-only: spin the local copy of the coin so it reads as a
+        // pickup. Each peer ticks its own copy (no network sync needed —
+        // the host's syncTransform pushes Y-rotation but doesn't matter
+        // because every peer applies the same constant spin).
+        this._spinCoin(dt);
+
+        // Drive Idle/Walk/Run on every remote player proxy. The network
+        // adapter spawns proxies with skipBehaviors=true so
+        // player_arena_movement never runs on them, leaving other peers'
+        // Knights stuck in the bind pose.
+        this._tickRemoteAnimations(dt);
+
         // Win check + round timer still host-only (one source of truth).
         if (!mp.isHost) return;
         this._elapsed += dt;
@@ -133,6 +156,7 @@ class CoinGrabGameSystem extends GameScript {
         this._ended = false;
         this._scores = {};
         this._coinCheckTimer = 0;
+        this._winSoundPlayed = false;
 
         this._positionLocalPlayer();
 
@@ -164,7 +188,11 @@ class CoinGrabGameSystem extends GameScript {
 
         var player = this._findLocalPlayerEntity();
         if (!player) return;
-        this.scene.setPosition(player.id, Math.cos(angle) * R, 1, Math.sin(angle) * R);
+        // y=0 puts the Knight's feet on the ground (the GLB's origin is
+        // at the feet). The kinematic capsule collider is centered at
+        // y=0 too — kinematicPositionBased doesn't auto-resolve against
+        // statics so the under-floor overlap is harmless.
+        this.scene.setPosition(player.id, Math.cos(angle) * R, 0, Math.sin(angle) * R);
 
         var ni = player.getComponent("NetworkIdentityComponent");
         if (ni) {
@@ -196,22 +224,26 @@ class CoinGrabGameSystem extends GameScript {
     _spawnCoin() {
         // Idempotent — onStart + match_started both call _initMatch on the
         // first frame, so we'd double-spawn without this guard.
-        var existing = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
+        var existing = this._findCoinEntity();
         if (existing) {
             var rp = this._randomCoinPosition();
             this.scene.setPosition(existing.id, rp.x, rp.y, rp.z);
             return;
         }
         var scene = this.scene;
-        var id = scene.createEntity ? scene.createEntity(this._coinEntityName) : null;
-        if (id == null) return;
         var pos = this._randomCoinPosition();
+
+        // Use the prefab path on both sides (host inline + remote-peer
+        // adapter spawn) so every peer renders the same Coin.glb mesh.
+        // Inlining a custom-mesh MeshRendererComponent at runtime via
+        // addComponent doesn't pull in the GLB the same way the prefab
+        // pipeline does (asset registration happens at level build), so
+        // the host saw a fallback sphere while remotes saw the prefab.
+        var coinEnt = scene.spawnEntity ? scene.spawnEntity("coin") : null;
+        if (!coinEnt) return;
+        var id = coinEnt.id;
+        if (coinEnt.name !== this._coinEntityName) coinEnt.name = this._coinEntityName;
         scene.setPosition(id, pos.x, pos.y, pos.z);
-        scene.setScale && scene.setScale(id, 0.6, 0.6, 0.6);
-        scene.addComponent(id, "MeshRendererComponent", {
-            meshType: "sphere",
-            baseColor: [1, 0.82, 0.2, 1],
-        });
         scene.addComponent(id, "NetworkIdentityComponent", {
             networkId: 1,
             ownerId: -1,
@@ -219,9 +251,10 @@ class CoinGrabGameSystem extends GameScript {
             syncTransform: true,
         });
         if (scene.addTag) {
-            scene.addTag(id, "coin");
             scene.addTag(id, "networked");
+            // "coin" tag already on the prefab.
         }
+
         // Tell other peers to spawn their own coin visual at the same spot.
         // Subsequent transform changes flow via the host's snapshot broadcast.
         var mp = this.scene._mp;
@@ -236,8 +269,22 @@ class CoinGrabGameSystem extends GameScript {
         }
     }
 
+    _findCoinEntity() {
+        if (this.scene.findEntityByName) {
+            var byName = this.scene.findEntityByName(this._coinEntityName);
+            if (byName) return byName;
+        }
+        // Fallback: prefab-spawned entity may carry the prefab key as its
+        // default name until we rename it; tag lookup catches both cases.
+        if (this.scene.findEntitiesByTag) {
+            var byTag = this.scene.findEntitiesByTag("coin");
+            if (byTag && byTag.length > 0) return byTag[0];
+        }
+        return null;
+    }
+
     _relocateCoinLocally(x, z) {
-        var coin = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
+        var coin = this._findCoinEntity();
         if (!coin) return;
         this.scene.setPosition(coin.id, x, 1, z);
     }
@@ -249,7 +296,7 @@ class CoinGrabGameSystem extends GameScript {
         // coin while the relocation event is in flight.
         if (this._lastLocalGrabAt && (Date.now() - this._lastLocalGrabAt) < 250) return;
 
-        var coin = this.scene.findEntityByName && this.scene.findEntityByName(this._coinEntityName);
+        var coin = this._findCoinEntity();
         if (!coin) return;
 
         var player = this._findLocalPlayerEntity();
@@ -271,6 +318,9 @@ class CoinGrabGameSystem extends GameScript {
         var np = this._randomCoinPosition();
         this.scene.setPosition(coin.id, np.x, np.y, np.z);
         this._lastLocalGrabAt = Date.now();
+        if (this._coinSound && this.audio) {
+            try { this.audio.playSound(this._coinSound, 0.5); } catch (e) { /* missing clip */ }
+        }
         mp.sendNetworkedEvent("coin_collected", {
             peerId: peerId,
             score: this._scores[peerId],
@@ -343,6 +393,14 @@ class CoinGrabGameSystem extends GameScript {
         this.scene.events.ui.emit("hud_update", {
             _gameOver: { title: title, score: myScore, stats: stats },
         });
+
+        // One-shot win cheer (guarded so a duplicate _pushGameOver call
+        // — match_ended fires both locally via _endMatch and via the
+        // net_match_ended relay — doesn't double-play the sound).
+        if (!this._winSoundPlayed && this._winSound && this.audio) {
+            this._winSoundPlayed = true;
+            try { this.audio.playSound(this._winSound, 0.55); } catch (e) { /* missing clip */ }
+        }
     }
 
     // ─── UI ──────────────────────────────────────────────────────────────
@@ -398,5 +456,54 @@ class CoinGrabGameSystem extends GameScript {
             if (!current[k]) { delete this._scores[k]; changed = true; }
         }
         if (changed) this._pushScoreboard();
+    }
+
+    _spinCoin(dt) {
+        var coin = this._findCoinEntity();
+        if (!coin || !coin.transform || !coin.transform.setRotationEuler) return;
+        this._coinYaw += this._coinSpinRadPerSec * dt;
+        if (this._coinYaw > Math.PI * 2) this._coinYaw -= Math.PI * 2;
+        coin.transform.setRotationEuler(0, this._coinYaw, 0);
+    }
+
+    // Drive Idle/Walk/Run on every remote player proxy. The network
+    // adapter spawns proxies with skipBehaviors=true so
+    // player_arena_movement never runs on them — without this loop,
+    // other peers see this player's Knight stuck in the bind pose
+    // while their synced transform glides around. Velocity is derived
+    // from observed position deltas (owner velocity isn't a
+    // networkedVar). Threshold mirrors player_arena_movement (base
+    // ~6, sprint ×1.6 → ~9.6).
+    _tickRemoteAnimations(dt) {
+        var all = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+        if (!all || all.length === 0) return;
+        if (!this._remoteAnimState) this._remoteAnimState = {};
+        var step = dt > 0 ? dt : 1 / 60;
+        for (var i = 0; i < all.length; i++) {
+            var p = all[i];
+            if (!p || !p.transform || !p.playAnimation) continue;
+            var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+            if (!ni || ni.isLocalPlayer) continue;
+            var key = String(ni.ownerId || ni.networkId || p.id);
+            var st = this._remoteAnimState[key];
+            var pos = p.transform.position;
+            if (!st) {
+                this._remoteAnimState[key] = { x: pos.x, y: pos.y, z: pos.z, anim: "" };
+                continue;
+            }
+            var dx = (pos.x - st.x) / step;
+            var dz = (pos.z - st.z) / step;
+            st.x = pos.x; st.y = pos.y; st.z = pos.z;
+
+            var spd = Math.sqrt(dx * dx + dz * dz);
+            var anim;
+            if (spd > 7.5)      anim = "Run";
+            else if (spd > 0.5) anim = "Walk";
+            else                anim = "Idle";
+            if (anim !== st.anim) {
+                st.anim = anim;
+                try { p.playAnimation(anim, { loop: true }); } catch (e) { /* missing clip */ }
+            }
+        }
     }
 }

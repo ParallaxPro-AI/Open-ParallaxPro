@@ -14,9 +14,23 @@ class EnemyAIBehavior extends GameScript {
     _patrolDir = 1;
     _patrolTimer = 0;
     _currentAnim = "";
+    // Captured at first onStart so Play Again can restore the enemy
+    // exactly where it was placed in 03_worlds.json. Without this, dead
+    // enemies stay deactivated forever after the player hits Play Again
+    // and the survival_zone game ends instantly (battle_tracker counts
+    // alive enemies and immediately fires victory).
+    _spawnX = 0;
+    _spawnY = 0;
+    _spawnZ = 0;
+    _spawnCaptured = false;
 
     onStart() {
         var self = this;
+        if (!this._spawnCaptured) {
+            var p = this.entity.transform.position;
+            this._spawnX = p.x; this._spawnY = p.y; this._spawnZ = p.z;
+            this._spawnCaptured = true;
+        }
         this.scene.events.game.on("entity_damaged", function(data) {
             if (self._dead || data.entityId !== self.entity.id) return;
             self._health -= data.amount || 10;
@@ -31,6 +45,25 @@ class EnemyAIBehavior extends GameScript {
                 setTimeout(function() { if (!self._dead) self._currentAnim = ""; }, 500);
             }
         });
+        // Reset on Play Again (FSM emits match_started + game_ready when
+        // returning to gameplay from game_over). Reactivate, full HP,
+        // back to spawn.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._maxHealth;
+            self._currentAnim = "";
+            self.entity.active = true;
+            if (self.scene.setPosition) {
+                self.scene.setPosition(self.entity.id, self._spawnX, self._spawnY, self._spawnZ);
+            }
+            if (self.scene.setVelocity) {
+                self.scene.setVelocity(self.entity.id, { x: 0, y: 0, z: 0 });
+            }
+            self._playAnim("Idle", { loop: true });
+        };
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
         this._playAnim("Idle", { loop: true });
     }
 

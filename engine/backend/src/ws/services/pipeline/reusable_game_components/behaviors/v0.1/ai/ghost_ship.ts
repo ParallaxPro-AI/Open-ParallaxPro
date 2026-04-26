@@ -18,6 +18,8 @@ class GhostShipBehavior extends GameScript {
     _hostOnly = true;
     _bobAmplitude = 3;
     _bobFreq = 0.4;
+    _collisionLead = 4.0;     // distance ahead of origin for the collision raycast (ship half-length)
+    _collisionPadding = 0.5;
     _hitSound = "";
     _fireSound = "";
     _sinkSound = "";
@@ -33,10 +35,13 @@ class GhostShipBehavior extends GameScript {
     _baseZ = 0;
     _bobPhase = 0;
 
+    _spawnY = 0;
+
     onStart() {
         var pos = this.entity.transform && this.entity.transform.position;
         this._baseX = pos ? pos.x : 0;
         this._baseZ = pos ? pos.z : 0;
+        this._spawnY = pos ? pos.y : 0;
         this._wanderTargetX = this._baseX;
         this._wanderTargetZ = this._baseZ;
         this._bobPhase = Math.random() * Math.PI * 2;
@@ -55,6 +60,19 @@ class GhostShipBehavior extends GameScript {
                 self.scene.events.game.emit("entity_killed", { entityId: self.entity.id });
             }
         });
+
+        // Reset on Play Again — without this, sunk ships stay sunk.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._maxHealth;
+            self._wanderTargetX = self._baseX;
+            self._wanderTargetZ = self._baseZ;
+            self.entity.active = true;
+            if (self.scene.setPosition) self.scene.setPosition(self.entity.id, self._baseX, self._spawnY, self._baseZ);
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     onUpdate(dt) {
@@ -110,8 +128,10 @@ class GhostShipBehavior extends GameScript {
         if (dist > this._attackRange * 0.85) {
             var ux = dx / dist;
             var uz = dz / dist;
+            var step = this._speed * dt;
+            if (this._isPathBlocked(pos, ux, uz, step)) return;
             if (this.scene.setPosition) {
-                this.scene.setPosition(this.entity.id, pos.x + ux * this._speed * dt, pos.y, pos.z + uz * this._speed * dt);
+                this.scene.setPosition(this.entity.id, pos.x + ux * step, pos.y, pos.z + uz * step);
             }
         }
 
@@ -138,10 +158,31 @@ class GhostShipBehavior extends GameScript {
             var uz = dz / dist;
             var desiredYaw = Math.atan2(dx, -dz) * 180 / Math.PI;
             this._yawDeg = this._lerpAngle(this._yawDeg, desiredYaw, 0.8 * dt);
+            var step = this._speed * 0.5 * dt;
+            if (this._isPathBlocked(pos, ux, uz, step)) {
+                // Blocked while wandering — pick a new wander target so we
+                // don't stall against the obstacle for the rest of the timer.
+                this._wanderTimer = 0;
+                return;
+            }
             if (this.scene.setPosition) {
-                this.scene.setPosition(this.entity.id, pos.x + ux * this._speed * 0.5 * dt, pos.y, pos.z + uz * this._speed * 0.5 * dt);
+                this.scene.setPosition(this.entity.id, pos.x + ux * step, pos.y, pos.z + uz * step);
             }
         }
+    }
+
+    _isPathBlocked(pos, ux, uz, step) {
+        if (!this.scene.raycast || step <= 0.001) return false;
+        // Cast from origin (ship body excluded via entity.id). Ignore hits
+        // within _collisionLead — those are existing overlaps; only block
+        // on genuine obstacles past the bow. Same logic as ship_sail to
+        // avoid a stuck-against-collider deadlock.
+        var rayLen = this._collisionLead + step + this._collisionPadding;
+        var hit = this.scene.raycast(pos.x, (pos.y || 0) + 0.5, pos.z,
+                                     ux, 0, uz,
+                                     rayLen,
+                                     this.entity.id);
+        return !!(hit && hit.distance >= this._collisionLead);
     }
 
     _fireBroadside(target) {

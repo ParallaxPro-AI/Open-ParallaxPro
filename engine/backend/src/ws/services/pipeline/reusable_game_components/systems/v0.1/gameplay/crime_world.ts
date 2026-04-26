@@ -71,7 +71,7 @@ class CrimeWorldSystem extends GameScript {
         var player = this.scene.findEntityByName("Player");
         if (player) {
             player.active = true;
-            this.scene.setPosition(player.id, 0, 0, 0);
+            this.scene.setPosition(player.id, 0, 1.5, 0);
             this.scene.setVelocity(player.id, { x: 0, y: 0, z: 0 });
             this.scene.events.game.emit("entity_healed", { entityId: player.id, amount: 999 });
         }
@@ -103,7 +103,7 @@ class CrimeWorldSystem extends GameScript {
             var cp = cars[i].transform.position;
             var dx = cp.x - pos.x;
             var dz = cp.z - pos.z;
-            var dist = Math.sqrt(dx * dx + dz * dz);
+            var dist = Math.sqrt(dx * dx + dz * dz); // position separation
             if (dist < nearDist) {
                 nearDist = dist;
                 nearest = cars[i];

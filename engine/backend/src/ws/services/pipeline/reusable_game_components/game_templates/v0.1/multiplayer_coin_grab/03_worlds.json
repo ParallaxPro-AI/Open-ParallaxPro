@@ -14,15 +14,15 @@
       "placements": [
         { "ref": "ground",     "position": [0, 0, 0] },
         { "ref": "camera",     "position": [0, 22, 0] },
-        { "ref": "player",     "position": [0, 1, 0] },
-        { "ref": "wall_block", "position": [-8, 1, -8] },
-        { "ref": "wall_block", "position": [ 8, 1, -8] },
-        { "ref": "wall_block", "position": [-8, 1,  8] },
-        { "ref": "wall_block", "position": [ 8, 1,  8] },
-        { "ref": "wall_block", "position": [ 0, 1, -10] },
-        { "ref": "wall_block", "position": [ 0, 1,  10] },
-        { "ref": "wall_block", "position": [-10, 1, 0] },
-        { "ref": "wall_block", "position": [ 10, 1, 0] }
+        { "ref": "player",     "position": [0, 0, 0] },
+        { "ref": "wall_block", "position": [-8, 1.05, -8] },
+        { "ref": "wall_block", "position": [ 8, 1.05, -8] },
+        { "ref": "wall_block", "position": [-8, 1.05,  8] },
+        { "ref": "wall_block", "position": [ 8, 1.05,  8] },
+        { "ref": "wall_block", "position": [ 0, 1.05, -10] },
+        { "ref": "wall_block", "position": [ 0, 1.05,  10] },
+        { "ref": "wall_block", "position": [-10, 1.05, 0] },
+        { "ref": "wall_block", "position": [ 10, 1.05, 0] }
       ]
     }
   ]

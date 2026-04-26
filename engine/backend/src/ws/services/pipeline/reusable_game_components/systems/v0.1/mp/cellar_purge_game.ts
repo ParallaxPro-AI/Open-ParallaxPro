@@ -412,9 +412,28 @@ class CellarPurgeGameSystem extends GameScript {
             var dz = pp.z - ep.z;
             var d = Math.sqrt(dx * dx + dz * dz);
             var spd = st.kind === "boss" ? 1.6 : 2.6;
+            // Per-frame neighbor-distance separation: nudge away from any
+            // other live enemy within personal-space radius so a swarm
+            // flanks the player instead of stacking into one tower.
+            var sepX = 0, sepZ = 0;
+            for (var nid in this._enemiesAlive) {
+                if (nid === id) continue;
+                var nent = this.scene.getEntity ? this.scene.getEntity(Number(nid)) : null;
+                if (!nent) continue;
+                var np = nent.transform.position;
+                var ndx = ep.x - np.x;
+                var ndz = ep.z - np.z;
+                var nd = Math.sqrt(ndx * ndx + ndz * ndz); // position separation
+                if (nd > 0 && nd < 1.2) {
+                    sepX += ndx / nd;
+                    sepZ += ndz / nd;
+                }
+            }
             if (d > 0.05) {
+                var vx = (dx / d) * spd + sepX * 0.6;
+                var vz = (dz / d) * spd + sepZ * 0.6;
                 this.scene.setVelocity && this.scene.setVelocity(ent.id, {
-                    x: (dx / d) * spd, y: 0, z: (dz / d) * spd,
+                    x: vx, y: 0, z: vz,
                 });
                 ent.transform.setRotationEuler && ent.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
             }

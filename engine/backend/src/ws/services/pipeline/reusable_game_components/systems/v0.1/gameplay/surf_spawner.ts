@@ -53,6 +53,7 @@ class SurfSpawnerSystem extends GameScript {
 
         this.scene.events.game.on("game_over", function() {
             self._gameActive = false;
+            self._ended = true;
             if (self._score > self._highScore) self._highScore = self._score;
             self.scene.events.ui.emit("hud_update", {
                 _gameOver: {
@@ -105,10 +106,18 @@ class SurfSpawnerSystem extends GameScript {
     }
 
     _spawnInitialTrack() {
+        // _spawnAhead/_trackSegLen don't divide cleanly (140/40=3.5), so
+        // the loop's final spawn lands somewhere short of -_spawnAhead.
+        // Track the actual last spawned z and feed it back into
+        // _lastTrackZ so the streaming spawner continues contiguously
+        // — otherwise there's a half-segment gap (~20m of invisible
+        // road) where the player runs after the initial chunks end.
+        var lastSpawnedZ = 40;
         for (var z = 40; z >= -this._spawnAhead; z -= this._trackSegLen) {
             this._spawnTrack(z);
+            lastSpawnedZ = z;
         }
-        this._lastTrackZ = -this._spawnAhead;
+        this._lastTrackZ = lastSpawnedZ;
 
         // Spawn initial scenery
         for (var sz = 0; sz >= -this._spawnAhead; sz -= this._buildingSpacing) {
@@ -308,9 +317,6 @@ class SurfSpawnerSystem extends GameScript {
         if (Math.random() > 0.4) {
             this._spawn("tree_scenery", 7.5, 0, z + Math.random() * 10, "scenery");
         }
-        // Fences along the track edges
-        this._spawn("fence_scenery", -6.5, 0, z, "scenery");
-        this._spawn("fence_scenery", 6.5, 0, z, "scenery");
     }
 
     _spawn(defName, x, y, z, type) {
@@ -482,6 +488,7 @@ class SurfSpawnerSystem extends GameScript {
     }
 
     _updateHud() {
+        if (!this._gameActive || this._ended) return;
         this.scene.events.ui.emit("hud_update", {
             score: this._score,
             coins: this._coins,

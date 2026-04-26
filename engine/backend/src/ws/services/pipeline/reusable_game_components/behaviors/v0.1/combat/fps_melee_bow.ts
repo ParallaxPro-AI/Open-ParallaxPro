@@ -27,6 +27,7 @@ class FPSMeleeBowBehavior extends GameScript {
     }
 
     _attack(dmg, range) {
+        if (this.entity.playAnimation) this.entity.playAnimation("Attack", { loop: false });
         var pos = this.entity.transform.position;
         var yaw = (this.scene._fpsYaw || 0) * Math.PI / 180;
         var dX = Math.sin(yaw), dZ = -Math.cos(yaw);

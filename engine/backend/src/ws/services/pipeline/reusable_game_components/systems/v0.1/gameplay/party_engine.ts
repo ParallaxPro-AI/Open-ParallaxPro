@@ -35,6 +35,18 @@ class PartyEngineSystem extends GameScript {
     _coinTimers = [];
     _lastMGs = [];
 
+    // Idempotent animation set: only call playAnimation when the
+    // requested clip differs from the AnimatorComponent's currentClip.
+    // play() resets currentTime=0 on every call, so calling it every
+    // frame from _updateAI's per-frame chase loop froze the AI on the
+    // first frame of "Run". Same fix shape as deadly_games (53c19f6).
+    _setAnim(entity, name) {
+        if (!entity || !entity.playAnimation) return;
+        var animator = entity.getComponent && entity.getComponent("AnimatorComponent");
+        if (animator && animator.currentClip === name && animator.isPlaying) return;
+        entity.playAnimation(name, { loop: true });
+    }
+
     onStart() {
         var self = this;
         this.scene._partyMinigameActive = false;
@@ -135,7 +147,7 @@ class PartyEngineSystem extends GameScript {
         this.scene._partyMinigameActive = false;
 
         if (this.audio) this.audio.playSound("/assets/kenney/audio/casino_audio/dice-throw-1.ogg", 0.5);
-        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/round.ogg", 0.5);
+        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/round.ogg", 0.5);
     }
 
     _startCountdown() {
@@ -161,7 +173,7 @@ class PartyEngineSystem extends GameScript {
         if (this._currentMG === 1) this._setupBumperBash();
         if (this._currentMG === 2) this._setupCoinFrenzy();
 
-        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/go.ogg", 0.6);
+        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/go.ogg", 0.6);
         if (this.audio) this.audio.playSound("/assets/kenney/audio/interface_sounds/confirmation_002.ogg", 0.5);
     }
 
@@ -213,10 +225,10 @@ class PartyEngineSystem extends GameScript {
         });
 
         if (winner === 0) {
-            if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/congratulations.ogg", 0.6);
+            if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/congratulations.ogg", 0.6);
             this.scene.events.game.emit("game_won", {});
         } else {
-            if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/game_over.ogg", 0.6);
+            if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/game_over.ogg", 0.6);
             this.scene.events.game.emit("game_over", {});
         }
     }
@@ -603,11 +615,8 @@ class PartyEngineSystem extends GameScript {
                 var mz = (dz / dist) * speed * dt;
                 this.scene.setPosition(this._players[i].id, pp.x + mx, pp.y, pp.z + mz);
                 // Face direction
-                this._players[i].transform.setRotationEuler(0, Math.atan2(dx, -dz) * 180 / Math.PI, 0);
-                // Animate running
-                if (this._players[i].playAnimation) {
-                    this._players[i].playAnimation("Run", { loop: true });
-                }
+                this._players[i].transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
+                this._setAnim(this._players[i], "Run");
             }
         }
     }

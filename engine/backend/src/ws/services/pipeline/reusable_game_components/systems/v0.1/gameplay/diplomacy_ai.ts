@@ -28,15 +28,54 @@ class DiplomacyAISystem extends GameScript {
 
     onStart() {
         var self = this;
+        // Seed _gameActive defensively. game_ready fires from
+        // gameplay.on_enter BEFORE the player_turn substate boots its
+        // active_systems, so this onStart subscribes too late and the
+        // event handler below never runs — _aiMilitary stayed 0 and
+        // ai_turn_start would early-return forever. Same race as
+        // 5a29bbe (rts_battle).
+        this._gameActive = true;
+        this._countAIMilitary();
+        this._publishHud();
         this.scene.events.game.on("game_ready", function() {
             self._gameActive = true;
             self._aiState = "peace";
             self._turnsSinceWar = 0;
             self._aiGold = 50;
+            // Count starting AI units so the diplomacy HUD shows a real
+            // number on turn 1 instead of "Enemy army: 0" until the AI
+            // takes its first turn.
+            self._countAIMilitary();
+            self._publishHud();
         });
 
         this.scene.events.game.on("ai_turn_start", function() {
             self._processAITurn();
+        });
+
+        // Click-driven diplomacy.
+        this.scene.events.ui.on("ui_event:hud/diplomacy_btn:declare_war", function() {
+            if (self._aiState !== "war") {
+                self._aiState = "war";
+                self._turnsSinceWar = 0;
+                if (self.audio) self.audio.playSound(self._warDeclareSound || "/assets/kenney/audio/sci_fi_sounds/forceField_001.ogg", 0.5);
+                self._publishHud();
+            }
+        });
+        this.scene.events.ui.on("ui_event:hud/diplomacy_btn:propose_peace", function() {
+            if (self._aiState !== "peace") {
+                self._aiState = "peace";
+                self._turnsSinceWar = 0;
+                if (self.audio) self.audio.playSound(self._peaceDeclareSound || "/assets/kenney/audio/interface_sounds/confirmation_004.ogg", 0.5);
+                self._publishHud();
+            }
+        });
+    }
+
+    _publishHud() {
+        this.scene.events.ui.emit("hud_update", {
+            aiState: this._aiState,
+            aiMilitary: this._aiMilitary
         });
     }
 
@@ -45,17 +84,7 @@ class DiplomacyAISystem extends GameScript {
 
         this._turnsSinceWar++;
 
-        // Count AI entities
-        var aiUnits = this.scene.findEntitiesByTag("unit") || [];
-        var aiMil = [];
-        for (var u = 0; u < aiUnits.length; u++) {
-            if (!aiUnits[u].active) continue;
-            var tags = aiUnits[u].tags || [];
-            for (var t = 0; t < tags.length; t++) {
-                if (tags[t] === "ai") { aiMil.push(aiUnits[u]); break; }
-            }
-        }
-        this._aiMilitary = aiMil.length;
+        this._countAIMilitary();
 
         // Count player military for aggression check
         var playerMil = 0;
@@ -144,6 +173,19 @@ class DiplomacyAISystem extends GameScript {
             aiState: this._aiState,
             aiMilitary: this._aiMilitary
         });
+    }
+
+    _countAIMilitary() {
+        var aiUnits = this.scene.findEntitiesByTag("unit") || [];
+        var n = 0;
+        for (var u = 0; u < aiUnits.length; u++) {
+            if (!aiUnits[u].active) continue;
+            var tags = aiUnits[u].tags || [];
+            for (var t = 0; t < tags.length; t++) {
+                if (tags[t] === "ai") { n++; break; }
+            }
+        }
+        this._aiMilitary = n;
     }
 
     onUpdate(dt) {}

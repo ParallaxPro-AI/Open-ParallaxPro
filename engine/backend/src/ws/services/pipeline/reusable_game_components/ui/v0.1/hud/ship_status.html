@@ -248,18 +248,26 @@
   function render(s) {
     if (!s) return;
     panel.classList.remove('hidden');
-    var hull = Math.max(0, Math.floor(s.hull != null ? s.hull : 200));
-    var maxHull = Math.max(1, Math.floor(s.maxHull || 200));
-    var pct = Math.max(0, Math.min(100, (hull / maxHull) * 100));
-    hullBar.style.width = pct + '%';
-    if (pct < 30) hullBar.style.background = 'linear-gradient(90deg,#b22929,#ec5b5b)';
-    else if (pct < 60) hullBar.style.background = 'linear-gradient(90deg,#cc8d22,#f5c44a)';
-    else hullBar.style.background = 'linear-gradient(90deg,#6b9b3a,#b6e36a)';
-    hullText.textContent = hull + ' / ' + maxHull;
-    hullPct.textContent = Math.round(pct) + '%';
+    // Each behavior emits its own slice of shipStatus (hull, ammo, sails)
+    // so we only update DOM for the fields actually present in this payload.
+    // Without this, a cannon-fire or sail-change update with no `hull` field
+    // resets the hull bar to its default (200/200 = 100%).
+    if (s.hull != null || s.maxHull != null) {
+      var hull = Math.max(0, Math.floor(s.hull != null ? s.hull : 200));
+      var maxHull = Math.max(1, Math.floor(s.maxHull || 200));
+      var pct = Math.max(0, Math.min(100, (hull / maxHull) * 100));
+      hullBar.style.width = pct + '%';
+      if (pct < 30) hullBar.style.background = 'linear-gradient(90deg,#b22929,#ec5b5b)';
+      else if (pct < 60) hullBar.style.background = 'linear-gradient(90deg,#cc8d22,#f5c44a)';
+      else hullBar.style.background = 'linear-gradient(90deg,#6b9b3a,#b6e36a)';
+      hullText.textContent = hull + ' / ' + maxHull;
+      hullPct.textContent = Math.round(pct) + '%';
+    }
 
-    if (s.sunk) warn.classList.add('visible');
-    else warn.classList.remove('visible');
+    if (s.sunk !== undefined) {
+      if (s.sunk) warn.classList.add('visible');
+      else warn.classList.remove('visible');
+    }
 
     if (s.portMax != null && s.portMax !== lastPortMax) {
       buildBalls(portBalls, s.portMax);

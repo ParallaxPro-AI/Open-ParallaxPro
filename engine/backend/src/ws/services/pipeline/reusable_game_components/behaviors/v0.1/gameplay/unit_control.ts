@@ -21,15 +21,46 @@ class UnitControlBehavior extends GameScript {
     _movesLeft = 2;
     _currentAnim = "";
     _dead = false;
+    // Captured on first onStart so Play Again restores the unit at its
+    // 03_worlds.json placement. Without this, every dead player unit
+    // stayed permanently inactive after game_over → play_again — the
+    // FSM emits game_ready and turn_start on the transition, but
+    // nothing reactivates the units.
+    _spawnX = 0; _spawnY = 0; _spawnZ = 0;
+    _spawnHealth = 0;
+    _spawnCaptured = false;
 
     onStart() {
         this._movesLeft = this._movement;
         var self = this;
 
+        if (!this._spawnCaptured) {
+            var p = this.entity.transform.position;
+            this._spawnX = p.x; this._spawnY = p.y; this._spawnZ = p.z;
+            this._spawnHealth = this._health;
+            this._spawnCaptured = true;
+        }
+
         this.scene.events.game.on("turn_start", function() {
             self._movesLeft = self._movement;
             self._moving = false;
         });
+
+        // Restore on Play Again.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._spawnHealth;
+            self._moving = false;
+            self._selected = false;
+            self._movesLeft = self._movement;
+            self._currentAnim = "";
+            self.entity.active = true;
+            if (self.scene.setPosition) {
+                self.scene.setPosition(self.entity.id, self._spawnX, self._spawnY, self._spawnZ);
+            }
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
 
         this.scene.events.game.on("select_unit", function(data) {
             if (data && data.entityId === self.entity.id) {

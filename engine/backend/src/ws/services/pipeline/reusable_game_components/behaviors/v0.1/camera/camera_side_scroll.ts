@@ -31,7 +31,11 @@ class CameraSideScrollBehavior extends GameScript {
             this._camZ = this._distance;
             this._initialised = true;
             this.scene.setPosition(this.entity.id, this._camX, this._camY, this._camZ);
-            this.entity.transform.lookAt(p.x, p.y, 0);
+            // Pure 2D: always look straight along -Z. Looking at the
+            // player would yaw the camera as the player moves left/right
+            // and tilt as they jump — that pan-with-the-action framing
+            // breaks the side-scroll feel.
+            this.entity.transform.lookAt(this._camX, this._camY, 0);
         }
     }
 
@@ -60,10 +64,8 @@ class CameraSideScrollBehavior extends GameScript {
         }
 
         this.scene.setPosition(this.entity.id, this._camX, this._camY, this._distance);
-        // Look at the player's position (not the camera target) so the
-        // framing tilts naturally as the player jumps without the camera
-        // panning awkwardly.
-        this.entity.transform.lookAt(p.x, p.y, 0);
+        // Pure 2D — look straight forward at z=0, no per-frame yaw/tilt.
+        this.entity.transform.lookAt(this._camX, this._camY, 0);
     }
 
     _findPlayer() {

@@ -105,24 +105,6 @@
       ],
       "label": false
     },
-    "starport": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/House_Open.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "tags": [
-        "building",
-        "player_building",
-        "production",
-        "starport"
-      ],
-      "label": false
-    },
     "supply_depot": {
       "mesh": {
         "type": "custom",
@@ -199,7 +181,7 @@
             "maxHealth": 400,
             "damage": 15,
             "attackRange": 14,
-            "attackRate": 1.0,
+            "attackRate": 1,
             "targetPriority": [
               "enemy_unit",
               "enemy_building"
@@ -255,7 +237,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -263,7 +245,8 @@
       "tags": [
         "unit",
         "player_unit",
-        "worker"
+        "worker",
+        "military"
       ],
       "behaviors": [
         {
@@ -275,7 +258,7 @@
             "moveSpeed": 4,
             "mineRate": 1.2,
             "carryCapacity": 8,
-            "buildSpeed": 1.0,
+            "buildSpeed": 1,
             "damage": 5,
             "attackRange": 1.5,
             "mineSound": "/assets/kenney/audio/impact_sounds/impactPlate_medium_004.ogg"
@@ -302,7 +285,8 @@
       "tags": [
         "unit",
         "player_unit",
-        "infantry"
+        "infantry",
+        "military"
       ],
       "behaviors": [
         {
@@ -340,7 +324,8 @@
       "tags": [
         "unit",
         "player_unit",
-        "infantry"
+        "infantry",
+        "military"
       ],
       "behaviors": [
         {
@@ -370,7 +355,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -378,7 +363,8 @@
       "tags": [
         "unit",
         "player_unit",
-        "support"
+        "support",
+        "military"
       ],
       "behaviors": [
         {
@@ -414,7 +400,8 @@
       "tags": [
         "unit",
         "player_unit",
-        "stealth"
+        "stealth",
+        "military"
       ],
       "behaviors": [
         {
@@ -447,7 +434,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 800,
         "freeze_rotation": true,
         "collider": "box"
@@ -455,7 +442,8 @@
       "tags": [
         "unit",
         "player_unit",
-        "armored"
+        "armored",
+        "military"
       ],
       "behaviors": [
         {
@@ -487,7 +475,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 1100,
         "freeze_rotation": true,
         "collider": "box"
@@ -496,7 +484,8 @@
         "unit",
         "player_unit",
         "armored",
-        "siege"
+        "siege",
+        "military"
       ],
       "behaviors": [
         {
@@ -513,7 +502,7 @@
             "armor": 4,
             "canAttackAir": false,
             "siegeMode": true,
-            "siegeSetupTime": 2.0,
+            "siegeSetupTime": 2,
             "siegeBonusDamage": 20,
             "siegeBonusRange": 6,
             "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_002.ogg"
@@ -532,7 +521,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 600,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -540,7 +529,8 @@
       "tags": [
         "unit",
         "player_unit",
-        "mech"
+        "mech",
+        "military"
       ],
       "behaviors": [
         {
@@ -571,7 +561,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 900,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -580,7 +570,8 @@
         "unit",
         "player_unit",
         "mech",
-        "elite"
+        "elite",
+        "military"
       ],
       "behaviors": [
         {
@@ -612,7 +603,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 400,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -621,7 +612,8 @@
         "unit",
         "player_unit",
         "mech",
-        "scout"
+        "scout",
+        "military"
       ],
       "behaviors": [
         {
@@ -656,7 +648,8 @@
       "tags": [
         "unit",
         "player_unit",
-        "air"
+        "air",
+        "military"
       ],
       "behaviors": [
         {
@@ -673,42 +666,6 @@
             "isFlying": true,
             "flyHeight": 6,
             "attackSound": "/assets/kenney/audio/sci_fi_sounds/laserRetro_000.ogg"
-          }
-        }
-      ]
-    },
-    "bomber": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/quaternius/3d_models/ultimate_space_kit/Spaceship_BarbaraTheBee.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "unit",
-        "player_unit",
-        "air"
-      ],
-      "behaviors": [
-        {
-          "name": "ranged_combat",
-          "script": "combat/ranged_combat.ts",
-          "params": {
-            "health": 200,
-            "maxHealth": 200,
-            "damage": 30,
-            "attackRange": 8,
-            "attackRate": 2.0,
-            "moveSpeed": 5,
-            "splashRadius": 3,
-            "canAttackAir": false,
-            "isFlying": true,
-            "flyHeight": 7,
-            "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_004.ogg"
           }
         }
       ]
@@ -828,7 +785,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 35,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -836,7 +793,8 @@
       "tags": [
         "unit",
         "enemy_unit",
-        "worker"
+        "worker",
+        "enemy"
       ],
       "behaviors": [
         {
@@ -846,7 +804,7 @@
             "health": 30,
             "maxHealth": 30,
             "moveSpeed": 3.5,
-            "mineRate": 1.0,
+            "mineRate": 1,
             "carryCapacity": 6
           }
         }
@@ -863,7 +821,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 25,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -871,7 +829,8 @@
       "tags": [
         "unit",
         "enemy_unit",
-        "light"
+        "light",
+        "enemy"
       ],
       "behaviors": [
         {
@@ -901,7 +860,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 120,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -909,7 +868,8 @@
       "tags": [
         "unit",
         "enemy_unit",
-        "heavy"
+        "heavy",
+        "enemy"
       ],
       "behaviors": [
         {
@@ -942,7 +902,8 @@
       "tags": [
         "unit",
         "enemy_unit",
-        "air"
+        "air",
+        "enemy"
       ],
       "behaviors": [
         {
@@ -978,7 +939,9 @@
         "unit",
         "enemy_unit",
         "air",
-        "heavy"
+        "heavy",
+        "decoration_only",
+        "enemy"
       ],
       "behaviors": [
         {
@@ -999,43 +962,6 @@
         }
       ]
     },
-    "ufo_heavy": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/kenney/3d_models/tower_defense_kit/enemy-ufo-c.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "unit",
-        "enemy_unit",
-        "air",
-        "elite"
-      ],
-      "behaviors": [
-        {
-          "name": "enemy_assault_ai",
-          "script": "ai/enemy_assault_ai.ts",
-          "params": {
-            "health": 400,
-            "maxHealth": 400,
-            "damage": 35,
-            "attackRange": 14,
-            "attackRate": 2.0,
-            "moveSpeed": 3,
-            "splashRadius": 3,
-            "armor": 3,
-            "isFlying": true,
-            "flyHeight": 7,
-            "attackSound": "/assets/kenney/audio/sci_fi_sounds/explosionCrunch_003.ogg"
-          }
-        }
-      ]
-    },
     "crystal_node": {
       "mesh": {
         "type": "custom",
@@ -1049,7 +975,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "mineral"
+        "mineral",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1067,7 +994,8 @@
       "tags": [
         "resource",
         "mineral",
-        "rich"
+        "rich",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1152,7 +1080,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1173,7 +1102,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1213,7 +1143,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1309,7 +1240,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1390,7 +1322,8 @@
       "physics": false,
       "tags": [
         "decoration",
-        "sensor"
+        "sensor",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1406,7 +1339,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

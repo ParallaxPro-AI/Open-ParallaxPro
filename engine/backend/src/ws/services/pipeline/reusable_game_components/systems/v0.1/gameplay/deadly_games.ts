@@ -38,6 +38,22 @@ class DeadlyGamesSystem extends GameScript {
     _collapseTimer = 0;
     _collapseWave = 0;
 
+    // Idempotent animation set: only call playAnimation when the
+    // requested clip differs from the AnimatorComponent's currentClip.
+    // AnimatorComponent.play() resets currentTime=0 on every call, so
+    // calling it every frame (as the round-update code does for AI
+    // contestants) freezes the clip on its first frame — the
+    // contestants visibly stand in a Run-pose snapshot instead of
+    // running. Reading currentClip directly also covers async GLB load:
+    // until the clip resolves, currentClip stays empty and we keep
+    // retrying until it sticks.
+    _setAnim(entity, name) {
+        if (!entity || !entity.playAnimation) return;
+        var animator = entity.getComponent && entity.getComponent("AnimatorComponent");
+        if (animator && animator.currentClip === name && animator.isPlaying) return;
+        entity.playAnimation(name, { loop: true });
+    }
+
     onStart() {
         var self = this;
         this.scene._deadlyPlayerActive = false;
@@ -308,7 +324,7 @@ class DeadlyGamesSystem extends GameScript {
                 var speed = 4 + Math.random() * 3;
                 this.scene.setPosition(c.entity.id, pp.x + (Math.random() - 0.5) * 0.3, pp.y, pp.z - speed * dt);
                 // REMOVED (registry handles facing now): c.entity.transform.setRotationEuler(0, 180, 0);
-                if (c.entity.playAnimation) c.entity.playAnimation("Run", { loop: true });
+                this._setAnim(c.entity, "Run");
             }
         } else {
             // During RED, some AI fail to stop (10% chance per second)
@@ -320,9 +336,7 @@ class DeadlyGamesSystem extends GameScript {
                     var pp = c.entity.transform.position;
                     this.scene.setPosition(c.entity.id, pp.x + (Math.random() - 0.5) * 0.5, pp.y, pp.z - 0.3);
                 }
-                if (this._contestants[i].entity.playAnimation) {
-                    this._contestants[i].entity.playAnimation("Idle", { loop: true });
-                }
+                this._setAnim(this._contestants[i].entity, "Idle");
             }
         }
 
@@ -540,9 +554,9 @@ class DeadlyGamesSystem extends GameScript {
                 var dist = Math.sqrt(dx * dx + dz * dz);
                 this.scene.setPosition(c.entity.id, pp.x + (dx / dist) * speed * dt, pp.y, pp.z + (dz / dist) * speed * dt);
                 c.entity.transform.setRotationEuler(0, Math.atan2(dx, -dz) * 180 / Math.PI, 0);
-                if (c.entity.playAnimation) c.entity.playAnimation("Run", { loop: true });
+                this._setAnim(c.entity, "Run");
             } else {
-                if (c.entity.playAnimation) c.entity.playAnimation("Idle", { loop: true });
+                this._setAnim(c.entity, "Idle");
             }
         }
     }
@@ -656,6 +670,7 @@ class DeadlyGamesSystem extends GameScript {
         for (var i = 0; i < this._contestants.length; i++) {
             if (!this._contestants[i].alive) continue;
             var c = this._contestants[i];
+            if (!c.entity) continue;
             var row = Math.floor(idx / 5);
             var col = idx % 5;
 
@@ -672,7 +687,7 @@ class DeadlyGamesSystem extends GameScript {
             if (c.isHuman) {
                 this.scene.setVelocity(c.entity.id, { x: 0, y: 0, z: 0 });
             }
-            if (c.entity.playAnimation) c.entity.playAnimation("Idle", { loop: true });
+            this._setAnim(c.entity, "Idle");
             idx++;
         }
     }

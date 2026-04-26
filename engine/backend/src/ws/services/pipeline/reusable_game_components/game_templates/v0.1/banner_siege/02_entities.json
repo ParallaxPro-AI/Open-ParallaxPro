@@ -4,6 +4,7 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "hideFromOwner": true,
         "scale": [
           1,
           1,
@@ -393,9 +394,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.7,
-            0.125,
-            0.7
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -427,9 +428,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.7,
-            0.125,
-            0.7
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -617,7 +618,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     }

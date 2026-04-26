@@ -24,6 +24,22 @@ class CameraTileHopperBehavior extends GameScript {
     _furthestZ = 0;
     _initialized = false;
 
+    onStart() {
+        // Play Again: hop_reset moves the player back to (0,0) but the
+        // camera's _furthestZ otherwise still holds the previous run's
+        // depth, so the camera stays parked at the old far end and
+        // slowly lerps back. Clear the lock + the smoothing initialiser
+        // so the next tick snaps to the new player.
+        var self = this;
+        var resetCamera = function() {
+            self._furthestZ = 0;
+            self._initialized = false;
+        };
+        this.scene.events.game.on("hop_reset", resetCamera);
+        this.scene.events.game.on("game_ready", resetCamera);
+        this.scene.events.game.on("restart_game", resetCamera);
+    }
+
     onUpdate(dt) {
         var player = this._findPlayer();
         if (!player || !player.transform) return;

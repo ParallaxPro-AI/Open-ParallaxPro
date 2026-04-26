@@ -272,15 +272,57 @@ export class DefaultNetworkAdapter implements NetworkedEntityAdapter {
             this._applyBuffered(info.networkId);
             return;
         }
-        // Default-spawn a minimal visual entity using the raw Scene/Entity
-        // API. "coin" → gold sphere, anything else → blue capsule (works
-        // for player proxies).
         const scene = this.scene as any;
         if (typeof scene.createEntity !== 'function') {
             console.warn('[DefaultNetworkAdapter] scene.createEntity missing — cannot spawn', info.prefab);
             return;
         }
         const isCoin = info.prefab === 'coin';
+
+        // Prefer the authored prefab so templates that register a
+        // matching definition (e.g. coin_grab's `coin` prefab pointing
+        // at Coin.glb) get the proper mesh + scale + materials instead
+        // of the hardcoded sphere/capsule fallback below. Without this,
+        // the host (which spawns via scene.spawnEntity directly) would
+        // render the prefab while remote peers intercepted by this
+        // adapter saw the legacy primitive — visible coin mismatch in
+        // multiplayer_coin_grab.
+        if (typeof scene.hasPrefab === 'function' && scene.hasPrefab(info.prefab)
+            && typeof scene.instantiatePrefab === 'function') {
+            const inst = scene.instantiatePrefab(info.prefab, {
+                name: this._defaultProxyName(info),
+                position: { x: info.pos[0], y: info.pos[1], z: info.pos[2] },
+                rotation: { x: info.rot[0], y: info.rot[1], z: info.rot[2], w: info.rot[3] },
+                skipBehaviors: true,
+                kinematicPhysics: true,
+                extraComponents: [
+                    {
+                        type: 'NetworkIdentityComponent',
+                        data: {
+                            networkId: info.networkId,
+                            ownerId: info.owner || -1,
+                            isLocalPlayer: false,
+                            syncTransform: true,
+                        },
+                    },
+                ],
+            });
+            if (inst) {
+                if (typeof inst.addTag === 'function') {
+                    inst.addTag('networked');
+                    if (isCoin) inst.addTag('coin');
+                }
+                this.onEntitySpawned?.();
+                this._applyBuffered(info.networkId);
+                return;
+            }
+        }
+
+        // Fallback when the template didn't register a matching prefab:
+        // minimal visual entity using the raw Scene/Entity API. "coin" →
+        // gold sphere, anything else → blue capsule (works for player
+        // proxies). Preserved verbatim so older templates keep rendering
+        // exactly as before.
         const entity = scene.createEntity(this._defaultProxyName(info));
         if (!entity || typeof entity.addComponent !== 'function') {
             console.warn('[DefaultNetworkAdapter] entity.addComponent missing — cannot spawn', info.prefab);

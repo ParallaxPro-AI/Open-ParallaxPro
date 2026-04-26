@@ -122,7 +122,7 @@ var GAME_EVENTS = {
     npc_interaction:    { fields: { npcId: { type: 'number', optional: true } } },
 
     // ── Camera ──
-    set_camera_yaw:     { fields: { yaw: { type: 'number' } } },
+    set_camera_yaw:     { fields: { yaw: { type: 'number' }, pitch: { type: 'number', optional: true } } },
 
     // ── Cards ──
     card_played:        { fields: { card: { type: 'string', optional: true } } },
@@ -189,6 +189,18 @@ var GAME_EVENTS = {
     attack_unit:        { fields: { attackerId: { type: 'number', optional: true }, defenderId: { type: 'number', optional: true } } },
     research_tech:      { fields: { tech: { type: 'string', optional: true } } },
     adopt_policy:       { fields: { policy: { type: 'string', optional: true } } },
+
+    // ── RTS click-driven commands (rts_input → unit_combat / worker_ai) ──
+    unit_command_move:    { fields: { entityId: { type: 'any', optional: true }, x: { type: 'number', optional: true }, z: { type: 'number', optional: true } } },
+    unit_command_attack:  { fields: { entityId: { type: 'any', optional: true }, targetId: { type: 'any', optional: true } } },
+    // ── RTS economy / production ──
+    resource_request:     { fields: { minerals: { type: 'number', optional: true }, gas: { type: 'number', optional: true }, supply: { type: 'number', optional: true } } },
+    unit_produced:        { fields: { type: { type: 'string', optional: true }, kind: { type: 'string', optional: true } } },
+
+    // ── MMORPG click interactions (mmorpg_interact) ──
+    target_set:           { fields: { entityId: { type: 'any', optional: true } } },
+    npc_clicked:          { fields: { entityId: { type: 'any', optional: true }, role: { type: 'string', optional: true } } },
+    loot_picked_up:       { fields: { entityId: { type: 'any', optional: true } } },
 
     // ── Climbing / Platformer Extended ──
     climb_start:        { fields: {} },
@@ -281,6 +293,9 @@ var GAME_EVENTS = {
     net_player_shot:       { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_player_killed:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_player_respawn:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Buccaneer Bay (cannon_broadside): visual cannonballs replicated to
+    // remote peers so every captain sees every volley, not just the shooter.
+    net_cannonball_fired:  { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     // Banner Siege / CTF: flag state transitions need to sync so both
     // peers see the banner follow its new owner or return to base.
     net_flag_picked_up:    { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },

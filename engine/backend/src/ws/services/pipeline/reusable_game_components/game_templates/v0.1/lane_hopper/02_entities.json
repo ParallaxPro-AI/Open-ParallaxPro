@@ -32,11 +32,11 @@
     "player": {
       "mesh": {
         "type": "custom",
-        "asset": "/assets/quaternius/3d_models/cube_world/Chicken.glb",
+        "asset": "/assets/quaternius/characters/cube_world/Chicken.glb",
         "scale": [
-          1,
-          1,
-          1
+          2,
+          2,
+          2
         ]
       },
       "physics": false,

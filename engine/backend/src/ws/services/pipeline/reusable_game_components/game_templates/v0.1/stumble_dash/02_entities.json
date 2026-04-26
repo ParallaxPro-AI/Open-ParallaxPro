@@ -5,9 +5,9 @@
         "type": "custom",
         "asset": "/assets/quaternius/characters/cute_animated_monsters/Penguin.glb",
         "scale": [
-          1,
-          1,
-          1
+          1.6,
+          1.6,
+          1.6
         ]
       },
       "physics": {
@@ -198,7 +198,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 99999,
         "freeze_rotation": true,
         "collider": "box"
@@ -294,7 +294,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -310,7 +310,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -326,7 +326,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -342,7 +342,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -363,7 +363,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false,
       "mesh_override": {
@@ -387,7 +387,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false,
       "mesh_override": {

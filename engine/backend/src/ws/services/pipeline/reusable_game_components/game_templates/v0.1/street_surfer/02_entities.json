@@ -29,9 +29,9 @@
             "speedIncrease": 0.18,
             "laneWidth": 2.5,
             "laneSwitchSpeed": 12,
-            "jumpForce": 12,
+            "jumpForce": 17,
             "slideDuration": 0.7,
-            "gravity": 35
+            "gravity": 30
           }
         }
       ]
@@ -141,7 +141,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "obstacle"
       ],
@@ -157,7 +157,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "obstacle"
       ],
@@ -173,7 +173,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "obstacle",
         "barrier_low"
@@ -215,97 +215,10 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "obstacle",
         "barrier_low"
-      ],
-      "label": false
-    },
-    "coin": {
-      "mesh": {
-        "type": "cylinder",
-        "scale": [
-          0.4,
-          0.08,
-          0.4
-        ],
-        "color": [
-          1.0,
-          0.85,
-          0.0,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "coin"
-      ],
-      "label": false
-    },
-    "powerup_magnet": {
-      "mesh": {
-        "type": "cube",
-        "scale": [
-          0.55,
-          0.55,
-          0.55
-        ],
-        "color": [
-          0.2,
-          0.5,
-          1.0,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "powerup",
-        "magnet"
-      ],
-      "label": false
-    },
-    "powerup_shield": {
-      "mesh": {
-        "type": "sphere",
-        "scale": [
-          0.55,
-          0.55,
-          0.55
-        ],
-        "color": [
-          0.15,
-          0.85,
-          0.4,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "powerup",
-        "shield"
-      ],
-      "label": false
-    },
-    "powerup_multiplier": {
-      "mesh": {
-        "type": "cube",
-        "scale": [
-          0.55,
-          0.55,
-          0.55
-        ],
-        "color": [
-          0.75,
-          0.3,
-          0.9,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "powerup",
-        "score_multi"
       ],
       "label": false
     },
@@ -405,22 +318,6 @@
       ],
       "label": false
     },
-    "fence_scenery": {
-      "mesh": {
-        "type": "custom",
-        "asset": "/assets/kenney/3d_models/city_kit_suburban/fence-1x4.glb",
-        "scale": [
-          1,
-          1,
-          1
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "scenery"
-      ],
-      "label": false
-    },
     "fire_hydrant": {
       "mesh": {
         "type": "custom",
@@ -435,6 +332,46 @@
       "tags": [
         "scenery"
       ],
+      "label": false
+    },
+    "coin": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Coin.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["coin"],
+      "label": false
+    },
+    "powerup_magnet": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.55, 0.25, 0.95, 1],
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": false,
+      "tags": ["powerup"],
+      "label": false
+    },
+    "powerup_shield": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.2, 0.8, 1.0, 1],
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": false,
+      "tags": ["powerup"],
+      "label": false
+    },
+    "powerup_multiplier": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Star.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["powerup"],
       "label": false
     }
   }

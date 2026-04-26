@@ -4,253 +4,1884 @@
       "id": "contested_frontier",
       "name": "Contested Frontier",
       "lighting": {
-        "ambient": [0.35, 0.38, 0.5],
-        "sun_direction": [0.4, -0.65, 0.25],
-        "sun_color": [0.85, 0.9, 1.0]
+        "ambient": [
+          0.35,
+          0.38,
+          0.5
+        ],
+        "sun_direction": [
+          0.4,
+          -0.65,
+          0.25
+        ],
+        "sun_color": [
+          0.85,
+          0.9,
+          1.0
+        ]
       },
       "terrain": {
-        "size": [160, 160],
-        "color": [0.15, 0.2, 0.35, 1]
+        "size": [
+          160,
+          160
+        ],
+        "color": [
+          0.15,
+          0.2,
+          0.35,
+          1
+        ]
       },
       "placements": [
-        { "ref": "ground", "position": [0, 0, 0] },
-        { "ref": "camera", "position": [-50, 35, 50] },
-
-        { "ref": "terrain_cliff", "position": [0, 2, -72], "scale": [148, 5, 2] },
-        { "ref": "terrain_cliff", "position": [0, 2, 72], "scale": [148, 5, 2] },
-        { "ref": "terrain_cliff", "position": [-72, 2, 0], "scale": [2, 5, 148] },
-        { "ref": "terrain_cliff", "position": [72, 2, 0], "scale": [2, 5, 148] },
-
-        { "ref": "base_platform_blue", "position": [-50, 0.05, 42] },
-        { "ref": "command_center", "position": [-50, 0, 42] },
-        { "ref": "barracks", "position": [-42, 0, 38] },
-        { "ref": "supply_depot", "position": [-56, 0, 36] },
-        { "ref": "supply_depot", "position": [-44, 0, 48] },
-        { "ref": "refinery", "position": [-42, 0, 52] },
-        { "ref": "turret_cannon", "position": [-38, 0, 42] },
-        { "ref": "turret_cannon", "position": [-50, 0, 30] },
-        { "ref": "solar_panel", "position": [-58, 0, 44] },
-        { "ref": "solar_panel", "position": [-54, 0, 50] },
-        { "ref": "connector_pipe", "position": [-48, 0, 46] },
-        { "ref": "connector_pipe", "position": [-52, 0, 38] },
-        { "ref": "metal_support", "position": [-56, 0, 42] },
-        { "ref": "radar_tower", "position": [-46, 0, 34] },
-        { "ref": "rover", "position": [-58, 0, 36] },
-
-        { "ref": "worker", "position": [-60, 0, 40] },
-        { "ref": "worker", "position": [-62, 0, 38] },
-        { "ref": "worker", "position": [-58, 0, 38] },
-        { "ref": "worker", "position": [-60, 0, 42] },
-        { "ref": "marine", "position": [-44, 0, 40] },
-        { "ref": "marine_female", "position": [-46, 0, 42] },
-        { "ref": "marine", "position": [-44, 0, 44] },
-
-        { "ref": "crystal_node", "position": [-64, 0, 44] },
-        { "ref": "crystal_node", "position": [-66, 0, 42] },
-        { "ref": "crystal_node", "position": [-64, 0, 40] },
-        { "ref": "crystal_node", "position": [-66, 0, 38] },
-        { "ref": "crystal_node", "position": [-64, 0, 36] },
-        { "ref": "crystal_large", "position": [-66, 0, 40] },
-        { "ref": "crystal_large", "position": [-64, 0, 38] },
-        { "ref": "crystal_node", "position": [-66, 0, 36] },
-        { "ref": "energy_geyser", "position": [-42, 0, 54] },
-
-        { "ref": "base_platform_red", "position": [50, 0.05, -42] },
-        { "ref": "hive", "position": [50, 0, -42] },
-        { "ref": "spawning_pool", "position": [44, 0, -36] },
-        { "ref": "spire", "position": [56, 0, -36] },
-        { "ref": "evolution_chamber", "position": [48, 0, -50] },
-        { "ref": "alien_turret", "position": [40, 0, -42] },
-        { "ref": "alien_turret", "position": [50, 0, -30] },
-        { "ref": "alien_turret", "position": [60, 0, -38] },
-
-        { "ref": "drone_alien", "position": [60, 0, -40] },
-        { "ref": "drone_alien", "position": [62, 0, -38] },
-        { "ref": "drone_alien", "position": [60, 0, -42] },
-        { "ref": "swarmling", "position": [46, 0, -38] },
-        { "ref": "swarmling", "position": [48, 0, -36] },
-        { "ref": "swarmling", "position": [44, 0, -40] },
-        { "ref": "swarmling", "position": [52, 0, -38] },
-        { "ref": "swarmling", "position": [50, 0, -36] },
-        { "ref": "swarmling", "position": [46, 0, -34] },
-        { "ref": "swarmling", "position": [54, 0, -34] },
-        { "ref": "swarmling", "position": [48, 0, -32] },
-        { "ref": "ravager", "position": [52, 0, -34] },
-        { "ref": "ravager", "position": [44, 0, -44] },
-        { "ref": "ravager", "position": [56, 0, -44] },
-        { "ref": "viper", "position": [48, 5, -38] },
-        { "ref": "viper", "position": [52, 5, -40] },
-        { "ref": "ufo_assault", "position": [54, 6, -46] },
-
-        { "ref": "crystal_node", "position": [64, 0, -44] },
-        { "ref": "crystal_node", "position": [66, 0, -42] },
-        { "ref": "crystal_node", "position": [64, 0, -40] },
-        { "ref": "crystal_node", "position": [66, 0, -38] },
-        { "ref": "crystal_node", "position": [64, 0, -36] },
-        { "ref": "crystal_large", "position": [66, 0, -40] },
-        { "ref": "crystal_large", "position": [64, 0, -38] },
-        { "ref": "crystal_node", "position": [66, 0, -36] },
-        { "ref": "energy_geyser", "position": [42, 0, -54] },
-
-        { "ref": "crystal_node", "position": [-42, 0, -28] },
-        { "ref": "crystal_node", "position": [-44, 0, -26] },
-        { "ref": "crystal_node", "position": [-40, 0, -26] },
-        { "ref": "crystal_node", "position": [-42, 0, -24] },
-        { "ref": "crystal_large", "position": [-44, 0, -28] },
-        { "ref": "crystal_node", "position": [-40, 0, -30] },
-        { "ref": "energy_geyser", "position": [-36, 0, -32] },
-        { "ref": "alien_rock_large", "position": [-48, 0, -22] },
-        { "ref": "alien_rock", "position": [-38, 0, -20] },
-        { "ref": "radar_tower", "position": [-42, 0, -20] },
-
-        { "ref": "crystal_node", "position": [42, 0, 28] },
-        { "ref": "crystal_node", "position": [44, 0, 26] },
-        { "ref": "crystal_node", "position": [40, 0, 26] },
-        { "ref": "crystal_node", "position": [42, 0, 24] },
-        { "ref": "crystal_large", "position": [44, 0, 28] },
-        { "ref": "crystal_node", "position": [40, 0, 30] },
-        { "ref": "energy_geyser", "position": [36, 0, 32] },
-        { "ref": "alien_rock_large", "position": [48, 0, 22] },
-        { "ref": "alien_rock", "position": [38, 0, 20] },
-        { "ref": "radar_tower", "position": [42, 0, 20] },
-
-        { "ref": "crystal_node", "position": [-2, 0, 2] },
-        { "ref": "crystal_node", "position": [2, 0, -2] },
-        { "ref": "crystal_large", "position": [0, 0, 0] },
-        { "ref": "crystal_node", "position": [-2, 0, -2] },
-        { "ref": "alien_rock_large", "position": [-6, 0, 6] },
-        { "ref": "alien_rock_large", "position": [6, 0, -6] },
-        { "ref": "alien_rock_large", "position": [-8, 0, -4] },
-        { "ref": "alien_rock_large", "position": [8, 0, 4] },
-        { "ref": "debris_crate", "position": [0, 0, 5] },
-        { "ref": "debris_crate", "position": [0, 0, -5] },
-        { "ref": "metal_support", "position": [-4, 0, 0] },
-        { "ref": "metal_support", "position": [4, 0, 0] },
-
-        { "ref": "terrain_cliff", "position": [-20, 2, 15], "scale": [8, 4, 3] },
-        { "ref": "terrain_cliff", "position": [-15, 2, 20], "scale": [3, 4, 8] },
-        { "ref": "terrain_cliff", "position": [-25, 2, 10], "scale": [4, 4, 6] },
-        { "ref": "terrain_cliff", "position": [-18, 2, 8], "scale": [6, 4, 3] },
-        { "ref": "ramp_structure", "position": [-12, 0, 18] },
-        { "ref": "alien_rock_large", "position": [-22, 0, 18] },
-        { "ref": "alien_rock", "position": [-16, 0, 12] },
-
-        { "ref": "terrain_cliff", "position": [20, 2, -15], "scale": [8, 4, 3] },
-        { "ref": "terrain_cliff", "position": [15, 2, -20], "scale": [3, 4, 8] },
-        { "ref": "terrain_cliff", "position": [25, 2, -10], "scale": [4, 4, 6] },
-        { "ref": "terrain_cliff", "position": [18, 2, -8], "scale": [6, 4, 3] },
-        { "ref": "ramp_structure", "position": [12, 0, -18] },
-        { "ref": "alien_rock_large", "position": [22, 0, -18] },
-        { "ref": "alien_rock", "position": [16, 0, -12] },
-
-        { "ref": "terrain_cliff", "position": [-35, 2, -5], "scale": [6, 4, 4] },
-        { "ref": "terrain_cliff", "position": [35, 2, 5], "scale": [6, 4, 4] },
-        { "ref": "terrain_cliff", "position": [0, 2, -35], "scale": [4, 4, 6] },
-        { "ref": "terrain_cliff", "position": [0, 2, 35], "scale": [4, 4, 6] },
-        { "ref": "ramp_structure", "position": [-30, 0, -2] },
-        { "ref": "ramp_structure", "position": [30, 0, 2] },
-
-        { "ref": "path_road", "position": [-30, 0.02, 20], "scale": [6, 1, 40] },
-        { "ref": "path_road", "position": [30, 0.02, -20], "scale": [6, 1, 40] },
-        { "ref": "path_road", "position": [0, 0.02, 0], "scale": [60, 1, 6] },
-        { "ref": "path_road", "position": [-10, 0.02, 50], "scale": [6, 1, 20] },
-        { "ref": "path_road", "position": [10, 0.02, -50], "scale": [6, 1, 20] },
-
-        { "ref": "alien_tree_1", "position": [-55, 0, 20] },
-        { "ref": "alien_tree_1", "position": [-60, 0, 10] },
-        { "ref": "alien_tree_1", "position": [-48, 0, 12] },
-        { "ref": "alien_tree_1", "position": [-65, 0, 25] },
-        { "ref": "alien_tree_1", "position": [55, 0, -20] },
-        { "ref": "alien_tree_1", "position": [60, 0, -10] },
-        { "ref": "alien_tree_1", "position": [48, 0, -12] },
-        { "ref": "alien_tree_1", "position": [65, 0, -25] },
-        { "ref": "alien_tree_2", "position": [-30, 0, -40] },
-        { "ref": "alien_tree_2", "position": [-40, 0, -45] },
-        { "ref": "alien_tree_2", "position": [-35, 0, -50] },
-        { "ref": "alien_tree_2", "position": [30, 0, 40] },
-        { "ref": "alien_tree_2", "position": [40, 0, 45] },
-        { "ref": "alien_tree_2", "position": [35, 0, 50] },
-        { "ref": "alien_tree_3", "position": [-15, 0, -55] },
-        { "ref": "alien_tree_3", "position": [15, 0, 55] },
-        { "ref": "alien_tree_3", "position": [-55, 0, -15] },
-        { "ref": "alien_tree_3", "position": [55, 0, 15] },
-        { "ref": "alien_tree_4", "position": [20, 0, 60] },
-        { "ref": "alien_tree_4", "position": [-20, 0, -60] },
-        { "ref": "alien_tree_4", "position": [60, 0, 20] },
-        { "ref": "alien_tree_4", "position": [-60, 0, -20] },
-        { "ref": "alien_tree_1", "position": [-10, 0, 60] },
-        { "ref": "alien_tree_2", "position": [10, 0, -60] },
-        { "ref": "alien_tree_3", "position": [65, 0, 55] },
-        { "ref": "alien_tree_4", "position": [-65, 0, -55] },
-        { "ref": "alien_tree_1", "position": [-50, 0, -55] },
-        { "ref": "alien_tree_2", "position": [50, 0, 55] },
-
-        { "ref": "alien_bush", "position": [-35, 0, 15] },
-        { "ref": "alien_bush", "position": [-25, 0, 30] },
-        { "ref": "alien_bush", "position": [-45, 0, -10] },
-        { "ref": "alien_bush", "position": [-58, 0, 5] },
-        { "ref": "alien_bush", "position": [35, 0, -15] },
-        { "ref": "alien_bush", "position": [25, 0, -30] },
-        { "ref": "alien_bush", "position": [45, 0, 10] },
-        { "ref": "alien_bush", "position": [58, 0, -5] },
-        { "ref": "alien_bush", "position": [-10, 0, 35] },
-        { "ref": "alien_bush", "position": [10, 0, -35] },
-        { "ref": "alien_bush", "position": [-30, 0, 55] },
-        { "ref": "alien_bush", "position": [30, 0, -55] },
-
-        { "ref": "alien_rock", "position": [-50, 0, 15] },
-        { "ref": "alien_rock", "position": [-60, 0, -5] },
-        { "ref": "alien_rock", "position": [-20, 0, 45] },
-        { "ref": "alien_rock", "position": [-40, 0, 60] },
-        { "ref": "alien_rock", "position": [50, 0, -15] },
-        { "ref": "alien_rock", "position": [60, 0, 5] },
-        { "ref": "alien_rock", "position": [20, 0, -45] },
-        { "ref": "alien_rock", "position": [40, 0, -60] },
-        { "ref": "alien_rock_large", "position": [-62, 0, -30] },
-        { "ref": "alien_rock_large", "position": [62, 0, 30] },
-        { "ref": "alien_rock_large", "position": [-10, 0, -45] },
-        { "ref": "alien_rock_large", "position": [10, 0, 45] },
-        { "ref": "alien_rock", "position": [-55, 0, -40] },
-        { "ref": "alien_rock", "position": [55, 0, 40] },
-
-        { "ref": "alien_grass", "position": [-45, 0, 20] },
-        { "ref": "alien_grass", "position": [-55, 0, -8] },
-        { "ref": "alien_grass", "position": [-30, 0, 45] },
-        { "ref": "alien_grass", "position": [-65, 0, 15] },
-        { "ref": "alien_grass", "position": [-42, 0, -15] },
-        { "ref": "alien_grass", "position": [45, 0, -20] },
-        { "ref": "alien_grass", "position": [55, 0, 8] },
-        { "ref": "alien_grass", "position": [30, 0, -45] },
-        { "ref": "alien_grass", "position": [65, 0, -15] },
-        { "ref": "alien_grass", "position": [42, 0, 15] },
-        { "ref": "alien_grass", "position": [-15, 0, 50] },
-        { "ref": "alien_grass", "position": [15, 0, -50] },
-        { "ref": "alien_grass", "position": [-5, 0, 25] },
-        { "ref": "alien_grass", "position": [5, 0, -25] },
-        { "ref": "alien_grass", "position": [-25, 0, -35] },
-        { "ref": "alien_grass", "position": [25, 0, 35] },
-
-        { "ref": "alien_plant", "position": [-48, 0, 8] },
-        { "ref": "alien_plant", "position": [-58, 0, -12] },
-        { "ref": "alien_plant", "position": [-22, 0, 50] },
-        { "ref": "alien_plant", "position": [48, 0, -8] },
-        { "ref": "alien_plant", "position": [58, 0, 12] },
-        { "ref": "alien_plant", "position": [22, 0, -50] },
-        { "ref": "alien_plant", "position": [-35, 0, -55] },
-        { "ref": "alien_plant", "position": [35, 0, 55] },
-        { "ref": "alien_plant", "position": [0, 0, 65] },
-        { "ref": "alien_plant", "position": [0, 0, -65] },
-
-        { "ref": "debris_crate", "position": [-30, 0, 0] },
-        { "ref": "debris_crate", "position": [30, 0, 0] },
-        { "ref": "debris_crate", "position": [-5, 0, -15] },
-        { "ref": "debris_crate", "position": [5, 0, 15] },
-        { "ref": "metal_support", "position": [-12, 0, 30] },
-        { "ref": "metal_support", "position": [12, 0, -30] },
-        { "ref": "connector_pipe", "position": [-50, 0, -30] },
-        { "ref": "connector_pipe", "position": [50, 0, 30] },
-        { "ref": "rover", "position": [-28, 0, 35] },
-        { "ref": "rover", "position": [28, 0, -35] }
+        {
+          "ref": "ground",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "camera",
+          "position": [
+            -50,
+            35,
+            50
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            0,
+            2,
+            -72
+          ],
+          "scale": [
+            148,
+            5,
+            2
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            0,
+            2,
+            72
+          ],
+          "scale": [
+            148,
+            5,
+            2
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            -72,
+            2,
+            0
+          ],
+          "scale": [
+            2,
+            5,
+            148
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            72,
+            2,
+            0
+          ],
+          "scale": [
+            2,
+            5,
+            148
+          ]
+        },
+        {
+          "ref": "base_platform_blue",
+          "position": [
+            -50,
+            0.05,
+            42
+          ]
+        },
+        {
+          "ref": "command_center",
+          "position": [
+            -50,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "barracks",
+          "position": [
+            -42,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "supply_depot",
+          "position": [
+            -56,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "supply_depot",
+          "position": [
+            -44,
+            0,
+            48
+          ]
+        },
+        {
+          "ref": "refinery",
+          "position": [
+            -42,
+            0,
+            52
+          ]
+        },
+        {
+          "ref": "turret_cannon",
+          "position": [
+            -38,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "turret_cannon",
+          "position": [
+            -50,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "solar_panel",
+          "position": [
+            -58,
+            0,
+            44
+          ]
+        },
+        {
+          "ref": "solar_panel",
+          "position": [
+            -54,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "connector_pipe",
+          "position": [
+            -48,
+            0,
+            46
+          ]
+        },
+        {
+          "ref": "connector_pipe",
+          "position": [
+            -52,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "metal_support",
+          "position": [
+            -56,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "radar_tower",
+          "position": [
+            -46,
+            0,
+            34
+          ]
+        },
+        {
+          "ref": "rover",
+          "position": [
+            -58,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "worker",
+          "position": [
+            -60,
+            1.5,
+            40
+          ]
+        },
+        {
+          "ref": "worker",
+          "position": [
+            -62,
+            1.5,
+            38
+          ]
+        },
+        {
+          "ref": "worker",
+          "position": [
+            -58,
+            1.5,
+            38
+          ]
+        },
+        {
+          "ref": "worker",
+          "position": [
+            -60,
+            1.5,
+            42
+          ]
+        },
+        {
+          "ref": "marine",
+          "position": [
+            -44,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "marine_female",
+          "position": [
+            -46,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "marine",
+          "position": [
+            -44,
+            0,
+            44
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -64,
+            0,
+            44
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -66,
+            0,
+            42
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -64,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -66,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -64,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "crystal_large",
+          "position": [
+            -66,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "crystal_large",
+          "position": [
+            -64,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -66,
+            0,
+            36
+          ]
+        },
+        {
+          "ref": "energy_geyser",
+          "position": [
+            -42,
+            0,
+            54
+          ]
+        },
+        {
+          "ref": "base_platform_red",
+          "position": [
+            50,
+            0.05,
+            -42
+          ]
+        },
+        {
+          "ref": "hive",
+          "position": [
+            50,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "spawning_pool",
+          "position": [
+            44,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "spire",
+          "position": [
+            56,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "evolution_chamber",
+          "position": [
+            48,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "alien_turret",
+          "position": [
+            40,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "alien_turret",
+          "position": [
+            50,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "alien_turret",
+          "position": [
+            60,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "drone_alien",
+          "position": [
+            60,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "drone_alien",
+          "position": [
+            62,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "drone_alien",
+          "position": [
+            60,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "swarmling",
+          "position": [
+            46,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "swarmling",
+          "position": [
+            48,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "swarmling",
+          "position": [
+            44,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "swarmling",
+          "position": [
+            52,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "swarmling",
+          "position": [
+            50,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "swarmling",
+          "position": [
+            46,
+            0,
+            -34
+          ]
+        },
+        {
+          "ref": "swarmling",
+          "position": [
+            54,
+            0,
+            -34
+          ]
+        },
+        {
+          "ref": "swarmling",
+          "position": [
+            48,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "ravager",
+          "position": [
+            52,
+            0,
+            -34
+          ]
+        },
+        {
+          "ref": "ravager",
+          "position": [
+            44,
+            0,
+            -44
+          ]
+        },
+        {
+          "ref": "ravager",
+          "position": [
+            56,
+            0,
+            -44
+          ]
+        },
+        {
+          "ref": "viper",
+          "position": [
+            48,
+            5,
+            -38
+          ]
+        },
+        {
+          "ref": "viper",
+          "position": [
+            52,
+            5,
+            -40
+          ]
+        },
+        {
+          "ref": "ufo_assault",
+          "position": [
+            54,
+            6,
+            -46
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            64,
+            0,
+            -44
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            66,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            64,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            66,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            64,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "crystal_large",
+          "position": [
+            66,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "crystal_large",
+          "position": [
+            64,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            66,
+            0,
+            -36
+          ]
+        },
+        {
+          "ref": "energy_geyser",
+          "position": [
+            42,
+            0,
+            -54
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -42,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -44,
+            0,
+            -26
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -40,
+            0,
+            -26
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -42,
+            0,
+            -24
+          ]
+        },
+        {
+          "ref": "crystal_large",
+          "position": [
+            -44,
+            0,
+            -28
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -40,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "energy_geyser",
+          "position": [
+            -36,
+            0,
+            -32
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            -48,
+            0,
+            -22
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            -38,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "radar_tower",
+          "position": [
+            -42,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            42,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            44,
+            0,
+            26
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            40,
+            0,
+            26
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            42,
+            0,
+            24
+          ]
+        },
+        {
+          "ref": "crystal_large",
+          "position": [
+            44,
+            0,
+            28
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            40,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "energy_geyser",
+          "position": [
+            36,
+            0,
+            32
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            48,
+            0,
+            22
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            38,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "radar_tower",
+          "position": [
+            42,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -2,
+            0,
+            2
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            2,
+            0,
+            -2
+          ]
+        },
+        {
+          "ref": "crystal_large",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "crystal_node",
+          "position": [
+            -2,
+            0,
+            -2
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            -6,
+            0,
+            6
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            6,
+            0,
+            -6
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            -8,
+            0,
+            -4
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            8,
+            0,
+            4
+          ]
+        },
+        {
+          "ref": "debris_crate",
+          "position": [
+            0,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "debris_crate",
+          "position": [
+            0,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "metal_support",
+          "position": [
+            -4,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "metal_support",
+          "position": [
+            4,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            -20,
+            2,
+            15
+          ],
+          "scale": [
+            8,
+            4,
+            3
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            -15,
+            2,
+            20
+          ],
+          "scale": [
+            3,
+            4,
+            8
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            -25,
+            2,
+            10
+          ],
+          "scale": [
+            4,
+            4,
+            6
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            -18,
+            2,
+            8
+          ],
+          "scale": [
+            6,
+            4,
+            3
+          ]
+        },
+        {
+          "ref": "ramp_structure",
+          "position": [
+            -12,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            -22,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            -16,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            20,
+            2,
+            -15
+          ],
+          "scale": [
+            8,
+            4,
+            3
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            15,
+            2,
+            -20
+          ],
+          "scale": [
+            3,
+            4,
+            8
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            25,
+            2,
+            -10
+          ],
+          "scale": [
+            4,
+            4,
+            6
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            18,
+            2,
+            -8
+          ],
+          "scale": [
+            6,
+            4,
+            3
+          ]
+        },
+        {
+          "ref": "ramp_structure",
+          "position": [
+            12,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            22,
+            0,
+            -18
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            16,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            -35,
+            2,
+            -5
+          ],
+          "scale": [
+            6,
+            4,
+            4
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            35,
+            2,
+            5
+          ],
+          "scale": [
+            6,
+            4,
+            4
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            0,
+            2,
+            -35
+          ],
+          "scale": [
+            4,
+            4,
+            6
+          ]
+        },
+        {
+          "ref": "terrain_cliff",
+          "position": [
+            0,
+            2,
+            35
+          ],
+          "scale": [
+            4,
+            4,
+            6
+          ]
+        },
+        {
+          "ref": "ramp_structure",
+          "position": [
+            -30,
+            0,
+            -2
+          ]
+        },
+        {
+          "ref": "ramp_structure",
+          "position": [
+            30,
+            0,
+            2
+          ]
+        },
+        {
+          "ref": "path_road",
+          "position": [
+            -30,
+            0.02,
+            20
+          ],
+          "scale": [
+            6,
+            1,
+            40
+          ]
+        },
+        {
+          "ref": "path_road",
+          "position": [
+            30,
+            0.02,
+            -20
+          ],
+          "scale": [
+            6,
+            1,
+            40
+          ]
+        },
+        {
+          "ref": "path_road",
+          "position": [
+            0,
+            0.02,
+            0
+          ],
+          "scale": [
+            60,
+            1,
+            6
+          ]
+        },
+        {
+          "ref": "path_road",
+          "position": [
+            -10,
+            0.02,
+            50
+          ],
+          "scale": [
+            6,
+            1,
+            20
+          ]
+        },
+        {
+          "ref": "path_road",
+          "position": [
+            10,
+            0.02,
+            -50
+          ],
+          "scale": [
+            6,
+            1,
+            20
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            -55,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            -60,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            -48,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            -65,
+            0,
+            25
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            55,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            60,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            48,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            65,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "alien_tree_2",
+          "position": [
+            -30,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "alien_tree_2",
+          "position": [
+            -40,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "alien_tree_2",
+          "position": [
+            -35,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "alien_tree_2",
+          "position": [
+            30,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "alien_tree_2",
+          "position": [
+            40,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "alien_tree_2",
+          "position": [
+            35,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "alien_tree_3",
+          "position": [
+            -15,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "alien_tree_3",
+          "position": [
+            15,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "alien_tree_3",
+          "position": [
+            -55,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "alien_tree_3",
+          "position": [
+            55,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "alien_tree_4",
+          "position": [
+            20,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "alien_tree_4",
+          "position": [
+            -20,
+            0,
+            -60
+          ]
+        },
+        {
+          "ref": "alien_tree_4",
+          "position": [
+            60,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "alien_tree_4",
+          "position": [
+            -60,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            -10,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "alien_tree_2",
+          "position": [
+            10,
+            0,
+            -60
+          ]
+        },
+        {
+          "ref": "alien_tree_3",
+          "position": [
+            65,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "alien_tree_4",
+          "position": [
+            -65,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "alien_tree_1",
+          "position": [
+            -50,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "alien_tree_2",
+          "position": [
+            50,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            -35,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            -25,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            -45,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            -58,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            35,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            25,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            45,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            58,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            -10,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            10,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            -30,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "alien_bush",
+          "position": [
+            30,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            -50,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            -60,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            -20,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            -40,
+            0,
+            60
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            50,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            60,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            20,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            40,
+            0,
+            -60
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            -62,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            62,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            -10,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "alien_rock_large",
+          "position": [
+            10,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            -55,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "alien_rock",
+          "position": [
+            55,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            -45,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            -55,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            -30,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            -65,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            -42,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            45,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            55,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            30,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            65,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            42,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            -15,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            15,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            -5,
+            0,
+            25
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            5,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            -25,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "alien_grass",
+          "position": [
+            25,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            -48,
+            0,
+            8
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            -58,
+            0,
+            -12
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            -22,
+            0,
+            50
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            48,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            58,
+            0,
+            12
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            22,
+            0,
+            -50
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            -35,
+            0,
+            -55
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            35,
+            0,
+            55
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            0,
+            0,
+            65
+          ]
+        },
+        {
+          "ref": "alien_plant",
+          "position": [
+            0,
+            0,
+            -65
+          ]
+        },
+        {
+          "ref": "debris_crate",
+          "position": [
+            -30,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "debris_crate",
+          "position": [
+            30,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "debris_crate",
+          "position": [
+            -5,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "debris_crate",
+          "position": [
+            5,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "metal_support",
+          "position": [
+            -12,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "metal_support",
+          "position": [
+            12,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "connector_pipe",
+          "position": [
+            -50,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "connector_pipe",
+          "position": [
+            50,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "rover",
+          "position": [
+            -28,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "rover",
+          "position": [
+            28,
+            0,
+            -35
+          ]
+        }
       ]
     }
   ]

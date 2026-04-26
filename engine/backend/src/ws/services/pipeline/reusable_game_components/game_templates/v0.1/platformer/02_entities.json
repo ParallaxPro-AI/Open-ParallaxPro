@@ -137,6 +137,9 @@
           1
         ]
       },
+      "physics": {
+        "type": "kinematic"
+      },
       "tags": [
         "platform",
         "moving_platform"
@@ -156,7 +159,8 @@
       "physics": false,
       "tags": [
         "collectible",
-        "coin"
+        "coin",
+        "no_collide"
       ],
       "label": false
     },
@@ -173,7 +177,8 @@
       "physics": false,
       "tags": [
         "collectible",
-        "gem"
+        "gem",
+        "no_collide"
       ],
       "label": false
     },
@@ -190,7 +195,8 @@
       "physics": false,
       "tags": [
         "collectible",
-        "gem"
+        "gem",
+        "no_collide"
       ],
       "label": false
     },
@@ -206,7 +212,8 @@
       },
       "physics": false,
       "tags": [
-        "heart_pickup"
+        "heart_pickup",
+        "no_collide"
       ],
       "label": false
     },
@@ -220,8 +227,12 @@
           1
         ]
       },
+      "physics": {
+        "type": "kinematic"
+      },
       "tags": [
-        "enemy"
+        "enemy",
+        "no_collide"
       ],
       "behaviors": [
         {
@@ -244,8 +255,12 @@
           1
         ]
       },
+      "physics": {
+        "type": "kinematic"
+      },
       "tags": [
-        "enemy"
+        "enemy",
+        "no_collide"
       ],
       "behaviors": [
         {
@@ -270,7 +285,8 @@
       },
       "physics": false,
       "tags": [
-        "hazard"
+        "hazard",
+        "no_collide"
       ],
       "label": false
     },
@@ -286,7 +302,8 @@
       },
       "physics": false,
       "tags": [
-        "goal"
+        "goal",
+        "no_collide"
       ],
       "label": false
     },
@@ -302,7 +319,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -318,7 +335,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -334,7 +351,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -350,7 +367,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -366,7 +383,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -382,7 +399,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -398,7 +415,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -414,7 +431,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -430,7 +447,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },

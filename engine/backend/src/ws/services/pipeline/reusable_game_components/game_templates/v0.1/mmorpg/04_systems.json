@@ -1,5 +1,31 @@
 {
   "systems": {
+    "mmorpg_interact": {
+      "description": "Player input — virtual cursor + left-click. Clicks on enemies set the combat target and apply a small click-attack. Clicks on NPCs (quest_giver / merchant / healer / innkeeper / guard) emit npc_clicked and surface dialog text. Clicks on loot pick it up for XP.",
+      "script": "gameplay/mmorpg_interact.ts",
+      "params": {}
+    },
+    "entity_health_bars": {
+      "description": "Red HP bar over every active hostile mob. Values match the per-behavior _health params in 02_entities.json so percentages stay accurate.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player", "hero"],
+        "enemyTags": ["enemy", "hostile"],
+        "showAllies": false,
+        "defaultMax": 100,
+        "hpOverrides": {
+          "dungeon_lord": 1500,
+          "war_chief": 800,
+          "dark_knight": 250,
+          "shadow_assassin": 120,
+          "undead_warrior": 150,
+          "undead_mage": 100,
+          "goblin_scout": 80,
+          "goblin_shaman": 60
+        },
+        "heightAbove": 2.5
+      }
+    },
     "quest_system": {
       "description": "Manages quest log, NPC dialogue trees, quest objectives (kill, collect, deliver, explore), quest markers on minimap, quest rewards (XP, gold, items), and quest chain progression through the main storyline",
       "script": "gameplay/quest_system.ts",

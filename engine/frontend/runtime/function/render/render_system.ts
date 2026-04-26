@@ -44,6 +44,7 @@ export class RenderSystem {
     private activeCamera: RenderCamera | null = null;
     private cameraOverrideView: Mat4 | null = null;
     private cameraOverrideProj: Mat4 | null = null;
+    private nextJointBufferId = 0;
 
     getCanvas(): HTMLCanvasElement | null {
         return this.canvasManager?.getCanvas() ?? null;
@@ -263,8 +264,20 @@ export class RenderSystem {
 
     createJointMatricesBuffer(jointCount: number): GPUBuffer {
         const size = Math.max(64, jointCount * 64);
+        // Each buffer gets a unique label. The skinning bind-group cache
+        // in geometry_pass.getSkinnedModelBindGroup keys by
+        // `${idx}_${jointBuf.label}` — if every buffer shares the same
+        // label, the key collapses to just the frame-local model-pool
+        // index, and two different characters that happen to take the
+        // same draw-order slot share a stale bind group → one renders
+        // with the other's joint matrices, producing T-pose / "arms in
+        // the air" on whichever skeleton drew first that frame. Reported
+        // for deadly_games (15 contestants spawned, several visibly
+        // stuck in bind pose). Unique labels make the cache key
+        // genuinely identify the (slot, joint buffer) pair.
+        const id = this.nextJointBufferId++;
         return this.gpuResources.device!.createBuffer({
-            label: 'joint_matrices',
+            label: `joint_matrices_${id}`,
             size,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });

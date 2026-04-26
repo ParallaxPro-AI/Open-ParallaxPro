@@ -1,9 +1,324 @@
-<!-- description: Control hints showing WASD pan and zoom controls — keybinds, navigation help, input guide, camera controls -->
+<!-- description: RTS command panel — clickable build palette for training units and constructing buildings, with build queue and live cost/affordability display -->
 <!DOCTYPE html>
-<html><head><style>
-*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;color:#f0f0f0;pointer-events:none;overflow:hidden;}
-.cmd{position:fixed;bottom:14px;right:14px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px 12px;font-size:9px;font-weight:600;color:#666;}
-kbd{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:3px;padding:1px 4px;font-size:8px;font-weight:700;color:#ccc;margin:0 1px;}
-</style></head><body>
-<div class="cmd"><kbd>WASD</kbd> Pan &middot; <kbd>+</kbd><kbd>-</kbd> Zoom</div>
-</body></html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #f0f0f0;
+    pointer-events: none;
+    overflow: hidden;
+    background: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+  .panel {
+    position: fixed;
+    bottom: 14px;
+    right: 14px;
+    width: 320px;
+    background: rgba(10, 14, 22, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 8px;
+    pointer-events: auto;
+    user-select: none;
+    z-index: 4;
+  }
+  .tab-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .tab {
+    flex: 1;
+    padding: 6px 0;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #888;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .tab:hover { background: rgba(255, 255, 255, 0.12); color: #ddd; }
+  .tab.active { background: rgba(34, 211, 238, 0.18); color: #22d3ee; border-color: rgba(34, 211, 238, 0.5); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+  .build-btn {
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(180deg, rgba(40, 50, 65, 0.92), rgba(20, 26, 36, 0.92));
+    border: 1px solid rgba(120, 130, 150, 0.45);
+    border-radius: 7px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .build-btn:hover { transform: translateY(-2px); border-color: rgba(180, 200, 230, 0.7); }
+  .build-btn.disabled { filter: grayscale(0.7) brightness(0.6); cursor: not-allowed; }
+  .build-btn.disabled:hover { transform: none; }
+  .build-btn .ico {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #cbd5e1, #64748b 70%, #1e293b 100%);
+  }
+  .build-btn[data-type="worker"] .ico        { background: radial-gradient(circle at 35% 30%, #fde68a, #f59e0b 70%, #78350f 100%); }
+  .build-btn[data-type="marine"] .ico,
+  .build-btn[data-type="marine_female"] .ico { background: radial-gradient(circle at 35% 30%, #93c5fd, #2563eb 70%, #1e3a8a 100%); }
+  .build-btn[data-type="medic"] .ico         { background: radial-gradient(circle at 35% 30%, #fecaca, #dc2626 70%, #7f1d1d 100%); }
+  .build-btn[data-type="ghost"] .ico         { background: radial-gradient(circle at 35% 30%, #e9d5ff, #a78bfa 70%, #4c1d95 100%); }
+  .build-btn[data-type="tank"] .ico,
+  .build-btn[data-type="siege_tank"] .ico    { background: radial-gradient(circle at 35% 30%, #d1d5db, #4b5563 70%, #111827 100%); }
+  .build-btn[data-type="scout_mech"] .ico,
+  .build-btn[data-type="mech_walker"] .ico,
+  .build-btn[data-type="battle_mech"] .ico   { background: radial-gradient(circle at 35% 30%, #c7d2fe, #4f46e5 70%, #1e1b4b 100%); }
+  .build-btn[data-type="barracks"] .ico,
+  .build-btn[data-type="factory"] .ico,
+  .build-btn[data-type="mech_bay"] .ico,
+  .build-btn[data-type="refinery"] .ico,
+  .build-btn[data-type="supply_depot"] .ico,
+  .build-btn[data-type="engineering_bay"] .ico,
+  .build-btn[data-type="turret_cannon"] .ico,
+  .build-btn[data-type="turret_laser"] .ico {
+    width: 32px; height: 32px; border-radius: 4px;
+    background: linear-gradient(135deg, #475569, #1e293b);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .build-btn .name {
+    font-size: 9px;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    text-align: center;
+    line-height: 1.1;
+    margin-top: 2px;
+  }
+  .build-btn .cost {
+    font-size: 9px;
+    font-weight: 800;
+    color: #f59e0b;
+    margin-top: 1px;
+  }
+  .build-btn .cost .gas { color: #22d3ee; margin-left: 4px; }
+
+  .queue {
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 6px;
+  }
+  .queue-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 10px;
+    color: #aaa;
+  }
+  .queue-row .label { flex: 1; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .queue-row .bar { height: 4px; flex: 2; background: rgba(255, 255, 255, 0.1); border-radius: 2px; overflow: hidden; }
+  .queue-row .bar .fill { height: 100%; background: #22d3ee; transition: width 0.2s linear; }
+  .queue-row .cancel {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: 800;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .queue-row .cancel:hover { background: rgba(239, 68, 68, 0.3); }
+  .queue-empty {
+    font-size: 9px;
+    color: #555;
+    text-align: center;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 4px 0;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: 600;
+    color: #555;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    pointer-events: none;
+    user-select: none;
+    z-index: 3;
+  }
+  kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-size: 8px;
+    font-weight: 700;
+    color: #bbb;
+    margin: 0 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="hint"><kbd>WASD</kbd> Pan &middot; <kbd>+</kbd><kbd>-</kbd> Zoom</div>
+
+<div class="panel">
+  <div class="tab-row">
+    <div class="tab active" data-tab="units" id="tabUnits">Units</div>
+    <div class="tab" data-tab="structures" id="tabStruct">Structures</div>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="queue" id="queue"></div>
+</div>
+
+<script>
+(function () {
+  function send(action, payload) {
+    window.parent.postMessage({
+      type: 'game_command',
+      action: action,
+      panel: 'hud/command_panel',
+      payload: payload || {}
+    }, '*');
+  }
+
+  var UNIT_LABELS = {
+    worker: 'Worker', marine: 'Marine', marine_female: 'Marine F',
+    medic: 'Medic', ghost: 'Ghost', tank: 'Tank',
+    siege_tank: 'Siege', mech_walker: 'Mech', battle_mech: 'Battle Mech',
+    scout_mech: 'Scout'
+  };
+  var STRUCT_LABELS = {
+    barracks: 'Barracks', factory: 'Factory', mech_bay: 'Mech Bay',
+    refinery: 'Refinery', supply_depot: 'Supply', engineering_bay: 'Eng Bay',
+    turret_cannon: 'Turret', turret_laser: 'Laser'
+  };
+
+  var grid = document.getElementById('grid');
+  var queueEl = document.getElementById('queue');
+  var tabUnits = document.getElementById('tabUnits');
+  var tabStruct = document.getElementById('tabStruct');
+
+  var activeTab = 'units';
+  var lastUnits = [];
+  var lastStructs = [];
+  var lastQueue = [];
+
+  tabUnits.addEventListener('click', function () { activeTab = 'units'; refreshTabs(); renderGrid(); });
+  tabStruct.addEventListener('click', function () { activeTab = 'structures'; refreshTabs(); renderGrid(); });
+
+  function refreshTabs() {
+    tabUnits.classList.toggle('active', activeTab === 'units');
+    tabStruct.classList.toggle('active', activeTab === 'structures');
+  }
+
+  function renderGrid() {
+    var items = activeTab === 'units' ? lastUnits : lastStructs;
+    var labels = activeTab === 'units' ? UNIT_LABELS : STRUCT_LABELS;
+    var actionName = activeTab === 'units' ? 'train_unit' : 'build_structure';
+
+    grid.innerHTML = '';
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      var btn = document.createElement('div');
+      btn.className = 'build-btn' + (it.affordable ? '' : ' disabled');
+      btn.setAttribute('data-type', it.type);
+
+      var costStr = '<span>' + it.minerals + 'm</span>';
+      if (it.gas) costStr += '<span class="gas">' + it.gas + 'g</span>';
+
+      btn.innerHTML =
+        '<div class="ico"></div>' +
+        '<div class="name">' + (labels[it.type] || it.type) + '</div>' +
+        '<div class="cost">' + costStr + '</div>';
+
+      (function (type, action) {
+        btn.addEventListener('click', function () {
+          if (btn.classList.contains('disabled')) return;
+          send(action, { type: type });
+        });
+      })(it.type, actionName);
+
+      grid.appendChild(btn);
+    }
+  }
+
+  function renderQueue() {
+    if (!lastQueue.length) {
+      queueEl.innerHTML = '<div class="queue-empty">— queue empty —</div>';
+      return;
+    }
+    queueEl.innerHTML = '';
+    for (var i = 0; i < lastQueue.length; i++) {
+      var q = lastQueue[i];
+      var row = document.createElement('div');
+      row.className = 'queue-row';
+      var labels = q.kind === 'unit' ? UNIT_LABELS : STRUCT_LABELS;
+      var pct = Math.round((q.progress || 0) * 100);
+      row.innerHTML =
+        '<div class="label">' + (labels[q.type] || q.type) + ' &middot; ' + (q.remaining || 0).toFixed(1) + 's</div>' +
+        '<div class="bar"><div class="fill" style="width:' + pct + '%"></div></div>';
+      var btn = document.createElement('div');
+      btn.className = 'cancel';
+      btn.textContent = '×';
+      (function (idx) {
+        btn.addEventListener('click', function () {
+          send('cancel_build', { index: idx });
+        });
+      })(i);
+      row.appendChild(btn);
+      queueEl.appendChild(row);
+    }
+  }
+
+  function render(state) {
+    if (!state) return;
+    if (state.buildableUnits) lastUnits = state.buildableUnits;
+    if (state.buildableStructures) lastStructs = state.buildableStructures;
+    if (state.buildQueue) lastQueue = state.buildQueue;
+    renderGrid();
+    renderQueue();
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    render(e.data.state);
+  });
+
+  // Initial empty render so the panel has structure before first state.
+  refreshTabs();
+  renderGrid();
+  renderQueue();
+})();
+</script>
+</body>
+</html>

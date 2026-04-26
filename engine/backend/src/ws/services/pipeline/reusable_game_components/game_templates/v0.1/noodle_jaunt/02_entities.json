@@ -3,7 +3,7 @@
     "player": {
       "mesh": {
         "type": "custom",
-        "asset": "/assets/quaternius/3d_models/cube_world/Character_Male_2.glb",
+        "asset": "/assets/quaternius/characters/cube_world/Character_Male_2.glb",
         "scale": [
           1,
           1,
@@ -92,7 +92,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false,
       "mesh_override": {
@@ -119,9 +120,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            5,
-            0.25,
-            4
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -153,9 +154,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            8,
-            0.25,
-            4
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -187,9 +188,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            1.8,
-            0.2,
-            0.7
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -221,9 +222,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            2,
-            2.5,
-            0.3
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -256,8 +257,8 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            2,
-            0.2,
+            0.5,
+            0.5,
             0.5
           ]
         }
@@ -330,9 +331,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            2.0,
-            2.0,
-            0.25
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -365,9 +366,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.25,
-            2.0,
-            2.0
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -442,7 +443,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -479,7 +481,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

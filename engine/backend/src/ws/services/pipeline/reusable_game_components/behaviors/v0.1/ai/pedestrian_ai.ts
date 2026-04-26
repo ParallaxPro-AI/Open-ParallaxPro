@@ -9,14 +9,19 @@ class PedestrianAIBehavior extends GameScript {
     _waitTimer = 0;
     _fleeing = false;
     _dead = false;
+    _maxHealth = 50;
     _currentAnim = "";
     _startX = 0;
     _startZ = 0;
+    _despawnTimer = null;
+    _hitResetTimer = null;
+    _spawnY = 0;
 
     onStart() {
         var pos = this.entity.transform.position;
         this._startX = pos.x;
         this._startZ = pos.z;
+        this._spawnY = pos.y;
         this._pickNewTarget(pos.x, pos.z);
         this._waitTimer = Math.random() * 2;
 
@@ -51,16 +56,40 @@ class PedestrianAIBehavior extends GameScript {
                 self._playAnim("Death");
                 self.scene.events.game.emit("entity_killed", { entityId: self.entity.id });
                 if (self.audio) self.audio.playSound("/assets/kenney/audio/impact_sounds/impactSoft_heavy_000.ogg", 0.4);
-                setTimeout(function() { self.entity.active = false; }, 3000);
+                // Track the handle so the respawn revive can cancel it —
+                // otherwise the timer fires after revive and yanks the
+                // newly-alive ped back to inactive.
+                self._despawnTimer = setTimeout(function() { self.entity.active = false; }, 3000);
             } else {
                 self._playAnim("RecieveHit");
-                setTimeout(function() {
+                self._hitResetTimer = setTimeout(function() {
                     if (!self._dead) self._currentAnim = "";
                 }, 500);
             }
         });
 
         this._playAnim("Idle");
+
+        // Reset on Play Again. Without this, runover pedestrians stay
+        // dead permanently across replays.
+        var resetFn = function() {
+            if (self._despawnTimer) { clearTimeout(self._despawnTimer); self._despawnTimer = null; }
+            if (self._hitResetTimer) { clearTimeout(self._hitResetTimer); self._hitResetTimer = null; }
+            self._dead = false;
+            self._fleeing = false;
+            self._health = self._maxHealth;
+            self._waitTimer = Math.random() * 2;
+            self._currentAnim = "";
+            self.entity.active = true;
+            if (self.scene.setPosition) {
+                self.scene.setPosition(self.entity.id, self._startX, self._spawnY, self._startZ);
+            }
+            self._pickNewTarget(self._startX, self._startZ);
+            self._playAnim("Idle");
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     _pickNewTarget(cx, cz) {

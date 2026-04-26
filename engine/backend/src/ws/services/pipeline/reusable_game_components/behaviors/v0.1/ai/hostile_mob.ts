@@ -3,8 +3,15 @@
 class HostileMobBehavior extends GameScript {
     _behaviorName = "hostile_mob"; _speed = 3; _damage = 10; _detectRange = 15; _attackRange = 2.5; _attackRate = 1.2; _health = 60; _xpReward = 20;
     _dead = false; _cooldown = 0; _patrolTimer = 0; _tX = 0; _tZ = 0; _startX = 0; _startZ = 0; _currentAnim = "";
-    onStart() { var p=this.entity.transform.position; this._startX=p.x; this._startZ=p.z; this._pickT(); var s=this;
-        this.scene.events.game.on("entity_damaged",function(d){if(d.targetId!==s.entity.id)return;s._health-=d.damage||0;if(s._health<=0){s._dead=true;s.entity.active=false;s.scene.events.game.emit("entity_killed",{entityId:s.entity.id});s.scene.events.game.emit("xp_gained",{amount:s._xpReward});}});}
+    _spawnY = 0; _spawnHealth = 0;
+    onStart() { var p=this.entity.transform.position; this._startX=p.x; this._startZ=p.z; this._spawnY=p.y; this._spawnHealth=this._health; this._pickT(); var s=this;
+        this.scene.events.game.on("entity_damaged",function(d){if(d.targetId!==s.entity.id)return;s._health-=d.damage||0;if(s._health<=0){s._dead=true;s.entity.active=false;s.scene.events.game.emit("entity_killed",{entityId:s.entity.id});s.scene.events.game.emit("xp_gained",{amount:s._xpReward});}});
+        // Reset on Play Again.
+        var resetFn=function(){s._dead=false;s._health=s._spawnHealth;s._cooldown=0;s._patrolTimer=0;s._currentAnim="";s.entity.active=true;
+            if(s.scene.setPosition)s.scene.setPosition(s.entity.id,s._startX,s._spawnY,s._startZ);s._pickT();};
+        this.scene.events.game.on("game_ready",resetFn);
+        this.scene.events.game.on("match_started",resetFn);
+        this.scene.events.game.on("restart_game",resetFn);}
     _pickT(){this._tX=this._startX+(Math.random()-0.5)*16;this._tZ=this._startZ+(Math.random()-0.5)*16;this._patrolTimer=4+Math.random()*4;}
     onUpdate(dt){if(this._dead)return;this._cooldown-=dt;var pos=this.entity.transform.position;var player=this.scene.findEntityByName("Hero");
         if(player){var pp=player.transform.position;var dx=pp.x-pos.x,dz=pp.z-pos.z,dist=Math.sqrt(dx*dx+dz*dz);

@@ -3,7 +3,7 @@
     "player": {
       "mesh": {
         "type": "custom",
-        "asset": "/assets/quaternius/3d_models/cube_world/Character_Female_1.glb",
+        "asset": "/assets/quaternius/characters/cube_world/Character_Female_1.glb",
         "scale": [
           1,
           1,
@@ -77,9 +77,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            7,
-            0.1,
-            7
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -111,9 +111,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            2,
-            0.1,
-            2
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -166,9 +166,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            7,
-            2.0,
-            0.2
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -200,9 +200,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.2,
-            2.0,
-            7
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -234,9 +234,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            2,
-            2.0,
-            0.2
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -268,9 +268,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            1.8,
-            1.7,
-            0.15
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -303,9 +303,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.15,
-            1.7,
-            1.8
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -359,9 +359,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.3,
-            2.0,
-            0.3
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },

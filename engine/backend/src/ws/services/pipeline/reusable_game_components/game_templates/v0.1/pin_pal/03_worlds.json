@@ -4,76 +4,404 @@
       "id": "pin_pal_alley",
       "name": "Sunset Lanes",
       "environment": {
-        "ambientColor": [0.45, 0.40, 0.55],
+        "ambientColor": [
+          0.45,
+          0.4,
+          0.55
+        ],
         "ambientIntensity": 0.55,
-        "sunColor": [1.0, 0.92, 0.78],
+        "sunColor": [
+          1.0,
+          0.92,
+          0.78
+        ],
         "sunIntensity": 0.85,
-        "fog": { "enabled": true, "color": [0.10, 0.08, 0.14], "near": 30, "far": 80 },
-        "gravity": [0, -9.81, 0]
+        "fog": {
+          "enabled": true,
+          "color": [
+            0.1,
+            0.08,
+            0.14
+          ],
+          "near": 30,
+          "far": 80
+        },
+        "gravity": [
+          0,
+          -9.81,
+          0
+        ]
       },
       "lighting": {
-        "sun_color": [1.0, 0.92, 0.78]
+        "sun_color": [
+          1.0,
+          0.92,
+          0.78
+        ]
       },
       "placements": [
-        { "ref": "pp_room_floor", "position": [1, 0, 0] },
-
-        { "ref": "camera", "position": [-15, 4, 0] },
-
-        { "ref": "pp_lane_floor", "position": [1, 0.05, 0] },
-
-        { "ref": "pp_gutter", "position": [1, 0.04,  1.25] },
-        { "ref": "pp_gutter", "position": [1, 0.04, -1.25] },
-
-        { "ref": "pp_lane_rail", "position": [1, 0.30,  1.55] },
-        { "ref": "pp_lane_rail", "position": [1, 0.30, -1.55] },
-
-        { "ref": "pp_throw_line", "position": [-10, 0.13, 0] },
-
-        { "ref": "pp_pin", "name": "Pin_1",  "position": [12.00, 0.30,  0.00] },
-        { "ref": "pp_pin_red_band",         "position": [12.00, 0.50,  0.00] },
-
-        { "ref": "pp_pin", "name": "Pin_2",  "position": [12.30, 0.30,  0.15] },
-        { "ref": "pp_pin_red_band",         "position": [12.30, 0.50,  0.15] },
-        { "ref": "pp_pin", "name": "Pin_3",  "position": [12.30, 0.30, -0.15] },
-        { "ref": "pp_pin_red_band",         "position": [12.30, 0.50, -0.15] },
-
-        { "ref": "pp_pin", "name": "Pin_4",  "position": [12.60, 0.30,  0.30] },
-        { "ref": "pp_pin_red_band",         "position": [12.60, 0.50,  0.30] },
-        { "ref": "pp_pin", "name": "Pin_5",  "position": [12.60, 0.30,  0.00] },
-        { "ref": "pp_pin_red_band",         "position": [12.60, 0.50,  0.00] },
-        { "ref": "pp_pin", "name": "Pin_6",  "position": [12.60, 0.30, -0.30] },
-        { "ref": "pp_pin_red_band",         "position": [12.60, 0.50, -0.30] },
-
-        { "ref": "pp_pin", "name": "Pin_7",  "position": [12.90, 0.30,  0.45] },
-        { "ref": "pp_pin_red_band",         "position": [12.90, 0.50,  0.45] },
-        { "ref": "pp_pin", "name": "Pin_8",  "position": [12.90, 0.30,  0.15] },
-        { "ref": "pp_pin_red_band",         "position": [12.90, 0.50,  0.15] },
-        { "ref": "pp_pin", "name": "Pin_9",  "position": [12.90, 0.30, -0.15] },
-        { "ref": "pp_pin_red_band",         "position": [12.90, 0.50, -0.15] },
-        { "ref": "pp_pin", "name": "Pin_10", "position": [12.90, 0.30, -0.45] },
-        { "ref": "pp_pin_red_band",         "position": [12.90, 0.50, -0.45] },
-
-        { "ref": "pp_pin_backstop", "position": [14.5, 2.0, 0] },
-
-        { "ref": "pp_room_back_wall", "position": [1, 4.0,  18] },
-        { "ref": "pp_room_back_wall", "position": [1, 4.0, -18] },
-        { "ref": "pp_room_side_wall", "position": [-18, 4.0, 0] },
-        { "ref": "pp_room_side_wall", "position": [ 18, 4.0, 0] },
-
-        { "ref": "pp_lamp", "position": [-6, 5.0, 0] },
-        { "ref": "pp_lamp", "position": [ 0, 5.0, 0] },
-        { "ref": "pp_lamp", "position": [ 8, 5.0, 0] },
-        { "ref": "pp_lamp", "position": [13.5, 5.0, 0] },
-
-        { "ref": "pp_arch_banner", "position": [-12, 3.0, 0] },
-
-        { "ref": "pp_score_pillar", "position": [-15, 1.5,  6] },
-        { "ref": "pp_score_pillar", "position": [-15, 1.5, -6] },
-        { "ref": "pp_score_pillar", "position": [16,  1.5,  10] },
-        { "ref": "pp_score_pillar", "position": [16,  1.5, -10] },
-
-        { "ref": "pp_chair", "position": [-13, 0,  4] },
-        { "ref": "pp_chair", "position": [-13, 0, -4] }
+        {
+          "ref": "pp_room_floor",
+          "position": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "camera",
+          "position": [
+            -15,
+            4,
+            0
+          ]
+        },
+        {
+          "ref": "pp_lane_floor",
+          "position": [
+            1,
+            0.05,
+            0
+          ]
+        },
+        {
+          "ref": "pp_gutter",
+          "position": [
+            1,
+            0.04,
+            1.25
+          ]
+        },
+        {
+          "ref": "pp_gutter",
+          "position": [
+            1,
+            0.04,
+            -1.25
+          ]
+        },
+        {
+          "ref": "pp_lane_rail",
+          "position": [
+            1,
+            0.3,
+            1.55
+          ]
+        },
+        {
+          "ref": "pp_lane_rail",
+          "position": [
+            1,
+            0.3,
+            -1.55
+          ]
+        },
+        {
+          "ref": "pp_throw_line",
+          "position": [
+            -10,
+            0.13,
+            0
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_1",
+          "position": [
+            12.0,
+            10.5,
+            0.0
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.0,
+            0.5,
+            0.0
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_2",
+          "position": [
+            12.3,
+            10.5,
+            0.15
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.3,
+            0.5,
+            0.15
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_3",
+          "position": [
+            12.3,
+            10.5,
+            -0.15
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.3,
+            0.5,
+            -0.15
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_4",
+          "position": [
+            12.6,
+            10.5,
+            0.3
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.6,
+            0.5,
+            0.3
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_5",
+          "position": [
+            12.6,
+            10.5,
+            0.0
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.6,
+            0.5,
+            0.0
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_6",
+          "position": [
+            12.6,
+            10.5,
+            -0.3
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.6,
+            0.5,
+            -0.3
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_7",
+          "position": [
+            12.9,
+            10.5,
+            0.45
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.9,
+            0.5,
+            0.45
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_8",
+          "position": [
+            12.9,
+            10.5,
+            0.15
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.9,
+            0.5,
+            0.15
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_9",
+          "position": [
+            12.9,
+            10.5,
+            -0.15
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.9,
+            0.5,
+            -0.15
+          ]
+        },
+        {
+          "ref": "pp_pin",
+          "name": "Pin_10",
+          "position": [
+            12.9,
+            10.5,
+            -0.45
+          ]
+        },
+        {
+          "ref": "pp_pin_red_band",
+          "position": [
+            12.9,
+            0.5,
+            -0.45
+          ]
+        },
+        {
+          "ref": "pp_pin_backstop",
+          "position": [
+            14.5,
+            2.0,
+            0
+          ]
+        },
+        {
+          "ref": "pp_room_back_wall",
+          "position": [
+            1,
+            4.0,
+            18
+          ]
+        },
+        {
+          "ref": "pp_room_back_wall",
+          "position": [
+            1,
+            4.0,
+            -18
+          ]
+        },
+        {
+          "ref": "pp_room_side_wall",
+          "position": [
+            -18,
+            4.0,
+            0
+          ]
+        },
+        {
+          "ref": "pp_room_side_wall",
+          "position": [
+            18,
+            4.0,
+            0
+          ]
+        },
+        {
+          "ref": "pp_lamp",
+          "position": [
+            -6,
+            5.0,
+            0
+          ]
+        },
+        {
+          "ref": "pp_lamp",
+          "position": [
+            0,
+            5.0,
+            0
+          ]
+        },
+        {
+          "ref": "pp_lamp",
+          "position": [
+            8,
+            5.0,
+            0
+          ]
+        },
+        {
+          "ref": "pp_lamp",
+          "position": [
+            13.5,
+            5.0,
+            0
+          ]
+        },
+        {
+          "ref": "pp_arch_banner",
+          "position": [
+            -12,
+            3.0,
+            0
+          ]
+        },
+        {
+          "ref": "pp_score_pillar",
+          "position": [
+            -15,
+            1.5,
+            6
+          ]
+        },
+        {
+          "ref": "pp_score_pillar",
+          "position": [
+            -15,
+            1.5,
+            -6
+          ]
+        },
+        {
+          "ref": "pp_score_pillar",
+          "position": [
+            16,
+            1.5,
+            10
+          ]
+        },
+        {
+          "ref": "pp_score_pillar",
+          "position": [
+            16,
+            1.5,
+            -10
+          ]
+        },
+        {
+          "ref": "pp_chair",
+          "position": [
+            -13,
+            0,
+            4
+          ]
+        },
+        {
+          "ref": "pp_chair",
+          "position": [
+            -13,
+            0,
+            -4
+          ]
+        }
       ]
     }
   ]

@@ -148,6 +148,7 @@ class NoodleJauntGameSystem extends GameScript {
         this._tickPlates();
         this._tickDoors(dt);
         this._tickGoal();
+        this._tickRemoteAnimations(dt);
 
         if (this._hudTimer >= this._hudUpdateInterval) {
             this._hudTimer = 0;
@@ -632,6 +633,50 @@ class NoodleJauntGameSystem extends GameScript {
             if (!ni) return p;
         }
         return all[0] || null;
+    }
+
+    // Drive Idle/Run/Jump_Start on every remote player proxy. The scene
+    // strips ScriptComponent off proxies (skipBehaviors=true in the
+    // network adapter), so floppy_walker — which would normally pick
+    // the anim — never runs on them. Without this loop the proxy mesh
+    // stays in T-pose / last-played clip on other peers' screens even
+    // as the synced transform moves it around. Heuristic mirrors
+    // floppy_walker's: speed > 1 → Run, airborne → Jump_Start, else
+    // Idle. Velocity comes from frame-to-frame position deltas because
+    // the owner's velocity isn't a networkedVar.
+    _tickRemoteAnimations(dt) {
+        var all = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+        if (!all || all.length === 0) return;
+        if (!this._remoteAnimState) this._remoteAnimState = {};
+        var step = dt > 0 ? dt : 1 / 60;
+        for (var i = 0; i < all.length; i++) {
+            var p = all[i];
+            if (!p || !p.transform || !p.playAnimation) continue;
+            var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+            if (!ni || ni.isLocalPlayer) continue;
+            var key = String(ni.ownerId || ni.networkId || p.id);
+            var st = this._remoteAnimState[key];
+            var pos = p.transform.position;
+            if (!st) {
+                this._remoteAnimState[key] = { x: pos.x, y: pos.y, z: pos.z, anim: "" };
+                continue;
+            }
+            var dx = (pos.x - st.x) / step;
+            var dz = (pos.z - st.z) / step;
+            st.x = pos.x; st.y = pos.y; st.z = pos.z;
+
+            var spd = Math.sqrt(dx * dx + dz * dz);
+            var grounded = true;
+            if (this.scene.raycast) {
+                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
+                grounded = !!(hit && hit.entityId);
+            }
+            var anim = !grounded ? "Jump_Start" : (spd > 1 ? "Run" : "Idle");
+            if (anim !== st.anim) {
+                st.anim = anim;
+                try { p.playAnimation(anim, { loop: anim !== "Jump_Start" }); } catch (e) { /* missing clip */ }
+            }
+        }
     }
 
     _findPlayerByPeerId(pid) {

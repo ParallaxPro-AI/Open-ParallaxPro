@@ -3,38 +3,65 @@
   "name": "Sandbox Survival",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "BLOCK FRONTIER", "gameSubtitle": "Sandbox Survival" }
+    "main_menu": {
+      "gameTitle": "BLOCK FRONTIER",
+      "gameSubtitle": "Sandbox Survival"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize world systems",
-      "active_systems": ["sandbox_world", "day_night_cycle"],
+      "active_systems": [
+        "sandbox_world",
+        "day_night_cycle"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
-      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay"
+        }
       ]
     },
     "gameplay": {
       "description": "Sandbox survival gameplay",
       "start": "playing",
-      "on_enter": ["emit:game.game_ready"],
+      "on_enter": [
+        "emit:game.game_ready"
+      ],
       "on_exit": [],
       "substates": {
         "playing": {
-          "description": "Active survival — mine, craft, build, explore, fight",
+          "description": "Active survival \u2014 mine, craft, build, explore, fight",
           "active_systems": [
             "sandbox_world",
             "day_night_cycle",
             "mob_spawner",
-            "crafting_system"
+            "crafting_system",
+            "entity_health_bars"
           ],
           "active_behaviors": [
             "sandbox_movement",
@@ -47,9 +74,11 @@
           ],
           "on_enter": [
             "show_ui:hud/survival_hud",
+            "hide_cursor",
             "show_ui:hud/hotbar",
             "show_ui:hud/crosshair",
             "show_ui:hud/day_indicator",
+            "show_ui:hud/entity_health_bars",
             "emit:game.player_respawned",
             "play_sound:/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
           ],
@@ -57,31 +86,51 @@
             "hide_ui:hud/survival_hud",
             "hide_ui:hud/hotbar",
             "hide_ui:hud/crosshair",
-            "hide_ui:hud/day_indicator"
+            "hide_ui:hud/day_indicator",
+            "hide_ui:hud/entity_health_bars"
           ],
           "transitions": [
-            { "when": "game_event:player_died", "goto": "death_pause" }
+            {
+              "when": "game_event:player_died",
+              "goto": "death_pause"
+            }
           ]
         },
         "death_pause": {
-          "description": "Player died — respawn after delay",
-          "active_systems": ["sandbox_world", "day_night_cycle"],
-          "active_behaviors": ["camera_sandbox"],
+          "description": "Player died \u2014 respawn after delay",
+          "active_systems": [
+            "sandbox_world",
+            "day_night_cycle"
+          ],
+          "active_behaviors": [
+            "camera_sandbox"
+          ],
           "duration": -1,
           "on_enter": [
             "show_ui:hud/death_overlay",
+            "hide_cursor",
             "set:respawn_timer=0",
             "play_sound:/assets/kenney/audio/sci_fi_sounds/lowFrequency_explosion_000.ogg"
           ],
-          "on_update": ["increment:respawn_timer"],
-          "on_exit": ["hide_ui:hud/death_overlay"],
+          "on_update": [
+            "increment:respawn_timer"
+          ],
+          "on_exit": [
+            "hide_ui:hud/death_overlay"
+          ],
           "transitions": [
-            { "when": "respawn_timer>=180", "goto": "playing" }
+            {
+              "when": "respawn_timer>=180",
+              "goto": "playing"
+            }
           ]
         }
       },
       "transitions": [
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

@@ -41,9 +41,13 @@ class SoccerPlayerBehavior extends GameScript {
         // Face movement direction
         var moving = Math.abs(vx) > 0.1 || Math.abs(vz) > 0.1;
         if (moving) {
-            var angle = Math.atan2(vx, -vz) * 180 / Math.PI;
+            // Engine Y-rotation is CCW-from-above (rpg_movement
+            // convention). The original atan2(vx, -vz) got W/S right but
+            // flipped strafe — matches motion in only one axis. Negate
+            // just the vx arg so both axes face the velocity vector.
+            var angle = Math.atan2(-vx, -vz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, angle, 0);
-            this.scene._playerFacingRad = Math.atan2(vx, -vz);
+            this.scene._playerFacingRad = Math.atan2(-vx, -vz);
         }
 
         if (moving && sprinting) {

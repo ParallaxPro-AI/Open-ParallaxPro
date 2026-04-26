@@ -1,5 +1,25 @@
 {
   "systems": {
+    "entity_health_bars": {
+      "description": "Red HP bar over every hostile mob. Values match the per-behavior _health params in 02_entities.json so percentages stay accurate.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player"],
+        "enemyTags": ["enemy", "hostile"],
+        "showAllies": false,
+        "defaultMax": 80,
+        "hpOverrides": {
+          "demon": 250,
+          "skeleton_armored": 120,
+          "zombie": 80,
+          "wolf": 60,
+          "skeleton": 60,
+          "goblin": 50
+        },
+        "heightAbove": 1.5,
+        "occlusionCheck": true
+      }
+    },
     "sandbox_world": {
       "description": "Core sandbox mechanics — block mining and placement, inventory management, resource tracking, tool durability, item drops and pickup",
       "script": "gameplay/sandbox_world.ts",

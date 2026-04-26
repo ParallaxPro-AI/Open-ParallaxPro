@@ -4,114 +4,847 @@
       "id": "battleground",
       "name": "Battleground",
       "lighting": {
-        "sun_color": [1.0, 0.92, 0.82]
+        "sun_color": [
+          1.0,
+          0.92,
+          0.82
+        ]
       },
       "placements": [
-        { "ref": "ground", "position": [0, 0, 0] },
-        { "ref": "camera", "position": [0, 1.6, 35] },
-        { "ref": "player", "position": [0, 0, 35] },
-
-        { "ref": "wall_perimeter", "position": [0, 2, -55], "scale": [112, 4, 1] },
-        { "ref": "wall_perimeter", "position": [0, 2, 55], "scale": [112, 4, 1] },
-        { "ref": "wall_perimeter", "position": [-55, 2, 0], "scale": [1, 4, 112] },
-        { "ref": "wall_perimeter", "position": [55, 2, 0], "scale": [1, 4, 112] },
-
-        { "ref": "bunker_large", "position": [15, 2, -15], "scale": [10, 4, 8] },
-        { "ref": "bunker_large", "position": [-22, 2, 12], "scale": [8, 4, 10] },
-        { "ref": "bunker_large", "position": [30, 2, 25], "scale": [9, 4, 7] },
-        { "ref": "bunker_small", "position": [-12, 1.5, -30] },
-        { "ref": "bunker_small", "position": [35, 1.5, -35], "scale": [5, 3, 7] },
-        { "ref": "bunker_small", "position": [-38, 1.5, -10], "scale": [7, 3, 5] },
-        { "ref": "bunker_small", "position": [8, 1.5, 8], "scale": [5, 3, 5] },
-
-        { "ref": "watchtower", "position": [-35, 0, -35] },
-        { "ref": "watchtower", "position": [40, 0, 40] },
-        { "ref": "wooden_camp", "position": [-42, 0, 20] },
-        { "ref": "wooden_camp", "position": [20, 0, -40] },
-
-        { "ref": "vehicle_pickup", "position": [5, 0, -25], "rotation": [0, 30, 0] },
-        { "ref": "vehicle_pickup", "position": [-30, 0, 5], "rotation": [0, -60, 0] },
-        { "ref": "vehicle_truck", "position": [40, 0, -10], "rotation": [0, 45, 0] },
-        { "ref": "vehicle_truck", "position": [-15, 0, 35], "rotation": [0, 120, 0] },
-        { "ref": "vehicle_pickup", "position": [25, 0, 10], "rotation": [0, -15, 0] },
-
-        { "ref": "wall_long", "position": [15, 1.5, -10], "rotation": [0, 20, 0] },
-        { "ref": "wall_long", "position": [-20, 1.5, 18], "rotation": [0, -30, 0] },
-        { "ref": "wall_long", "position": [-5, 1.5, -40], "rotation": [0, 0, 0] },
-
-        { "ref": "crate", "position": [3, 0.6, -3] },
-        { "ref": "crate", "position": [4, 0.6, -3.5] },
-        { "ref": "crate", "position": [-18, 0.6, -8] },
-        { "ref": "crate", "position": [28, 0.6, -20] },
-        { "ref": "crate", "position": [-8, 0.6, 20] },
-        { "ref": "crate", "position": [38, 0.6, 15] },
-        { "ref": "crate", "position": [-30, 0.6, -25] },
-        { "ref": "crate", "position": [12, 0.6, 30] },
-
-        { "ref": "barrel", "position": [18, 0.5, -12] },
-        { "ref": "barrel", "position": [-25, 0.5, 14] },
-        { "ref": "barrel", "position": [33, 0.5, -28] },
-        { "ref": "barrel", "position": [-40, 0.5, -15] },
-        { "ref": "barrel", "position": [7, 0.5, 12] },
-        { "ref": "barrel", "position": [-10, 0.5, -20] },
-
-        { "ref": "supply_crate", "position": [10, 0.3, -18] },
-        { "ref": "supply_crate", "position": [-28, 0.3, -5] },
-        { "ref": "supply_crate", "position": [32, 0.3, 22] },
-        { "ref": "supply_crate", "position": [-12, 0.3, 28] },
-
-        { "ref": "tree_common", "position": [-45, 0, -45] },
-        { "ref": "tree_pine", "position": [45, 0, -40] },
-        { "ref": "tree_common_2", "position": [-48, 0, 30] },
-        { "ref": "tree_common", "position": [48, 0, 35] },
-        { "ref": "tree_pine", "position": [-20, 0, -45] },
-        { "ref": "tree_common", "position": [25, 0, -45] },
-        { "ref": "tree_common_2", "position": [-45, 0, 0] },
-        { "ref": "tree_pine", "position": [45, 0, -5] },
-        { "ref": "tree_common", "position": [-10, 0, 45] },
-        { "ref": "tree_pine", "position": [10, 0, -48] },
-        { "ref": "tree_common_2", "position": [-35, 0, 40] },
-        { "ref": "tree_common", "position": [35, 0, -25] },
-        { "ref": "tree_pine", "position": [-25, 0, -20] },
-        { "ref": "tree_common", "position": [0, 0, -42] },
-        { "ref": "tree_pine", "position": [42, 0, 20] },
-        { "ref": "tree_common_2", "position": [-48, 0, -20] },
-        { "ref": "tree_common", "position": [15, 0, 45] },
-        { "ref": "tree_pine", "position": [-30, 0, 45] },
-        { "ref": "tree_common_2", "position": [48, 0, -30] },
-        { "ref": "tree_common", "position": [-5, 0, 20] },
-
-        { "ref": "rock_large", "position": [-15, 0, -15] },
-        { "ref": "rock_large", "position": [20, 0, 18] },
-        { "ref": "rock_large", "position": [-35, 0, -30] },
-        { "ref": "rock_large", "position": [40, 0, -20] },
-        { "ref": "rock_small", "position": [5, 0, -35] },
-        { "ref": "rock_small", "position": [-28, 0, 25] },
-        { "ref": "rock_small", "position": [30, 0, 5] },
-        { "ref": "rock_small", "position": [-40, 0, 10] },
-        { "ref": "rock_small", "position": [10, 0, 15] },
-
-        { "ref": "bush", "position": [-8, 0, -38] },
-        { "ref": "bush", "position": [22, 0, -8] },
-        { "ref": "bush", "position": [-32, 0, 15] },
-        { "ref": "bush", "position": [15, 0, 38] },
-        { "ref": "bush", "position": [-20, 0, 40] },
-        { "ref": "bush", "position": [38, 0, -38] },
-        { "ref": "bush", "position": [-45, 0, -10] },
-        { "ref": "bush", "position": [5, 0, -10] },
-
-        { "ref": "enemy_soldier", "position": [-30, 0, -25] },
-        { "ref": "enemy_soldier", "position": [20, 0, -30] },
-        { "ref": "enemy_female", "position": [-15, 0, 10] },
-        { "ref": "enemy_soldier", "position": [35, 0, 15] },
-        { "ref": "enemy_female", "position": [-40, 0, 30] },
-        { "ref": "enemy_soldier", "position": [10, 0, -40] },
-        { "ref": "enemy_female", "position": [30, 0, -15] },
-        { "ref": "enemy_soldier", "position": [-25, 0, -40] },
-        { "ref": "enemy_soldier", "position": [45, 0, 5] },
-        { "ref": "enemy_female", "position": [-10, 0, -5] },
-        { "ref": "enemy_soldier", "position": [15, 0, 25] },
-        { "ref": "enemy_female", "position": [-35, 0, 0] }
+        {
+          "ref": "ground",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "camera",
+          "position": [
+            0,
+            1.6,
+            35
+          ]
+        },
+        {
+          "ref": "player",
+          "position": [
+            0,
+            1.5,
+            35
+          ]
+        },
+        {
+          "ref": "wall_perimeter",
+          "position": [
+            0,
+            2,
+            -55
+          ],
+          "scale": [
+            112,
+            4,
+            1
+          ]
+        },
+        {
+          "ref": "wall_perimeter",
+          "position": [
+            0,
+            2,
+            55
+          ],
+          "scale": [
+            112,
+            4,
+            1
+          ]
+        },
+        {
+          "ref": "wall_perimeter",
+          "position": [
+            -55,
+            2,
+            0
+          ],
+          "scale": [
+            1,
+            4,
+            112
+          ]
+        },
+        {
+          "ref": "wall_perimeter",
+          "position": [
+            55,
+            2,
+            0
+          ],
+          "scale": [
+            1,
+            4,
+            112
+          ]
+        },
+        {
+          "ref": "bunker_large",
+          "position": [
+            15,
+            2,
+            -15
+          ],
+          "scale": [
+            10,
+            4,
+            8
+          ]
+        },
+        {
+          "ref": "bunker_large",
+          "position": [
+            -22,
+            2,
+            12
+          ],
+          "scale": [
+            8,
+            4,
+            10
+          ]
+        },
+        {
+          "ref": "bunker_large",
+          "position": [
+            30,
+            2,
+            25
+          ],
+          "scale": [
+            9,
+            4,
+            7
+          ]
+        },
+        {
+          "ref": "bunker_small",
+          "position": [
+            -12,
+            1.5,
+            -30
+          ]
+        },
+        {
+          "ref": "bunker_small",
+          "position": [
+            35,
+            1.5,
+            -35
+          ],
+          "scale": [
+            5,
+            3,
+            7
+          ]
+        },
+        {
+          "ref": "bunker_small",
+          "position": [
+            -38,
+            1.5,
+            -10
+          ],
+          "scale": [
+            7,
+            3,
+            5
+          ]
+        },
+        {
+          "ref": "bunker_small",
+          "position": [
+            8,
+            1.5,
+            8
+          ],
+          "scale": [
+            5,
+            3,
+            5
+          ]
+        },
+        {
+          "ref": "watchtower",
+          "position": [
+            -35,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "watchtower",
+          "position": [
+            40,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "wooden_camp",
+          "position": [
+            -42,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "wooden_camp",
+          "position": [
+            20,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "vehicle_pickup",
+          "position": [
+            5,
+            0,
+            -25
+          ],
+          "rotation": [
+            0,
+            30,
+            0
+          ]
+        },
+        {
+          "ref": "vehicle_pickup",
+          "position": [
+            -30,
+            0,
+            5
+          ],
+          "rotation": [
+            0,
+            -60,
+            0
+          ]
+        },
+        {
+          "ref": "vehicle_truck",
+          "position": [
+            40,
+            0,
+            -10
+          ],
+          "rotation": [
+            0,
+            45,
+            0
+          ]
+        },
+        {
+          "ref": "vehicle_truck",
+          "position": [
+            -15,
+            0,
+            35
+          ],
+          "rotation": [
+            0,
+            120,
+            0
+          ]
+        },
+        {
+          "ref": "vehicle_pickup",
+          "position": [
+            25,
+            0,
+            10
+          ],
+          "rotation": [
+            0,
+            -15,
+            0
+          ]
+        },
+        {
+          "ref": "wall_long",
+          "position": [
+            15,
+            1.5,
+            -10
+          ],
+          "rotation": [
+            0,
+            20,
+            0
+          ]
+        },
+        {
+          "ref": "wall_long",
+          "position": [
+            -20,
+            1.5,
+            18
+          ],
+          "rotation": [
+            0,
+            -30,
+            0
+          ]
+        },
+        {
+          "ref": "wall_long",
+          "position": [
+            -5,
+            1.5,
+            -40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "crate",
+          "position": [
+            3,
+            0.6,
+            -3
+          ]
+        },
+        {
+          "ref": "crate",
+          "position": [
+            4,
+            0.6,
+            -3.5
+          ]
+        },
+        {
+          "ref": "crate",
+          "position": [
+            -18,
+            0.6,
+            -8
+          ]
+        },
+        {
+          "ref": "crate",
+          "position": [
+            28,
+            0.6,
+            -20
+          ]
+        },
+        {
+          "ref": "crate",
+          "position": [
+            -8,
+            0.6,
+            20
+          ]
+        },
+        {
+          "ref": "crate",
+          "position": [
+            38,
+            0.6,
+            15
+          ]
+        },
+        {
+          "ref": "crate",
+          "position": [
+            -30,
+            0.6,
+            -25
+          ]
+        },
+        {
+          "ref": "crate",
+          "position": [
+            12,
+            0.6,
+            30
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            18,
+            0.5,
+            -12
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -25,
+            0.5,
+            14
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            33,
+            0.5,
+            -28
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -40,
+            0.5,
+            -15
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            7,
+            0.5,
+            12
+          ]
+        },
+        {
+          "ref": "barrel",
+          "position": [
+            -10,
+            0.5,
+            -20
+          ]
+        },
+        {
+          "ref": "supply_crate",
+          "position": [
+            10,
+            0.3,
+            -18
+          ]
+        },
+        {
+          "ref": "supply_crate",
+          "position": [
+            -28,
+            0.3,
+            -5
+          ]
+        },
+        {
+          "ref": "supply_crate",
+          "position": [
+            32,
+            0.3,
+            22
+          ]
+        },
+        {
+          "ref": "supply_crate",
+          "position": [
+            -12,
+            0.3,
+            28
+          ]
+        },
+        {
+          "ref": "tree_common",
+          "position": [
+            -45,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "tree_pine",
+          "position": [
+            45,
+            0,
+            -40
+          ]
+        },
+        {
+          "ref": "tree_common_2",
+          "position": [
+            -48,
+            0,
+            30
+          ]
+        },
+        {
+          "ref": "tree_common",
+          "position": [
+            48,
+            0,
+            35
+          ]
+        },
+        {
+          "ref": "tree_pine",
+          "position": [
+            -20,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "tree_common",
+          "position": [
+            25,
+            0,
+            -45
+          ]
+        },
+        {
+          "ref": "tree_common_2",
+          "position": [
+            -45,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "tree_pine",
+          "position": [
+            45,
+            0,
+            -5
+          ]
+        },
+        {
+          "ref": "tree_common",
+          "position": [
+            -10,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "tree_pine",
+          "position": [
+            10,
+            0,
+            -48
+          ]
+        },
+        {
+          "ref": "tree_common_2",
+          "position": [
+            -35,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "tree_common",
+          "position": [
+            35,
+            0,
+            -25
+          ]
+        },
+        {
+          "ref": "tree_pine",
+          "position": [
+            -25,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "tree_common",
+          "position": [
+            0,
+            0,
+            -42
+          ]
+        },
+        {
+          "ref": "tree_pine",
+          "position": [
+            42,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "tree_common_2",
+          "position": [
+            -48,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "tree_common",
+          "position": [
+            15,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "tree_pine",
+          "position": [
+            -30,
+            0,
+            45
+          ]
+        },
+        {
+          "ref": "tree_common_2",
+          "position": [
+            48,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "tree_common",
+          "position": [
+            -5,
+            0,
+            20
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -15,
+            0,
+            -15
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            20,
+            0,
+            18
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            -35,
+            0,
+            -30
+          ]
+        },
+        {
+          "ref": "rock_large",
+          "position": [
+            40,
+            0,
+            -20
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            5,
+            0,
+            -35
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -28,
+            0,
+            25
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            30,
+            0,
+            5
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            -40,
+            0,
+            10
+          ]
+        },
+        {
+          "ref": "rock_small",
+          "position": [
+            10,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -8,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            22,
+            0,
+            -8
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -32,
+            0,
+            15
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            15,
+            0,
+            38
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -20,
+            0,
+            40
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            38,
+            0,
+            -38
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            -45,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "bush",
+          "position": [
+            5,
+            0,
+            -10
+          ]
+        },
+        {
+          "ref": "enemy_soldier",
+          "position": [
+            -30,
+            1.5,
+            -25
+          ]
+        },
+        {
+          "ref": "enemy_soldier",
+          "position": [
+            20,
+            1.5,
+            -30
+          ]
+        },
+        {
+          "ref": "enemy_female",
+          "position": [
+            -15,
+            1.5,
+            10
+          ]
+        },
+        {
+          "ref": "enemy_soldier",
+          "position": [
+            35,
+            1.5,
+            15
+          ]
+        },
+        {
+          "ref": "enemy_female",
+          "position": [
+            -40,
+            1.5,
+            30
+          ]
+        },
+        {
+          "ref": "enemy_soldier",
+          "position": [
+            10,
+            1.5,
+            -40
+          ]
+        },
+        {
+          "ref": "enemy_female",
+          "position": [
+            30,
+            1.5,
+            -15
+          ]
+        },
+        {
+          "ref": "enemy_soldier",
+          "position": [
+            -25,
+            1.5,
+            -40
+          ]
+        },
+        {
+          "ref": "enemy_soldier",
+          "position": [
+            45,
+            1.5,
+            5
+          ]
+        },
+        {
+          "ref": "enemy_female",
+          "position": [
+            -10,
+            1.5,
+            -5
+          ]
+        },
+        {
+          "ref": "enemy_soldier",
+          "position": [
+            15,
+            1.5,
+            25
+          ]
+        },
+        {
+          "ref": "enemy_female",
+          "position": [
+            -35,
+            1.5,
+            0
+          ]
+        }
       ]
     }
   ]

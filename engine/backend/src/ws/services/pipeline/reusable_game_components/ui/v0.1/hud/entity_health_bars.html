@@ -1,0 +1,99 @@
+<!-- description: generic world-anchored health bars — green ally / red enemy bars over every active entity, fed by entity_health_bars system via hud_update.healthBars. Works for any game whose damage pipeline emits entity_damaged / entity_killed. -->
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #fff;
+    pointer-events: none;
+    overflow: hidden;
+    background: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+  #layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .hb {
+    position: absolute;
+    width: 56px;
+    height: 6px;
+    margin-left: -28px;
+    margin-top: -3px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(0, 0, 0, 0.7);
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    will-change: transform;
+  }
+  .hb .fill {
+    height: 100%;
+    transition: width 0.12s linear, background-color 0.12s linear;
+    background: #22c55e;
+  }
+  .hb.enemy .fill { background: #ef4444; }
+  .hb.ally.warn .fill { background: #facc15; }
+  .hb.ally.crit .fill { background: #f97316; }
+  .hb.enemy.crit .fill { background: #b91c1c; }
+</style>
+</head>
+<body>
+<div id="layer"></div>
+<script>
+(function () {
+  var layer = document.getElementById('layer');
+  var pool = {}; // id → element, reused frame-to-frame to avoid churn
+
+  function render(bars) {
+    if (!Array.isArray(bars)) bars = [];
+    var keep = {};
+
+    for (var i = 0; i < bars.length; i++) {
+      var b = bars[i];
+      if (!b || typeof b.x !== 'number' || typeof b.y !== 'number') continue;
+      keep[b.id] = true;
+      var el = pool[b.id];
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'hb';
+        var fill = document.createElement('div');
+        fill.className = 'fill';
+        el.appendChild(fill);
+        layer.appendChild(el);
+        pool[b.id] = el;
+      }
+      var cls = 'hb ' + (b.isEnemy ? 'enemy' : 'ally');
+      if (b.pct < 0.33) cls += ' crit';
+      else if (b.pct < 0.66) cls += ' warn';
+      el.className = cls;
+      // translate3d keeps the bars on the GPU compositor layer so dozens
+      // of moving units stay smooth.
+      el.style.transform = 'translate3d(' + b.x + 'px,' + b.y + 'px,0)';
+      var pct = Math.max(0, Math.min(1, b.pct));
+      el.firstChild.style.width = (pct * 100).toFixed(1) + '%';
+    }
+
+    // Drop any entries that disappeared this frame (units killed or
+    // off-camera).
+    for (var id in pool) {
+      if (!keep[id]) {
+        layer.removeChild(pool[id]);
+        delete pool[id];
+      }
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    var s = e.data.state;
+    if (s && s.healthBars !== undefined) render(s.healthBars);
+  });
+})();
+</script>
+</body>
+</html>

@@ -405,7 +405,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 70,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -444,7 +444,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 55,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -484,7 +484,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 80,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -523,7 +523,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 120,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -562,7 +562,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 65,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -602,7 +602,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 500,
         "freeze_rotation": true,
         "collider": "box"
@@ -626,7 +626,7 @@
             "movement": 1,
             "vision": 2,
             "range": 3,
-            "siegeBonus": 2.0,
+            "siegeBonus": 2,
             "moveSpeed": 2
           }
         }
@@ -643,7 +643,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 60,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -682,7 +682,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -721,7 +721,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 70,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -760,7 +760,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 45,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -800,7 +800,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 80,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -839,7 +839,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 55,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -878,7 +878,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -987,7 +987,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "iron"
+        "iron",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1284,7 +1285,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1300,7 +1302,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1351,7 +1354,8 @@
       "physics": false,
       "tags": [
         "improvement",
-        "production"
+        "production",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1431,7 +1435,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1447,7 +1452,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

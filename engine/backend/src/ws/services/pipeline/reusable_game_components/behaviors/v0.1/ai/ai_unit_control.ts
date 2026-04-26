@@ -18,9 +18,18 @@ class AIUnitControlBehavior extends GameScript {
     _moving = false;
     _dead = false;
     _currentAnim = "";
+    _spawnX = 0; _spawnY = 0; _spawnZ = 0;
+    _spawnHealth = 0;
+    _spawnCaptured = false;
 
     onStart() {
         var self = this;
+        if (!this._spawnCaptured) {
+            var p = this.entity.transform.position;
+            this._spawnX = p.x; this._spawnY = p.y; this._spawnZ = p.z;
+            this._spawnHealth = this._health;
+            this._spawnCaptured = true;
+        }
         this.scene.events.game.on("ai_move_unit", function(data) {
             if (data.entityId !== self.entity.id) return;
             self._targetX = data.x;
@@ -36,6 +45,21 @@ class AIUnitControlBehavior extends GameScript {
                 self.scene.events.game.emit("entity_killed", { entityId: self.entity.id, team: "ai" });
             }
         });
+        // Restore on Play Again — without this, every dead AI unit
+        // stayed deactivated and the player's "next match" had only the
+        // surviving handful of enemies left from the previous one.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._spawnHealth;
+            self._moving = false;
+            self._currentAnim = "";
+            self.entity.active = true;
+            if (self.scene.setPosition) {
+                self.scene.setPosition(self.entity.id, self._spawnX, self._spawnY, self._spawnZ);
+            }
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     onUpdate(dt) {

@@ -1,5 +1,9 @@
 // also: creep, wave, moba_unit, enemy_spawn, economic_reward, lane_push
-// Minion AI — walks down lane, attacks nearest enemy, grants gold on death
+// Minion AI — walks down lane, attacks nearest enemy, grants gold on death.
+// The minion body is kinematic, so movement is driven by setPosition each
+// frame with the original y preserved — that's what keeps the minion
+// glued to the ground (dynamic + setVelocity drifts down through gravity
+// integration between ticks).
 class MinionAIBehavior extends GameScript {
     _behaviorName = "minion_ai";
     _health = 200;
@@ -15,7 +19,6 @@ class MinionAIBehavior extends GameScript {
     _direction = 1;
 
     onStart() {
-        // Determine team and lane direction from tags
         var tags = this.entity.tags || [];
         for (var i = 0; i < tags.length; i++) {
             if (tags[i] === "blue_team") { this._team = "blue"; this._direction = 1; break; }
@@ -23,6 +26,7 @@ class MinionAIBehavior extends GameScript {
         }
 
         var self = this;
+        this._spawnHealth = this._health;
         this.scene.events.game.on("entity_damaged", function(data) {
             if (data.entityId !== self.entity.id || self._dead) return;
             self._health -= data.amount || 0;
@@ -30,15 +34,28 @@ class MinionAIBehavior extends GameScript {
                 self._health = 0;
                 self._dead = true;
                 self.scene.events.game.emit("minion_killed", {});
-                // Grant gold if this is a red team minion (enemy kill)
                 if (self._team === "red") {
                     self.scene.events.game.emit("add_score", { amount: self._goldValue });
                 }
-                self.scene.setVelocity(self.entity.id, { x: 0, y: 0, z: 0 });
                 setTimeout(function() { self.entity.active = false; }, 500);
             }
         });
+
+        // Reset on Play Again. minion_spawner destroys leftover minions
+        // on restart_game, but if a minion happened to survive to the
+        // game_over moment its state would carry into the next match.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._spawnHealth;
+            self._attackCooldown = 0;
+            self.entity.active = true;
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
+
+    _spawnHealth = 0;
 
     onUpdate(dt) {
         if (this._dead) return;
@@ -48,7 +65,7 @@ class MinionAIBehavior extends GameScript {
         var enemyTag = this._team === "blue" ? "red_team" : "blue_team";
         var enemies = this.scene.findEntitiesByTag(enemyTag);
 
-        // Find nearest enemy
+        // Find nearest enemy.
         var nearest = null;
         var nearestDist = 99999;
         if (enemies) {
@@ -62,34 +79,37 @@ class MinionAIBehavior extends GameScript {
             }
         }
 
-        // Attack if in range
-        if (nearest && nearestDist <= this._attackRange && this._attackCooldown <= 0) {
-            this._attackCooldown = this._attackRate;
-            this.scene.events.game.emit("entity_damaged", { entityId: nearest.id, amount: this._damage, source: "minion" });
-            this.scene.setVelocity(this.entity.id, { x: 0, y: 0, z: 0 });
-            return;
-        }
-
-        // Chase if nearby enemy detected
-        if (nearest && nearestDist <= 15) {
+        // In range — face the target and attack on cooldown, no position change.
+        if (nearest && nearestDist <= this._attackRange) {
             var ep = nearest.transform.position;
-            var dx = ep.x - pos.x, dz = ep.z - pos.z;
-            var len = Math.sqrt(dx * dx + dz * dz);
-            if (len > 0) {
-                this.scene.setVelocity(this.entity.id, {
-                    x: (dx / len) * this._moveSpeed,
-                    y: 0,
-                    z: (dz / len) * this._moveSpeed
-                });
+            var fdx = ep.x - pos.x, fdz = ep.z - pos.z;
+            this.entity.transform.setRotationEuler(0, Math.atan2(-fdx, -fdz) * 180 / Math.PI, 0);
+            if (this._attackCooldown <= 0) {
+                this._attackCooldown = this._attackRate;
+                this.scene.events.game.emit("entity_damaged", { entityId: nearest.id, amount: this._damage, source: "minion" });
             }
             return;
         }
 
-        // Walk down lane toward enemy base
-        this.scene.setVelocity(this.entity.id, {
-            x: this._direction * this._moveSpeed,
-            y: 0,
-            z: 0
-        });
+        // Chase a nearby enemy or walk down the lane. Either way: setPosition
+        // with the original y preserved, so the minion can't drift through
+        // the ground.
+        var vx = 0, vz = 0;
+        if (nearest && nearestDist <= 15) {
+            var cep = nearest.transform.position;
+            var cdx = cep.x - pos.x, cdz = cep.z - pos.z;
+            var len = Math.sqrt(cdx * cdx + cdz * cdz);
+            if (len > 0) {
+                vx = (cdx / len) * this._moveSpeed;
+                vz = (cdz / len) * this._moveSpeed;
+            }
+        } else {
+            vx = this._direction * this._moveSpeed;
+        }
+
+        if (vx !== 0 || vz !== 0) {
+            this.scene.setPosition(this.entity.id, pos.x + vx * dt, pos.y, pos.z + vz * dt);
+            this.entity.transform.setRotationEuler(0, Math.atan2(-vx, -vz) * 180 / Math.PI, 0);
+        }
     }
 }

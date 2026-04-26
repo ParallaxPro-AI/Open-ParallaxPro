@@ -1,7 +1,7 @@
 {
   "id": "pickaxe_keep_flow",
   "name": "Pickaxe Keep",
-  "description": "1-4 player peer-to-peer 2.5D sidescroll mining + crafting + survival sandbox. Dig dirt → stone → ore, craft better pickaxes, plant torches, and survive zombie nights. Host generates the opening world; everyone shares it. Single-player works without a friend — just host alone.",
+  "description": "1-4 player peer-to-peer 2.5D sidescroll mining + crafting + survival sandbox. Dig dirt \u2192 stone \u2192 ore, craft better pickaxes, plant torches, and survive zombie nights. Host generates the opening world; everyone shares it. Single-player works without a friend \u2014 just host alone.",
   "start": "boot",
   "multiplayer": {
     "enabled": true,
@@ -23,65 +23,130 @@
       "pauseTitle": "PAUSED",
       "pauseHint": "Press <span class=\"pm-kbd\">P</span> to resume",
       "pauseButtons": [
-        { "action": "resume",      "label": "Resume", "primary": true },
-        { "action": "leave_match", "label": "Leave World", "danger": true }
+        {
+          "action": "resume",
+          "label": "Resume",
+          "primary": true
+        },
+        {
+          "action": "leave_match",
+          "label": "Leave World",
+          "danger": true
+        }
       ]
     }
   },
   "states": {
     "boot": {
       "description": "Initialize systems",
-      "active_systems": ["mp_bridge"],
+      "active_systems": [
+        "mp_bridge"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
       "transitions": [
-        { "when": "boot_frames>=2", "goto": "main_menu" }
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
       ]
     },
     "main_menu": {
       "description": "Title screen",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["mp:leave_lobby", "hide_ui:hud/voice_chat", "hide_ui:hud/text_chat", "show_ui:main_menu", "show_cursor"],
-      "on_exit":  ["hide_ui:main_menu"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "mp:leave_lobby",
+        "hide_ui:hud/voice_chat",
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "lobby_browser" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "lobby_browser"
+        }
       ]
     },
     "lobby_browser": {
       "description": "Browse open lobbies or host a new one",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["show_ui:lobby_browser", "show_cursor", "mp:refresh_lobbies"],
-      "on_exit":  ["hide_ui:lobby_browser", "hide_ui:lobby_host_config"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "show_ui:lobby_browser",
+        "show_cursor",
+        "mp:refresh_lobbies"
+      ],
+      "on_exit": [
+        "hide_ui:lobby_browser",
+        "hide_ui:lobby_host_config"
+      ],
       "transitions": [
-        { "when": "mp_event:phase_in_lobby", "goto": "lobby_room" },
-        { "when": "mp_event:back_to_menu",   "goto": "main_menu" }
+        {
+          "when": "mp_event:phase_in_lobby",
+          "goto": "lobby_room"
+        },
+        {
+          "when": "mp_event:back_to_menu",
+          "goto": "main_menu"
+        }
       ]
     },
     "lobby_room": {
       "description": "Pre-match lobby with roster, chat, voice",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["show_ui:lobby_room", "show_ui:hud/text_chat", "show_ui:hud/voice_chat", "show_cursor"],
-      "on_exit":  ["hide_ui:lobby_room"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "show_ui:lobby_room",
+        "show_ui:hud/voice_chat",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:lobby_room"
+      ],
       "transitions": [
-        { "when": "mp_event:phase_in_game",      "goto": "gameplay"       },
-        { "when": "mp_event:phase_browsing",     "goto": "lobby_browser"  },
-        { "when": "mp_event:phase_disconnected", "goto": "main_menu"      }
+        {
+          "when": "mp_event:phase_in_game",
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.match_started"
+          ]
+        },
+        {
+          "when": "mp_event:phase_browsing",
+          "goto": "lobby_browser"
+        },
+        {
+          "when": "mp_event:phase_disconnected",
+          "goto": "main_menu"
+        }
       ]
     },
     "gameplay": {
-      "description": "World loaded — dig in",
-      "active_systems": ["mp_bridge", "pickaxe_keep_game"],
+      "description": "World loaded \u2014 dig in",
+      "active_systems": [
+        "mp_bridge",
+        "pickaxe_keep_game"
+      ],
       "start": "playing",
       "on_enter": [
-        "show_ui:hud/ping",
-        "show_ui:hud/text_chat",
         "show_ui:hud/voice_chat",
+        "show_ui:hud/ping",
         "show_ui:hud/pickaxe_stats",
         "show_ui:hud/pickaxe_hotbar",
         "show_ui:hud/pickaxe_inventory",
-        "show_cursor",
-        "emit:game.match_started"
+        "show_cursor"
       ],
       "on_exit": [
         "hide_ui:hud/ping",
@@ -92,35 +157,74 @@
       ],
       "substates": {
         "playing": {
-          "active_behaviors": ["sidescroll_platformer", "camera_sidescroll", "block_interactor"],
+          "active_behaviors": [
+            "sidescroll_platformer",
+            "camera_sidescroll",
+            "block_interactor"
+          ],
           "transitions": [
-            { "when": "keyboard:pause", "goto": "paused" }
+            {
+              "when": "keyboard:pause",
+              "goto": "paused"
+            }
           ]
         },
         "paused": {
           "active_behaviors": [],
-          "on_enter": ["show_ui:pause_menu"],
-          "on_exit":  ["hide_ui:pause_menu"],
+          "on_enter": [
+            "show_ui:pause_menu"
+          ],
+          "on_exit": [
+            "hide_ui:pause_menu"
+          ],
           "transitions": [
-            { "when": "keyboard:resume",            "goto": "playing" },
-            { "when": "ui_event:pause_menu:resume", "goto": "playing" }
+            {
+              "when": "keyboard:resume",
+              "goto": "playing"
+            },
+            {
+              "when": "ui_event:pause_menu:resume",
+              "goto": "playing"
+            }
           ]
         }
       },
       "transitions": [
-        { "when": "mp_event:phase_disconnected",     "goto": "main_menu" },
-        { "when": "game_event:match_ended",          "goto": "game_over" },
-        { "when": "ui_event:pause_menu:leave_match", "goto": "main_menu" }
+        {
+          "when": "mp_event:phase_disconnected",
+          "goto": "main_menu"
+        },
+        {
+          "when": "game_event:match_ended",
+          "goto": "game_over"
+        },
+        {
+          "when": "ui_event:pause_menu:leave_match",
+          "goto": "main_menu"
+        }
       ]
     },
     "game_over": {
       "description": "Match summary",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["show_ui:game_over", "show_cursor"],
-      "on_exit":  ["hide_ui:game_over"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:game_over"
+      ],
       "transitions": [
-        { "when": "ui_event:game_over:play_again", "goto": "lobby_room" },
-        { "when": "ui_event:game_over:main_menu",  "goto": "main_menu"  }
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "lobby_room"
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

@@ -37,12 +37,22 @@ class CivilizationCoreSystem extends GameScript {
     _playerUnitList = [];
     _foodAccum = 0;
 
+    _cursorX = 0;
+    _cursorY = 0;
+    _gotCursor = false;
+
     onStart() {
         var self = this;
         this.scene.events.game.on("game_ready", function() { self._fullReset(); });
         this.scene.events.game.on("turn_start", function() { self._processTurn(); });
         this.scene.events.game.on("entity_killed", function(data) {
             self._countEntities();
+        });
+        this.scene.events.ui.on("cursor_move", function(d) {
+            if (!d) return;
+            self._cursorX = d.x;
+            self._cursorY = d.y;
+            self._gotCursor = true;
         });
         this._fullReset();
     }
@@ -220,19 +230,33 @@ class CivilizationCoreSystem extends GameScript {
     }
 
     onUpdate(dt) {
-        if (!this._gameActive) return;
+        // FSM membership in active_systems gates onUpdate already — the
+        // _gameActive flag is still meaningful for _processTurn (we
+        // don't want to advance turns after victory/defeat sets it
+        // false), but as an onUpdate early-return it was redundant AND
+        // a footgun: gameplay.on_enter emits game_ready and the
+        // player_turn substate boots its systems AFTER, so onStart can
+        // race the event. The fullReset in onStart handles the normal
+        // case; we no longer block here.
 
         // Unit selection with Tab
         if (this.input.isKeyPressed("Tab")) {
             this._cycleUnit();
         }
 
-        // Move selected unit with right-click or M key
+        // Move selected unit with M key — target the ground point the
+        // virtual cursor is pointing at (matches the HUD's "M Move"
+        // hint and what the user is aiming with). Falls back to the
+        // camera's lookAt center if the cursor hasn't moved yet, and to
+        // the world origin only as a last resort.
         if (this.input.isKeyPressed("KeyM") && this._selectedUnitIndex >= 0) {
-            // Move toward camera look target
-            var camX = this.scene._stratCamX || 0;
-            var camZ = this.scene._stratCamZ || 0;
-            this.scene.events.game.emit("move_unit", { x: camX, z: camZ });
+            var tx = this.scene._stratCamX || 0;
+            var tz = this.scene._stratCamZ || 0;
+            if (this._gotCursor && this.scene.screenPointToGround) {
+                var g = this.scene.screenPointToGround(this._cursorX, this._cursorY, 0);
+                if (g) { tx = g.x; tz = g.z; }
+            }
+            this.scene.events.game.emit("move_unit", { x: tx, z: tz });
         }
 
         this._updateHud();

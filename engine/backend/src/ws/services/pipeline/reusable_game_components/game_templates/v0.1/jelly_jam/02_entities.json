@@ -3,7 +3,7 @@
     "player": {
       "mesh": {
         "type": "custom",
-        "asset": "/assets/quaternius/3d_models/cube_world/Character_Female_2.glb",
+        "asset": "/assets/quaternius/characters/cube_world/Character_Female_2.glb",
         "scale": [
           1,
           1,
@@ -142,7 +142,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only",
+        "decoration_only"
       ],
       "label": false
     },
@@ -161,19 +162,9 @@
           1
         ]
       },
-      "physics": {
-        "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
-      },
+      "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -194,7 +185,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -213,19 +204,9 @@
           4
         ]
       },
-      "physics": {
-        "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
-      },
+      "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false,
       "mesh_override": {
@@ -244,7 +225,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -260,7 +241,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -276,7 +257,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -292,7 +273,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -308,7 +289,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     },
@@ -324,7 +305,7 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration_only"
       ],
       "label": false
     }

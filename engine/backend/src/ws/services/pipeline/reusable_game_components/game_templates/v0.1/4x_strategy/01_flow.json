@@ -3,34 +3,60 @@
   "name": "4X Strategy",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "EMPIRE ASCENDANT", "gameSubtitle": "Rise of Civilizations" }
+    "main_menu": {
+      "gameTitle": "EMPIRE ASCENDANT",
+      "gameSubtitle": "Rise of Civilizations"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize civilization systems",
-      "active_systems": ["civilization_core", "tech_culture"],
+      "active_systems": [
+        "civilization_core",
+        "tech_culture"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
-      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit": ["hide_ui:main_menu"],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay"
+        }
       ]
     },
     "gameplay": {
       "description": "Turn-based 4X strategy gameplay",
       "start": "player_turn",
-      "on_enter": ["emit:game.game_ready"],
+      "on_enter": [
+        "emit:game.game_ready"
+      ],
       "on_exit": [],
       "substates": {
         "player_turn": {
-          "description": "Player's turn — move units, manage cities, research, build, diplomacy",
+          "description": "Player's turn \u2014 move units, manage cities, research, build, diplomacy",
           "active_systems": [
+            "civ_input",
             "civilization_core",
             "tech_culture",
             "military_system",
@@ -45,13 +71,13 @@
           ],
           "on_enter": [
             "show_ui:hud/resource_bar",
+            "show_cursor",
             "show_ui:hud/turn_counter",
             "show_ui:hud/minimap",
             "show_ui:hud/end_turn_btn",
             "show_ui:hud/tech_btn",
             "show_ui:hud/diplomacy_btn",
             "show_ui:hud/era_indicator",
-            "emit:game.turn_start",
             "play_sound:/assets/kenney/audio/rpg_audio/bookFlip1.ogg"
           ],
           "on_exit": [
@@ -64,33 +90,64 @@
             "hide_ui:hud/era_indicator"
           ],
           "transitions": [
-            { "when": "ui_event:hud/end_turn_btn:end_turn", "goto": "ai_turn" },
-            { "when": "game_event:victory", "goto": "victory" },
-            { "when": "game_event:defeat", "goto": "defeat" }
+            {
+              "when": "ui_event:hud/end_turn_btn:end_turn",
+              "goto": "ai_turn",
+              "actions": [
+                "emit:game.ai_turn_start"
+              ]
+            },
+            {
+              "when": "game_event:victory",
+              "goto": "victory"
+            },
+            {
+              "when": "game_event:defeat",
+              "goto": "defeat"
+            }
           ]
         },
         "ai_turn": {
           "description": "AI civilization processes its turn",
-          "active_systems": ["civilization_core", "tech_culture", "military_system", "diplomacy_ai"],
-          "active_behaviors": ["strategy_camera", "ai_city", "ai_unit_control"],
+          "active_systems": [
+            "civilization_core",
+            "tech_culture",
+            "military_system",
+            "diplomacy_ai"
+          ],
+          "active_behaviors": [
+            "strategy_camera",
+            "ai_city",
+            "ai_unit_control"
+          ],
           "duration": -1,
           "on_enter": [
             "show_ui:hud/ai_turn_banner",
-            "set:ai_timer=0",
-            "emit:game.ai_turn_start"
+            "hide_cursor",
+            "set:ai_timer=0"
           ],
-          "on_update": ["increment:ai_timer"],
+          "on_update": [
+            "increment:ai_timer"
+          ],
           "on_exit": [
             "hide_ui:hud/ai_turn_banner",
             "emit:game.turn_end"
           ],
           "transitions": [
-            { "when": "ai_timer>=90", "goto": "player_turn" }
+            {
+              "when": "ai_timer>=90",
+              "goto": "player_turn",
+              "actions": [
+                "emit:game.turn_start"
+              ]
+            }
           ]
         },
         "victory": {
           "description": "Player achieved a victory condition",
-          "active_behaviors": ["strategy_camera"],
+          "active_behaviors": [
+            "strategy_camera"
+          ],
           "on_enter": [
             "show_ui:game_over",
             "show_cursor",
@@ -101,12 +158,20 @@
             "emit:game.game_ready"
           ],
           "transitions": [
-            { "when": "ui_event:game_over:play_again", "goto": "player_turn" }
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "player_turn",
+              "actions": [
+                "emit:game.turn_start"
+              ]
+            }
           ]
         },
         "defeat": {
           "description": "AI civilization achieved victory or conquered player",
-          "active_behaviors": ["strategy_camera"],
+          "active_behaviors": [
+            "strategy_camera"
+          ],
           "on_enter": [
             "show_ui:game_over",
             "show_cursor",
@@ -117,12 +182,21 @@
             "emit:game.game_ready"
           ],
           "transitions": [
-            { "when": "ui_event:game_over:play_again", "goto": "player_turn" }
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "player_turn",
+              "actions": [
+                "emit:game.turn_start"
+              ]
+            }
           ]
         }
       },
       "transitions": [
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
     }
   }

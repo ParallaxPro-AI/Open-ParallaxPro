@@ -37,7 +37,7 @@ class PartyPlayerBehavior extends GameScript {
 
         // Jump — only near ground
         var pos = this.entity.transform.position;
-        if (this.input.isKeyPressed("Space") && pos.y < 1.3) {
+        if (this.input.isKeyPressed("Space") && pos.y < 1.3 && Math.abs(vy) < 0.5) {
             vy = this._jumpForce;
             if (this.audio) this.audio.playSound("/assets/kenney/audio/digital_audio/phaseJump1.ogg", 0.35);
         }
@@ -47,7 +47,10 @@ class PartyPlayerBehavior extends GameScript {
         // Animation and facing
         if (Math.abs(vx) > 0.5 || Math.abs(vz) > 0.5) {
             this._playAnim("Run");
-            var angle = Math.atan2(vx, -vz) * 180 / Math.PI;
+            // Engine Y-rotation is CCW-from-above (rpg_movement
+            // convention). Original atan2(vx, -vz) got W/S right but
+            // flipped strafe. Negate just the vx arg.
+            var angle = Math.atan2(-vx, -vz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, angle, 0);
         } else {
             this._playAnim("Idle");

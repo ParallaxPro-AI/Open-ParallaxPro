@@ -2,7 +2,17 @@
 // Medic AI — follows nearby wounded allied units and heals them
 class MedicAIBehavior extends GameScript {
     _behaviorName = "medic_ai"; _speed = 3; _healRange = 4; _healRate = 2; _healAmount = 5; _health = 50; _dead = false; _healTimer = 0; _currentAnim = "";
-    onStart() { var self = this; this.scene.events.game.on("entity_damaged", function(d) { if (d.targetId!==self.entity.id) return; self._health-=d.damage||0; if (self._health<=0) { self._dead=true; self.entity.active=false; } }); }
+    _spawnX = 0; _spawnY = 0; _spawnZ = 0; _spawnHealth = 0;
+    onStart() { var self = this;
+        var p = this.entity.transform.position; this._spawnX=p.x; this._spawnY=p.y; this._spawnZ=p.z; this._spawnHealth=this._health;
+        this.scene.events.game.on("entity_damaged", function(d) { if (d.targetId!==self.entity.id) return; self._health-=d.damage||0; if (self._health<=0) { self._dead=true; self.entity.active=false; } });
+        // Reset on Play Again.
+        var resetFn = function() { self._dead=false; self._health=self._spawnHealth; self._healTimer=0; self._currentAnim=""; self.entity.active=true;
+            if (self.scene.setPosition) self.scene.setPosition(self.entity.id, self._spawnX, self._spawnY, self._spawnZ); };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
+    }
     onUpdate(dt) { if (this._dead) return; this._healTimer -= dt;
         var p = this.entity.transform.position; var allies = this.scene.findEntitiesByTag("military") || []; var best = null, bestD = 999;
         for (var i = 0; i < allies.length; i++) { if (!allies[i].active || allies[i].id === this.entity.id) continue; var ap = allies[i].transform.position; var d = Math.sqrt((p.x-ap.x)*(p.x-ap.x)+(p.z-ap.z)*(p.z-ap.z)); if (d < bestD) { bestD = d; best = allies[i]; } }

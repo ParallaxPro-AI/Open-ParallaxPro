@@ -107,7 +107,10 @@ class PlayerMobaChampionBehavior extends GameScript {
                 var step = Math.min(d, this._moveSpeed * dt);
                 pos.x += (dx / d) * step;
                 pos.z += (dz / d) * step;
-                var targetYaw = Math.atan2(dx, -dz);
+                // Engine yaw is CCW-from-above (rpg_movement convention);
+                // atan2(dx, -dz) was 180° off on the strafe axis, so the
+                // champion faced sideways to the right-click destination.
+                var targetYaw = Math.atan2(-dx, -dz);
                 var curYaw = this.entity.transform.getRotationEuler
                     ? this.entity.transform.getRotationEuler().y
                     : 0;

@@ -12,6 +12,17 @@ class CameraFPSBehavior extends GameScript {
         var self = this;
         this.scene.events.game.on("match_ended", function() { self._matchOver = true; });
         this.scene.events.game.on("match_started", function() { self._matchOver = false; });
+        // Spawn-orientation hook: gameplay systems emit `set_camera_yaw`
+        // with { yaw: <degrees>, pitch?: <degrees> } to point the camera
+        // at a known direction at spawn (e.g. liminal_loop's corridor
+        // runs along +X, so a fresh player needs yaw=90 to face the far
+        // end). The camera otherwise owns its own _yawDeg and ignores
+        // writes to scene._fpsYaw.
+        this.scene.events.game.on("set_camera_yaw", function(d) {
+            if (!d || typeof d.yaw !== "number") return;
+            self._yawDeg = d.yaw;
+            if (typeof d.pitch === "number") self._pitchDeg = d.pitch;
+        });
     }
 
     onUpdate(dt) {

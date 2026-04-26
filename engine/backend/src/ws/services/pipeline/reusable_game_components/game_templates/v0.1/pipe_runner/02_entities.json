@@ -104,9 +104,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            7,
-            0.8,
-            3
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -160,9 +160,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.6,
-            0.6,
-            0.6
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -195,9 +195,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.6,
-            0.6,
-            0.6
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -248,9 +248,9 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.8,
-            1.5,
-            0.8
+            0.5,
+            0.5,
+            0.5
           ]
         }
       },
@@ -299,29 +299,8 @@
       "physics": false,
       "tags": [
         "coin",
-        "pickup"
-      ],
-      "label": false
-    },
-    "mushroom_powerup": {
-      "mesh": {
-        "type": "sphere",
-        "color": [
-          0.95,
-          0.3,
-          0.3,
-          1
-        ],
-        "scale": [
-          0.7,
-          0.7,
-          0.7
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "powerup",
-        "mushroom"
+        "pickup",
+        "decoration_only"
       ],
       "label": false
     },
@@ -384,7 +363,8 @@
       },
       "physics": false,
       "tags": [
-        "flag"
+        "flag",
+        "decoration_only"
       ],
       "label": false
     },
@@ -405,7 +385,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -426,23 +407,19 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
     "runner_player": {
       "mesh": {
-        "type": "capsule",
-        "color": [
-          0.95,
-          0.2,
-          0.2,
-          1
-        ],
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/platformer_game_kit/Character.glb",
         "scale": [
-          0.85,
-          1.0,
-          0.85
+          1,
+          1,
+          1
         ]
       },
       "physics": {
@@ -458,6 +435,7 @@
       "tags": [
         "player"
       ],
+      "label": false,
       "behaviors": [
         {
           "name": "sidescroll_runner",

@@ -1,4 +1,4 @@
-<!-- description: tower defense top bar with gold and other stat panels — tower defense stats, resource counters, wave info, gold display, defense status -->
+<!-- description: tower defense HUD — gold/lives/wave stats plus clickable tower palette, spot selector with prev/next, upgrade/sell, and start-wave button -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -9,577 +9,440 @@
     --glass-border: rgba(255, 255, 255, 0.08);
     --text: #f0f0f0;
     --text-dim: #999;
-    --text-muted: #555;
     --gold: #f59e0b;
-    --gold-dim: rgba(245, 158, 11, 0.3);
     --red: #ef4444;
-    --red-dim: rgba(239, 68, 68, 0.3);
     --green: #22c55e;
-    --green-dim: rgba(34, 197, 94, 0.3);
     --cyan: #22d3ee;
-    --cyan-dim: rgba(34, 211, 238, 0.3);
     --blue: #3b82f6;
-    --blue-dim: rgba(59, 130, 246, 0.3);
     --purple: #a78bfa;
-    --purple-dim: rgba(167, 139, 250, 0.3);
-    --amber: #f59e0b;
   }
-
   body {
     font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
     color: var(--text);
     pointer-events: none;
     overflow: hidden;
+    background: transparent;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ===== TOP BAR ===== */
+  /* ===== Top stat row ===== */
   .top-bar {
     position: fixed;
     top: 14px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: stretch;
+    z-index: 5;
   }
-
-  .stat-panel {
+  .stat {
     background: var(--glass);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    padding: 8px 18px;
+    border-radius: 10px;
+    padding: 7px 14px;
     display: flex;
     align-items: center;
     gap: 8px;
-    min-width: 120px;
+    min-width: 110px;
+    user-select: none;
   }
-
-  .stat-icon {
-    font-size: 20px;
-    flex-shrink: 0;
-  }
-
-  .stat-body { display: flex; flex-direction: column; }
-
-  .stat-label {
-    font-size: 8px;
-    font-weight: 700;
-    color: var(--text-muted);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  .stat-value {
-    font-size: 22px;
-    font-weight: 900;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.1;
-  }
-
-  .gold-value { color: var(--gold); text-shadow: 0 0 10px var(--gold-dim); }
-  .lives-value { color: var(--red); text-shadow: 0 0 10px var(--red-dim); }
-
-  @keyframes livePulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-  .lives-value.low { animation: livePulse 0.8s ease-in-out infinite; }
-
-  .wave-panel {
-    background: var(--glass);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    padding: 8px 22px;
-    text-align: center;
-    min-width: 140px;
-  }
-
-  .wave-label {
-    font-size: 8px;
-    font-weight: 700;
-    color: var(--text-muted);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  .wave-value {
-    font-size: 26px;
-    font-weight: 900;
-    color: var(--cyan);
-    text-shadow: 0 0 10px var(--cyan-dim);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.1;
-  }
-
-  .wave-sub {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--text-dim);
-    margin-top: 1px;
-  }
-
-  /* ===== TOWER SHOP (RIGHT SIDE) ===== */
-  .shop-panel {
-    position: fixed;
-    top: 80px;
-    right: 14px;
-    background: var(--glass);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid var(--glass-border);
-    border-radius: 14px;
-    padding: 12px;
-    width: 160px;
-  }
-
-  .shop-title {
+  .stat .label {
     font-size: 9px;
     font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
     color: var(--text-dim);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    text-align: center;
-    margin-bottom: 8px;
   }
-
-  .tower-card {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    padding: 7px 10px;
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .tower-card:last-child { margin-bottom: 0; }
-
-  .tower-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .tower-dot.arrow { background: var(--green); box-shadow: 0 0 6px var(--green-dim); }
-  .tower-dot.cannon { background: var(--amber); box-shadow: 0 0 6px var(--gold-dim); }
-  .tower-dot.ice { background: var(--cyan); box-shadow: 0 0 6px var(--cyan-dim); }
-  .tower-dot.lightning { background: var(--purple); box-shadow: 0 0 6px var(--purple-dim); }
-
-  .tower-info { flex: 1; }
-
-  .tower-name {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text);
-    line-height: 1.1;
-  }
-
-  .tower-cost {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--gold);
-  }
-
-  .tower-key {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 11px;
+  .stat .value {
+    font-size: 18px;
     font-weight: 800;
-    color: var(--text);
-    flex-shrink: 0;
-  }
-
-  .tower-card.disabled { opacity: 0.35; }
-
-  /* ===== SELECTED SPOT INFO (BOTTOM) ===== */
-  .spot-panel {
-    position: fixed;
-    bottom: 55px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--glass);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    padding: 8px 20px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-width: 280px;
-  }
-
-  .spot-label {
-    font-size: 9px;
-    font-weight: 700;
-    color: var(--text-muted);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  .spot-tower-name {
-    font-size: 15px;
-    font-weight: 800;
-    color: var(--text);
-    text-transform: capitalize;
-  }
-
-  .spot-tower-level {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--cyan);
-    margin-left: 4px;
-  }
-
-  .spot-actions {
-    display: flex;
-    gap: 8px;
+    font-variant-numeric: tabular-nums;
     margin-left: auto;
   }
-
-  .spot-action {
+  .stat.gold .value { color: var(--gold); }
+  .stat.lives .value { color: var(--red); }
+  .stat.wave .value { color: var(--cyan); }
+  .stat .alive {
     font-size: 10px;
-    font-weight: 700;
     color: var(--text-dim);
-    display: flex;
-    align-items: center;
-    gap: 3px;
+    margin-left: 8px;
+    letter-spacing: 0.8px;
   }
 
-  .spot-action kbd {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 3px;
-    padding: 1px 5px;
-    font-size: 10px;
-    font-weight: 800;
-    color: var(--text);
-  }
-
-  .spot-action .upg-cost { color: var(--gold); }
-  .spot-action .sell-val { color: var(--green); }
-
-  .spot-empty {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-dim);
-    font-style: italic;
-  }
-
-  /* ===== WAVE START PROMPT ===== */
-  .wave-prompt {
-    position: fixed;
-    bottom: 110px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, rgba(34,211,238,0.15), rgba(59,130,246,0.1));
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(34,211,238,0.2);
-    border-radius: 10px;
-    padding: 8px 22px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--cyan);
-    letter-spacing: 0.5px;
-    display: none;
-  }
-
-  .wave-prompt.visible { display: block; }
-
-  @keyframes promptPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-  }
-
-  .wave-prompt.visible { animation: promptPulse 1.8s ease-in-out infinite; }
-
-  .wave-prompt kbd {
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 4px;
-    padding: 2px 7px;
-    font-size: 12px;
-    font-weight: 800;
-    color: #fff;
-    margin-right: 4px;
-  }
-
-  /* ===== CONTROLS ===== */
-  .controls {
-    position: fixed;
-    bottom: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--glass);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    padding: 5px 16px;
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--text-dim);
-    letter-spacing: 0.3px;
-  }
-
-  .controls kbd {
-    display: inline-block;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 3px;
-    padding: 1px 4px;
-    font-size: 9px;
-    font-weight: 700;
-    color: var(--text);
-    margin: 0 1px;
-  }
-
-  /* ===== ENEMY COUNT ===== */
-  .enemy-panel {
+  /* ===== Start wave button (top-right) ===== */
+  .start-wave-btn {
     position: fixed;
     top: 14px;
-    left: 14px;
-    background: var(--glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
+    right: 18px;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    border: 2px solid #4ade80;
     border-radius: 10px;
-    padding: 6px 14px;
-    font-size: 11px;
+    padding: 10px 18px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 0 14px rgba(34, 197, 94, 0.45);
+    transition: transform 0.12s ease, filter 0.12s ease;
+    user-select: none;
+    z-index: 5;
+  }
+  .start-wave-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+  .start-wave-btn.disabled {
+    background: rgba(40, 40, 40, 0.6);
+    border-color: rgba(120, 120, 120, 0.4);
+    box-shadow: none;
+    cursor: not-allowed;
+    color: #888;
+  }
+  .start-wave-btn.disabled:hover { transform: none; filter: none; }
+
+  /* ===== Tower palette (top-center, below stats) ===== */
+  .palette {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(10px);
+    padding: 8px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    pointer-events: auto;
+    z-index: 5;
+  }
+  .card {
+    width: 78px;
+    height: 96px;
+    background: linear-gradient(180deg, rgba(40, 40, 50, 0.92), rgba(20, 20, 28, 0.92));
+    border: 2px solid rgba(120, 120, 150, 0.4);
+    border-radius: 9px;
+    position: relative;
+    cursor: pointer;
+    pointer-events: auto;
+    overflow: hidden;
+    transition: transform 0.12s ease, filter 0.12s ease, border-color 0.12s ease;
+    user-select: none;
+  }
+  .card:hover { transform: translateY(-3px); border-color: rgba(180, 180, 220, 0.65); }
+  .card.disabled { filter: grayscale(0.7) brightness(0.65); cursor: not-allowed; }
+  .card.disabled:hover { transform: none; }
+  .card.armed {
+    border-color: #fde047;
+    box-shadow: 0 0 18px rgba(250, 204, 21, 0.7), inset 0 0 18px rgba(250, 204, 21, 0.18);
+    transform: translateY(-2px);
+  }
+  .card.arrow    { box-shadow: inset 0 0 18px rgba(59, 130, 246, 0.18); }
+  .card.cannon   { box-shadow: inset 0 0 18px rgba(245, 158, 11, 0.18); }
+  .card.ice      { box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.18); }
+  .card.lightning{ box-shadow: inset 0 0 18px rgba(167, 139, 250, 0.18); }
+  .card .icon-wrap {
+    width: 100%;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 6px;
+  }
+  .card .icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    position: relative;
+  }
+  .card.arrow    .icon { background: radial-gradient(circle at 35% 30%, #93c5fd, #3b82f6 60%, #1e3a8a 100%); }
+  .card.cannon   .icon { background: radial-gradient(circle at 35% 30%, #fde68a, #f59e0b 60%, #78350f 100%); }
+  .card.ice      .icon { background: radial-gradient(circle at 35% 30%, #cffafe, #22d3ee 60%, #155e75 100%); }
+  .card.lightning .icon { background: radial-gradient(circle at 35% 30%, #ddd6fe, #a78bfa 60%, #4c1d95 100%); }
+  .card .name {
+    position: absolute;
+    bottom: 22px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 10px;
     font-weight: 700;
-    color: var(--red);
-    display: none;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #cbd5e1;
+  }
+  .card .cost {
+    position: absolute;
+    bottom: 4px; left: 0; right: 0;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--gold);
+  }
+  .card .key-hint {
+    position: absolute;
+    top: 3px; left: 5px;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(0, 0, 0, 0.45);
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 1px;
   }
 
-  .enemy-panel.visible { display: block; }
+  /* ===== Spot selector (bottom-center) ===== */
+  .spot-bar {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 6px 10px;
+    z-index: 5;
+  }
+  .spot-arrow {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 800;
+    cursor: pointer;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s ease;
+    user-select: none;
+  }
+  .spot-arrow:hover { background: rgba(255, 255, 255, 0.18); }
+  .spot-info {
+    min-width: 200px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text);
+    user-select: none;
+  }
+  .spot-info .small { font-size: 10px; color: var(--text-dim); display: block; margin-top: 2px; letter-spacing: 0.8px; }
+  .spot-action {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    padding: 7px 14px;
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.12s ease;
+    user-select: none;
+  }
+  .spot-action:hover { background: rgba(255, 255, 255, 0.18); }
+  .spot-action.upgrade { color: #4ade80; border-color: rgba(74, 222, 128, 0.5); }
+  .spot-action.upgrade:hover { background: rgba(74, 222, 128, 0.18); }
+  .spot-action.sell { color: #fbbf24; border-color: rgba(251, 191, 36, 0.5); }
+  .spot-action.sell:hover { background: rgba(251, 191, 36, 0.18); }
+  .spot-action.disabled { opacity: 0.35; cursor: not-allowed; }
+  .spot-action.disabled:hover { background: rgba(255, 255, 255, 0.08); }
+
+  /* ===== Hint bar ===== */
+  .hint {
+    position: fixed;
+    bottom: 78px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    z-index: 4;
+  }
+  .hint.armed {
+    color: #fde047;
+    font-weight: 800;
+    font-size: 11px;
+    text-shadow: 0 0 8px rgba(250, 204, 21, 0.45);
+  }
+  body.armed { cursor: crosshair; }
 </style>
 </head>
 <body>
 
-<!-- Top Stats Bar -->
 <div class="top-bar">
-  <div class="stat-panel">
-    <span class="stat-icon" style="color:var(--gold);">&#9733;</span>
-    <div class="stat-body">
-      <span class="stat-label">GOLD</span>
-      <span class="stat-value gold-value" id="gold-val">500</span>
-    </div>
-  </div>
+  <div class="stat gold"><span class="label">Gold</span><span class="value" id="gold">500</span></div>
+  <div class="stat lives"><span class="label">Lives</span><span class="value" id="lives">20</span></div>
+  <div class="stat wave"><span class="label">Wave</span><span class="value" id="wave">0/10</span><span class="alive" id="alive"></span></div>
+</div>
 
-  <div class="wave-panel">
-    <div class="wave-label">WAVE</div>
-    <div class="wave-value" id="wave-val">0 / 10</div>
-    <div class="wave-sub" id="wave-sub">Build towers to begin</div>
-  </div>
+<div class="start-wave-btn" id="startWaveBtn">Start Wave</div>
 
-  <div class="stat-panel">
-    <span class="stat-icon" style="color:var(--red);">&#9829;</span>
-    <div class="stat-body">
-      <span class="stat-label">LIVES</span>
-      <span class="stat-value lives-value" id="lives-val">20</span>
-    </div>
+<div class="palette" id="palette">
+  <div class="card arrow" data-type="arrow">
+    <span class="key-hint">1</span>
+    <div class="icon-wrap"><div class="icon"></div></div>
+    <div class="name">Arrow</div>
+    <div class="cost" id="cost-arrow">100</div>
+  </div>
+  <div class="card cannon" data-type="cannon">
+    <span class="key-hint">2</span>
+    <div class="icon-wrap"><div class="icon"></div></div>
+    <div class="name">Cannon</div>
+    <div class="cost" id="cost-cannon">200</div>
+  </div>
+  <div class="card ice" data-type="ice">
+    <span class="key-hint">3</span>
+    <div class="icon-wrap"><div class="icon"></div></div>
+    <div class="name">Ice</div>
+    <div class="cost" id="cost-ice">150</div>
+  </div>
+  <div class="card lightning" data-type="lightning">
+    <span class="key-hint">4</span>
+    <div class="icon-wrap"><div class="icon"></div></div>
+    <div class="name">Bolt</div>
+    <div class="cost" id="cost-lightning">300</div>
   </div>
 </div>
 
-<!-- Enemy Count (during wave) -->
-<div class="enemy-panel" id="enemy-panel">
-  Enemies: <span id="enemy-count">0</span>
-</div>
+<div class="hint" id="hint">Click a tower, then click a spot in the world. Or Q/E + 1-4. Right-click / Esc to cancel.</div>
 
-<!-- Tower Shop -->
-<div class="shop-panel">
-  <div class="shop-title">TOWERS</div>
-  <div class="tower-card" id="card-arrow">
-    <div class="tower-dot arrow"></div>
-    <div class="tower-info">
-      <div class="tower-name">Arrow</div>
-      <div class="tower-cost" id="cost-arrow">100g</div>
-    </div>
-    <span class="tower-key">1</span>
+<div class="spot-bar">
+  <div class="spot-arrow" id="spotPrev">&#9664;</div>
+  <div class="spot-info">
+    <span id="spotLabel">Spot 1 / 12</span>
+    <span class="small" id="spotDetail">empty</span>
   </div>
-  <div class="tower-card" id="card-cannon">
-    <div class="tower-dot cannon"></div>
-    <div class="tower-info">
-      <div class="tower-name">Cannon</div>
-      <div class="tower-cost" id="cost-cannon">200g</div>
-    </div>
-    <span class="tower-key">2</span>
-  </div>
-  <div class="tower-card" id="card-ice">
-    <div class="tower-dot ice"></div>
-    <div class="tower-info">
-      <div class="tower-name">Ice</div>
-      <div class="tower-cost" id="cost-ice">150g</div>
-    </div>
-    <span class="tower-key">3</span>
-  </div>
-  <div class="tower-card" id="card-lightning">
-    <div class="tower-dot lightning"></div>
-    <div class="tower-info">
-      <div class="tower-name">Lightning</div>
-      <div class="tower-cost" id="cost-lightning">300g</div>
-    </div>
-    <span class="tower-key">4</span>
-  </div>
-</div>
-
-<!-- Selected Spot Info -->
-<div class="spot-panel" id="spot-panel">
-  <div>
-    <div class="spot-label">SPOT <span id="spot-num">1</span></div>
-    <div id="spot-content">
-      <span class="spot-empty">Empty — press 1-4 to build</span>
-    </div>
-  </div>
-  <div class="spot-actions" id="spot-actions" style="display:none;">
-    <div class="spot-action"><kbd>U</kbd> Upgrade <span class="upg-cost" id="upg-cost"></span></div>
-    <div class="spot-action"><kbd>X</kbd> Sell <span class="sell-val" id="sell-val"></span></div>
-  </div>
-</div>
-
-<!-- Wave Start Prompt -->
-<div class="wave-prompt" id="wave-prompt">
-  <kbd>Space</kbd> Start Next Wave
-</div>
-
-<!-- Controls -->
-<div class="controls">
-  <kbd>Q</kbd><kbd>E</kbd> Select Spot
-  &middot; <kbd>1</kbd>-<kbd>4</kbd> Build
-  &middot; <kbd>U</kbd> Upgrade
-  &middot; <kbd>X</kbd> Sell
-  &middot; <kbd>Space</kbd> Wave
-  &middot; <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Pan
+  <div class="spot-arrow" id="spotNext">&#9654;</div>
+  <div class="spot-action upgrade disabled" id="upgradeBtn">Upgrade</div>
+  <div class="spot-action sell disabled" id="sellBtn">Sell</div>
 </div>
 
 <script>
-(function() {
-  var lastGold = 500;
+(function () {
+  function send(action, payload) {
+    window.parent.postMessage({
+      type: 'game_command',
+      action: action,
+      panel: 'hud/td_hud',
+      payload: payload || {}
+    }, '*');
+  }
 
-  function update(state) {
+  var goldEl = document.getElementById('gold');
+  var livesEl = document.getElementById('lives');
+  var waveEl = document.getElementById('wave');
+  var aliveEl = document.getElementById('alive');
+  var palette = document.getElementById('palette');
+  var startBtn = document.getElementById('startWaveBtn');
+  var hintEl = document.getElementById('hint');
+  var spotPrev = document.getElementById('spotPrev');
+  var spotNext = document.getElementById('spotNext');
+  var spotLabel = document.getElementById('spotLabel');
+  var spotDetail = document.getElementById('spotDetail');
+  var upgradeBtn = document.getElementById('upgradeBtn');
+  var sellBtn = document.getElementById('sellBtn');
+
+  var cardEls = {};
+  var costEls = {};
+  ['arrow', 'cannon', 'ice', 'lightning'].forEach(function (k) {
+    cardEls[k] = palette.querySelector('.card[data-type="' + k + '"]');
+    costEls[k] = document.getElementById('cost-' + k);
+    cardEls[k].addEventListener('click', function () {
+      if (cardEls[k].classList.contains('disabled')) return;
+      send('build_tower', { type: k });
+    });
+  });
+
+  startBtn.addEventListener('click', function () {
+    if (startBtn.classList.contains('disabled')) return;
+    send('start_wave');
+  });
+  spotPrev.addEventListener('click', function () { send('spot_prev'); });
+  spotNext.addEventListener('click', function () { send('spot_next'); });
+  upgradeBtn.addEventListener('click', function () {
+    if (upgradeBtn.classList.contains('disabled')) return;
+    send('upgrade_tower');
+  });
+  sellBtn.addEventListener('click', function () {
+    if (sellBtn.classList.contains('disabled')) return;
+    send('sell_tower');
+  });
+
+  function render(state) {
     if (!state) return;
+    goldEl.textContent = String(state.gold || 0);
+    livesEl.textContent = String(state.lives || 0);
+    waveEl.textContent = (state.wave || 0) + '/' + (state.totalWaves || 10);
 
-    // Gold
-    if (state.gold !== undefined) {
-      var gel = document.getElementById('gold-val');
-      if (gel) gel.textContent = state.gold;
-      lastGold = state.gold;
-      // Disable tower cards player can't afford
-      setCardState('card-arrow', state.arrowCost, state.gold, state.spotOccupied);
-      setCardState('card-cannon', state.cannonCost, state.gold, state.spotOccupied);
-      setCardState('card-ice', state.iceCost, state.gold, state.spotOccupied);
-      setCardState('card-lightning', state.lightningCost, state.gold, state.spotOccupied);
-    }
-
-    // Lives
-    if (state.lives !== undefined) {
-      var lel = document.getElementById('lives-val');
-      if (lel) {
-        lel.textContent = state.lives;
-        lel.className = 'stat-value lives-value' + (state.lives <= 5 ? ' low' : '');
-      }
-    }
-
-    // Wave
-    if (state.wave !== undefined && state.totalWaves !== undefined) {
-      var wel = document.getElementById('wave-val');
-      if (wel) wel.textContent = state.wave + ' / ' + state.totalWaves;
-      var wsub = document.getElementById('wave-sub');
-      if (wsub) {
-        if (state.waveActive) {
-          var remaining = (state.enemyCount || 0) + (state.spawnRemaining || 0);
-          wsub.textContent = remaining + ' enemies remaining';
-        } else if (state.wave === 0) {
-          wsub.textContent = 'Build towers to begin';
-        } else if (state.wave >= state.totalWaves) {
-          wsub.textContent = 'All waves cleared!';
-        } else {
-          wsub.textContent = 'Prepare for next wave';
-        }
-      }
-    }
-
-    // Wave prompt
-    if (state.waveActive !== undefined) {
-      var wp = document.getElementById('wave-prompt');
-      if (wp) {
-        if (!state.waveActive && state.wave < state.totalWaves) {
-          wp.classList.add('visible');
-        } else {
-          wp.classList.remove('visible');
-        }
-      }
-    }
-
-    // Enemy panel
-    if (state.waveActive !== undefined) {
-      var ep = document.getElementById('enemy-panel');
-      if (ep) {
-        if (state.waveActive) {
-          ep.classList.add('visible');
-          var ec = document.getElementById('enemy-count');
-          if (ec) ec.textContent = (state.enemyCount || 0) + (state.spawnRemaining || 0);
-        } else {
-          ep.classList.remove('visible');
-        }
-      }
-    }
-
-    // Selected spot
-    if (state.selectedSpot !== undefined) {
-      var sn = document.getElementById('spot-num');
-      if (sn) sn.textContent = state.selectedSpot;
-    }
-
-    var sc = document.getElementById('spot-content');
-    var sa = document.getElementById('spot-actions');
-
-    if (state.towerInfo && state.spotOccupied) {
-      var ti = state.towerInfo;
-      if (sc) {
-        sc.innerHTML = '<span class="spot-tower-name">' + ti.type + '</span>' +
-                       '<span class="spot-tower-level"> Lv.' + ti.level + '</span>';
-      }
-      if (sa) {
-        sa.style.display = ti.canUpgrade ? 'flex' : 'none';
-        var uc = document.getElementById('upg-cost');
-        if (uc) uc.textContent = ti.canUpgrade ? ti.upgradeCost + 'g' : '';
-        var sv = document.getElementById('sell-val');
-        if (sv) sv.textContent = '+' + ti.sellValue + 'g';
-        // Show sell even when fully upgraded
-        if (!ti.canUpgrade && sa) {
-          sa.style.display = 'flex';
-          sa.innerHTML = '<div class="spot-action"><kbd>X</kbd> Sell <span class="sell-val">+' + ti.sellValue + 'g</span></div>';
-        }
-      }
+    if (state.waveActive) {
+      aliveEl.textContent = (state.enemyCount || 0) + ' afield · ' + (state.spawnRemaining || 0) + ' incoming';
+      startBtn.classList.add('disabled');
+      startBtn.textContent = 'Wave In Progress';
     } else {
-      if (sc) sc.innerHTML = '<span class="spot-empty">Empty \u2014 press 1-4 to build</span>';
-      if (sa) sa.style.display = 'none';
+      aliveEl.textContent = (state.wave || 0) >= (state.totalWaves || 10) ? '' : 'lull before next wave';
+      startBtn.classList.remove('disabled');
+      startBtn.textContent = (state.wave || 0) === 0 ? 'Start First Wave' : 'Start Next Wave';
+    }
+
+    // Towers — affordability + cost. Highlight the armed card.
+    var armed = state.armedTower || '';
+    var towers = state.towers || [];
+    for (var i = 0; i < towers.length; i++) {
+      var t = towers[i];
+      var el = cardEls[t.type];
+      if (!el) continue;
+      costEls[t.type].textContent = String(t.cost);
+      el.classList.toggle('disabled', !t.affordable);
+      el.classList.toggle('armed', t.type === armed);
+    }
+
+    // Hint bar reflects armed mode.
+    if (armed) {
+      hintEl.textContent = '⚡ Click a spot in the world to place ' + armed.toUpperCase() + '. Right-click / Esc to cancel.';
+      hintEl.classList.add('armed');
+      document.body.classList.add('armed');
+    } else {
+      hintEl.textContent = 'Click a tower, then click a spot in the world. Or Q/E + 1-4. Right-click / Esc to cancel.';
+      hintEl.classList.remove('armed');
+      document.body.classList.remove('armed');
+    }
+
+    // Spot info bar.
+    spotLabel.textContent = 'Spot ' + (state.selectedSpot || 1) + ' / ' + (state.totalSpots || 12);
+    var info = state.towerInfo;
+    if (info) {
+      spotDetail.textContent = info.type + ' L' + info.level +
+        (info.canUpgrade ? ' · upg ' + info.upgradeCost + 'g' : ' · maxed') +
+        ' · sell ' + info.sellValue + 'g';
+      upgradeBtn.classList.toggle('disabled', !info.canUpgrade || (state.gold || 0) < (info.upgradeCost || 0));
+      sellBtn.classList.remove('disabled');
+    } else {
+      spotDetail.textContent = state.spotOccupied ? 'occupied' : 'empty';
+      upgradeBtn.classList.add('disabled');
+      sellBtn.classList.add('disabled');
     }
   }
 
-  function setCardState(cardId, cost, gold, occupied) {
-    var card = document.getElementById(cardId);
-    if (!card) return;
-    if (cost > gold || occupied) {
-      card.classList.add('disabled');
-    } else {
-      card.classList.remove('disabled');
-    }
-  }
-
-  window.addEventListener('message', function(e) {
-    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'gameState') return;
+    render(e.data.state);
   });
 })();
 </script>

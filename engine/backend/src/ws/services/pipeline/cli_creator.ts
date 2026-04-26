@@ -312,10 +312,16 @@ export async function runCreator(
         // ── Headless playtest gate ─────────────────────────────────────────
         // The assembler catches structural bugs; the playtest catches
         // behavioural ones — player stuck at spawn, missing ground collider,
-        // dead controls, onUpdate crashes, unreachable UI. Up to 3 retries.
+        // dead controls, onUpdate crashes, unreachable UI. Up to 1 retry.
         // After the cap we ship with the verdict attached to the summary so
         // the user can guide the next fix (per user direction 2026-04-23).
-        const PLAYTEST_MAX_RETRIES = 3;
+        // Retry budget cut from 3 → 1 on 2026-04-26 after the marble-run
+        // post-mortem: a stuck loop on the same authored_crash burned 99
+        // turns and $12 with each playtest retry only producing more debug
+        // output, not a real fix. Ship-anyway is fine; users would rather
+        // get a flawed game cheaply and iterate manually than pay for the
+        // CLI's diminishing-returns self-correction.
+        const PLAYTEST_MAX_RETRIES = 1;
         let lastVerdict: Awaited<ReturnType<typeof runPlaytest>> | null = null;
         // Per-attempt verdicts persisted to session capture for later
         // dashboard rendering. Lets the user see "pass rate across retries"

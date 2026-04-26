@@ -4,6 +4,7 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Character_Male_1.glb",
+        "hideFromOwner": true,
         "scale": [
           1,
           1,
@@ -233,7 +234,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -250,7 +251,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -267,7 +268,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree",
         "harvestable"
@@ -284,7 +285,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "tree"
       ],
@@ -351,7 +352,8 @@
       "physics": false,
       "tags": [
         "harvestable",
-        "food"
+        "food",
+        "no_collide"
       ],
       "label": false
     },
@@ -401,7 +403,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -418,7 +421,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -435,7 +439,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "no_collide"
       ],
       "label": false
     },
@@ -452,7 +457,8 @@
       "physics": false,
       "tags": [
         "resource",
-        "collectible"
+        "collectible",
+        "decoration_only"
       ],
       "label": false
     },
@@ -467,7 +473,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 40,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -502,7 +508,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -537,7 +543,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 5,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -572,14 +578,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 45,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "animal",
-        "neutral"
+        "neutral",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -612,14 +619,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 70,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "undead"
+        "undead",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -652,14 +660,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 50,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "undead"
+        "undead",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -692,7 +701,7 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 65,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -700,7 +709,9 @@
       "tags": [
         "enemy",
         "undead",
-        "elite"
+        "elite",
+        "no_collide",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -733,13 +744,14 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 40,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
-        "enemy"
+        "enemy",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -772,14 +784,15 @@
         ]
       },
       "physics": {
-        "type": "dynamic",
+        "type": "kinematic",
         "mass": 90,
         "freeze_rotation": true,
         "collider": "capsule"
       },
       "tags": [
         "enemy",
-        "boss"
+        "boss",
+        "hostile"
       ],
       "behaviors": [
         {
@@ -790,7 +803,7 @@
             "maxHealth": 250,
             "damage": 25,
             "attackRange": 4,
-            "attackRate": 2.0,
+            "attackRate": 2,
             "detectionRange": 25,
             "chaseSpeed": 4,
             "wanderSpeed": 1.5,
@@ -845,7 +858,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "light"
@@ -862,7 +875,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "light"
@@ -879,7 +892,7 @@
           1
         ]
       },
-      "physics": false,
+      "physics": { "type": "static" },
       "tags": [
         "structure",
         "shelter"
@@ -898,7 +911,8 @@
       },
       "physics": false,
       "tags": [
-        "structure"
+        "structure",
+        "decoration_only"
       ],
       "label": false
     },
@@ -982,7 +996,8 @@
       "physics": false,
       "tags": [
         "loot",
-        "collectible"
+        "collectible",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1063,7 +1078,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },
@@ -1079,7 +1095,8 @@
       },
       "physics": false,
       "tags": [
-        "decoration"
+        "decoration",
+        "decoration_only"
       ],
       "label": false
     },

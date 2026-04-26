@@ -15,6 +15,7 @@ class PlayerHealthBehavior extends GameScript {
     _respawnTimer = 0;
     _dead = false;
     _lastShooterPeerId = "";
+    _deathPoseTimer = 0;
 
     onStart() {
         var self = this;
@@ -28,6 +29,10 @@ class PlayerHealthBehavior extends GameScript {
             if (data.entityId !== self.entity.id) return;
             self._applyDamage(data.amount || 10, "");
         });
+        // Cross-peer damage: fps_combat broadcasts player_shot when its
+        // raycast hits a remote player proxy. The proxy on the shooter's
+        // machine has no health to apply to — the victim's own peer owns
+        // their hull and applies the damage here.
         this.scene.events.game.on("net_player_shot", function(evt) {
             if (self._dead) return;
             var d = (evt && evt.data) || {};
@@ -36,20 +41,28 @@ class PlayerHealthBehavior extends GameScript {
             if (d.targetPeerId !== mp.localPeerId) return;
             self._applyDamage(Number(d.damage) || 10, d.shooterPeerId || "");
         });
-        this.scene.events.game.on("entity_healed", function(data) {
-            if (data.entityId && data.entityId !== self.entity.id) return;
-            self._health = Math.min(self._maxHealth, self._health + (data.amount || 10));
-            self._dead = false;
-            self._sendHUD();
-        });
-        // Reset state at the start of each match (for multiplayer "play again").
-        this.scene.events.game.on("match_started", function() {
+        var revive = function() {
             self._health = self._maxHealth;
             self._dead = false;
             self._respawnTimer = 0;
             self._timeSinceDamage = 0;
+            self._lastShooterPeerId = "";
+            // Without this, the player stays stuck on the last frame of
+            // the Death animation after respawning. third_person_movement
+            // (and similar movement scripts) cache the current anim and
+            // skip re-issuing playAnimation when "Idle" matches the cache,
+            // so they won't unstick the animator on their own.
+            if (self.entity && self.entity.playAnimation) {
+                try { self.entity.playAnimation("Idle", { loop: true }); } catch (e) { /* no anim */ }
+            }
             self._sendHUD();
-        });
+        };
+        // Multiplayer "play again" emits match_started; single-player flows
+        // emit player_respawned when transitioning from a wasted/death
+        // substate back to gameplay (open_world_crime → wasted → free_roam,
+        // mmorpg → death_respawn → adventuring, voxel_survival …).
+        this.scene.events.game.on("match_started", revive);
+        this.scene.events.game.on("player_respawned", revive);
         this._sendHUD();
     }
 
@@ -61,6 +74,7 @@ class PlayerHealthBehavior extends GameScript {
             this._health = 0;
             this._dead = true;
             this._respawnTimer = this._respawnDelay;
+            this._deathPoseTimer = 0; // re-play Death immediately in onUpdate
             if (this.entity.playAnimation) {
                 try { this.entity.playAnimation("Death", { loop: false }); } catch (e) { /* no anim */ }
             }
@@ -74,10 +88,25 @@ class PlayerHealthBehavior extends GameScript {
         if (ni && !ni.isLocalPlayer) return;
 
         if (this._dead) {
+            // Re-play Death every couple of seconds so the body stays in
+            // the death pose. Most engines snap loop:false anims back to
+            // the default pose once the clip ends, which leaves the
+            // player standing during the wasted/death screen. Replaying
+            // pins them down for the full duration. The interval has to
+            // be longer than the longest plausible death clip (~1.5s on
+            // kenney/quaternius packs) so we don't restart mid-fall.
+            this._deathPoseTimer -= dt;
+            if (this._deathPoseTimer <= 0) {
+                this._deathPoseTimer = 1.8;
+                if (this.entity.playAnimation) {
+                    try { this.entity.playAnimation("Death", { loop: false }); } catch (e) { /* no anim */ }
+                }
+            }
             // Multiplayer respawn: countdown then refill + emit so the
             // match system can pick a spawn point. Single-player flows
-            // transition to the game_over substate on player_died before
-            // the timer fires, so this branch is harmless there.
+            // transition to a game_over / wasted substate on player_died
+            // and emit player_respawned from the flow on the way back —
+            // the revive() listener handles those.
             this._respawnTimer -= dt;
             if (this._respawnTimer <= 0 && this.scene._mp) {
                 this._dead = false;

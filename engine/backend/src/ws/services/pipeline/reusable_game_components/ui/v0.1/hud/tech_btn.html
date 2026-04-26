@@ -1,38 +1,299 @@
-<!-- description: tech tree progress and culture resource counter in bottom right — research progress, technology points, culture pool, tech advancement, research counter -->
+<!-- description: 4X tech panel — research progress, current tech, clickable tech tree picker (researchable techs are buttons), culture pool, and culture-policy adoption buttons -->
 <!DOCTYPE html>
 <html>
 <head>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Inter', system-ui, sans-serif; pointer-events: none; overflow: hidden; }
-  .tech-wrap { position: fixed; bottom: 14px; right: 180px; pointer-events: none; }
-  .tech-info {
-    background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;
-    padding: 6px 12px; text-align: center;
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #f0f0f0;
+    pointer-events: none;
+    overflow: hidden;
+    background: transparent;
   }
-  .tech-label { font-size: 8px; font-weight: 700; color: #555; letter-spacing: 1px; }
-  .tech-val { font-size: 12px; font-weight: 800; color: #3b82f6; }
-  .cult-val { font-size: 11px; font-weight: 700; color: #a78bfa; margin-top: 2px; }
+
+  .tech-wrap {
+    position: fixed;
+    bottom: 130px;
+    right: 18px;
+    width: 240px;
+    pointer-events: auto;
+  }
+  .tech-info {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px 12px;
+    pointer-events: auto;
+  }
+  .tech-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .tech-current {
+    font-size: 11px;
+    font-weight: 700;
+    color: #cbd5e1;
+    margin-bottom: 4px;
+  }
+  .tech-progress {
+    height: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 3px;
+  }
+  .tech-progress .fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); transition: width 0.3s ease; }
+  .tech-val {
+    font-size: 10px;
+    font-weight: 700;
+    color: #3b82f6;
+    text-align: right;
+  }
+  .cult-val {
+    font-size: 11px;
+    font-weight: 700;
+    color: #a78bfa;
+    margin-top: 6px;
+  }
+
+  .tech-toggle {
+    margin-top: 6px;
+    width: 100%;
+    background: rgba(59, 130, 246, 0.18);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    color: #93c5fd;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.12s ease;
+    user-select: none;
+  }
+  .tech-toggle:hover { background: rgba(59, 130, 246, 0.32); }
+
+  .tech-list {
+    margin-top: 6px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 6px;
+    display: none;
+    pointer-events: auto;
+  }
+  .tech-list.open { display: block; }
+  .tech-section {
+    font-size: 8px;
+    font-weight: 800;
+    color: #555;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 4px 4px 2px;
+  }
+  .tech-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    padding: 5px 8px;
+    margin-bottom: 3px;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.12s ease, border-color 0.12s ease;
+    user-select: none;
+  }
+  .tech-card:hover { background: rgba(59, 130, 246, 0.18); border-color: rgba(59, 130, 246, 0.5); }
+  .tech-card.current {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(96, 165, 250, 0.7);
+  }
+  .tech-card.done {
+    opacity: 0.5;
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.4);
+    cursor: default;
+  }
+  .tech-card.done:hover { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); }
+  .tech-card.locked {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .tech-card.locked:hover { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.1); }
+  .tech-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: #f1f5f9;
+    text-transform: capitalize;
+  }
+  .tech-meta {
+    font-size: 8px;
+    color: #888;
+    margin-top: 1px;
+    letter-spacing: 0.5px;
+  }
+  .tech-cost { color: #60a5fa; font-weight: 700; }
+
+  .policy-list {
+    margin-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 4px;
+  }
+  .policy-card {
+    background: rgba(167, 139, 250, 0.08);
+    border: 1px solid rgba(167, 139, 250, 0.3);
+    border-radius: 5px;
+    padding: 4px 8px;
+    margin-bottom: 3px;
+    cursor: pointer;
+    pointer-events: auto;
+    font-size: 10px;
+    color: #ddd;
+    text-transform: capitalize;
+    display: flex;
+    justify-content: space-between;
+    user-select: none;
+  }
+  .policy-card:hover { background: rgba(167, 139, 250, 0.22); }
+  .policy-card.adopted { opacity: 0.6; cursor: default; background: rgba(167, 139, 250, 0.18); }
+  .policy-card.disabled { opacity: 0.4; cursor: not-allowed; }
+  .policy-card .pcost { color: #a78bfa; font-weight: 700; }
 </style>
 </head>
 <body>
 <div class="tech-wrap">
   <div class="tech-info">
-    <div class="tech-label">RESEARCH</div>
-    <div class="tech-val" id="techProg">0 / 25</div>
+    <div class="tech-label">Research</div>
+    <div class="tech-current" id="techCurrent">—</div>
+    <div class="tech-progress"><div class="fill" id="techFill" style="width:0%"></div></div>
+    <div class="tech-val" id="techProg">0 / 0</div>
     <div class="cult-val">Culture: <span id="cultPool">0</span></div>
+    <button class="tech-toggle" id="toggleBtn">Open Tech Tree</button>
+  </div>
+
+  <div class="tech-list" id="techList">
+    <div class="tech-section">Available</div>
+    <div id="techAvail"></div>
+    <div class="tech-section" id="resHeader" style="display:none">Researched</div>
+    <div id="techDone"></div>
+    <div class="policy-list">
+      <div class="tech-section">Policies</div>
+      <div id="policyEls"></div>
+    </div>
   </div>
 </div>
+
 <script>
-(function(){
-  function update(s){if(!s)return;
-    if(s.techProgress!==undefined&&s.techCost!==undefined){
-      document.getElementById('techProg').textContent=s.techProgress+' / '+s.techCost;
-    }
-    if(s.culturePool!==undefined)document.getElementById('cultPool').textContent=s.culturePool;
+(function () {
+  function send(action, payload) {
+    window.parent.postMessage({
+      type: 'game_command',
+      action: action,
+      panel: 'hud/tech_btn',
+      payload: payload || {}
+    }, '*');
   }
-  window.addEventListener('message',function(e){if(e.data&&e.data.type==='gameState')update(e.data.state);});
+
+  var listEl = document.getElementById('techList');
+  var toggleBtn = document.getElementById('toggleBtn');
+  toggleBtn.addEventListener('click', function () {
+    listEl.classList.toggle('open');
+    toggleBtn.textContent = listEl.classList.contains('open') ? 'Close Tech Tree' : 'Open Tech Tree';
+  });
+
+  function fmt(id) {
+    return (id || '').replace(/_/g, ' ');
+  }
+
+  function renderTechs(state) {
+    var avail = document.getElementById('techAvail');
+    var done = document.getElementById('techDone');
+    var resHeader = document.getElementById('resHeader');
+    avail.innerHTML = '';
+    done.innerHTML = '';
+
+    var list = state.techList || [];
+    var anyDone = false;
+    for (var i = 0; i < list.length; i++) {
+      var t = list[i];
+      var card = document.createElement('div');
+      card.className = 'tech-card' +
+        (t.isCurrent ? ' current' : '') +
+        (t.done ? ' done' : '') +
+        (!t.done && !t.researchable ? ' locked' : '');
+      var unlocksTxt = (t.unlocks && t.unlocks.length) ? '· unlocks ' + t.unlocks.map(fmt).join(', ') : '';
+      card.innerHTML =
+        '<div class="tech-name">' + fmt(t.id) + '</div>' +
+        '<div class="tech-meta">' +
+          (t.era || '') + ' · ' +
+          '<span class="tech-cost">' + (t.cost || 0) + 'sci</span> ' +
+          unlocksTxt +
+        '</div>';
+      if (!t.done && t.researchable) {
+        (function (id) {
+          card.addEventListener('click', function () {
+            send('select_tech', { techId: id });
+          });
+        })(t.id);
+      }
+      if (t.done) {
+        anyDone = true;
+        done.appendChild(card);
+      } else {
+        avail.appendChild(card);
+      }
+    }
+    resHeader.style.display = anyDone ? '' : 'none';
+  }
+
+  function renderPolicies(state) {
+    var holder = document.getElementById('policyEls');
+    holder.innerHTML = '';
+    var list = state.policyList || [];
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      var card = document.createElement('div');
+      card.className = 'policy-card' + (p.adopted ? ' adopted' : (!p.affordable ? ' disabled' : ''));
+      card.innerHTML = '<span>' + fmt(p.id) + '</span><span class="pcost">' + p.cost + 'c</span>';
+      if (!p.adopted && p.affordable) {
+        (function (id) {
+          card.addEventListener('click', function () {
+            send('adopt_policy', { policyId: id });
+          });
+        })(p.id);
+      }
+      holder.appendChild(card);
+    }
+  }
+
+  function update(s) {
+    if (!s) return;
+    if (s.currentTech !== undefined) {
+      document.getElementById('techCurrent').textContent = s.currentTech ? fmt(s.currentTech) : 'select a tech';
+    }
+    if (s.techProgress !== undefined && s.techCost !== undefined) {
+      document.getElementById('techProg').textContent = s.techProgress + ' / ' + s.techCost;
+      var pct = s.techCost > 0 ? Math.min(100, (s.techProgress / s.techCost) * 100) : 0;
+      document.getElementById('techFill').style.width = pct + '%';
+    }
+    if (s.culturePool !== undefined) document.getElementById('cultPool').textContent = s.culturePool;
+    if (s.techList) renderTechs(s);
+    if (s.policyList) renderPolicies(s);
+  }
+
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'gameState') update(e.data.state);
+  });
 })();
 </script>
 </body>

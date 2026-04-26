@@ -1,5 +1,24 @@
 {
   "systems": {
+    "entity_health_bars": {
+      "description": "Red HP bar over every hostile vessel — ghost ships, kraken tentacles, sharks. Values match the per-behavior _health params. Lifted high (4 world-units) so the bar sits above the mast.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player"],
+        "enemyTags": ["enemy", "ghost", "kraken", "shark"],
+        "showAllies": false,
+        "defaultMax": 100,
+        "hpOverrides": {
+          "ghost_ship_small": 80,
+          "kraken_tentacle": 120,
+          "shark_patrol": 120,
+          "ghost": 80,
+          "kraken": 120,
+          "shark": 120
+        },
+        "heightAbove": 4
+      }
+    },
     "pirate_voyage": {
       "description": "Treasure-hunt match rules — host spawns floating loot, every captain claims gold by sailing through it. Wins on first to scoreToWin gold or highest plunder when round timer expires.",
       "script": "mp/pirate_voyage.ts",

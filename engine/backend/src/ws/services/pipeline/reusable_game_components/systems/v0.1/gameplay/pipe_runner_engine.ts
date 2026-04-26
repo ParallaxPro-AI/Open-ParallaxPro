@@ -256,6 +256,7 @@ class PipeRunnerEngineSystem extends GameScript {
             var ep = e.transform.position;
             var dx = ep.x - pp.x;
             var dy = ep.y - pp.y;
+            var dist = Math.sqrt(dx * dx + dy * dy); // position separation
             // Loose AABB-ish proximity — enemies are about 1m wide and
             // 1m tall after their default scale.
             if (Math.abs(dx) > 0.95 || Math.abs(dy) > 1.05) continue;
@@ -338,7 +339,10 @@ class PipeRunnerEngineSystem extends GameScript {
                 meshType: "sphere",
                 baseColor: [0.95, 0.30, 0.30, 1],
             });
-            if (this.scene.addTag) this.scene.addTag(id, "spawned_mushroom");
+            if (this.scene.addTag) {
+                this.scene.addTag(id, "spawned_mushroom");
+                this.scene.addTag(id, "powerup");
+            }
             this._spawnedItems.push({ id: id, kind: "mushroom", vx: 2.5, vy: 4 });
         }
     }

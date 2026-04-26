@@ -42,6 +42,7 @@ class SidescrollRunnerBehavior extends GameScript {
     _iframeTimer = 0;
     _poweredUp = false;
     _currentScale = 1.0;
+    _currentAnim = "";
 
     onStart() {
         var self = this;
@@ -160,6 +161,17 @@ class SidescrollRunnerBehavior extends GameScript {
         this.entity.transform.setRotationEuler && this.entity.transform.setRotationEuler(0, this._facing > 0 ? -90 : 90, 0);
         this.entity.transform.markDirty && this.entity.transform.markDirty();
 
+        // Animation — Idle when standing, Run when moving on ground,
+        // Jump_Start in air. Names match the platformer_game_kit
+        // Character.glb (also used by the platformer template).
+        if (!this._grounded) {
+            this._playAnim("Jump_Start");
+        } else if (Math.abs(vx) > 0.1) {
+            this._playAnim("Run");
+        } else {
+            this._playAnim("Idle");
+        }
+
         // Visual scale — power-up makes us bigger.
         var targetScale = this._poweredUp ? this._powerUpScale : 1.0;
         if (Math.abs(this._currentScale - targetScale) > 0.01) {
@@ -173,6 +185,14 @@ class SidescrollRunnerBehavior extends GameScript {
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
+    _playAnim(name) {
+        if (this._currentAnim === name) return;
+        this._currentAnim = name;
+        if (this.entity.playAnimation) {
+            this.entity.playAnimation(name, { loop: name !== "Jump_Start" });
+        }
+    }
+
     _reset() {
         this._alive = true;
         this._grounded = false;
@@ -182,6 +202,7 @@ class SidescrollRunnerBehavior extends GameScript {
         this._iframeTimer = 0;
         this._poweredUp = false;
         this._currentScale = 1.0;
+        this._currentAnim = "";
         this.scene.setScale && this.scene.setScale(this.entity.id, 0.85, 1.0, 0.85);
         this._registerSelf();
     }

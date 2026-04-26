@@ -49,6 +49,7 @@ export function writeValidateScripts(sandboxDir: string): void {
     fs.writeFileSync(path.join(sandboxDir, 'validate.sh'), sh, { mode: 0o755 });
     fs.writeFileSync(path.join(sandboxDir, 'validate_headless.js'), VALIDATE_HEADLESS_JS);
     fs.writeFileSync(path.join(sandboxDir, 'validate_assembler.js'), VALIDATE_ASSEMBLER_JS);
+    fs.writeFileSync(path.join(sandboxDir, 'validate_uihandlers.js'), VALIDATE_UIHANDLERS_JS);
 }
 
 /**
@@ -675,6 +676,74 @@ export function runHeadlessSmoke(projectDir: string): string[] {
     return errors;
 }
 
+/**
+ * Lint `events.ui.on("ui_event:...", function(d) { ... })` handlers for the
+ * envelope-shape foot-gun: the handler argument is the FULL postMessage
+ * envelope `{type, action, panel, data}`, but agents repeatedly write
+ * `d.recipeId` thinking they get the inner data — which silently returns
+ * `undefined`. The bug is invisible at smoke-test time (the handler runs
+ * fine, just does nothing) and a nightmare to diagnose at play-time
+ * because hover effects still work (the click event reaches the panel,
+ * the message is sent, the bridge invokes the handler, the handler reads
+ * the wrong field — every layer looks healthy).
+ *
+ * Heuristic: for every `events.ui.on("ui_event:...", function(<p>) { ... })`
+ * we scan the body for `<p>.<field>` accesses where `<field>` isn't on
+ * the envelope's allowlist (`data`, `action`, `panel`, `type`). Any such
+ * access is almost certainly the bug.
+ */
+const UI_EVENT_ENVELOPE_KEYS = new Set(['data', 'action', 'panel', 'type']);
+
+export function checkUiEventHandlers(projectDir: string): string[] {
+    const errors: string[] = [];
+    for (const dir of ['systems', 'behaviors', 'scripts']) {
+        walkTsFiles(path.join(projectDir, dir), (full, rel) => {
+            const src = fs.readFileSync(full, 'utf-8');
+            const fileErrs = lintUiEventHandlerSource(src);
+            for (const e of fileErrs) errors.push(`${dir}/${rel}: ${e}`);
+        });
+    }
+    return errors;
+}
+
+function lintUiEventHandlerSource(src: string): string[] {
+    const errors: string[] = [];
+    // Match `events.ui.on("ui_event:<name>", function(<param>) {`
+    const re = /events\.ui\.on\(\s*["'](ui_event:[^"']+)["']\s*,\s*function\s*\(\s*(\w+)\s*\)\s*\{/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src)) !== null) {
+        const eventName = m[1];
+        const param = m[2];
+        // Brace-balance to find the function body.
+        let depth = 1;
+        let i = re.lastIndex;
+        while (i < src.length && depth > 0) {
+            const c = src[i++];
+            if (c === '{') depth++;
+            else if (c === '}') depth--;
+        }
+        const body = src.slice(re.lastIndex, i - 1);
+        // Find every `<param>.<field>` access in the body.
+        const accessRe = new RegExp('\\b' + param + '\\.([a-zA-Z_]\\w*)', 'g');
+        const flagged = new Set<string>();
+        let am: RegExpExecArray | null;
+        while ((am = accessRe.exec(body)) !== null) {
+            const field = am[1];
+            if (!UI_EVENT_ENVELOPE_KEYS.has(field)) flagged.add(field);
+        }
+        if (flagged.size > 0) {
+            const fields = Array.from(flagged).map(f => `${param}.${f}`).join(', ');
+            errors.push(
+                `UI_EVENT envelope misuse in handler for "${eventName}": reads ${fields} ` +
+                `from the envelope. Panel-specific fields are nested under ${param}.data — ` +
+                `e.g. \`var dd = (${param} && ${param}.data) || {}; dd.${Array.from(flagged)[0]}\`. ` +
+                `See CREATOR_CONTEXT.md → "Reading a data payload from a panel".`
+            );
+        }
+    }
+    return errors;
+}
+
 function walkTsFiles(dir: string, visit: (fullPath: string, relPath: string) => void, prefix = ''): void {
     if (!fs.existsSync(dir)) return;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -707,6 +776,7 @@ function seedScriptFields(inst: any): void {
         findEntitiesByTag() { return []; },
         setPosition() {}, setScale() {}, setRotationEuler() {}, setVelocity() {},
         destroyEntity() {}, createEntity() { return 0; }, spawnEntity() { return null; },
+        addComponent() { return null; }, removeComponent() {},
         raycast() { return null; }, screenRaycast() { return null; }, screenPointToGround() { return null; },
         getAllEntities() { return []; },
         setFog() {}, setTimeOfDay() {}, loadScene() {},
@@ -788,6 +858,16 @@ echo "=== Headless Smoke Test ==="
 node validate_headless.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
+echo "=== UI Event Handler Lint ==="
+# Catches the envelope-shape foot-gun: handlers that read d.someField when
+# the panel-specific data is actually nested under d.data.someField. Bug
+# is invisible at smoke-test time and presents as "clicks do nothing"
+# while hover effects still work (because the click event reaches the
+# panel fine — the handler just reads undefined). Mirror of
+# checkUiEventHandlers() in sandbox_validate.ts.
+node validate_uihandlers.js 2>&1
+if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
+
 echo "=== Assembler Check (strict) ==="
 # Runs the same validation as assembleGame() against this project's
 # files, plus asset path validation. Catches everything the local
@@ -833,6 +913,72 @@ fi
 // module init time (see top of file). It runs all 8 validation
 // categories offline — no HTTP calls, no soft-fails.
 
+// Static lint for `events.ui.on("ui_event:...", function(d) { ... })`
+// handlers. Mirror of checkUiEventHandlers() in this same file —
+// keep the two in sync if you change either.
+const VALIDATE_UIHANDLERS_JS = `
+const fs = require('fs');
+const path = require('path');
+
+const ENVELOPE_KEYS = new Set(['data', 'action', 'panel', 'type']);
+
+function lint(src) {
+    const errors = [];
+    const re = /events\\.ui\\.on\\(\\s*["'](ui_event:[^"']+)["']\\s*,\\s*function\\s*\\(\\s*(\\w+)\\s*\\)\\s*\\{/g;
+    let m;
+    while ((m = re.exec(src)) !== null) {
+        const eventName = m[1];
+        const param = m[2];
+        let depth = 1, i = re.lastIndex;
+        while (i < src.length && depth > 0) {
+            const c = src[i++];
+            if (c === '{') depth++;
+            else if (c === '}') depth--;
+        }
+        const body = src.slice(re.lastIndex, i - 1);
+        const accessRe = new RegExp('\\\\b' + param + '\\\\.([a-zA-Z_]\\\\w*)', 'g');
+        const flagged = new Set();
+        let am;
+        while ((am = accessRe.exec(body)) !== null) {
+            const field = am[1];
+            if (!ENVELOPE_KEYS.has(field)) flagged.add(field);
+        }
+        if (flagged.size > 0) {
+            const first = flagged.values().next().value;
+            const fields = Array.from(flagged).map(f => param + '.' + f).join(', ');
+            errors.push(
+                'UI_EVENT envelope misuse for "' + eventName + '": reads ' + fields +
+                ' from envelope. Panel data is nested under ' + param + '.data — ' +
+                'e.g. var dd = (' + param + ' && ' + param + '.data) || {}; dd.' + first + '. ' +
+                'See CREATOR_CONTEXT.md → "Reading a data payload from a panel".'
+            );
+        }
+    }
+    return errors;
+}
+
+function walk(dir, prefix, visit) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full, prefix + entry.name + '/', visit);
+        else if (entry.name.endsWith('.ts')) visit(full, prefix + entry.name);
+    }
+}
+
+const errors = [];
+for (const dir of ['systems', 'behaviors', 'scripts']) {
+    walk(path.join('project', dir), '', (full, rel) => {
+        const src = fs.readFileSync(full, 'utf-8');
+        for (const e of lint(src)) errors.push(dir + '/' + rel + ': ' + e);
+    });
+}
+if (errors.length > 0) {
+    for (const e of errors) console.error(e);
+    process.exit(1);
+}
+`;
+
 // Unified headless smoke. Stubs every major GameScript surface (entity,
 // scene, input, ui, audio, time) so a script's onStart doesn't null-deref
 // before we've had a chance to exercise onUpdate. Browser-only error
@@ -845,7 +991,7 @@ const path = require('path');
 class GameScript {
     constructor() {
         this.entity = { id: 0, name: '', active: true, tags: new Set(), transform: { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 }, lookAt() {}, setRotationEuler() {} }, getComponent() { return null; }, playAnimation() {}, setActive() {}, setMaterialColor() {}, addTag() {}, removeTag() {}, getScript() { return null; } };
-        this.scene = { events: { game: { on() {}, emit() {} }, ui: { on() {}, emit() {} } }, findEntityByName() { return null; }, findEntitiesByName() { return []; }, findEntitiesByTag() { return []; }, setPosition() {}, setScale() {}, setRotationEuler() {}, setVelocity() {}, destroyEntity() {}, createEntity() { return 0; }, spawnEntity() { return null; }, raycast() { return null; }, screenRaycast() { return null; }, screenPointToGround() { return null; }, getAllEntities() { return []; }, setFog() {}, setTimeOfDay() {}, loadScene() {}, saveData() {}, loadData() { return null; }, deleteData() {}, listSaveKeys() { return []; }, getTerrainHeight() { return 0; }, getTerrainNormal() { return { x: 0, y: 1, z: 0 }; }, _fpsYaw: 0, _tpYaw: 0, reloadScene() {} };
+        this.scene = { events: { game: { on() {}, emit() {} }, ui: { on() {}, emit() {} } }, findEntityByName() { return null; }, findEntitiesByName() { return []; }, findEntitiesByTag() { return []; }, setPosition() {}, setScale() {}, setRotationEuler() {}, setVelocity() {}, destroyEntity() {}, createEntity() { return 0; }, spawnEntity() { return null; }, addComponent() { return null; }, removeComponent() {}, raycast() { return null; }, screenRaycast() { return null; }, screenPointToGround() { return null; }, getAllEntities() { return []; }, setFog() {}, setTimeOfDay() {}, loadScene() {}, saveData() {}, loadData() { return null; }, deleteData() {}, listSaveKeys() { return []; }, getTerrainHeight() { return 0; }, getTerrainNormal() { return { x: 0, y: 1, z: 0 }; }, _fpsYaw: 0, _tpYaw: 0, reloadScene() {} };
         this.input = { isKeyDown() { return false; }, isKeyJustPressed() { return false; }, isKeyPressed() { return false; }, isKeyJustReleased() { return false; }, isKeyReleased() { return false; }, isMouseButtonDown() { return false; }, isMouseButtonJustPressed() { return false; }, isMouseButtonJustReleased() { return false; }, getMousePosition() { return { x: 0, y: 0 }; }, getMouseX() { return 0; }, getMouseY() { return 0; }, getMouseDelta() { return { x: 0, y: 0 }; }, getMouseDeltaX() { return 0; }, getMouseDeltaY() { return 0; }, getScrollDelta() { return { x: 0, y: 0 }; }, getModifiers() { return {}; }, getGamepadAxis() { return 0; }, isGamepadButtonDown() { return false; }, requestPointerLock() {}, exitPointerLock() {}, isPointerLocked() { return false; } };
         this.ui = { createText() { return { text: '', remove() {}, x: 0, y: 0 }; }, createPanel() { return { remove() {} }; }, createButton() { return { remove() {} }; }, createImage() { return { remove() {} }; }, sendState() {} };
         this.audio = { playSound() {}, playMusic() {}, stopMusic() {}, setGroupVolume() {}, getGroupVolume() { return 1; }, preload() {} };

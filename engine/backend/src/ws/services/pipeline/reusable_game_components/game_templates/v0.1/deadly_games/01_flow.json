@@ -18,15 +18,15 @@
       "description": "Title screen",
       "on_enter": ["show_ui:main_menu", "show_cursor"],
       "on_exit": ["hide_ui:main_menu", "hide_cursor"],
-      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing" }]
+      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing", "actions": ["emit:game.game_ready"] }]
     },
     "playing": {
       "description": "Deadly elimination games — survive 3 rounds",
       "active_systems": ["deadly_games"],
       "active_behaviors": ["deadly_player", "camera_deadly"],
       "on_enter": [
-        "emit:game.game_ready",
         "show_ui:hud/deadly_hud",
+        "hide_cursor",
         "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
       ],
       "transitions": [

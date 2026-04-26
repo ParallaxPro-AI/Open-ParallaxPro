@@ -17,6 +17,7 @@ class MeleeCombatBehavior extends GameScript {
     }
 
     _attack() {
+        if (this.entity.playAnimation) this.entity.playAnimation("Attack", { loop: false });
         var pos = this.entity.transform.position;
         var yaw = (this.scene._fpsYaw || 0) * Math.PI / 180;
         var dirX = Math.sin(yaw);

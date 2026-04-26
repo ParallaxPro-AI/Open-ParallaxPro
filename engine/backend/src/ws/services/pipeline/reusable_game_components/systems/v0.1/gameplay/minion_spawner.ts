@@ -14,10 +14,34 @@ class MinionSpawnerSystem extends GameScript {
         this._started = true;
 
         var self = this;
-        this.scene.events.game.on("game_ready", function() {
+        var resetFn = function() {
+            // Despawn leftover minions from the previous match so they
+            // don't pile up over Play Again cycles. spawnEntity always
+            // creates a fresh instance, but the dead inactive minions
+            // are still in the scene unless we destroy them.
+            var blueLeft = self.scene.findEntitiesByTag && self.scene.findEntitiesByTag("blue_team");
+            var redLeft = self.scene.findEntitiesByTag && self.scene.findEntitiesByTag("red_team");
+            var leftover = [].concat(blueLeft || []).concat(redLeft || []);
+            for (var i = 0; i < leftover.length; i++) {
+                var e = leftover[i];
+                if (!e || !e.tags) continue;
+                var isMinion = false;
+                for (var t = 0; t < e.tags.length; t++) {
+                    if (e.tags[t] === "minion") { isMinion = true; break; }
+                }
+                if (isMinion && self.scene.destroyEntity) {
+                    self.scene.destroyEntity(e.id);
+                }
+            }
             self._spawnTimer = self._firstWaveDelay;
             self._waveCount = 0;
-        });
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        // Without the restart_game listener the moba flow's Play Again
+        // (game_over → playing emits game.restart_game only) left the
+        // spawner with whatever timer/wave state the previous match
+        // ended on, and dead minions from that match piled up.
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     onUpdate(dt) {

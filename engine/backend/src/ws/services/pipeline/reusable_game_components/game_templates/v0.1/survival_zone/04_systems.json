@@ -1,5 +1,18 @@
 {
   "systems": {
+    "entity_health_bars": {
+      "description": "Red HP bar over every active enemy AI in the battle royale so the player can read combat at a glance. Player HP is in the health panel; allies are off (single-player vs AI bots).",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["player"],
+        "enemyTags": ["enemy"],
+        "showAllies": false,
+        "defaultMax": 100,
+        "hpOverrides": {},
+        "heightAbove": 1.5,
+        "occlusionCheck": true
+      }
+    },
     "zone_system": {
       "description": "Shrinking safe zone — damages entities outside the ring",
       "script": "gameplay/zone_system.ts",

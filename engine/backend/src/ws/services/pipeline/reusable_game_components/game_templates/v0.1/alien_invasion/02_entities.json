@@ -134,7 +134,7 @@
       "physics": false,
       "tags": [
         "wall",
-        "decor"
+        "decoration_only"
       ],
       "label": false
     },
