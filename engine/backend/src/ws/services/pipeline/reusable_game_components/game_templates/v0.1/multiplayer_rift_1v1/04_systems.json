@@ -34,6 +34,23 @@
         "towerGoldReward": 150,
         "nexusHp": 1500
       }
+    },
+    "entity_health_bars": {
+      "description": "Floating world-anchored HP bars above champions, minions, towers, and the nexus.",
+      "script": "gameplay/entity_health_bars.ts",
+      "params": {
+        "allyTags": ["champion", "rift_minion", "rift_tower", "rift_nexus"],
+        "enemyTags": ["champion", "rift_minion", "rift_tower", "rift_nexus"],
+        "showAllies": true,
+        "defaultMax": 100,
+        "hpOverrides": {
+          "champion": 520,
+          "rift_minion": 120,
+          "rift_tower": 900,
+          "rift_nexus": 1500
+        },
+        "heightAbove": 2.6
+      }
     }
   }
 }

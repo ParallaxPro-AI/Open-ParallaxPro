@@ -393,12 +393,17 @@ class Rift1v1GameSystem extends GameScript {
     _spawnTowersAndNexuses() {
         var self = this;
         function spawnTower(team, pos) {
+            // Kenney tower-defense round-tower model. Native scale ~ a
+            // single tile (~1m), so sy=4 makes it lane-visible. Team
+            // tint runs through baseColor + emissive so blue/red still
+            // reads at a glance.
             var ent = self._spawnPrim("Tower_" + team + "_" + pos.z, "cylinder", {
-                x: pos.x, y: 2, z: pos.z,
-                sx: 2.2, sy: 4, sz: 2.2,
-                color: team === "blue" ? [0.3, 0.55, 1.0, 1] : [1.0, 0.35, 0.35, 1],
-                emissive: team === "blue" ? [0.25, 0.5, 1.0] : [1.0, 0.3, 0.3],
-                emissiveIntensity: 1.4,
+                x: pos.x, y: 0, z: pos.z,
+                sx: 3.0, sy: 4.0, sz: 3.0,
+                meshAsset: "/assets/kenney/3d_models/tower_defense_kit/tower-round-top-a.glb",
+                color: team === "blue" ? [0.55, 0.7, 1.0, 1] : [1.0, 0.55, 0.55, 1],
+                emissive: team === "blue" ? [0.2, 0.4, 0.9] : [0.9, 0.25, 0.25],
+                emissiveIntensity: 0.9,
                 tag: "rift_tower",
             });
             self._towers.push({
@@ -412,21 +417,25 @@ class Rift1v1GameSystem extends GameScript {
         var redT = this._towerPositions.red;
         for (var j = 0; j < redT.length; j++) spawnTower("red",  redT[j]);
 
-        // Nexuses.
+        // Nexuses — Kenney tower-defense large crystal as the "core to
+        // destroy". Floats slightly off the base plate so the team-tint
+        // emissive reads as a glowing power source.
         var bn = this._nexusPositions.blue;
         var nexusBlue = this._spawnPrim("Nexus_blue", "cube", {
-            x: bn.x, y: 2.6, z: bn.z,
-            sx: 4.2, sy: 5, sz: 4.2,
-            color: [0.35, 0.6, 1.0, 1],
+            x: bn.x, y: 1.6, z: bn.z,
+            sx: 3.5, sy: 3.5, sz: 3.5,
+            meshAsset: "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
+            color: [0.5, 0.75, 1.0, 1],
             emissive: [0.3, 0.6, 1.0],
             emissiveIntensity: 2.2,
             tag: "rift_nexus",
         });
         var rn = this._nexusPositions.red;
         var nexusRed = this._spawnPrim("Nexus_red", "cube", {
-            x: rn.x, y: 2.6, z: rn.z,
-            sx: 4.2, sy: 5, sz: 4.2,
-            color: [1.0, 0.4, 0.4, 1],
+            x: rn.x, y: 1.6, z: rn.z,
+            sx: 3.5, sy: 3.5, sz: 3.5,
+            meshAsset: "/assets/kenney/3d_models/tower_defense_kit/detail-crystal-large.glb",
+            color: [1.0, 0.55, 0.5, 1],
             emissive: [1.0, 0.35, 0.35],
             emissiveIntensity: 2.2,
             tag: "rift_nexus",
@@ -466,12 +475,16 @@ class Rift1v1GameSystem extends GameScript {
 
     _applyMinionSpawn(d) {
         if (!d.minionId) return;
+        // Quaternius pirate-kit Skeleton — small humanoid that reads as
+        // a creep when scaled down a touch. Team tint via baseColor +
+        // a soft emissive halo so blue/red sides stay distinguishable.
         var ent = this._spawnPrim("Minion_" + d.minionId, "cube", {
-            x: d.x || 0, y: 0.8, z: d.z || 0,
-            sx: 0.9, sy: 1.6, sz: 0.9,
-            color: d.team === "blue" ? [0.4, 0.7, 1.0, 1] : [1.0, 0.5, 0.45, 1],
-            emissive: d.team === "blue" ? [0.3, 0.55, 0.9] : [1.0, 0.45, 0.4],
-            emissiveIntensity: 0.7,
+            x: d.x || 0, y: 0, z: d.z || 0,
+            sx: 0.85, sy: 0.85, sz: 0.85,
+            meshAsset: "/assets/quaternius/3d_models/pirate_kit/Characters_Skeleton.glb",
+            color: d.team === "blue" ? [0.55, 0.75, 1.0, 1] : [1.0, 0.55, 0.5, 1],
+            emissive: d.team === "blue" ? [0.2, 0.35, 0.7] : [0.8, 0.25, 0.2],
+            emissiveIntensity: 0.45,
             tag: "rift_minion",
         });
         if (!ent) return;
@@ -767,6 +780,11 @@ class Rift1v1GameSystem extends GameScript {
                 var m = this._minions[i];
                 if (m && m.id === mid) {
                     m.hp -= damage;
+                    if (m.ent) {
+                        this.scene.events.game.emit("entity_damaged", {
+                            targetId: m.ent.id, damage: damage,
+                        });
+                    }
                     if (m.hp <= 0) {
                         this._broadcastMinionDespawn(mid);
                         this._despawnMinion(mid);
@@ -786,6 +804,11 @@ class Rift1v1GameSystem extends GameScript {
             var t = this._towers[ti];
             if (t && t.hp > 0) {
                 t.hp -= damage;
+                if (t.ent) {
+                    this.scene.events.game.emit("entity_damaged", {
+                        targetId: t.ent.id, damage: damage,
+                    });
+                }
                 if (t.hp <= 0) {
                     // Award gold to killer's team if champion-attributable.
                     if (attackerKey && this._teams[attackerKey]) {
@@ -803,6 +826,11 @@ class Rift1v1GameSystem extends GameScript {
             var nexus = this._nexuses[nt];
             if (nexus && nexus.hp > 0) {
                 nexus.hp = Math.max(0, nexus.hp - damage);
+                if (nexus.ent) {
+                    this.scene.events.game.emit("entity_damaged", {
+                        targetId: nexus.ent.id, damage: damage,
+                    });
+                }
                 if (nexus.hp <= 0 && nexus.ent) {
                     if (this.scene.destroyEntity) this.scene.destroyEntity(nexus.ent.id);
                     nexus.ent = null;
@@ -862,6 +890,10 @@ class Rift1v1GameSystem extends GameScript {
                     this.scene.setPosition(ent.id, spawn.x, spawn.y, spawn.z);
                     ent.transform.markDirty && ent.transform.markDirty();
                 }
+                // Refresh the champion's floating bar so it doesn't stay
+                // empty after respawn — entity_health_bars refills any
+                // row whose current<=0 when this fires.
+                this.scene.events.game.emit("player_respawned", { peerId: key });
             }
         }
     }
@@ -1229,6 +1261,17 @@ class Rift1v1GameSystem extends GameScript {
         // the periodic state sync.
         if (d.targetKey && this._hp[d.targetKey] !== undefined && typeof d.hp === "number") {
             this._hp[d.targetKey] = d.hp;
+            // Drive entity_health_bars on every peer (host self-receives
+            // via _broadcastDamagePing; non-host receives via
+            // net_rift_damage) — the generic bar system only updates its
+            // row when entity_damaged fires, so without this the
+            // floating champion HP bars never tick down.
+            var ent = this._findChampionByKey(d.targetKey);
+            if (ent) {
+                this.scene.events.game.emit("entity_damaged", {
+                    targetId: ent.id, damage: d.damage || 0,
+                });
+            }
         }
         // Play a soft hit sfx.
         if (this.audio) this.audio.playSound("/assets/kenney/audio/impact_sounds/impactMetal_light_002.ogg", 0.25);
@@ -1375,12 +1418,18 @@ class Rift1v1GameSystem extends GameScript {
         if (id == null) return null;
         scene.setPosition && scene.setPosition(id, cfg.x || 0, cfg.y || 0, cfg.z || 0);
         scene.setScale && scene.setScale(id, cfg.sx || 1, cfg.sy || 1, cfg.sz || 1);
-        scene.addComponent(id, "MeshRendererComponent", {
-            meshType: meshType,
+        var meshData = {
+            meshType: cfg.meshAsset ? "custom" : meshType,
             baseColor: cfg.color || [0.6, 0.6, 0.6, 1],
             emissive: cfg.emissive || [0, 0, 0],
             emissiveIntensity: cfg.emissiveIntensity || 0,
-        });
+        };
+        // Custom GLB path: meshType becomes "custom" + meshAsset string,
+        // and the engine still respects the baseColor/emissive overrides
+        // we pass for team tinting (verified in cellar_purge / liminal_loop
+        // which use the same runtime addComponent + custom mesh pattern).
+        if (cfg.meshAsset) meshData.meshAsset = cfg.meshAsset;
+        scene.addComponent(id, "MeshRendererComponent", meshData);
         if (cfg.tag && scene.addTag) scene.addTag(id, cfg.tag);
         return scene.findEntityByName && scene.findEntityByName(name);
     }

@@ -125,7 +125,8 @@
       "description": "Match \u2014 mid lane, two towers, destroy the nexus",
       "active_systems": [
         "mp_bridge",
-        "rift_1v1_game"
+        "rift_1v1_game",
+        "entity_health_bars"
       ],
       "active_behaviors": [
         "player_moba_champion",
@@ -135,11 +136,13 @@
         "show_ui:hud/voice_chat",
         "show_ui:hud/ping",
         "show_ui:hud/rift_hud",
+        "show_ui:hud/entity_health_bars",
         "show_cursor"
       ],
       "on_exit": [
         "hide_ui:hud/ping",
-        "hide_ui:hud/rift_hud"
+        "hide_ui:hud/rift_hud",
+        "hide_ui:hud/entity_health_bars"
       ],
       "transitions": [
         {
