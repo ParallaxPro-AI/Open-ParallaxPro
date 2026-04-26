@@ -35,6 +35,18 @@ class ShipHealthBehavior extends GameScript {
             if (!data || data.entityId !== self.entity.id) return;
             self._applyDamage(data.amount || 10, "");
         });
+        // Cross-peer damage: cannon_broadside / ghost_ship / sea_monster
+        // broadcast player_shot when a hit lands on a remote ship. The
+        // proxy on the shooter's machine has no hull to apply to — the
+        // victim's own peer owns the hull and applies the damage here.
+        this.scene.events.game.on("net_player_shot", function(evt) {
+            if (self._sunk) return;
+            var d = (evt && evt.data) || {};
+            var mp = self.scene._mp;
+            if (!mp) return;
+            if (d.targetPeerId !== mp.localPeerId) return;
+            self._applyDamage(Number(d.damage) || 10, d.shooterPeerId || "");
+        });
         this.scene.events.game.on("match_started", function() {
             self._hull = self._maxHull;
             self._sunk = false;

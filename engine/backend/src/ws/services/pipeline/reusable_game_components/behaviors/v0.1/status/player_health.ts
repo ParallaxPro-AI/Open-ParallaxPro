@@ -29,6 +29,18 @@ class PlayerHealthBehavior extends GameScript {
             if (data.entityId !== self.entity.id) return;
             self._applyDamage(data.amount || 10, "");
         });
+        // Cross-peer damage: fps_combat broadcasts player_shot when its
+        // raycast hits a remote player proxy. The proxy on the shooter's
+        // machine has no health to apply to — the victim's own peer owns
+        // their hull and applies the damage here.
+        this.scene.events.game.on("net_player_shot", function(evt) {
+            if (self._dead) return;
+            var d = (evt && evt.data) || {};
+            var mp = self.scene._mp;
+            if (!mp) return;
+            if (d.targetPeerId !== mp.localPeerId) return;
+            self._applyDamage(Number(d.damage) || 10, d.shooterPeerId || "");
+        });
         var revive = function() {
             self._health = self._maxHealth;
             self._dead = false;
