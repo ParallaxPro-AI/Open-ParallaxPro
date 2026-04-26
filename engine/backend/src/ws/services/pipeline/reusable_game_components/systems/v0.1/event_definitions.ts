@@ -122,7 +122,7 @@ var GAME_EVENTS = {
     npc_interaction:    { fields: { npcId: { type: 'number', optional: true } } },
 
     // ── Camera ──
-    set_camera_yaw:     { fields: { yaw: { type: 'number' } } },
+    set_camera_yaw:     { fields: { yaw: { type: 'number' }, pitch: { type: 'number', optional: true } } },
 
     // ── Cards ──
     card_played:        { fields: { card: { type: 'string', optional: true } } },
