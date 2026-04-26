@@ -100,12 +100,20 @@ class BikeChaseCameraBehavior extends GameScript {
     _readYawDeg(entity) {
         // scriptTransform has no getRotationEuler, so derive yaw from the
         // rotation quaternion. Assumes yaw-dominant rotations (no real
-        // pitch/roll on a bike).
+        // pitch/roll on a bike). The bike entity's rotation carries a
+        // +180 visual offset versus logical motion yaw (see
+        // bike_player_control); subtract it back out so this fallback
+        // returns the same convention the entry.yawDeg primary path uses.
+        // Without the offset the camera lands on +motion side (in front
+        // of the bike) whenever the registry lookup misses.
         if (!entity.transform) return 0;
         var q = entity.transform.rotation;
         if (!q) return 0;
         var qx = q.x || 0, qy = q.y || 0, qz = q.z || 0, qw = q.w != null ? q.w : 1;
         var yawRad = Math.atan2(2 * (qw * qy + qx * qz), 1 - 2 * (qy * qy + qx * qx));
-        return yawRad * 180 / Math.PI;
+        var deg = yawRad * 180 / Math.PI - 180;
+        if (deg > 180) deg -= 360;
+        else if (deg < -180) deg += 360;
+        return deg;
     }
 }
