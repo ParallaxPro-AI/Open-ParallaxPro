@@ -93,7 +93,10 @@ class PlayerShooterMovementBehavior extends GameScript {
         // Yaw chases the aim direction smoothly so the character model
         // doesn't snap. Uses the same dYaw-wrap logic as other behaviors.
         if (aim) {
-            var targetYaw = Math.atan2(aim.dx, -aim.dz);
+            // Engine yaw is CCW-from-above (rpg_movement convention);
+            // atan2(aim.dx, -aim.dz) was 180° off on the strafe axis,
+            // so the player faced opposite of mouse-aim left/right.
+            var targetYaw = Math.atan2(-aim.dx, -aim.dz);
             var curYaw = this.entity.transform.getRotationEuler
                 ? this.entity.transform.getRotationEuler().y
                 : 0;
