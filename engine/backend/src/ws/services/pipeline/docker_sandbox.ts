@@ -173,25 +173,17 @@ export function wrapSpawn(
         // match the host paths cli_fixer expects to read.
         '-v', `${sandboxDir}:${sandboxDir}`,
         '-w', sandboxDir,
+        // Engine source bind-mounted RO so the image's `/usr/local/bin/playtest`
+        // wrapper can run the headless cli against the live source. The cli
+        // imports from engine/frontend and engine/backend (see headless/src/
+        // runtime.ts), so the whole engine/ tree must be visible — narrowing
+        // to headless/+shared/+node_modules broke playtest bootstrap with
+        // ERR_MODULE_NOT_FOUND on register_components.js. RO blocks a
+        // misbehaving CLI from mutating shared code; the playtest only needs
+        // to READ. Agents are nudged in CREATOR_CONTEXT.md / FIXER_CONTEXT.md
+        // not to read files under this path.
+        '-v', `${ENGINE_DIR_HOST}:${ENGINE_MOUNT}:ro`,
     ];
-
-    // Engine source bind-mounted RO so the image's `/usr/local/bin/playtest`
-    // wrapper can run the headless cli against the live source. We only mount
-    // the subpaths the wrapper needs — headless/ (the cli), shared/ (imported
-    // by headless), node_modules/ (where Node walks up to find
-    // @dimforge/rapier3d-compat), and the engine root package.json. Mounting
-    // the whole engine/ tree would also expose engine/frontend + engine/backend,
-    // which are large and grep-tempting; past runs hit a tricky playtest
-    // failure and burned 50+ turns spelunking those internals instead of using
-    // library.sh patterns. RO blocks a misbehaving CLI from mutating shared
-    // code; the playtest only needs to READ.
-    const PLAYTEST_MOUNTS = ['headless', 'shared', 'node_modules', 'package.json'];
-    for (const sub of PLAYTEST_MOUNTS) {
-        const src = path.join(ENGINE_DIR_HOST, sub);
-        if (fs.existsSync(src)) {
-            dockerArgs.push('-v', `${src}:${ENGINE_MOUNT}/${sub}:ro`);
-        }
-    }
 
     // The container has no /home/<user> baked in, so docker auto-creates it
     // (and any intermediate dirs like ~/.local, ~/.config) as root when we
