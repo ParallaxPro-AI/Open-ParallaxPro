@@ -29,21 +29,19 @@
       "tags": [
         "ground"
       ],
-      "label": false
+      "label": false,
+      "mesh_override": {
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+      }
     },
     "wall_block": {
       "mesh": {
-        "type": "cube",
-        "color": [
-          0.35,
-          0.35,
-          0.42,
-          1
-        ],
+        "type": "custom",
+        "asset": "/assets/kenney/3d_models/pirate_kit/crate.glb",
         "scale": [
-          2,
-          2,
-          2
+          1.5,
+          1.5,
+          1.5
         ]
       },
       "physics": {
@@ -51,26 +49,39 @@
         "collider": {
           "shape": "cuboid",
           "halfExtents": [
-            0.5,
-            0.5,
-            0.5
+            1.05,
+            1.05,
+            1.05
           ]
         }
       },
       "tags": [
         "wall",
         "obstacle"
-      ]
+      ],
+      "label": false
+    },
+    "coin": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Coin.glb",
+        "scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "physics": false,
+      "tags": [
+        "coin",
+        "no_collide"
+      ],
+      "label": false
     },
     "player": {
       "mesh": {
-        "type": "capsule",
-        "color": [
-          0.9,
-          0.35,
-          0.35,
-          1
-        ],
+        "type": "custom",
+        "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Knight_Male.glb",
         "scale": [
           1,
           1,
@@ -99,6 +110,7 @@
         "player",
         "networked"
       ],
+      "label": false,
       "behaviors": [
         {
           "name": "player_arena_movement",
