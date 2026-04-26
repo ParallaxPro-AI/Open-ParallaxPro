@@ -17,11 +17,13 @@ class PoliceAIBehavior extends GameScript {
     _startX = 0;
     _startZ = 0;
     _despawnTimer = null;
+    _spawnY = 0;
 
     onStart() {
         var pos = this.entity.transform.position;
         this._startX = pos.x;
         this._startZ = pos.z;
+        this._spawnY = pos.y;
         this._patrolDir = Math.random() < 0.5 ? 1 : -1;
 
         var self = this;
@@ -44,6 +46,24 @@ class PoliceAIBehavior extends GameScript {
         });
 
         this._playAnim("Idle");
+
+        // Reset on Play Again. Without this, dead cops stay deactivated
+        // for the entire next match.
+        var resetFn = function() {
+            if (self._despawnTimer) { clearTimeout(self._despawnTimer); self._despawnTimer = null; }
+            self._dead = false;
+            self._health = self._maxHealth;
+            self._patrolTimer = 0;
+            self._currentAnim = "";
+            self.entity.active = true;
+            if (self.scene.setPosition) {
+                self.scene.setPosition(self.entity.id, self._startX, self._spawnY, self._startZ);
+            }
+            self._playAnim("Idle");
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     onUpdate(dt) {

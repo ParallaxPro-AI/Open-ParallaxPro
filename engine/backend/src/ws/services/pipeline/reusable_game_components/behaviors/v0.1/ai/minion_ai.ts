@@ -26,6 +26,7 @@ class MinionAIBehavior extends GameScript {
         }
 
         var self = this;
+        this._spawnHealth = this._health;
         this.scene.events.game.on("entity_damaged", function(data) {
             if (data.entityId !== self.entity.id || self._dead) return;
             self._health -= data.amount || 0;
@@ -39,7 +40,22 @@ class MinionAIBehavior extends GameScript {
                 setTimeout(function() { self.entity.active = false; }, 500);
             }
         });
+
+        // Reset on Play Again. minion_spawner destroys leftover minions
+        // on restart_game, but if a minion happened to survive to the
+        // game_over moment its state would carry into the next match.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._spawnHealth;
+            self._attackCooldown = 0;
+            self.entity.active = true;
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
+
+    _spawnHealth = 0;
 
     onUpdate(dt) {
         if (this._dead) return;

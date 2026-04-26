@@ -54,6 +54,19 @@ class SeaMonsterBehavior extends GameScript {
                 self.scene.events.game.emit("entity_killed", { entityId: self.entity.id });
             }
         });
+
+        // Reset on Play Again — without this, killed sea monsters stay
+        // dead and never re-emerge in the second match.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._maxHealth;
+            self._state = "hidden";
+            self.entity.active = true;
+            if (self.scene.setPosition) self.scene.setPosition(self.entity.id, self._baseX, self._hiddenY, self._baseZ);
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     onUpdate(dt) {

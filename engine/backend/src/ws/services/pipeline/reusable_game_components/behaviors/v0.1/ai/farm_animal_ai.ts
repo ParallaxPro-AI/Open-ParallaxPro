@@ -6,16 +6,29 @@ class FarmAnimalAIBehavior extends GameScript {
     _wanderRadius = 8;
     _health = 20;
     _targetX = 0; _targetZ = 0; _moveTimer = 0; _startX = 0; _startZ = 0; _dead = false;
+    _spawnY = 0; _spawnHealth = 0;
 
     onStart() {
         var p = this.entity.transform.position;
-        this._startX = p.x; this._startZ = p.z; this._pickTarget();
+        this._startX = p.x; this._startZ = p.z; this._spawnY = p.y; this._spawnHealth = this._health;
+        this._pickTarget();
         var self = this;
         this.scene.events.game.on("entity_damaged", function(d) {
             if (d.targetId !== self.entity.id) return;
             self._health -= d.damage || 0;
             if (self._health <= 0) { self._dead = true; self.entity.active = false; self.scene.events.game.emit("entity_killed", { entityId: self.entity.id }); }
         });
+        // Reset on Play Again — slaughtered farm animals stay dead permanently otherwise.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._spawnHealth;
+            self.entity.active = true;
+            if (self.scene.setPosition) self.scene.setPosition(self.entity.id, self._startX, self._spawnY, self._startZ);
+            self._pickTarget();
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     _pickTarget() { this._targetX = this._startX + (Math.random()-0.5)*this._wanderRadius*2; this._targetZ = this._startZ + (Math.random()-0.5)*this._wanderRadius*2; this._moveTimer = 3+Math.random()*5; }

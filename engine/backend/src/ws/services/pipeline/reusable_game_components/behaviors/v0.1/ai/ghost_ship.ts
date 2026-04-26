@@ -35,10 +35,13 @@ class GhostShipBehavior extends GameScript {
     _baseZ = 0;
     _bobPhase = 0;
 
+    _spawnY = 0;
+
     onStart() {
         var pos = this.entity.transform && this.entity.transform.position;
         this._baseX = pos ? pos.x : 0;
         this._baseZ = pos ? pos.z : 0;
+        this._spawnY = pos ? pos.y : 0;
         this._wanderTargetX = this._baseX;
         this._wanderTargetZ = this._baseZ;
         this._bobPhase = Math.random() * Math.PI * 2;
@@ -57,6 +60,19 @@ class GhostShipBehavior extends GameScript {
                 self.scene.events.game.emit("entity_killed", { entityId: self.entity.id });
             }
         });
+
+        // Reset on Play Again — without this, sunk ships stay sunk.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._maxHealth;
+            self._wanderTargetX = self._baseX;
+            self._wanderTargetZ = self._baseZ;
+            self.entity.active = true;
+            if (self.scene.setPosition) self.scene.setPosition(self.entity.id, self._baseX, self._spawnY, self._baseZ);
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     onUpdate(dt) {

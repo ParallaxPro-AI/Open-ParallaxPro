@@ -21,10 +21,14 @@ class HostileAIBehavior extends GameScript {
     _startZ = 0;
     _currentAnim = "";
 
+    _spawnY = 0; _spawnHealth = 0;
+
     onStart() {
         var pos = this.entity.transform.position;
         this._startX = pos.x;
         this._startZ = pos.z;
+        this._spawnY = pos.y;
+        this._spawnHealth = this._health;
         this._pickPatrol();
 
         var self = this;
@@ -38,6 +42,24 @@ class HostileAIBehavior extends GameScript {
                 if (self.audio) self.audio.playSound("/assets/kenney/audio/impact_sounds/impactPunch_heavy_000.ogg", 0.4);
             }
         });
+
+        // Reset on Play Again. Without this, dead mobs stay deactivated
+        // and surviving mobs keep mid-match cooldowns/anim state.
+        var resetFn = function() {
+            self._dead = false;
+            self._health = self._spawnHealth;
+            self._cooldown = 0;
+            self._patrolTimer = 0;
+            self._currentAnim = "";
+            self.entity.active = true;
+            if (self.scene.setPosition) {
+                self.scene.setPosition(self.entity.id, self._startX, self._spawnY, self._startZ);
+            }
+            self._pickPatrol();
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     _pickPatrol() {

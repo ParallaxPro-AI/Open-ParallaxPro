@@ -15,11 +15,13 @@ class PedestrianAIBehavior extends GameScript {
     _startZ = 0;
     _despawnTimer = null;
     _hitResetTimer = null;
+    _spawnY = 0;
 
     onStart() {
         var pos = this.entity.transform.position;
         this._startX = pos.x;
         this._startZ = pos.z;
+        this._spawnY = pos.y;
         this._pickNewTarget(pos.x, pos.z);
         this._waitTimer = Math.random() * 2;
 
@@ -67,6 +69,27 @@ class PedestrianAIBehavior extends GameScript {
         });
 
         this._playAnim("Idle");
+
+        // Reset on Play Again. Without this, runover pedestrians stay
+        // dead permanently across replays.
+        var resetFn = function() {
+            if (self._despawnTimer) { clearTimeout(self._despawnTimer); self._despawnTimer = null; }
+            if (self._hitResetTimer) { clearTimeout(self._hitResetTimer); self._hitResetTimer = null; }
+            self._dead = false;
+            self._fleeing = false;
+            self._health = self._maxHealth;
+            self._waitTimer = Math.random() * 2;
+            self._currentAnim = "";
+            self.entity.active = true;
+            if (self.scene.setPosition) {
+                self.scene.setPosition(self.entity.id, self._startX, self._spawnY, self._startZ);
+            }
+            self._pickNewTarget(self._startX, self._startZ);
+            self._playAnim("Idle");
+        };
+        this.scene.events.game.on("game_ready", resetFn);
+        this.scene.events.game.on("match_started", resetFn);
+        this.scene.events.game.on("restart_game", resetFn);
     }
 
     _pickNewTarget(cx, cz) {
