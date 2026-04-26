@@ -413,17 +413,21 @@ if (eventData) {
 // because the spawnEntity call site looks like spawnEntity(def.entity)
 // or spawnEntity(type) with a variable.
 //
-// Three patterns checked, only inside scripts that actually call
+// Four patterns checked, only inside scripts that actually call
 // .spawnEntity(:
 //   a. .spawnEntity("X")               — direct literal arg
 //   b. entity: "X" / type: "X" / etc.  — data-table field values that
 //                                        flow into spawnEntity
 //   c. _*Stats = { X: { ... } }        — stat-table object keys that
 //                                        double as entity names
-// Heuristic guard for (b)+(c): only flag values that look like
-// snake_case entity keys (contain an underscore). Filters out generic
-// values like "shot", "ammo", "rotation" which use the same field
-// name conventions but aren't entity references.
+//   d. _spawn("X", ...)                — wrapper method that ultimately
+//                                        calls spawnEntity (the
+//                                        street_surfer regression).
+// Heuristic guard for (b)+(c)+(d): only flag values that look like
+// snake_case entity keys (contain an underscore) OR are 4+ chars all
+// lowercase. Filters out generic values like "shot", "ammo",
+// "rotation" which use the same field name conventions but aren't
+// entity references.
 (function() {
     var validPrefabs = new Set(Object.keys(defs));
     var spawnErrors = [];
@@ -470,6 +474,16 @@ if (eventData) {
                 if (!looksLikeEntityKey(k)) continue;
                 if (!seen.has('c:' + k)) { seen.add('c:' + k); flag(scriptKey, k, '_*Stats key'); }
             }
+        }
+        // (d) _spawn("X", ...) — wrapper-method literal calls. Many
+        // engines wrap spawnEntity in a helper that adds bookkeeping
+        // (street_surfer's surf_spawner._spawn pushes to an internal
+        // list). The literal-arg check at (a) misses these. We only
+        // run this in files that ALSO call .spawnEntity(, so we don't
+        // false-flag unrelated `_spawn` helpers in other contexts.
+        for (var dm of source.matchAll(/\b_spawn\s*\(\s*['"]([^'"]+)['"]/g)) {
+            var dv = dm[1];
+            if (!seen.has('d:' + dv)) { seen.add('d:' + dv); flag(scriptKey, dv, '_spawn wrapper literal'); }
         }
     }
     if (spawnErrors.length > 0) {
