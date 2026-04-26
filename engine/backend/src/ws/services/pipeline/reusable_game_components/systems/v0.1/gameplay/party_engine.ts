@@ -615,7 +615,7 @@ class PartyEngineSystem extends GameScript {
                 var mz = (dz / dist) * speed * dt;
                 this.scene.setPosition(this._players[i].id, pp.x + mx, pp.y, pp.z + mz);
                 // Face direction
-                this._players[i].transform.setRotationEuler(0, Math.atan2(dx, -dz) * 180 / Math.PI, 0);
+                this._players[i].transform.setRotationEuler(0, Math.atan2(-dx, dz) * 180 / Math.PI, 0);
                 this._setAnim(this._players[i], "Run");
             }
         }

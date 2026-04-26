@@ -318,7 +318,7 @@ class SoccerMatchSystem extends GameScript {
                     mx = Math.max(-52, Math.min(52, mx));
                     mz = Math.max(-32, Math.min(32, mz));
                     this.scene.setPosition(ai.entity.id, mx, 0, mz);
-                    ai.entity.transform.setRotationEuler(0, Math.atan2(cdx, -cdz) * 180 / Math.PI, 0);
+                    ai.entity.transform.setRotationEuler(0, Math.atan2(-cdx, cdz) * 180 / Math.PI, 0);
                     isMoving = true;
                 }
 
@@ -350,7 +350,7 @@ class SoccerMatchSystem extends GameScript {
                         0,
                         ap.z + (hz / hd) * driftSpeed * dt
                     );
-                    ai.entity.transform.setRotationEuler(0, Math.atan2(hx, -hz) * 180 / Math.PI, 0);
+                    ai.entity.transform.setRotationEuler(0, Math.atan2(-hx, hz) * 180 / Math.PI, 0);
                     isMoving = true;
                 }
             }

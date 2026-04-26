@@ -47,7 +47,9 @@ class PartyPlayerBehavior extends GameScript {
         // Animation and facing
         if (Math.abs(vx) > 0.5 || Math.abs(vz) > 0.5) {
             this._playAnim("Run");
-            var angle = Math.atan2(vx, -vz) * 180 / Math.PI;
+            // Negate both atan2 args — engine Y-rotation is CCW-from-above,
+            // so the unnegated form points 180° opposite the velocity vector.
+            var angle = Math.atan2(-vx, vz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, angle, 0);
         } else {
             this._playAnim("Idle");
