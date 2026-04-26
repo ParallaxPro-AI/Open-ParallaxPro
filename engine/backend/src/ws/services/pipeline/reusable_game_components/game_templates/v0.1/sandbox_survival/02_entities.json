@@ -4,6 +4,7 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/cube_world/Character_Male_1.glb",
+        "hideFromOwner": true,
         "scale": [
           1,
           1,
