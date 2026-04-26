@@ -731,9 +731,10 @@ if (eventData) {
 // ═════════════════════════════════════════════════════════════════════
 // Parse the asset catalogs (assets/3D_MODELS.md, assets/AUDIO.md,
 // assets/TEXTURES.md) that the sandbox seeder generates from the real
-// asset directory. Every path in an entity def's mesh.asset or a
-// script's playSound/playMusic must appear in the catalog, otherwise
-// the runtime will silently fail (invisible meshes, no audio).
+// asset directory. Every path in an entity def's mesh.asset, a
+// script's playSound/playMusic, OR a flow `play_sound:` action must
+// appear in the catalog, otherwise the runtime will silently fail
+// (invisible meshes, no audio).
 (function() {
     function parseCatalog(filename) {
         var catalogPath = path.join('assets', filename);
@@ -817,6 +818,30 @@ if (eventData) {
             } else if (!audioPaths.has(audioPath)) {
                 assetErrors.push(
                     scriptKey + ': audio asset "' + audioPath + '" not found in asset catalog. ' +
+                    'Check assets/AUDIO.md for available audio files.'
+                );
+            }
+        }
+    }
+
+    // Check audio references in flow file: `play_sound:/assets/...` action
+    // strings inside on_enter / on_exit / on_update / transition.actions.
+    // Without this, a typo like "interface_sounds/pepSound1.ogg" (real file
+    // is in digital_audio/) or "voiceover_pack/go.ogg" (real file is in the
+    // male/ or female/ subfolder) would silently fail at runtime — the
+    // racing/soccer/stumble_dash/tower_siege regression class.
+    if (flow) {
+        var flowText = JSON.stringify(flow);
+        for (var fm of flowText.matchAll(/play_sound:(\/assets\/[^"' ,]+)/g)) {
+            var fa = fm[1];
+            if (modelPaths.has(fa) || texturePaths.has(fa)) {
+                assetErrors.push(
+                    '01_flow.json: play_sound:"' + fa + '" is not an audio file. ' +
+                    'Audio actions must use .ogg/.mp3/.wav files from assets/AUDIO.md.'
+                );
+            } else if (!audioPaths.has(fa)) {
+                assetErrors.push(
+                    '01_flow.json: play_sound:"' + fa + '" not found in asset catalog. ' +
                     'Check assets/AUDIO.md for available audio files.'
                 );
             }
