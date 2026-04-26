@@ -147,6 +147,7 @@ function buildColliderData(shape: string, src: any): any {
     }
   }
   if (src?.center) data.center = { x: src.center.x ?? src.center[0] ?? 0, y: src.center.y ?? src.center[1] ?? 0, z: src.center.z ?? src.center[2] ?? 0 };
+  if (src?.disableAutoFit === true) data.disableAutoFit = true;
   return data;
 }
 

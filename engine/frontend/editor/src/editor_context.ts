@@ -1257,6 +1257,9 @@ export class EditorContext extends EventBus {
         if (!gpuMesh.boundMin || !gpuMesh.boundMax) return;
         const col = entity.getComponent('ColliderComponent') as any;
         if (!col) return;
+        // Authored opt-out: respect hand-tuned halfExtents that should be
+        // tighter than the visible-mesh AABB (e.g. tank chassis vs barrel).
+        if (col.disableAutoFit) return;
         const bMin = gpuMesh.boundMin, bMax = gpuMesh.boundMax;
         const minX = bMin.x ?? -0.5, minY = bMin.y ?? 0, minZ = bMin.z ?? -0.5;
         const maxX = bMax.x ?? 0.5, maxY = bMax.y ?? 1, maxZ = bMax.z ?? 0.5;
