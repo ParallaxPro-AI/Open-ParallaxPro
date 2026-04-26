@@ -885,13 +885,30 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         return;
       }
       const onEnter: string[] = Array.isArray(stateDef?.on_enter) ? stateDef.on_enter : [];
-      const opensUI = onEnter.some(op => typeof op === 'string' && /^show_ui:/.test(op));
+      const showUiTargets: string[] = onEnter
+        .filter((op): op is string => typeof op === 'string' && /^show_ui:/.test(op))
+        .map(op => op.replace(/^show_ui:/, '').trim());
       const ownShowCursor = onEnter.some(op => typeof op === 'string' && /^show_cursor\b/.test(op));
       const ownHideCursor = onEnter.some(op => typeof op === 'string' && /^hide_cursor\b/.test(op));
       const effectiveShowCursor = ownHideCursor ? false : (ownShowCursor || inheritedShowCursor);
       if (ownShowCursor || inheritedShowCursor) anyStateShowsCursor = true;
-      if (opensUI && !effectiveShowCursor && !ownHideCursor) {
-        cursorlessClickableStates.push({ state: stateName, reason: 'opens UI but no show_cursor in on_enter (or any ancestor)' });
+      // Tightened (2026-04-26): only flag when at least one of the
+      // opened panels actually has clickable elements. Info-only HUDs
+      // (score/health displays with no buttons) used to false-flag
+      // because `opensUI` was a blanket "any show_ui:" predicate.
+      if (showUiTargets.length > 0 && !effectiveShowCursor && !ownHideCursor) {
+        const uiHtmls: Record<string, string> = p.runtime.files.uiHtmls ?? {};
+        const panelHasClickable = (panelKey: string): boolean => {
+          const candidates = [panelKey, panelKey + '.html', 'ui/' + panelKey, 'ui/' + panelKey + '.html'];
+          for (const k of candidates) {
+            const html = uiHtmls[k];
+            if (typeof html === 'string' && /<button\b|onclick\s*=|role\s*=\s*["']button|cursor\s*:\s*pointer/i.test(html)) return true;
+          }
+          return false;
+        };
+        if (showUiTargets.some(t => panelHasClickable(t))) {
+          cursorlessClickableStates.push({ state: stateName, reason: 'opens an HTML panel with clickable elements (button / onclick / role=button / cursor:pointer) but no show_cursor in on_enter (or any ancestor)' });
+        }
       }
       for (const [sn, sd] of Object.entries<any>(stateDef?.substates ?? {})) {
         walkCursorStates(sn, sd, effectiveShowCursor);
@@ -1622,30 +1639,65 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     // listener is assumed live as long as the project includes mp_bridge.
     const TRANSPORT_EVENT_RE = /^(net_|mp_)/;
     const hasMpBridge = Object.keys(scripts).some(p => /mp_bridge/.test(p));
-    const deadListeners: Array<{ name: string; script: string }> = [];
-    const seen = new Set<string>();
+    // Per-instance script flattening: when a behavior is attached to N
+    // entities, the assembler emits N copies named like
+    // `scripts/<base>_<EntityName>(_<idx>)?.ts`. Without de-duping by
+    // base, a single dead listener gets reported as N — FPS run flagged
+    // 6 listeners that were really 1 listener × 6 drone instances. Strip
+    // the trailing entity-name + optional index segment to get the base.
+    const stripInstanceSuffix = (p: string) => {
+      // First split off directory + extension, then strip a trailing
+      // `_<word>(_<digits>)?` if anything remains. The base script name
+      // is what we keep — e.g. scripts/ai_drone_swarmer_Drone_Small_2.ts
+      // → ai_drone_swarmer.
+      const stem = p.replace(/^scripts\//, '').replace(/\.ts$/, '');
+      // Repeatedly peel off `_<token>` if the remaining stem still looks
+      // longer than a plain base name (heuristic: contains 2+ underscores
+      // means "<base>_<entityToken>"). Stop after 3 peels max.
+      let cur = stem;
+      for (let i = 0; i < 3; i++) {
+        const next = cur.replace(/_\d+$/, '').replace(/_[A-Za-z][A-Za-z0-9]*$/, '');
+        if (next === cur || next.length < 4) break;
+        cur = next;
+      }
+      return cur;
+    };
+    type DeadEntry = { name: string; script: string; instances: number };
+    const deadByKey = new Map<string, DeadEntry>();
     for (const [scriptPath, src] of Object.entries(scripts)) {
       if (TRANSPORT_RE.test(scriptPath)) continue;
       LISTEN_RE.lastIndex = 0;
       let m: RegExpExecArray | null;
+      const seenInThisScript = new Set<string>();
       while ((m = LISTEN_RE.exec(src)) !== null) {
         const evtName = m[1];
         if (emittedEvents.has(evtName)) continue;
         if (hasMpBridge && TRANSPORT_EVENT_RE.test(evtName)) continue;
-        const key = `${scriptPath}::${evtName}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deadListeners.push({ name: evtName, script: scriptPath });
+        if (seenInThisScript.has(evtName)) continue;
+        seenInThisScript.add(evtName);
+        const baseScript = stripInstanceSuffix(scriptPath);
+        const key = `${baseScript}::${evtName}`;
+        const existing = deadByKey.get(key);
+        if (existing) {
+          existing.instances += 1;
+        } else {
+          deadByKey.set(key, { name: evtName, script: scriptPath, instances: 1 });
+        }
       }
     }
+    const deadListeners = Array.from(deadByKey.values());
 
     if (deadListeners.length > 0) {
-      const first = deadListeners.slice(0, 5).map(d => `"${d.name}" in ${d.script}`).join(', ');
+      const fmt = (d: DeadEntry) =>
+        d.instances > 1
+          ? `"${d.name}" in ${d.script} (×${d.instances} instances of the same behavior)`
+          : `"${d.name}" in ${d.script}`;
+      const first = deadListeners.slice(0, 5).map(fmt).join(', ');
       const more = deadListeners.length > 5 ? ` (+${deadListeners.length - 5} more)` : '';
       results.push({
         name: 'behavior_listens_for_unemitted_event',
         failure: new PlaytestFailure('dead_listener',
-          `${deadListeners.length} script listener${deadListeners.length > 1 ? 's' : ''} registered for game events nothing emits: ${first}${more}. Three valid resolutions: (1) DELETE the listener if it's residue from a copied template/library that this game doesn't need; (2) rename the listener to match an event that IS emitted (grep "emit:game." in 01_flow.json and "events.game.emit" in other scripts for the canonical name — most commonly "restart_game" for play-again resets); (3) add the emit from a flow transition or system where the event should originate. Silent no-op listeners are the #1 cause of "works first time but not after replay" bugs.`,
+          `${deadListeners.length} unique dead listener${deadListeners.length > 1 ? 's' : ''} registered for game events nothing emits: ${first}${more}. Three valid resolutions: (1) DELETE the listener if it's residue from a copied template/library that this game doesn't need; (2) rename the listener to match an event that IS emitted (grep "emit:game." in 01_flow.json and "events.game.emit" in other scripts for the canonical name — most commonly "restart_game" for play-again resets); (3) add the emit from a flow transition or system where the event should originate. Silent no-op listeners are the #1 cause of "works first time but not after replay" bugs.`,
           { deadListeners }),
       });
     } else {

@@ -928,8 +928,10 @@ function stripCommentsForScan(src) {
             tagErrors.push(
                 scriptKey + ': findEntitiesByTag("' + tag + '") will always return [] — ' +
                 'no entity in 02_entities.json carries tag "' + tag + '", no script calls addTag(_, "' + tag + '"), ' +
-                'and no spawnEntity target prefab carries it. Either tag the relevant entities, addTag at runtime, ' +
-                'or fix the literal in this lookup.'
+                'and no spawnEntity target prefab carries it. Three valid resolutions: ' +
+                '(1) DELETE the lookup if it\'s residue from a copied template/library that doesn\'t apply to this game; ' +
+                '(2) tag the relevant entities (or addTag at runtime, or spawn a prefab carrying the tag); ' +
+                '(3) fix the literal if you typoed.'
             );
         }
     }
@@ -1029,9 +1031,11 @@ function stripCommentsForScan(src) {
                 : '';
             nameErrors.push(
                 scriptKey + ': findEntityByName("' + lookup + '") will always return null — ' +
-                'no entity is registered under that name. Runtime entity names are derived by title-casing the ' +
-                '02_entities.json def key (e.g. "player_car" → "Player Car"), or by an explicit `name` field on ' +
-                'a 03_worlds.json placement.' + hint
+                'no entity is registered under that name. Three valid resolutions: ' +
+                '(1) DELETE the lookup if it\'s residue from a copied template/library that doesn\'t apply to this game; ' +
+                '(2) place an entity with this name in 03_worlds.json (runtime entity names are derived by title-casing the ' +
+                '02_entities.json def key, e.g. "player_car" → "Player Car", or set explicitly via the placement\'s `name` field); ' +
+                '(3) fix the literal if you typoed.' + hint
             );
         }
     }
@@ -1293,8 +1297,11 @@ function extractMethodBody(src, name) {
             'track _dead but never reset on game_ready/match_started/restart_game. ' +
             'Affected: ' + missing.join(', ') + '. Once an enemy dies, it stays ' +
             'deactivated permanently — the next match starts missing those entities. ' +
-            'Add a resetFn that restores _dead=false, _health, position, and ' +
-            'entity.active=true, subscribed to all 3 event names.'
+            'Subscribe to ANY ONE of game_ready / match_started / restart_game (you do ' +
+            'not need all three) and reset _dead=false, _health, position, and ' +
+            'entity.active=true in the handler. Example: ' +
+            '`this.scene.events.game.on("game_ready", function() { self._dead = false; ' +
+            'self.entity.active = true; });` in onStart.'
         );
         process.exit(1);
     }
