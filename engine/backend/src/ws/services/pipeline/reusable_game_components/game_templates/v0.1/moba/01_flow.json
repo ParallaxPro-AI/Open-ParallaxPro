@@ -60,6 +60,11 @@
         "show_ui:hud/moba_stats",
         "show_ui:hud/entity_health_bars"
       ],
+      "on_exit": [
+        "hide_ui:hud/ability_bar",
+        "hide_ui:hud/moba_stats",
+        "hide_ui:hud/entity_health_bars"
+      ],
       "transitions": [
         {
           "when": "game_event:nexus_destroyed",
@@ -80,8 +85,6 @@
       ],
       "on_exit": [
         "hide_ui:game_over",
-        "hide_ui:hud/ability_bar",
-        "hide_ui:hud/moba_stats",
         "hide_cursor"
       ],
       "transitions": [

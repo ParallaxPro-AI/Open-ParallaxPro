@@ -227,7 +227,7 @@ class EntityHealthBarsSystem extends GameScript {
 
     _getCamera() {
         if (this._camera && this._camera.active) return this._camera;
-        this._camera = this.scene.findEntityByName("Camera") || this.scene.findEntityByName("Main Camera") || null;
+        this._camera = this.scene.findEntityByName("Camera") || null;
         return this._camera;
     }
 }

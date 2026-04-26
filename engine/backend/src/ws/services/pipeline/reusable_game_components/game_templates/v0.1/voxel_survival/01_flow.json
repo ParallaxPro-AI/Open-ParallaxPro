@@ -83,7 +83,6 @@
             "show_ui:hud/hotbar",
             "show_ui:hud/crosshair",
             "show_ui:hud/compass",
-            "show_ui:hud/armor_bar",
             "show_ui:hud/entity_health_bars",
             "emit:game.player_respawned",
             "play_sound:/assets/kenney/audio/rpg_audio/doorOpen_1.ogg"
@@ -93,7 +92,6 @@
             "hide_ui:hud/hotbar",
             "hide_ui:hud/crosshair",
             "hide_ui:hud/compass",
-            "hide_ui:hud/armor_bar",
             "hide_ui:hud/entity_health_bars"
           ],
           "transitions": [

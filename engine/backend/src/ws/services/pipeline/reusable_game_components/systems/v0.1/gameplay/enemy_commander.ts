@@ -18,6 +18,10 @@ class EnemyCommanderSystem extends GameScript {
                     if (ent.playAnimation) ent.playAnimation("Idle",{loop:true}); }
             }
         }
-        this.scene.events.ui.emit("hud_update", { wave: this._wave, maxWaves: this._maxWaves, nextWave: Math.max(0, Math.ceil(this._waveTimer)) });
+        this.scene.events.ui.emit("hud_update", {
+            wave: this._wave, maxWaves: this._maxWaves,
+            nextWave: Math.max(0, Math.ceil(this._waveTimer)),
+            aiState: this._wave > 0 ? "war" : "peace"
+        });
     }
 }

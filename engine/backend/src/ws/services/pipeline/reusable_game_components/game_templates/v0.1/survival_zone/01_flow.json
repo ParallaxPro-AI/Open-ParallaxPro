@@ -68,6 +68,13 @@
         "show_ui:hud/battle_info",
         "show_ui:hud/entity_health_bars"
       ],
+      "on_exit": [
+        "hide_ui:hud/health",
+        "hide_ui:hud/ammo",
+        "hide_ui:hud/crosshair",
+        "hide_ui:hud/battle_info",
+        "hide_ui:hud/entity_health_bars"
+      ],
       "transitions": [
         {
           "when": "game_event:game_won",
@@ -94,10 +101,6 @@
       ],
       "on_exit": [
         "hide_ui:game_over",
-        "hide_ui:hud/health",
-        "hide_ui:hud/ammo",
-        "hide_ui:hud/crosshair",
-        "hide_ui:hud/battle_info",
         "hide_cursor"
       ],
       "transitions": [

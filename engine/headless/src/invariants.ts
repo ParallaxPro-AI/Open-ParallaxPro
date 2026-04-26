@@ -1164,17 +1164,18 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         const cx = Array.isArray(he) ? (he[0] ?? 0.5) : (he.x ?? 0.5);
         const cy = Array.isArray(he) ? (he[1] ?? 0.5) : (he.y ?? 0.5);
         const cz = Array.isArray(he) ? (he[2] ?? 0.5) : (he.z ?? 0.5);
-        // Iteration 7 audit fix: the original formula compared authored
-        // halfExtents against the unit primitive — independent of mesh.scale,
-        // which made the check effectively meaningless. The correct comparison
-        // is collider half-extent vs SCALED visible mesh half-extent. The
-        // engine multiplies BOTH halfExtents and prim by transform.scale at
-        // runtime, so a per-axis ratio of (collider / scaledMesh) tells us
-        // "is the collider bigger or smaller than the visible mesh after
-        // both have been scaled".
-        const rx = cx / (prim.x * Math.abs(msX));
-        const ry = cy / (prim.y * Math.abs(msY));
-        const rz = cz / (prim.z * Math.abs(msZ));
+        // The engine multiplies BOTH authored halfExtents and the unit
+        // primitive by transform.scale at runtime (physics_system.ts:376
+        // `he.x * sx`). So engine-final-collider-half = cx * msX and
+        // engine-final-mesh-half = prim.x * msX. Their ratio simplifies
+        // to cx / prim.x — msX cancels. The previous formula left msX in
+        // the denominator, which (a) flagged any wall with msX > 2 as a
+        // false positive and (b) silently passed the very wall_block case
+        // from 835c86cd (cx=2, prim=0.5, msX=4 → 1.0, "fine") that this
+        // check was designed to catch.
+        const rx = cx / prim.x;
+        const ry = cy / prim.y;
+        const rz = cz / prim.z;
         // Thin slabs (floor planes, decals, billboards) are fine to be
         // laterally oversized — a ground plane that collides past the
         // visible edge of the mesh doesn't cause invisible-wall complaints
@@ -1186,11 +1187,13 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         // than 2× — a single-axis mismatch is usually a deliberate design
         // choice (thin wall with wider base, etc.); two axes off is the
         // "forgot scale multiplies" signature we saw in run 835c86cd
-        // where wall_block had ratios [4, 4, 1].
+        // where wall_block had ratios [4, 4, 1]. Reported col/mesh values
+        // are engine-final (post-scale) so the numbers in the failure
+        // message match what the user sees in the editor.
         const badAxes: Array<{ axis: string; ratio: number; col: number; mesh: number }> = [];
-        if (rx > 2 || rx < 0.5) badAxes.push({ axis: 'x', ratio: rx, col: cx, mesh: prim.x * Math.abs(msX) });
-        if (ry > 2 || ry < 0.5) badAxes.push({ axis: 'y', ratio: ry, col: cy, mesh: prim.y * Math.abs(msY) });
-        if (rz > 2 || rz < 0.5) badAxes.push({ axis: 'z', ratio: rz, col: cz, mesh: prim.z * Math.abs(msZ) });
+        if (rx > 2 || rx < 0.5) badAxes.push({ axis: 'x', ratio: rx, col: cx * Math.abs(msX), mesh: prim.x * Math.abs(msX) });
+        if (ry > 2 || ry < 0.5) badAxes.push({ axis: 'y', ratio: ry, col: cy * Math.abs(msY), mesh: prim.y * Math.abs(msY) });
+        if (rz > 2 || rz < 0.5) badAxes.push({ axis: 'z', ratio: rz, col: cz * Math.abs(msZ), mesh: prim.z * Math.abs(msZ) });
         if (badAxes.length >= 2) {
           const worst = badAxes.reduce((a, b) => Math.abs(Math.log(a.ratio)) > Math.abs(Math.log(b.ratio)) ? a : b);
           mismatches.push({ name: entName, axis: worst.axis, ratio: worst.ratio, meshHalf: worst.mesh, colHalf: worst.col });
