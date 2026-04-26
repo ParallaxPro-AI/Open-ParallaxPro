@@ -280,6 +280,44 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 break;
             }
 
+            // Empty-project guard: FIX_GAME modifies an existing game.
+            // If the project is the seeded blank scaffold (no user
+            // scripts, no UI panels, no template loaded), the LLM
+            // shouldn't be calling FIX_GAME at all — the right tool is
+            // LOAD_TEMPLATE (find a rough match) or OFFER_CREATE_GAME
+            // (build from scratch). Without this guard the LLM dispatched
+            // FIX_GAME on first-message "create me a UI simulation" / "make
+            // me a tower defense" prompts because the system prompt's
+            // rule-9 ("anything involving scripts/UI/game logic → FIX_GAME")
+            // out-matched rule-7 ("create/build/make a game → LOAD_TEMPLATE")
+            // for detailed, feature-rich first messages.
+            {
+                const view = ctx.getProjectData();
+                const files = (view?.files || {}) as Record<string, string>;
+                const ENGINE_INFRA_RE = /(^|\/)(_[^/]+|event_definitions|ui_bridge|mp_bridge|fsm_driver|_event_validator)\.ts$/;
+                const STOCK_UI_PANELS = new Set(['ui/main_menu.html', 'ui/pause_menu.html', 'ui/game_over.html']);
+                const filePaths = Object.keys(files);
+                const userScripts = filePaths.filter(p =>
+                    (p.startsWith('behaviors/') || p.startsWith('systems/') || p.startsWith('scripts/')) &&
+                    p.endsWith('.ts') &&
+                    !ENGINE_INFRA_RE.test(p)
+                );
+                const userPanels = filePaths.filter(p => p.startsWith('ui/') && p.endsWith('.html') && !STOCK_UI_PANELS.has(p));
+                let flowName = '';
+                let flowId = '';
+                try {
+                    const flowJson = JSON.parse(files['01_flow.json'] || '{}');
+                    flowName = String(flowJson?.name || '').trim();
+                    flowId = String(flowJson?.id || '').trim();
+                } catch {}
+                const flowLooksUntouched = flowId === 'empty' || flowName === 'Untitled Game';
+                const isEmptyProject = userScripts.length === 0 && userPanels.length === 0 && flowLooksUntouched;
+                if (isEmptyProject) {
+                    result.toolResults = `[FIX_GAME] BLOCKED — this project is empty (no game has been built yet, just the seeded blank scaffold). FIX_GAME modifies an existing game; it cannot create one from scratch. The user's request "${description.slice(0, 200)}${description.length > 200 ? '…' : ''}" is a fresh game-build request — handle it as such.\n\nIn your NEXT response, do exactly ONE of:\n  • Emit <<<LOAD_TEMPLATE query="<short search phrase derived from the user's request>">>><<<END>>> to find a template that's a rough fit. Loading is cheap and reversible. Prefer this when the request matches a common genre (tower defense, FPS, platformer, etc.).\n  • If you have strong reason to believe no template will match (e.g. the request is a niche UI simulation, an unusual non-game tool, etc.), ask the user in { } whether they want a fresh build from scratch (20–30 min, project locked, runs in the background) and emit <<<OFFER_CREATE_GAME description="<the user's full request, verbatim>">>><<<END>>> alongside the question.\n\nDo NOT re-emit FIX_GAME — it will be blocked again. Do NOT pretend the fix ran.`;
+                    break;
+                }
+            }
+
             // Anon sessions can't spawn a CLI. Emit signup_required to
             // the editor and feed the LLM a blunt toolResults so its
             // follow-up turn tells the user to sign up instead of
