@@ -171,6 +171,22 @@
             {
               "when": "keyboard:pause",
               "goto": "paused"
+            },
+            {
+              "when": "game_event:player_died",
+              "goto": "dead"
+            }
+          ]
+        },
+        "dead": {
+          "active_behaviors": [
+            "fps_camera",
+            "player_health"
+          ],
+          "transitions": [
+            {
+              "when": "game_event:player_respawned",
+              "goto": "playing"
             }
           ]
         },
