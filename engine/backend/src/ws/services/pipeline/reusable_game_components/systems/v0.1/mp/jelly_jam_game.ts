@@ -196,7 +196,13 @@ class JellyJamGameSystem extends GameScript {
         this._qualifiedOrder = [];
         this._eliminatedThisRound = [];
         this._allTimeResults = {};
-        this._wipeCourse();
+        // Don't wipe the course here. _initMatch fires on onStart AND on
+        // every match_started, which races against `net_jj_course_init`
+        // for joining peers — if the host's course broadcast arrives
+        // before match_started, this wipe deletes the spinners the
+        // joiner just built. Course wipe+rebuild is owned by
+        // _buildCourseLocally, which both the host's _hostStartRound and
+        // the joiner's net_jj_course_init listener call atomically.
 
         var roster = mp.roster;
         if (roster && roster.peers) {
