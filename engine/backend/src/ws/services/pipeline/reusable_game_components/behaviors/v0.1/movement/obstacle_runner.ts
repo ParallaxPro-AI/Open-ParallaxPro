@@ -54,19 +54,17 @@ class ObstacleRunnerBehavior extends GameScript {
             vy = rb.getLinearVelocity().y || 0;
         }
 
-        // Jump — only when actually grounded. A short downward raycast from
-        // just above the feet detects whether anything is directly under us;
-        // the previous `pos.y < 1.5` heuristic let the player re-jump at the
-        // top of an arc when y was on its way back through the threshold,
-        // which felt like flying. The vy <= 0.5 guard rejects re-fires while
-        // still rising in case the ray briefly misses (slope edges).
+        // Jump — height + vy combo. The raw `pos.y < 1.5` heuristic alone
+        // let the player re-jump every time they fell back through the
+        // threshold, which felt like flying. Adding |vy| < 0.5 blocks
+        // mid-arc re-fires (vy is a large negative during the descent),
+        // so the player has to actually touch down (physics snaps vy to
+        // 0) before another jump lands. A raycast version was tried but
+        // hit the player's own collider first (`scene.raycast` returns
+        // single hit, no skip-self) and reported `grounded = false` even
+        // when standing on terrain.
         var pos = this.entity.transform.position;
-        var grounded = false;
-        if (this.scene.raycast) {
-            var hit = this.scene.raycast(pos.x, pos.y + 0.1, pos.z, 0, -1, 0, 0.4);
-            if (hit && hit.entityId !== this.entity.id) grounded = true;
-        }
-        if (this.input.isKeyPressed("Space") && grounded && vy <= 0.5) {
+        if (this.input.isKeyPressed("Space") && pos.y < 1.5 && Math.abs(vy) < 0.5) {
             vy = this._jumpForce;
             if (this.audio) this.audio.playSound("/assets/kenney/audio/interface_sounds/drop_002.ogg", 0.4);
         }
