@@ -50,11 +50,11 @@ export function loadGame(gameDir: string): GameFiles {
   };
   walkHtml(path.join(gameDir, 'ui'), 'ui/');
 
-  let playtestSrc: string | undefined;
-  for (const name of ['PLAYTEST.ts', 'PLAYTEST.js', 'playtest.ts', 'playtest.js']) {
-    const p = path.join(gameDir, name);
-    if (fs.existsSync(p)) { playtestSrc = fs.readFileSync(p, 'utf-8'); break; }
-  }
+  // Authored playtest scenarios are DISABLED (2026-04-26). We no longer
+  // load any PLAYTEST.ts/.js/playtest.ts/.js the agent may have written —
+  // the headless playtest only runs the built-in invariants now. If the
+  // agent ships a PLAYTEST file anyway, it's silently ignored.
+  const playtestSrc: string | undefined = undefined;
 
   return {
     flow: readJSON('01_flow.json'),

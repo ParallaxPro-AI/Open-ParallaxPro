@@ -292,7 +292,7 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
               p.restore(probeSnap);
             }
             const hint = responsiveKeys.length > 0
-              ? `Player did NOT move under "${primaryAction}" but DID under: ${responsiveKeys.join(', ')}. Update PLAYTEST.ts's primaryAction or fix the binding so the advertised key matches the wired one.`
+              ? `Player did NOT move under "${primaryAction}" but DID under: ${responsiveKeys.join(', ')}. Fix the input binding so the advertised key matches the wired one.`
               : `Holding "${primaryAction}" for 1s moved player ${d.toFixed(3)} units, and probing the other common keys (${probeKeys.join(', ')}) didn't move the player either. Controls appear genuinely unwired — check the active behaviors / input bindings.`;
             throw new PlaytestFailure('controls_dead', hint,
               { primaryAction, moved: d, probedKeys: probeKeys, responsiveKeys });

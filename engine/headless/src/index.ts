@@ -63,69 +63,24 @@ export async function runPlaytest(gameDir: string, opts: RunOptions = {}): Promi
 
   const playtest = new Playtest(runtime);
 
-  // Parse hints from PLAYTEST.ts if present: `gameType` / `primaryAction` exports.
-  let authoredFn: ((p: Playtest) => void | Promise<void>) | null = null;
-  let gameType = 'unknown';
-  let primaryAction: string | undefined;
-  if (files.playtest) {
-    try {
-      // PLAYTEST.ts contract:
-      //   export const gameType = "...";
-      //   export const primaryAction = "KeyW";  // optional
-      //   export default async (p) => { ... }
-      // We transform each export form into a local assignment, strip imports,
-      // strip bare TS type annotations, then eval.
-      let src = files.playtest
-        .replace(/^\s*import\s+.*$/gm, '')
-        .replace(/^\s*export\s+const\s+(\w+)\s*(:\s*[^=\n]+)?\s*=/gm, 'var $1 =')
-        .replace(/^\s*export\s+(var|let)\s+(\w+)\s*(:\s*[^=\n]+)?\s*=/gm, 'var $2 =')
-        .replace(/^\s*export\s+default\s+/gm, '__playtest_default__ = ')
-        .replace(/\bconst\b/g, 'var');
-      const wrapperSrc = `
-        var gameType = 'unknown';
-        var primaryAction = undefined;
-        var __playtest_default__ = null;
-        ${src}
-        return { gameType: gameType, primaryAction: primaryAction, fn: __playtest_default__ };
-      `;
-      const runner = new Function('Playtest', 'console', wrapperSrc);
-      const out = runner(Playtest, console);
-      if (out?.gameType) gameType = out.gameType;
-      if (out?.primaryAction) primaryAction = out.primaryAction;
-      if (typeof out?.fn === 'function') authoredFn = out.fn;
-    } catch (e: any) {
-      return buildVerdict(
-        [{ name: 'playtest_parse', failure: new PlaytestFailure('playtest_parse', `PLAYTEST.ts parse error: ${e?.message ?? e}`, { hint: 'PLAYTEST.ts must have: export const gameType = "..."; export const primaryAction = "..."; export default async (p) => { ... }' }) }],
-        [], [], Date.now() - start,
-      );
-    }
-  }
+  // Authored playtest scenarios + their hint constants are DISABLED
+  // (2026-04-26). The headless playtest no longer parses PLAYTEST.ts —
+  // the loader doesn't even read the file. Invariants run with
+  // gameType='unknown' and no primaryAction; gameType-gated invariants
+  // self-skip in that mode. Past hand-rolled scenarios were the dominant
+  // false-positive source (input-simulation gaps, HTML-button-click
+  // gaps); the cost of those was higher than the value of the gating
+  // hints, so we cut the whole feature.
+  const gameType = 'unknown';
+  const primaryAction: string | undefined = undefined;
 
   // Run invariants
   const invariantResults = runInvariants(playtest, { gameType, primaryAction });
 
-  // Run authored scenarios (one "scenario" per PLAYTEST, but we wrap it so we
-  // get a named result). Skipped when invariants fail so the agent fixes the
-  // fundamentals before we torture-test specific mechanics.
+  // No authored scenarios — see the disabled-feature note above the
+  // gameType declaration. authoredResults stays empty so the verdict
+  // formatter renders `authored(0/0)` regardless.
   const authoredResults: Array<{ name: string; failure: PlaytestFailure | null }> = [];
-  const anyInvariantFailed = invariantResults.some(r => r.failure);
-  if (authoredFn && !anyInvariantFailed) {
-    try {
-      const result = authoredFn(playtest);
-      if (result && typeof (result as any).then === 'function') {
-        await Promise.race([
-          result,
-          new Promise((_, reject) => setTimeout(() => reject(new Error(`authored playtest exceeded ${opts.timeoutMs ?? 30000}ms`)), opts.timeoutMs ?? 30000)),
-        ]);
-      }
-      authoredResults.push({ name: 'authored', failure: null });
-    } catch (e: any) {
-      const f = e instanceof PlaytestFailure
-        ? e
-        : new PlaytestFailure('authored_crash', `PLAYTEST threw: ${e?.message ?? e}`, { stack: String(e?.stack ?? '').split('\n').slice(0, 3).join(' | ') });
-      authoredResults.push({ name: 'authored', failure: f });
-    }
-  }
 
   return buildVerdict(invariantResults, authoredResults, playtest.errors(), Date.now() - start);
 }
