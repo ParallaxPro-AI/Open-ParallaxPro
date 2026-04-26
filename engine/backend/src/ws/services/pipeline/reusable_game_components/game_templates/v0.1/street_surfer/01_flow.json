@@ -62,7 +62,7 @@
         "show_ui:hud/surf_hud",
         "hide_cursor",
         "show_ui:hud/race_countdown",
-        "play_sound:/assets/kenney/audio/interface_sounds/pepSound1.ogg"
+        "play_sound:/assets/kenney/audio/digital_audio/pepSound1.ogg"
       ],
       "transitions": [
         {
@@ -70,7 +70,7 @@
           "goto": "playing",
           "actions": [
             "emit:game.race_started",
-            "play_sound:/assets/kenney/audio/voiceover_pack/go.ogg"
+            "play_sound:/assets/kenney/audio/voiceover_pack/male/go.ogg"
           ]
         }
       ]
@@ -93,7 +93,7 @@
           "when": "game_event:game_over",
           "goto": "game_over",
           "actions": [
-            "play_sound:/assets/kenney/audio/voiceover_pack/game_over.ogg"
+            "play_sound:/assets/kenney/audio/voiceover_pack/male/game_over.ogg"
           ]
         }
       ]
