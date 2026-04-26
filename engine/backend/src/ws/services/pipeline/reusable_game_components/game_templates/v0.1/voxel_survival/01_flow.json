@@ -25,10 +25,7 @@
       "transitions": [
         {
           "when": "boot_frames>=2",
-          "goto": "main_menu",
-          "actions": [
-            "emit:game.match_ended"
-          ]
+          "goto": "main_menu"
         }
       ]
     },
@@ -45,7 +42,10 @@
       "transitions": [
         {
           "when": "ui_event:main_menu:start_game",
-          "goto": "gameplay"
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.match_started"
+          ]
         }
       ]
     },
