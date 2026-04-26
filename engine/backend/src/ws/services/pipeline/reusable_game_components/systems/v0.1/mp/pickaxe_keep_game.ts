@@ -300,8 +300,12 @@ class PickaxeKeepGameSystem extends GameScript {
     _initMatch() {
         var mp = this.scene._mp;
 
-        // Reset bookkeeping but leave behaviors in place.
-        this._wipeWorld();
+        // Reset bookkeeping but leave behaviors in place. Don't wipe the
+        // world here — _initMatch fires on both onStart and match_started,
+        // racing against the joiner's `net_pk_world_init` listener. World
+        // wipe+rebuild now lives inside _hostGenerateWorld (host path)
+        // and _applyWorldInit (joiner path), both of which wipe-then-build
+        // atomically.
         this._wipeEnemies();
         this._initInventory();
         this._giveStarterKit();
@@ -363,6 +367,9 @@ class PickaxeKeepGameSystem extends GameScript {
     // ═══════════════════════════════════════════════════════════════════
 
     _hostGenerateWorld() {
+        // Wipe-then-build atomically so re-entering this path (Play Again
+        // on host) doesn't stack new blocks on top of the old world.
+        this._wipeWorld();
         // Surface curve: gentle sine + per-column random jitter so each
         // column lands in a believable rolling-hills profile.
         for (var x = -this._worldHalfWidth; x <= this._worldHalfWidth; x++) {
