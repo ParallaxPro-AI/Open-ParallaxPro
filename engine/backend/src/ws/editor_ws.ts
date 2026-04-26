@@ -115,6 +115,7 @@ const stmtSetFeedback = db.prepare("UPDATE chat_messages SET feedback = ? WHERE 
 const stmtGetMessage = db.prepare("SELECT * FROM chat_messages WHERE id = ? AND project_id = ?");
 const stmtDeleteAfter = db.prepare("DELETE FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id > ?");
 const stmtRecentChat = db.prepare("SELECT role, content FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id DESC LIMIT 20");
+const stmtLatestUserMessage = db.prepare("SELECT content FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND role = 'user' ORDER BY id DESC LIMIT 1");
 
 function getRecentChatHistory(projectId: string, chatSessionId: string): string {
     try {
@@ -1000,16 +1001,22 @@ function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
     const fileChanges = [{ path: built.activeSceneKey, type: 'template_load' as const }];
     const afterSnapshot = getProjectSnapshot(client.projectId);
     const synthContent = `Loaded the **${seed.templateId}** template.`;
+    // Match the 1st-load path's "Create from scratch" affordance (executor.ts
+    // LOAD_TEMPLATE → OFFER_CREATE_GAME instruction). The popup-confirmed
+    // path bypasses the LLM, so we attach the most recent user prompt as the
+    // CREATE_GAME brief — without this, 2nd+ loads silently drop the button.
+    const latestUserRow = stmtLatestUserMessage.get(client.projectId, client.chatSessionId) as { content: string } | undefined;
+    const offerDesc = latestUserRow?.content?.trim() || null;
     const dbResult = stmtInsertMessage.run(
         client.projectId, client.chatSessionId, 'assistant', synthContent,
-        JSON.stringify(fileChanges), afterSnapshot, beforeSnapshot, null
+        JSON.stringify(fileChanges), afterSnapshot, beforeSnapshot, offerDesc
     );
     appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: synthContent });
     send(client, 'chat_response_end', {
         fullContent: synthContent,
         messageId: Number(dbResult.lastInsertRowid),
         fileChanges,
-        offerCreateGameDescription: null,
+        offerCreateGameDescription: offerDesc,
     });
 
     // Tell the chat panel the load completed so it can clear the modal +
