@@ -1012,6 +1012,14 @@ function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
         JSON.stringify(fileChanges), afterSnapshot, beforeSnapshot, offerDesc
     );
     appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: synthContent });
+    // Live-render path: the chat panel's handleResponseEnd only attaches the
+    // "Create from scratch" button if a prior create_game_offer WS event
+    // stashed pendingCreateFromScratchDescription. Persisting the column is
+    // what makes the button reappear on history reload, but the live first
+    // render needs this event too.
+    if (offerDesc) {
+        send(client, 'create_game_offer', { description: offerDesc });
+    }
     send(client, 'chat_response_end', {
         fullContent: synthContent,
         messageId: Number(dbResult.lastInsertRowid),
