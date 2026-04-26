@@ -54,7 +54,14 @@ class EntityHealthBarsSystem extends GameScript {
         // for entity_healed. Read whichever is present so per-behavior HP
         // stays in sync with the bars regardless of which dialect a given
         // behavior happens to use.
-        this.scene.events.game.on("game_ready", function() { self._hp = {}; });
+        // Bar map clears on Play Again. Templates use either "game_ready"
+        // (most), "match_started" (buccaneer_bay), or "restart_game" — wire
+        // all three so old bars don't persist into the next match no matter
+        // which flow convention the template follows.
+        var clearBars = function() { self._hp = {}; };
+        this.scene.events.game.on("game_ready", clearBars);
+        this.scene.events.game.on("match_started", clearBars);
+        this.scene.events.game.on("restart_game", clearBars);
         this.scene.events.game.on("entity_damaged", function(d) {
             if (!d) return;
             var id = d.targetId != null ? d.targetId : d.entityId;
@@ -94,7 +101,9 @@ class EntityHealthBarsSystem extends GameScript {
             }
         };
         this.scene.events.game.on("player_respawned", refillDeadRows);
-        this.scene.events.game.on("entity_respawned", refillDeadRows);
+        // entity_respawned was authored speculatively but no script in the
+        // codebase emits it — listener was permanently dead. Drop it; the
+        // player_respawned event above covers the only live respawn path.
     }
 
     onUpdate(dt) {
