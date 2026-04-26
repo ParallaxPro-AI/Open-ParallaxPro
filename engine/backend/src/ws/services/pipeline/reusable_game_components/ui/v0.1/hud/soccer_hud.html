@@ -231,6 +231,14 @@
 <script>
 (function() {
   var goalTimer = null;
+  // hud_update payloads merge into a persistent state, so once
+  // soccer_match emits goalFlash:true it stays true on every
+  // subsequent gameState push — and the system can't easily clear it
+  // because its onUpdate early-returns while _matchActive is false
+  // during the celebration. Edge-detect on the score sum (advances
+  // exactly once per goal) so we animate once per goal regardless of
+  // how many frames carry goalFlash:true.
+  var lastFlashedAt = -1;
 
   function update(state) {
     if (!state) return;
@@ -245,7 +253,9 @@
       document.getElementById('match-time').textContent = state.matchTime;
     }
 
-    if (state.goalFlash) {
+    var totalGoals = (state.scoreA || 0) + (state.scoreB || 0);
+    if (state.goalFlash && totalGoals !== lastFlashedAt) {
+      lastFlashedAt = totalGoals;
       var flash = document.getElementById('goal-flash');
       var teamEl = document.getElementById('goal-team');
       teamEl.textContent = state.goalTeam || '';

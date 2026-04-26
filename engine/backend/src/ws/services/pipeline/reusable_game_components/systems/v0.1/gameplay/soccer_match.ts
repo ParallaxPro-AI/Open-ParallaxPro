@@ -30,6 +30,13 @@ class SoccerMatchSystem extends GameScript {
         });
 
         this.scene.events.game.on("race_started", function() {
+            // Snap ball + every player back to their kickoff spot before
+            // the whistle. Covers the initial kickoff and the post-goal
+            // restart (flow re-fires race_started after the celebration
+            // → kickoff substates). Without this, the ball respawned at
+            // centre but players stayed wherever the goal scramble left
+            // them, so kickoff was never actually a kickoff.
+            self._resetPositions();
             self._matchActive = true;
         });
 
