@@ -13,6 +13,7 @@ import { SYSTEM_PROMPT, getProjectSummary } from './services/chat_protocol.js';
 import { appendToLog } from './services/chat_log.js';
 import { searchAssets } from '../routes/assets.js';
 import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
+import { buildLoadTemplateSuccessToolResult } from './llm_compiler/executor.js';
 import { getAvailableAgents, isAgentAvailable } from './services/pipeline/cli_availability.js';
 import { runFixer } from './services/pipeline/cli_fixer.js';
 import { seedFromTemplate } from './services/pipeline/project_seeder.js';
@@ -115,7 +116,6 @@ const stmtSetFeedback = db.prepare("UPDATE chat_messages SET feedback = ? WHERE 
 const stmtGetMessage = db.prepare("SELECT * FROM chat_messages WHERE id = ? AND project_id = ?");
 const stmtDeleteAfter = db.prepare("DELETE FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND id > ?");
 const stmtRecentChat = db.prepare("SELECT role, content FROM chat_messages WHERE project_id = ? AND chat_session_id = ? ORDER BY id DESC LIMIT 20");
-const stmtLatestUserMessage = db.prepare("SELECT content FROM chat_messages WHERE project_id = ? AND chat_session_id = ? AND role = 'user' ORDER BY id DESC LIMIT 1");
 
 function getRecentChatHistory(projectId: string, chatSessionId: string): string {
     try {
@@ -971,12 +971,6 @@ function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
         return;
     }
 
-    // Capture pre-swap state for the "Restore my previous project" banner
-    // button — without this, the banner appears but Restore has no
-    // snapshot to roll back to (the LLM-driven path stashes this on the
-    // paired user message; here there is no user message).
-    const beforeSnapshot = getProjectSnapshot(client.projectId);
-
     // Fallback when projectId has no stored data → fresh project, gets the
     // asset-normalization registry on by default. Existing projects keep
     // their stored projectConfig (so legacy games stay legacy).
@@ -992,41 +986,6 @@ function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
 
     try { stmtIncLoadTemplateCount.run(client.projectId); } catch {}
 
-    // Synthetic assistant message so the chat-panel template-load banner
-    // ("A template was just loaded — Restore my previous project") fires.
-    // The banner keys off msg.fileChanges containing a template_load
-    // entry; without an actual chat row there's nothing to attach to.
-    // Mirrors what the LLM-driven LOAD_TEMPLATE path produces minus the
-    // narration the LLM would have written.
-    const fileChanges = [{ path: built.activeSceneKey, type: 'template_load' as const }];
-    const afterSnapshot = getProjectSnapshot(client.projectId);
-    const synthContent = `Loaded the **${seed.templateId}** template.`;
-    // Match the 1st-load path's "Create from scratch" affordance (executor.ts
-    // LOAD_TEMPLATE → OFFER_CREATE_GAME instruction). The popup-confirmed
-    // path bypasses the LLM, so we attach the most recent user prompt as the
-    // CREATE_GAME brief — without this, 2nd+ loads silently drop the button.
-    const latestUserRow = stmtLatestUserMessage.get(client.projectId, client.chatSessionId) as { content: string } | undefined;
-    const offerDesc = latestUserRow?.content?.trim() || null;
-    const dbResult = stmtInsertMessage.run(
-        client.projectId, client.chatSessionId, 'assistant', synthContent,
-        JSON.stringify(fileChanges), afterSnapshot, beforeSnapshot, offerDesc
-    );
-    appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: synthContent });
-    // Live-render path: the chat panel's handleResponseEnd only attaches the
-    // "Create from scratch" button if a prior create_game_offer WS event
-    // stashed pendingCreateFromScratchDescription. Persisting the column is
-    // what makes the button reappear on history reload, but the live first
-    // render needs this event too.
-    if (offerDesc) {
-        send(client, 'create_game_offer', { description: offerDesc });
-    }
-    send(client, 'chat_response_end', {
-        fullContent: synthContent,
-        messageId: Number(dbResult.lastInsertRowid),
-        fileChanges,
-        offerCreateGameDescription: offerDesc,
-    });
-
     // Tell the chat panel the load completed so it can clear the modal +
     // update any pending UI. The actual scene/file push already happened
     // via rebuildAndPush; this is just the "all done" signal.
@@ -1034,6 +993,26 @@ function handleConfirmTemplateLoad(client: EditorClient, data: any): void {
         templateId: seed.templateId,
         sceneKey: built.activeSceneKey,
     });
+
+    // Drive an LLM follow-up turn instead of writing a synthetic
+    // "Loaded the X template." assistant message. The LLM gets the same
+    // post-load instruction the 1st-load path receives, so it produces
+    // the elaborated narration + OFFER_CREATE_GAME tag (with a real
+    // game brief, not the bare user query). The fileChange entry is
+    // pre-populated so the chat panel's "Restore my previous project"
+    // banner attaches to the LLM's response message.
+    const entityCount = built.scenes[built.activeSceneKey]?.entities?.length ?? 0;
+    const toolResults = buildLoadTemplateSuccessToolResult(seed.templateId, entityCount, seed.warnings);
+    const fileChanges = [{ path: built.activeSceneKey, type: 'template_load' as const }];
+    const retryContext: LLMMessage[] = [
+        { role: 'assistant', content: `<<<LOAD_TEMPLATE template="${seed.templateId}" confirmed="true">>><<<END>>>` },
+        { role: 'user', content: `[SYSTEM] Tool results:\n${toolResults}\n\nNow continue with the user's request based on the results above.` },
+    ];
+
+    send(client, 'chat_response_start', {});
+    const abortController = new AbortController();
+    client.abortController = abortController;
+    runLLMWithRetry(client, abortController, 1, retryContext, fileChanges);
 }
 
 async function handleConfirmCreateGame(client: EditorClient, data: any): Promise<void> {

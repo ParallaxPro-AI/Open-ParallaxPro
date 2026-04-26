@@ -88,6 +88,15 @@ export interface ExecutionResult {
     offerCreateGameDescription?: string;
 }
 
+/** The post-load instruction the LLM sees so it narrates the load and
+ *  emits OFFER_CREATE_GAME. Shared between the LLM-driven LOAD_TEMPLATE
+ *  case and the popup-confirm-handler in editor_ws.ts so both paths
+ *  stay in lockstep when the wording is tuned. */
+export function buildLoadTemplateSuccessToolResult(templateId: string, entityCount: number, warnings: string[] = []): string {
+    const warnMsg = warnings.length > 0 ? `\n(Warnings: ${warnings.slice(0, 3).join('; ')})` : '';
+    return `[LOAD_TEMPLATE] Successfully built "${templateId}" with ${entityCount} entities. The game is now loaded in the editor.${warnMsg}\n\nIn your next message: (1) tell the user the game was loaded from the "${templateId}" template, (2) in a { } block ask whether they'd prefer a fresh build from scratch (20–30 min, project locked, runs in the background), and (3) in the SAME response emit <<<OFFER_CREATE_GAME description="full game brief matching the user's request">>><<<END>>> so a "Create from scratch" button appears beside your message. Do NOT call CREATE_GAME yourself — clicking the button or a typed "yes" reply next turn will trigger it.\n\nSCOPE: this script applies ONLY to the template that just loaded in THIS turn ("${templateId}"). If the user's NEXT reply asks for a different game (different genre or a new template), that is a fresh request — do NOT reuse this "I've loaded..." narration. Emit <<<LOAD_TEMPLATE query="their new request">>><<<END>>> first and narrate only after that tool result comes back. Claiming to have loaded something without the tag in the same response leaves the editor on the current "${templateId}" scene and misleads the user.`;
+}
+
 export async function execute(ast: ASTNode[], ctx: ExecutionContext): Promise<ExecutionResult> {
     const result: ExecutionResult = {
         userMessages: [],
@@ -260,8 +269,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             result.fileChanges.push({ path: built.activeSceneKey, type: 'template_load' });
 
             const entityCount = built.scenes[built.activeSceneKey]?.entities?.length ?? 0;
-            const warnMsg = seed.warnings.length > 0 ? `\n(Warnings: ${seed.warnings.slice(0, 3).join('; ')})` : '';
-            result.toolResults = `[LOAD_TEMPLATE] Successfully built "${seed.templateId}" with ${entityCount} entities. The game is now loaded in the editor.${warnMsg}\n\nIn your next message: (1) tell the user the game was loaded from the "${seed.templateId}" template, (2) in a { } block ask whether they'd prefer a fresh build from scratch (20–30 min, project locked, runs in the background), and (3) in the SAME response emit <<<OFFER_CREATE_GAME description="full game brief matching the user's request">>><<<END>>> so a "Create from scratch" button appears beside your message. Do NOT call CREATE_GAME yourself — clicking the button or a typed "yes" reply next turn will trigger it.\n\nSCOPE: this script applies ONLY to the template that just loaded in THIS turn ("${seed.templateId}"). If the user's NEXT reply asks for a different game (different genre or a new template), that is a fresh request — do NOT reuse this "I've loaded..." narration. Emit <<<LOAD_TEMPLATE query="their new request">>><<<END>>> first and narrate only after that tool result comes back. Claiming to have loaded something without the tag in the same response leaves the editor on the current "${seed.templateId}" scene and misleads the user.`;
+            result.toolResults = buildLoadTemplateSuccessToolResult(seed.templateId, entityCount, seed.warnings);
             break;
         }
 

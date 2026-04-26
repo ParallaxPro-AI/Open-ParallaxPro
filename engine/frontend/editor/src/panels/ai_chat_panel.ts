@@ -975,7 +975,7 @@ export class AiChatPanel {
 
     // ── History loading ─────────────────────────────────────────────
 
-    private loadHistory(rawMessages: { id?: number; role: string; content: string; fileChanges?: FileChange[]; feedback?: string | null }[]): void {
+    private loadHistory(rawMessages: { id?: number; role: string; content: string; fileChanges?: FileChange[]; feedback?: string | null; offerCreateGameDescription?: string | null }[]): void {
         this.messages = [];
         this.messagesContainer.innerHTML = '';
 
@@ -993,6 +993,7 @@ export class AiChatPanel {
                 content: raw.content || '',
                 fileChanges: raw.fileChanges,
                 feedback: raw.feedback || null,
+                offerCreateGameDescription: raw.offerCreateGameDescription || null,
             };
 
             if (msg.role === 'assistant' && !msg.content && msg.fileChanges && msg.fileChanges.length > 0) {
