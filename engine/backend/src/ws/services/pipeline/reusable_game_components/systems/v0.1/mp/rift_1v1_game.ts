@@ -189,6 +189,8 @@ class Rift1v1GameSystem extends GameScript {
         if (!this._phase || this._phase === "idle") return;
         if (this._matchEnded) return;
 
+        this._tickRemoteAnimations(dt);
+
         this._matchElapsed += dt;
         this._phaseTimer -= dt;
         if (this._phase === "warmup" && this._phaseTimer <= 0) {
@@ -1417,5 +1419,53 @@ class Rift1v1GameSystem extends GameScript {
         cds.Q = Math.max(0, (cds.Q || 0) - dt);
         cds.E = Math.max(0, (cds.E || 0) - dt);
         cds.basic = Math.max(0, (cds.basic || 0) - dt);
+    }
+
+    // Drive Idle/Walk/Run/Jump on every remote champion proxy. The
+    // network adapter spawns proxies with skipBehaviors=true, so
+    // player_moba_champion never runs there to call playAnimation.
+    // Without this loop other peers see the moving proxy stuck in the
+    // GLB's bind pose / last clip. Velocity is derived from observed
+    // position deltas because the owner's velocity isn't a networkedVar.
+    // Note: player_moba_champion doesn't drive playAnimation for the
+    // local player either, so the local champion is also frozen — this
+    // loop only fixes the remote view; the local-side gap is separate.
+    _tickRemoteAnimations(dt) {
+        var all = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+        if (!all || all.length === 0) return;
+        if (!this._remoteAnimState) this._remoteAnimState = {};
+        var step = dt > 0 ? dt : 1 / 60;
+        for (var i = 0; i < all.length; i++) {
+            var p = all[i];
+            if (!p || !p.transform || !p.playAnimation) continue;
+            var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+            if (!ni || ni.isLocalPlayer) continue;
+            var key = String(ni.ownerId || ni.networkId || p.id);
+            var st = this._remoteAnimState[key];
+            var pos = p.transform.position;
+            if (!st) {
+                this._remoteAnimState[key] = { x: pos.x, y: pos.y, z: pos.z, anim: "" };
+                continue;
+            }
+            var dx = (pos.x - st.x) / step;
+            var dz = (pos.z - st.z) / step;
+            st.x = pos.x; st.y = pos.y; st.z = pos.z;
+
+            var spd = Math.sqrt(dx * dx + dz * dz);
+            var grounded = true;
+            if (this.scene.raycast) {
+                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
+                grounded = !!(hit && hit.entityId);
+            }
+            var anim;
+            if (!grounded)      anim = "Jump";
+            else if (spd > 7.5) anim = "Run";
+            else if (spd > 0.5) anim = "Walk";
+            else                anim = "Idle";
+            if (anim !== st.anim) {
+                st.anim = anim;
+                try { p.playAnimation(anim, { loop: true }); } catch (e) { /* missing clip */ }
+            }
+        }
     }
 }
