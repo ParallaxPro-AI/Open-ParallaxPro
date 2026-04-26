@@ -1028,6 +1028,25 @@ this.scene.events.ui.on("ui_event:hud/your_hud:buy_sword", function() {
 });
 ```
 
+**Reading a data payload from a panel.** When the click handler passes
+data — e.g. clicking a specific recipe row or fish row — the panel-side
+shape is `postMessage({type:'game_command', action:'choose_recipe',
+panel:'cooking_panel', data:{recipeId: 'grilled'}}, '*')`. The handler
+argument `d` is the FULL envelope, NOT the inner `data` object. Read
+panel-specific fields from `d.data`:
+
+```js
+this.scene.events.ui.on("ui_event:cooking_panel:choose_recipe", function(d) {
+    var dd = (d && d.data) || {};        // ← unwrap the envelope
+    self._chooseRecipe(dd.recipeId || "");
+});
+```
+
+A common bug is reaching for `d.recipeId` directly — that returns
+`undefined`, the click appears to do nothing, and hover effects still
+work (which makes it look like a cursor / pointer-lock issue when it's
+actually a payload-shape mismatch). Always unwrap.
+
 **Do NOT rely on keyboard-only interaction** for shops, inventories, or
 context menus. Users expect to click UI elements — keyboard shortcuts are
 a bonus, not a substitute. Every keyboard shortcut (`Press E to open`,
