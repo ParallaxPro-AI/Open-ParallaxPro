@@ -333,6 +333,46 @@
         "scenery"
       ],
       "label": false
+    },
+    "coin": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Coin.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["coin"],
+      "label": false
+    },
+    "powerup_magnet": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.55, 0.25, 0.95, 1],
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": false,
+      "tags": ["powerup"],
+      "label": false
+    },
+    "powerup_shield": {
+      "mesh": {
+        "type": "sphere",
+        "color": [0.2, 0.8, 1.0, 1],
+        "scale": [0.6, 0.6, 0.6]
+      },
+      "physics": false,
+      "tags": ["powerup"],
+      "label": false
+    },
+    "powerup_multiplier": {
+      "mesh": {
+        "type": "custom",
+        "asset": "/assets/quaternius/3d_models/platformer_game_kit/Star.glb",
+        "scale": [1, 1, 1]
+      },
+      "physics": false,
+      "tags": ["powerup"],
+      "label": false
     }
   }
 }

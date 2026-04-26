@@ -309,9 +309,6 @@ class SurfSpawnerSystem extends GameScript {
         if (Math.random() > 0.4) {
             this._spawn("tree_scenery", 7.5, 0, z + Math.random() * 10, "scenery");
         }
-        // Fences along the track edges
-        this._spawn("fence_scenery", -6.5, 0, z, "scenery");
-        this._spawn("fence_scenery", 6.5, 0, z, "scenery");
     }
 
     _spawn(defName, x, y, z, type) {
