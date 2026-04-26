@@ -163,7 +163,7 @@ class Rift1v1GameSystem extends GameScript {
             self.scene.events.ui.emit("hud_update", { _riftShopToggle: true });
         });
         this.scene.events.ui.on("ui_event:hud/rift_hud:buy_item", function(d) {
-            var p = (d && d.payload) || {};
+            var p = ((d && d.data) || {}).payload || {};
             self._tryBuyItem(p.itemId);
         });
 

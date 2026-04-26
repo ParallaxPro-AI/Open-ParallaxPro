@@ -66,15 +66,15 @@ class ProductionSystemInstance extends GameScript {
 
         // Click-driven training.
         this.scene.events.ui.on("ui_event:hud/command_panel:train_unit", function(d) {
-            var p = (d && d.payload) || {};
+            var p = ((d && d.data) || {}).payload || {};
             if (p.type) s._tryTrainUnit(p.type);
         });
         this.scene.events.ui.on("ui_event:hud/command_panel:build_structure", function(d) {
-            var p = (d && d.payload) || {};
+            var p = ((d && d.data) || {}).payload || {};
             if (p.type) s._tryBuildStructure(p.type);
         });
         this.scene.events.ui.on("ui_event:hud/command_panel:cancel_build", function(d) {
-            var p = (d && d.payload) || {};
+            var p = ((d && d.data) || {}).payload || {};
             var idx = (typeof p.index === "number") ? p.index : (s._queue.length - 1);
             if (idx >= 0 && idx < s._queue.length) {
                 var item = s._queue[idx];

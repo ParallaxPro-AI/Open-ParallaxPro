@@ -8,7 +8,7 @@ class HeroAbilitiesBehavior extends GameScript {
     _qClick = false; _eClick = false; _rClick = false;
     onStart() { var s = this;
         this.scene.events.ui.on("ui_event:hud/ability_bar:cast_ability", function(d) {
-            var p = (d && d.payload) || {};
+            var p = ((d && d.data) || {}).payload || {};
             if (p.key === "q") s._qClick = true;
             else if (p.key === "e") s._eClick = true;
             else if (p.key === "r") s._rClick = true;

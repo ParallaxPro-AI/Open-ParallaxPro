@@ -405,12 +405,58 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   // keys-resolve / cursor invariants.
   if (['ui', 'clicker'].includes(gameType)) {
     results.push(guarded('ui_has_interactable', () => {
+      // First: runtime check — a button is currently visible. Cheap and
+      // covers games where the playtest reaches a clickable state in 5 ticks.
       const btns = p.runtime.ui.listVisible().filter(el => el.kind === 'button' || el.kind === 'textInput');
-      if (btns.length === 0) {
-        throw new PlaytestFailure('ui_unreachable',
-          `gameType=${gameType} but no visible clickable UI element exists after 5 ticks.`,
-          { hint: 'Create at least one scene.createButton({ x, y, width, height, text, onClick }) in a system onStart, or declare clickable UI in an HTML panel opened via show_ui.' });
+      if (btns.length > 0) return;
+      // Fallback: static reachability — scan the flow for any state that
+      // opens an HTML panel containing clickable elements. A TD game's
+      // playtest can still be in boot/main_menu at tick 5 even though its
+      // gameplay state opens hud/td_hud which has tower-build buttons.
+      // Without this fallback we false-fail and force the agent to add a
+      // bogus button to satisfy the check.
+      const flow = p.runtime.files.flow;
+      const uiHtmls: Record<string, string> = p.runtime.files.uiHtmls ?? {};
+      const panelHasClickable = (panelKey: string): boolean => {
+        // Try a few key shapes — the runtime stores HTML by file path; the
+        // flow's `show_ui:foo/bar` references the panel without the .html
+        // suffix and with a leading "ui/" prefix in some places.
+        const candidates = [
+          panelKey,
+          panelKey + '.html',
+          'ui/' + panelKey,
+          'ui/' + panelKey + '.html',
+        ];
+        for (const k of candidates) {
+          const html = uiHtmls[k];
+          if (typeof html === 'string' && /<button\b|onclick\s*=|role\s*=\s*["']button|cursor\s*:\s*pointer/i.test(html)) return true;
+        }
+        return false;
+      };
+      const collectShowUiTargets = (state: any, out: Set<string>) => {
+        if (!state || typeof state !== 'object') return;
+        const actions: string[] = [];
+        if (Array.isArray(state.on_enter)) actions.push(...state.on_enter);
+        if (Array.isArray(state.on_update)) actions.push(...state.on_update);
+        for (const a of actions) {
+          if (typeof a !== 'string') continue;
+          const m = a.match(/^show_ui:(.+)$/);
+          if (m) out.add(m[1].trim());
+        }
+        if (state.substates && typeof state.substates === 'object') {
+          for (const sub of Object.values(state.substates)) collectShowUiTargets(sub, out);
+        }
+      };
+      const targets = new Set<string>();
+      if (flow?.states && typeof flow.states === 'object') {
+        for (const s of Object.values(flow.states)) collectShowUiTargets(s, targets);
       }
+      for (const t of targets) {
+        if (panelHasClickable(t)) return;
+      }
+      throw new PlaytestFailure('ui_unreachable',
+        `gameType=${gameType} but no visible clickable UI element exists at playtest tick 5, AND no flow state opens an HTML panel containing clickable elements (scanned ${targets.size} show_ui target${targets.size === 1 ? '' : 's'}).`,
+        { hint: 'Create at least one scene.createButton({ x, y, width, height, text, onClick }) in a system onStart, OR declare clickable UI (<button>, onclick=, role="button", cursor:pointer) in an HTML panel opened via show_ui from any flow state.', scannedShowUiTargets: Array.from(targets) });
     }));
   }
 
@@ -1302,7 +1348,21 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     //     chase velocity, no separation vector summed from neighbors.
     const hasPinnedSeparation =
       scriptEntries.some(([k]) => k.endsWith('/enemy_chase_with_separation.ts'));
-    if (!hasPinnedSeparation) {
+    // Tightened precondition (2026-04-26): the smell only makes sense if the
+    // game actually HAS enemies. BAIT JUMPERS spent 5+ turns spinning on this
+    // because the offending findEntitiesByTag("enemy") call was leftover
+    // platformer-template residue — no enemy-shaped entity existed in
+    // 02_entities.json. Skip the whole detector if no def's name or tag
+    // substring-matches the enemy vocabulary; the residue ends up flagged
+    // by other dead-code checks instead, with the right "delete" guidance.
+    const ENEMY_NAME_RE = /(enemy|enemies|robot|zombie|ghost|goomba|skeleton|orc|minion|drone|npc|monster|mob|chaser|pursuer|hunter|hostile|cat|alien|slime|imp|wraith|goblin)/i;
+    const entityDefs = p.runtime.files.entities?.definitions || {};
+    const hasEnemyEntity = Object.entries<any>(entityDefs).some(([name, def]) => {
+      if (ENEMY_NAME_RE.test(name)) return true;
+      const tags: string[] = (def && def.tags) || [];
+      return tags.some(t => typeof t === 'string' && ENEMY_NAME_RE.test(t));
+    });
+    if (!hasPinnedSeparation && hasEnemyEntity) {
       // Iteration 7 audit improvement: broaden the "separation already
       // implemented" detection to accept hand-rolled patterns. Authors who
       // wrote their own per-frame distance loop summing position deltas
@@ -1362,7 +1422,7 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       results.push({
         name: 'avoid_reimplementing_pinned_behaviors',
         failure: new PlaytestFailure('reimplemented_pinned',
-          `${smells.length} hand-rolled behavior${smells.length > 1 ? 's' : ''} look${smells.length > 1 ? '' : 's'} like ${smells.length > 1 ? '' : 'a '}pinned-library candidate${smells.length > 1 ? 's' : ''}: ${smells.map(s => `${s.file} → ${s.suggestedLibrary} (${s.why})`).join('; ')}. Either fetch the pinned implementation via \`bash library.sh show ${smells[0].suggestedLibrary}\` OR keep your hand-rolled implementation if it includes a per-frame distance loop summing position deltas (the broadened detector treats any neighbor iteration with distance math as "already separating").`,
+          `${smells.length} hand-rolled behavior${smells.length > 1 ? 's' : ''} look${smells.length > 1 ? '' : 's'} like ${smells.length > 1 ? '' : 'a '}pinned-library candidate${smells.length > 1 ? 's' : ''}: ${smells.map(s => `${s.file} → ${s.suggestedLibrary} (${s.why})`).join('; ')}. Three valid resolutions: (1) DELETE the offending code if it's residue from a copied template that doesn't apply to this game (e.g. enemy-chase code carried over from a platformer template but the new game has no enemies, or moving-platform code copied into a static-level game); (2) fetch the pinned implementation via \`bash library.sh show ${smells[0].suggestedLibrary}\`; (3) keep your hand-rolled implementation if it includes a per-frame distance loop summing position deltas (the broadened detector treats any neighbor iteration with distance math as "already separating") — applies to chase smells; for moving-platform smells the hand-rolled version is fine if you don't need riders carried.`,
           { smells }),
       });
     }
@@ -1450,7 +1510,7 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       results.push({
         name: 'declared_prefabs_reachable',
         failure: new PlaytestFailure('orphan_prefab',
-          `${orphans.length} gameplay-named prefab${orphans.length > 1 ? 's are' : ' is'} declared in 02_entities.json but never placed in 03_worlds.json and never materialize at runtime via spawnEntity: ${orphans.slice(0, 5).map(n => `"${n}"`).join(', ')}${orphans.length > 5 ? ` (+${orphans.length - 5} more)` : ''}. Either add placements for them in 03_worlds.json, OR write a spawner system that calls \`scene.spawnEntity("${orphans[0]}")\` from active_systems during the gameplay state. If the spawner system exists but they're still absent after 3s of ticks, check the spawner's active_behaviors/active_systems gating and its spawn coordinates — the robots in run 502bd348 had a spawner registered but spawned outside the visible play area.`,
+          `${orphans.length} gameplay-named prefab${orphans.length > 1 ? 's are' : ' is'} declared in 02_entities.json but never placed in 03_worlds.json and never materialize at runtime via spawnEntity: ${orphans.slice(0, 5).map(n => `"${n}"`).join(', ')}${orphans.length > 5 ? ` (+${orphans.length - 5} more)` : ''}. Three valid resolutions: (1) DELETE the prefab definitions from 02_entities.json if they're residue from a copied template that doesn't apply to this game (e.g. enemy_slime/skeleton/dragon left over from tower_siege but the new game uses different enemy names — just remove the unused defs); (2) add placements for them in 03_worlds.json; (3) write a spawner system that calls \`scene.spawnEntity("${orphans[0]}")\` from active_systems during the gameplay state. If a spawner system exists but they're still absent after 3s of ticks, check the spawner's active_behaviors/active_systems gating and its spawn coordinates — the robots in run 502bd348 had a spawner registered but spawned outside the visible play area.`,
           { orphans, total: orphans.length }),
       });
     }
@@ -1585,7 +1645,7 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       results.push({
         name: 'behavior_listens_for_unemitted_event',
         failure: new PlaytestFailure('dead_listener',
-          `${deadListeners.length} script listener${deadListeners.length > 1 ? 's' : ''} registered for game events nothing emits: ${first}${more}. Either rename the listener to match an event that IS emitted (grep "emit:game." in 01_flow.json and "events.game.emit" in other scripts for the canonical name — most commonly "restart_game" for play-again resets), OR add the emit from a flow transition / system where the event should originate. Silent no-op listeners are the #1 cause of "works first time but not after replay" bugs.`,
+          `${deadListeners.length} script listener${deadListeners.length > 1 ? 's' : ''} registered for game events nothing emits: ${first}${more}. Three valid resolutions: (1) DELETE the listener if it's residue from a copied template/library that this game doesn't need; (2) rename the listener to match an event that IS emitted (grep "emit:game." in 01_flow.json and "events.game.emit" in other scripts for the canonical name — most commonly "restart_game" for play-again resets); (3) add the emit from a flow transition or system where the event should originate. Silent no-op listeners are the #1 cause of "works first time but not after replay" bugs.`,
           { deadListeners }),
       });
     } else {
