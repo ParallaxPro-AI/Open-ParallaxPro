@@ -244,7 +244,11 @@ class NeonCyclesMatchSystem extends GameScript {
         if (!bike) return;
         this.scene.setPosition(bike.id, sp.x, 0.6, sp.z);
         if (bike.transform && bike.transform.setRotationEuler) {
-            bike.transform.setRotationEuler(0, sp.yaw, 0);
+            // +180 keeps the entity rotation in the same convention
+            // bike_player_control uses (visual yaw = logical motion yaw +
+            // 180); _readYawDeg over there subtracts it back when sampling
+            // the spawn orientation, so logical math stays consistent.
+            bike.transform.setRotationEuler(0, sp.yaw + 180, 0);
             bike.transform.markDirty && bike.transform.markDirty();
         }
         var ni = bike.getComponent ? bike.getComponent("NetworkIdentityComponent") : null;
@@ -356,7 +360,8 @@ class NeonCyclesMatchSystem extends GameScript {
         if (bike) {
             this.scene.setPosition(bike.id, localSpawn.x, 0.6, localSpawn.z);
             if (bike.transform && bike.transform.setRotationEuler) {
-                bike.transform.setRotationEuler(0, localSpawn.yaw, 0);
+                // +180 visual offset (see the spawn path above + bike_player_control).
+                bike.transform.setRotationEuler(0, localSpawn.yaw + 180, 0);
                 bike.transform.markDirty && bike.transform.markDirty();
             }
         }
