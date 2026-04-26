@@ -23,6 +23,8 @@ class SurfRunnerBehavior extends GameScript {
     _currentAnim = "";
     _runTimer = 0;
     _startPos = [0, 0, 0];
+    _fastFallSpeed = 28;     // |vy| applied when S is pressed mid-air
+    _pendingSlide = false;   // queue a slide to fire automatically on land
 
     onStart() {
         var pos = this.entity.transform.position;
@@ -67,6 +69,7 @@ class SurfRunnerBehavior extends GameScript {
         this._active = false;
         this._runTimer = 0;
         this._currentAnim = "";
+        this._pendingSlide = false;
         this.scene.setPosition(this.entity.id, this._startPos[0], this._startPos[1], this._startPos[2]);
         this.scene.setVelocity(this.entity.id, { x: 0, y: 0, z: 0 });
         this._playAnim("Idle", true);
@@ -111,13 +114,22 @@ class SurfRunnerBehavior extends GameScript {
             if (this.audio) this.audio.playSound("/assets/kenney/audio/digital_audio/phaseJump1.ogg", 0.4);
         }
 
-        // Slide — only when on ground and not jumping
+        // Slide — ground press starts an immediate slide; mid-air press
+        // (player jumped or is otherwise off the ground) snaps vertical
+        // velocity downward for a fast-fall and queues a slide to fire
+        // the instant we touch down. Lets the player commit to a slide
+        // from a jump without waiting out the gravity arc.
         var slidePressed = this.input.isKeyPressed("KeyS") || this.input.isKeyPressed("ArrowDown");
-        if (slidePressed && onGround && !this._isJumping) {
-            this._isSliding = true;
-            this._slideTimer = this._slideDuration;
-            this._playAnim("Roll", false);
-            if (this.audio) this.audio.playSound("/assets/kenney/audio/interface_sounds/drop_003.ogg", 0.3);
+        if (slidePressed) {
+            if (onGround && !this._isJumping) {
+                this._isSliding = true;
+                this._slideTimer = this._slideDuration;
+                this._playAnim("Roll", false);
+                if (this.audio) this.audio.playSound("/assets/kenney/audio/interface_sounds/drop_003.ogg", 0.3);
+            } else if (!onGround) {
+                if (this._verticalVel > -this._fastFallSpeed) this._verticalVel = -this._fastFallSpeed;
+                this._pendingSlide = true;
+            }
         }
 
         // Update slide timer
@@ -147,6 +159,13 @@ class SurfRunnerBehavior extends GameScript {
             newY = 1.0;
             this._verticalVel = 0;
             if (this._isJumping) this._isJumping = false;
+            if (this._pendingSlide) {
+                this._pendingSlide = false;
+                this._isSliding = true;
+                this._slideTimer = this._slideDuration;
+                this._playAnim("Roll", false);
+                if (this.audio) this.audio.playSound("/assets/kenney/audio/interface_sounds/drop_003.ogg", 0.3);
+            }
         }
 
         // Set velocity: forward (-Z), lateral (X), vertical (Y) managed manually

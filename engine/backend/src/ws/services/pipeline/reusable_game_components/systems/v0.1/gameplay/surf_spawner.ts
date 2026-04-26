@@ -106,10 +106,18 @@ class SurfSpawnerSystem extends GameScript {
     }
 
     _spawnInitialTrack() {
+        // _spawnAhead/_trackSegLen don't divide cleanly (140/40=3.5), so
+        // the loop's final spawn lands somewhere short of -_spawnAhead.
+        // Track the actual last spawned z and feed it back into
+        // _lastTrackZ so the streaming spawner continues contiguously
+        // — otherwise there's a half-segment gap (~20m of invisible
+        // road) where the player runs after the initial chunks end.
+        var lastSpawnedZ = 40;
         for (var z = 40; z >= -this._spawnAhead; z -= this._trackSegLen) {
             this._spawnTrack(z);
+            lastSpawnedZ = z;
         }
-        this._lastTrackZ = -this._spawnAhead;
+        this._lastTrackZ = lastSpawnedZ;
 
         // Spawn initial scenery
         for (var sz = 0; sz >= -this._spawnAhead; sz -= this._buildingSpacing) {
