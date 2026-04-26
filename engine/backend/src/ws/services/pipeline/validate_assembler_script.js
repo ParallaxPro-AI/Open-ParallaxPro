@@ -1189,4 +1189,56 @@ function extractMethodBody(src, name) {
 })();
 
 
+// ═════════════════════════════════════════════════════════════════════
+// 13. AI behavior Play Again reset
+// ═════════════════════════════════════════════════════════════════════
+//
+// A behavior that:
+//   (a) declares a `_dead` field, AND
+//   (b) listens for `entity_damaged`, AND
+//   (c) sets `_dead = true` somewhere (typically inside that handler),
+// MUST register at least one reset listener for `game_ready`,
+// `match_started`, or `restart_game` — otherwise the entity stays
+// deactivated permanently and the next match starts with the entity
+// gone. Caught the c4ff23a regression class across 10 shared AI
+// behaviors (boss_ai, hostile_ai, hostile_mob, minion_ai, pedestrian_ai,
+// police_ai, medic_ai, farm_animal_ai, ghost_ship, sea_monster).
+(function() {
+    var resetEvents = ['game_ready', 'match_started', 'restart_game'];
+    var missing = [];
+    var scriptEntries = Object.entries(allScripts);
+    for (var sei = 0; sei < scriptEntries.length; sei++) {
+        var scriptKey = scriptEntries[sei][0];
+        var source = scriptEntries[sei][1];
+        // Only behaviors. Systems can manage their own state without per-entity reset.
+        if (!scriptKey.startsWith('behaviors/')) continue;
+        // (a) has _dead field
+        if (!/(?:^|\s)_dead\s*=/.test(source)) continue;
+        // (b) listens for entity_damaged
+        if (!/\.events\.game\.on\(\s*["']entity_damaged["']/.test(source)) continue;
+        // (c) sets _dead = true (i.e. the listener actually deactivates)
+        if (!/_dead\s*=\s*true/.test(source)) continue;
+        // Must subscribe to at least one reset event
+        var hasReset = false;
+        for (var ri = 0; ri < resetEvents.length; ri++) {
+            var ev = resetEvents[ri];
+            var re = new RegExp('\\.events\\.game\\.on\\(\\s*["\']' + ev + '["\']');
+            if (re.test(source)) { hasReset = true; break; }
+        }
+        if (!hasReset) missing.push(scriptKey);
+    }
+    if (missing.length > 0) {
+        console.error(
+            'Play Again reset check failed: ' + missing.length + ' AI behavior(s) ' +
+            'track _dead but never reset on game_ready/match_started/restart_game. ' +
+            'Affected: ' + missing.join(', ') + '. Once an enemy dies, it stays ' +
+            'deactivated permanently — the next match starts missing those entities. ' +
+            'Add a resetFn that restores _dead=false, _health, position, and ' +
+            'entity.active=true, subscribed to all 3 event names.'
+        );
+        process.exit(1);
+    }
+})();
+
+
 console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
