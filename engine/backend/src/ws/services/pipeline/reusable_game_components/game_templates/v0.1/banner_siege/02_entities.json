@@ -4,6 +4,7 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Soldier_Male.glb",
+        "hideFromOwner": true,
         "scale": [
           1,
           1,
