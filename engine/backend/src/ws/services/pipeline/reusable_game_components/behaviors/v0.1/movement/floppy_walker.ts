@@ -43,15 +43,7 @@ class FloppyWalkerBehavior extends GameScript {
         var ni = this.entity.getComponent
             ? this.entity.getComponent("NetworkIdentityComponent")
             : null;
-        // Remote proxies don't read input or apply forces — their
-        // transform comes from the owner's snapshots — but the anim
-        // hint below is what other peers see, so derive an Idle/Run/
-        // Jump_Start choice from observed position delta and bail out
-        // before the local-only movement code.
-        if (ni && !ni.isLocalPlayer) {
-            this._updateRemoteAnimation(dt);
-            return;
-        }
+        if (ni && !ni.isLocalPlayer) return;
 
         // Camera-relative input. Camera writes its yaw to scene._tpYaw
         // so we transform WASD into world-aligned XZ direction.
@@ -178,33 +170,5 @@ class FloppyWalkerBehavior extends GameScript {
         var p = this.entity.transform.position;
         var hit = this.scene.raycast(p.x, p.y - 0.3, p.z, 0, -1, 0, 0.55, this.entity.id);
         return !!(hit && hit.entityId);
-    }
-
-    _updateRemoteAnimation(dt) {
-        // Pick Idle / Run / Jump_Start from observed position delta so
-        // remote peers see this player's animation update on their
-        // screens. Owner velocity isn't networkedVar'd — only the
-        // transform is — so derive horizontal speed from frame-to-frame
-        // diffs of the synced position.
-        if (!this.entity || !this.entity.transform) return;
-        var p = this.entity.transform.position;
-        if (!this._lastRemotePos) {
-            this._lastRemotePos = { x: p.x, y: p.y, z: p.z };
-            return;
-        }
-        var step = dt > 0 ? dt : 1 / 60;
-        var dx = (p.x - this._lastRemotePos.x) / step;
-        var dz = (p.z - this._lastRemotePos.z) / step;
-        this._lastRemotePos.x = p.x; this._lastRemotePos.y = p.y; this._lastRemotePos.z = p.z;
-
-        var spd = Math.sqrt(dx * dx + dz * dz);
-        var grounded = this._probeGrounded();
-        var anim = !grounded ? "Jump_Start" : (spd > 1 ? "Run" : "Idle");
-        if (anim !== this._currentAnim) {
-            this._currentAnim = anim;
-            if (this.entity.playAnimation) {
-                try { this.entity.playAnimation(anim, { loop: anim !== "Jump_Start" }); } catch (e) { /* missing clip */ }
-            }
-        }
     }
 }
