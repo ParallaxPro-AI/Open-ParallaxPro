@@ -51,6 +51,14 @@ function scriptExists(scriptPath) {
            fs.existsSync(path.join(PROJECT, 'systems', rel));
 }
 
+// Engine-machinery script paths to skip from user-code-rule checks (tag-
+// lookup, name-lookup, etc.). These are shipped infrastructure files;
+// they look up entities every game won't have ("Camera" in a UI game,
+// "Player" in a board game). The user doesn't own these and the engine
+// handles the null fallback gracefully. Mirror of the TRANSPORT_RE
+// filter inside the dead_listener invariant in headless/src/invariants.ts.
+var ENGINE_MACHINERY_RE = /(^|\/)(ui_bridge|mp_bridge|fsm_driver|_entity_label|event_definitions|_event_validator)(_[^/]*)?\.ts$/;
+
 // ─── Load data ───────────────────────────────────────────────────────
 
 var flow = loadJSON('01_flow.json');
@@ -917,6 +925,7 @@ function stripCommentsForScan(src) {
     var seen = new Set();
     for (var sei3 = 0; sei3 < scriptEntries.length; sei3++) {
         var scriptKey = scriptEntries[sei3][0];
+        if (ENGINE_MACHINERY_RE.test(scriptKey)) continue;
         var srcRaw = scriptEntries[sei3][1];
         var src3 = stripCommentsForScan(srcRaw);
         for (var tm of src3.matchAll(/\bfindEntitiesByTag\s*\(\s*["']([^"']+)["']\s*\)/g)) {
@@ -996,8 +1005,10 @@ function stripCommentsForScan(src) {
 
     var nameErrors = [];
     var seen = new Set();
+    // ENGINE_MACHINERY_RE is defined above in the tag-lookup block; re-use it.
     for (var sei2 = 0; sei2 < scriptEntries.length; sei2++) {
         var scriptKey = scriptEntries[sei2][0];
+        if (ENGINE_MACHINERY_RE.test(scriptKey)) continue;
         var src2 = stripCommentsForScan(scriptEntries[sei2][1]);
         // First, build the set of names that participate in a `||`-chain
         // where at least one alternative resolves — those are valid.

@@ -1662,8 +1662,12 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       }
       return cur;
     };
-    type DeadEntry = { name: string; script: string; instances: number };
-    const deadByKey = new Map<string, DeadEntry>();
+    // Group by EVENT NAME first, with per-base-script breakdown nested
+    // inside. The recommendation is one fix per event ("emit X once" or
+    // "delete the X listeners"); listing 5 separate scripts that all
+    // listen to "match_ended" is misleading — there's one bug, not five.
+    type DeadGroup = { event: string; bases: Map<string, { script: string; instances: number }> };
+    const deadByEvent = new Map<string, DeadGroup>();
     for (const [scriptPath, src] of Object.entries(scripts)) {
       if (TRANSPORT_RE.test(scriptPath)) continue;
       LISTEN_RE.lastIndex = 0;
@@ -1676,29 +1680,49 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         if (seenInThisScript.has(evtName)) continue;
         seenInThisScript.add(evtName);
         const baseScript = stripInstanceSuffix(scriptPath);
-        const key = `${baseScript}::${evtName}`;
-        const existing = deadByKey.get(key);
-        if (existing) {
-          existing.instances += 1;
+        let group = deadByEvent.get(evtName);
+        if (!group) {
+          group = { event: evtName, bases: new Map() };
+          deadByEvent.set(evtName, group);
+        }
+        const baseEntry = group.bases.get(baseScript);
+        if (baseEntry) {
+          baseEntry.instances += 1;
         } else {
-          deadByKey.set(key, { name: evtName, script: scriptPath, instances: 1 });
+          group.bases.set(baseScript, { script: scriptPath, instances: 1 });
         }
       }
     }
-    const deadListeners = Array.from(deadByKey.values());
+    const deadEvents = Array.from(deadByEvent.values());
 
-    if (deadListeners.length > 0) {
-      const fmt = (d: DeadEntry) =>
-        d.instances > 1
-          ? `"${d.name}" in ${d.script} (×${d.instances} instances of the same behavior)`
-          : `"${d.name}" in ${d.script}`;
-      const first = deadListeners.slice(0, 5).map(fmt).join(', ');
-      const more = deadListeners.length > 5 ? ` (+${deadListeners.length - 5} more)` : '';
+    if (deadEvents.length > 0) {
+      const fmtGroup = (g: DeadGroup) => {
+        const baseList = Array.from(g.bases.values());
+        if (baseList.length === 1) {
+          const b = baseList[0];
+          return b.instances > 1
+            ? `"${g.event}" in ${b.script} (×${b.instances} instances of the same behavior)`
+            : `"${g.event}" in ${b.script}`;
+        }
+        const totalListeners = baseList.reduce((acc, b) => acc + b.instances, 0);
+        const scripts = baseList.map(b => b.instances > 1 ? `${b.script}×${b.instances}` : b.script).join(', ');
+        return `"${g.event}" listened by ${totalListeners} listener${totalListeners > 1 ? 's' : ''} across ${baseList.length} script${baseList.length > 1 ? 's' : ''} (${scripts}) — emitting ${g.event} once fixes all of them`;
+      };
+      const first = deadEvents.slice(0, 5).map(fmtGroup).join('; ');
+      const more = deadEvents.length > 5 ? ` (+${deadEvents.length - 5} more)` : '';
+      // Flatten back to the legacy {name, script} shape for the detail
+      // payload so existing consumers don't break.
+      const deadListeners: Array<{ name: string; script: string; instances: number }> = [];
+      for (const g of deadEvents) {
+        for (const b of g.bases.values()) {
+          deadListeners.push({ name: g.event, script: b.script, instances: b.instances });
+        }
+      }
       results.push({
         name: 'behavior_listens_for_unemitted_event',
         failure: new PlaytestFailure('dead_listener',
-          `${deadListeners.length} unique dead listener${deadListeners.length > 1 ? 's' : ''} registered for game events nothing emits: ${first}${more}. Three valid resolutions: (1) DELETE the listener if it's residue from a copied template/library that this game doesn't need; (2) rename the listener to match an event that IS emitted (grep "emit:game." in 01_flow.json and "events.game.emit" in other scripts for the canonical name — most commonly "restart_game" for play-again resets); (3) add the emit from a flow transition or system where the event should originate. Silent no-op listeners are the #1 cause of "works first time but not after replay" bugs.`,
-          { deadListeners }),
+          `${deadEvents.length} game event${deadEvents.length > 1 ? 's' : ''} registered as listener${deadEvents.length > 1 ? 's' : ''} but nothing emits: ${first}${more}. Three valid resolutions: (1) DELETE the listener(s) if residue from a copied template/library this game doesn't need; (2) rename the listener to match an event that IS emitted (grep "emit:game." in 01_flow.json and "events.game.emit" in other scripts for the canonical name — most commonly "restart_game" for play-again resets); (3) add the emit from a flow transition or system where the event should originate (one emit covers all listeners for that event). Silent no-op listeners are the #1 cause of "works first time but not after replay" bugs.`,
+          { deadListeners, deadEvents: deadEvents.map(g => ({ event: g.event, bases: Array.from(g.bases.values()) })) }),
       });
     } else {
       results.push({ name: 'behavior_listens_for_unemitted_event', failure: null });
