@@ -261,49 +261,6 @@
   .spot-action.disabled { opacity: 0.35; cursor: not-allowed; }
   .spot-action.disabled:hover { background: rgba(255, 255, 255, 0.08); }
 
-  /* ===== Spot mini-map (top-left) — clickable dots for each spot ===== */
-  .spot-map {
-    position: fixed;
-    top: 14px;
-    left: 18px;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    padding: 8px;
-    display: grid;
-    grid-template-columns: repeat(4, 18px);
-    gap: 4px;
-    pointer-events: auto;
-    z-index: 5;
-  }
-  .spot-dot {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    cursor: pointer;
-    pointer-events: auto;
-    transition: transform 0.12s ease, background 0.12s ease;
-    font-size: 9px;
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    user-select: none;
-  }
-  .spot-dot:hover { transform: scale(1.15); }
-  .spot-dot.selected {
-    background: var(--cyan);
-    border-color: #fff;
-    color: #001;
-    box-shadow: 0 0 10px rgba(34, 211, 238, 0.7);
-  }
-  .spot-dot.occupied { background: rgba(245, 158, 11, 0.55); border-color: var(--gold); color: #fff; }
-  .spot-dot.occupied.selected { background: var(--cyan); border-color: #fff; }
-
   /* ===== Hint bar ===== */
   .hint {
     position: fixed;
@@ -328,8 +285,6 @@
 </style>
 </head>
 <body>
-
-<div class="spot-map" id="spotMap"></div>
 
 <div class="top-bar">
   <div class="stat gold"><span class="label">Gold</span><span class="value" id="gold">500</span></div>
@@ -403,7 +358,6 @@
   var spotDetail = document.getElementById('spotDetail');
   var upgradeBtn = document.getElementById('upgradeBtn');
   var sellBtn = document.getElementById('sellBtn');
-  var spotMap = document.getElementById('spotMap');
 
   var cardEls = {};
   var costEls = {};
@@ -430,24 +384,6 @@
     if (sellBtn.classList.contains('disabled')) return;
     send('sell_tower');
   });
-
-  // Render spot mini-map (one dot per spot, clickable to select).
-  var spotDots = [];
-  function ensureSpotDots(n) {
-    while (spotDots.length < n) {
-      var i = spotDots.length;
-      var dot = document.createElement('div');
-      dot.className = 'spot-dot';
-      dot.textContent = String(i + 1);
-      (function (idx) {
-        dot.addEventListener('click', function () {
-          send('select_spot', { index: idx });
-        });
-      })(i);
-      spotMap.appendChild(dot);
-      spotDots.push(dot);
-    }
-  }
 
   function render(state) {
     if (!state) return;
@@ -486,17 +422,6 @@
       hintEl.textContent = 'Click a tower, then click a spot in the world. Or Q/E + 1-4. Right-click / Esc to cancel.';
       hintEl.classList.remove('armed');
       document.body.classList.remove('armed');
-    }
-
-    // Spot mini-map.
-    var spots = state.spots || [];
-    ensureSpotDots(spots.length);
-    var selIdx = (typeof state.selectedSpotIndex === 'number') ? state.selectedSpotIndex : 0;
-    for (var s = 0; s < spotDots.length; s++) {
-      var dot = spotDots[s];
-      var info = spots[s];
-      dot.classList.toggle('selected', s === selIdx);
-      dot.classList.toggle('occupied', !!(info && info.occupied));
     }
 
     // Spot info bar.
