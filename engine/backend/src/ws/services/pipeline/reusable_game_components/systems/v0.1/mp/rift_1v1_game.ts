@@ -969,7 +969,7 @@ class Rift1v1GameSystem extends GameScript {
         // Flash a tiny visual on the caster.
         if (this.audio) {
             if (slot === "Q") this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserLarge_000.ogg", 0.5);
-            else if (slot === "E") this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/phaseJump2.ogg", 0.45);
+            else if (slot === "E") this.audio.playSound("/assets/kenney/audio/digital_audio/phaseJump2.ogg", 0.45);
             else if (slot === "basic") this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserSmall_002.ogg", 0.32);
         }
 

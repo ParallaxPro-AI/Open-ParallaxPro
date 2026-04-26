@@ -712,7 +712,7 @@ class TDEngineSystem extends GameScript {
                 }
             }
         });
-        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/congratulations.ogg", 0.6);
+        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/congratulations.ogg", 0.6);
         this.scene.events.game.emit("game_won", {});
     }
 
@@ -729,7 +729,7 @@ class TDEngineSystem extends GameScript {
                 }
             }
         });
-        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/game_over.ogg", 0.6);
+        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/game_over.ogg", 0.6);
         this.scene.events.game.emit("game_over", {});
     }
 

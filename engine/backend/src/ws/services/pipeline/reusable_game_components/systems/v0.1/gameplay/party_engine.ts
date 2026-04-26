@@ -147,7 +147,7 @@ class PartyEngineSystem extends GameScript {
         this.scene._partyMinigameActive = false;
 
         if (this.audio) this.audio.playSound("/assets/kenney/audio/casino_audio/dice-throw-1.ogg", 0.5);
-        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/round.ogg", 0.5);
+        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/round.ogg", 0.5);
     }
 
     _startCountdown() {
@@ -173,7 +173,7 @@ class PartyEngineSystem extends GameScript {
         if (this._currentMG === 1) this._setupBumperBash();
         if (this._currentMG === 2) this._setupCoinFrenzy();
 
-        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/go.ogg", 0.6);
+        if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/go.ogg", 0.6);
         if (this.audio) this.audio.playSound("/assets/kenney/audio/interface_sounds/confirmation_002.ogg", 0.5);
     }
 
@@ -225,10 +225,10 @@ class PartyEngineSystem extends GameScript {
         });
 
         if (winner === 0) {
-            if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/congratulations.ogg", 0.6);
+            if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/congratulations.ogg", 0.6);
             this.scene.events.game.emit("game_won", {});
         } else {
-            if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/game_over.ogg", 0.6);
+            if (this.audio) this.audio.playSound("/assets/kenney/audio/voiceover_pack/male/game_over.ogg", 0.6);
             this.scene.events.game.emit("game_over", {});
         }
     }

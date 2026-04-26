@@ -66,14 +66,14 @@
           "when": "game_event:game_over",
           "goto": "game_over",
           "actions": [
-            "play_sound:/assets/kenney/audio/voiceover_pack/game_over.ogg"
+            "play_sound:/assets/kenney/audio/voiceover_pack/male/game_over.ogg"
           ]
         },
         {
           "when": "game_event:game_won",
           "goto": "game_over",
           "actions": [
-            "play_sound:/assets/kenney/audio/voiceover_pack/congratulations.ogg"
+            "play_sound:/assets/kenney/audio/voiceover_pack/male/congratulations.ogg"
           ]
         }
       ]
