@@ -1079,6 +1079,19 @@ function extractMethodBody(src, name) {
         var def = defs[key];
         if (!def || def.physics === false) continue;
         if (!def.mesh) continue;
+        // Camera entities are handled by check 11b (CameraComponent presence).
+        // The kinematic/setLinearVelocity advice this check produces is wrong
+        // for cameras — they need def.camera = { fov }, not a rigidbody. Skip
+        // anything tagged "camera" or carrying a camera_* behavior.
+        var camTags = def.tags || [];
+        if (camTags.indexOf('camera') !== -1) continue;
+        var camBehaviors = def.behaviors || [];
+        var isCameraBehaviorEntity = false;
+        for (var ci = 0; ci < camBehaviors.length; ci++) {
+            var cpath = camBehaviors[ci].script || camBehaviors[ci].path || camBehaviors[ci].name || '';
+            if (/^camera[_/]/.test(cpath) || /\/camera_/.test(cpath)) { isCameraBehaviorEntity = true; break; }
+        }
+        if (isCameraBehaviorEntity) continue;
         var ptype = ((def.physics && def.physics.type) || 'static').toLowerCase();
         if (ptype === 'kinematic') continue;
         var behaviors = def.behaviors || [];
@@ -1115,6 +1128,53 @@ function extractMethodBody(src, name) {
     }
     if (motionErrors.length > 0) {
         console.error('Script-owned-motion validation failed: ' + motionErrors.length + ' entity behavior(s). ' + motionErrors[0]);
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
+// 11b. Camera entities must declare def.camera so a CameraComponent mounts
+// ═════════════════════════════════════════════════════════════════════
+// level_assembler.ts:358 only attaches a CameraComponent when the entity
+// definition has a `camera` field (`{ fov, near, far }`). scene.ts:742
+// getActiveCamera() iterates entities looking for a CameraComponent — no
+// component, no active camera, renderer keeps its default view matrix.
+//
+// The trap: agents write a "camera" entity with tags:["camera"] and a
+// camera_third_person / camera_platformer behavior, but omit the nested
+// def.camera block. The behavior runs and calls scene.setPosition +
+// entity.transform.lookAt every frame, but those updates aren't bound to
+// any render camera — game ships with a frozen view. Validator passes,
+// playtest invariants pass, user sees a static camera looking at origin.
+(function checkCameraComponentPresence() {
+    var cameraErrors = [];
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        var key = defKeys[di];
+        var def = defs[key];
+        if (!def) continue;
+        var tags = def.tags || [];
+        var behaviors = def.behaviors || [];
+        var taggedCamera = tags.indexOf('camera') !== -1;
+        var hasCameraBehavior = false;
+        for (var bi = 0; bi < behaviors.length; bi++) {
+            var spath = behaviors[bi].script || behaviors[bi].path || behaviors[bi].name || '';
+            if (/^camera[_/]/.test(spath) || /\/camera_/.test(spath) || /^camera_/.test(spath)) {
+                hasCameraBehavior = true;
+                break;
+            }
+        }
+        if (!taggedCamera && !hasCameraBehavior) continue;
+        if (def.camera) continue;
+        cameraErrors.push(
+            'entity "' + key + '" looks like a camera (' +
+            (taggedCamera ? 'tags includes "camera"' : 'carries a camera_* behavior') +
+            ') but has no def.camera = { fov } — level_assembler.ts:358 will not mount a CameraComponent, so scene.getActiveCamera() returns null and the renderer keeps its default view. The camera-follow behavior will run as a no-op for rendering. Add "camera": { "fov": 60 } to the entity definition in 02_entities.json.'
+        );
+    }
+    if (cameraErrors.length > 0) {
+        console.error('Camera-component validation failed: ' + cameraErrors.length + ' entit' + (cameraErrors.length > 1 ? 'ies' : 'y') + '. ' + cameraErrors[0]);
         process.exit(1);
     }
 })();
