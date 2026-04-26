@@ -24,7 +24,7 @@ class TDEngineSystem extends GameScript {
     _cursorX = 0;       // virtual-cursor screen position from ui_bridge
     _cursorY = 0;       //   (raw mouse is frozen by pointer lock; cursor_move is the source of truth)
     _gotCursor = false;
-    _spotClickRadius = 2.5; // world-units tolerance for clicking near a spot center
+    _spotClickRadius = 5; // world-units tolerance for clicking near a spot center
 
     // Active enemies and towers
     _enemies = [];

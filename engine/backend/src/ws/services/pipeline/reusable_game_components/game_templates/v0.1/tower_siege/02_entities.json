@@ -70,9 +70,9 @@
         "type": "custom",
         "asset": "/assets/kenney/3d_models/tower_defense_kit/selection-a.glb",
         "scale": [
+          2,
           1,
-          1,
-          1
+          2
         ]
       },
       "physics": false,
