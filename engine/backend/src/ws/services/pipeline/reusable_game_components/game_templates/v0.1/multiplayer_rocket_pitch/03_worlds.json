@@ -18,8 +18,8 @@
         { "ref": "pitch_midline", "position": [0, 0.02, 0] },
 
         { "ref": "camera", "position": [0, 9, -18] },
-        { "name": "Player",  "ref": "player",  "position": [0, 1, -14] },
-        { "name": "BotCar",  "ref": "bot_car", "position": [0, 1,  14] },
+        { "name": "Player",  "ref": "player",  "position": [0, 1, -14], "rotation": [0, 180, 0] },
+        { "name": "BotCar",  "ref": "bot_car", "position": [0, 1,  14], "rotation": [0,   0, 0] },
         { "name": "Ball",    "ref": "ball",    "position": [0, 3,   0] },
 
         { "ref": "arena_wall_long",  "position": [0, 2.5,  30.3] },
