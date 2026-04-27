@@ -924,6 +924,7 @@ These are NOT caught by `validate.sh` — the game appears to run but the broken
 3. **Missing animation**: Wrong clip name for the model. Check what clips the GLB actually has.
 4. **Falling through ground**: Ground has no physics collider, or collider size is wrong.
 5. **Script not running**: Entity is inactive, or behavior's `_behaviorName` doesn't match flow's `active_behaviors`.
+6. **First-person game shows your own player model**: In an FPS the camera sits at the player's eye height, so a visible player `mesh` renders from the inside (giant body parts blocking the view, head clipping the near plane). Fix: set `"hideFromOwner": true` on the player's mesh in `03_worlds.json` — either directly on the `mesh` field, or as `extra_components: [{ type: "MeshRendererComponent", data: { hideFromOwner: true } }]` if the mesh is a sub-component. The engine skips rendering that mesh when the active camera is the same entity or its descendant; other players / spectators / death-cam still see the full model. **Rule: any first-person game must have this set — if you're fixing an FPS and it's missing, add it even if the user didn't explicitly report it.** Don't try to hide the model by deleting the mesh (breaks multiplayer) or by toggling visibility from a script (races the render pass).
 
 ## Reference Templates
 
