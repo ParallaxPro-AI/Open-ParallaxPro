@@ -201,11 +201,11 @@ By default, EDIT blocks modify the active scene. Use switchScene() to modify a d
 
 /**
  * Detect whether the project is the seeded blank scaffold (no template
- * loaded, no user-authored scripts/UI). Mirrors the empty-project guard
- * in executor.ts:FIX_GAME case so the LLM and the runtime agree on the
- * same emptiness criterion.
+ * loaded, no user-authored scripts/UI). Single source of truth — used
+ * by getProjectSummary (LLM context banner), executor.ts:FIX_GAME guard,
+ * and editor_ws.ts:runDirectFixer guard so all three paths agree.
  */
-function isProjectEmpty(projectData: any): boolean {
+export function isProjectEmpty(projectData: any): boolean {
     if (!projectData?.files || typeof projectData.files !== 'object') return false;
     const files = projectData.files as Record<string, string>;
     const ENGINE_INFRA_RE = /(^|\/)(_[^/]+|event_definitions|ui_bridge|mp_bridge|fsm_driver|_event_validator)\.ts$/;

@@ -9,7 +9,7 @@ import { consumeWsTicket } from './ws_tickets.js';
 import type { EnginePlugin } from '../plugin.js';
 import db from '../db/connection.js';
 import { callLLMStream, isDirectApiConfigured, type LLMMessage } from './services/llm.js';
-import { SYSTEM_PROMPT, getProjectSummary } from './services/chat_protocol.js';
+import { SYSTEM_PROMPT, getProjectSummary, isProjectEmpty } from './services/chat_protocol.js';
 import { appendToLog } from './services/chat_log.js';
 import { searchAssets } from '../routes/assets.js';
 import { compile, execute, formatErrors, type ExecutionContext } from './llm_compiler/index.js';
@@ -1286,6 +1286,19 @@ async function runDirectFixer(client: EditorClient, description: string, cliOver
         const pd = readProjectData(client.projectId);
         if (!pd || isLegacyProjectData(pd)) {
             const msg = '*Project files unavailable — cannot run fixer.*';
+            appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: msg });
+            finishChat(client, msg);
+            return;
+        }
+
+        // Empty-project guard (mirrors executor.ts:FIX_GAME guard). The
+        // direct-fixer path bypasses the chat LLM entirely — agent dropdown
+        // → straight to Claude CLI — so the executor's guard never runs.
+        // Without this, "create me a UI simulation" / "make me a tower
+        // defense" first messages on a fresh project ship the entire
+        // request to a fixer agent that has nothing to fix.
+        if (isProjectEmpty(pd)) {
+            const msg = '*Heads up — this project is empty (no template loaded yet). The fixer agent edits an existing game; it can\'t build one from scratch. Either send your message without picking an agent (the assistant will load a matching template or offer a from-scratch CREATE_GAME build), or load a template first via the templates panel.*';
             appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: msg });
             finishChat(client, msg);
             return;
