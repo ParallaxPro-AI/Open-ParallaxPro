@@ -90,15 +90,13 @@ You can always jump back with `git checkout main`.
 
 ```bash
 cd engine
-npm install               # shared engine deps (Rapier physics WASM)
+npm install
 cd backend
 npm install
 npx tsx src/server.ts
 ```
 
 Serves on `http://localhost:3003`.
-
-> The first `npm install` (in `engine/`) is required — the backend imports the headless physics runtime from `engine/frontend/runtime/`, which resolves `@dimforge/rapier3d-compat` from the engine root. Skipping it produces `Cannot find module '@dimforge/rapier3d-compat'` on boot.
 
 #### 3. Start the frontend
 
