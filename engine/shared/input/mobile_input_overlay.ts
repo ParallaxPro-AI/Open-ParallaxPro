@@ -74,6 +74,13 @@ export interface MobileInputOverlay {
     setEnabled(enabled: boolean): void;
     /** Whether the overlay is currently rendering. */
     isEnabled(): boolean;
+    /**
+     * Suspend the overlay temporarily without overwriting the user's
+     * `enabled` toggle. Used by the editor to hide the overlay during
+     * edit-mode (when physics/scripts/network are paused) and restore
+     * it on Play. localStorage state is untouched.
+     */
+    setSuspended(suspended: boolean): void;
 }
 
 /**
@@ -104,7 +111,9 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     const container = opts.container || canvas.parentElement || document.body;
 
     let enabled = readEnabled();
+    let suspended = false;
     let destroyed = false;
+    const isVisible = () => enabled && !suspended;
 
     // ── Root overlay ────────────────────────────────────────────────────
     const root = document.createElement('div');
@@ -120,7 +129,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         '-webkit-touch-callout:none',
         'font-family:-apple-system,BlinkMacSystemFont,sans-serif',
     ].join(';');
-    if (!enabled) root.style.display = 'none';
+    if (!isVisible()) root.style.display = 'none';
     container.appendChild(root);
 
     // Track which Touch.identifier each widget owns + the keys it pressed.
@@ -652,7 +661,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
 
     // ── Touch listeners (capture so HUD iframes don't swallow first) ─────
     const onTouchStart = (e: TouchEvent) => {
-        if (!enabled) return;
+        if (!isVisible()) return;
         let consumed = false;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
@@ -669,7 +678,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         }
     };
     const onTouchMove = (e: TouchEvent) => {
-        if (!enabled) return;
+        if (!isVisible()) return;
         let consumed = false;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
@@ -693,7 +702,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         }
     };
     const onTouchEnd = (e: TouchEvent) => {
-        if (!enabled) return;
+        if (!isVisible()) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
             const state = fingers.get(t.identifier);
@@ -753,7 +762,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         // has a physical keyboard. Synthesized injections never go through
         // window 'keydown', so any event arriving here is genuinely real.
         // Fade out the overlay; user can re-enable from settings.
-        if (!enabled) return;
+        if (!isVisible()) return;
         // Don't react to keys we know we never synthesized as DOM events
         // (we only inject into InputSystem). Belt-and-braces: ignore repeat.
         if (e.repeat) return;
@@ -762,7 +771,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     window.addEventListener('keydown', onPhysicalKey, true);
 
     function autoFadeOverlay() {
-        if (!enabled) return;
+        if (!isVisible()) return;
         enabled = false;
         root.style.display = 'none';
         releaseAllFingers();
@@ -789,13 +798,13 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             toggle.textContent = enabled ? 'On' : 'Off';
             toggle.style.background = enabled ? 'rgba(134,72,230,0.25)' : 'transparent';
             toggle.style.color = enabled ? '#c9a5f7' : '#aaa';
-            root.style.display = enabled ? '' : 'none';
+            root.style.display = isVisible() ? '' : 'none';
         };
         toggle.addEventListener('click', () => {
             enabled = !enabled;
             try { localStorage.setItem(STORAGE_KEY, String(enabled)); } catch { /* private mode */ }
             updateToggleUI();
-            if (!enabled) releaseAllFingers();
+            if (!isVisible()) releaseAllFingers();
         });
         updateToggleUI();
         settingsRow.appendChild(label);
@@ -820,11 +829,16 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         },
         setEnabled: (e) => {
             enabled = e;
-            root.style.display = enabled ? '' : 'none';
+            root.style.display = isVisible() ? '' : 'none';
             try { localStorage.setItem(STORAGE_KEY, String(enabled)); } catch { /* swallow */ }
-            if (!enabled) releaseAllFingers();
+            if (!isVisible()) releaseAllFingers();
         },
         isEnabled: () => enabled,
+        setSuspended: (s) => {
+            suspended = s;
+            root.style.display = isVisible() ? '' : 'none';
+            if (!isVisible()) releaseAllFingers();
+        },
     };
 }
 
@@ -833,6 +847,7 @@ function noopOverlay(): MobileInputOverlay {
         destroy: () => { /* no-op */ },
         setEnabled: () => { /* no-op */ },
         isEnabled: () => false,
+        setSuspended: () => { /* no-op */ },
     };
 }
 

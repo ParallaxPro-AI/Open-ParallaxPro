@@ -18,9 +18,22 @@ export class ParallaxEditor {
         // Field-name compatibility: editor_view passes the raw projectData (whose
         // canonical field is `projectConfig`), while play.ts wraps it as `config`.
         // Read both so we get the real config in either path.
-        const projectConfig = projectData?.projectConfig ?? projectData?.config ?? {
+        const baseConfig = projectData?.projectConfig ?? projectData?.config ?? {
             name: 'Untitled',
             settings: {},
+        };
+        // Mobile-controls manifest. Sourced from `01_flow.json:controls`,
+        // assembled into the build response as `controlsManifest` (sibling
+        // of projectConfig). Stuff it onto the runtime config so
+        // global_context can attach the overlay before the first frame.
+        // play.ts already does this for the published-game path; mirror it
+        // here so editor preview / Play in editor get the same treatment.
+        const projectConfig = {
+            ...baseConfig,
+            controlsManifest:
+                baseConfig.controlsManifest
+                ?? projectData?.controlsManifest
+                ?? baseConfig.controls,
         };
 
         await this.engine.startEngine(canvas, projectConfig);
