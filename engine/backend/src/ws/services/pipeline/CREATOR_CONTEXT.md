@@ -813,6 +813,49 @@ Transitions to watch for:
 - `mp_event:phase_in_game`  → host pressed Start; match is live
 - `mp_event:phase_game_over` → match ended, room still open
 
+### Required HUD panels for multiplayer (non-negotiable)
+
+Every multiplayer flow MUST wire the three communication panels — `hud/ping`, `hud/voice_chat`, `hud/text_chat` — across the lobby and gameplay states. They share infrastructure that's already in `mp_bridge` (RTT measurement, WebRTC voice, `mp.sendChat()` / `mp.chatHistory`), so the only authoring step is `show_ui:`/`hide_ui:` lines in the flow. Skip any of these and players have no way to coordinate or see their connection quality — that's a hard gap, not a polish item.
+
+The pattern that every pinned MP template uses (mirror it exactly):
+
+```jsonc
+"main_menu": {
+  "on_enter": [
+    "mp:leave_lobby",
+    "hide_ui:hud/voice_chat",
+    "hide_ui:hud/text_chat",
+    "show_ui:main_menu",
+    "show_cursor"
+  ]
+},
+"lobby_room": {
+  "on_enter": [
+    "show_ui:lobby_room",
+    "show_ui:hud/voice_chat",
+    "show_ui:hud/text_chat",
+    "show_cursor"
+  ]
+},
+"gameplay": {
+  "on_enter": [
+    "show_ui:hud/voice_chat",
+    "show_ui:hud/text_chat",
+    "show_ui:hud/ping",
+    // ...your gameplay HUD
+  ],
+  "on_exit": [
+    "hide_ui:hud/ping"
+    // voice_chat + text_chat persist into game_over so winners can talk
+  ]
+}
+```
+
+Notes:
+- `hud/ping` only shows during gameplay (top-right RTT readout).
+- `hud/voice_chat` + `hud/text_chat` show from `lobby_room` onwards and stay visible across `gameplay → game_over`. Hide them in `main_menu` so the title screen is clean.
+- All key bindings (`KeyV` mute, `Enter`/`T` open chat) are handled inside the panels themselves — no behavior wiring needed.
+
 See `reference/game_templates/multiplayer_coin_grab/` for a complete example.
 
 ## Pause menu (optional, reusable)
