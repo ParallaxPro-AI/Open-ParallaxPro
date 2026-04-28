@@ -161,17 +161,29 @@ class KartDriveBehavior extends GameScript {
         var vx = fwdX * this._speed + rightX * this._slip * Math.abs(this._speed) * this._driftSlide;
         var vz = fwdZ * this._speed + rightZ * this._slip * Math.abs(this._speed) * this._driftSlide;
 
+        // Dynamic body + setVelocity so Rapier auto-resolves vs trees /
+        // pines / barriers in the kart park. Soft radial clamp at the
+        // arena edge: when the kart is past the boundary, kill the
+        // outward component of velocity (and bleed speed) so it doesn't
+        // keep pushing through. Replaces the old hard-pos clamp + setPos
+        // teleport that fought physics.
         var pos = this.entity.transform.position;
-        var nx = pos.x + vx * dt;
-        var nz = pos.z + vz * dt;
-        var r2 = nx * nx + nz * nz;
+        var r2 = pos.x * pos.x + pos.z * pos.z;
         if (r2 > this._arenaRadius * this._arenaRadius) {
-            var ang = Math.atan2(nx, nz);
-            nx = Math.sin(ang) * this._arenaRadius;
-            nz = Math.cos(ang) * this._arenaRadius;
-            this._speed *= 0.5;
+            var nxn = pos.x / Math.sqrt(r2);
+            var nzn = pos.z / Math.sqrt(r2);
+            // Project velocity onto the inward normal — keep tangential,
+            // zero radial-outward component.
+            var radialOut = vx * nxn + vz * nzn;
+            if (radialOut > 0) {
+                vx -= radialOut * nxn;
+                vz -= radialOut * nzn;
+                this._speed *= 0.5;
+            }
         }
-        if (this.scene.setPosition) this.scene.setPosition(this.entity.id, nx, this._spawnY, nz);
+        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
+        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+        this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
         if (this.entity.transform.setRotationEuler) {
             this.entity.transform.setRotationEuler(0, -this._yawDeg, 0);
         }

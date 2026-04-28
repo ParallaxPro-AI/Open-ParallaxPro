@@ -11,7 +11,9 @@
         ]
       },
       "physics": {
-        "type": "kinematic",
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
         "collider": "capsule"
       },
       "network": {

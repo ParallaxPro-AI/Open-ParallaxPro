@@ -1,16 +1,10 @@
 // also: WASD locomotion, sprint, client-side input, multiplayer sync
 // Arena player movement — client-authoritative.
 //
-// USE FOR: empty-arena MP games (top-down dome, ice rink, sky island
-// with no props). Pair with `physics: kinematic` on the player.
-// DO NOT USE FOR: MP worlds with static obstacles (rocks, forge, walls,
-// fences, terrain features). This script writes `transform.position`
-// directly, and Rapier's kinematicPositionBased body type does NOT
-// auto-resolve against static colliders — the player will walk through
-// every rock, building, and prop in the scene even if their physics
-// blocks are correct. For obstacle-rich worlds, use a dynamic body
-// (mass 75, freeze_rotation: true) + a setVelocity-driven movement
-// script (e.g. `behaviors/movement/third_person_movement.ts`).
+// Pair with `physics: dynamic` (mass 75, freeze_rotation: true, capsule)
+// on the player so Rapier auto-resolves collisions against static rocks,
+// walls, and props. Movement is driven by setVelocity, vy preserved from
+// the rigidbody so gravity keeps the feet on the ground.
 //
 // Each peer drives their own local player with WASD. Remote players show
 // up via proxy entities spawned by the DefaultNetworkAdapter and updated
@@ -24,6 +18,7 @@ class PlayerArenaMovementBehavior extends GameScript {
     _behaviorName = "player_arena_movement";
     _speed = 6;
     _turnSpeed = 4;
+    _arenaHalfExtent = 19;
     _currentAnim = "";
 
     onUpdate(dt) {
@@ -40,15 +35,32 @@ class PlayerArenaMovementBehavior extends GameScript {
 
         var speed = this._speed * (sprint ? 1.6 : 1);
         var pos = this.entity.transform.position;
-        pos.x += strafe * speed * dt;
-        pos.z -= forward * speed * dt;
+
+        // World-space velocity. Dynamic body + setVelocity lets Rapier
+        // auto-resolve collisions against static walls / props.
+        var vx = strafe * speed;
+        var vz = -forward * speed;
+
+        // Soft arena clamp: kill outward velocity at the edge so the
+        // player can't push off the arena. Replaces the old hard
+        // pos = ±arenaHalfExtent clamp which would fight physics.
+        var bound = this._arenaHalfExtent;
+        if (pos.x < -bound && vx < 0) vx = 0;
+        if (pos.x >  bound && vx > 0) vx = 0;
+        if (pos.z < -bound && vz < 0) vz = 0;
+        if (pos.z >  bound && vz > 0) vz = 0;
+
+        // Preserve vertical velocity so gravity keeps the player on the
+        // ground (and any future jump impulse survives this frame).
+        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
+        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+        this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
 
         if (Math.abs(forward) + Math.abs(strafe) > 0.1) {
             // Motion direction is (strafe, 0, -forward); the GLB's native
             // forward is -Z, so the rotation that aligns the model's nose
-            // with motion is atan2(-strafe, forward). Previously this was
-            // atan2(strafe, -forward), 180° off — invisible on the old
-            // capsule but obvious now that the player is a Knight model.
+            // with motion is atan2(-strafe, forward). freeze_rotation:true
+            // on the rigidbody keeps physics from clobbering this write.
             var targetYaw = Math.atan2(-strafe, forward);
             var curYaw = this.entity.transform.getRotationEuler
                 ? this.entity.transform.getRotationEuler().y
@@ -59,14 +71,6 @@ class PlayerArenaMovementBehavior extends GameScript {
             curYaw += dYaw * Math.min(1, this._turnSpeed * dt);
             this.entity.transform.setRotationEuler(0, curYaw, 0);
         }
-
-        // Clamp to arena bounds so you can't walk out of the level.
-        if (pos.x < -19) pos.x = -19;
-        if (pos.x >  19) pos.x =  19;
-        if (pos.z < -19) pos.z = -19;
-        if (pos.z >  19) pos.z =  19;
-
-        this.entity.transform.markDirty && this.entity.transform.markDirty();
 
         // Animation hint. Threshold matches the sprint multiplier above
         // (base 6 → ~6, sprint ×1.6 → ~9.6) so the Run clip kicks in

@@ -95,7 +95,10 @@ class PlayerMobaChampionBehavior extends GameScript {
         }
         this._prevRightClick = rmb;
 
-        // Drive toward target if one is set.
+        // Drive toward target if one is set. Velocity-driven on a dynamic
+        // body so Rapier auto-resolves against decor trees / arena walls.
+        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
+        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
         if (this._targetX !== null) {
             var dx = this._targetX - pos.x;
             var dz = this._targetZ - pos.z;
@@ -103,13 +106,19 @@ class PlayerMobaChampionBehavior extends GameScript {
             if (d < 0.25) {
                 this._targetX = null;
                 this._targetZ = null;
+                this.scene.setVelocity(this.entity.id, { x: 0, y: vy, z: 0 });
             } else {
-                var step = Math.min(d, this._moveSpeed * dt);
-                pos.x += (dx / d) * step;
-                pos.z += (dz / d) * step;
+                var nx = dx / d, nz = dz / d;
+                this.scene.setVelocity(this.entity.id, {
+                    x: nx * this._moveSpeed,
+                    y: vy,
+                    z: nz * this._moveSpeed,
+                });
                 // Engine yaw is CCW-from-above (rpg_movement convention);
                 // atan2(dx, -dz) was 180° off on the strafe axis, so the
                 // champion faced sideways to the right-click destination.
+                // freeze_rotation:true on the rigidbody keeps physics
+                // from clobbering this write.
                 var targetYaw = Math.atan2(-dx, -dz);
                 var curYaw = this.entity.transform.getRotationEuler
                     ? this.entity.transform.getRotationEuler().y
@@ -119,8 +128,11 @@ class PlayerMobaChampionBehavior extends GameScript {
                 while (dy < -Math.PI) dy += 2 * Math.PI;
                 curYaw += dy * Math.min(1, this._turnSpeed * dt);
                 this.entity.transform.setRotationEuler(0, curYaw, 0);
-                this.entity.transform.markDirty && this.entity.transform.markDirty();
             }
+        } else {
+            // Idle: stop horizontal motion but keep vy so gravity holds
+            // the champion on the ground.
+            this.scene.setVelocity(this.entity.id, { x: 0, y: vy, z: 0 });
         }
 
         // Ability inputs — Q / E / R fire as skillshots at the cursor.
