@@ -1261,6 +1261,26 @@ export class AiChatPanel {
         form.dataset.feedbackId = String(feedbackId);
         form.dataset.kind = kind;
 
+        // Shared dismiss handler — bottom action bar AND the top-right close
+        // button both invoke this. Optimistically hides the form locally; the
+        // backend ack via `feedback_dismissed` is idempotent.
+        const dismissFeedback = () => {
+            this.ctx.backend.sendWsMessage('feedback_dismiss', { feedbackId });
+            this.hideFeedbackForm();
+        };
+
+        // Top-right close (X). The form is tall enough that the dismiss
+        // button at the bottom can scroll out of view on small panels — the
+        // X button stays anchored at the top so it's always reachable.
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'chat-feedback-close-btn';
+        closeBtn.appendChild(icon(X, 16));
+        closeBtn.title = t('feedback.dismissTooltip');
+        closeBtn.setAttribute('aria-label', t('feedback.dismiss'));
+        closeBtn.addEventListener('click', dismissFeedback);
+        form.appendChild(closeBtn);
+
         const title = document.createElement('div');
         title.className = 'chat-feedback-title';
         title.textContent = kind === 'create_game'
@@ -1385,12 +1405,7 @@ export class AiChatPanel {
             dismissLabel.textContent = t('feedback.dismiss');
             dismissBtn.appendChild(dismissLabel);
             dismissBtn.title = t('feedback.dismissTooltip');
-            dismissBtn.addEventListener('click', () => {
-                this.ctx.backend.sendWsMessage('feedback_dismiss', { feedbackId });
-                // Hide optimistically; the backend ack doubles as
-                // confirmation and won't resolve the DB row.
-                this.hideFeedbackForm();
-            });
+            dismissBtn.addEventListener('click', dismissFeedback);
             actions.appendChild(dismissBtn);
         }
 

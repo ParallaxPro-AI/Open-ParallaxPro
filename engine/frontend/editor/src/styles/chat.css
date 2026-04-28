@@ -825,6 +825,32 @@
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
 }
 
+/* Top-right close button. Sticks to the form's top edge as it scrolls so
+   it's always reachable, even when the form is taller than the panel. */
+.chat-feedback-close-btn {
+    position: sticky;
+    align-self: flex-end;
+    top: 0;
+    margin: -6px -6px 0 0;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    z-index: 2;
+}
+
+.chat-feedback-close-btn:hover {
+    background: var(--bg-hover, rgba(255,255,255,0.06));
+    color: var(--text-primary);
+}
+
 .chat-feedback-title {
     font-size: 15px;
     font-weight: 600;
