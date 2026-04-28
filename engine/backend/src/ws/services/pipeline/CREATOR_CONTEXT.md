@@ -232,6 +232,23 @@ If the placement has `rotation: [0, yaw, 0]`, the AABB rotates too — for yaw =
 
 If a result line **lacks the size suffix**, the GLB couldn't be inspected (rare — usually a malformed file, a non-GLB asset, or a brand-new pack the cache hasn't seen yet). Pick a different model, or assume a conservative ~1 m for a single-mesh prop.
 
+### Render cost — vertex budget (guideline, not a hard rule)
+
+`search_assets.sh` results also include each GLB's vertex count, formatted like `[8.4K verts]` after the size:
+
+```
+/assets/quaternius/characters/zombie_pack/Zombie_Male.glb  (Characters, zombie_pack)  0.86x1.83x0.55m  [12.4K verts]
+```
+
+Vertex count is roughly proportional to GPU vertex-shader work and per-mesh VRAM (each vertex carries position + normal + uv ≈ 32 bytes on the GPU). Mid-tier hardware can comfortably handle **~1M live vertices** on screen at once; older or low-power devices feel it earlier. The numbers below are *rules of thumb* — not requirements:
+
+- **Single hero / player mesh**: ≤ ~40K verts is comfortable. There's only one, so even 80K is usually fine.
+- **Common props you'll instantiate many of** (enemies, pickups, breakable crates): aim for ≤ ~10K. 50 enemies × 50K = 2.5M, which is where lag starts.
+- **Background decoration** (trees, rocks, far buildings): LOD usually rescues these past ~30 m, so the close-range count matters more. ≤ ~6K is a good target if you'll place dozens.
+- **Particles, projectiles, collectibles**: ≤ ~2K. These multiply faster than anything else.
+
+**When picking between two assets that both fit the visual brief, prefer the lighter one.** When only one option matches, use it — visual fidelity beats budget for unique assets. There's no validate-time enforcement; this is purely a hint to inform asset selection. The engine already auto-generates LODs (LOD1 ~25% verts at 30-80 m, LOD2 ~5% at >80 m), so far-distance crowds are mostly free; the budget is about what's close to the camera.
+
 **Implication for AI scripts:** when you `lookAt` a target, the model's −Z aligns to that direction automatically. When you set `transform.rotation` from a velocity, use `Math.atan2(velocity.x, velocity.z)` and assign as Y-yaw — no per-asset offsets.
 
 For primitive meshes:

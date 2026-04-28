@@ -157,6 +157,13 @@ for QUERY in "\${QUERIES[@]}"; do
 var data = JSON.parse(process.argv[1]);
 var q = process.argv[2];
 var results = data.results || [];
+function fmtVerts(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return '';
+    if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M verts';
+    if (v >= 100000)  return Math.round(v / 1000) + 'K verts';
+    if (v >= 1000)    return (v / 1000).toFixed(1) + 'K verts';
+    return v + ' verts';
+}
 if (results.length === 0) { console.log('[' + q + '] No results.'); }
 else {
     console.log('[' + q + '] ' + results.length + ' result(s):');
@@ -168,7 +175,14 @@ else {
         if (Array.isArray(r.size) && r.size.length === 3) {
             sz = '  ' + r.size[0].toFixed(2) + 'x' + r.size[1].toFixed(2) + 'x' + r.size[2].toFixed(2) + 'm';
         }
-        console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')' + sz);
+        // Vertex count is roughly proportional to GPU vertex-shader work
+        // and per-mesh VRAM. Useful when picking between similar visuals
+        // for assets you'll instantiate many copies of (props, enemies);
+        // single hero meshes can comfortably go higher. See CREATOR_CONTEXT
+        // / FIXER_CONTEXT vertex budget guidelines for rules of thumb.
+        var vc = '';
+        if (typeof r.vertices === 'number') vc = '  [' + fmtVerts(r.vertices) + ']';
+        console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')' + sz + vc);
     }
 }
 " "\$RESP" "\$QUERY"

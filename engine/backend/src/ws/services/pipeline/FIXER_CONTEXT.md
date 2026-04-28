@@ -518,6 +518,17 @@ If the placement has `rotation: [0, yaw, 0]`, the AABB rotates too — for yaw =
 
 If a search result line lacks the size suffix, the GLB couldn't be inspected (rare). Pick a different model or assume conservative ~1 m for a single-mesh prop.
 
+### Render cost — vertex budget (guideline, not a hard rule)
+
+`search_assets.sh` results also annotate each GLB's vertex count, e.g. `[12.4K verts]` after the size. Vertex count drives GPU vertex-shader work and per-mesh VRAM. Mid-tier hardware can comfortably handle **~1M live verts on screen** at once. Rules of thumb when picking between assets:
+
+- Hero / player mesh: ≤ ~40K is comfortable (one of them, so 80K is also fine).
+- Common props you'll spawn many of (enemies, pickups, crates): ≤ ~10K. 50 enemies × 50K = 2.5M = lag.
+- Background decoration past 30 m: LOD usually rescues these — close-range count matters more.
+- Particles, projectiles, collectibles: ≤ ~2K.
+
+**Prefer the lighter asset when two options match.** Use a heavy one if it's the only good fit — visual fidelity beats budget for unique meshes. Not validate-enforced; this is purely an asset-selection hint. If a user reports lag, this is the first place to look: `bash search_assets.sh "<thing>"` and check whether the entity's mesh has an unusually high vert count (e.g., a 100K-vert "rock" used 30 times).
+
 ### Material overrides
 
 `mesh_override` on the def merges with `material_overrides` on the placement; placement wins. Currently supports:
