@@ -312,71 +312,90 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         return { el, onStart, onMove, onEnd };
     }
 
-    // ── Action rail (right side, two-column cluster) ─────────────────────
+    // ── Action rail (bottom-right thumb cluster) ─────────────────────────
     //
-    // Right column = primary actions stacked vertically: Fire (largest,
-    // at the corner where the right thumb naturally rests), Jump above,
-    // Aim above that, Crouch above that. Sizes taper top-up so the
-    // bottom-most button is the easiest to hit.
+    // Each button is absolute-positioned for a non-linear "controller"
+    // layout instead of a column-reverse stack that just turns into a
+    // tall vertical strip.
     //
-    // Left column = manifest.actions[] in a smaller stack to the left of
-    // the primary column. Two columns instead of one means the rail
-    // doesn't grow into a tall single line that climbs into the
-    // camera-look area on games with many actions.
+    //                                      [Crouch]
+    //                                [Aim]           [Jump]
+    //   [a3]  [a4]                                 [Fire]
+    //   [a1]  [a2]
+    //
+    // Primary buttons (Fire/Jump/Aim/Crouch) are placed at fixed offsets
+    // relative to the bottom-right corner so the largest button (Fire)
+    // sits where the right thumb rests, and the others fan up-and-left.
+    //
+    // Secondary buttons (manifest.actions[]) form a 2-column grid to the
+    // left of the primary cluster, growing upward — so 6 actions become
+    // a 2×3 block, not a 6-tall column.
     const railContainer = document.createElement('div');
     railContainer.style.cssText = [
         'position:absolute',
         'right:env(safe-area-inset-right, 12px)',
         'bottom:env(safe-area-inset-bottom, 12px)',
-        'display:flex',
-        'flex-direction:row',
-        'gap:10px',
-        'align-items:flex-end',
         'pointer-events:none',
     ].join(';');
     root.appendChild(railContainer);
 
-    const secondaryColumn = document.createElement('div');
-    secondaryColumn.style.cssText = 'display:flex;flex-direction:column-reverse;gap:8px;align-items:flex-end;pointer-events:none;';
-    const primaryColumn = document.createElement('div');
-    primaryColumn.style.cssText = 'display:flex;flex-direction:column-reverse;gap:10px;align-items:flex-end;pointer-events:none;';
-    railContainer.appendChild(secondaryColumn);
-    railContainer.appendChild(primaryColumn);
-
-    // Build buttons. Order within primaryColumn (column-reverse stacks
-    // first-appended at the bottom): fire.primary, jump, fire.secondary,
-    // crouch — bottom-up.
     const railButtons: ReturnType<typeof buildButton>[] = [];
     const fire = manifest.fire;
+
+    // Primary cluster offsets, hand-tuned for thumb reach. Coordinates
+    // are (right, bottom) px from the cluster's bottom-right corner.
+    //   Fire    bottom-right anchor (84×84)
+    //   Jump    above Fire, slightly indented left (12 px)
+    //   Aim     left of Fire, raised 8 px (visual offset from Fire's bottom)
+    //   Crouch  above Aim, between Jump and Aim diagonally
+    const placeAt = (b: ReturnType<typeof buildButton>, right: number, bottom: number) => {
+        b.el.style.position = 'absolute';
+        b.el.style.right = right + 'px';
+        b.el.style.bottom = bottom + 'px';
+        railContainer.appendChild(b.el);
+        railButtons.push(b);
+    };
     if (fire?.primary) {
         const b = buildButton({
             key: fire.primary, label: fire.label || 'Fire', size: 84, accent: true,
             hold: fire.holdPrimary !== false,
         });
-        railButtons.push(b); primaryColumn.appendChild(b.el);
+        placeAt(b, 0, 0);
     }
     if (movement.jump) {
         const b = buildButton({ key: movement.jump, label: 'Jump', size: 72 });
-        railButtons.push(b); primaryColumn.appendChild(b.el);
+        placeAt(b, 12, 96);
     }
     if (fire?.secondary) {
         const b = buildButton({
             key: fire.secondary, label: fire.secondaryLabel || 'Aim', size: 64,
             hold: fire.holdSecondary !== false,
         });
-        railButtons.push(b); primaryColumn.appendChild(b.el);
+        placeAt(b, 94, 14);
     }
     if (movement.crouch) {
         const b = buildButton({ key: movement.crouch, label: 'Crouch', size: 56, hold: true });
-        railButtons.push(b); primaryColumn.appendChild(b.el);
+        placeAt(b, 102, 90);
     }
-    for (const action of manifest.actions || []) {
+
+    // Secondary grid (2 columns × N rows, growing up). Anchored to the
+    // left of the primary cluster.
+    const SECONDARY_SIZE = 56;
+    const SECONDARY_GAP = 8;
+    const PRIMARY_CLUSTER_WIDTH = ((fire?.secondary || movement.crouch) ? 158 : 84);
+    const SECONDARY_OFFSET = PRIMARY_CLUSTER_WIDTH + 12;
+    const actions = manifest.actions || [];
+    actions.forEach((action, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const right = SECONDARY_OFFSET + col * (SECONDARY_SIZE + SECONDARY_GAP);
+        const bottom = row * (SECONDARY_SIZE + SECONDARY_GAP);
         const b = buildButton({
-            key: action.key, label: action.label, size: 60,
+            key: action.key, label: action.label, size: SECONDARY_SIZE,
             hold: !!action.hold, toggle: !!action.toggle,
         });
-        railButtons.push(b); secondaryColumn.appendChild(b.el);
-    }
+        placeAt(b, right, bottom);
+    });
 
     function buildButton(cfg: {
         key: string; label: string; size: number; accent?: boolean; hold?: boolean; toggle?: boolean;
