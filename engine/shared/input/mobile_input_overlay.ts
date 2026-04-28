@@ -920,20 +920,36 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         let consumed = false;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
-            // HUD iframe button takes precedence over any overlay widget
-            // or viewport-tap claim. Synthesize the click ourselves
-            // because the iframe can't receive the touch directly under
-            // its default pointer-events:none.
+            // Overlay widgets take precedence: a tap geometrically over
+            // both an overlay widget and a HUD button (rare but possible)
+            // should fire the widget — the user's hand is on the widget.
+            const w = widgetAt(t.clientX, t.clientY);
+            if (w) {
+                consumed = true;
+                w.onStart(t);
+                continue;
+            }
+            // No overlay widget claimed the touch. Try a HUD iframe
+            // button. dispatchEvent (NOT el.click()) intentionally —
+            // .click() on a <button> triggers the default form-submit
+            // action, and iOS Safari interprets default-type-submit
+            // buttons synth-clicked out of touch context as a navigation
+            // request, which manifests as a full page reload (or worse,
+            // repeated reloads → "A problem repeatedly occurred" tab
+            // kill). dispatchEvent fires the onclick handler without the
+            // default action, which is exactly what we want.
             const hudEl = findInteractiveHudElement(t.clientX, t.clientY);
             if (hudEl) {
-                try { hudEl.click(); } catch { /* swallow */ }
+                try {
+                    const view = (hudEl.ownerDocument?.defaultView ?? window) as Window;
+                    const evt = new (view as any).MouseEvent('click', {
+                        bubbles: true, cancelable: true, view, button: 0,
+                    });
+                    hudEl.dispatchEvent(evt);
+                } catch { /* swallow */ }
                 consumed = true;
                 continue;
             }
-            const w = widgetAt(t.clientX, t.clientY);
-            if (!w) continue;
-            consumed = true;
-            w.onStart(t);
         }
         // Pinch zoom check
         if (manifest.scroll?.type === 'pinch') pinchStart(e.touches);
