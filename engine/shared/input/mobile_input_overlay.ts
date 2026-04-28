@@ -76,11 +76,16 @@ export interface MobileInputOverlay {
     isEnabled(): boolean;
     /**
      * Suspend the overlay temporarily without overwriting the user's
-     * `enabled` toggle. Used by the editor to hide the overlay during
-     * edit-mode (when physics/scripts/network are paused) and restore
-     * it on Play. localStorage state is untouched.
+     * `enabled` toggle. Multiple independent reasons can suspend the
+     * overlay (edit-mode pauses scripts; AI chat sheet opens over the
+     * viewport); the overlay is hidden iff any reason is active.
+     *
+     *   setSuspended(true)            → suspends with the default key
+     *   setSuspended(true, 'chat')    → suspends with the 'chat' key
+     *
+     * localStorage state is untouched.
      */
-    setSuspended(suspended: boolean): void;
+    setSuspended(suspended: boolean, reason?: string): void;
 }
 
 /**
@@ -111,9 +116,9 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     const container = opts.container || canvas.parentElement || document.body;
 
     let enabled = readEnabled();
-    let suspended = false;
+    const suspendedReasons = new Set<string>();
     let destroyed = false;
-    const isVisible = () => enabled && !suspended;
+    const isVisible = () => enabled && suspendedReasons.size === 0;
 
     // ── Root overlay ────────────────────────────────────────────────────
     const root = document.createElement('div');
@@ -856,8 +861,10 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             if (!isVisible()) releaseAllFingers();
         },
         isEnabled: () => enabled,
-        setSuspended: (s) => {
-            suspended = s;
+        setSuspended: (s, reason) => {
+            const key = reason || 'default';
+            if (s) suspendedReasons.add(key);
+            else suspendedReasons.delete(key);
             root.style.display = isVisible() ? '' : 'none';
             if (!isVisible()) releaseAllFingers();
         },

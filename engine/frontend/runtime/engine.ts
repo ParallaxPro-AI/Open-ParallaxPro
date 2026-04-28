@@ -167,10 +167,10 @@ export class ParallaxEngine {
         // Hide the mobile-controls overlay during edit-mode. Physics /
         // scripts / network are paused, so the overlay's keypresses go
         // nowhere observable — leaving it on screen is just dead UI in
-        // the way of the editor's gizmos. setSuspended doesn't touch the
-        // user's localStorage toggle, so the overlay returns to whatever
-        // they configured when Play resumes.
-        try { this.globalContext.mobileOverlay?.setSuspended(enabled); } catch { /* swallow */ }
+        // the way of the editor's gizmos. Suspension is keyed so the
+        // overlay correctly composes with other independent reasons
+        // (e.g. AI Assistant chat sheet open).
+        try { this.globalContext.mobileOverlay?.setSuspended(enabled, 'editor-mode'); } catch { /* swallow */ }
         if (enabled) {
             this.globalContext.physicsSystem.shutdown();
             // Reset animators so second Play starts from a clean state.

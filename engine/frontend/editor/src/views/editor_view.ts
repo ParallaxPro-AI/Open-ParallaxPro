@@ -74,7 +74,18 @@ export class EditorView {
                 () => this.mobileLayout!.toggleChat(),
                 () => this.mobileLayout!.isChatSheetOpen(),
             );
-            this.mobileLayout.onChatSheetChange((open) => this.toolbar.setMobileChatOpen(open));
+            this.mobileLayout.onChatSheetChange((open) => {
+                this.toolbar.setMobileChatOpen(open);
+                // Hide the in-game mobile controls (joystick, look pad,
+                // action rail, hotbar, system tray ☰) while the AI
+                // Assistant sheet is up — the sheet covers most of the
+                // screen and the controls overlay otherwise sits on top
+                // and blocks taps. Keyed suspension composes correctly
+                // with the engine's edit-mode suspension.
+                try {
+                    this.editor.getEngine().globalContext.mobileOverlay?.setSuspended(open, 'chat-open');
+                } catch { /* swallow */ }
+            });
 
             this.el.appendChild(this.mobileLayout.el);
 
