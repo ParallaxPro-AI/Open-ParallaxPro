@@ -11,6 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { validateControlManifest } from '../../../../../shared/input/control_manifest.js';
 
 export interface MultiplayerConfig {
   enabled?: boolean;
@@ -1312,12 +1313,23 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     }
   }
 
-  // Mobile controls manifest is an opaque passthrough — the runtime's
-  // `resolveManifest()` is the one source of truth for shape + defaults.
-  // We just hand the JSON object through unchanged.
-  const controlsManifest: ControlsManifest | undefined = (flow && typeof flow.controls === 'object' && flow.controls)
-    ? flow.controls as ControlsManifest
-    : undefined;
+  // Mobile controls manifest. Static shape validation runs here so a
+  // typo'd preset / invalid type / reserved-key-in-actions[] fails the
+  // build with a precise error instead of silently degrading at
+  // runtime. Runtime semantic checks ("does every script-read key
+  // have a binding?") live in the headless playtest invariant
+  // `mobile_controls_complete`.
+  let controlsManifest: ControlsManifest | undefined;
+  if (flow && Object.prototype.hasOwnProperty.call(flow, 'controls')) {
+    const validationErrors = validateControlManifest(flow.controls);
+    if (validationErrors.length > 0) {
+      console.error(`[Assembler] controls manifest validation errors:\n  ${validationErrors.join('\n  ')}`);
+      throw new Error(`01_flow.json:controls validation failed: ${validationErrors[0]}${validationErrors.length > 1 ? ` (+${validationErrors.length - 1} more)` : ''}`);
+    }
+    if (typeof flow.controls === 'object' && flow.controls) {
+      controlsManifest = flow.controls as ControlsManifest;
+    }
+  }
 
   return { entities, scripts, uiFiles, prefabs, multiplayerConfig, environment, heightmapTerrain, streamedBuildings, controlsManifest };
 }

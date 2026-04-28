@@ -248,6 +248,189 @@ function filterReservedActions(actions: ActionBinding[]): ActionBinding[] {
 function deepClone<T>(o: T): T { return JSON.parse(JSON.stringify(o)); }
 
 /**
+ * Statically validate the shape of a `controls` block as authored in
+ * `01_flow.json`. Returns a list of error strings — empty array means
+ * the manifest passes. Run by `level_assembler.ts` so a malformed
+ * manifest fails the build instead of silently degrading at runtime.
+ *
+ * Validates:
+ *   - top-level type
+ *   - `preset` is one of the known archetype values
+ *   - `movement.type` / `look.type` / `viewport.tap` / `scroll.type` are valid enums
+ *   - numeric fields (`look.sensitivity`, `scroll.sensitivity`) are finite numbers
+ *   - `fire.primary` / `fire.secondary` are strings
+ *   - `actions` is an array of { key, label } entries with sane types
+ *   - no `actions[].key` collides with RESERVED_KEYS
+ *   - `hotbar.from` / `hotbar.to` follow the Digit\d+ or F\d+ family shape
+ */
+export function validateControlManifest(raw: unknown): string[] {
+    const errs: string[] = [];
+    if (raw === undefined || raw === null) return errs; // absent is allowed; build-time check
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+        errs.push('controls: must be a JSON object');
+        return errs;
+    }
+    const m = raw as Record<string, any>;
+
+    if (m.preset !== undefined) {
+        const validPresets: ControlPreset[] = ['fps','tps','topdown','platformer','sidescroller','racer','flight','rts','click','custom'];
+        if (typeof m.preset !== 'string' || !validPresets.includes(m.preset as ControlPreset)) {
+            errs.push(`controls.preset: "${m.preset}" — must be one of ${validPresets.join(' | ')}`);
+        }
+    }
+
+    if (m.movement !== undefined) {
+        if (typeof m.movement !== 'object' || m.movement === null || Array.isArray(m.movement)) {
+            errs.push('controls.movement: must be an object');
+        } else {
+            const mv = m.movement;
+            if (mv.type !== undefined) {
+                const validTypes = ['wasd','arrows','wasd+arrows','horizontal','none'];
+                if (typeof mv.type !== 'string' || !validTypes.includes(mv.type)) {
+                    errs.push(`controls.movement.type: "${mv.type}" — must be one of ${validTypes.join(' | ')}`);
+                }
+            }
+            for (const f of ['sprint','crouch','jump'] as const) {
+                if (mv[f] !== undefined && typeof mv[f] !== 'string') {
+                    errs.push(`controls.movement.${f}: must be a key-code string (e.g. "ShiftLeft", "Space"), got ${typeof mv[f]}`);
+                }
+            }
+        }
+    }
+
+    if (m.look !== undefined) {
+        if (typeof m.look !== 'object' || m.look === null || Array.isArray(m.look)) {
+            errs.push('controls.look: must be an object');
+        } else {
+            const lk = m.look;
+            if (lk.type !== undefined) {
+                const validTypes = ['mouseDelta','tapToFace','none'];
+                if (typeof lk.type !== 'string' || !validTypes.includes(lk.type)) {
+                    errs.push(`controls.look.type: "${lk.type}" — must be one of ${validTypes.join(' | ')}`);
+                }
+            }
+            if (lk.sensitivity !== undefined && (typeof lk.sensitivity !== 'number' || !isFinite(lk.sensitivity))) {
+                errs.push('controls.look.sensitivity: must be a finite number');
+            }
+        }
+    }
+
+    if (m.fire !== undefined) {
+        if (typeof m.fire !== 'object' || m.fire === null || Array.isArray(m.fire)) {
+            errs.push('controls.fire: must be an object');
+        } else {
+            const fr = m.fire;
+            for (const f of ['primary','secondary'] as const) {
+                if (fr[f] !== undefined && typeof fr[f] !== 'string') {
+                    errs.push(`controls.fire.${f}: must be a key-code string (e.g. "MouseLeft"), got ${typeof fr[f]}`);
+                }
+            }
+            for (const f of ['label','secondaryLabel'] as const) {
+                if (fr[f] !== undefined && typeof fr[f] !== 'string') {
+                    errs.push(`controls.fire.${f}: must be a string, got ${typeof fr[f]}`);
+                }
+            }
+            for (const f of ['holdPrimary','holdSecondary'] as const) {
+                if (fr[f] !== undefined && typeof fr[f] !== 'boolean') {
+                    errs.push(`controls.fire.${f}: must be true | false, got ${typeof fr[f]}`);
+                }
+            }
+        }
+    }
+
+    if (m.actions !== undefined) {
+        if (!Array.isArray(m.actions)) {
+            errs.push('controls.actions: must be an array of { key, label } entries');
+        } else {
+            m.actions.forEach((a: any, i: number) => {
+                if (typeof a !== 'object' || a === null || Array.isArray(a)) {
+                    errs.push(`controls.actions[${i}]: must be an object with { key, label }`);
+                    return;
+                }
+                if (typeof a.key !== 'string' || a.key.length === 0) {
+                    errs.push(`controls.actions[${i}].key: must be a non-empty key-code string`);
+                } else if (RESERVED_KEYS.has(a.key)) {
+                    errs.push(`controls.actions[${i}].key: "${a.key}" is engine-reserved (route through controls.system instead)`);
+                }
+                if (typeof a.label !== 'string') {
+                    errs.push(`controls.actions[${i}].label: must be a string`);
+                }
+                if (a.hold !== undefined && typeof a.hold !== 'boolean') {
+                    errs.push(`controls.actions[${i}].hold: must be true | false`);
+                }
+                if (a.toggle !== undefined && typeof a.toggle !== 'boolean') {
+                    errs.push(`controls.actions[${i}].toggle: must be true | false`);
+                }
+            });
+        }
+    }
+
+    if (m.hotbar !== undefined) {
+        if (typeof m.hotbar !== 'object' || m.hotbar === null || Array.isArray(m.hotbar)) {
+            errs.push('controls.hotbar: must be an object with { from, to }');
+        } else {
+            const hb = m.hotbar;
+            const shape = /^(Digit|F)\d+$/;
+            if (typeof hb.from !== 'string' || !shape.test(hb.from)) {
+                errs.push(`controls.hotbar.from: "${hb.from}" — must match Digit\\d+ or F\\d+ (e.g. "Digit1")`);
+            }
+            if (typeof hb.to !== 'string' || !shape.test(hb.to)) {
+                errs.push(`controls.hotbar.to: "${hb.to}" — must match Digit\\d+ or F\\d+ (e.g. "Digit9")`);
+            }
+            if (hb.labels !== undefined && !Array.isArray(hb.labels)) {
+                errs.push('controls.hotbar.labels: must be an array of strings');
+            }
+        }
+    }
+
+    if (m.scroll !== undefined) {
+        if (typeof m.scroll !== 'object' || m.scroll === null || Array.isArray(m.scroll)) {
+            errs.push('controls.scroll: must be an object');
+        } else {
+            const sc = m.scroll;
+            if (sc.type !== undefined) {
+                const validTypes = ['pinch','twoFinger','none'];
+                if (typeof sc.type !== 'string' || !validTypes.includes(sc.type)) {
+                    errs.push(`controls.scroll.type: "${sc.type}" — must be one of ${validTypes.join(' | ')}`);
+                }
+            }
+            if (sc.sensitivity !== undefined && (typeof sc.sensitivity !== 'number' || !isFinite(sc.sensitivity))) {
+                errs.push('controls.scroll.sensitivity: must be a finite number');
+            }
+        }
+    }
+
+    if (m.viewport !== undefined) {
+        if (typeof m.viewport !== 'object' || m.viewport === null || Array.isArray(m.viewport)) {
+            errs.push('controls.viewport: must be an object');
+        } else {
+            const vp = m.viewport;
+            if (vp.tap !== undefined) {
+                const validTaps = ['click','drag','none'];
+                if (typeof vp.tap !== 'string' || !validTaps.includes(vp.tap)) {
+                    errs.push(`controls.viewport.tap: "${vp.tap}" — must be one of ${validTaps.join(' | ')}`);
+                }
+            }
+        }
+    }
+
+    if (m.system !== undefined) {
+        if (typeof m.system !== 'object' || m.system === null || Array.isArray(m.system)) {
+            errs.push('controls.system: must be an object');
+        } else {
+            const s = m.system;
+            for (const f of ['pause','chat','voice','scoreboard'] as const) {
+                if (s[f] !== undefined && typeof s[f] !== 'string') {
+                    errs.push(`controls.system.${f}: must be a key-code string`);
+                }
+            }
+        }
+    }
+
+    return errs;
+}
+
+/**
  * Walk every binding and return the set of distinct key codes the manifest
  * binds. Used by the headless `mobile_controls_complete` invariant.
  */
