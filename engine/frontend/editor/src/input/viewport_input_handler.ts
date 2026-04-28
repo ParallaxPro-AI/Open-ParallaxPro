@@ -53,10 +53,6 @@ function rayTriangleIntersect(
     return t > 0 ? t : null;
 }
 
-/** Collision mesh cache for entity picking. */
-const collisionMeshCache = new Map<string, { positions: Float32Array; indices: Uint32Array } | null>();
-const collisionMeshPending = new Set<string>();
-
 /**
  * Handles mouse and keyboard input in the viewport.
  * Routes events to the camera, gizmo system, or entity selection
@@ -214,6 +210,21 @@ export class ViewportInputHandler {
 
             const mr = entity.getComponent('MeshRendererComponent') as any;
             const terrain = entity.getComponent('TerrainComponent') as any;
+
+            // Broad-phase bounds are computed in the *picker's local space*
+            // — i.e. the input space of pickerWorldMatrix below, which is
+            // also the space `mr.meshData.positions` lives in. For:
+            //   - Terrain: synthetic AABB from TerrainComponent dimensions.
+            //   - Static GLB: `gpuMesh.bounds` are post-bake (facing baked
+            //     into vertices by glb_loader), matching meshData.positions
+            //     directly.
+            //   - Skinned GLB: `gpuMesh.bounds` are pre-multiplied by
+            //     `meshData.facingScale` (see render_system uploadSkinnedMesh)
+            //     while meshData.positions stay raw. We undo that scale so
+            //     bounds + positions are in the same raw space; the picker's
+            //     _meshTransformCache will reapply facing on the way to
+            //     world.
+            //   - Procedural primitive / no mesh: unit AABB fallback.
             let bMin: Vec3, bMax: Vec3;
             if (terrain) {
                 const hw = terrain.width / 2;
@@ -223,20 +234,38 @@ export class ViewportInputHandler {
             } else if (mr?.gpuMesh?.boundMin && mr?.gpuMesh?.boundMax) {
                 bMin = mr.gpuMesh.boundMin;
                 bMax = mr.gpuMesh.boundMax;
+                const fs = mr?.meshData?.facingScale;
+                if (fs && Math.abs(fs - 1) > 1e-4) {
+                    const inv = 1 / fs;
+                    bMin = new Vec3(bMin.x * inv, bMin.y * inv, bMin.z * inv);
+                    bMax = new Vec3(bMax.x * inv, bMax.y * inv, bMax.z * inv);
+                }
             } else {
                 bMin = new Vec3(-0.5, -0.5, -0.5);
                 bMax = new Vec3(0.5, 0.5, 0.5);
             }
 
-            // Compute world-space AABB from local AABB corners
+            // pickerWorldMatrix mirrors the renderer's draw-time transform
+            // chain: entity.worldMatrix × mr._meshTransformCache (when
+            // present) × vertex_pos. _meshTransformCache contains the
+            // per-pack facing transform for skinned meshes plus any
+            // per-entity model offset/rotation (mr.modelRotationX/Y/Z,
+            // mr.modelOffsetY). Skipping it makes the picker miss every
+            // entity in a pack with non-1 scale_multiplier.
             const worldMatrix = entity.getWorldMatrix();
+            const meshTransform = mr?._meshTransformCache;
+            const pickerWorld = meshTransform ? worldMatrix.multiply(meshTransform) : worldMatrix;
+
+            // Compute world-space AABB by transforming the 8 local corners
+            // through pickerWorld (so it matches the rendered bounds, not
+            // the entity-local-only bounds).
             let wMinX = Infinity, wMinY = Infinity, wMinZ = Infinity;
             let wMaxX = -Infinity, wMaxY = -Infinity, wMaxZ = -Infinity;
             for (let i = 0; i < 8; i++) {
                 const cx = (i & 1) ? bMax.x : bMin.x;
                 const cy = (i & 2) ? bMax.y : bMin.y;
                 const cz = (i & 4) ? bMax.z : bMin.z;
-                const wp = worldMatrix.transformPoint(new Vec3(cx, cy, cz));
+                const wp = pickerWorld.transformPoint(new Vec3(cx, cy, cz));
                 if (wp.x < wMinX) wMinX = wp.x; if (wp.x > wMaxX) wMaxX = wp.x;
                 if (wp.y < wMinY) wMinY = wp.y; if (wp.y > wMaxY) wMaxY = wp.y;
                 if (wp.z < wMinZ) wMinZ = wp.z; if (wp.z > wMaxZ) wMaxZ = wp.z;
@@ -247,66 +276,54 @@ export class ViewportInputHandler {
                 new Vec3(wMinX, wMinY, wMinZ), new Vec3(wMaxX, wMaxY, wMaxZ));
             if (aabbT === null || aabbT <= 0) continue;
 
-            // Narrow phase: transform ray into local space
-            const invWorld = worldMatrix.inverse();
-            if (!invWorld) continue;
-
-            const localOrigin = invWorld.transformPoint(rayOrigin);
-            const localFar = invWorld.transformPoint(rayOrigin.add(rayDir));
+            // Narrow phase: ray-triangle test against `mr.meshData` (the
+            // CPU-side parsed mesh stashed by the GLB loader and reused by
+            // the renderer). Picking has to live in *the same coordinate
+            // space the renderer draws in*, which means matching the full
+            // transform chain:
+            //
+            //   world_pos = entity.worldMatrix
+            //             × mr._meshTransformCache    // facing + user xform
+            //             × meshData.positions        // GPU vertex space
+            //
+            // Static meshes have facing BAKED into meshData.positions by
+            // glb_loader.applyFacingTransformInPlace, so the cache only
+            // contributes per-entity model offsets. Skinned meshes leave
+            // positions raw (baking would break the skeleton) and the
+            // cache picks up the per-pack `facingRotMatrix` /
+            // `facingScale` from MODEL_FACING.json. Either way, ignoring
+            // _meshTransformCache makes the picker miss every entity in
+            // an asset pack with non-1 scale_multiplier — visible mesh
+            // is N× the size of the test geometry, click rarely lands.
+            //
+            // The previously-attempted `.collision.bin` sidecar shortcut
+            // can't fix this — the sidecar is generated from RAW glTF
+            // (per the asset-pipeline comment in collision_mesh_generator)
+            // and never has facing applied, so it's in a *third* space
+            // that doesn't match either mr.meshData OR worldMatrix-local
+            // for static meshes. Dropped.
+            const meshData = mr?.meshData;
+            const invPickerWorld = pickerWorld.inverse();
+            if (!invPickerWorld) continue;
+            const localOrigin = invPickerWorld.transformPoint(rayOrigin);
+            const localFar = invPickerWorld.transformPoint(rayOrigin.add(rayDir));
             const localDir = localFar.sub(localOrigin).normalize();
 
             let bestT: number | null = null;
 
-            // Narrow phase against the visible mesh's collision sidecar
-            // (`.collision.bin`, a simplified trimesh of the model generated
-            // at asset-pipeline time). Collider shape is a *physics* concern
-            // — the editor's pick test is pixel-fidelity against the visible
-            // model regardless of whether the entity has a sphere, capsule,
-            // box, or trimesh collider. Without this we either over-pick
-            // (AABB extends past the visible mesh, so empty corners catch
-            // clicks meant for entities behind) or under-pick (collider
-            // dimensions stale from autoFitCollider race, so visible mesh
-            // misses entirely). Falls back to AABB while the sidecar is
-            // streaming, missing, or absent (procedural primitives,
-            // terrain). The sidecar is per-meshAsset and cached, so only
-            // the first click on a fresh asset is imprecise.
-            const meshAsset = mr?.meshAsset;
-            if (meshAsset) {
-                const binUrl = meshAsset.replace(/\.glb$/i, '.collision.bin');
-                const cached = collisionMeshCache.get(binUrl);
-                if (cached) {
-                    const pos = cached.positions, idx = cached.indices;
-                    for (let i = 0; i < idx.length; i += 3) {
-                        const i0 = idx[i] * 3, i1 = idx[i + 1] * 3, i2 = idx[i + 2] * 3;
-                        const t = rayTriangleIntersect(localOrigin, localDir,
-                            pos[i0], pos[i0 + 1], pos[i0 + 2],
-                            pos[i1], pos[i1 + 1], pos[i1 + 2],
-                            pos[i2], pos[i2 + 1], pos[i2 + 2]);
-                        if (t !== null && (bestT === null || t < bestT)) bestT = t;
-                    }
-                } else if (cached === undefined && !collisionMeshPending.has(binUrl)) {
-                    collisionMeshPending.add(binUrl);
-                    fetch(binUrl).then(r => r.ok ? r.arrayBuffer() : null).then(buf => {
-                        collisionMeshPending.delete(binUrl);
-                        if (!buf || buf.byteLength < 16) { collisionMeshCache.set(binUrl, null); return; }
-                        const view = new DataView(buf);
-                        if (view.getUint32(0, true) !== 0x434F4C4C) { collisionMeshCache.set(binUrl, null); return; }
-                        const posCount = view.getUint32(8, true), idxCount = view.getUint32(12, true);
-                        collisionMeshCache.set(binUrl, {
-                            positions: new Float32Array(buf, 16, posCount),
-                            indices: new Uint32Array(buf, 16 + posCount * 4, idxCount),
-                        });
-                    }).catch(() => { collisionMeshPending.delete(binUrl); collisionMeshCache.set(binUrl, null); });
-                    bestT = aabbT;
-                } else {
-                    // cached === null: fetch failed / sidecar absent.
-                    bestT = aabbT;
+            if (meshData?.positions && meshData?.indices) {
+                const pos = meshData.positions, idx = meshData.indices;
+                for (let i = 0; i < idx.length; i += 3) {
+                    const i0 = idx[i] * 3, i1 = idx[i + 1] * 3, i2 = idx[i + 2] * 3;
+                    const t = rayTriangleIntersect(localOrigin, localDir,
+                        pos[i0], pos[i0 + 1], pos[i0 + 2],
+                        pos[i1], pos[i1 + 1], pos[i1 + 2],
+                        pos[i2], pos[i2 + 1], pos[i2 + 2]);
+                    if (t !== null && (bestT === null || t < bestT)) bestT = t;
                 }
             } else {
-                // Procedural primitive (cube/sphere/plane/cylinder/capsule),
-                // terrain, or no-mesh entity — no .glb so no sidecar to
-                // fetch. AABB is the best we can do; primitives are simple
-                // enough that AABB matches the visible mesh closely.
+                // No CPU mesh data: procedural primitive, terrain, or
+                // GLB still loading. Broad-phase AABB is our best signal.
                 bestT = aabbT;
             }
 
