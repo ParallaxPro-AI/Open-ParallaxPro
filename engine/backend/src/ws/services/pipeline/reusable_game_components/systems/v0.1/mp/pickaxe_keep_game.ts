@@ -286,6 +286,10 @@ class PickaxeKeepGameSystem extends GameScript {
             if (!this._ended && this._score >= this._winScore) {
                 this._endMatch("score");
             }
+        } else {
+            // Non-host: lerp visible enemy positions toward last-synced
+            // targets so motion stays smooth between 5Hz state updates.
+            this._tickEnemiesVisualOnly(dt);
         }
 
         this._hudTimer += dt;
@@ -961,6 +965,9 @@ class PickaxeKeepGameSystem extends GameScript {
             entityId: entId,
             type: type,
             x: x, y: y, vx: 0,
+            // Seed interp targets to spawn pos so the first state-sync
+            // doesn't ease the visible enemy in from somewhere unrelated.
+            interpX: x, interpY: y,
             hp: this._enemyMaxHealth,
             attackCooldown: 0,
         };
@@ -1076,12 +1083,46 @@ class PickaxeKeepGameSystem extends GameScript {
     }
 
     _applyEnemyUpdates(updates) {
+        // Non-hosts: store target positions and let _tickEnemiesVisualOnly
+        // ease the visible entity each frame. Hosts authoritatively own
+        // _tickEnemies and never receive their own broadcast, so this path
+        // is client-side only — but keep host-side snap as a safety so a
+        // host that somehow ingests its own snapshot stays aligned.
+        var mp = this.scene._mp;
+        var isHost = !mp || mp.isHost;
         for (var i = 0; i < updates.length; i++) {
             var u = updates[i];
             var e = this._enemies[u.enemyId];
             if (!e) continue;
-            e.x = Number(u.x) || e.x;
-            e.y = Number(u.y) || e.y;
+            e.interpX = Number(u.x);
+            e.interpY = Number(u.y);
+            if (isHost) {
+                e.x = e.interpX; e.y = e.interpY;
+                this.scene.setPosition(e.entityId, e.x, e.y, 0);
+            }
+        }
+    }
+
+    // Smoothly catch each visible enemy entity up to its last-synced
+    // target. Runs on non-hosts only (host's _tickEnemies already moves
+    // them frame-perfectly). At 5Hz sync the position deltas are ~0.5m;
+    // 12/sec smoothing gives ~85ms half-life, fast enough that visible
+    // motion looks continuous, slow enough to mask jitter.
+    _tickEnemiesVisualOnly(dt) {
+        var SMOOTHING = 12;
+        var TELEPORT_SQ = 25 * 25;
+        var alpha = 1 - Math.exp(-SMOOTHING * dt);
+        for (var id in this._enemies) {
+            var e = this._enemies[id];
+            if (!e || typeof e.interpX !== "number") continue;
+            var dx = e.interpX - e.x;
+            var dy = e.interpY - e.y;
+            if (dx * dx + dy * dy > TELEPORT_SQ) {
+                e.x = e.interpX; e.y = e.interpY;
+            } else {
+                e.x += dx * alpha;
+                e.y += dy * alpha;
+            }
             this.scene.setPosition(e.entityId, e.x, e.y, 0);
         }
     }

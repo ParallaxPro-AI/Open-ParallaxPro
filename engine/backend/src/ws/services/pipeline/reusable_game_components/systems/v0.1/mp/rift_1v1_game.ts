@@ -510,6 +510,10 @@ class Rift1v1GameSystem extends GameScript {
         this._minions.push({
             id: d.minionId, ent: ent, team: d.team,
             hp: this._minionHp, attackCd: 0,
+            // Seed the interpolation target at the spawn position so the
+            // first state-sync that arrives doesn't appear to "jump in"
+            // from elsewhere (clients lerp from current → interpX/Z).
+            interpX: d.x || 0, interpZ: d.z || 0,
         });
     }
 
@@ -542,7 +546,29 @@ class Rift1v1GameSystem extends GameScript {
     }
 
     _tickMinionsVisualOnly(dt) {
-        // Non-hosts just let positions settle via state sync; nothing to do.
+        // Smoothly catch up each minion's transform to its last-synced
+        // target. SMOOTHING is in 1/sec; alpha = 1 - exp(-S * dt) gives
+        // framerate-independent exponential ease toward the target.
+        // 12 → ~85ms half-life; perceptible visual smoothness at 4Hz sync.
+        var SMOOTHING = 12;
+        var TELEPORT_SQ = 25 * 25;  // > 25m delta = a teleport (respawn), snap.
+        var alpha = 1 - Math.exp(-SMOOTHING * dt);
+        for (var i = 0; i < this._minions.length; i++) {
+            var m = this._minions[i];
+            if (!m || !m.ent || !m.ent.transform) continue;
+            if (typeof m.interpX !== "number") continue;
+            var pos = m.ent.transform.position;
+            var dx = m.interpX - pos.x;
+            var dz = m.interpZ - pos.z;
+            if (dx * dx + dz * dz > TELEPORT_SQ) {
+                pos.x = m.interpX;
+                pos.z = m.interpZ;
+            } else {
+                pos.x += dx * alpha;
+                pos.z += dz * alpha;
+            }
+            m.ent.transform.markDirty && m.ent.transform.markDirty();
+        }
     }
 
     _findMinionTarget(m, pos) {
@@ -1265,15 +1291,19 @@ class Rift1v1GameSystem extends GameScript {
             if (this._nexuses.blue) this._nexuses.blue.hp = d.nexus.blue;
             if (this._nexuses.red)  this._nexuses.red.hp  = d.nexus.red;
         }
-        // Minion positions.
+        // Minion positions — store interpolation targets instead of
+        // snapping. The visual tick (_tickMinionsVisualOnly) lerps each
+        // minion's transform toward (interpX, interpZ) every frame so
+        // non-host clients see smooth motion between the 4Hz state syncs.
+        // Hard-snap when the gap is too large (probably a respawn/teleport)
+        // so we don't visibly slide across the whole map.
         if (d.minions) {
             for (var i = 0; i < d.minions.length; i++) {
                 var md = d.minions[i];
                 var existing = this._minionById(md.id);
                 if (!existing) continue;  // new minions come via rift_minion_spawn
-                var pos = existing.ent.transform.position;
-                pos.x = md.x; pos.z = md.z;
-                existing.ent.transform.markDirty && existing.ent.transform.markDirty();
+                existing.interpX = md.x;
+                existing.interpZ = md.z;
                 existing.hp = md.hp;
             }
         }
