@@ -418,41 +418,54 @@ export class Scene {
         // VERTICAL_PAD so the FPS case is captured. Third-person
         // cameras (3-5m behind/above) fall outside XZ and still render
         // the player.
+        //
+        // Horizontal pad: position-follow cameras (most FPS templates) update
+        // in a behavior tick that runs *after* the physics tick that moved
+        // the player, so during high velocity (sprint, knockback, dash) the
+        // camera's world position briefly lags behind the player by up to
+        // velocity × tick-dt. At 8 m/s and 60Hz that's ~0.13m, easily 0.3m
+        // over 2-3 ticks. Without slack, those frames render the player's
+        // body for one tick → visible flicker during sprint. 0.5m matches
+        // realistic sprint lag without leaking the body to truly external
+        // (third-person) cameras, which sit several meters out.
         const VERTICAL_PAD_UP = 2.0;     // catches eyeHeight up to 2m
         const VERTICAL_PAD_DOWN = 0.5;   // player crouched slightly
+        const HORIZONTAL_PAD = 0.5;      // absorbs camera-follow lag at sprint velocity
         if (cc) {
             const he: any = cc.halfExtents;
             if (cc.shapeType === 2 /* CAPSULE */) {
                 const r = (cc.radius ?? 0.5) * Math.max(Math.abs(s.x), Math.abs(s.z));
                 const h = (cc.height ?? 1.0) * Math.abs(s.y);
+                const rPad = r + HORIZONTAL_PAD;
                 const dx = camPos.x - p.x;
                 const dz = camPos.z - p.z;
-                if (dx * dx + dz * dz > r * r) return false;
+                if (dx * dx + dz * dz > rPad * rPad) return false;
                 return camPos.y >= p.y - h * 0.5 - r - VERTICAL_PAD_DOWN
                     && camPos.y <= p.y + h * 0.5 + r + VERTICAL_PAD_UP;
             }
             if (cc.shapeType === 1 /* SPHERE */) {
                 const r = (cc.radius ?? 0.5) * Math.max(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z));
+                const rPad = r + HORIZONTAL_PAD;
                 const dx = camPos.x - p.x, dy = camPos.y - p.y, dz = camPos.z - p.z;
-                return dx * dx + dz * dz <= r * r && Math.abs(dy) <= r + VERTICAL_PAD_UP;
+                return dx * dx + dz * dz <= rPad * rPad && Math.abs(dy) <= r + VERTICAL_PAD_UP;
             }
-            // Default: AABB of halfExtents × scale + vertical pad.
+            // Default: AABB of halfExtents × scale + vertical + horizontal pad.
             if (he && typeof he.x === 'number') {
                 const hx = he.x * Math.abs(s.x);
                 const hy = he.y * Math.abs(s.y);
                 const hz = he.z * Math.abs(s.z);
-                return camPos.x >= p.x - hx && camPos.x <= p.x + hx
+                return camPos.x >= p.x - hx - HORIZONTAL_PAD && camPos.x <= p.x + hx + HORIZONTAL_PAD
                     && camPos.y >= p.y - hy - VERTICAL_PAD_DOWN && camPos.y <= p.y + hy + VERTICAL_PAD_UP
-                    && camPos.z >= p.z - hz && camPos.z <= p.z + hz;
+                    && camPos.z >= p.z - hz - HORIZONTAL_PAD && camPos.z <= p.z + hz + HORIZONTAL_PAD;
             }
         }
         // No collider: unit-cube inscribed at origin, scaled by transform.
         const hx = 0.5 * Math.abs(s.x);
         const hy = 0.5 * Math.abs(s.y);
         const hz = 0.5 * Math.abs(s.z);
-        return camPos.x >= p.x - hx && camPos.x <= p.x + hx
+        return camPos.x >= p.x - hx - HORIZONTAL_PAD && camPos.x <= p.x + hx + HORIZONTAL_PAD
             && camPos.y >= p.y - hy - VERTICAL_PAD_DOWN && camPos.y <= p.y + hy + VERTICAL_PAD_UP
-            && camPos.z >= p.z - hz && camPos.z <= p.z + hz;
+            && camPos.z >= p.z - hz - HORIZONTAL_PAD && camPos.z <= p.z + hz + HORIZONTAL_PAD;
     }
 
     getMeshInstances(): RenderMeshInstance[] {
