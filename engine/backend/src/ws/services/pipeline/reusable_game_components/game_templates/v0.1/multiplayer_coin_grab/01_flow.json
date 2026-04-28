@@ -178,5 +178,18 @@
         }
       ]
     }
+  },
+  "controls": {
+    "preset": "topdown",
+    "movement": {
+      "type": "wasd",
+      "sprint": "ShiftLeft"
+    },
+    "look": {
+      "type": "none"
+    },
+    "viewport": {
+      "tap": "click"
+    }
   }
 }

@@ -2534,6 +2534,147 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     }
   }
 
+  // ── Mobile controls manifest covers every literal-string key read ──
+  //
+  // Every gameplay key a behavior reads via isKeyDown / isKeyPressed /
+  // isMouseButtonDown with a literal string MUST be reachable from the
+  // mobile overlay — otherwise touch-only players have no way to trigger
+  // that input. The overlay is built from `01_flow.json:controls`, so we
+  // verify each literal-string key from the project's scripts is bound
+  // to one of: movement (joystick + sprint/crouch/jump), look, fire,
+  // actions[], hotbar, scroll, or system tray (reserved keys).
+  //
+  // Reserved keys (KeyP / KeyV / Enter / Escape) are auto-routed by the
+  // engine; treated as covered even if the manifest omits them.
+  results.push(guarded('mobile_controls_complete', () => {
+    const flow: any = p.runtime.files.flow;
+    const controls = flow?.controls;
+    const scripts: Record<string, string> = (p.runtime as any).projectScripts ?? {};
+    const reserved = new Set(['KeyP', 'KeyV', 'Enter', 'Escape']);
+
+    // Skip silently if the project predates the controls system entirely.
+    // (Templates have one; legacy DBs are excluded by design.) We only
+    // enforce when the manifest exists, so authors get nudged forward
+    // without breaking projects we explicitly chose not to migrate.
+    if (!controls || typeof controls !== 'object') {
+      throw new PlaytestFailure('mobile_controls_missing',
+        `01_flow.json has no \`controls\` block. Mobile players will see no on-screen joystick or buttons. Add a \`controls\` manifest near the top of 01_flow.json — see CREATOR_CONTEXT "Mobile controls" for the schema and per-archetype examples.`,
+        {});
+    }
+
+    // What keys does the manifest already bind?
+    const bound = new Set<string>();
+    const mv = controls.movement;
+    if (mv && mv.type !== 'none') {
+      if (mv.type === 'wasd' || mv.type === 'wasd+arrows') ['KeyW','KeyA','KeyS','KeyD'].forEach(k=>bound.add(k));
+      if (mv.type === 'arrows' || mv.type === 'wasd+arrows') ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k=>bound.add(k));
+      if (mv.type === 'horizontal') ['KeyA','KeyD','ArrowLeft','ArrowRight'].forEach(k=>bound.add(k));
+      if (typeof mv.sprint === 'string') bound.add(mv.sprint);
+      if (typeof mv.crouch === 'string') bound.add(mv.crouch);
+      if (typeof mv.jump === 'string')   bound.add(mv.jump);
+    }
+    if (controls.fire?.primary)   bound.add(controls.fire.primary);
+    if (controls.fire?.secondary) bound.add(controls.fire.secondary);
+    for (const a of (controls.actions || [])) if (typeof a?.key === 'string') bound.add(a.key);
+    const hb = controls.hotbar;
+    if (hb && typeof hb.from === 'string' && typeof hb.to === 'string') {
+      const expand = (from: string, to: string): string[] => {
+        const m1 = /^(Digit|F)(\d+)$/.exec(from);
+        const m2 = /^(Digit|F)(\d+)$/.exec(to);
+        if (!m1 || !m2 || m1[1] !== m2[1]) return [from, to];
+        const out: string[] = [];
+        const s = parseInt(m1[2], 10);
+        const e = parseInt(m2[2], 10);
+        for (let i = s; i <= e; i++) out.push(`${m1[1]}${i}`);
+        return out;
+      };
+      for (const k of expand(hb.from, hb.to)) bound.add(k);
+    }
+    const sys = controls.system || {};
+    for (const k of [sys.pause, sys.chat, sys.voice, sys.scoreboard]) {
+      if (typeof k === 'string') bound.add(k);
+    }
+
+    // What literal-string keys do scripts read?
+    //
+    // The assembler flattens paths into `scripts/<flat>.ts`, so engine
+    // machinery files (ui_bridge, mp_bridge, fsm_driver, _entity_label,
+    // _event_validator, event_definitions) appear with these keys:
+    //   systems/ui/ui_bridge.ts          → scripts/ui_ui_bridge.ts
+    //   systems/mp/mp_bridge.ts          → scripts/mp_mp_bridge.ts
+    //   systems/fsm_driver_GameManager   (generated)
+    //   scripts/_entity_label.ts         (passthrough)
+    //   scripts/_event_validator.ts      (passthrough)
+    // The MouseRight read in ui_bridge (virtual cursor right-click) and the
+    // KeyT read in mp_bridge (alt chat-open) are engine-owned bindings,
+    // not the game's responsibility, so skip them.
+    const KEY_RE = /(?:isKeyDown|isKeyPressed|isKeyReleased|isKeyJustPressed|isKeyJustReleased|isMouseButtonDown|isMouseButtonJustPressed|isMouseButtonJustReleased)\s*\(\s*"([^"]+)"/g;
+    const ENGINE_MACHINERY_KEYS = /^scripts\/(ui_ui_bridge|mp_mp_bridge|fsm_driver_|_entity_label|_event_validator|event_definitions)/;
+    const read = new Set<string>();
+    for (const [scriptKey, src] of Object.entries(scripts)) {
+      if (ENGINE_MACHINERY_KEYS.test(scriptKey)) continue;
+      for (const m of src.matchAll(KEY_RE)) read.add(m[1]);
+    }
+
+    // The overlay's `look.type: "mouseDelta"` covers `getMouseDelta()`
+    // reads — when game scripts use it. Engine-machinery (ui_bridge's
+    // virtual cursor) is the one universal getMouseDelta call site and
+    // doesn't reflect a per-game requirement, so exclude it from this
+    // check the same way we exclude reads from the key scan above.
+    const usesMouseDelta = Object.entries(scripts).some(([k, src]) =>
+        !ENGINE_MACHINERY_KEYS.test(k) && /getMouseDelta\s*\(/.test(src)
+    );
+    if (usesMouseDelta && controls.look?.type !== 'mouseDelta') {
+      throw new PlaytestFailure('mobile_controls_missing_look',
+        `Scripts call this.input.getMouseDelta() but \`controls.look.type\` is "${controls.look?.type ?? 'none'}". Mobile players have no way to produce a mouse delta. Set \`controls.look = { "type": "mouseDelta", "sensitivity": 1.0 }\`.`,
+        { lookType: controls.look?.type });
+    }
+
+    // Find unbound literal keys, accounting for keyboard aliases.
+    //
+    // Behaviors commonly accept `ShiftLeft || ShiftRight` (and similar
+    // pairs) so the player can use either side. The mobile overlay only
+    // injects one (left), but binding one satisfies the OR — the script
+    // sees the keypress through whichever it tested first. Same logic
+    // for Equal ↔ NumpadAdd, Minus ↔ NumpadSubtract: zoom controls that
+    // pair the main row + the numpad.
+    //
+    // The `Digit` bare literal comes from string-concatenated dynamic
+    // reads like `isKeyPressed("Digit" + i)`. If the manifest declares a
+    // hotbar with any `DigitN` entries, the family is covered.
+    const aliasOk = (k: string): boolean => {
+      if (k === 'Digit') return [...bound].some(b => /^Digit\d+$/.test(b));
+      const aliases: Record<string, string[]> = {
+        'ShiftLeft': ['ShiftRight'],
+        'ShiftRight': ['ShiftLeft'],
+        'ControlLeft': ['ControlRight'],
+        'ControlRight': ['ControlLeft'],
+        'AltLeft': ['AltRight'],
+        'AltRight': ['AltLeft'],
+        'Equal': ['NumpadAdd'],
+        'NumpadAdd': ['Equal'],
+        'Minus': ['NumpadSubtract'],
+        'NumpadSubtract': ['Minus'],
+      };
+      const peers = aliases[k] || [];
+      return peers.some(p => bound.has(p));
+    };
+    const unbound: string[] = [];
+    for (const k of read) {
+      if (reserved.has(k)) continue;
+      if (bound.has(k)) continue;
+      if (aliasOk(k)) continue;
+      unbound.push(k);
+    }
+    if (unbound.length > 0) {
+      const sample = unbound.slice(0, 8).join(', ');
+      const more = unbound.length > 8 ? ` (+${unbound.length - 8} more)` : '';
+      throw new PlaytestFailure('mobile_controls_unbound_keys',
+        `${unbound.length} key${unbound.length > 1 ? 's' : ''} read by scripts but unbound in 01_flow.json:controls — mobile players cannot trigger them: ${sample}${more}. Add an entry to controls.actions[] (or movement / fire / hotbar) for each. See CREATOR_CONTEXT "Mobile controls" for examples.`,
+        { unbound, total: unbound.length });
+    }
+  }));
+
   return results;
 }
 

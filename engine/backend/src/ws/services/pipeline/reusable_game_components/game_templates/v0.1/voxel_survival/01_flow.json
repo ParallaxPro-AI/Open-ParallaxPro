@@ -58,7 +58,7 @@
       "on_exit": [],
       "substates": {
         "exploring": {
-          "description": "Active first-person exploration \u2014 mine, build, craft, farm, trade, fight",
+          "description": "Active first-person exploration — mine, build, craft, farm, trade, fight",
           "active_systems": [
             "voxel_world",
             "biome_weather",
@@ -102,7 +102,7 @@
           ]
         },
         "death_pause": {
-          "description": "Player died \u2014 items drop, respawn at village after delay",
+          "description": "Player died — items drop, respawn at village after delay",
           "active_systems": [
             "voxel_world",
             "biome_weather"
@@ -143,6 +143,54 @@
           ]
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "fps",
+    "movement": {
+      "type": "wasd",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 1
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "secondary": "MouseRight",
+      "label": "Mine",
+      "secondaryLabel": "Place",
+      "holdPrimary": true,
+      "holdSecondary": false
+    },
+    "actions": [
+      {
+        "key": "KeyE",
+        "label": "Use"
+      },
+      {
+        "key": "KeyQ",
+        "label": "Drop"
+      }
+    ],
+    "hotbar": {
+      "from": "Digit1",
+      "to": "Digit9",
+      "labels": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ]
+    },
+    "viewport": {
+      "tap": "none"
     }
   }
 }

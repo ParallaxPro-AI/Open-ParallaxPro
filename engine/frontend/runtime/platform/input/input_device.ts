@@ -31,6 +31,16 @@ export class InputDevice {
     private canvas: HTMLCanvasElement | null = null;
     public forcePointerLocked: boolean = false;
     public suppressGameInput: boolean = false;
+    /**
+     * When true, the legacy "primary-touch-as-mouse" path inside
+     * `connectInputDevice` is bypassed. The MobileInputOverlay sets this on
+     * touch devices because it owns viewport tap handling itself and
+     * already calls injectMouseButtonDown / injectMouseMove with
+     * canvas-relative coordinates. Without this flag, every viewport tap
+     * would inject TWO mouse-down events (overlay + legacy shim) and
+     * scripts that count `isMouseButtonJustPressed(0)` would double-fire.
+     */
+    public suppressLegacyTouchAsMouse: boolean = false;
 
     private keyDownCallbacks: Set<KeyDownCallback> = new Set();
     private keyUpCallbacks: Set<KeyUpCallback> = new Set();

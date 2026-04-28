@@ -49,7 +49,7 @@
       ]
     },
     "playing": {
-      "description": "Tank combat \u2014 destroy enemy armor across 3 waves",
+      "description": "Tank combat — destroy enemy armor across 3 waves",
       "active_systems": [
         "armor_battle"
       ],
@@ -101,6 +101,33 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "tps",
+    "movement": {
+      "type": "wasd+arrows"
+    },
+    "look": {
+      "type": "none"
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Fire",
+      "holdPrimary": true
+    },
+    "actions": [
+      {
+        "key": "Space",
+        "label": "Brake"
+      },
+      {
+        "key": "KeyR",
+        "label": "Reload"
+      }
+    ],
+    "viewport": {
+      "tap": "none"
     }
   }
 }

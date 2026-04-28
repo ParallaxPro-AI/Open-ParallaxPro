@@ -16,7 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { ProjectFiles } from './project_files.js';
-import { assembleGame, ConvertedScene, MultiplayerConfig, invalidateEventDefsCache } from './level_assembler.js';
+import { assembleGame, ConvertedScene, MultiplayerConfig, ControlsManifest, invalidateEventDefsCache } from './level_assembler.js';
 import { refreshEngineMachinery } from './project_seeder.js';
 
 export interface BuildResult {
@@ -27,6 +27,8 @@ export interface BuildResult {
     scripts: Record<string, string>;
     uiFiles: Record<string, string>;
     multiplayerConfig?: MultiplayerConfig;
+    /** Mobile-controls manifest sourced from `01_flow.json:controls`. Forwarded to the runtime. */
+    controlsManifest?: ControlsManifest;
     /** Default scene environment (the frontend expects this on each scene). */
     activeSceneKey: string;
     /** Mapping: assembled script/UI key → underlying template file path in the project tree. */
@@ -116,6 +118,7 @@ export function buildProject(
         scripts: assembled.scripts,
         uiFiles: assembled.uiFiles,
         multiplayerConfig: assembled.multiplayerConfig,
+        controlsManifest: assembled.controlsManifest,
         activeSceneKey: sceneKey,
         sourceMap: buildSourceMap(files, assembled),
         warnings,

@@ -3,7 +3,6 @@ import './styles/theme.css';
 import { ParallaxEditor } from './editor.js';
 import { EditorContext } from './editor_context.js';
 import { StreamingManager } from './streaming_manager.js';
-import { initMobileControls } from './play_mobile_controls.js';
 
 const splashScreen = document.getElementById('splash-screen')!;
 const loadingScreen = document.getElementById('loading-screen')!;
@@ -453,9 +452,17 @@ async function boot(): Promise<void> {
     canvas.style.display = 'block';
     gameContainer.appendChild(canvas);
 
+    // Mobile-controls manifest. Sourced from `01_flow.json:controls`,
+    // assembled into `gameData.controlsManifest` by the build pipeline.
+    // Stuff it onto projectConfig so global_context can pick it up at
+    // engine init and attach the overlay before the first frame.
+    const projectConfig = gameData.projectConfig
+        ? { ...gameData.projectConfig, controlsManifest: gameData.controlsManifest ?? gameData.projectConfig.controlsManifest }
+        : { controlsManifest: gameData.controlsManifest };
+
     const editor = new ParallaxEditor();
     await editor.initialize(canvas, {
-        config: gameData.projectConfig,
+        config: projectConfig,
         scenes: gameData.scenes,
     });
 
@@ -645,7 +652,8 @@ async function boot(): Promise<void> {
         }
     }
 
-    initMobileControls(gameContainer);
+    // Mobile-controls overlay is attached inside `globalContext.startSystems`
+    // via `attachMobileInputOverlay(...)`. No call needed here.
 
     const resize = () => {
         canvas.width = window.innerWidth;

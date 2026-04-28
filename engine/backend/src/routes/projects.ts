@@ -339,6 +339,7 @@ router.get('/:id', (req, res) => {
         uiFiles: built.uiFiles,
         sourceMap: built.sourceMap,
         multiplayerConfig: built.multiplayerConfig,
+        controlsManifest: built.controlsManifest,
         editor: extractEditorFiles(data.files),
         isCloud: !!row.is_cloud,
         cloudUserId: row.cloud_user_id,

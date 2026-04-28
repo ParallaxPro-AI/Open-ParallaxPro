@@ -42,10 +42,21 @@ export interface MultiplayerConfig {
   allowJoinInProgress?: boolean;
 }
 
+/**
+ * Mobile-controls manifest. Pulled verbatim from `01_flow.json:controls`
+ * and forwarded to the runtime; the engine's mobile overlay parses + renders
+ * from this. Schema lives in `engine/shared/input/control_manifest.ts`.
+ *
+ * Opaque passthrough — the assembler doesn't validate the shape; the
+ * shared `resolveManifest()` does at runtime so headless and browser agree.
+ */
+export type ControlsManifest = Record<string, any>;
+
 export interface ConvertedScene {
   entities: any[];
   scripts: Record<string, string>;
   uiFiles: Record<string, string>;
+  controlsManifest?: ControlsManifest;
   /**
    * Named prefab blueprints, keyed by the entity-def name from
    * 02_entities.json. Each value is an already-assembled entity JSON
@@ -1301,7 +1312,14 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     }
   }
 
-  return { entities, scripts, uiFiles, prefabs, multiplayerConfig, environment, heightmapTerrain, streamedBuildings };
+  // Mobile controls manifest is an opaque passthrough — the runtime's
+  // `resolveManifest()` is the one source of truth for shape + defaults.
+  // We just hand the JSON object through unchanged.
+  const controlsManifest: ControlsManifest | undefined = (flow && typeof flow.controls === 'object' && flow.controls)
+    ? flow.controls as ControlsManifest
+    : undefined;
+
+  return { entities, scripts, uiFiles, prefabs, multiplayerConfig, environment, heightmapTerrain, streamedBuildings, controlsManifest };
 }
 
 // ─── File loading helpers ──────────────────────────────────────────────────

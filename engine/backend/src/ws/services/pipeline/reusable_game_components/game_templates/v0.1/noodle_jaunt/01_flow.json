@@ -230,5 +230,25 @@
         }
       ]
     }
+  },
+  "controls": {
+    "preset": "platformer",
+    "movement": {
+      "type": "wasd+arrows",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 0.8
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "secondary": "MouseRight",
+      "label": "Grab",
+      "secondaryLabel": "Throw"
+    },
+    "viewport": {
+      "tap": "click"
+    }
   }
 }

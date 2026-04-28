@@ -54,7 +54,7 @@
       "on_exit": [],
       "substates": {
         "battle": {
-          "description": "Active RTS battle \u2014 build base, gather resources, train army, destroy enemy",
+          "description": "Active RTS battle — build base, gather resources, train army, destroy enemy",
           "active_systems": [
             "rts_input",
             "entity_health_bars",
@@ -162,6 +162,42 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "rts",
+    "movement": {
+      "type": "wasd+arrows"
+    },
+    "look": {
+      "type": "none"
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "secondary": "MouseRight",
+      "label": "Select",
+      "secondaryLabel": "Order"
+    },
+    "actions": [
+      {
+        "key": "ShiftLeft",
+        "label": "Add",
+        "toggle": true
+      },
+      {
+        "key": "Equal",
+        "label": "+"
+      },
+      {
+        "key": "Minus",
+        "label": "−"
+      }
+    ],
+    "scroll": {
+      "type": "pinch"
+    },
+    "viewport": {
+      "tap": "click"
     }
   }
 }

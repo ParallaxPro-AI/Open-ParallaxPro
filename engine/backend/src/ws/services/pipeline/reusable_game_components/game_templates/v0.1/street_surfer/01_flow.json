@@ -129,5 +129,18 @@
         }
       ]
     }
+  },
+  "controls": {
+    "preset": "platformer",
+    "movement": {
+      "type": "wasd+arrows",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "none"
+    },
+    "viewport": {
+      "tap": "click"
+    }
   }
 }

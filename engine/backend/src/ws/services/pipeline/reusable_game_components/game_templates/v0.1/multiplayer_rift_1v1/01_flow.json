@@ -124,7 +124,7 @@
       ]
     },
     "gameplay": {
-      "description": "Match \u2014 mid lane, two towers, destroy the nexus",
+      "description": "Match — mid lane, two towers, destroy the nexus",
       "active_systems": [
         "mp_bridge",
         "rift_1v1_game",
@@ -181,6 +181,30 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "click",
+    "movement": {
+      "type": "none"
+    },
+    "look": {
+      "type": "none"
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "secondary": "MouseRight",
+      "label": "Click",
+      "secondaryLabel": "Alt"
+    },
+    "actions": [
+      {
+        "key": "KeyB",
+        "label": "B"
+      }
+    ],
+    "viewport": {
+      "tap": "click"
     }
   }
 }

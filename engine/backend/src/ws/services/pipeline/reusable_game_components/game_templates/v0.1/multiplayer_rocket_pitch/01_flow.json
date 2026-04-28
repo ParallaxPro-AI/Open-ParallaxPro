@@ -124,7 +124,7 @@
       ]
     },
     "gameplay": {
-      "description": "Match \u2014 kickoff, play, celebrate, repeat",
+      "description": "Match — kickoff, play, celebrate, repeat",
       "active_systems": [
         "mp_bridge",
         "rocket_pitch_game"
@@ -180,6 +180,26 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "topdown",
+    "movement": {
+      "type": "wasd",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "none"
+    },
+    "actions": [
+      {
+        "key": "KeyQ",
+        "label": "Boost"
+      }
+    ],
+    "viewport": {
+      "tap": "click"
     }
   }
 }

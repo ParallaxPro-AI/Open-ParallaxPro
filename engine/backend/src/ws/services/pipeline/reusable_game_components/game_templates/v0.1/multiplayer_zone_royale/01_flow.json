@@ -1,7 +1,7 @@
 {
   "id": "multiplayer_zone_royale_flow",
   "name": "Zone Royale",
-  "description": "Top-down last-player-standing shooter for 2\u201310 players. Drop onto a forest island, loot cubes for weapons and medkits, and outplay the storm as it shrinks toward a single safe circle.",
+  "description": "Top-down last-player-standing shooter for 2–10 players. Drop onto a forest island, loot cubes for weapons and medkits, and outplay the storm as it shrinks toward a single safe circle.",
   "start": "boot",
   "multiplayer": {
     "enabled": true,
@@ -179,6 +179,42 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "tps",
+    "movement": {
+      "type": "wasd",
+      "sprint": "ShiftLeft"
+    },
+    "look": {
+      "type": "none"
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Fire",
+      "holdPrimary": true
+    },
+    "actions": [
+      {
+        "key": "KeyE",
+        "label": "Use"
+      },
+      {
+        "key": "KeyF",
+        "label": "Action"
+      },
+      {
+        "key": "KeyH",
+        "label": "Heal"
+      },
+      {
+        "key": "KeyR",
+        "label": "Reload"
+      }
+    ],
+    "viewport": {
+      "tap": "click"
     }
   }
 }

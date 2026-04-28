@@ -3,37 +3,64 @@
   "name": "Soccer",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "KICK OFF", "gameSubtitle": "5v5 Soccer" }
+    "main_menu": {
+      "gameTitle": "KICK OFF",
+      "gameSubtitle": "5v5 Soccer"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize systems",
-      "active_systems": ["soccer_match"],
+      "active_systems": [
+        "soccer_match"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
       "transitions": [
-        { "when": "boot_frames>=2", "goto": "main_menu" }
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
       ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "gameplay" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "gameplay"
+        }
       ]
     },
     "gameplay": {
       "description": "Soccer match",
       "start": "kickoff",
-      "on_enter": ["emit:game.game_ready"],
+      "on_enter": [
+        "emit:game.game_ready"
+      ],
       "on_exit": [],
       "substates": {
         "kickoff": {
           "description": "Kickoff countdown",
-          "active_systems": ["soccer_match"],
-          "active_behaviors": ["camera_soccer"],
+          "active_systems": [
+            "soccer_match"
+          ],
+          "active_behaviors": [
+            "camera_soccer"
+          ],
           "duration": 3,
           "on_enter": [
             "show_ui:hud/soccer_hud",
@@ -53,30 +80,50 @@
         },
         "playing": {
           "description": "Active match",
-          "active_systems": ["soccer_match"],
-          "active_behaviors": ["soccer_player", "camera_soccer"],
+          "active_systems": [
+            "soccer_match"
+          ],
+          "active_behaviors": [
+            "soccer_player",
+            "camera_soccer"
+          ],
           "on_enter": [],
           "on_exit": [],
           "transitions": [
-            { "when": "game_event:score_changed", "goto": "goal_celebration" },
-            { "when": "game_event:game_over", "goto": "full_time" }
+            {
+              "when": "game_event:score_changed",
+              "goto": "goal_celebration"
+            },
+            {
+              "when": "game_event:game_over",
+              "goto": "full_time"
+            }
           ]
         },
         "goal_celebration": {
           "description": "Goal scored celebration",
-          "active_systems": ["soccer_match"],
-          "active_behaviors": ["camera_soccer"],
+          "active_systems": [
+            "soccer_match"
+          ],
+          "active_behaviors": [
+            "camera_soccer"
+          ],
           "duration": 3,
           "on_enter": [
             "play_sound:/assets/kenney/audio/interface_sounds/confirmation_004.ogg"
           ],
           "transitions": [
-            { "when": "timer_expired", "goto": "kickoff" }
+            {
+              "when": "timer_expired",
+              "goto": "kickoff"
+            }
           ]
         },
         "full_time": {
           "description": "Match over",
-          "active_behaviors": ["camera_soccer"],
+          "active_behaviors": [
+            "camera_soccer"
+          ],
           "on_enter": [
             "show_ui:game_over",
             "show_cursor",
@@ -89,13 +136,42 @@
             "emit:game.game_ready"
           ],
           "transitions": [
-            { "when": "ui_event:game_over:play_again", "goto": "kickoff" }
+            {
+              "when": "ui_event:game_over:play_again",
+              "goto": "kickoff"
+            }
           ]
         }
       },
       "transitions": [
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
+    }
+  },
+  "controls": {
+    "preset": "topdown",
+    "movement": {
+      "type": "wasd+arrows",
+      "sprint": "ShiftLeft"
+    },
+    "look": {
+      "type": "none"
+    },
+    "actions": [
+      {
+        "key": "Space",
+        "label": "Kick"
+      },
+      {
+        "key": "KeyE",
+        "label": "Switch"
+      }
+    ],
+    "viewport": {
+      "tap": "click"
     }
   }
 }
