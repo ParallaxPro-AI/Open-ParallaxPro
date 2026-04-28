@@ -312,48 +312,77 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         return { el, onStart, onMove, onEnd };
     }
 
-    // ── Action rail (right side, vertical stack of buttons) ──────────────
+    // ── Action rail (right side, two-column cluster) ─────────────────────
+    //
+    // Right column = primary actions stacked vertically: Fire (largest,
+    // at the corner where the right thumb naturally rests), Jump above,
+    // Aim above that, Crouch above that. Sizes taper top-up so the
+    // bottom-most button is the easiest to hit.
+    //
+    // Left column = manifest.actions[] in a smaller stack to the left of
+    // the primary column. Two columns instead of one means the rail
+    // doesn't grow into a tall single line that climbs into the
+    // camera-look area on games with many actions.
     const railContainer = document.createElement('div');
     railContainer.style.cssText = [
         'position:absolute',
-        'right:max(20px, env(safe-area-inset-right))',
-        'bottom:max(20px, env(safe-area-inset-bottom))',
+        'right:env(safe-area-inset-right, 12px)',
+        'bottom:env(safe-area-inset-bottom, 12px)',
         'display:flex',
-        'flex-direction:column-reverse',
+        'flex-direction:row',
         'gap:10px',
-        'pointer-events:none',
         'align-items:flex-end',
+        'pointer-events:none',
     ].join(';');
     root.appendChild(railContainer);
 
-    // Build buttons: fire.primary (big, bottom), fire.secondary, jump, then actions[]
+    const secondaryColumn = document.createElement('div');
+    secondaryColumn.style.cssText = 'display:flex;flex-direction:column-reverse;gap:8px;align-items:flex-end;pointer-events:none;';
+    const primaryColumn = document.createElement('div');
+    primaryColumn.style.cssText = 'display:flex;flex-direction:column-reverse;gap:10px;align-items:flex-end;pointer-events:none;';
+    railContainer.appendChild(secondaryColumn);
+    railContainer.appendChild(primaryColumn);
+
+    // Build buttons. Order within primaryColumn (column-reverse stacks
+    // first-appended at the bottom): fire.primary, jump, fire.secondary,
+    // crouch — bottom-up.
     const railButtons: ReturnType<typeof buildButton>[] = [];
     const fire = manifest.fire;
-    if (fire?.primary) railButtons.push(buildButton({
-        key: fire.primary, label: fire.label || 'Fire', size: 84, accent: true,
-        hold: fire.holdPrimary !== false,
-    }));
-    if (fire?.secondary) railButtons.push(buildButton({
-        key: fire.secondary, label: fire.secondaryLabel || 'Aim', size: 64,
-        hold: fire.holdSecondary !== false,
-    }));
-    if (movement.jump) railButtons.push(buildButton({
-        key: movement.jump, label: 'Jump', size: 72,
-    }));
-    if (movement.crouch) railButtons.push(buildButton({
-        key: movement.crouch, label: 'Crouch', size: 56, hold: true,
-    }));
-    for (const action of manifest.actions || []) {
-        railButtons.push(buildButton({
-            key: action.key, label: action.label, size: 60, hold: !!action.hold, toggle: !!action.toggle,
-        }));
+    if (fire?.primary) {
+        const b = buildButton({
+            key: fire.primary, label: fire.label || 'Fire', size: 84, accent: true,
+            hold: fire.holdPrimary !== false,
+        });
+        railButtons.push(b); primaryColumn.appendChild(b.el);
     }
-    for (const b of railButtons) railContainer.appendChild(b.el);
+    if (movement.jump) {
+        const b = buildButton({ key: movement.jump, label: 'Jump', size: 72 });
+        railButtons.push(b); primaryColumn.appendChild(b.el);
+    }
+    if (fire?.secondary) {
+        const b = buildButton({
+            key: fire.secondary, label: fire.secondaryLabel || 'Aim', size: 64,
+            hold: fire.holdSecondary !== false,
+        });
+        railButtons.push(b); primaryColumn.appendChild(b.el);
+    }
+    if (movement.crouch) {
+        const b = buildButton({ key: movement.crouch, label: 'Crouch', size: 56, hold: true });
+        railButtons.push(b); primaryColumn.appendChild(b.el);
+    }
+    for (const action of manifest.actions || []) {
+        const b = buildButton({
+            key: action.key, label: action.label, size: 60,
+            hold: !!action.hold, toggle: !!action.toggle,
+        });
+        railButtons.push(b); secondaryColumn.appendChild(b.el);
+    }
 
     function buildButton(cfg: {
         key: string; label: string; size: number; accent?: boolean; hold?: boolean; toggle?: boolean;
     }) {
         const el = document.createElement('div');
+        const iconKey = pickIconForBinding(cfg.key, cfg.label);
         el.style.cssText = [
             'pointer-events:auto',
             'touch-action:none',
@@ -370,7 +399,14 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             'font-weight:600',
             'backdrop-filter:blur(4px)',
         ].join(';');
-        el.textContent = cfg.label;
+        if (iconKey) {
+            // Icon-only button. Inner SVG is sized as a fraction of the
+            // button so it scales with cfg.size automatically.
+            const inner = Math.floor(cfg.size * 0.5);
+            el.innerHTML = renderIconSvg(iconKey, inner);
+        } else {
+            el.textContent = cfg.label;
+        }
         let toggled = false;
         const onStart = (touch: Touch) => {
             const state: FingerState = {
@@ -994,4 +1030,82 @@ function labelFromHotbarCode(code: string): string {
     const f = /^F(\d+)$/.exec(code);
     if (f) return `F${f[1]}`;
     return '';
+}
+
+// ─── Icon system ───────────────────────────────────────────────────────
+//
+// Inline Lucide-style SVGs for the most universal action-rail bindings.
+// The shared module can't import editor icons, so the paths are embedded
+// here as small strings. Stroke-based monochrome glyphs scale cleanly
+// from the ~28px (small action) to ~50px (large fire) range.
+
+/** Path-only inner SVG body — wrapped by renderIconSvg() with the outer <svg>. */
+const ICON_PATHS: Record<string, string> = {
+    target:       '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
+    eye:          '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    chevronsUp:   '<polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/>',
+    chevronsDown: '<polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/>',
+    zap:          '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    rotateCw:     '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
+    refresh:      '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+    plus:         '<line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/>',
+    minus:        '<line x1="5" x2="19" y1="12" y2="12"/>',
+    sparkles:     '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/>',
+    map:          '<polygon points="3 6 9 4 15 6 21 4 21 18 15 20 9 18 3 20 3 6"/><line x1="9" x2="9" y1="4" y2="18"/><line x1="15" x2="15" y1="6" y2="20"/>',
+    box:          '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/>',
+    arrowDown:    '<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>',
+    arrowUp:      '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>',
+    hand:         '<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+    pause:        '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>',
+    square:       '<rect x="4" y="4" width="16" height="16" rx="2"/>',
+    shield:       '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    crosshair:    '<circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/>',
+};
+
+function renderIconSvg(name: string, size: number): string {
+    const body = ICON_PATHS[name];
+    if (!body) return '';
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="${size}" height="${size}" style="pointer-events:none">${body}</svg>`;
+}
+
+/**
+ * Pick an icon for a key + label combo. Returns the icon name to look
+ * up in ICON_PATHS, or null when no good match is found (in which case
+ * the button falls back to its text label).
+ *
+ * Strategy: key-code matches first (universal mappings — Space=jump
+ * regardless of label), then label keyword matches (game-specific
+ * labels like "Reload" / "Boost"), then null.
+ */
+function pickIconForBinding(key: string, label: string): string | null {
+    if (key === 'MouseLeft') return 'target';
+    if (key === 'MouseRight') return 'eye';
+    if (key === 'Space') return 'chevronsUp';
+    if (key === 'ControlLeft' || key === 'ControlRight') return 'chevronsDown';
+    if (key === 'ShiftLeft' || key === 'ShiftRight') return 'zap';
+    if (key === 'Tab') return 'box';
+
+    const l = (label || '').toLowerCase().trim();
+    if (!l) return null;
+    if (/^(fire|shoot|attack|hit|cannon|tap)/.test(l)) return 'target';
+    if (/^(aim|look|scope)/.test(l)) return 'eye';
+    if (/^(jump|hop|leap|bounce)/.test(l)) return 'chevronsUp';
+    if (/^(crouch|duck|down)/.test(l)) return 'chevronsDown';
+    if (/^(sprint|run|dash|drift|boost|brake)/.test(l)) return 'zap';
+    if (/^(reload)/.test(l)) return 'rotateCw';
+    if (/^(switch|cycle|next|change|swap|rotate)/.test(l)) return 'refresh';
+    if (/^(use|grab|interact|enter|pick|kick|action|press)/.test(l)) return 'hand';
+    if (/^(drop|throw|toss)/.test(l)) return 'arrowDown';
+    if (/^(heal|repair|add|cancel)/.test(l)) return 'plus';
+    if (/^(map)/.test(l)) return 'map';
+    if (/^(item|powerup|skill|ability|special|magic|spell|q|e|skill 1|skill 2)/.test(l)) return 'sparkles';
+    if (/^(inventory|menu|wave|item)/.test(l)) return 'box';
+    if (/^(reduce|remove|−|-)/.test(l)) return 'minus';
+    if (/^(pause)/.test(l)) return 'pause';
+    if (/^(select|target)/.test(l)) return 'crosshair';
+    if (/^(block|defend|guard|shield)/.test(l)) return 'shield';
+    if (/^(plant|place|build|put)/.test(l)) return 'plus';
+    if (/^(mine|dig)/.test(l)) return 'target';
+
+    return null;
 }
