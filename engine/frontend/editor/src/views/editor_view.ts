@@ -66,6 +66,27 @@ export class EditorView {
             landscapeQuery.addEventListener('change', reparentChat);
             reparentChat();
 
+            // Wire the toolbar's AI Assistant button (mobile-landscape only)
+            // to the same chat sheet the FAB used to control. The FAB
+            // itself is hidden via CSS in landscape, so users get one
+            // affordance instead of two.
+            this.toolbar.bindMobileChat(
+                () => this.mobileLayout!.toggleChat(),
+                () => this.mobileLayout!.isChatSheetOpen(),
+            );
+            this.mobileLayout.onChatSheetChange((open) => {
+                this.toolbar.setMobileChatOpen(open);
+                // Hide the in-game mobile controls (joystick, look pad,
+                // action rail, hotbar, system tray ☰) while the AI
+                // Assistant sheet is up — the sheet covers most of the
+                // screen and the controls overlay otherwise sits on top
+                // and blocks taps. Keyed suspension composes correctly
+                // with the engine's edit-mode suspension.
+                try {
+                    this.editor.getEngine().globalContext.mobileOverlay?.setSuspended(open, 'chat-open');
+                } catch { /* swallow */ }
+            });
+
             this.el.appendChild(this.mobileLayout.el);
 
             this.disconnectOverlay = document.createElement('div');

@@ -599,6 +599,141 @@ The engine reserves these keys globally. Never bind them for game actions
 Pick other keys for gameplay bindings. Common free keys: `KeyE`, `KeyF`,
 `KeyQ`, `KeyR`, `KeyT`, `KeyG`, `KeyC`, `KeyX`, `KeyZ`, `Tab`, digit keys.
 
+### Mobile controls — declare a `controls` block in `01_flow.json`
+
+Every game ParallaxPro publishes runs on phones too. The engine renders an
+on-screen joystick + action buttons + look pad on touch devices, all
+sourced from a `controls` manifest in `01_flow.json`. The overlay injects
+the same key codes into the InputSystem that a physical keyboard would,
+so your behaviors keep polling `isKeyDown("KeyW")` and they work
+unchanged on mobile. **A game without a `controls` block has no mobile UI
+for any key your scripts read.**
+
+Add `controls` as a sibling of `ui_params` and `multiplayer`, near the
+top of `01_flow.json`:
+
+```json
+{
+  "id": "my_game_flow",
+  "name": "My Game",
+  "start": "boot",
+  "controls": {
+    "preset": "fps",
+    "movement": { "type": "wasd", "sprint": "ShiftLeft", "jump": "Space" },
+    "look":     { "type": "mouseDelta", "sensitivity": 1.0 },
+    "fire":     { "primary": "MouseLeft", "label": "Fire", "holdPrimary": true },
+    "actions":  [{ "key": "KeyR", "label": "Reload" }],
+    "viewport": { "tap": "none" }
+  },
+  "ui_params": { ... },
+  "states": { ... }
+}
+```
+
+#### Schema
+
+- `preset` — archetype hint that seeds defaults; explicit fields override.
+  One of: `fps`, `tps`, `topdown`, `platformer`, `sidescroller`, `racer`,
+  `flight`, `rts`, `click`, `custom`.
+- `movement` — joystick keys.
+  - `type`: `"wasd"` | `"arrows"` | `"wasd+arrows"` | `"horizontal"` (left-right only) | `"none"` (no joystick).
+  - `sprint`, `crouch`, `jump`: optional auxiliary key codes. `jump` becomes a Jump button on the right rail; auto-sprint engages above ~85% deflection if `sprint` is set.
+- `look` — right-side camera pad (drag injects mouseDelta).
+  - `type`: `"mouseDelta"` (FPS / TPS / mouse-look) | `"tapToFace"` | `"none"`.
+  - `sensitivity`: pixels-per-pixel multiplier; default 1.0.
+- `fire` — primary mouse-button bindings rendered as buttons on the right rail.
+  - `primary` / `secondary`: `"MouseLeft"` | `"MouseRight"` | `"MouseMiddle"` or any KeyboardEvent `code`.
+  - `label` / `secondaryLabel`: 1-2 word button text.
+  - `holdPrimary` / `holdSecondary`: true (default) = key stays down while finger is down; false = momentary tap.
+- `actions[]` — every other gameplay key your scripts read. Each entry needs `key`, `label`, optional `hold` (default true), `toggle` (default false). **If your behavior reads a key here, it MUST appear in `actions[]` (or in `movement` / `fire` / `hotbar`) — otherwise mobile players cannot trigger it.**
+- `hotbar` — number-key inventory or ability strip.
+  - `from`, `to`: inclusive range, e.g. `"Digit1"` to `"Digit9"`.
+  - `labels`: per-slot labels; pad missing entries.
+- `scroll` — pinch-zoom support (zoom games only).
+  - `type`: `"pinch"` | `"twoFinger"` | `"none"`.
+  - `sensitivity`: multiplier on raw delta.
+- `viewport` — what raw taps on the canvas (outside any overlay control) do.
+  - `tap`: `"click"` (touchstart→mousedown(0); touchend→mouseup(0); for click-to-play games), `"drag"` (same plus continuous mousemove during the touch; for slingshot/drag-aim), `"none"` (FPS/TPS where every touch should hit either the joystick or the look pad).
+- `system` — engine-reserved keys. **Don't put `KeyP` / `KeyV` / `Enter` in `actions[]`.** They're routed through the system tray automatically (tray defaults: pause=`KeyP`, chat=`Enter`, voice=`KeyV`, scoreboard=`Tab`). Override by setting `controls.system.pause`, `.chat`, `.voice`, `.scoreboard`.
+
+#### Worked examples
+
+**FPS / shooter** (mouse-look, fire, reload):
+
+```json
+"controls": {
+  "preset": "fps",
+  "movement": { "type": "wasd", "sprint": "ShiftLeft", "jump": "Space" },
+  "look":     { "type": "mouseDelta", "sensitivity": 1.0 },
+  "fire":     { "primary": "MouseLeft", "label": "Fire", "holdPrimary": true },
+  "actions":  [{ "key": "KeyR", "label": "Reload" }],
+  "viewport": { "tap": "none" }
+}
+```
+
+**Platformer** (run + jump, no aim):
+
+```json
+"controls": {
+  "preset": "platformer",
+  "movement": { "type": "wasd+arrows", "jump": "Space" },
+  "look":     { "type": "none" },
+  "viewport": { "tap": "click" }
+}
+```
+
+**RTS / strategy** (click select, pinch zoom, hotbar):
+
+```json
+"controls": {
+  "preset": "rts",
+  "movement": { "type": "wasd+arrows" },
+  "look":     { "type": "none" },
+  "fire":     { "primary": "MouseLeft", "secondary": "MouseRight",
+                "label": "Select", "secondaryLabel": "Order" },
+  "hotbar":   { "from": "Digit1", "to": "Digit4",
+                "labels": ["T1", "T2", "T3", "T4"] },
+  "scroll":   { "type": "pinch" },
+  "viewport": { "tap": "click" }
+}
+```
+
+**Racer** (W/S throttle, A/D steer, drift):
+
+```json
+"controls": {
+  "preset": "racer",
+  "movement": { "type": "wasd+arrows" },
+  "look":     { "type": "none" },
+  "actions":  [
+    { "key": "Space", "label": "Drift", "hold": true },
+    { "key": "KeyE",  "label": "Item" }
+  ],
+  "viewport": { "tap": "none" }
+}
+```
+
+**Click-only** (chess, tower defense placement, point-and-click):
+
+```json
+"controls": {
+  "preset": "click",
+  "movement": { "type": "none" },
+  "look":     { "type": "none" },
+  "fire":     { "primary": "MouseLeft", "label": "Tap" },
+  "viewport": { "tap": "click" }
+}
+```
+
+#### Rules of thumb
+
+1. If your behavior reads `isKeyDown("KeyW")` and friends, declare `movement.type` so the joystick produces those codes.
+2. If your behavior reads `getMouseDelta()`, set `look.type: "mouseDelta"`.
+3. Every gameplay key your scripts read with a literal string MUST appear somewhere in the manifest (`movement`, `fire`, `actions[]`, `hotbar`).
+4. Don't bind reserved keys (`KeyP` / `KeyV` / `Enter`) to gameplay actions; the engine reserves them and they're available in the mobile tray automatically.
+5. Use `holdPrimary: true` on Fire for hold-to-shoot; `false` for tap-to-fire.
+6. Click-to-play games (chess, RTS, point-and-click) want `viewport.tap: "click"`. FPS / TPS games where the right-half is the look pad want `"none"`.
+
 ## Transitions & FSM actions
 
 ### Transition `when` formats

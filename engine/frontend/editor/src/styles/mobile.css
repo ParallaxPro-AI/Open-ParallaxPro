@@ -152,8 +152,11 @@ body.mobile .mobile-chat-sheet-handle::after {
     body.mobile .mobile-divider {
         display: none;
     }
+    /* The FAB chat toggle is replaced in landscape by an AI Assistant
+       button on the toolbar (next to Play). Hide the FAB to avoid two
+       affordances doing the same thing. */
     body.mobile .mobile-chat-toggle {
-        display: flex;
+        display: none;
     }
 }
 

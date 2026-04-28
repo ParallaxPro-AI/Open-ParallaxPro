@@ -76,6 +76,7 @@
     "copied": "Copied!",
     "previewClient": "+ Client",
     "previewClientTooltip": "Open another window of this project to test multiplayer locally",
+    "aiAssistant": "AI Assistant",
     "teamChat": "Team Chat",
     "teamChatPlaceholder": "Type a message...",
     "unsavedConfirm": "You have unsaved changes. Leave without saving?",

@@ -12,42 +12,108 @@
   "states": {
     "boot": {
       "description": "Initialize",
-      "active_systems": ["lane_hopper_game"],
-      "active_behaviors": ["camera_tile_hopper"],
+      "active_systems": [
+        "lane_hopper_game"
+      ],
+      "active_behaviors": [
+        "camera_tile_hopper"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
-      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
     },
     "main_menu": {
       "description": "Title",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
-      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "playing", "actions": ["emit:game.game_ready"] }]
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "playing",
+          "actions": [
+            "emit:game.game_ready"
+          ]
+        }
+      ]
     },
     "playing": {
       "description": "Endless lanes",
-      "active_systems": ["lane_hopper_game"],
-      "active_behaviors": ["tile_hopper", "camera_tile_hopper"],
+      "active_systems": [
+        "lane_hopper_game"
+      ],
+      "active_behaviors": [
+        "tile_hopper",
+        "camera_tile_hopper"
+      ],
       "on_enter": [
         "show_ui:hud/lane_hopper_hud",
         "hide_cursor",
         "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
       ],
-      "on_exit": ["hide_ui:hud/lane_hopper_hud"],
+      "on_exit": [
+        "hide_ui:hud/lane_hopper_hud"
+      ],
       "transitions": [
-        { "when": "game_event:game_over", "goto": "game_over" }
+        {
+          "when": "game_event:game_over",
+          "goto": "game_over"
+        }
       ]
     },
     "game_over": {
       "description": "Run ended",
-      "active_behaviors": ["camera_tile_hopper"],
-      "on_enter": ["show_ui:game_over", "show_cursor"],
-      "on_exit":  ["hide_ui:game_over", "hide_cursor"],
+      "active_behaviors": [
+        "camera_tile_hopper"
+      ],
+      "on_enter": [
+        "show_ui:game_over",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:game_over",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:game_over:play_again", "goto": "playing", "actions": ["emit:game.restart_game"] },
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "playing",
+          "actions": [
+            "emit:game.restart_game"
+          ]
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
+    }
+  },
+  "controls": {
+    "preset": "topdown",
+    "movement": {
+      "type": "wasd+arrows"
+    },
+    "look": {
+      "type": "none"
+    },
+    "viewport": {
+      "tap": "click"
     }
   }
 }

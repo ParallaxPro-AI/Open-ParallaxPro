@@ -292,6 +292,31 @@ this.time.frameCount
 Pick other keys for gameplay bindings. Common free keys: `KeyE`, `KeyF`,
 `KeyQ`, `KeyR`, `KeyT`, `KeyG`, `KeyC`, `KeyX`, `KeyZ`, `Tab`, digit keys.
 
+### Mobile controls — keep `01_flow.json:controls` in sync
+
+The mobile overlay (joystick, look pad, action buttons, hotbar) is built
+from a `controls` manifest in `01_flow.json`. Any change to control
+bindings in scripts MUST be mirrored in the manifest, otherwise mobile
+players have no on-screen way to trigger the new key.
+
+When you make any of the following changes, update `01_flow.json:controls`
+in the same edit:
+
+- **Add a new key your behavior reads** (e.g. introduce `KeyR` for reload):
+  add an entry to `controls.actions[]` with a label, e.g. `{ "key": "KeyR", "label": "Reload" }`. Or, if it's movement-related, set the right field on `controls.movement` (`sprint`, `crouch`, `jump`).
+- **Change which key fires the gun**: update `controls.fire.primary` (or `secondary`) to match.
+- **Add a hotbar / inventory slot**: extend `controls.hotbar.from`/`to`/`labels`.
+- **Switch to mouse-look from a no-look game**: set `controls.look.type: "mouseDelta"`. Most click-to-play games should keep `"none"` and `viewport.tap: "click"`.
+- **Convert from FPS to click-to-play (or vice versa)**: change `controls.preset`, `controls.movement.type`, and `controls.viewport.tap` together.
+
+Don't bind reserved keys (`KeyP` / `KeyV` / `Enter`) into `actions[]`;
+they're routed through the system tray automatically.
+
+Schema reference: see CREATOR_CONTEXT's "Mobile controls" section, or the
+existing manifest in any template's `01_flow.json` (every shipped
+template has one). The shared types live in
+`engine/shared/input/control_manifest.ts`.
+
 ## Asset Search
 
 **Use `bash search_assets.sh` to find assets.** Semantic search — returns the most relevant asset paths.

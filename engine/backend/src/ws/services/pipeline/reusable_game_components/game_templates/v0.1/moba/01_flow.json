@@ -3,7 +3,10 @@
   "name": "MOBA",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "ARENA CLASH", "gameSubtitle": "Battle Arena" }
+    "main_menu": {
+      "gameTitle": "ARENA CLASH",
+      "gameSubtitle": "Battle Arena"
+    }
   },
   "states": {
     "boot": {
@@ -36,7 +39,10 @@
         {
           "when": "ui_event:main_menu:start_game",
           "goto": "playing",
-          "actions": ["emit:game.game_ready"]
+          "actions": [
+            "emit:game.game_ready",
+            "emit:game.match_started"
+          ]
         }
       ]
     },
@@ -91,13 +97,48 @@
         {
           "when": "ui_event:game_over:play_again",
           "goto": "playing",
-          "actions": ["emit:game.restart_game"]
+          "actions": [
+            "emit:game.restart_game",
+            "emit:game.match_started"
+          ]
         },
         {
           "when": "ui_event:game_over:main_menu",
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "click",
+    "movement": {
+      "type": "none"
+    },
+    "look": {
+      "type": "none"
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "secondary": "MouseRight",
+      "label": "Move",
+      "secondaryLabel": "Attack"
+    },
+    "actions": [
+      {
+        "key": "KeyQ",
+        "label": "Q"
+      },
+      {
+        "key": "KeyE",
+        "label": "E"
+      },
+      {
+        "key": "Space",
+        "label": "Center"
+      }
+    ],
+    "viewport": {
+      "tap": "click"
     }
   }
 }

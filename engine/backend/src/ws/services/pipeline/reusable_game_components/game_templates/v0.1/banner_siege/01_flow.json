@@ -16,7 +16,7 @@
   "ui_params": {
     "main_menu": {
       "gameTitle": "BANNER SIEGE",
-      "gameSubtitle": "Capture the enemy banner \u00b7 First to 3 wins"
+      "gameSubtitle": "Capture the enemy banner · First to 3 wins"
     },
     "pause_menu": {
       "pauseTitle": "PAUSED",
@@ -151,7 +151,8 @@
         "show_ui:hud/banner_siege_hud",
         "show_ui:hud/health",
         "show_ui:hud/ammo",
-        "show_ui:hud/crosshair"
+        "show_ui:hud/crosshair",
+        "emit:game.set_camera_yaw"
       ],
       "on_exit": [
         "hide_ui:hud/ping",
@@ -255,6 +256,32 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "fps",
+    "movement": {
+      "type": "wasd",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 1
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Fire",
+      "holdPrimary": true
+    },
+    "actions": [
+      {
+        "key": "KeyR",
+        "label": "Reload"
+      }
+    ],
+    "viewport": {
+      "tap": "none"
     }
   }
 }

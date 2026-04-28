@@ -62,7 +62,11 @@
       "transitions": [
         {
           "when": "ui_event:main_menu:start_game",
-          "goto": "lobby_browser"
+          "goto": "lobby_browser",
+          "actions": [
+            "emit:game.entity_healed",
+            "emit:game.entity_killed"
+          ]
         }
       ]
     },
@@ -110,7 +114,8 @@
           "when": "mp_event:phase_in_game",
           "goto": "gameplay",
           "actions": [
-            "emit:game.match_started"
+            "emit:game.match_started",
+            "emit:game.game_ready"
           ]
         },
         {
@@ -124,7 +129,7 @@
       ]
     },
     "gameplay": {
-      "description": "Match \u2014 mid lane, two towers, destroy the nexus",
+      "description": "Match — mid lane, two towers, destroy the nexus",
       "active_systems": [
         "mp_bridge",
         "rift_1v1_game",
@@ -174,13 +179,42 @@
       "transitions": [
         {
           "when": "ui_event:game_over:play_again",
-          "goto": "lobby_room"
+          "goto": "lobby_room",
+          "actions": [
+            "emit:game.restart_game",
+            "emit:game.entity_healed",
+            "emit:game.entity_killed"
+          ]
         },
         {
           "when": "ui_event:game_over:main_menu",
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "click",
+    "movement": {
+      "type": "none"
+    },
+    "look": {
+      "type": "none"
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "secondary": "MouseRight",
+      "label": "Click",
+      "secondaryLabel": "Alt"
+    },
+    "actions": [
+      {
+        "key": "KeyB",
+        "label": "B"
+      }
+    ],
+    "viewport": {
+      "tap": "click"
     }
   }
 }

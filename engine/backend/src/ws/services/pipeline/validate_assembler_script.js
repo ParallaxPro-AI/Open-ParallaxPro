@@ -410,6 +410,181 @@ if (eventData) {
 
 
 // ═════════════════════════════════════════════════════════════════════
+// 3b. Controls-manifest shape validation
+// ═════════════════════════════════════════════════════════════════════
+//
+// 01_flow.json:controls drives the on-screen mobile overlay (joystick,
+// look pad, action buttons, hotbar, system tray). Catch typo'd preset
+// names, invalid enum values, wrong types, and reserved-key collisions
+// here so the agent gets a precise build error instead of silently
+// degrading at runtime. Mirrors validateControlManifest() in
+// engine/shared/input/control_manifest.ts — keep them in sync.
+(function () {
+    var raw = flow && Object.prototype.hasOwnProperty.call(flow, 'controls') ? flow.controls : undefined;
+    if (raw === undefined || raw === null) return; // absent is allowed
+    var errs = [];
+    var RESERVED_KEYS = { KeyP: 1, KeyV: 1, Enter: 1, Escape: 1 };
+
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+        errs.push('controls: must be a JSON object');
+    } else {
+        var m = raw;
+
+        if (m.preset !== undefined) {
+            var validPresets = ['fps','tps','topdown','platformer','sidescroller','racer','flight','rts','click','custom'];
+            if (typeof m.preset !== 'string' || validPresets.indexOf(m.preset) < 0) {
+                errs.push('controls.preset: "' + m.preset + '" — must be one of ' + validPresets.join(' | '));
+            }
+        }
+
+        if (m.movement !== undefined) {
+            if (typeof m.movement !== 'object' || m.movement === null || Array.isArray(m.movement)) {
+                errs.push('controls.movement: must be an object');
+            } else {
+                if (m.movement.type !== undefined) {
+                    var vt = ['wasd','arrows','wasd+arrows','horizontal','none'];
+                    if (typeof m.movement.type !== 'string' || vt.indexOf(m.movement.type) < 0) {
+                        errs.push('controls.movement.type: "' + m.movement.type + '" — must be one of ' + vt.join(' | '));
+                    }
+                }
+                ['sprint','crouch','jump'].forEach(function (f) {
+                    if (m.movement[f] !== undefined && typeof m.movement[f] !== 'string') {
+                        errs.push('controls.movement.' + f + ': must be a key-code string');
+                    }
+                });
+            }
+        }
+
+        if (m.look !== undefined) {
+            if (typeof m.look !== 'object' || m.look === null || Array.isArray(m.look)) {
+                errs.push('controls.look: must be an object');
+            } else {
+                if (m.look.type !== undefined) {
+                    var lt = ['mouseDelta','tapToFace','none'];
+                    if (typeof m.look.type !== 'string' || lt.indexOf(m.look.type) < 0) {
+                        errs.push('controls.look.type: "' + m.look.type + '" — must be one of ' + lt.join(' | '));
+                    }
+                }
+                if (m.look.sensitivity !== undefined && (typeof m.look.sensitivity !== 'number' || !isFinite(m.look.sensitivity))) {
+                    errs.push('controls.look.sensitivity: must be a finite number');
+                }
+            }
+        }
+
+        if (m.fire !== undefined) {
+            if (typeof m.fire !== 'object' || m.fire === null || Array.isArray(m.fire)) {
+                errs.push('controls.fire: must be an object');
+            } else {
+                ['primary','secondary'].forEach(function (f) {
+                    if (m.fire[f] !== undefined && typeof m.fire[f] !== 'string') {
+                        errs.push('controls.fire.' + f + ': must be a key-code string');
+                    }
+                });
+                ['label','secondaryLabel'].forEach(function (f) {
+                    if (m.fire[f] !== undefined && typeof m.fire[f] !== 'string') {
+                        errs.push('controls.fire.' + f + ': must be a string');
+                    }
+                });
+                ['holdPrimary','holdSecondary'].forEach(function (f) {
+                    if (m.fire[f] !== undefined && typeof m.fire[f] !== 'boolean') {
+                        errs.push('controls.fire.' + f + ': must be true | false');
+                    }
+                });
+            }
+        }
+
+        if (m.actions !== undefined) {
+            if (!Array.isArray(m.actions)) {
+                errs.push('controls.actions: must be an array of { key, label } entries');
+            } else {
+                m.actions.forEach(function (a, i) {
+                    if (typeof a !== 'object' || a === null || Array.isArray(a)) {
+                        errs.push('controls.actions[' + i + ']: must be an object with { key, label }');
+                        return;
+                    }
+                    if (typeof a.key !== 'string' || a.key.length === 0) {
+                        errs.push('controls.actions[' + i + '].key: must be a non-empty key-code string');
+                    } else if (RESERVED_KEYS[a.key]) {
+                        errs.push('controls.actions[' + i + '].key: "' + a.key + '" is engine-reserved (route through controls.system instead)');
+                    }
+                    if (typeof a.label !== 'string') {
+                        errs.push('controls.actions[' + i + '].label: must be a string');
+                    }
+                    if (a.hold !== undefined && typeof a.hold !== 'boolean') {
+                        errs.push('controls.actions[' + i + '].hold: must be true | false');
+                    }
+                    if (a.toggle !== undefined && typeof a.toggle !== 'boolean') {
+                        errs.push('controls.actions[' + i + '].toggle: must be true | false');
+                    }
+                });
+            }
+        }
+
+        if (m.hotbar !== undefined) {
+            if (typeof m.hotbar !== 'object' || m.hotbar === null || Array.isArray(m.hotbar)) {
+                errs.push('controls.hotbar: must be an object with { from, to }');
+            } else {
+                var shape = /^(Digit|F)\d+$/;
+                if (typeof m.hotbar.from !== 'string' || !shape.test(m.hotbar.from)) {
+                    errs.push('controls.hotbar.from: "' + m.hotbar.from + '" — must match Digit\\d+ or F\\d+');
+                }
+                if (typeof m.hotbar.to !== 'string' || !shape.test(m.hotbar.to)) {
+                    errs.push('controls.hotbar.to: "' + m.hotbar.to + '" — must match Digit\\d+ or F\\d+');
+                }
+                if (m.hotbar.labels !== undefined && !Array.isArray(m.hotbar.labels)) {
+                    errs.push('controls.hotbar.labels: must be an array of strings');
+                }
+            }
+        }
+
+        if (m.scroll !== undefined) {
+            if (typeof m.scroll !== 'object' || m.scroll === null || Array.isArray(m.scroll)) {
+                errs.push('controls.scroll: must be an object');
+            } else {
+                if (m.scroll.type !== undefined) {
+                    var st = ['pinch','twoFinger','none'];
+                    if (typeof m.scroll.type !== 'string' || st.indexOf(m.scroll.type) < 0) {
+                        errs.push('controls.scroll.type: "' + m.scroll.type + '" — must be one of ' + st.join(' | '));
+                    }
+                }
+                if (m.scroll.sensitivity !== undefined && (typeof m.scroll.sensitivity !== 'number' || !isFinite(m.scroll.sensitivity))) {
+                    errs.push('controls.scroll.sensitivity: must be a finite number');
+                }
+            }
+        }
+
+        if (m.viewport !== undefined) {
+            if (typeof m.viewport !== 'object' || m.viewport === null || Array.isArray(m.viewport)) {
+                errs.push('controls.viewport: must be an object');
+            } else if (m.viewport.tap !== undefined) {
+                var vts = ['click','drag','none'];
+                if (typeof m.viewport.tap !== 'string' || vts.indexOf(m.viewport.tap) < 0) {
+                    errs.push('controls.viewport.tap: "' + m.viewport.tap + '" — must be one of ' + vts.join(' | '));
+                }
+            }
+        }
+
+        if (m.system !== undefined) {
+            if (typeof m.system !== 'object' || m.system === null || Array.isArray(m.system)) {
+                errs.push('controls.system: must be an object');
+            } else {
+                ['pause','chat','voice','scoreboard'].forEach(function (f) {
+                    if (m.system[f] !== undefined && typeof m.system[f] !== 'string') {
+                        errs.push('controls.system.' + f + ': must be a key-code string');
+                    }
+                });
+            }
+        }
+    }
+
+    if (errs.length > 0) {
+        console.error('controls manifest validation failed: ' + errs.length + ' error(s). ' + errs[0]);
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
 // 4. spawnEntity validation
 // ═════════════════════════════════════════════════════════════════════
 //

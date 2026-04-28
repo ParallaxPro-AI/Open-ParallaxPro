@@ -49,7 +49,7 @@
       ]
     },
     "playing": {
-      "description": "Party game \u2014 rotating minigames across 5 rounds",
+      "description": "Party game — rotating minigames across 5 rounds",
       "active_systems": [
         "party_engine"
       ],
@@ -101,6 +101,19 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "topdown",
+    "movement": {
+      "type": "wasd+arrows",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "none"
+    },
+    "viewport": {
+      "tap": "click"
     }
   }
 }

@@ -1,6 +1,6 @@
 import { EditorContext } from '../editor_context.js';
 import { showModal, showPromptModal, showConfirmModal } from '../widgets/modal.js';
-import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Settings, MousePointer2, Crosshair, Globe, Box } from '../widgets/icons.js';
+import { icon, Save, Undo2, Redo2, Move, RotateCw, Maximize2, Play, Square, Settings, MousePointer2, Crosshair, Globe, Box, Sparkles } from '../widgets/icons.js';
 import { PublishFlow } from '../widgets/publish_flow.js';
 import { formatServerTime } from '../utils/format_time.js';
 import { isMobile } from '../utils/mobile.js';
@@ -37,6 +37,12 @@ export class Toolbar {
     private playBtn!: HTMLElement;
     private stopBtn!: HTMLElement;
     private previewClientBtn!: HTMLButtonElement;
+    /**
+     * Mobile-landscape only. Replaces the floating chat-toggle FAB in the
+     * bottom-right of the viewport. Wired up by editor_view via
+     * bindMobileChat() once the MobileEditorLayout exists.
+     */
+    private aiChatBtn: HTMLElement | null = null;
     private mpBtn!: HTMLElement;
     private mpDropdown!: HTMLElement;
     private mpLinkText!: HTMLElement;
@@ -378,6 +384,17 @@ export class Toolbar {
         this.el.appendChild(spacer);
 
         const playGroup = this.createGroup();
+
+        // AI Assistant button — only shown in mobile-landscape, replacing
+        // the floating chat-toggle FAB that used to live bottom-right of
+        // the viewport. The click handler is wired by editor_view via
+        // bindMobileChat() once MobileEditorLayout exists. Visibility is
+        // gated on (orientation: landscape) below.
+        this.aiChatBtn = this.createIconButton(Sparkles, 'AI', 'toolbar-btn ai-chat-btn', () => { /* wired later */ });
+        this.aiChatBtn.title = t('toolbar.aiAssistant');
+        this.aiChatBtn.style.display = 'none';
+        playGroup.appendChild(this.aiChatBtn);
+
         this.playBtn = this.createIconButton(Play, '', 'toolbar-btn play-btn disabled', () => {
             if (this.playBtn.classList.contains('disabled')) return;
             this.ctx.play();
@@ -394,6 +411,16 @@ export class Toolbar {
         this.previewClientBtn.style.display = 'none';
         playGroup.appendChild(this.previewClientBtn);
         this.el.appendChild(playGroup);
+
+        // Show the AI Assistant button only in landscape; portrait uses
+        // the bottom-half split-view chat panel instead.
+        const landscapeQuery = window.matchMedia('(orientation: landscape)');
+        const updateAiBtnVisibility = () => {
+            if (!this.aiChatBtn) return;
+            this.aiChatBtn.style.display = landscapeQuery.matches ? '' : 'none';
+        };
+        landscapeQuery.addEventListener('change', updateAiBtnVisibility);
+        updateAiBtnVisibility();
 
         // Dummy elements that desktop bindEvents references (hidden on mobile)
         this.saveBtn = document.createElement('button');
@@ -647,6 +674,29 @@ export class Toolbar {
         this.projectNameEl.textContent = name;
     }
 
+    /**
+     * Wire the mobile-landscape AI Assistant toolbar button. Called by
+     * editor_view.ts after MobileEditorLayout is constructed. The
+     * `isOpen` callback lets the button reflect the chat sheet's open
+     * state visually (active class).
+     *
+     * No-op on desktop / portrait builds where aiChatBtn is null.
+     */
+    bindMobileChat(toggle: () => void, isOpen: () => boolean): void {
+        if (!this.aiChatBtn) return;
+        const btn = this.aiChatBtn;
+        btn.addEventListener('click', () => {
+            toggle();
+            btn.classList.toggle('active', isOpen());
+        });
+    }
+
+    /** Mirror the chat sheet's open state to the toolbar button highlight. */
+    setMobileChatOpen(open: boolean): void {
+        if (!this.aiChatBtn) return;
+        this.aiChatBtn.classList.toggle('active', open);
+    }
+
     private createGroup(): HTMLElement {
         const g = document.createElement('div');
         g.className = 'toolbar-group';
@@ -658,8 +708,17 @@ export class Toolbar {
      * multiplayer.enabled in their flow JSON. The button opens a second
      * editor tab with ?auto_play=1, so the dev can host in one tab and
      * join in the other without leaving the browser.
+     *
+     * Hidden on mobile: a phone can only practically run one client at a
+     * time (browser memory + battery), and the "+ Client" affordance
+     * confuses touch users who are just trying to play, not host a
+     * second peer side-by-side with themselves.
      */
     private updatePreviewClientVisibility(): void {
+        if (isMobile()) {
+            this.previewClientBtn.style.display = 'none';
+            return;
+        }
         // Visible whenever the project declares multiplayer — devs often want
         // to open the second client first, line up two windows, and then hit
         // play. The new tab uses ?auto_play=1 so it'll start its own match

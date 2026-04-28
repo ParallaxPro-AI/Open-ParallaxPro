@@ -50,12 +50,13 @@
       "description": "Open-world RPG gameplay",
       "start": "adventuring",
       "on_enter": [
-        "emit:game.game_ready"
+        "emit:game.game_ready",
+        "emit:game.match_started"
       ],
       "on_exit": [],
       "substates": {
         "adventuring": {
-          "description": "Explore the world \u2014 complete quests, fight monsters, loot treasure, level up",
+          "description": "Explore the world — complete quests, fight monsters, loot treasure, level up",
           "active_systems": [
             "mmorpg_interact",
             "entity_health_bars",
@@ -112,7 +113,7 @@
           ]
         },
         "death_respawn": {
-          "description": "Player defeated \u2014 respawn at village after delay",
+          "description": "Player defeated — respawn at village after delay",
           "active_systems": [
             "quest_system",
             "world_spawner"
@@ -141,7 +142,7 @@
           ]
         },
         "victory": {
-          "description": "All quests complete \u2014 realm saved",
+          "description": "All quests complete — realm saved",
           "active_behaviors": [
             "camera_rpg"
           ],
@@ -157,7 +158,10 @@
           "transitions": [
             {
               "when": "ui_event:game_over:play_again",
-              "goto": "adventuring"
+              "goto": "adventuring",
+              "actions": [
+                "emit:game.restart_game"
+              ]
             }
           ]
         }
@@ -168,6 +172,40 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "tps",
+    "movement": {
+      "type": "wasd+arrows",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 1
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Attack",
+      "holdPrimary": true
+    },
+    "actions": [
+      {
+        "key": "KeyE",
+        "label": "Use"
+      },
+      {
+        "key": "KeyQ",
+        "label": "Skill 1"
+      },
+      {
+        "key": "KeyR",
+        "label": "Skill 2"
+      }
+    ],
+    "viewport": {
+      "tap": "none"
     }
   }
 }

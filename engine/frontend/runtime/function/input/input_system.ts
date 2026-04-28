@@ -38,12 +38,31 @@ export function connectInputDevice(inputSystem: InputSystem, inputDevice: InputD
         inputSystem.injectWheel(deltaX, deltaY);
     });
 
-    // Touch-to-mouse simulation for touch devices
+    // Touch-to-mouse simulation for touch devices.
+    //
+    // This is the LEGACY path: a primary-touch-as-mouse shim that lets a
+    // single-finger tap drive `MouseLeft` and `getMousePosition`. It exists
+    // for two scenarios:
+    //
+    //   1. Touch devices without the MobileInputOverlay attached (e.g. an
+    //      external preview iframe or any path where the overlay isn't
+    //      mounted). Without this shim a chess game on a phone wouldn't
+    //      register taps at all.
+    //   2. Backwards compatibility: every game on the platform was authored
+    //      assuming this shim, so removing it would break click-to-play games
+    //      that ship without a `controls` manifest.
+    //
+    // When `inputDevice.suppressLegacyTouchAsMouse` is set (the overlay
+    // toggles it on at attach), we bypass the shim entirely. The overlay
+    // owns viewport tap handling itself and already calls injectMouseMove +
+    // injectMouseButtonDown with canvas-relative coords; running the shim
+    // in parallel would double-fire mouse-down events.
     let primaryTouchId: number | null = null;
     let lastTouchX = 0;
     let lastTouchY = 0;
 
     inputDevice.onTouchStart((touches) => {
+        if (inputDevice.suppressLegacyTouchAsMouse) return;
         if (primaryTouchId !== null) return;
         const t = touches[0];
         if (!t) return;
@@ -60,6 +79,7 @@ export function connectInputDevice(inputSystem: InputSystem, inputDevice: InputD
     });
 
     inputDevice.onTouchMove((touches) => {
+        if (inputDevice.suppressLegacyTouchAsMouse) return;
         if (primaryTouchId === null) return;
         const t = touches.find(tt => tt.identifier === primaryTouchId);
         if (!t) return;
@@ -75,6 +95,10 @@ export function connectInputDevice(inputSystem: InputSystem, inputDevice: InputD
     });
 
     inputDevice.onTouchEnd((touches) => {
+        if (inputDevice.suppressLegacyTouchAsMouse) {
+            primaryTouchId = null;
+            return;
+        }
         if (primaryTouchId === null) return;
         const still = touches.find(tt => tt.identifier === primaryTouchId);
         if (!still) {

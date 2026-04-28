@@ -78,7 +78,7 @@
       ]
     },
     "game_over": {
-      "description": "Run ended \u2014 flag reached or lives exhausted",
+      "description": "Run ended — flag reached or lives exhausted",
       "on_enter": [
         "show_ui:game_over",
         "show_cursor"
@@ -101,6 +101,20 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "sidescroller",
+    "movement": {
+      "type": "horizontal",
+      "jump": "Space",
+      "sprint": "ShiftLeft"
+    },
+    "look": {
+      "type": "none"
+    },
+    "viewport": {
+      "tap": "click"
     }
   }
 }

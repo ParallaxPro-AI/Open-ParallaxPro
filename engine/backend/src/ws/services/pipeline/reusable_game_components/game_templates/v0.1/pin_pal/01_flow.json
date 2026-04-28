@@ -225,5 +225,21 @@
         }
       ]
     }
+  },
+  "controls": {
+    "preset": "click",
+    "movement": {
+      "type": "none"
+    },
+    "look": {
+      "type": "none"
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Throw"
+    },
+    "viewport": {
+      "tap": "drag"
+    }
   }
 }

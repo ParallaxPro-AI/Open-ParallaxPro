@@ -102,7 +102,9 @@
             {
               "when": "ai_timer>=60",
               "goto": "ai_move",
-              "actions": ["emit:game.ai_turn"]
+              "actions": [
+                "emit:game.ai_turn"
+              ]
             }
           ]
         },
@@ -154,7 +156,9 @@
             {
               "when": "ui_event:game_over:play_again",
               "goto": "white_turn",
-              "actions": ["emit:game.restart_game"]
+              "actions": [
+                "emit:game.restart_game"
+              ]
             }
           ]
         },
@@ -175,7 +179,9 @@
             {
               "when": "ui_event:game_over:play_again",
               "goto": "white_turn",
-              "actions": ["emit:game.restart_game"]
+              "actions": [
+                "emit:game.restart_game"
+              ]
             }
           ]
         },
@@ -196,7 +202,9 @@
             {
               "when": "ui_event:game_over:play_again",
               "goto": "white_turn",
-              "actions": ["emit:game.restart_game"]
+              "actions": [
+                "emit:game.restart_game"
+              ]
             }
           ]
         }
@@ -207,6 +215,25 @@
   "ui_params": {
     "main_menu": {
       "gameTitle": "Chess"
+    }
+  },
+  "controls": {
+    "preset": "click",
+    "movement": {
+      "type": "none"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 0.6
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "secondary": "MouseRight",
+      "label": "Pick",
+      "secondaryLabel": "Rotate"
+    },
+    "viewport": {
+      "tap": "click"
     }
   }
 }

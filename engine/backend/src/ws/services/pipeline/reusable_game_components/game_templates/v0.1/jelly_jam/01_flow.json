@@ -1,7 +1,7 @@
 {
   "id": "jelly_jam_flow",
   "name": "Jelly Jam",
-  "description": "1-12 player peer-to-peer party-elimination minigame bracket. Three rounds of obstacle-course sprint-races; the bottom half is bumped out each round; last jelly bouncing wins. Spinning beams, dive-roll dodges, and a bouncy chase camera keep it chaotic. Single-player works without changes \u2014 you just get an unopposed track.",
+  "description": "1-12 player peer-to-peer party-elimination minigame bracket. Three rounds of obstacle-course sprint-races; the bottom half is bumped out each round; last jelly bouncing wins. Spinning beams, dive-roll dodges, and a bouncy chase camera keep it chaotic. Single-player works without changes — you just get an unopposed track.",
   "start": "boot",
   "multiplayer": {
     "enabled": true,
@@ -228,6 +228,32 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "platformer",
+    "movement": {
+      "type": "wasd+arrows",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 0.8
+    },
+    "fire": {
+      "secondary": "MouseRight",
+      "secondaryLabel": "Aim",
+      "holdSecondary": true
+    },
+    "actions": [
+      {
+        "key": "KeyQ",
+        "label": "Bounce"
+      }
+    ],
+    "viewport": {
+      "tap": "click"
     }
   }
 }

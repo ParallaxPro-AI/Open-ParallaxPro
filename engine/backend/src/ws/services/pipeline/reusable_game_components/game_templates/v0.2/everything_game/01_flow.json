@@ -15,54 +15,122 @@
     "allowJoinInProgress": true
   },
   "ui_params": {
-    "main_menu": { "gameTitle": "EVERYTHING GAME", "gameSubtitle": "An open world for everyone" }
+    "main_menu": {
+      "gameTitle": "EVERYTHING GAME",
+      "gameSubtitle": "An open world for everyone"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize systems",
-      "active_systems": ["mp_bridge"],
+      "active_systems": [
+        "mp_bridge"
+      ],
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
       "transitions": [
-        { "when": "boot_frames>=2", "goto": "main_menu" }
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
       ]
     },
     "main_menu": {
       "description": "Title screen",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["mp:leave_lobby", "hide_ui:hud/voice_chat", "hide_ui:hud/text_chat", "show_ui:main_menu", "show_cursor"],
-      "on_exit":  ["hide_ui:main_menu", "hide_cursor"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "mp:leave_lobby",
+        "hide_ui:hud/voice_chat",
+        "hide_ui:hud/text_chat",
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
       "transitions": [
-        { "when": "ui_event:main_menu:start_game", "goto": "lobby_browser" }
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "lobby_browser"
+        }
       ]
     },
     "lobby_browser": {
       "description": "Browse open lobbies or host a new one",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["show_ui:lobby_browser", "show_cursor", "mp:refresh_lobbies"],
-      "on_exit":  ["hide_ui:lobby_browser", "hide_ui:lobby_host_config"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "show_ui:lobby_browser",
+        "show_cursor",
+        "mp:refresh_lobbies"
+      ],
+      "on_exit": [
+        "hide_ui:lobby_browser",
+        "hide_ui:lobby_host_config"
+      ],
       "transitions": [
-        { "when": "mp_event:phase_in_lobby", "goto": "lobby_room" },
-        { "when": "mp_event:phase_in_game", "goto": "gameplay" },
-        { "when": "mp_event:back_to_menu", "goto": "main_menu" }
+        {
+          "when": "mp_event:phase_in_lobby",
+          "goto": "lobby_room"
+        },
+        {
+          "when": "mp_event:phase_in_game",
+          "goto": "gameplay"
+        },
+        {
+          "when": "mp_event:back_to_menu",
+          "goto": "main_menu"
+        }
       ]
     },
     "lobby_room": {
       "description": "Pre-session lobby with roster, chat, voice",
-      "active_systems": ["mp_bridge"],
-      "on_enter": ["show_ui:lobby_room", "show_ui:hud/text_chat", "show_ui:hud/voice_chat", "show_cursor"],
-      "on_exit":  ["hide_ui:lobby_room"],
+      "active_systems": [
+        "mp_bridge"
+      ],
+      "on_enter": [
+        "show_ui:lobby_room",
+        "show_ui:hud/text_chat",
+        "show_ui:hud/voice_chat",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:lobby_room"
+      ],
       "transitions": [
-        { "when": "mp_event:phase_in_game", "goto": "gameplay" },
-        { "when": "mp_event:phase_browsing", "goto": "lobby_browser" },
-        { "when": "mp_event:phase_disconnected", "goto": "main_menu" }
+        {
+          "when": "mp_event:phase_in_game",
+          "goto": "gameplay"
+        },
+        {
+          "when": "mp_event:phase_browsing",
+          "goto": "lobby_browser"
+        },
+        {
+          "when": "mp_event:phase_disconnected",
+          "goto": "main_menu"
+        }
       ]
     },
     "gameplay": {
       "description": "Explore the heightmap-backed world alongside other players.",
-      "active_systems": ["mp_bridge", "walk_around_game"],
-      "active_behaviors": ["superman_movement", "camera_third_person"],
+      "active_systems": [
+        "mp_bridge",
+        "walk_around_game"
+      ],
+      "active_behaviors": [
+        "superman_movement",
+        "camera_third_person"
+      ],
       "on_enter": [
         "show_ui:hud/ping",
         "show_ui:hud/text_chat",
@@ -74,9 +142,42 @@
         "hide_ui:hud/ping"
       ],
       "transitions": [
-        { "when": "mp_event:phase_disconnected", "goto": "main_menu" },
-        { "when": "mp_event:phase_browsing", "goto": "lobby_browser" }
+        {
+          "when": "mp_event:phase_disconnected",
+          "goto": "main_menu"
+        },
+        {
+          "when": "mp_event:phase_browsing",
+          "goto": "lobby_browser"
+        }
       ]
+    }
+  },
+  "controls": {
+    "preset": "tps",
+    "movement": {
+      "type": "wasd+arrows",
+      "sprint": "ShiftLeft",
+      "jump": "Space",
+      "crouch": "ControlLeft"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 1
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Fire",
+      "holdPrimary": true
+    },
+    "actions": [
+      {
+        "key": "KeyC",
+        "label": "Camera"
+      }
+    ],
+    "viewport": {
+      "tap": "none"
     }
   }
 }

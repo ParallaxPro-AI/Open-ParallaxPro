@@ -11,6 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { validateControlManifest } from '../../../../../shared/input/control_manifest.js';
 
 export interface MultiplayerConfig {
   enabled?: boolean;
@@ -42,10 +43,21 @@ export interface MultiplayerConfig {
   allowJoinInProgress?: boolean;
 }
 
+/**
+ * Mobile-controls manifest. Pulled verbatim from `01_flow.json:controls`
+ * and forwarded to the runtime; the engine's mobile overlay parses + renders
+ * from this. Schema lives in `engine/shared/input/control_manifest.ts`.
+ *
+ * Opaque passthrough — the assembler doesn't validate the shape; the
+ * shared `resolveManifest()` does at runtime so headless and browser agree.
+ */
+export type ControlsManifest = Record<string, any>;
+
 export interface ConvertedScene {
   entities: any[];
   scripts: Record<string, string>;
   uiFiles: Record<string, string>;
+  controlsManifest?: ControlsManifest;
   /**
    * Named prefab blueprints, keyed by the entity-def name from
    * 02_entities.json. Each value is an already-assembled entity JSON
@@ -1301,7 +1313,25 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
     }
   }
 
-  return { entities, scripts, uiFiles, prefabs, multiplayerConfig, environment, heightmapTerrain, streamedBuildings };
+  // Mobile controls manifest. Static shape validation runs here so a
+  // typo'd preset / invalid type / reserved-key-in-actions[] fails the
+  // build with a precise error instead of silently degrading at
+  // runtime. Runtime semantic checks ("does every script-read key
+  // have a binding?") live in the headless playtest invariant
+  // `mobile_controls_complete`.
+  let controlsManifest: ControlsManifest | undefined;
+  if (flow && Object.prototype.hasOwnProperty.call(flow, 'controls')) {
+    const validationErrors = validateControlManifest(flow.controls);
+    if (validationErrors.length > 0) {
+      console.error(`[Assembler] controls manifest validation errors:\n  ${validationErrors.join('\n  ')}`);
+      throw new Error(`01_flow.json:controls validation failed: ${validationErrors[0]}${validationErrors.length > 1 ? ` (+${validationErrors.length - 1} more)` : ''}`);
+    }
+    if (typeof flow.controls === 'object' && flow.controls) {
+      controlsManifest = flow.controls as ControlsManifest;
+    }
+  }
+
+  return { entities, scripts, uiFiles, prefabs, multiplayerConfig, environment, heightmapTerrain, streamedBuildings, controlsManifest };
 }
 
 // ─── File loading helpers ──────────────────────────────────────────────────

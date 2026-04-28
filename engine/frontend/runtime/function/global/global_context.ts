@@ -9,6 +9,8 @@ import { PhysicsSystem } from '../physics/physics_system.js';
 import { AnimationSystem } from '../animation/animation_system.js';
 import { AudioSystem } from '../audio/audio_system.js';
 import { InputSystem, connectInputDevice } from '../input/input_system.js';
+import { attachMobileInputOverlay, MobileInputOverlay } from '../../../../shared/input/mobile_input_overlay.js';
+import { ControlManifest } from '../../../../shared/input/control_manifest.js';
 import { ScriptSystem } from '../scripting/script_system.js';
 import { NetworkSystem } from '../network/network_system.js';
 import { MultiplayerSession } from '../network/multiplayer_session.js';
@@ -40,6 +42,8 @@ export class RuntimeGlobalContext {
     readonly random: SeededRandom = new SeededRandom();
 
     projectConfig: any = null;
+    /** Mobile-controls overlay handle, created during startSystems if a controlsManifest is provided. */
+    mobileOverlay: MobileInputOverlay | null = null;
 
     async startSystems(canvas: HTMLCanvasElement, projectConfig?: any): Promise<void> {
         this.projectConfig = projectConfig ?? null;
@@ -58,6 +62,27 @@ export class RuntimeGlobalContext {
 
         // Function layer (in dependency order)
         connectInputDevice(this.inputSystem, this.inputDevice);
+
+        // Mobile control overlay — manifest-driven on-screen joystick + buttons
+        // for touch devices. The overlay injects into the same InputSystem the
+        // desktop pipeline uses, so behaviors that poll `isKeyDown(...)` work
+        // unchanged on mobile. No-op on non-touch devices.
+        const controlsManifest: ControlManifest | undefined =
+            projectConfig?.controlsManifest || projectConfig?.controls;
+        try {
+            this.mobileOverlay = attachMobileInputOverlay({
+                canvas,
+                inputSystem: this.inputSystem,
+                manifest: controlsManifest,
+            });
+            // Non-overlay touch path (primary touch as mouse) is suppressed
+            // when the overlay is active. The overlay owns viewport-tap
+            // handling itself and routes it through injectMouseButtonDown,
+            // so the legacy primary-touch shim would double-fire.
+            this.inputDevice.suppressLegacyTouchAsMouse = this.mobileOverlay.isEnabled();
+        } catch (e) {
+            console.warn('[engine] mobile overlay attach failed:', e);
+        }
 
         const gravity = projectConfig?.settings?.physics?.gravity;
         const fixedTimestep = projectConfig?.settings?.physics?.fixedTimestep;
@@ -90,6 +115,11 @@ export class RuntimeGlobalContext {
         this.renderSystem.shutdown();
         this.physicsSystem.shutdown();
         this.inputSystem.shutdown();
+
+        if (this.mobileOverlay) {
+            try { this.mobileOverlay.destroy(); } catch { /* swallow */ }
+            this.mobileOverlay = null;
+        }
 
         this.inputDevice.destroy();
         this.gpuDevice.destroy();

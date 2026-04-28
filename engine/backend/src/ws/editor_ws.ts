@@ -1128,6 +1128,7 @@ function rebuildAndPush(client: EditorClient, pd: ProjectData, opts: { sceneKey:
         scripts: built.scripts,
         uiFiles: built.uiFiles,
         sourceMap: built.sourceMap,
+        controlsManifest: built.controlsManifest,
     });
     return built;
 }
@@ -1187,6 +1188,7 @@ function commitProjectFilesWithValidation(
         scripts: built.scripts,
         uiFiles: built.uiFiles,
         sourceMap: built.sourceMap,
+        controlsManifest: built.controlsManifest,
     });
     return built;
 }
@@ -1531,6 +1533,7 @@ function getProjectData(projectId: string): any {
         uiFiles: built.uiFiles,
         sourceMap: built.sourceMap,
         multiplayerConfig: built.multiplayerConfig,
+        controlsManifest: built.controlsManifest,
         activeSceneKey: built.activeSceneKey,
     };
 }

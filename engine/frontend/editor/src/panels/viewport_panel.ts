@@ -101,24 +101,55 @@ export class ViewportPanel {
         this.tabBar.appendChild(this.gameTabBtn);
         this.tabBar.appendChild(this.sceneTabBtn);
 
-        // Fullscreen button
-        const fullscreenBtn = document.createElement('div');
-        fullscreenBtn.className = 'tab-item';
-        fullscreenBtn.style.marginLeft = 'auto';
-        fullscreenBtn.title = 'Toggle fullscreen';
-        fullscreenBtn.appendChild(icon(Maximize2, 14));
-        fullscreenBtn.addEventListener('click', () => {
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-            } else {
-                container.requestFullscreen();
-            }
-        });
-        document.addEventListener('fullscreenchange', () => {
-            fullscreenBtn.innerHTML = '';
-            fullscreenBtn.appendChild(icon(document.fullscreenElement ? Minimize2 : Maximize2, 14));
-        });
-        this.tabBar.appendChild(fullscreenBtn);
+        // Fullscreen button.
+        //
+        // Safari (iOS especially) doesn't expose the standard Fullscreen API
+        // on non-<video> elements — `Element.requestFullscreen` either
+        // doesn't exist, or rejects on call. Earlier Safari uses webkit-
+        // prefixed names. Probe up-front and:
+        //   - hide the button entirely when neither API is reachable
+        //     (most iPhone Safari sessions), so we don't ship a dead control;
+        //   - catch promise rejection in case `fullscreenEnabled` lies;
+        //   - listen on both `fullscreenchange` and `webkitfullscreenchange`
+        //     so the icon flips correctly on prefixed Safari builds.
+        const d = document as any;
+        const elProto = container as any;
+        const requestFn: ((opts?: any) => Promise<void>) | null =
+            (typeof container.requestFullscreen === 'function' ? container.requestFullscreen.bind(container) : null) ||
+            (typeof elProto.webkitRequestFullscreen === 'function' ? elProto.webkitRequestFullscreen.bind(container) : null) ||
+            (typeof elProto.webkitRequestFullScreen === 'function' ? elProto.webkitRequestFullScreen.bind(container) : null);
+        const exitFn: (() => Promise<void>) | null =
+            (typeof document.exitFullscreen === 'function' ? document.exitFullscreen.bind(document) : null) ||
+            (typeof d.webkitExitFullscreen === 'function' ? d.webkitExitFullscreen.bind(document) : null) ||
+            (typeof d.webkitCancelFullScreen === 'function' ? d.webkitCancelFullScreen.bind(document) : null);
+        const fsEnabled = d.fullscreenEnabled === true || d.webkitFullscreenEnabled === true;
+        const getFsElement = () => document.fullscreenElement || d.webkitFullscreenElement || null;
+
+        if (requestFn && exitFn && fsEnabled) {
+            const fullscreenBtn = document.createElement('div');
+            fullscreenBtn.className = 'tab-item';
+            fullscreenBtn.style.marginLeft = 'auto';
+            fullscreenBtn.title = 'Toggle fullscreen';
+            fullscreenBtn.appendChild(icon(Maximize2, 14));
+            fullscreenBtn.addEventListener('click', () => {
+                if (getFsElement()) {
+                    Promise.resolve(exitFn()).catch(() => { /* swallow */ });
+                } else {
+                    Promise.resolve(requestFn()).catch(() => { /* swallow */ });
+                }
+            });
+            const updateIcon = () => {
+                fullscreenBtn.innerHTML = '';
+                fullscreenBtn.appendChild(icon(getFsElement() ? Minimize2 : Maximize2, 14));
+            };
+            document.addEventListener('fullscreenchange', updateIcon);
+            document.addEventListener('webkitfullscreenchange', updateIcon);
+            this.tabBar.appendChild(fullscreenBtn);
+        }
+        // else: platform doesn't support entering fullscreen on a custom
+        // element (iOS Safari pre-16.4 for non-video, locked-down PWAs,
+        // some embedded browsers). Skip the button so the tab bar doesn't
+        // show a control that does nothing.
 
         this.el.appendChild(this.tabBar);
         this.el.appendChild(container);

@@ -104,7 +104,7 @@
       ]
     },
     "lobby_room": {
-      "description": "Pre-grid lobby \u2014 roster, chat, voice",
+      "description": "Pre-grid lobby — roster, chat, voice",
       "active_systems": [
         "mp_bridge"
       ],
@@ -237,6 +237,29 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "racer",
+    "movement": {
+      "type": "wasd+arrows"
+    },
+    "look": {
+      "type": "none"
+    },
+    "actions": [
+      {
+        "key": "Space",
+        "label": "Drift",
+        "hold": true
+      },
+      {
+        "key": "KeyE",
+        "label": "Item"
+      }
+    ],
+    "viewport": {
+      "tap": "none"
     }
   }
 }

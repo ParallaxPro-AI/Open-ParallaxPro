@@ -152,5 +152,21 @@
         }
       ]
     }
+  },
+  "controls": {
+    "preset": "fps",
+    "movement": {
+      "type": "wasd",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 1
+    },
+    "fire": {},
+    "viewport": {
+      "tap": "none"
+    }
   }
 }

@@ -3,7 +3,10 @@
   "name": "Racing",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "STREET RACER", "gameSubtitle": "Arcade Racing" }
+    "main_menu": {
+      "gameTitle": "STREET RACER",
+      "gameSubtitle": "Arcade Racing"
+    }
   },
   "states": {
     "boot": {
@@ -110,6 +113,18 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "racer",
+    "movement": {
+      "type": "wasd+arrows"
+    },
+    "look": {
+      "type": "none"
+    },
+    "viewport": {
+      "tap": "none"
     }
   }
 }

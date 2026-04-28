@@ -41,7 +41,10 @@
       "transitions": [
         {
           "when": "ui_event:main_menu:start_game",
-          "goto": "gameplay"
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.restart_game"
+          ]
         }
       ]
     },
@@ -54,7 +57,7 @@
       "on_exit": [],
       "substates": {
         "free_roam": {
-          "description": "Free roam \u2014 explore, drive, fight",
+          "description": "Free roam — explore, drive, fight",
           "active_systems": [
             "crime_world"
           ],
@@ -83,7 +86,7 @@
           ]
         },
         "wasted": {
-          "description": "Player killed \u2014 respawn after delay",
+          "description": "Player killed — respawn after delay",
           "active_systems": [
             "crime_world"
           ],
@@ -121,6 +124,40 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "tps",
+    "movement": {
+      "type": "wasd+arrows",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 1
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Fire",
+      "holdPrimary": true
+    },
+    "actions": [
+      {
+        "key": "KeyE",
+        "label": "Enter"
+      },
+      {
+        "key": "KeyF",
+        "label": "Action"
+      },
+      {
+        "key": "KeyR",
+        "label": "Reload"
+      }
+    ],
+    "viewport": {
+      "tap": "none"
     }
   }
 }

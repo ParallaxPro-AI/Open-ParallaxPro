@@ -1,7 +1,7 @@
 {
   "id": "pickaxe_keep_flow",
   "name": "Pickaxe Keep",
-  "description": "1-4 player peer-to-peer 2.5D sidescroll mining + crafting + survival sandbox. Dig dirt \u2192 stone \u2192 ore, craft better pickaxes, plant torches, and survive zombie nights. Host generates the opening world; everyone shares it. Single-player works without a friend \u2014 just host alone.",
+  "description": "1-4 player peer-to-peer 2.5D sidescroll mining + crafting + survival sandbox. Dig dirt → stone → ore, craft better pickaxes, plant torches, and survive zombie nights. Host generates the opening world; everyone shares it. Single-player works without a friend — just host alone.",
   "start": "boot",
   "multiplayer": {
     "enabled": true,
@@ -136,7 +136,7 @@
       ]
     },
     "gameplay": {
-      "description": "World loaded \u2014 dig in",
+      "description": "World loaded — dig in",
       "active_systems": [
         "mp_bridge",
         "pickaxe_keep_game"
@@ -229,6 +229,42 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "platformer",
+    "movement": {
+      "type": "horizontal",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "none"
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "secondary": "MouseRight",
+      "label": "Place",
+      "secondaryLabel": "Mine"
+    },
+    "actions": [
+      {
+        "key": "KeyE",
+        "label": "Use"
+      }
+    ],
+    "hotbar": {
+      "from": "Digit1",
+      "to": "Digit5",
+      "labels": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    "viewport": {
+      "tap": "click"
     }
   }
 }

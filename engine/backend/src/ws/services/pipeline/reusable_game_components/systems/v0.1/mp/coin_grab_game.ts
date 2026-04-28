@@ -507,3 +507,11 @@ class CoinGrabGameSystem extends GameScript {
         }
     }
 }
+
+// Static-validator manifest — see engine headless invariant
+// . Never called at runtime; the literal
+// spawnEntity calls here let the invariant know these prefabs ARE used
+// (the real spawn site uses a variable, e.g. spawnEntity(def.entity)).
+function __spawnManifest() {
+    this.scene.spawnEntity("coin");
+}

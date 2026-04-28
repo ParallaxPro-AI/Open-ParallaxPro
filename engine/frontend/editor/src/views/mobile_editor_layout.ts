@@ -66,13 +66,23 @@ export class MobileEditorLayout {
         return this.chatSheetContent;
     }
 
-    private toggleChat(): void {
+    isChatSheetOpen(): boolean {
+        return this.chatSheetOpen;
+    }
+
+    toggleChat(): void {
         this.chatSheetOpen = !this.chatSheetOpen;
         this.chatSheet.classList.toggle('open', this.chatSheetOpen);
         if (this.chatSheetOpen) {
             this.unreadDot.style.display = 'none';
         }
+        this.onChatSheetChangeCb?.(this.chatSheetOpen);
     }
+
+    onChatSheetChange(cb: (open: boolean) => void): void {
+        this.onChatSheetChangeCb = cb;
+    }
+    private onChatSheetChangeCb: ((open: boolean) => void) | null = null;
 
     private onOrientationChange(): void {
         const isLandscape = this.landscapeQuery.matches;

@@ -41,7 +41,8 @@
           "goto": "playing",
           "actions": [
             "emit:game.game_ready",
-            "emit:game.match_started"
+            "emit:game.match_started",
+            "emit:game.set_camera_yaw"
           ]
         }
       ]
@@ -109,7 +110,10 @@
           "goto": "playing",
           "actions": [
             "emit:game.game_ready",
-            "emit:game.match_started"
+            "emit:game.match_started",
+            "emit:game.restart_game",
+            "emit:game.entity_healed",
+            "emit:game.set_camera_yaw"
           ]
         },
         {
@@ -117,6 +121,32 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "fps",
+    "movement": {
+      "type": "wasd",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 1
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Fire",
+      "holdPrimary": true
+    },
+    "actions": [
+      {
+        "key": "KeyR",
+        "label": "Reload"
+      }
+    ],
+    "viewport": {
+      "tap": "none"
     }
   }
 }

@@ -120,7 +120,7 @@
       ]
     },
     "gameplay": {
-      "description": "Match in progress \u2014 bikes ride, trails grow, last alive wins each round.",
+      "description": "Match in progress — bikes ride, trails grow, last alive wins each round.",
       "active_systems": [
         "mp_bridge",
         "neon_cycles_match"
@@ -179,6 +179,19 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "racer",
+    "movement": {
+      "type": "wasd+arrows",
+      "sprint": "ShiftLeft"
+    },
+    "look": {
+      "type": "none"
+    },
+    "viewport": {
+      "tap": "none"
     }
   }
 }

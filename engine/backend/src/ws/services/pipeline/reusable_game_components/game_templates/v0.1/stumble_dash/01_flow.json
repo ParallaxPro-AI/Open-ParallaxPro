@@ -3,26 +3,51 @@
   "name": "Stumble Dash",
   "start": "boot",
   "ui_params": {
-    "main_menu": { "gameTitle": "STUMBLE DASH", "gameSubtitle": "Obstacle Course" }
+    "main_menu": {
+      "gameTitle": "STUMBLE DASH",
+      "gameSubtitle": "Obstacle Course"
+    }
   },
   "states": {
     "boot": {
       "description": "Initialize",
       "duration": -1,
-      "on_enter": ["set:boot_frames=0"],
-      "on_update": ["increment:boot_frames"],
-      "transitions": [{ "when": "boot_frames>=2", "goto": "main_menu" }]
+      "on_enter": [
+        "set:boot_frames=0"
+      ],
+      "on_update": [
+        "increment:boot_frames"
+      ],
+      "transitions": [
+        {
+          "when": "boot_frames>=2",
+          "goto": "main_menu"
+        }
+      ]
     },
     "main_menu": {
       "description": "Title screen",
-      "on_enter": ["show_ui:main_menu", "show_cursor"],
-      "on_exit": ["hide_ui:main_menu", "hide_cursor"],
-      "transitions": [{ "when": "ui_event:main_menu:start_game", "goto": "countdown" }]
+      "on_enter": [
+        "show_ui:main_menu",
+        "show_cursor"
+      ],
+      "on_exit": [
+        "hide_ui:main_menu",
+        "hide_cursor"
+      ],
+      "transitions": [
+        {
+          "when": "ui_event:main_menu:start_game",
+          "goto": "countdown"
+        }
+      ]
     },
     "countdown": {
       "description": "3-2-1 countdown",
       "duration": 4,
-      "active_behaviors": ["chase_camera"],
+      "active_behaviors": [
+        "chase_camera"
+      ],
       "on_enter": [
         "emit:game.game_ready",
         "emit:game.race_start",
@@ -31,14 +56,16 @@
         "hide_cursor",
         "play_sound:/assets/kenney/audio/digital_audio/pepSound1.ogg"
       ],
-      "transitions": [{
-        "when": "timer_expired",
-        "goto": "playing",
-        "actions": [
-          "emit:game.race_started",
-          "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
-        ]
-      }]
+      "transitions": [
+        {
+          "when": "timer_expired",
+          "goto": "playing",
+          "actions": [
+            "emit:game.race_started",
+            "play_sound:/assets/kenney/audio/interface_sounds/confirmation_002.ogg"
+          ]
+        }
+      ]
     },
     "playing": {
       "description": "Running the course",
@@ -49,12 +76,21 @@
         "spinning_obstacle",
         "moving_platform"
       ],
-      "on_enter": ["hide_ui:hud/race_countdown"],
-      "transitions": [{ "when": "game_event:race_finished", "goto": "game_over" }]
+      "on_enter": [
+        "hide_ui:hud/race_countdown"
+      ],
+      "transitions": [
+        {
+          "when": "game_event:race_finished",
+          "goto": "game_over"
+        }
+      ]
     },
     "game_over": {
       "description": "Course complete or time up",
-      "active_behaviors": ["chase_camera"],
+      "active_behaviors": [
+        "chase_camera"
+      ],
       "on_enter": [
         "show_ui:game_over",
         "show_cursor",
@@ -66,9 +102,32 @@
         "hide_cursor"
       ],
       "transitions": [
-        { "when": "ui_event:game_over:play_again", "goto": "countdown", "actions": ["emit:game.restart_game"] },
-        { "when": "ui_event:game_over:main_menu", "goto": "main_menu" }
+        {
+          "when": "ui_event:game_over:play_again",
+          "goto": "countdown",
+          "actions": [
+            "emit:game.restart_game"
+          ]
+        },
+        {
+          "when": "ui_event:game_over:main_menu",
+          "goto": "main_menu"
+        }
       ]
+    }
+  },
+  "controls": {
+    "preset": "platformer",
+    "movement": {
+      "type": "wasd+arrows",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "none"
+    },
+    "viewport": {
+      "tap": "click"
     }
   }
 }

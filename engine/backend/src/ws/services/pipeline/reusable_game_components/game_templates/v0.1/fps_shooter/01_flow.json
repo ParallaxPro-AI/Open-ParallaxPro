@@ -150,7 +150,8 @@
         "show_ui:hud/scoreboard",
         "show_ui:hud/health",
         "show_ui:hud/ammo",
-        "show_ui:hud/crosshair"
+        "show_ui:hud/crosshair",
+        "emit:game.set_camera_yaw"
       ],
       "on_exit": [
         "hide_ui:hud/ping",
@@ -253,6 +254,32 @@
           "goto": "main_menu"
         }
       ]
+    }
+  },
+  "controls": {
+    "preset": "fps",
+    "movement": {
+      "type": "wasd",
+      "sprint": "ShiftLeft",
+      "jump": "Space"
+    },
+    "look": {
+      "type": "mouseDelta",
+      "sensitivity": 1
+    },
+    "fire": {
+      "primary": "MouseLeft",
+      "label": "Fire",
+      "holdPrimary": true
+    },
+    "actions": [
+      {
+        "key": "KeyR",
+        "label": "Reload"
+      }
+    ],
+    "viewport": {
+      "tap": "none"
     }
   }
 }
