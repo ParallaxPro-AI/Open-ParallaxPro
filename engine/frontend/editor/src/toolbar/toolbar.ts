@@ -658,8 +658,17 @@ export class Toolbar {
      * multiplayer.enabled in their flow JSON. The button opens a second
      * editor tab with ?auto_play=1, so the dev can host in one tab and
      * join in the other without leaving the browser.
+     *
+     * Hidden on mobile: a phone can only practically run one client at a
+     * time (browser memory + battery), and the "+ Client" affordance
+     * confuses touch users who are just trying to play, not host a
+     * second peer side-by-side with themselves.
      */
     private updatePreviewClientVisibility(): void {
+        if (isMobile()) {
+            this.previewClientBtn.style.display = 'none';
+            return;
+        }
         // Visible whenever the project declares multiplayer — devs often want
         // to open the second client first, line up two windows, and then hit
         // play. The new tab uses ?auto_play=1 so it'll start its own match
