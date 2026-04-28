@@ -787,10 +787,61 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         (b.el as any).__pp_handlers = { onStart: b.onStart, onMove: b.onMove, onEnd: b.onEnd };
         return b.el;
     };
-    if (sys.pause)      trayItems.appendChild(buildSystemBtnTagged('Pause', sys.pause, true));
-    if (sys.scoreboard) trayItems.appendChild(buildSystemBtnTagged('Score', sys.scoreboard, false, true));
-    if (sys.voice)      trayItems.appendChild(buildSystemBtnTagged('Voice', sys.voice, false, true));
-    if (sys.chat)       trayItems.appendChild(buildSystemBtnTagged('Chat', sys.chat, true));
+    // tray flex-direction is row-reverse, so the FIRST appendChild is the
+    // rightmost visual position. The user wants the "Hide Controls" toggle
+    // at the rightmost end of the menu (closest to the hamburger).
+    const hideBtn = buildHideControlsBtnTagged();
+    trayItems.appendChild(hideBtn);
+    if (sys.pause) trayItems.appendChild(buildSystemBtnTagged('Pause', sys.pause, true));
+    if (sys.voice) trayItems.appendChild(buildSystemBtnTagged('Voice', sys.voice, false, true));
+    if (sys.chat)  trayItems.appendChild(buildSystemBtnTagged('Chat', sys.chat, true));
+
+    /**
+     * "Hide Controls" toggle button. Suspends the gameplay-controls
+     * tier (joystick / look pad / action rail / hotbar) using the
+     * 'manual-hide' reason key, which isn't in TRAY_HIDING_REASONS so
+     * the system tray itself stays visible — meaning the user can
+     * always reach this button to toggle them back on. Useful when the
+     * controls are visually covering an in-game UI element.
+     */
+    function buildHideControlsBtnTagged(): HTMLElement {
+        const el = document.createElement('div');
+        const baseBg = 'rgba(0,0,0,0.40)';
+        const activeBg = 'rgba(140,80,230,0.55)';
+        el.style.cssText = [
+            'min-width:64px', 'height:42px', 'padding:0 14px',
+            'border-radius:21px',
+            `background:${baseBg}`, 'border:1px solid rgba(255,255,255,0.20)',
+            'color:white', 'font-size:13px', 'font-weight:600',
+            'display:flex', 'align-items:center', 'justify-content:center',
+            'touch-action:none', 'white-space:nowrap',
+        ].join(';');
+        let hidden = false;
+        const updateLabel = () => { el.textContent = hidden ? 'Show Controls' : 'Hide Controls'; };
+        updateLabel();
+        const onStart = (touch: Touch) => {
+            const state: FingerState = {
+                widget: 'system', keys: new Set(),
+                lastX: touch.clientX, lastY: touch.clientY,
+                startX: touch.clientX, startY: touch.clientY,
+                target: el,
+            };
+            fingers.set(touch.identifier, state);
+            el.style.background = activeBg;
+            hidden = !hidden;
+            if (hidden) suspendedReasons.add('manual-hide');
+            else suspendedReasons.delete('manual-hide');
+            applyVisibility();
+            updateLabel();
+        };
+        const onMove = (_t: Touch, _s: FingerState) => { /* no-op */ };
+        const onEnd = (_state: FingerState) => {
+            el.style.background = baseBg;
+            // No keys to release — this button doesn't synthesize input.
+        };
+        (el as any).__pp_handlers = { onStart, onMove, onEnd };
+        return el;
+    }
 
     function hit(el: HTMLElement, x: number, y: number): boolean {
         if (!el) return false;
