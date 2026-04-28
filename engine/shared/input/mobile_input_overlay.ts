@@ -43,6 +43,17 @@ const SPRINT_THRESHOLD = 0.85;
 
 /** Mouse-look pad sensitivity baseline in pixels-per-pixel; manifest can scale. */
 const LOOK_PAD_BASE_SENS = 1.0;
+/**
+ * Mobile-touch look multiplier applied on top of the manifest's
+ * `look.sensitivity` (which is calibrated to desktop mouse). A 100px
+ * touch sweep on a phone is a significant finger gesture but produces
+ * only the same raw mouseDelta a 100px mouse flick would; cameras then
+ * scale that by their own ~0.15 sensitivity, giving ~15° per finger
+ * sweep — far too little to look around comfortably. Multiplying touch
+ * deltas by ~3 lifts that to ~45° per 100px sweep, which feels right.
+ * Per-game manifests can still tune up or down via look.sensitivity.
+ */
+const MOBILE_TOUCH_LOOK_MULTIPLIER = 3.0;
 
 /** Z-index — above the canvas, below HUD iframes. */
 const OVERLAY_Z = 9000;
@@ -293,7 +304,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             'touch-action:none',
             'background:transparent',
         ].join(';');
-        const sens = (look.sensitivity ?? LOOK_PAD_BASE_SENS);
+        const sens = (look.sensitivity ?? LOOK_PAD_BASE_SENS) * MOBILE_TOUCH_LOOK_MULTIPLIER;
         const onStart = (touch: Touch) => {
             const state: FingerState = {
                 widget: 'look', keys: new Set(),
@@ -973,9 +984,20 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     }
 
     // ── Settings panel toggle (existing #settings-panel hook) ─────────────
+    //
+    // Only added for legacy / non-mobile-ready games (no gameplay
+    // widgets to suspend). Mobile-ready games already expose the same
+    // toggle via the hamburger system tray's "Hide Controls" button —
+    // duplicating it in the graphics-quality dropdown clutters the UX.
     let settingsRow: HTMLElement | null = null;
     const settingsPanel = document.getElementById('settings-panel');
-    if (settingsPanel) {
+    const hasGameplayWidgets =
+        (manifest.movement?.type && manifest.movement.type !== 'none') ||
+        manifest.look?.type === 'mouseDelta' ||
+        !!manifest.fire?.primary ||
+        (manifest.actions?.length ?? 0) > 0 ||
+        !!manifest.hotbar;
+    if (settingsPanel && !hasGameplayWidgets) {
         settingsRow = document.createElement('div');
         settingsRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding-top:6px;';
         const label = document.createElement('div');
