@@ -884,12 +884,52 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
     }
 
+    /**
+     * Find an interactive element inside any visible HUD iframe at the
+     * touch point. Used to synthesize clicks on HUD buttons that are
+     * stuck `pointer-events:none` on mobile — the desktop code path that
+     * flips them to `auto` runs from `mousemove`, which never fires on
+     * touch devices, leaving HUD buttons unreachable. We manually
+     * dispatch the click instead. Cross-origin iframes are skipped
+     * because their contentDocument is inaccessible.
+     */
+    const findInteractiveHudElement = (x: number, y: number): HTMLElement | null => {
+        const iframes = document.getElementsByTagName('iframe');
+        const INTERACTIVE = 'button, input, select, a, [data-interactive], [onclick]';
+        for (let i = 0; i < iframes.length; i++) {
+            const frame = iframes[i] as HTMLIFrameElement;
+            if (frame.style.display === 'none') continue;
+            const rect = frame.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
+            try {
+                const iDoc = frame.contentDocument;
+                if (!iDoc) continue;
+                const inner = iDoc.elementFromPoint(x - rect.left, y - rect.top);
+                if (!inner) continue;
+                const interactive = (inner as Element).closest?.(INTERACTIVE) as HTMLElement | null;
+                if (interactive) return interactive;
+            } catch { /* cross-origin or sandboxed — skip */ }
+        }
+        return null;
+    };
+
     // ── Touch listeners (capture so HUD iframes don't swallow first) ─────
     const onTouchStart = (e: TouchEvent) => {
         if (!isVisible()) return;
         let consumed = false;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
+            // HUD iframe button takes precedence over any overlay widget
+            // or viewport-tap claim. Synthesize the click ourselves
+            // because the iframe can't receive the touch directly under
+            // its default pointer-events:none.
+            const hudEl = findInteractiveHudElement(t.clientX, t.clientY);
+            if (hudEl) {
+                try { hudEl.click(); } catch { /* swallow */ }
+                consumed = true;
+                continue;
+            }
             const w = widgetAt(t.clientX, t.clientY);
             if (!w) continue;
             consumed = true;

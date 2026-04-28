@@ -575,6 +575,18 @@ if (eventData) {
                 });
             }
         }
+
+        if (m.hudKeys !== undefined) {
+            if (!Array.isArray(m.hudKeys)) {
+                errs.push('controls.hudKeys: must be an array of key-code strings');
+            } else {
+                m.hudKeys.forEach(function (k, i) {
+                    if (typeof k !== 'string' || k.length === 0) {
+                        errs.push('controls.hudKeys[' + i + ']: must be a non-empty key-code string');
+                    }
+                });
+            }
+        }
     }
 
     if (errs.length > 0) {

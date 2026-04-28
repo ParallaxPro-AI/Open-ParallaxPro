@@ -729,10 +729,32 @@ top of `01_flow.json`:
 
 1. If your behavior reads `isKeyDown("KeyW")` and friends, declare `movement.type` so the joystick produces those codes.
 2. If your behavior reads `getMouseDelta()`, set `look.type: "mouseDelta"`.
-3. Every gameplay key your scripts read with a literal string MUST appear somewhere in the manifest (`movement`, `fire`, `actions[]`, `hotbar`).
+3. Every gameplay key your scripts read with a literal string MUST be reachable on mobile somehow — either via `movement` / `fire` / `actions[]` / `hotbar` (on-screen overlay button) OR via `hudKeys` (declares the key has a clickable HUD equivalent).
 4. Don't bind reserved keys (`KeyP` / `KeyV` / `Enter`) to gameplay actions; the engine reserves them and they're available in the mobile tray automatically.
 5. Use `holdPrimary: true` on Fire for hold-to-shoot; `false` for tap-to-fire.
 6. Click-to-play games (chess, RTS, point-and-click) want `viewport.tap: "click"`. FPS / TPS games where the right-half is the look pad want `"none"`.
+
+#### `hudKeys` — declare keys handled via clickable HUD
+
+If your in-game HUD (`ui/hud/*.html`) ALREADY exposes a button for an action that your scripts also bind to a keyboard shortcut, **don't double-bind it as a mobile action button.** Mobile players will tap the HUD button directly; cluttering the action rail with a redundant on-screen key is bad UX.
+
+Declare the keyboard-only-on-desktop keys via `controls.hudKeys`:
+
+```json
+"controls": {
+  "preset": "rts",
+  "movement": { "type": "wasd+arrows" },
+  "fire":     { "primary": "MouseLeft", "secondary": "MouseRight", "label": "Select", "secondaryLabel": "Cancel" },
+  "viewport": { "tap": "click" },
+  "hudKeys":  ["Digit1","Digit2","Digit3","Digit4","KeyQ","KeyE","KeyU","KeyX","Space"]
+}
+```
+
+Above: a tower-defense game with tower cards (Digit1-4), spot navigation (Q/E), upgrade (U), sell (X), and start-wave (Space) all driven from clickable HUD buttons. The keyboard shortcuts stay live for desktop power-users, the mobile_controls_complete invariant is satisfied without filling the action rail with 9 buttons.
+
+**When to use `hudKeys`** — the key has a real `<button>` (or `[data-interactive]` / `[onclick]`) in your `ui/hud/*.html` panel that performs the same action.
+
+**When NOT to use it** — for keys that have no equivalent HUD button (Reload, Sprint, etc.). Those need a real action button so mobile players can trigger them.
 
 ## Transitions & FSM actions
 

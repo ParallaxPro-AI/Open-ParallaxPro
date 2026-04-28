@@ -122,38 +122,17 @@
       "label": "Select",
       "secondaryLabel": "Cancel"
     },
-    "actions": [
-      {
-        "key": "KeyQ",
-        "label": "Q"
-      },
-      {
-        "key": "KeyE",
-        "label": "E"
-      },
-      {
-        "key": "KeyU",
-        "label": "Upgrade"
-      },
-      {
-        "key": "KeyX",
-        "label": "Sell"
-      },
-      {
-        "key": "Space",
-        "label": "Wave"
-      }
+    "hudKeys": [
+      "KeyQ",
+      "KeyE",
+      "KeyU",
+      "KeyX",
+      "Space",
+      "Digit1",
+      "Digit2",
+      "Digit3",
+      "Digit4"
     ],
-    "hotbar": {
-      "from": "Digit1",
-      "to": "Digit4",
-      "labels": [
-        "T1",
-        "T2",
-        "T3",
-        "T4"
-      ]
-    },
     "viewport": {
       "tap": "click"
     }

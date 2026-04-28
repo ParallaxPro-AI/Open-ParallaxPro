@@ -126,6 +126,18 @@ export interface ControlManifest {
     scroll?: ScrollBlock;
     viewport?: ViewportBlock;
     system?: SystemBlock;
+    /**
+     * Key codes that scripts read but are reachable on mobile via clickable
+     * HUD elements (not by the on-screen overlay). Lets a game with a rich
+     * in-game HUD (RTS tower cards, ability bars, settings sheets) keep its
+     * mobile control surface minimal — the keyboard shortcuts stay bound on
+     * desktop, the HUD's click handlers cover mobile.
+     *
+     * Listing a key here exempts it from the `mobile_controls_complete`
+     * unbound-keys check. Only use for keys that ACTUALLY have an
+     * equivalent on-screen button in a HUD HTML the game ships.
+     */
+    hudKeys?: string[];
 }
 
 /** Default `system` block — every game reserves the same keys, so seed unconditionally. */
@@ -424,6 +436,18 @@ export function validateControlManifest(raw: unknown): string[] {
                     errs.push(`controls.system.${f}: must be a key-code string`);
                 }
             }
+        }
+    }
+
+    if (m.hudKeys !== undefined) {
+        if (!Array.isArray(m.hudKeys)) {
+            errs.push('controls.hudKeys: must be an array of key-code strings');
+        } else {
+            m.hudKeys.forEach((k: any, i: number) => {
+                if (typeof k !== 'string' || k.length === 0) {
+                    errs.push(`controls.hudKeys[${i}]: must be a non-empty key-code string`);
+                }
+            });
         }
     }
 

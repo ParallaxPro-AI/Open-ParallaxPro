@@ -2676,6 +2676,11 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     for (const k of [sys.pause, sys.chat, sys.voice, sys.scoreboard]) {
       if (typeof k === 'string') bound.add(k);
     }
+    // hudKeys: keys reachable via clickable HUD elements rather than the
+    // on-screen overlay. Listing a key here exempts it from unbound-keys
+    // — same effect as binding to an action button, without cluttering
+    // the action rail with redundant buttons.
+    for (const k of (m.hudKeys || [])) if (typeof k === 'string') bound.add(k);
 
     // What literal-string keys do scripts read?
     //
