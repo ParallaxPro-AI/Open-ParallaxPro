@@ -1,6 +1,17 @@
 // also: WASD locomotion, sprint, client-side input, multiplayer sync
 // Arena player movement — client-authoritative.
 //
+// USE FOR: empty-arena MP games (top-down dome, ice rink, sky island
+// with no props). Pair with `physics: kinematic` on the player.
+// DO NOT USE FOR: MP worlds with static obstacles (rocks, forge, walls,
+// fences, terrain features). This script writes `transform.position`
+// directly, and Rapier's kinematicPositionBased body type does NOT
+// auto-resolve against static colliders — the player will walk through
+// every rock, building, and prop in the scene even if their physics
+// blocks are correct. For obstacle-rich worlds, use a dynamic body
+// (mass 75, freeze_rotation: true) + a setVelocity-driven movement
+// script (e.g. `behaviors/movement/third_person_movement.ts`).
+//
 // Each peer drives their own local player with WASD. Remote players show
 // up via proxy entities spawned by the DefaultNetworkAdapter and updated
 // from snapshots; they don't have this behavior attached, so this script

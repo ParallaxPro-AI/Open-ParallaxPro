@@ -891,6 +891,60 @@ default both spawn on top of each other. Slot peers by sorted peerId
 (see `coin_grab_game._positionLocalPlayer`) and `setPosition` the local
 player into its slot inside `_initMatch`.
 
+### Player physics for multiplayer — arena vs obstacle worlds
+
+The shipped MP templates (`multiplayer_coin_grab`, `multiplayer_rift_1v1`,
+`multiplayer_rocket_pitch`, etc.) declare the player as `physics: kinematic`
++ capsule and pair it with `behaviors/mp/player_arena_movement.ts`, which
+moves the player by direct `transform.position` writes:
+
+```js
+pos.x += strafe * speed * dt;
+pos.z -= forward * speed * dt;
+```
+
+**This pattern only works in empty arenas.** Rapier's `kinematicPositionBased`
+body type does not auto-resolve against static colliders — the engine moves
+the body to whatever position you write, full stop. The colliders on rocks /
+forge / walls / props *exist*, but they don't push the player back. The
+player walks straight through them.
+
+**Rule:** If your multiplayer world contains static obstacles the player
+should bump into (rocks, trees, buildings, fences, props, level geometry),
+the player MUST be `dynamic` + driven by `setVelocity`:
+
+```jsonc
+"player": {
+  "mesh": { ... },
+  "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
+  "network": { "syncTransform": true, "ownership": "local_player", ... },
+  "behaviors": [{ "name": "player_movement", "script": "movement/<your_script>.ts" }]
+}
+```
+
+Movement script writes `this.scene.setVelocity(this.entity.id, { x, y, z })`
+(preserving `vy` from the rigidbody so gravity keeps the feet on the ground).
+`open_world_crime` is the canonical reference — same physics shape, paired
+with `behaviors/movement/third_person_movement.ts`. Rapier auto-resolves
+collisions against statics for free.
+
+Decision flow when picking the player's body type for a multiplayer game:
+
+```
+Does the world have obstacles the player should collide with?
+├── No  (open arena, top-down dome, rink, sky island)
+│       → kinematic capsule + player_arena_movement.ts (the MP-template default)
+└── Yes (rocks, forge, walls, fences, props, terrain features)
+        → dynamic capsule (mass 75, freeze_rotation: true) + setVelocity
+```
+
+The fact that `multiplayer_coin_grab` uses kinematic is NOT an endorsement
+for all MP games — it works there because there's literally nothing to bump
+into. Don't copy the pattern wholesale; pick by the obstacle question above.
+A failed run shipped a 1v1 mining duel with kinematic + direct-pos-write,
+gave rocks/forge/palms perfect static colliders, and the player walked through
+all of them — author chose the wrong row of this table.
+
 ### Multiplayer flow actions
 
 See the "Flow action verbs" section above (`mp:show_browser`, `emit:net.<event>`,

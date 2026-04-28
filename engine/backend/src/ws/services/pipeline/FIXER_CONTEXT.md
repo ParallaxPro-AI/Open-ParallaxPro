@@ -793,6 +793,44 @@ Mirror exactly:
 
 `hud/ping` is gameplay-only (top-right RTT). `voice_chat` + `text_chat` show from `lobby_room` onwards and stay visible through `game_over`.
 
+### Symptom: "Player walks through rocks / walls / props (in a multiplayer game)"
+
+The static colliders on the obstacles are probably already correct; the
+problem is the player. If `02_entities.json` declares the player as
+`physics: { type: "kinematic", collider: "capsule" }` and the movement
+script (`behaviors/mp/player_arena_movement.ts` or similar) writes
+`pos.x += ...` directly, the player is a `kinematicPositionBased` body —
+Rapier doesn't auto-resolve those against statics, so the player teleports
+through anything in its path.
+
+Fix: switch the player to dynamic and drive it via `setVelocity`.
+
+```jsonc
+// 02_entities.json
+"player": {
+  "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
+  ...
+}
+```
+
+```js
+// movement script onUpdate
+var rb = this.entity.getComponent("RigidbodyComponent");
+var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
+// keep transform.setRotationEuler(...) for facing — freeze_rotation:true
+// keeps physics from clobbering it.
+```
+
+Preserve `vy` (gravity), and replace any hard `pos.x = ±N` arena clamps
+with soft velocity clamps (`if (pos.x < -19 && vx < 0) vx = 0;`) so the
+dynamic body still respects the arena edge without fighting physics.
+
+`open_world_crime` is the canonical reference (third-person character in
+a world with obstacles). The shipped `multiplayer_coin_grab` kinematic
+pattern is correct for empty arenas only — when in doubt, ask whether the
+world has anything to bump into.
+
 ### Symptom: "I can't see other players in the world (but the scoreboard works)"
 
 If the scoreboard / chat / networked events all work but remote player avatars never appear, the custom MP system is missing the **local NetworkIdentityComponent stamp**. Both peers' local players keep `networkId = -1`, peer A's snapshots collide with peer B's own local player on receive, and the adapter never spawns a remote-player proxy.
