@@ -12,11 +12,7 @@
       },
       "physics": {
         "type": "kinematic",
-        "collider": {
-          "shape": "capsule",
-          "halfHeight": 0.55,
-          "radius": 0.4
-        }
+        "collider": "capsule"
       },
       "network": {
         "syncTransform": true,

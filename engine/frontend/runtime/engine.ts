@@ -159,6 +159,11 @@ export class ParallaxEngine {
      */
     setEditorMode(enabled: boolean): void {
         this.isEditorMode = enabled;
+        // Mirror to the active scene so render-time code (Scene.getMeshInstances
+        // → hideFromOwner) can branch on edit-vs-play without holding an engine
+        // reference. setActiveScene() syncs the same flag for scenes attached
+        // after this call.
+        if (this.activeScene) this.activeScene.isEditorMode = enabled;
         if (enabled) {
             this.globalContext.physicsSystem.shutdown();
             // Reset animators so second Play starts from a clean state.
@@ -187,6 +192,7 @@ export class ParallaxEngine {
 
     setActiveScene(scene: Scene | null): void {
         this.activeScene = scene;
+        if (scene) scene.isEditorMode = this.isEditorMode;
     }
 
     shutdown(): void {

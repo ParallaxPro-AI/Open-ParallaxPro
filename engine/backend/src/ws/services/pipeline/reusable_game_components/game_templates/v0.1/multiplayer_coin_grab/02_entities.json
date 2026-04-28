@@ -17,14 +17,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            20,
-            0.05,
-            20
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "ground"
@@ -46,14 +39,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            1.05,
-            1.05,
-            1.05
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall",
@@ -90,11 +76,7 @@
       },
       "physics": {
         "type": "kinematic",
-        "collider": {
-          "shape": "capsule",
-          "halfHeight": 0.5,
-          "radius": 0.4
-        }
+        "collider": "capsule"
       },
       "network": {
         "syncTransform": true,

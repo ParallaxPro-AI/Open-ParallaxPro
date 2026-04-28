@@ -17,14 +17,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            40,
-            0.05,
-            40
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "ground"
@@ -51,14 +44,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "arena_wall"
@@ -82,14 +68,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "arena_wall"
@@ -113,14 +92,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "arena_wall"
@@ -144,14 +116,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "arena_wall"
@@ -217,14 +182,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "decoration"
@@ -243,14 +201,7 @@
       },
       "physics": {
         "type": "kinematic",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.6,
-            0.5,
-            1.0
-          ]
-        }
+        "collider": "cuboid"
       },
       "network": {
         "syncTransform": true,

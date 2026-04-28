@@ -879,27 +879,43 @@ Notes:
 
 ### Collider shape
 
-Default: every entity gets a unit box collider unless you override. The
-override goes on `physics.collider`:
+**You author shape semantics only.** The collider's *dimensions* (size, radius,
+height, center) are derived from the visible mesh's AABB at load time — the
+engine reads the loaded GLB's bounds and re-fits the collider to match. There
+is no override, no opt-out. This is the rule that keeps the physics shape and
+the visible model in lockstep, every game, every entity.
 
-- **String form** — uses sensible defaults. `"collider": "capsule"` (humanoids),
-  `"collider": "sphere"`, `"collider": "box"`, `"collider": "mesh"` (exact
-  hull from the GLB — slow, only for static world geometry).
-- **Object form** — custom dimensions:
-  ```json
-  "physics": {
-    "type": "static",
-    "collider": { "shape": "cuboid", "halfExtents": [5, 1, 20] }
-  }
-  ```
-  Supported shapes in object form: `cuboid` (uses `halfExtents`), `sphere`
-  (uses `radius`), `capsule` (uses `radius` + `height`). See
-  `reference/game_templates/multiplayer_coin_grab/02_entities.json` and
-  `banner_siege/02_entities.json` for real usage.
-- **Trigger zones** — add `"is_trigger": true` inside the `physics` block
-  to turn the collider into a non-blocking trigger. Scripts see
-  `onTriggerEnter(otherId) / onTriggerStay / onTriggerExit`. Used for pickups,
-  goal lines, damage volumes.
+What you choose is the *shape semantics* — which collider primitive Rapier
+uses — based on how the entity should behave under collision:
+
+- `"collider": "capsule"` — humanoids and any character that needs to slide
+  along walls / stairs without snagging. Always use for the player and NPCs.
+- `"collider": "sphere"` — balls, projectiles, anything that should roll.
+- `"collider": "box"` — the default for crates, walls, vehicles, props.
+- `"collider": "mesh"` — exact triangle hull from the GLB. Slow; only for
+  static world geometry where the AABB box would obviously be wrong (terrain
+  meshes, complex level geometry). Never on dynamic bodies.
+
+Object form is only useful for the trigger flag:
+
+```json
+"physics": {
+  "type": "static",
+  "collider": { "shape": "box", "is_trigger": true }
+}
+```
+
+`halfExtents`, `size`, `radius`, `height`, `center`, and `disableAutoFit`
+are silently dropped by the assembler and logged to stderr — don't write
+them. If you find yourself wanting to author dimensions, the right move is
+to fix the *mesh* (scale it, swap to a tighter asset), not the collider.
+
+- **Trigger zones** — add `"is_trigger": true` inside the `physics.collider`
+  object (or `is_trigger: true` at the `physics` level) to turn the collider
+  into a non-blocking trigger. Scripts see `onTriggerEnter(otherId) /
+  onTriggerStay / onTriggerExit`. Used for pickups, goal lines, damage
+  volumes. The trigger volume's size still tracks the visible mesh's AABB —
+  if you need a larger detection radius, scale the mesh.
 
 ## UI Panels
 HTML files in `project/ui/` receive game state via postMessage. Example HUD:
@@ -1265,7 +1281,7 @@ Quick mental checklist when something looks wrong but the validator passes:
 6. **Camera looking at nothing**: Camera placement at the same position as the player, or `findEntityByName("Player")` failing because the placement has no explicit `name` field.
 7. **Car / character drives backwards**: Your behavior script hardcodes a heading default (e.g. `_heading = 180`) that doesn't agree with the placement's rotation. The mesh is already normalized to canonical −Z forward by the engine, so you do NOT need `modelRotationY` (leave it at 0 / omit it). To make a vehicle/character face a non-default direction, set `placement.rotation: [0, yawDegrees, 0]` in 03_worlds.json and in your script's `onStart`, read it back via `var e = this.entity.transform.getRotationEuler(); this._heading = e.y;`. Do NOT bake the same rotation into both the placement AND the script state — you'll double-compensate. Symptom: pressing W moves the car ass-first, and A/D feel swapped because your perspective of the car is reversed.
 8. **Advertised key does nothing**: Your HUD HTML has `<span class="kbd">P</span> pause` or `Press X to do Y` text, but pressing that key has no effect. Root cause: the key must both (a) be handled by a system that emits an event (ui_bridge.ts already handles P by emitting `keyboard:pause` / `keyboard:resume`), AND (b) have a transition in `01_flow.json` that listens on the event and moves to the right state. A HUD hint without a matching flow transition is a lie. If you advertise P for pause, your flow needs a `pause` state with `transitions: [{ "when": "ui_event:pause:resume", "goto": "gameplay" }, ...]` AND a transition FROM `gameplay` that listens on whatever event the bridge emits. Check what events the pinned ui_bridge / bridges emit before advertising the key.
-9. **Walls / ramps / pickups have no collision**: You set `physics: false` on interactive entities (walls the player bumps into, ramps they roll up, coins they collect). The assembler skips collider creation entirely for `physics: false`, so the player's rigidbody passes straight through. **Rule: `physics: false` is only correct for pure decoration the player can never touch** — ambient particles, skybox quads, HUD-only entities. Walls, ramps, platforms, fences, bumpers, coins, gems, hazards, enemies, triggers — these ALL need physics. Minimum safe default for static geometry: `"physics": { "type": "static", "collider": { "shape": "box" } }` (the assembler derives half-extents from `transform.scale`). For trigger volumes (pickups, damage zones, zone detectors): add `"is_trigger": true` so they fire collision events without blocking movement. The `interactive_entities_have_colliders` playtest invariant flags any entity whose name matches wall/ramp/pickup/coin/hazard/enemy/fence that's missing a collider.
+9. **Walls / ramps / pickups have no collision**: You set `physics: false` on interactive entities (walls the player bumps into, ramps they roll up, coins they collect). The assembler skips collider creation entirely for `physics: false`, so the player's rigidbody passes straight through. **Rule: `physics: false` is only correct for pure decoration the player can never touch** — ambient particles, skybox quads, HUD-only entities. Walls, ramps, platforms, fences, bumpers, coins, gems, hazards, enemies, triggers — these ALL need physics. Minimum safe default for static geometry: `"physics": { "type": "static", "collider": "box" }` (the engine auto-fits the box collider to the visible mesh's AABB). For trigger volumes (pickups, damage zones, zone detectors): add `"is_trigger": true` so they fire collision events without blocking movement. The `interactive_entities_have_colliders` playtest invariant flags any entity whose name matches wall/ramp/pickup/coin/hazard/enemy/fence that's missing a collider.
 10. **First-person game shows your own player model**: In FPS games the camera sits at the player's eye height, so if the player entity has a visible `mesh`, you see your own body from the inside. **Rule: every first-person game MUST set `"hideFromOwner": true` on the player's mesh — apply it up front, never skip it.** Set it on the player entity's mesh field directly (or, if the mesh is attached as a sub-component, under `extra_components: [{ type: "MeshRendererComponent", data: { hideFromOwner: true } }]` in 03_worlds.json). The engine skips rendering that mesh when the active camera is the same entity or its descendant. Other players / spectators / death-cam still see the full model. **This is the ONLY supported way** to hide the player from themselves — don't omit the mesh entirely (then you have no model for multiplayer), and don't hide at script level (races with render pass).
 11. **Behavior state doesn't reset on replay (main_menu → play again)**: Behaviors that track per-instance state like `_collected`, `_consumed`, `_triggered`, `_exploded` must reset that state when the player restarts a match — NOT just in `onStart`. The FSM's restart transition fires a `restart_game` event but does NOT re-call `onStart` on behaviors; scripts stay attached and `_behaviorActive` toggles, but private fields persist. Rule: any behavior that mutates a one-shot flag must subscribe to `restart_game` in `onStart` and reset the flag there. Example:
 
@@ -1290,7 +1306,7 @@ Quick mental checklist when something looks wrong but the validator passes:
 
     Non-score HUD keys (speed, gear, health) don't flicker and can keep emitting — only score-class keys overlap with the end-of-match modal. The `hud_stops_after_game_over` invariant catches this class.
 
-13. **Collider extends past the visible mesh ("invisible walls")**: Collider `halfExtents` are applied **pre-scale**; the engine multiplies them by the entity's `transform.scale` at runtime. If you set `mesh.scale: [4, 4, 1]` AND `collider.halfExtents: [2, 2, 0.5]`, the effective collider becomes `[8, 8, 0.5]` — double the visible mesh. Symptom: player bumps into nothing you can see. **Rule: author halfExtents as if transform.scale is [1,1,1]**. For a unit cube at scale [4,4,1]: use `halfExtents: [0.5, 0.5, 0.5]`. The mesh is a unit primitive, the scale stretches it, and the collider's halfExtents get stretched by the same factor. Same rule for capsule's `radius` + `height`. The `interactive_entities_have_colliders` invariant catches missing colliders but NOT oversized ones — author it right the first time.
+13. **Don't author collider dimensions** (formerly: "Collider extends past the visible mesh"): The collider's `halfExtents` / `size` / `radius` / `height` / `center` / `disableAutoFit` are all silently dropped by the assembler — colliders auto-fit to the visible mesh's AABB at load time, so any authored value would create a window where the physics shape doesn't match what the player sees. Author `physics.collider: "box"` (or `"capsule"` / `"sphere"` / `"mesh"`) and stop. If a collider is too big or too small, the *mesh* is wrong — scale it, swap it, or reposition the asset's pivot — don't try to compensate on the collider side. The `interactive_entities_have_colliders` invariant catches missing colliders; the auto-fit makes oversized/undersized colliders structurally impossible.
 
 14. **Pause state causes match to restart on resume**: If your FSM has both a `gameplay` state AND a sibling `paused` state, going `gameplay → paused → gameplay` re-fires `gameplay.on_enter` every time the player un-pauses. If `on_enter` emits `match_started` / `race_start` / `restart_game`, the match resets silently on resume. **Rule: pause is a SUBSTATE of gameplay, not a sibling.** Structure it like this:
 
@@ -1380,20 +1396,17 @@ Quick mental checklist when something looks wrong but the validator passes:
 
     `setPosition`, `setVelocity`, and most scene API accepts either form via an internal `resolveId`, but dict keys and `parseInt(id)` calls don't — always unwrap. The driving "coins respawn but don't collect" bug was the wrapper-as-dict-key version of this.
 
-23. **Standable geometry (platforms, stairs, bridges, ramps) needs an EXPLICIT physics block — don't rely on GLB auto-collision**: When an entity has a custom GLB mesh and no `physics` field, the runtime still creates a MESH-shape collider from the GLB's `.collision.bin` file. The resulting collider's shape is whatever the asset author baked — sometimes taller / wider / lumpier than you'd expect from the visible bounding box. Platformer run 3c887c49 shipped with `platform_large/_medium/_small` having no `physics` block at all; the auto-derived mesh collider collided with the player capsule *above* where the visual top appeared to be, trapping the player inside the platform at spawn. **Rule: every platform / stair / bridge / ramp declares its own simple static physics block:**
+23. **Standable geometry (platforms, stairs, bridges, ramps) needs an EXPLICIT physics block — don't rely on GLB auto-collision**: When an entity has a custom GLB mesh and no `physics` field, the runtime still creates a MESH-shape collider from the GLB's `.collision.bin` file. The resulting collider's shape is the exact triangle hull baked by the asset author — sometimes taller / wider / lumpier than you'd expect from the visible bounding box, and a capsule sliding across it can snag on tiny vertex spikes. Platformer run 3c887c49 shipped with `platform_large/_medium/_small` having no `physics` block at all; the auto-derived mesh collider collided with the player capsule *above* where the visual top appeared to be, trapping the player inside the platform at spawn. **Rule: every platform / stair / bridge / ramp declares its own simple static physics block with `shape: box` so the collider is the clean visible AABB:**
 
     ```json
     "platform_large": {
       "mesh": { "type": "custom", "asset": "...", "scale": [4, 1, 4] },
-      "physics": {
-        "type": "static",
-        "collider": { "shape": "cuboid", "halfExtents": [0.5, 0.5, 0.5] }
-      },
+      "physics": { "type": "static", "collider": "box" },
       "tags": ["platform"]
     }
     ```
 
-    Box colliders give predictable top/side faces for the player's capsule to rest on. The engine multiplies halfExtents by the placement's `transform.scale` at runtime, so pre-scale `[0.5, 0.5, 0.5]` + per-placement `scale: [4, 1, 4]` gives a world-space 4×1×4 box. Spawn the player at least 1.5 units above the platform top to allow gravity to settle them cleanly — do not spawn them flush with or inside the mesh.
+    The collider's dimensions auto-fit to the visible mesh's AABB (multiplied by the placement's `transform.scale`), so a box collider on a `[4, 1, 4]`-scaled platform is a clean 4×1×4 surface — no `halfExtents` needed. Spawn the player at least 1.5 units above the platform top to allow gravity to settle them cleanly — do not spawn them flush with or inside the mesh.
 
 24. **`show_cursor` + raw-mouse reads = broken input in pointer-lock-capable games**: When the flow calls `show_cursor`, `ui_bridge.ts` activates a virtual cursor whose position is driven by mouse delta and starts at the iframe center. This virtual cursor is DECOUPLED from the OS pointer position — they can drift far apart. Scripts that read `this.input.getMousePosition()` / `this.input.isMouseButtonDown()` get the OS pointer, while the user aims with the virtual cursor they see on screen. Click-on-object checks fail because they're comparing the wrong coordinate. **Rule: in any game that opts into `show_cursor`, read the virtual cursor's position from `ui_bridge`'s `cursor_move` event (canvas-relative) instead of raw input.** Pattern:
 

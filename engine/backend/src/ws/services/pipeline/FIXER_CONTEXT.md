@@ -792,18 +792,23 @@ Each button's `action` becomes `ui_event:pause_menu:<action>`. `KeyP` toggles vi
 
 ### Collider shape
 
-Override with `physics.collider`:
+You author shape semantics only — collider *dimensions* (size, radius, height,
+center) auto-fit to the visible mesh's AABB at load time. The assembler
+silently drops `halfExtents` / `size` / `radius` / `height` / `center` /
+`disableAutoFit` and logs a warning; never author them.
 
-- **String form** — `"collider": "capsule"` (humanoids), `"sphere"`, `"box"`, `"mesh"` (exact hull from GLB — slow, only for static geometry).
-- **Object form** — custom dimensions:
-  ```json
-  "physics": {
-    "type": "static",
-    "collider": { "shape": "cuboid", "halfExtents": [5, 1, 20] }
-  }
-  ```
-  Shapes: `cuboid` (`halfExtents`), `sphere` (`radius`), `capsule` (`radius` + `height`).
-- **Trigger zones** — `"is_trigger": true` turns the collider into a non-blocking trigger. Scripts see `onTriggerEnter(otherId)` / `onTriggerStay` / `onTriggerExit`.
+- `"collider": "capsule"` — humanoids and characters that should slide along
+  walls/stairs.
+- `"collider": "sphere"` — balls, projectiles, anything that should roll.
+- `"collider": "box"` — default for crates, walls, vehicles, props.
+- `"collider": "mesh"` — exact triangle hull (slow; static world geometry only).
+- **Trigger zones** — `"is_trigger": true` makes the collider non-blocking.
+  Scripts see `onTriggerEnter(otherId)` / `onTriggerStay` / `onTriggerExit`.
+  The trigger volume still tracks the visible mesh's AABB; if you need a
+  larger detection radius, scale the mesh.
+
+If a collider is wrong-sized, the mesh is wrong — fix the asset, not the
+collider.
 
 ## UI Panels
 

@@ -9,6 +9,27 @@ export { ShapeType };
  *
  * An entity with ColliderComponent but no RigidbodyComponent is a static collider.
  * Trigger colliders fire callbacks but don't cause physical collision response.
+ *
+ * **Dimensions are runtime state, not authored input.** `halfExtents`,
+ * `radius`, `height`, and `center` are rewritten by
+ * editor_context.autoFitCollider as soon as the visible mesh's AABB is
+ * available — that runs in both the editor and at play time (play.ts boots
+ * the runtime through EditorContext, so the same fit path executes in
+ * published games). Any value passed in via `initialize` is therefore a
+ * transient placeholder; the snapshot-restore / editor-primitive callers
+ * legitimately seed these fields so the collider has *something* to render
+ * before the mesh GLB finishes loading, and that's fine because autoFit
+ * will overwrite as soon as the mesh handle materialises.
+ *
+ * The hard invariant — "collider tracks the visible mesh" — is enforced at
+ * the **assembler boundary** (level_assembler.buildColliderData strips and
+ * warns on any authored dimension) plus the **mesh-load auto-fit**
+ * (autoFitCollider has no opt-out and runs on every mesh handle that
+ * becomes available). The component itself is intentionally permissive
+ * because it's a runtime data container, not the authoring boundary.
+ *
+ * Author-controlled fields: `shapeType` (gameplay semantics — box vs
+ * capsule vs sphere vs mesh) and `isTrigger`.
  */
 export class ColliderComponent extends Component {
     shapeType: ShapeType = ShapeType.BOX;
@@ -18,11 +39,6 @@ export class ColliderComponent extends Component {
     height: number = 1.0;
     meshAssetUUID: string = '';
     isTrigger: boolean = false;
-    /** When true, editor_context.autoFitCollider skips this entity so the
-     * authored halfExtents/radius/height stick. Use for hand-tuned colliders
-     * that should be tighter than the visible mesh AABB (e.g. tank chassis
-     * without the gun barrel). */
-    disableAutoFit: boolean = false;
 
     /** Cached collision mesh data (runtime only, loaded from IndexedDB) */
     collisionPositions: Float32Array | null = null;
@@ -59,6 +75,20 @@ export class ColliderComponent extends Component {
             this.shapeType = st;
         }
 
+        // Dimensions are seeded here as a transient placeholder — autoFitCollider
+        // overwrites them as soon as the visible mesh's AABB is known. We accept
+        // them silently (no warning) because legitimate callers pass them:
+        //   * snapshot round-trip (toJSON → fromJSON), where the values came
+        //     from a previous auto-fit and are correct;
+        //   * editor "Add Cube/Sphere/Plane" primitives, which seed `size`
+        //     so the collider renders correctly in the 1-frame window before
+        //     loadMeshAsset → autoFitCollider fires;
+        //   * AddComponentCommand (history/commands.ts), which pre-fits to
+        //     the loaded mesh's AABB at component-add time.
+        // The assembler boundary (level_assembler.buildColliderData) is where
+        // AI-authored dims are stripped and warned about — by the time data
+        // reaches this initialize, anything that came from a JSON template has
+        // already been filtered.
         if (data.center) {
             this.center.set(data.center.x ?? 0, data.center.y ?? 0, data.center.z ?? 0);
         }
@@ -72,7 +102,7 @@ export class ColliderComponent extends Component {
             this.halfExtents.set(
                 data.halfExtents.x ?? 0.5,
                 data.halfExtents.y ?? 0.5,
-                data.halfExtents.z ?? 0.5
+                data.halfExtents.z ?? 0.5,
             );
         }
 
@@ -80,7 +110,6 @@ export class ColliderComponent extends Component {
         this.height = data.height ?? 1.0;
         this.meshAssetUUID = data.meshAssetUUID ?? '';
         this.isTrigger = data.isTrigger ?? false;
-        this.disableAutoFit = data.disableAutoFit ?? false;
 
         this.markDirty();
     }
@@ -88,6 +117,11 @@ export class ColliderComponent extends Component {
     onDestroy(): void {}
 
     toJSON(): Record<string, any> {
+        // Persist the auto-fitted runtime dimensions so an editor save/reload
+        // cycle keeps the collider visualisation stable until the mesh
+        // re-loads and re-fits. They are derived state, not authored, but
+        // serialising them costs nothing and avoids a 1-frame default-cube
+        // flicker on scene reload.
         return {
             shapeType: this.shapeType,
             center: { x: this.center.x, y: this.center.y, z: this.center.z },
@@ -96,7 +130,6 @@ export class ColliderComponent extends Component {
             height: this.height,
             meshAssetUUID: this.meshAssetUUID,
             isTrigger: this.isTrigger,
-            disableAutoFit: this.disableAutoFit,
         };
     }
 }

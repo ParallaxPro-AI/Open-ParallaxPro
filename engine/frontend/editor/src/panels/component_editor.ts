@@ -86,9 +86,14 @@ const COMPONENT_FIELD_DEFS: Record<string, FieldDef[]> = {
             { value: '3', label: 'Mesh' },
             { value: '4', label: 'Terrain' },
         ] },
-        { name: 'center', label: 'Center', type: 'vec3' },
-        { name: 'size', label: 'Size', type: 'vec3' },
         { name: 'isTrigger', label: 'Is Trigger', type: 'boolean' },
+        // `center` and `size` were editable here, but the runtime auto-fits
+        // the collider to the visible mesh's AABB on every mesh load — manual
+        // edits from this panel were silently overwritten and produced the
+        // class of "the collider doesn't match the mesh" bugs that motivated
+        // the auto-fit invariant. The shape choice is gameplay-relevant
+        // (capsule for characters, sphere for projectiles); dimensions track
+        // the mesh, full stop. To resize a collider, scale the mesh.
     ],
     AudioSourceComponent: [
         { name: 'audioAsset', label: 'Audio Clip', type: 'asset', assetType: 'audio' },
