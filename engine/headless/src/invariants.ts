@@ -38,6 +38,34 @@ function isDecorative(def: any): boolean {
   return false;
 }
 
+/**
+ * Engine-owned HUD / lobby HTMLs that get refreshed on every build from
+ * the shared library (see engine/backend/src/ws/services/pipeline/
+ * project_files.ts:ENGINE_UI). Their content — including keybind
+ * advertisements like "Press Enter to chat" and gameState reads like
+ * `s.fromUsername` — is wired by engine machinery (mp_bridge / ui_bridge),
+ * NOT by per-game scripts. Several invariants probe HUD HTML for "is
+ * the key actually wired?" / "does any script populate this field?",
+ * with the correct convention that engine-machinery scripts (ui_bridge
+ * etc.) are excluded from "real handler" detection. The same exclusion
+ * has to apply to the HUD HTMLs themselves: engine-shipped HUD content
+ * shouldn't be probed for script-side wiring, because the wiring lives
+ * in machinery the invariants intentionally don't see.
+ *
+ * Keep this list in sync with `ENGINE_UI` in project_files.ts.
+ */
+const ENGINE_UI_HTMLS: ReadonlySet<string> = new Set([
+  'ui/lobby_browser.html',
+  'ui/lobby_host_config.html',
+  'ui/lobby_room.html',
+  'ui/connecting_overlay.html',
+  'ui/disconnected_banner.html',
+  'ui/hud/ping.html',
+  'ui/hud/text_chat.html',
+  'ui/hud/voice_chat.html',
+  'ui/hud/scoreboard.html',
+]);
+
 /** Heuristic player discovery against the REAL Scene. Order:
  *   1. Entity tagged "player"
  *   2. Entity whose name contains "player"
@@ -550,6 +578,11 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     walkStates(flow?.states);
 
     for (const [sourcePath, html] of Object.entries<string>(uiHtmls)) {
+      // Engine-shipped HUD/lobby files advertise keys (e.g. "Press Enter
+      // to chat") that are wired by engine machinery (mp_bridge), which
+      // this invariant explicitly excludes from script-handler detection
+      // via TRANSPORT_RE below. Probing them produces false positives.
+      if (ENGINE_UI_HTMLS.has(sourcePath)) continue;
       const hints = extractKeyHints(html);
       for (const hint of hints) {
         const code = keyLabelToCode(hint.key);
@@ -1500,6 +1533,17 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       // literal head is a prefix of this prefab's name, treat as potentially
       // spawned and exercise the live runtime check below.
       const templateMatches = templateHeads.length > 0 && templateHeads.some(h => h.length > 0 && name.startsWith(h));
+      // Static-validator manifest stubs (e.g. `function __spawnManifest()
+      // { this.scene.spawnEntity("enemy_tank_light"); }`) are an
+      // intentional declaration that the prefab is spawned later via a
+      // variable lookup. Wave-based spawners run only after the FSM
+      // enters the gameplay state, which is past the 3-second boot tick
+      // the runtime check uses — so the runtime check would falsely
+      // flag them. Treat the manifest-stub presence as sufficient
+      // evidence the prefab is intentionally reachable.
+      const inSpawnManifest =
+        new RegExp(`function\\s+__spawnManifest[\\s\\S]*?spawnEntity\\s*\\(\\s*['"]${name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}['"]`).test(allScripts);
+      if (inSpawnManifest) continue;
       if (allScripts.includes(q1) || allScripts.includes(q2) || allScripts.includes(q3) || allScripts.includes(q4) || templateMatches) {
         // It's spawned dynamically — check if any instances appear at runtime.
         // Tick briefly to let spawners run, then scan.
@@ -1636,9 +1680,14 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     // Multiplayer transport events are dispatched by mp_bridge with a
     // dynamic suffix (`gbus.emit("net_" + event, ...)`) so the literal
     // name never appears in source. Any `net_<name>` and `mp_<name>`
-    // listener is assumed live as long as the project includes mp_bridge.
+    // listener is treated as live regardless of whether the project
+    // currently has mp_bridge pinned: shared-library status behaviors
+    // (player_health, ship_health, …) defensively register net_*
+    // listeners so the same code can be dropped into either an SP
+    // game or its MP variant without divergence. Flagging those in
+    // SP-only projects as "dead" produces false positives — the
+    // listener is intentionally vestigial.
     const TRANSPORT_EVENT_RE = /^(net_|mp_)/;
-    const hasMpBridge = Object.keys(scripts).some(p => /mp_bridge/.test(p));
     // Per-instance script flattening: when a behavior is attached to N
     // entities, the assembler emits N copies named like
     // `scripts/<base>_<EntityName>(_<idx>)?.ts`. Without de-duping by
@@ -1676,7 +1725,7 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
       while ((m = LISTEN_RE.exec(src)) !== null) {
         const evtName = m[1];
         if (emittedEvents.has(evtName)) continue;
-        if (hasMpBridge && TRANSPORT_EVENT_RE.test(evtName)) continue;
+        if (TRANSPORT_EVENT_RE.test(evtName)) continue;
         if (seenInThisScript.has(evtName)) continue;
         seenInThisScript.add(evtName);
         const baseScript = stripInstanceSuffix(scriptPath);
@@ -1746,7 +1795,14 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
   // treated as provided. Any HUD-read key not in the union fires.
   {
     const uiHtmls = p.runtime.files.uiHtmls ?? {};
-    const hudHtmls = Object.entries<string>(uiHtmls).filter(([k]) => /\/hud\//.test(k) || /hud[^/]*\.html$/i.test(k));
+    const hudHtmls = Object.entries<string>(uiHtmls)
+      .filter(([k]) => /\/hud\//.test(k) || /hud[^/]*\.html$/i.test(k))
+      // Skip engine-shipped HUDs (text_chat / voice_chat / ping /
+      // scoreboard / lobby_*). Their gameState fields are populated by
+      // engine machinery (mp_bridge), not per-game emit("hud_update")
+      // calls — so the "is any script emitting this?" check produces
+      // false positives.
+      .filter(([k]) => !ENGINE_UI_HTMLS.has(k));
     if (hudHtmls.length > 0) {
       // Common JS string/array methods + global properties to filter
       // from `s.<x>` / `state.<x>` matches. Conservative — only filter
@@ -1868,7 +1924,18 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
         let bm: RegExpExecArray | null;
         while ((bm = blockRe.exec(html)) !== null) scriptBlocks.push(bm[1]);
         if (scriptBlocks.length === 0) continue;
-        const js = scriptBlocks.join('\n');
+        // Strip JS comments before scanning. Without this, comments like
+        // `// state.riftShopOpen flips on toggle` produce a false-positive
+        // `riftShopOpen` candidate field even though no real code reads
+        // it. Block-comments first (greedy across newlines), then
+        // line-comments. Doesn't bother to be string-literal-aware —
+        // worst case is HUDs whose strings contain `// ...` patterns,
+        // which is rare and harmless (the field name still appears
+        // elsewhere if the HUD really uses it).
+        const js = scriptBlocks.join('\n')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/^[ \t]*\/\/[^\n]*$/gm, '')
+          .replace(/(^|[^:])\/\/[^\n]*$/gm, '$1');
 
         // Identify aliases assigned from `e.data.state || …` or `e.data`.
         // The pinned pattern is: `var s = e.data.state || {};` — alias `s`.
@@ -1923,7 +1990,20 @@ export function runInvariants(p: Playtest, opts?: { gameType?: string; primaryAc
     const flow: any = p.runtime.files.flow;
     const uiHtmls = p.runtime.files.uiHtmls ?? {};
     if (flow?.states && Object.keys(uiHtmls).length > 0) {
-      const overlaps = analyzeHudOverlaps(flow, uiHtmls);
+      // Skip overlaps that involve an engine-shipped HUD (text_chat,
+      // voice_chat, ping, scoreboard). Templates can't reposition
+      // these — they're refreshed from ENGINE_UI on every build —
+      // and per-template HUDs commonly share the bottom-left corner
+      // where text_chat lives. Flagging this as a per-template fix
+      // produces unactionable false positives. Real overlap bugs
+      // (two per-template HUDs colliding) still surface.
+      const isEngineUi = (ref: string): boolean => {
+        const candidates = [ref, `${ref}.html`, `ui/${ref}`, `ui/${ref}.html`];
+        for (const c of candidates) if (ENGINE_UI_HTMLS.has(c)) return true;
+        return false;
+      };
+      const overlaps = analyzeHudOverlaps(flow, uiHtmls)
+        .filter(o => !isEngineUi(o.a.ref) && !isEngineUi(o.b.ref));
       if (overlaps.length > 0) {
         const first = overlaps.slice(0, 4).map(o =>
           `[${o.state}] ${o.a.ref} (${o.a.anchor}) overlaps ${o.b.ref}`,

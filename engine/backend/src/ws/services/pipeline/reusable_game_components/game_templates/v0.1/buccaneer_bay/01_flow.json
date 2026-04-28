@@ -74,7 +74,11 @@
       "transitions": [
         {
           "when": "ui_event:main_menu:start_game",
-          "goto": "lobby_browser"
+          "goto": "lobby_browser",
+          "actions": [
+            "emit:game.restart_game",
+            "emit:game.entity_healed"
+          ]
         }
       ]
     },
@@ -122,7 +126,8 @@
           "when": "mp_event:phase_in_game",
           "goto": "gameplay",
           "actions": [
-            "emit:game.match_started"
+            "emit:game.match_started",
+            "emit:game.game_ready"
           ]
         },
         {
@@ -238,11 +243,19 @@
       "transitions": [
         {
           "when": "ui_event:game_over:play_again",
-          "goto": "lobby_room"
+          "goto": "lobby_room",
+          "actions": [
+            "emit:game.restart_game",
+            "emit:game.entity_healed"
+          ]
         },
         {
           "when": "ui_event:game_over:main_menu",
-          "goto": "main_menu"
+          "goto": "main_menu",
+          "actions": [
+            "emit:game.restart_game",
+            "emit:game.entity_healed"
+          ]
         }
       ]
     }

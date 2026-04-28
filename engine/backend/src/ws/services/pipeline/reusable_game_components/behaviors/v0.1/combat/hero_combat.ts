@@ -205,6 +205,13 @@ class HeroCombatBehavior extends GameScript {
             qMaxCooldown: this._qMaxCooldown,
             eCooldown: Math.max(0, Math.round(this._eCooldown * 10) / 10),
             eMaxCooldown: this._eMaxCooldown,
+            // Placeholder R-ability slot — hero_combat doesn't ship an
+            // R ability, but the shared ability_bar.html HUD reads
+            // state.rCooldown / state.rMaxCooldown. Emit zeros so the
+            // R slot renders as ready/unused instead of permanently
+            // showing the HUD's initial-static value.
+            rCooldown: 0,
+            rMaxCooldown: 0,
             spaceCooldown: Math.max(0, Math.round(this._spaceCooldown * 10) / 10),
             spaceMaxCooldown: this._spaceMaxCooldown,
             heroDead: this._dead

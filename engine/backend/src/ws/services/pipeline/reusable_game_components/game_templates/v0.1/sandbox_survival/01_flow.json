@@ -42,7 +42,11 @@
       "transitions": [
         {
           "when": "ui_event:main_menu:start_game",
-          "goto": "gameplay"
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.restart_game",
+            "emit:game.entity_healed"
+          ]
         }
       ]
     },
@@ -50,7 +54,8 @@
       "description": "Sandbox survival gameplay",
       "start": "playing",
       "on_enter": [
-        "emit:game.game_ready"
+        "emit:game.game_ready",
+        "emit:game.match_started"
       ],
       "on_exit": [],
       "substates": {

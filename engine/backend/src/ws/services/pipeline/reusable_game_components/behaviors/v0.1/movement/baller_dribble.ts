@@ -132,7 +132,7 @@ class BallerDribbleBehavior extends GameScript {
         // Share local heading + position for the court system.
         this.scene._court = this.scene._court || {};
         this.scene._court.ballHolderHeading = this._facing;
-        this.scene._court.localPos = { x: nx, z: nz };
+        this.scene._court.localPos = { x: pos.x, z: pos.z };
         this.scene._court.localFacing = this._facing;
     }
 

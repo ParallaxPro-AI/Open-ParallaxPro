@@ -41,7 +41,8 @@
           "goto": "playing",
           "actions": [
             "emit:game.game_ready",
-            "emit:game.match_started"
+            "emit:game.match_started",
+            "emit:game.set_camera_yaw"
           ]
         }
       ]
@@ -109,7 +110,10 @@
           "goto": "playing",
           "actions": [
             "emit:game.game_ready",
-            "emit:game.match_started"
+            "emit:game.match_started",
+            "emit:game.restart_game",
+            "emit:game.entity_healed",
+            "emit:game.set_camera_yaw"
           ]
         },
         {

@@ -4,32 +4,147 @@
       "id": "pong_arena",
       "name": "Pong Arena",
       "lighting": {
-        "ambient": [0.5, 0.5, 0.55],
-        "sun_direction": [0, -1, 0],
-        "sun_color": [1, 1, 1]
+        "ambient": [
+          0.5,
+          0.5,
+          0.55
+        ],
+        "sun_direction": [
+          0,
+          -1,
+          0
+        ],
+        "sun_color": [
+          1,
+          1,
+          1
+        ]
       },
       "terrain": {
-        "size": [30, 30],
-        "color": [0.05, 0.05, 0.08, 1]
+        "size": [
+          30,
+          30
+        ],
+        "color": [
+          0.05,
+          0.05,
+          0.08,
+          1
+        ]
       },
       "placements": [
-        { "ref": "camera", "position": [0, 20, 0] },
-        { "ref": "field", "position": [0, 0, 0] },
-
-        { "ref": "wall", "position": [0, 0.25, 7.2] },
-        { "ref": "wall", "position": [0, 0.25, -7.2] },
-
-        { "ref": "paddle_p1", "position": [-9, 0.25, 0] },
-        { "ref": "paddle_p2", "position": [9, 0.25, 0] },
-        { "ref": "ball", "position": [0, 0.3, 0] },
-
-        { "ref": "center_dash", "position": [0, 0.05, -6] },
-        { "ref": "center_dash", "position": [0, 0.05, -4] },
-        { "ref": "center_dash", "position": [0, 0.05, -2] },
-        { "ref": "center_dash", "position": [0, 0.05, 0] },
-        { "ref": "center_dash", "position": [0, 0.05, 2] },
-        { "ref": "center_dash", "position": [0, 0.05, 4] },
-        { "ref": "center_dash", "position": [0, 0.05, 6] }
+        {
+          "ref": "camera",
+          "position": [
+            0,
+            20,
+            0
+          ]
+        },
+        {
+          "ref": "field",
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "ref": "wall",
+          "position": [
+            0,
+            0.25,
+            7.2
+          ]
+        },
+        {
+          "ref": "wall",
+          "position": [
+            0,
+            0.25,
+            -7.2
+          ]
+        },
+        {
+          "ref": "paddle_p1",
+          "position": [
+            -9,
+            0.77,
+            0
+          ]
+        },
+        {
+          "ref": "paddle_p2",
+          "position": [
+            9,
+            0.77,
+            0
+          ]
+        },
+        {
+          "ref": "ball",
+          "position": [
+            0,
+            0.77,
+            0
+          ]
+        },
+        {
+          "ref": "center_dash",
+          "position": [
+            0,
+            0.05,
+            -6
+          ]
+        },
+        {
+          "ref": "center_dash",
+          "position": [
+            0,
+            0.05,
+            -4
+          ]
+        },
+        {
+          "ref": "center_dash",
+          "position": [
+            0,
+            0.05,
+            -2
+          ]
+        },
+        {
+          "ref": "center_dash",
+          "position": [
+            0,
+            0.05,
+            0
+          ]
+        },
+        {
+          "ref": "center_dash",
+          "position": [
+            0,
+            0.05,
+            2
+          ]
+        },
+        {
+          "ref": "center_dash",
+          "position": [
+            0,
+            0.05,
+            4
+          ]
+        },
+        {
+          "ref": "center_dash",
+          "position": [
+            0,
+            0.05,
+            6
+          ]
+        }
       ]
     }
   ]

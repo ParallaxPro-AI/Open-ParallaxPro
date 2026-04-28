@@ -162,7 +162,8 @@
               "when": "ui_event:game_over:play_again",
               "goto": "player_turn",
               "actions": [
-                "emit:game.turn_start"
+                "emit:game.turn_start",
+                "emit:game.restart_game"
               ]
             }
           ]
@@ -186,7 +187,8 @@
               "when": "ui_event:game_over:play_again",
               "goto": "player_turn",
               "actions": [
-                "emit:game.turn_start"
+                "emit:game.turn_start",
+                "emit:game.restart_game"
               ]
             }
           ]

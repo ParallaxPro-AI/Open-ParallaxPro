@@ -50,7 +50,8 @@
       "description": "Open-world RPG gameplay",
       "start": "adventuring",
       "on_enter": [
-        "emit:game.game_ready"
+        "emit:game.game_ready",
+        "emit:game.match_started"
       ],
       "on_exit": [],
       "substates": {
@@ -157,7 +158,10 @@
           "transitions": [
             {
               "when": "ui_event:game_over:play_again",
-              "goto": "adventuring"
+              "goto": "adventuring",
+              "actions": [
+                "emit:game.restart_game"
+              ]
             }
           ]
         }

@@ -1428,6 +1428,10 @@ class Rift1v1GameSystem extends GameScript {
                 waveTimer: Math.max(0, Math.round(this._waveTimer)),
                 waveNumber: this._waveNumber,
                 shopOpen: !!this._shopOpen,
+                // rift_hud.html reads state.riftShopOpen — emit it as
+                // an alias of shopOpen so the HUD field-resolves
+                // invariant sees the binding.
+                riftShopOpen: !!this._shopOpen,
             },
         };
         this.scene.events.ui.emit("hud_update", payload);

@@ -3,22 +3,48 @@
     "ball": {
       "mesh": {
         "type": "sphere",
-        "color": [1, 1, 1, 1],
-        "scale": [0.5, 0.5, 0.5]
+        "color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
       },
-      "tags": ["ball"],
-      "label": false
+      "tags": [
+        "ball"
+      ],
+      "label": false,
+      "physics": {
+        "type": "kinematic"
+      }
     },
     "paddle_p1": {
       "mesh": {
         "type": "cube",
-        "color": [0.3, 0.55, 1, 1],
-        "scale": [0.4, 0.5, 2]
+        "color": [
+          0.3,
+          0.55,
+          1,
+          1
+        ],
+        "scale": [
+          0.4,
+          0.5,
+          2
+        ]
       },
       "physics": {
         "type": "kinematic"
       },
-      "tags": ["paddle", "player1"],
+      "tags": [
+        "paddle",
+        "player1"
+      ],
       "label": false,
       "behaviors": [
         {
@@ -35,42 +61,94 @@
     "paddle_p2": {
       "mesh": {
         "type": "cube",
-        "color": [1, 0.35, 0.35, 1],
-        "scale": [0.4, 0.5, 2]
+        "color": [
+          1,
+          0.35,
+          0.35,
+          1
+        ],
+        "scale": [
+          0.4,
+          0.5,
+          2
+        ]
       },
-      "tags": ["paddle", "player2"],
-      "label": false
+      "tags": [
+        "paddle",
+        "player2"
+      ],
+      "label": false,
+      "physics": {
+        "type": "kinematic"
+      }
     },
     "wall": {
       "mesh": {
         "type": "cube",
-        "color": [0.3, 0.3, 0.35, 1],
-        "scale": [22, 0.5, 0.4]
+        "color": [
+          0.3,
+          0.3,
+          0.35,
+          1
+        ],
+        "scale": [
+          22,
+          0.5,
+          0.4
+        ]
       },
-      "tags": ["wall"],
+      "tags": [
+        "wall"
+      ],
       "label": false
     },
     "center_dash": {
       "mesh": {
         "type": "cube",
-        "color": [0.25, 0.25, 0.3, 1],
-        "scale": [0.15, 0.05, 0.8]
+        "color": [
+          0.25,
+          0.25,
+          0.3,
+          1
+        ],
+        "scale": [
+          0.15,
+          0.05,
+          0.8
+        ]
       },
-      "tags": ["decoration"],
+      "tags": [
+        "decoration"
+      ],
       "label": false
     },
     "field": {
       "mesh": {
         "type": "plane",
-        "color": [0.1, 0.1, 0.14, 1],
-        "scale": [22, 1, 14.8]
+        "color": [
+          0.1,
+          0.1,
+          0.14,
+          1
+        ],
+        "scale": [
+          22,
+          1,
+          14.8
+        ]
       },
-      "tags": ["ground"],
+      "tags": [
+        "ground"
+      ],
       "label": false
     },
     "camera": {
-      "camera": { "fov": 60 },
-      "tags": ["camera"],
+      "camera": {
+        "fov": 60
+      },
+      "tags": [
+        "camera"
+      ],
       "behaviors": [
         {
           "name": "board_camera",

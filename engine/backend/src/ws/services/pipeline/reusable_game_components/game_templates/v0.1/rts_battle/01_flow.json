@@ -41,7 +41,10 @@
       "transitions": [
         {
           "when": "ui_event:main_menu:start_game",
-          "goto": "gameplay"
+          "goto": "gameplay",
+          "actions": [
+            "emit:game.player_respawned"
+          ]
         }
       ]
     },
@@ -49,7 +52,8 @@
       "description": "Real-time strategy gameplay",
       "start": "battle",
       "on_enter": [
-        "emit:game.game_ready"
+        "emit:game.game_ready",
+        "emit:game.match_started"
       ],
       "on_exit": [],
       "substates": {
@@ -127,7 +131,11 @@
           "transitions": [
             {
               "when": "ui_event:game_over:play_again",
-              "goto": "battle"
+              "goto": "battle",
+              "actions": [
+                "emit:game.restart_game",
+                "emit:game.player_respawned"
+              ]
             }
           ]
         },
@@ -151,7 +159,11 @@
           "transitions": [
             {
               "when": "ui_event:game_over:play_again",
-              "goto": "battle"
+              "goto": "battle",
+              "actions": [
+                "emit:game.restart_game",
+                "emit:game.player_respawned"
+              ]
             }
           ]
         }

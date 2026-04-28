@@ -44,7 +44,10 @@
           "when": "ui_event:main_menu:start_game",
           "goto": "gameplay",
           "actions": [
-            "emit:game.match_started"
+            "emit:game.match_started",
+            "emit:game.restart_game",
+            "emit:game.entity_healed",
+            "emit:game.set_camera_yaw"
           ]
         }
       ]

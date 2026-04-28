@@ -40,7 +40,8 @@
           "when": "ui_event:main_menu:start_game",
           "goto": "playing",
           "actions": [
-            "emit:game.game_ready"
+            "emit:game.game_ready",
+            "emit:game.match_started"
           ]
         }
       ]
@@ -97,7 +98,8 @@
           "when": "ui_event:game_over:play_again",
           "goto": "playing",
           "actions": [
-            "emit:game.restart_game"
+            "emit:game.restart_game",
+            "emit:game.match_started"
           ]
         },
         {

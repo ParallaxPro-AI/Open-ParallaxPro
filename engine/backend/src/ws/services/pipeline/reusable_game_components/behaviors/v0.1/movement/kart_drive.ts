@@ -206,7 +206,7 @@ class KartDriveBehavior extends GameScript {
         this.scene._kart.drifting = this._drifting;
         this.scene._kart.driftHold = this._driftHold;
         this.scene._kart.driftLevel = this._driftLevelOf(this._driftHold);
-        this.scene._kart.position = { x: nx, z: nz };
+        this.scene._kart.position = { x: pos.x, z: pos.z };
 
         // Speedometer HUD.
         var kmh = Math.round(Math.abs(this._speed) * 3.6);
