@@ -24,6 +24,17 @@ export class Scene {
     entities: Map<number, Entity> = new Map();
     environment: EnvironmentData;
 
+    /**
+     * Mirror of `engine.isEditorMode`, kept in sync by ParallaxEngine on
+     * `setEditorMode()` and `setActiveScene()` so render-time code (which
+     * doesn't have a direct engine handle) can branch on edit-vs-play.
+     * `hideFromOwner` reads this so the player's body mesh stays visible
+     * while authoring — hiding only kicks in once Play starts. Default is
+     * false (play mode) so a Scene used outside an engine context behaves
+     * as the published runtime would.
+     */
+    isEditorMode: boolean = false;
+
     private particleEmitters: Map<number, ParticleEmitter> = new Map();
     private nextParticleId = 1;
     private tagIndex: Map<string, Set<number>> = new Map();
@@ -488,7 +499,14 @@ export class Scene {
             //       entity's AABB — "if the camera lives inside your body,
             //       don't render your body". Independent of scene-graph
             //       structure, so it catches the behavior-driven pattern.
-            if (mr.hideFromOwner) {
+            //
+            // Editor-mode bypass: while authoring (engine.isEditorMode === true),
+            // always render the mesh so the user can see what they're editing.
+            // Without this, a player entity flagged hideFromOwner = true would
+            // disappear in the editor viewport the moment its position-follow
+            // camera matched up — making the mesh invisible exactly when you
+            // want to inspect/transform it.
+            if (mr.hideFromOwner && !this.isEditorMode) {
                 if (cameraOwnerChain.has(entity.id)) continue;
                 if (this._activeCameraPos && this._cameraInsideEntity(entity, this._activeCameraPos)) continue;
             }

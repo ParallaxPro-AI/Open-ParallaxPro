@@ -1008,6 +1008,17 @@ export class EditorContext extends EventBus {
                 this.gpuMeshCache.set(mr.meshType, gpuHandle);
             }
             mr.gpuMesh = gpuHandle;
+            // Primitives (cube/sphere/plane/cylinder/capsule) used to skip
+            // auto-fit because this path doesn't go through loadMeshAsset.
+            // That left every primitive-meshed entity with the
+            // ColliderComponent's default halfExtents (0.5, 0.5, 0.5) instead
+            // of the actual primitive's AABB — so a plane mesh (mesh-local Y
+            // extent = 0) ended up with a 1m-tall box collider, and any
+            // template that authored `physics.collider: "box"` on a primitive
+            // and trusted auto-fit to do the right thing got the wrong shape.
+            // Calling autoFitCollider here closes that gap so primitives are
+            // covered by the same invariant as custom GLBs.
+            this.autoFitCollider(entity, gpuHandle);
 
             if (mr.materialOverrides) {
                 const bundle = mr.materialOverrides.textureBundle || mr.materialOverrides.albedoMap;
@@ -1257,19 +1268,37 @@ export class EditorContext extends EventBus {
         if (!gpuMesh.boundMin || !gpuMesh.boundMax) return;
         const col = entity.getComponent('ColliderComponent') as any;
         if (!col) return;
-        // Authored opt-out: respect hand-tuned halfExtents that should be
-        // tighter than the visible-mesh AABB (e.g. tank chassis vs barrel).
-        if (col.disableAutoFit) return;
+        // Terrain has its own dimensions sourced from TerrainComponent (width,
+        // depth, heightmap resolution); the visible mesh AABB doesn't apply.
+        // Compound is a placeholder shape — no single mesh AABB either.
+        if (col.shapeType === 4 /* TERRAIN */ || col.shapeType === 5 /* COMPOUND */) return;
+        // No author opt-out anymore. The collider IS the visible mesh AABB —
+        // hand-tuning a tighter or looser collider used to be allowed via
+        // `disableAutoFit`, but that escape hatch was the root cause of the
+        // class of bugs where the visible model and the physics shape didn't
+        // line up (player bumping into nothing, sliding through walls, etc).
+        // The shape-type choice (capsule vs box) stays author-controlled for
+        // gameplay reasons; the dimensions track the mesh, full stop.
         const bMin = gpuMesh.boundMin, bMax = gpuMesh.boundMax;
         const minX = bMin.x ?? -0.5, minY = bMin.y ?? 0, minZ = bMin.z ?? -0.5;
         const maxX = bMax.x ?? 0.5, maxY = bMax.y ?? 1, maxZ = bMax.z ?? 0.5;
         const width = maxX - minX, height = maxY - minY, depth = maxZ - minZ;
         const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2, centerZ = (minZ + maxZ) / 2;
 
-        if (col.shapeType === 2) {
+        if (col.shapeType === 1 /* SPHERE */) {
+            // Bounding sphere of the AABB: half the longest extent. Centered
+            // on the AABB midpoint so a non-origin-pivoted mesh still has its
+            // collider where the model is.
+            col.radius = Math.max(0.05, Math.max(width, height, depth) / 2);
+            col.center = { x: centerX, y: centerY, z: centerZ };
+            const rb = entity.getComponent('RigidbodyComponent') as any;
+            if (rb) rb._forceRecreate = true;
+        } else if (col.shapeType === 2) {
             col.radius = Math.max(0.1, Math.min(Math.min(width, depth) / 2, height * 0.15));
             col.height = height;
             col.center = { x: centerX, y: centerY, z: centerZ };
+            const rb = entity.getComponent('RigidbodyComponent') as any;
+            if (rb) rb._forceRecreate = true;
         } else if (col.shapeType === 3) {
             // Trimesh: vertices encode position, no center offset.
             //

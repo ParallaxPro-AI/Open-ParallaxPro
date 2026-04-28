@@ -67,14 +67,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "ground"
@@ -101,14 +94,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "ground"
@@ -135,14 +121,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"
@@ -192,11 +171,7 @@
         "type": "dynamic",
         "mass": 1.5,
         "freeze_rotation": false,
-        "collider": {
-          "shape": "capsule",
-          "radius": 0.1,
-          "height": 0.3
-        }
+        "collider": "capsule"
       },
       "tags": [
         "pp_pin"
@@ -241,14 +216,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"
@@ -275,14 +243,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"
@@ -309,14 +270,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"

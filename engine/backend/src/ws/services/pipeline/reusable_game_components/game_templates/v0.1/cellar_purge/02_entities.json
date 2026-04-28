@@ -74,14 +74,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "ground"
@@ -108,14 +101,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "ground"
@@ -163,14 +149,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"
@@ -197,14 +176,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"
@@ -231,14 +203,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"
@@ -265,14 +230,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall",
@@ -300,14 +258,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall",
@@ -356,14 +307,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "decoration"
@@ -382,14 +326,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.4,
-            0.6,
-            0.4
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "decoration"
@@ -424,14 +361,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.6,
-            0.4,
-            0.6
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "decoration"

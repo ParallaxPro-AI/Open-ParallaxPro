@@ -101,14 +101,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "ground",
@@ -157,14 +150,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "platform",
@@ -192,14 +178,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "platform",
@@ -245,14 +224,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "platform",
@@ -426,11 +398,7 @@
         "type": "dynamic",
         "mass": 60,
         "freeze_rotation": true,
-        "collider": {
-          "shape": "capsule",
-          "halfHeight": 0.5,
-          "radius": 0.4
-        }
+        "collider": "capsule"
       },
       "tags": [
         "player"
@@ -472,11 +440,7 @@
       },
       "physics": {
         "type": "kinematic",
-        "collider": {
-          "shape": "capsule",
-          "halfHeight": 0.4,
-          "radius": 0.6
-        }
+        "collider": "capsule"
       },
       "tags": [
         "enemy",

@@ -114,41 +114,35 @@ function safeName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]/, '_$&');
 }
 
-/** Flatten a collider spec (either a string shortcut or the object form with
- * shape/halfExtents/radius/height) into the shape ColliderComponent.initialize
- * consumes: { shapeType, size?, halfExtents?, radius?, height? }. Accepts both
- * `cuboid` (game-template vocabulary) and `box` (engine vocabulary); both map
- * to the BOX shape. Defaults match pre-fix behaviour for back-compat. */
+/** Flatten a collider spec into the shape ColliderComponent.initialize
+ * consumes: `{ shapeType }`, plus an optional `isTrigger`. Accepts the legacy
+ * vocabulary (`cuboid` → `box`, `ball` → `sphere`).
+ *
+ * **Dimensions are not honoured.** Authored `halfExtents` / `size` / `radius`
+ * / `height` / `center` and the legacy `disableAutoFit` opt-out are dropped
+ * here on purpose — the runtime auto-fits the collider to the visible mesh
+ * AABB on mesh load (editor_context.autoFitCollider), so any author-supplied
+ * dimensions create a window where the collision shape doesn't match what
+ * the player sees. A warning is logged so the source of the mismatch is
+ * traceable without breaking assembly. */
 function buildColliderData(shape: string, src: any): any {
   const normShape = shape === 'cuboid' ? 'box' : (shape === 'ball' ? 'sphere' : shape);
-  const data: any = { shapeType: normShape };
-  if (normShape === 'sphere') {
-    data.radius = (src?.radius ?? 0.5);
-  } else if (normShape === 'capsule') {
-    data.radius = (src?.radius ?? 0.5);
-    data.height = (src?.height ?? 1.0);
-  } else if (normShape === 'box') {
-    // Source may provide `halfExtents: [hx, hy, hz]` (array) or
-    // `{ x, y, z }` (object), or `size: [...]` / `{...}` as the full size.
-    const he = src?.halfExtents;
-    if (Array.isArray(he)) {
-      data.halfExtents = { x: he[0] ?? 0.5, y: he[1] ?? 0.5, z: he[2] ?? 0.5 };
-    } else if (he && typeof he === 'object') {
-      data.halfExtents = { x: he.x ?? 0.5, y: he.y ?? 0.5, z: he.z ?? 0.5 };
-    } else {
-      const sz = src?.size;
-      if (Array.isArray(sz)) {
-        data.size = { x: sz[0] ?? 1, y: sz[1] ?? 1, z: sz[2] ?? 1 };
-      } else if (sz && typeof sz === 'object') {
-        data.size = { x: sz.x ?? 1, y: sz.y ?? 1, z: sz.z ?? 1 };
-      } else {
-        data.size = { x: 1, y: 1, z: 1 };
-      }
-    }
+  if (src && (src.halfExtents !== undefined || src.size !== undefined ||
+              src.radius !== undefined || src.height !== undefined ||
+              src.center !== undefined || src.disableAutoFit !== undefined)) {
+    const dropped: string[] = [];
+    if (src.halfExtents !== undefined) dropped.push('halfExtents');
+    if (src.size !== undefined) dropped.push('size');
+    if (src.radius !== undefined) dropped.push('radius');
+    if (src.height !== undefined) dropped.push('height');
+    if (src.center !== undefined) dropped.push('center');
+    if (src.disableAutoFit !== undefined) dropped.push('disableAutoFit');
+    console.warn(
+      `[level_assembler] Ignoring authored collider field(s) [${dropped.join(', ')}] — ` +
+      `colliders auto-fit to the visible mesh AABB. Author shape + isTrigger only.`,
+    );
   }
-  if (src?.center) data.center = { x: src.center.x ?? src.center[0] ?? 0, y: src.center.y ?? src.center[1] ?? 0, z: src.center.z ?? src.center[2] ?? 0 };
-  if (src?.disableAutoFit === true) data.disableAutoFit = true;
-  return data;
+  return { shapeType: normShape };
 }
 
 function tryLoadScript(scriptPath: string, behaviorsDir?: string, systemsDir?: string): string | null {

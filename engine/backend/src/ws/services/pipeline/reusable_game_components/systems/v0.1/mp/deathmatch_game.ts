@@ -382,17 +382,28 @@ class DeathmatchGameSystem extends GameScript {
                 continue;
             }
             var dx = (pos.x - st.x) / step;
+            var dy = (pos.y - st.y) / step;
             var dz = (pos.z - st.z) / step;
             st.x = pos.x; st.y = pos.y; st.z = pos.z;
 
             var spd = Math.sqrt(dx * dx + dz * dz);
-            var grounded = true;
-            if (this.scene.raycast) {
-                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
-                grounded = !!(hit && hit.entityId);
-            }
+            // Vertical-velocity grounded check. The previous raycast version
+            // started at `pos.y - 0.3` going downward — for Quaternius
+            // characters (feet-at-origin pivot), that's BELOW the floor, so
+            // the raycast always missed and stationary remote players were
+            // stuck looping the Jump anim. Reading the collider's bottom
+            // didn't help either: scene.raycast's exclusion is hard-coded to
+            // the entity named "Player" so the proxy isn't excluded, and a
+            // raycast starting inside its own capsule self-hits at distance
+            // 0. Using `|dy|` instead is mesh- and pivot-agnostic: the
+            // proxy's transform.position is fed by snapshots from the owner,
+            // who sees |vy| ≈ 7 when jumping (jumpForce), |vy| ≤ 0.2 when
+            // standing or walking on flat ground. Threshold 1.5 m/s catches
+            // jumps + falls, leaves a wide margin for stair-step bobbing
+            // and snapshot interpolation noise.
+            var airborne = Math.abs(dy) > 1.5;
             var anim;
-            if (!grounded)      anim = "Jump";
+            if (airborne)       anim = "Jump";
             else if (spd > 7.5) anim = "Run";
             else if (spd > 0.5) anim = "Walk";
             else                anim = "Idle";

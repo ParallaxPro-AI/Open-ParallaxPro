@@ -14,14 +14,7 @@
         "type": "kinematic",
         "mass": 1500,
         "freeze_rotation": true,
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            2.4,
-            3.0,
-            5.0
-          ]
-        }
+        "collider": "cuboid"
       },
       "network": {
         "syncTransform": true,
@@ -225,14 +218,7 @@
         "type": "kinematic",
         "mass": 1200,
         "freeze_rotation": true,
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            1.8,
-            2.0,
-            4.0
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "enemy",

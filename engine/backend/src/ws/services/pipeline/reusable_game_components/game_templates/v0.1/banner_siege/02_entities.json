@@ -282,14 +282,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.7,
-            0.7,
-            0.7
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "cover"
@@ -308,14 +301,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.8,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "cover"
@@ -334,14 +320,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            2.0,
-            2.0,
-            0.4
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"
@@ -360,14 +339,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            2.0,
-            2.2,
-            0.4
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "wall"
@@ -391,14 +363,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "base_red"
@@ -425,14 +390,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.5,
-            0.5,
-            0.5
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "base_blue"
@@ -540,14 +498,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.35,
-            1.5,
-            0.35
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "decoration"
@@ -566,14 +517,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.3,
-            1,
-            0.3
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "decoration"
@@ -592,14 +536,7 @@
       },
       "physics": {
         "type": "static",
-        "collider": {
-          "shape": "cuboid",
-          "halfExtents": [
-            0.7,
-            0.4,
-            0.7
-          ]
-        }
+        "collider": "cuboid"
       },
       "tags": [
         "cover"

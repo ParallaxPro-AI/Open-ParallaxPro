@@ -1042,60 +1042,19 @@ export class GizmoSystem {
 
     // ── Hit Testing ──────────────────────────────────────────────────────
 
-    private hitTestColliderHandle(mx: number, my: number): ColliderHandle {
-        const selected = this.ctx.getSelectedEntities();
-        if (selected.length === 0) return null;
-
-        const entity = selected[0];
-        const collider = entity.getComponent('ColliderComponent') as ColliderComponent | null;
-        if (!collider) return null;
-
-        const worldMatrix = entity.getWorldMatrix();
-        const c = collider.center;
-        const threshold = 8;
-
-        let handles: { id: ColliderHandle; local: Vec3 }[] = [];
-
-        if (collider.shapeType === ShapeType.BOX) {
-            const h = collider.halfExtents;
-            handles = [
-                { id: '+x', local: new Vec3(c.x + h.x, c.y, c.z) },
-                { id: '-x', local: new Vec3(c.x - h.x, c.y, c.z) },
-                { id: '+y', local: new Vec3(c.x, c.y + h.y, c.z) },
-                { id: '-y', local: new Vec3(c.x, c.y - h.y, c.z) },
-                { id: '+z', local: new Vec3(c.x, c.y, c.z + h.z) },
-                { id: '-z', local: new Vec3(c.x, c.y, c.z - h.z) },
-            ];
-        } else if (collider.shapeType === ShapeType.CAPSULE) {
-            const r = collider.radius;
-            const halfH = collider.height / 2;
-            handles = [
-                { id: 'cap+y', local: new Vec3(c.x, c.y + halfH + r, c.z) },
-                { id: 'cap-y', local: new Vec3(c.x, c.y - halfH - r, c.z) },
-                { id: 'cap+x', local: new Vec3(c.x + r, c.y, c.z) },
-                { id: 'cap-x', local: new Vec3(c.x - r, c.y, c.z) },
-                { id: 'cap+z', local: new Vec3(c.x, c.y, c.z + r) },
-                { id: 'cap-z', local: new Vec3(c.x, c.y, c.z - r) },
-            ];
-        } else {
-            return null;
-        }
-
-        let bestHandle: ColliderHandle = null;
-        let bestDist = threshold;
-
-        for (const handle of handles) {
-            const wp = worldMatrix.transformPoint(handle.local);
-            const sp = this.worldToScreen(wp);
-            if (!sp) continue;
-            const dist = Math.sqrt((mx - sp.x) ** 2 + (my - sp.y) ** 2);
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestHandle = handle.id;
-            }
-        }
-
-        return bestHandle;
+    private hitTestColliderHandle(_mx: number, _my: number): ColliderHandle {
+        // Collider handles are no longer interactive. The runtime auto-fits
+        // the collider to the visible mesh's AABB on every mesh load
+        // (editor_context.autoFitCollider), so any halfExtents/radius/height
+        // edit made via the viewport gizmo would be silently overwritten the
+        // next time the source mesh is loaded. Returning null here disables
+        // hover detection and the drag-start path. The wireframe + face-marker
+        // overlay in drawColliderOverlays still renders so the user can see
+        // the collider's extent for debugging — re-enabling drag editing here
+        // would re-introduce the "collider doesn't match the visible mesh" bug
+        // class that motivated the auto-fit invariant. If a collider is the
+        // wrong size, scale the *mesh* (or swap the asset / adjust pivot).
+        return null;
     }
 
     /** Get the screen-space direction for a collider handle's axis. */

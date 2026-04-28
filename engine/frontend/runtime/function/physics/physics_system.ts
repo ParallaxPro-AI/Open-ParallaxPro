@@ -284,9 +284,30 @@ export class PhysicsSystem {
         const colDesc = this.buildColliderDesc(entity, collider, worldScale);
         if (!colDesc) return;
 
-        // Compute center offset from collider
-        const center = collider?.center ?? { x: 0, y: 0, z: 0 };
-        const offset = new Vec3(center.x * worldScale.x, center.y * worldScale.y, center.z * worldScale.z);
+        // Compute center offset. Prefer the visible mesh's AABB midpoint when
+        // the mesh has loaded — same source-of-truth as buildColliderDesc, so
+        // a script mutating collider.center can't drift the body's anchor
+        // away from where the model actually sits. Falls back to the
+        // component's center field when the mesh hasn't loaded yet (initial
+        // body creation race; autoFitCollider's _forceRecreate fires the
+        // recreation once the gpuMesh handle materialises).
+        const mrForCenter = entity.getComponent('MeshRendererComponent') as any;
+        const gmForCenter = mrForCenter?.gpuMesh;
+        let centerLocal: { x: number; y: number; z: number };
+        if (gmForCenter?.boundMin && gmForCenter?.boundMax) {
+            centerLocal = {
+                x: (gmForCenter.boundMin.x + gmForCenter.boundMax.x) * 0.5,
+                y: (gmForCenter.boundMin.y + gmForCenter.boundMax.y) * 0.5,
+                z: (gmForCenter.boundMin.z + gmForCenter.boundMax.z) * 0.5,
+            };
+        } else {
+            centerLocal = collider?.center ?? { x: 0, y: 0, z: 0 };
+        }
+        const offset = new Vec3(
+            centerLocal.x * worldScale.x,
+            centerLocal.y * worldScale.y,
+            centerLocal.z * worldScale.z,
+        );
         this.entityCenterOffset.set(entity.id, offset);
 
         const bodyX = worldPos.x + offset.x;
@@ -371,23 +392,71 @@ export class PhysicsSystem {
         const sy = Math.abs(worldScale.y);
         const sz = Math.abs(worldScale.z);
 
+        // Pull the visible mesh's AABB if it's loaded — this is the
+        // source-of-truth for box/sphere/capsule dimensions. Reading it here
+        // (instead of going through collider.halfExtents/radius/height) means
+        // a behavior script that mutates those component fields at runtime
+        // has zero physics effect: the body shape always reflects what the
+        // player sees. autoFitCollider keeps the component fields in sync
+        // for editor-side debug rendering, but physics doesn't depend on
+        // them anymore.
+        //
+        // Backward compat: when the mesh hasn't loaded yet (initial body
+        // creation can race with the GLB fetch), fall back to the component
+        // fields. Bodies built at default 0.5×0.5×0.5 in that window get
+        // recreated by autoFitCollider's _forceRecreate flag once the
+        // gpuMesh handle materialises, so the visible-final state is
+        // identical to the pre-change behavior.
+        const mrForDims = entity.getComponent('MeshRendererComponent') as any;
+        const gmForDims = mrForDims?.gpuMesh;
+        let meshHalfX: number | null = null;
+        let meshHalfY: number | null = null;
+        let meshHalfZ: number | null = null;
+        if (gmForDims?.boundMin && gmForDims?.boundMax) {
+            meshHalfX = (gmForDims.boundMax.x - gmForDims.boundMin.x) * 0.5;
+            meshHalfY = (gmForDims.boundMax.y - gmForDims.boundMin.y) * 0.5;
+            meshHalfZ = (gmForDims.boundMax.z - gmForDims.boundMin.z) * 0.5;
+        }
+
         switch (collider.shapeType) {
             case ShapeType.BOX: {
                 const he = collider.halfExtents ?? { x: 0.5, y: 0.5, z: 0.5 };
+                const hx = meshHalfX ?? he.x;
+                const hy = meshHalfY ?? he.y;
+                const hz = meshHalfZ ?? he.z;
                 return RAPIER.ColliderDesc.cuboid(
-                    Math.max(0.01, he.x * sx),
-                    Math.max(0.01, he.y * sy),
-                    Math.max(0.01, he.z * sz)
+                    Math.max(0.01, hx * sx),
+                    Math.max(0.01, hy * sy),
+                    Math.max(0.01, hz * sz)
                 );
             }
             case ShapeType.SPHERE: {
                 const maxS = Math.max(sx, sy, sz);
-                return RAPIER.ColliderDesc.ball(Math.max(0.01, (collider.radius ?? 0.5) * maxS));
+                // Bounding sphere of the mesh AABB: half the longest extent
+                // (matches autoFitCollider's SPHERE branch).
+                const r = (meshHalfX !== null && meshHalfY !== null && meshHalfZ !== null)
+                    ? Math.max(meshHalfX, meshHalfY, meshHalfZ)
+                    : (collider.radius ?? 0.5);
+                return RAPIER.ColliderDesc.ball(Math.max(0.01, r * maxS));
             }
             case ShapeType.CAPSULE: {
                 const maxHorizS = Math.max(sx, sz);
-                const r = Math.max(0.01, (collider.radius ?? 0.5) * maxHorizS);
-                const totalH = Math.max(0.02, (collider.height ?? 1.0) * sy);
+                let rLocal: number;
+                let totalHLocal: number;
+                if (meshHalfX !== null && meshHalfY !== null && meshHalfZ !== null) {
+                    // Same formula as autoFitCollider's CAPSULE branch:
+                    // radius is the smaller horizontal half-extent, capped
+                    // at 15% of the full vertical extent (= meshHalfY*0.3
+                    // since we work in half-extents); height is the full
+                    // vertical extent.
+                    rLocal = Math.max(0.1, Math.min(Math.min(meshHalfX, meshHalfZ), meshHalfY * 0.3));
+                    totalHLocal = meshHalfY * 2;
+                } else {
+                    rLocal = collider.radius ?? 0.5;
+                    totalHLocal = collider.height ?? 1.0;
+                }
+                const r = Math.max(0.01, rLocal * maxHorizS);
+                const totalH = Math.max(0.02, totalHLocal * sy);
                 const cylHalfH = Math.max(0.01, totalH / 2 - r);
                 return RAPIER.ColliderDesc.capsule(cylHalfH, r);
             }
