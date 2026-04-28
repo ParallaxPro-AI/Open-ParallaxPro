@@ -98,6 +98,7 @@ class Rift1v1GameSystem extends GameScript {
     _projIdCounter = 0;
 
     _hudTickTimer = 0;
+    _shopOpen = false;       // local-only toggle; B opens/closes the shop overlay
 
     onStart() {
         var self = this;
@@ -160,7 +161,18 @@ class Rift1v1GameSystem extends GameScript {
             // Purely informational — movement applied in behavior.
         });
         this.scene.events.game.on("rift_shop_toggle", function() {
-            self.scene.events.ui.emit("hud_update", { _riftShopToggle: true });
+            // State-tracked, NOT edge-triggered. The previous version emitted
+            // hud_update { _riftShopToggle: true }, but ui_bridge merges
+            // hud_update payloads into a sticky _state that's re-broadcast
+            // every frame — so the HTML saw "toggle" every frame and flipped
+            // shopOpen 60×/sec, leaving the shop stuck flickering. Track the
+            // boolean here and push it via _pushHud so the HUD just renders
+            // open vs closed from current state.
+            self._shopOpen = !self._shopOpen;
+            // Mirror to scene flag so the champion behavior can pause input
+            // while the shop is up (clicks land on shop buttons, not aim).
+            self.scene._riftShopOpen = self._shopOpen;
+            self._pushHud();
         });
         this.scene.events.ui.on("ui_event:hud/rift_hud:buy_item", function(d) {
             var p = ((d && d.data) || {}).payload || {};
@@ -888,6 +900,10 @@ class Rift1v1GameSystem extends GameScript {
                     ent._riftAlive = true;
                     var spawn = this._teams[key] === "red" ? this._redSpawn : this._blueSpawn;
                     this.scene.setPosition(ent.id, spawn.x, spawn.y, spawn.z);
+                    // Zero velocity on respawn so the dynamic body doesn't
+                    // inherit the death-time momentum (champion sliding away
+                    // from spawn for several frames otherwise).
+                    if (this.scene.setVelocity) this.scene.setVelocity(ent.id, { x: 0, y: 0, z: 0 });
                     ent.transform.markDirty && ent.transform.markDirty();
                 }
                 // Refresh the champion's floating bar so it doesn't stay
@@ -1016,6 +1032,12 @@ class Rift1v1GameSystem extends GameScript {
                 var L = Math.hypot(dx, dz) || 1;
                 var step = Math.min(this._abilityEDash, L);
                 this.scene.setPosition(ent.id, p.x + (dx / L) * step, p.y, p.z + (dz / L) * step);
+                // Zero velocity after the teleport — without this the
+                // dynamic body retains the pre-blink velocity and keeps
+                // sliding past the target. Behavior writes fresh velocity
+                // next frame; the champion has freeze_rotation:true so
+                // angular momentum isn't a concern.
+                if (this.scene.setVelocity) this.scene.setVelocity(ent.id, { x: 0, y: 0, z: 0 });
                 ent.transform.markDirty && ent.transform.markDirty();
             }
             if (isHost) {
@@ -1335,6 +1357,7 @@ class Rift1v1GameSystem extends GameScript {
                 players: players,
                 waveTimer: Math.max(0, Math.round(this._waveTimer)),
                 waveNumber: this._waveNumber,
+                shopOpen: !!this._shopOpen,
             },
         };
         this.scene.events.ui.emit("hud_update", payload);

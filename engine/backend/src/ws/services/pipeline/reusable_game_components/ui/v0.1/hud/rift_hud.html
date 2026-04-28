@@ -572,11 +572,17 @@
       renderPlayersOnMap(r.players || []);
     }
 
-    // Shop toggle
-    if (state && state._riftShopToggle) {
-      shopOpen = !shopOpen;
-      if (shopOpen) els.shopOverlay.classList.add('visible');
-      else els.shopOverlay.classList.remove('visible');
+    // Shop visibility — read state.riftShopOpen (boolean) and apply.
+    // The previous code toggled on every "_riftShopToggle: true" message,
+    // but ui_bridge re-broadcasts hud_update state every frame, so the flag
+    // stuck and the shop flickered open/closed at frame rate.
+    if (state) {
+      var shouldOpen = !!(state._rift && state._rift.shopOpen);
+      if (shouldOpen !== shopOpen) {
+        shopOpen = shouldOpen;
+        if (shopOpen) els.shopOverlay.classList.add('visible');
+        else els.shopOverlay.classList.remove('visible');
+      }
     }
   }
 

@@ -68,6 +68,11 @@ class PlayerMobaChampionBehavior extends GameScript {
 
         var alive = this.entity._riftAlive !== false;
         var pos = this.entity.transform.position;
+        // Read current vy once so every halt-and-bail branch can preserve
+        // gravity. Previously the dead/frozen early-return left velocity
+        // untouched, so the dynamic body kept sliding forever after death.
+        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
+        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
 
         if (this.scene._riftFrozen || !alive) {
             this._targetX = null;
@@ -75,6 +80,29 @@ class PlayerMobaChampionBehavior extends GameScript {
             this._prevRightClick = false;
             this._prevLeftClick = false;
             this._prevQ = this._prevE = this._prevR = false;
+            this._prevShop = false;
+            this.scene.setVelocity(this.entity.id, { x: 0, y: vy, z: 0 });
+            return;
+        }
+
+        // Shop open — pause champion. Right-click move orders, basic
+        // attacks, and ability casts all wait for the shop to close so
+        // clicks land on shop buttons, not the world. Movement halts so
+        // the dynamic body doesn't drift while shopping. The shop hotkey
+        // (KeyB) still fires below to toggle off.
+        if (this.scene._riftShopOpen) {
+            this._targetX = null;
+            this._targetZ = null;
+            this._prevRightClick = false;
+            this._prevLeftClick = false;
+            this._prevQ = this._prevE = this._prevR = false;
+            this.scene.setVelocity(this.entity.id, { x: 0, y: vy, z: 0 });
+            // Still allow B to close the shop.
+            var shopKeyClose = this.input && this.input.isKeyDown("KeyB");
+            if (shopKeyClose && !this._prevShop) {
+                this.scene.events.game.emit("rift_shop_toggle", {});
+            }
+            this._prevShop = shopKeyClose;
             return;
         }
 
@@ -97,8 +125,7 @@ class PlayerMobaChampionBehavior extends GameScript {
 
         // Drive toward target if one is set. Velocity-driven on a dynamic
         // body so Rapier auto-resolves against decor trees / arena walls.
-        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
-        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+        // (rb / vy already read at the top of onUpdate.)
         if (this._targetX !== null) {
             var dx = this._targetX - pos.x;
             var dz = this._targetZ - pos.z;
