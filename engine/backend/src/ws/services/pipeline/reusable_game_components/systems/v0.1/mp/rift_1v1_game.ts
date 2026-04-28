@@ -224,6 +224,12 @@ class Rift1v1GameSystem extends GameScript {
             this._tickChampionRegenHost(dt);
             this._tickBotHost(dt);
             this._maybeEndMatchHost();
+            // Stamp _riftAlive on every champion entity (including the
+            // remote-peer proxy spawned by the network adapter) before
+            // any per-frame attack/aoe logic looks at it. The client gets
+            // this for free via _applyStateSync; the host has no inbound
+            // state sync, so it has to mirror the map itself.
+            this._syncChampionAliveFlags();
             // Periodic state sync for peers.
             this._syncTimer = (this._syncTimer || 0) + dt;
             if (this._syncTimer >= 0.25) {
@@ -977,9 +983,15 @@ class Rift1v1GameSystem extends GameScript {
         var champs = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("champion") : [];
         for (var i = 0; i < champs.length; i++) {
             var c = champs[i];
-            if (!c || !c._riftAlive) continue;
+            if (!c || !c.active || !c._riftAlive) continue;
             var key = this._championKey(c);
-            if (!key || this._teams[key] === team) continue;
+            // Skip champions whose key isn't a participant in the current
+            // match (e.g., the inactive bot left over from the prefab in
+            // 2-peer mode — _teams[key] undefined). Without this, a host
+            // basic attack would lock onto the inactive bot when it's
+            // closer than the live opponent and silently no-op because
+            // _hp["bot_red"] is undefined.
+            if (!key || !this._teams[key] || this._teams[key] === team) continue;
             var cp = c.transform.position;
             var d = Math.hypot(cp.x - fromPos.x, cp.z - fromPos.z);
             if (d < bestDist) { bestDist = d; best = { key: key, x: cp.x, z: cp.z }; }
@@ -1068,9 +1080,9 @@ class Rift1v1GameSystem extends GameScript {
         var champs = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("champion") : [];
         for (var i = 0; i < champs.length; i++) {
             var c = champs[i];
-            if (!c || !c._riftAlive) continue;
+            if (!c || !c.active || !c._riftAlive) continue;
             var key = this._championKey(c);
-            if (!key || this._teams[key] === team) continue;
+            if (!key || !this._teams[key] || this._teams[key] === team) continue;
             var cp = c.transform.position;
             var d = Math.hypot(cp.x - x, cp.z - z);
             if (d < bestDist) { bestDist = d; best = { key: key }; }
@@ -1227,6 +1239,19 @@ class Rift1v1GameSystem extends GameScript {
     }
 
     _applyStateSync(d) {
+        // Track which peers transitioned dead→alive in this sync so the
+        // floating-bar system can refill their dead rows. Without this,
+        // after the host dies and respawns, the client's bar for the
+        // host's proxy stays at row.current=0 forever (host emits
+        // player_respawned only locally, never over the wire) — its bar
+        // remained hidden until the proxy took damage again, which never
+        // happened because current<=0 already.
+        var revived = [];
+        if (d.alive) {
+            for (var rk in d.alive) {
+                if (d.alive[rk] && this._alive[rk] === false) revived.push(rk);
+            }
+        }
         // Mirror authoritative fields.
         if (d.hp) this._hp = d.hp;
         if (d.alive) this._alive = d.alive;
@@ -1264,7 +1289,22 @@ class Rift1v1GameSystem extends GameScript {
                 t.hp = d.towers[j].hp;
             }
         }
-        // Champion alive flags → entity active flip.
+        this._syncChampionAliveFlags();
+        // Replay player_respawned for peers that just came back alive so
+        // entity_health_bars refills their floating bar rows.
+        for (var ri = 0; ri < revived.length; ri++) {
+            this.scene.events.game.emit("player_respawned", { peerId: revived[ri] });
+        }
+    }
+
+    // Mirror the per-peer this._alive map onto each champion entity's
+    // _riftAlive flag. _findBasicAttackTarget / _findAoeHit / etc. all
+    // filter by _riftAlive, so without this the host (which never runs
+    // _applyStateSync) leaves remote-peer proxies at _riftAlive=undefined
+    // and treats them as dead — host couldn't attack the client champion
+    // even though the client could attack the host. Called from both host
+    // (every tick after _broadcastStateSync) and client (in _applyStateSync).
+    _syncChampionAliveFlags() {
         for (var k in this._alive) {
             var ent = this._findChampionByKey(k);
             if (ent) ent._riftAlive = !!this._alive[k];
