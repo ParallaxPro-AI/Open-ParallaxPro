@@ -62,14 +62,39 @@ export class TouchControls {
 
         container.appendChild(this.verticalControls);
 
-        EditorContext.instance.on('cameraModeChanged', (mode: string) => {
-            const show = mode === 'fly';
+        // Visibility composes three states:
+        //   - cameraMode: only show in fly mode (joystick + up/down only
+        //     make sense when the editor camera is the active one).
+        //   - playMode: while a game is running and the user is on the
+        //     Game tab, the editor camera isn't driving the view — the
+        //     game's own camera is. Fly-mode controls would just inject
+        //     phantom motion behind the game's camera. Hide them.
+        //   - active viewport tab: same logic — Scene tab in play-mode
+        //     uses the editor camera, so fly controls should still show.
+        let cameraMode: string = EditorContext.instance.state.cameraMode;
+        let isPlaying: boolean = !!EditorContext.instance.state.isPlaying;
+        let activeTab: string = 'game';
+        const updateVisibility = () => {
+            const isFly = cameraMode === 'fly';
+            const editorCameraActive = !isPlaying || activeTab === 'scene';
+            const show = isFly && editorCameraActive;
             this.joystickEl.style.display = show ? '' : 'none';
             this.verticalControls.style.display = show ? '' : 'none';
-            if (!show) {
-                this.resetJoystick();
-            }
+            if (!show) this.resetJoystick();
+        };
+        EditorContext.instance.on('cameraModeChanged', (mode: string) => {
+            cameraMode = mode;
+            updateVisibility();
         });
+        EditorContext.instance.on('playModeChanged', (playing: boolean) => {
+            isPlaying = !!playing;
+            updateVisibility();
+        });
+        EditorContext.instance.on('viewportTabChanged', (tab: string) => {
+            activeTab = tab;
+            updateVisibility();
+        });
+        updateVisibility();
     }
 
     private onJoystickTouchStart = (e: TouchEvent): void => {
