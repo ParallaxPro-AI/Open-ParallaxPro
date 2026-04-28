@@ -479,35 +479,60 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     }
 
     // ── System tray (top-right ☰ → pause / chat / voice / scoreboard) ────
+    //
+    // The toggle and the menu items are positioned independently against
+    // the overlay root: toggle anchored top-right, items anchored
+    // top-right with an extra rightward inset of (toggle-width + gap).
+    // This keeps the hamburger from moving when the menu opens, and lets
+    // the menu grow leftward without ever wrapping to a new line. (The
+    // earlier flex-row-reverse parent caused the toggle to reflow as
+    // soon as siblings appeared, and on narrower viewports the row
+    // could wrap.)
     const sys = manifest.system!;
+    const TRAY_TOGGLE_SIZE = 42;
+    const TRAY_GAP = 8;
     const trayContainer = document.createElement('div');
+    // Sized to wrap both the absolutely-positioned toggle and items, so
+    // hit-tests against `trayContainer` continue to fire correctly via
+    // its bounding rect (which expands when items are visible).
     trayContainer.style.cssText = [
         'position:absolute',
-        // Tighten to the corner. env(safe-area-inset-*) covers iPhone
-        // notch / home-indicator safe areas; on devices with no inset
-        // the value falls through to the small numeric default.
         'right:env(safe-area-inset-right, 6px)',
         'top:env(safe-area-inset-top, 6px)',
-        'pointer-events:auto',
-        'display:flex',
-        'gap:8px',
-        'flex-direction:row-reverse',
-        'align-items:flex-start',
-        // One stacking-context above the rest of the overlay so the
-        // hamburger is always reachable, even if a wider element grows
-        // up to its row.
+        'width:0',
+        'height:0',
+        'pointer-events:none', // children opt back in
         'z-index:1',
     ].join(';');
     const trayToggle = document.createElement('div');
     trayToggle.textContent = '☰';
     trayToggle.style.cssText = [
-        'width:42px', 'height:42px', 'border-radius:50%',
-        'background:rgba(0,0,0,0.40)', 'border:1px solid rgba(255,255,255,0.20)',
-        'color:white', 'font-size:18px', 'display:flex', 'align-items:center', 'justify-content:center',
+        'position:absolute',
+        'top:0',
+        'right:0',
+        `width:${TRAY_TOGGLE_SIZE}px`,
+        `height:${TRAY_TOGGLE_SIZE}px`,
+        'border-radius:50%',
+        'background:rgba(0,0,0,0.40)',
+        'border:1px solid rgba(255,255,255,0.20)',
+        'color:white', 'font-size:18px',
+        'display:flex', 'align-items:center', 'justify-content:center',
+        'pointer-events:auto',
         'touch-action:none', 'user-select:none',
     ].join(';');
     const trayItems = document.createElement('div');
-    trayItems.style.cssText = 'display:none;flex-direction:row-reverse;gap:8px;';
+    // Anchored to the LEFT of the toggle: right edge = toggle.right + toggle.width + gap.
+    // flex-direction:row-reverse so appendChild order matches visual right-to-left order.
+    trayItems.style.cssText = [
+        'position:absolute',
+        'top:0',
+        `right:${TRAY_TOGGLE_SIZE + TRAY_GAP}px`,
+        'display:none',
+        'flex-direction:row-reverse',
+        'gap:8px',
+        'pointer-events:auto',
+        'white-space:nowrap',
+    ].join(';');
     // System tray buttons are populated AFTER the helper functions are
     // declared (see "System tray buttons" below); we need handler tags
     // on the elements so widgetAt() can dispatch by hit-test.
@@ -651,9 +676,14 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         for (const b of hotbarBtns) {
             if (hit(b.el, x, y)) return { kind: 'hotbar', onStart: b.onStart, onMove: b.onMove, onEnd: b.onEnd };
         }
-        // System tray
-        if (hit(trayContainer, x, y)) {
-            // Find which sub-button if any
+        // System tray. Toggle has its own touchstart listener that opens
+        // the menu; widgetAt returns null for it so the document handler
+        // doesn't preventDefault. Menu-item hit-tests run against
+        // `trayItems`'s rect — when the tray is closed, trayItems is
+        // display:none → getBoundingClientRect returns zeros → hit()
+        // is false → the loop is skipped automatically.
+        if (hit(trayToggle, x, y)) return null;
+        if (hit(trayItems, x, y)) {
             const items = trayItems.children;
             for (let i = 0; i < items.length; i++) {
                 const el = items[i] as HTMLElement;
@@ -662,8 +692,6 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
                     if (handlers) return { kind: 'system', onStart: handlers.onStart, onMove: handlers.onMove, onEnd: handlers.onEnd };
                 }
             }
-            // Tray toggle handles its own touchstart already; swallow.
-            if (hit(trayToggle, x, y)) return null;
         }
         if (joystick && hit(joystick.el, x, y)) {
             return { kind: 'joystick', onStart: joystick.onStart, onMove: joystick.onMove, onEnd: joystick.onEnd };
