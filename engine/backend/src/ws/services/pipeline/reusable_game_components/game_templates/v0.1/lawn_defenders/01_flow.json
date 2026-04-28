@@ -118,16 +118,12 @@
       "label": "Place",
       "secondaryLabel": "Cancel"
     },
-    "hotbar": {
-      "from": "Digit1",
-      "to": "Digit4",
-      "labels": [
-        "Plant 1",
-        "Plant 2",
-        "Plant 3",
-        "Plant 4"
-      ]
-    },
+    "hudKeys": [
+      "Digit1",
+      "Digit2",
+      "Digit3",
+      "Digit4"
+    ],
     "viewport": {
       "tap": "click"
     }
