@@ -251,6 +251,30 @@ const LIBRARY_SH = `#!/bin/bash
 #       Empty results mean no library file or template uses QUERY
 #       literally — check CREATOR_CONTEXT.md for the API's docs.
 #
+#   grep PATTERN [--kind K] [--category C] [-i] [-l] [--limit N] [--context N]
+#       Real-regex sibling of \`examples\`. Where \`examples\` matches a
+#       literal substring (no escaping needed for \`.\` \`(\` etc),
+#       \`grep\` compiles PATTERN as a JS RegExp so you can express
+#       alternation, anchors, character classes, repetition. Use when
+#       a literal substring won't separate signal from noise.
+#
+#       Flags:
+#         -i, --ignore-case    case-insensitive match
+#         -l, --files-only     return file paths + match counts, no snippets
+#         --kind K             scope to behaviors | systems | ui | templates
+#         --category C         scope to a subdirectory inside a kind
+#         --limit N            max hits (default 15, max 40)
+#         --context N          lines of context around each match (default 2, max 6)
+#
+#       Examples:
+#         bash library.sh grep 'events\\.(ui|game)\\.(emit|on)\\('
+#         bash library.sh grep '^export class \\w+System' --kind systems
+#         bash library.sh grep 'playAnimation\\([^)]*"(Walk|Run)"'
+#         bash library.sh grep 'TODO|FIXME' --files-only
+#
+#       Use SINGLE quotes around PATTERN. Double quotes let bash mangle
+#       backslashes — single quotes pass the regex through untouched.
+#
 #   animations <asset_path> [<asset_path2> ...]
 #       List the animation clip names baked into one or more GLB
 #       assets. Use BEFORE writing entity.playAnimation("X", ...) calls
@@ -275,7 +299,10 @@ CMD="\$1"
 shift 2>/dev/null || true
 
 if [ -z "\$CMD" ] || [ "\$CMD" = "help" ] || [ "\$CMD" = "-h" ] || [ "\$CMD" = "--help" ]; then
-    sed -n '2,58p' "\$0" | sed 's/^# \\{0,1\\}//'
+    # Dump every comment line at the head of the script, stripping the
+    # leading "# ". Stop at the first non-comment line (blank or code) so
+    # the help auto-extends as new subcommands are documented.
+    awk '/^#!/{next} !/^#/{exit} {sub(/^# ?/,""); print}' "\$0"
     exit 0
 fi
 
@@ -327,6 +354,9 @@ LIMIT=""
 HEAD=""
 TAIL=""
 RANGE=""
+IGNORE_CASE=""
+FILES_ONLY=""
+CONTEXT_ARG=""
 while [ \$# -gt 0 ]; do
     case "\$1" in
         --kind)      KIND="\$2"; shift 2 ;;
@@ -334,6 +364,9 @@ while [ \$# -gt 0 ]; do
         --limit)     LIMIT="\$2"; shift 2 ;;
         --head)      HEAD="\$2"; shift 2 ;;
         --tail)      TAIL="\$2"; shift 2 ;;
+        --context)   CONTEXT_ARG="\$2"; shift 2 ;;
+        -i|--ignore-case) IGNORE_CASE="1"; shift ;;
+        -l|--files-only)  FILES_ONLY="1"; shift ;;
         --range)
             RANGE="\$2"; shift 2
             # Normalize \`--range 220 280\` (two space-separated numbers)
@@ -585,6 +618,86 @@ if (data.hits.length === 0) {
   }
 }
 " "\$RESP"
+    ;;
+
+grep)
+    if [ \${#POSITIONAL[@]} -eq 0 ]; then
+        echo "Usage: library.sh grep PATTERN [--kind K] [--category C] [-i] [-l] [--limit N] [--context N]" >&2
+        echo "" >&2
+        echo "Real-regex search across the library + templates. Use when 'examples'" >&2
+        echo "(literal substring) can't separate signal — e.g. alternation, anchors," >&2
+        echo "char classes. PATTERN is a JS RegExp. Wrap in SINGLE quotes so bash" >&2
+        echo "doesn't strip your backslashes." >&2
+        exit 1
+    fi
+    QS="pattern=\$(enc "\${POSITIONAL[0]}")"
+    [ -n "\$KIND" ]        && QS="\${QS}&kind=\$(enc "\$KIND")"
+    [ -n "\$CATEGORY" ]    && QS="\${QS}&category=\$(enc "\$CATEGORY")"
+    [ -n "\$LIMIT" ]       && QS="\${QS}&limit=\${LIMIT}"
+    [ -n "\$CONTEXT_ARG" ] && QS="\${QS}&context=\${CONTEXT_ARG}"
+    [ -n "\$IGNORE_CASE" ] && QS="\${QS}&ignoreCase=1"
+    [ -n "\$FILES_ONLY" ]  && QS="\${QS}&filesOnly=1"
+
+    # Direct curl (not fetch_lib) so we can read 400 bodies — the bad-regex
+    # detail message lives in the 400 body and curl -sf would swallow it.
+    BODY_FILE=\$(mktemp 2>/dev/null || echo /tmp/libsh.\$\$.body)
+    HTTP="000"
+    if [ -n "\$URL" ]; then
+        HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${URL}/api/engine/internal/library/grep?\${QS}" 2>/dev/null) || HTTP="000"
+    fi
+    # Only retry on a true network failure. 400 (bad regex) is the agent's
+    # bug, and 200 with no hits is conclusive — neither benefits from a
+    # mirror retry.
+    if { [ "\$HTTP" = "000" ] || [ -z "\$HTTP" ]; } && [ -n "\$FALLBACK_URL" ]; then
+        HTTP=\$(curl -s --max-time 10 -o "\$BODY_FILE" -w "%{http_code}" "\${HDR[@]}" "\${FALLBACK_URL}/api/engine/internal/library/grep?\${QS}" 2>/dev/null) || HTTP="000"
+    fi
+
+    if [ "\$HTTP" = "000" ] || [ -z "\$HTTP" ]; then
+        echo "WARN: library/grep endpoint unreachable." >&2
+        rm -f "\$BODY_FILE"
+        exit 0
+    fi
+    if [ "\$HTTP" = "400" ]; then
+        node -e "try { var d=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); console.error('ERROR (bad regex): ' + (d.detail || d.error || 'invalid pattern')); } catch (e) { console.error('ERROR: bad request'); }" "\$BODY_FILE"
+        rm -f "\$BODY_FILE"
+        exit 1
+    fi
+    if [ "\$HTTP" != "200" ]; then
+        echo "WARN: library/grep returned HTTP \$HTTP" >&2
+        head -c 400 "\$BODY_FILE" >&2
+        echo >&2
+        rm -f "\$BODY_FILE"
+        exit 0
+    fi
+
+    node -e "
+var data = JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));
+var label = '/' + data.pattern + '/' + (data.flags || '');
+var trunc = data.truncated ? ' (truncated — refine with --kind/--category or tighten the pattern)' : '';
+if (data.files) {
+  console.log('[' + label + '] ' + data.files.length + ' file' + (data.files.length === 1 ? '' : 's') + trunc);
+  for (var f of data.files) {
+    var n = f.count.toString();
+    while (n.length < 3) n = ' ' + n;
+    console.log('  ' + n + '  ' + f.path);
+  }
+} else {
+  console.log('[' + label + '] ' + data.hits.length + ' match' + (data.hits.length === 1 ? '' : 'es') + trunc);
+  if (data.hits.length === 0) {
+    console.log('No matches. Tips:');
+    console.log('  - Wrap PATTERN in single quotes so bash leaves backslashes alone.');
+    console.log('  - Try -i for case-insensitive, or relax anchors.');
+    console.log('  - For a literal substring, library.sh examples is cheaper.');
+  } else {
+    for (var h of data.hits) {
+      console.log('');
+      console.log('--- ' + h.path + ':' + h.line + ' ---');
+      console.log(h.snippet);
+    }
+  }
+}
+" "\$BODY_FILE"
+    rm -f "\$BODY_FILE"
     ;;
 
 *)

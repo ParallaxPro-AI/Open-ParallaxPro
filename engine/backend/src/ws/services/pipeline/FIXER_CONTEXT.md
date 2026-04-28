@@ -353,6 +353,18 @@ bash library.sh examples lightType
 bash library.sh examples scene.events.net.emit
 ```
 
+```bash
+# grep: regex sibling of examples. Use when alternation, anchors, or
+# character classes matter — finding every emit/on call site, every
+# system class declaration, every Walk/Run animation usage, etc.
+# Wrap PATTERN in SINGLE quotes (bash mangles backslashes inside
+# double quotes). For a literal substring, `examples` is cheaper.
+bash library.sh grep 'events\.(ui|game)\.(emit|on)\('
+bash library.sh grep '^export class \w+System' --kind systems
+bash library.sh grep 'playAnimation\([^)]*"(Walk|Run)"'
+bash library.sh grep 'TODO|FIXME' --files-only       # paths + counts, no snippets
+```
+
 ### Kind-inferring paths
 
 References inside library files drop the kind prefix. When you see `"script": "movement/jump.ts"` in a template's `02_entities.json`, or `"show_ui:hud/health"` in a `01_flow.json`, you can pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` automatically:
