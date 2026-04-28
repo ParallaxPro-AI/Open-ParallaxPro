@@ -102,14 +102,38 @@ export interface MobileInputOverlay {
 /**
  * Detect a touch-capable device that should get the overlay.
  *
- * Matches the existing `html_ui_manager.ts:234` rule so mobile-disabled
- * cursor logic and overlay attach decisions agree. iPad-Pro-with-keyboard
- * (>1024px) stays on the desktop path.
+ * Two changes from the previous implementation, both prompted by user
+ * reports of "controls don't pop up until I refresh":
+ *
+ *   1. Multi-source touch detection. `'ontouchstart' in window` alone is
+ *      unreliable in some hybrid browser contexts (in-app webviews,
+ *      certain Android browsers on cold boot). Including
+ *      `navigator.maxTouchPoints > 0` covers the gap.
+ *
+ *   2. No more `window.innerWidth < 1024` gate. That width is captured
+ *      ONCE at attach time. On a slow iframe layout (CSS still settling,
+ *      iOS Safari address-bar collapse animations, parent React
+ *      hydration races) it can momentarily report a stale wider value,
+ *      the overlay never attaches, and the only fix is a refresh — which
+ *      is exactly the bug reported. Use a CSS pointer-coarse query
+ *      instead — it identifies devices whose PRIMARY input is a finger,
+ *      which is robust across screen sizes (phones + tablets without
+ *      keyboard) and excludes desktops-with-touchscreens (primary is
+ *      mouse, coarse is false).
+ *
+ * iPad-Pro-with-keyboard still shows the overlay; the auto-fade on
+ * first physical KeyboardEvent (already in this file) hides it once
+ * the user starts typing.
  */
 export function shouldShowMobileOverlay(): boolean {
     if (typeof window === 'undefined' || typeof document === 'undefined') return false;
-    if (!('ontouchstart' in window)) return false;
-    return window.innerWidth < 1024;
+    const hasTouch = ('ontouchstart' in window) || ((navigator as any)?.maxTouchPoints ?? 0) > 0;
+    if (!hasTouch) return false;
+    // matchMedia is always present in modern browsers; defensive default
+    // is `true` so we don't accidentally exclude touch devices on
+    // browsers that lack the API.
+    const coarse = window.matchMedia?.('(pointer: coarse)')?.matches ?? true;
+    return coarse;
 }
 
 /**

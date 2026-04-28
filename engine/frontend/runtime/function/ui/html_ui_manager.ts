@@ -231,7 +231,15 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
             if (found) this.container = found;
         }
         const container = this.container;
-        const isMobileDevice = 'ontouchstart' in window && window.innerWidth < 1024;
+        // Match shouldShowMobileOverlay() in mobile_input_overlay.ts so
+        // the virtual-cursor logic and overlay attach decisions agree —
+        // touch capable AND primary pointer is coarse (finger). The
+        // earlier `innerWidth < 1024` gate was captured once per frame
+        // here but still produced flicker during CSS settling on iframe
+        // load.
+        const _hasTouch = ('ontouchstart' in window) || ((navigator as any)?.maxTouchPoints ?? 0) > 0;
+        const _coarse = window.matchMedia?.('(pointer: coarse)')?.matches ?? true;
+        const isMobileDevice = _hasTouch && _coarse;
         const wantCursor = !isMobileDevice && !!(state._cursor && state._cursor.visible && container);
 
         if (wantCursor) {
