@@ -308,6 +308,12 @@ export class EditorContext extends EventBus {
         if (isMobileDevice && this.engine) {
             this.engine.globalContext.inputDevice.forcePointerLocked = true;
         }
+        // Pointer-lock relock overlay is desktop-only (mobile has no
+        // pointer lock). Track the desktop-specific helpers in this
+        // closure so the tab-change listener below can call them when
+        // applicable, and the play-mode cleanup can detach them.
+        let removeOverlay: () => void = () => {};
+        let onPointerLockChange: ((e: Event) => void) | null = null;
         if (viewportCanvas && !isMobileDevice) {
             try { viewportCanvas.requestPointerLock(); } catch (_) {}
 
@@ -315,14 +321,14 @@ export class EditorContext extends EventBus {
             this._pointerLockStopping = false;
             this._pointerLockOverlay = null;
 
-            const removeOverlay = () => {
+            removeOverlay = () => {
                 if (this._pointerLockOverlay) {
                     this._pointerLockOverlay.remove();
                     this._pointerLockOverlay = null;
                 }
             };
 
-            const onPointerLockChange = () => {
+            onPointerLockChange = () => {
                 if (this._pointerLockStopping || !this.state.isPlaying) return;
                 if (!document.pointerLockElement) {
                     if (this._pointerLockOverlay) return;
@@ -337,25 +343,23 @@ export class EditorContext extends EventBus {
                 }
             };
             document.addEventListener('pointerlockchange', onPointerLockChange);
+        }
 
-            const onPlayModeChanged = (playing: boolean) => {
-                if (!playing) {
-                    this._pointerLockStopping = true;
-                    document.removeEventListener('pointerlockchange', onPointerLockChange);
-                    removeOverlay();
-                    this.off('playModeChanged', onPlayModeChanged);
-                    try { document.exitPointerLock(); } catch (_) {}
-                }
-            };
-            this.on('playModeChanged', onPlayModeChanged);
-
-            const onTabChanged = (tab: string) => {
-                if (!this.state.isPlaying) return;
-                const hide = tab === 'scene';
-                if (this.engine) {
-                    this.engine.globalContext.inputDevice.suppressGameInput = hide;
-                    if (hide) this.engine.globalContext.inputSystem.clearAllInputState();
-                }
+        // Tab-changed listener — runs on BOTH desktop and mobile so the
+        // HUD HTML / game-ui-overlay / entity labels hide when the user
+        // toggles to the Scene tab during play. Previously this was
+        // nested inside the desktop-only pointer-lock block, which left
+        // mobile players staring at the in-game HUD on top of the scene
+        // tab's gizmos. Pointer-lock specifics are still gated on
+        // desktop via the captured helpers above.
+        const onTabChanged = (tab: string) => {
+            if (!this.state.isPlaying) return;
+            const hide = tab === 'scene';
+            if (this.engine) {
+                this.engine.globalContext.inputDevice.suppressGameInput = hide;
+                if (hide) this.engine.globalContext.inputSystem.clearAllInputState();
+            }
+            if (!isMobileDevice && viewportCanvas) {
                 if (hide) {
                     this._pointerLockStopping = true;
                     removeOverlay();
@@ -364,14 +368,38 @@ export class EditorContext extends EventBus {
                     this._pointerLockStopping = false;
                     try { viewportCanvas.requestPointerLock(); } catch (_) {}
                 }
-                if (this.htmlUIManager) this.htmlUIManager.setVisible(!hide);
-                const guiOverlay = document.getElementById('game-ui-overlay');
-                if (guiOverlay) guiOverlay.style.visibility = hide ? 'hidden' : '';
-                const labels = document.querySelectorAll('.viewport-canvas-container .entity-label, .viewport-canvas-container [data-entity-label]');
-                labels.forEach(el => (el as HTMLElement).style.visibility = hide ? 'hidden' : '');
-            };
-            this.on('viewportTabChanged', onTabChanged);
-        }
+            }
+            if (this.htmlUIManager) this.htmlUIManager.setVisible(!hide);
+            const guiOverlay = document.getElementById('game-ui-overlay');
+            if (guiOverlay) guiOverlay.style.visibility = hide ? 'hidden' : '';
+            const labels = document.querySelectorAll('.viewport-canvas-container .entity-label, .viewport-canvas-container [data-entity-label]');
+            labels.forEach(el => (el as HTMLElement).style.visibility = hide ? 'hidden' : '');
+            // Mobile-only: also hide the touch-controls overlay on the
+            // Scene tab (it's a play-mode-only surface, and its joystick
+            // / look pad would block the orbit camera's drag input).
+            try {
+                this.engine?.globalContext.mobileOverlay?.setSuspended(hide, 'scene-tab');
+            } catch { /* swallow */ }
+        };
+        this.on('viewportTabChanged', onTabChanged);
+
+        // Cleanup on Stop. Detach pointer-lock listener + tab listener
+        // so a Play→Stop→Play cycle doesn't pile up duplicates that
+        // each fire on the next tab toggle.
+        const onPlayModeChanged = (playing: boolean) => {
+            if (!playing) {
+                this._pointerLockStopping = true;
+                if (onPointerLockChange) document.removeEventListener('pointerlockchange', onPointerLockChange);
+                removeOverlay();
+                this.off('viewportTabChanged', onTabChanged);
+                this.off('playModeChanged', onPlayModeChanged);
+                try { document.exitPointerLock(); } catch (_) {}
+                // Clear the scene-tab suspension key so the overlay is
+                // ready for the next Play.
+                try { this.engine?.globalContext.mobileOverlay?.setSuspended(false, 'scene-tab'); } catch { /* swallow */ }
+            }
+        };
+        this.on('playModeChanged', onPlayModeChanged);
         if (this.engine) {
             const wm = this.engine.globalContext.worldManager;
             const pd = this.state.projectData;
