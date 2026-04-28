@@ -118,7 +118,28 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     let enabled = readEnabled();
     const suspendedReasons = new Set<string>();
     let destroyed = false;
-    const isVisible = () => enabled && suspendedReasons.size === 0;
+
+    /**
+     * Two-tier visibility:
+     *   - controlsVisible: joystick / look pad / action rail / hotbar.
+     *     Hidden by ANY suspension reason (edit-mode pause, AI chat
+     *     sheet open over the viewport).
+     *   - trayVisible: the system tray (☰ pause / voice / chat / score).
+     *     Hidden ONLY by edit-mode. Stays visible while the AI chat
+     *     sheet is open so players can still pause / mute / open the
+     *     in-game text chat without dismissing the assistant.
+     *
+     * The user's localStorage `enabled` toggle disables the entire
+     * overlay regardless of either tier.
+     */
+    const TRAY_HIDING_REASONS: ReadonlySet<string> = new Set(['editor-mode']);
+    const isControlsVisible = () => enabled && suspendedReasons.size === 0;
+    const isTrayVisible = () => {
+        if (!enabled) return false;
+        for (const r of suspendedReasons) if (TRAY_HIDING_REASONS.has(r)) return false;
+        return true;
+    };
+    const isVisible = () => isControlsVisible() || isTrayVisible();
 
     // ── Root overlay ────────────────────────────────────────────────────
     const root = document.createElement('div');
@@ -134,7 +155,6 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         '-webkit-touch-callout:none',
         'font-family:-apple-system,BlinkMacSystemFont,sans-serif',
     ].join(';');
-    if (!isVisible()) root.style.display = 'none';
     container.appendChild(root);
 
     // Track which Touch.identifier each widget owns + the keys it pressed.
@@ -392,6 +412,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
 
     // ── Hotbar (top strip of digit / function-key slots) ──────────────────
     const hotbarBtns: ReturnType<typeof buildHotbarSlot>[] = [];
+    let hotbarContainer: HTMLElement | null = null;
     if (manifest.hotbar) {
         const slots = expandHotbarRange(manifest.hotbar.from, manifest.hotbar.to);
         const labels = manifest.hotbar.labels || [];
@@ -411,6 +432,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             hotbarBtns.push(b);
         });
         root.appendChild(hotbar);
+        hotbarContainer = hotbar;
     }
 
     function buildHotbarSlot(code: string, label: string) {
@@ -461,13 +483,20 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     const trayContainer = document.createElement('div');
     trayContainer.style.cssText = [
         'position:absolute',
-        'right:max(20px, env(safe-area-inset-right))',
-        'top:max(12px, env(safe-area-inset-top))',
+        // Tighten to the corner. env(safe-area-inset-*) covers iPhone
+        // notch / home-indicator safe areas; on devices with no inset
+        // the value falls through to the small numeric default.
+        'right:env(safe-area-inset-right, 6px)',
+        'top:env(safe-area-inset-top, 6px)',
         'pointer-events:auto',
         'display:flex',
         'gap:8px',
         'flex-direction:row-reverse',
         'align-items:flex-start',
+        // One stacking-context above the rest of the overlay so the
+        // hamburger is always reachable, even if a wider element grows
+        // up to its row.
+        'z-index:1',
     ].join(';');
     const trayToggle = document.createElement('div');
     trayToggle.textContent = '☰';
@@ -800,8 +829,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     function autoFadeOverlay() {
         if (!isVisible()) return;
         enabled = false;
-        root.style.display = 'none';
-        releaseAllFingers();
+        applyVisibility();
         // Don't write to localStorage — this is a soft, session-only fade.
     }
 
@@ -825,19 +853,40 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             toggle.textContent = enabled ? 'On' : 'Off';
             toggle.style.background = enabled ? 'rgba(134,72,230,0.25)' : 'transparent';
             toggle.style.color = enabled ? '#c9a5f7' : '#aaa';
-            root.style.display = isVisible() ? '' : 'none';
+            applyVisibility();
         };
         toggle.addEventListener('click', () => {
             enabled = !enabled;
             try { localStorage.setItem(STORAGE_KEY, String(enabled)); } catch { /* private mode */ }
             updateToggleUI();
-            if (!isVisible()) releaseAllFingers();
+            if (!isControlsVisible()) releaseAllFingers();
         });
         updateToggleUI();
         settingsRow.appendChild(label);
         settingsRow.appendChild(toggle);
         settingsPanel.appendChild(settingsRow);
     }
+
+    // ── Visibility application ────────────────────────────────────────────
+    // Apply controls vs tray visibility independently. Root stays mounted
+    // and pointer-events:none, just toggling per-child display so the
+    // tray can stay visible while the gameplay controls hide.
+    function applyVisibility(): void {
+        const showControls = isControlsVisible();
+        const showTray = isTrayVisible();
+        // Root: present iff anything inside should show. Hidden entirely
+        // when the user has toggled the overlay off and we're in editor-mode.
+        root.style.display = (showControls || showTray) ? '' : 'none';
+        if (joystick) joystick.el.style.display = showControls ? '' : 'none';
+        if (lookPad) lookPad.el.style.display = showControls ? '' : 'none';
+        railContainer.style.display = showControls ? '' : 'none';
+        if (hotbarContainer) hotbarContainer.style.display = showControls ? '' : 'none';
+        trayContainer.style.display = showTray ? '' : 'none';
+        // If gameplay controls just hid, drop any held keys they had
+        // synthesized. Tray buttons handle their own teardown on touchend.
+        if (!showControls) releaseAllFingers();
+    }
+    applyVisibility();
 
     // ── Public handle ────────────────────────────────────────────────────
     return {
@@ -856,17 +905,15 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         },
         setEnabled: (e) => {
             enabled = e;
-            root.style.display = isVisible() ? '' : 'none';
             try { localStorage.setItem(STORAGE_KEY, String(enabled)); } catch { /* swallow */ }
-            if (!isVisible()) releaseAllFingers();
+            applyVisibility();
         },
         isEnabled: () => enabled,
         setSuspended: (s, reason) => {
             const key = reason || 'default';
             if (s) suspendedReasons.add(key);
             else suspendedReasons.delete(key);
-            root.style.display = isVisible() ? '' : 'none';
-            if (!isVisible()) releaseAllFingers();
+            applyVisibility();
         },
     };
 }
