@@ -793,6 +793,19 @@ Mirror exactly:
 
 `hud/ping` is gameplay-only (top-right RTT). `voice_chat` + `text_chat` show from `lobby_room` onwards and stay visible through `game_over`.
 
+### Symptom: "I can't see other players in the world (but the scoreboard works)"
+
+If the scoreboard / chat / networked events all work but remote player avatars never appear, the custom MP system is missing the **local NetworkIdentityComponent stamp**. Both peers' local players keep `networkId = -1`, peer A's snapshots collide with peer B's own local player on receive, and the adapter never spawns a remote-player proxy.
+
+Fix the system file (e.g. `systems/mp/<your_game>.ts` or `systems/gameplay/<your_game>.ts`):
+
+1. Add `_hashPeerId`, `_findLocalPlayerEntity`, `_stampLocalNetworkIdentity` (copy verbatim from any shipped MP system — `bash library.sh show systems/mp/coin_grab_game.ts` and lift the helpers).
+2. Call `this._stampLocalNetworkIdentity()` from `_initMatch` / `_startMatch` BEFORE broadcasting state.
+3. If the player uses a character GLB with animation clips, also add `_tickRemoteAnimations(dt)` and call it at the top of `onUpdate` — the adapter spawns proxies with `skipBehaviors: true` so the local-input movement script never runs on them, leaving them in bind pose.
+4. If both peers spawn at the same world placement, add a `_positionLocalPlayer` that slots peers by sorted peerId (mirror `coin_grab_game._positionLocalPlayer`) and call from `_initMatch`.
+
+`coin_grab_game.ts` and `pickaxe_keep_game.ts` are the canonical references.
+
 ## Pause menu (optional, reusable)
 
 Pin `ui/pause_menu.html` and configure via `ui_params.pause_menu.pauseButtons`:

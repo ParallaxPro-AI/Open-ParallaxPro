@@ -787,6 +787,110 @@ Mark entities that should sync across the network with a `network` block in `02_
 Only entities with a `network` block are transmitted; everything else is
 strictly local per peer.
 
+### Custom MP system requirements (non-negotiable)
+
+If you author a NEW system that owns a player avatar entity (one with
+`network.ownership: "local_player"`), the system MUST do two things on
+match start. Skip either and remote players will be **invisible** in your
+local world even though networked events still flow (scoreboard works,
+avatars don't appear).
+
+Every shipped MP template (`coin_grab_game`, `pickaxe_keep_game`,
+`deathmatch_game`, `court_match`, `noodle_jaunt_game`, etc.) does this.
+Mirror their pattern verbatim — copy the helpers below, no rewrites.
+
+**1. Stamp the local NetworkIdentityComponent with a per-peer net id.**
+Without this, both peers' local players share `networkId = -1`, peer A's
+snapshots collide with peer B's own local player on receive, and the
+adapter never spawns a remote-player proxy for peer A.
+
+```js
+_stampLocalNetworkIdentity() {
+    var mp = this.scene._mp;
+    if (!mp || !mp.localPeerId) return;
+    var p = this._findLocalPlayerEntity();
+    if (!p) return;
+    var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+    if (ni) {
+        ni.networkId = this._hashPeerId(mp.localPeerId);
+        ni.ownerId = mp.localPeerId;
+        ni.isLocalPlayer = true;
+    }
+}
+
+_findLocalPlayerEntity() {
+    var players = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+    for (var i = 0; i < players.length; i++) {
+        var p = players[i];
+        var tags = p.tags;
+        var hasRemote = false;
+        if (tags) {
+            if (typeof tags.has === "function") hasRemote = tags.has("remote");
+            else if (tags.indexOf) hasRemote = tags.indexOf("remote") >= 0;
+        }
+        if (hasRemote) continue;
+        var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+        if (ni && ni.isLocalPlayer) return p;
+    }
+    return players[0] || null;
+}
+
+_hashPeerId(peerId) {
+    var h = 2166136261;
+    for (var i = 0; i < peerId.length; i++) {
+        h ^= peerId.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 1000000) + 1000;
+}
+```
+
+Call `this._stampLocalNetworkIdentity()` from your match-init path (the
+`onStart` / `match_started` handler) BEFORE you broadcast any state.
+
+**2. If your player uses a character GLB with animation clips, drive the
+remote proxies' Idle/Walk/Run.** The adapter spawns proxies with
+`skipBehaviors: true`, so the local-input movement script never runs on
+them — without this ticker the remote Knight stands in bind pose while
+their synced transform glides around. Skip this only when the player is a
+non-character mesh (kart, cycle, ball, etc.).
+
+```js
+_tickRemoteAnimations(dt) {
+    var all = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+    if (!all || all.length === 0) return;
+    if (!this._remoteAnimState) this._remoteAnimState = {};
+    var step = dt > 0 ? dt : 1 / 60;
+    for (var i = 0; i < all.length; i++) {
+        var p = all[i];
+        if (!p || !p.transform || !p.playAnimation) continue;
+        var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+        if (!ni || ni.isLocalPlayer) continue;
+        var key = String(ni.ownerId || ni.networkId || p.id);
+        var st = this._remoteAnimState[key];
+        var pos = p.transform.position;
+        if (!st) { this._remoteAnimState[key] = { x: pos.x, y: pos.y, z: pos.z, anim: "" }; continue; }
+        var dx = (pos.x - st.x) / step, dz = (pos.z - st.z) / step;
+        st.x = pos.x; st.y = pos.y; st.z = pos.z;
+        var spd = Math.sqrt(dx * dx + dz * dz);
+        var anim = spd > 7.5 ? "Run" : (spd > 0.5 ? "Walk" : "Idle");
+        if (anim !== st.anim) {
+            st.anim = anim;
+            try { p.playAnimation(anim, { loop: true }); } catch (e) { /* missing clip */ }
+        }
+    }
+}
+```
+
+Call `this._tickRemoteAnimations(dt)` at the top of your system's
+`onUpdate(dt)`.
+
+**3. Spawn peers at distinct positions.** Both peers run the same scene
+and place the same player at the same spot in `03_worlds.json`, so by
+default both spawn on top of each other. Slot peers by sorted peerId
+(see `coin_grab_game._positionLocalPlayer`) and `setPosition` the local
+player into its slot inside `_initMatch`.
+
 ### Multiplayer flow actions
 
 See the "Flow action verbs" section above (`mp:show_browser`, `emit:net.<event>`,
