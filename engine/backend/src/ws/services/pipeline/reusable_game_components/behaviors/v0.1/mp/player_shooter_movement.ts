@@ -77,9 +77,10 @@ class PlayerShooterMovementBehavior extends GameScript {
         var pos = this.entity.transform.position;
         // Normalize diagonal so diagonal isn't 1.41× faster than cardinal.
         var mag = Math.sqrt(forward * forward + strafe * strafe);
+        var vx = 0, vz = 0;
         if (mag > 0) {
-            pos.x += (strafe / mag) * speed * dt;
-            pos.z += (-forward / mag) * speed * dt;
+            vx = (strafe / mag) * speed;
+            vz = (-forward / mag) * speed;
         }
 
         // Mouse aim — project the cursor onto the ground plane at
@@ -107,15 +108,22 @@ class PlayerShooterMovementBehavior extends GameScript {
             this.entity.transform.setRotationEuler(0, curYaw, 0);
         }
 
-        // Map bounds — honors a soft buffer so players can't walk into
-        // the storm-visualization cylinder's geometry.
+        // Map bounds — soft velocity clamp at the edge so players can't
+        // push into the storm-visualization cylinder's geometry. Replaces
+        // the old hard pos = ±h clamp which would fight physics now that
+        // the player is dynamic.
         var h = this._boundsHalf;
-        if (pos.x < -h) pos.x = -h;
-        if (pos.x >  h) pos.x =  h;
-        if (pos.z < -h) pos.z = -h;
-        if (pos.z >  h) pos.z =  h;
+        if (pos.x < -h && vx < 0) vx = 0;
+        if (pos.x >  h && vx > 0) vx = 0;
+        if (pos.z < -h && vz < 0) vz = 0;
+        if (pos.z >  h && vz > 0) vz = 0;
 
-        this.entity.transform.markDirty && this.entity.transform.markDirty();
+        // Dynamic body + setVelocity so Rapier auto-resolves vs trees /
+        // rocks / houses scattered across the royale map. vy preserved
+        // from the rigidbody so gravity holds the player on the ground.
+        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
+        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+        this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
 
         if (this.scene._shooterFrozen || !isAlive) {
             this._prevFire = false;

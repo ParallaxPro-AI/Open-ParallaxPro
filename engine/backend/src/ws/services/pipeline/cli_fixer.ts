@@ -37,7 +37,7 @@ import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validato
 import { isDockerSandboxEnabled } from './docker_sandbox.js';
 import { config } from '../../../config.js';
 import { writeValidateScripts, writeSearchAssetsTool, writeLibraryTool } from './sandbox_validate.js';
-import { generateAssetCatalog } from './cli_creator.js';
+import { generateAssetCatalog, copyDirRecursive } from './cli_creator.js';
 
 const __dirname_fixer = path.dirname(fileURLToPath(import.meta.url));
 const RGC_DIR = path.join(__dirname_fixer, 'reusable_game_components');
@@ -232,6 +232,11 @@ async function createSandbox(
     const refDir = path.join(sandboxDir, 'reference');
     fs.mkdirSync(refDir, { recursive: true });
 
+    // game_templates/ is kept whole (40 templates × 4 small JSONs — cheap)
+    // so the fixer can pattern-match against shipped templates without a
+    // library.sh round-trip. Mirrors what cli_creator seeds.
+    copyDirRecursive(path.join(RGC_DIR, 'game_templates', 'v0.1'), path.join(refDir, 'game_templates'));
+
     // Convenience: event_definitions.ts is referenced by every fix (the
     // agent checks valid event names before emit/listen). Keep a pointer
     // copy in reference/ so it's trivially reachable via Read without a
@@ -263,9 +268,9 @@ async function createSandbox(
 // Engine docs + rules live in CLAUDE.md / AGENTS.md, which each CLI auto-loads
 // into its system prompt — no Read call needed. Keep this prompt to the
 // per-run instructions only.
-const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Edit template files in project/ to fix the bug (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/ — never assembled output). To use a behavior/system/UI panel not yet in project/, find it with "bash library.sh search \\"<intent>\\"", fetch it with "bash library.sh show <path>", and Write it into project/. The library is NOT in reference/ anymore — use the tool. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
+const FIXER_PROMPT = `Read TASK.md for the bug report and project state. Edit template files in project/ to fix the bug (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/ — never assembled output). To use a behavior/system/UI panel not yet in project/, find it with "bash library.sh search \\"<intent>\\"", fetch it with "bash library.sh show <path>", and Write it into project/. The library is NOT in reference/ anymore — use the tool. reference/game_templates/ holds the 40 shipped templates as worked examples — Read them when you need a known-good pattern. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
-const FIXER_PROMPT_WARM = `You are already primed with the engine docs. Now read TASK.md for the bug report and project state. Read the project files in project/. Fix the bug — edit template files only (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/). If you need a library behavior/system/UI panel not in project/, use "bash library.sh {search|show}" to find and fetch it, then Write it into project/. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
+const FIXER_PROMPT_WARM = `You are already primed with the engine docs. Now read TASK.md for the bug report and project state. Read the project files in project/. Fix the bug — edit template files only (the 4 JSONs + pinned behaviors/, systems/, ui/, scripts/). If you need a library behavior/system/UI panel not in project/, use "bash library.sh {search|show}" to find and fetch it, then Write it into project/. reference/game_templates/ has the 40 shipped templates as worked examples if you need a known-good pattern. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
 function fixerStatus(activity: CLIActivity): string | undefined {
     switch (activity.kind) {

@@ -32,6 +32,8 @@ project/                          — The user's game (template format). EDIT TH
   scripts/                        — User-written custom scripts (optional)
 reference/                        — Read-only
   event_definitions.ts            — Canonical event schema (convenience pointer)
+  game_templates/                 — All 40 shipped templates (4 JSONs each).
+                                    Read for known-good patterns when fixing.
 TASK.md                           — The user's request + project summary
 search_assets.sh                  — bash search_assets.sh "query" to find assets
 library.sh                        — bash library.sh {list,search,show} to find +
@@ -351,6 +353,18 @@ bash library.sh examples lightType
 bash library.sh examples scene.events.net.emit
 ```
 
+```bash
+# grep: regex sibling of examples. Use when alternation, anchors, or
+# character classes matter — finding every emit/on call site, every
+# system class declaration, every Walk/Run animation usage, etc.
+# Wrap PATTERN in SINGLE quotes (bash mangles backslashes inside
+# double quotes). For a literal substring, `examples` is cheaper.
+bash library.sh grep 'events\.(ui|game)\.(emit|on)\('
+bash library.sh grep '^export class \w+System' --kind systems
+bash library.sh grep 'playAnimation\([^)]*"(Walk|Run)"'
+bash library.sh grep 'TODO|FIXME' --files-only       # paths + counts, no snippets
+```
+
 ### Kind-inferring paths
 
 References inside library files drop the kind prefix. When you see `"script": "movement/jump.ts"` in a template's `02_entities.json`, or `"show_ui:hud/health"` in a `01_flow.json`, you can pass that literal to `library.sh show` — it resolves against `behaviors/`, `systems/`, or `ui/` automatically:
@@ -517,6 +531,17 @@ If the placement has `rotation: [0, yaw, 0]`, the AABB rotates too — for yaw =
 - "Pickup is unreachable" → must be at `y = 0.5 + H/2` so player walks through the centre
 
 If a search result line lacks the size suffix, the GLB couldn't be inspected (rare). Pick a different model or assume conservative ~1 m for a single-mesh prop.
+
+### Render cost — vertex budget (guideline, not a hard rule)
+
+`search_assets.sh` results also annotate each GLB's vertex count, e.g. `[12.4K verts]` after the size. Vertex count drives GPU vertex-shader work and per-mesh VRAM. Mid-tier hardware can comfortably handle **~1M live verts on screen** at once. Rules of thumb when picking between assets:
+
+- Hero / player mesh: ≤ ~40K is comfortable (one of them, so 80K is also fine).
+- Common props you'll spawn many of (enemies, pickups, crates): ≤ ~10K. 50 enemies × 50K = 2.5M = lag.
+- Background decoration past 30 m: LOD usually rescues these — close-range count matters more.
+- Particles, projectiles, collectibles: ≤ ~2K.
+
+**Prefer the lighter asset when two options match.** Use a heavy one if it's the only good fit — visual fidelity beats budget for unique meshes. Not validate-enforced; this is purely an asset-selection hint. If a user reports lag, this is the first place to look: `bash search_assets.sh "<thing>"` and check whether the entity's mesh has an unusually high vert count (e.g., a 100K-vert "rock" used 30 times).
 
 ### Material overrides
 
@@ -779,6 +804,60 @@ Mirror exactly:
 ```
 
 `hud/ping` is gameplay-only (top-right RTT). `voice_chat` + `text_chat` show from `lobby_room` onwards and stay visible through `game_over`.
+
+### Symptom: "Player walks through rocks / walls / props (in a multiplayer game)"
+
+The static colliders on the obstacles are probably already correct; the
+problem is the player. If `02_entities.json` declares the player as
+`physics: { type: "kinematic", collider: "capsule" }` and the movement
+script (`behaviors/mp/player_arena_movement.ts` or similar) writes
+`pos.x += ...` directly, the player is a `kinematicPositionBased` body —
+Rapier doesn't auto-resolve those against statics, so the player teleports
+through anything in its path.
+
+Fix: switch the player to dynamic and drive it via `setVelocity`.
+
+```jsonc
+// 02_entities.json
+"player": {
+  "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
+  ...
+}
+```
+
+```js
+// movement script onUpdate
+var rb = this.entity.getComponent("RigidbodyComponent");
+var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
+// keep transform.setRotationEuler(...) for facing — freeze_rotation:true
+// keeps physics from clobbering it.
+```
+
+Preserve `vy` (gravity), and replace any hard `pos.x = ±N` arena clamps
+with soft velocity clamps (`if (pos.x < -19 && vx < 0) vx = 0;`) so the
+dynamic body still respects the arena edge without fighting physics.
+
+Every shipped MP template (`multiplayer_coin_grab`, `multiplayer_rift_1v1`,
+`multiplayer_zone_royale`, `multiplayer_neon_cycles`, `court_clash`,
+`kart_karnival`) uses dynamic + setVelocity — pull the matching script
+via `library.sh show` and pattern-match. Kinematic is correct only for
+script-driven Y-locked movers (boats on a water plane —
+`buccaneer_bay/ship_sail.ts` is the one shipped example, and it owns
+multi-ray hull collision itself).
+
+### Symptom: "I can't see other players in the world (but the scoreboard works)"
+
+If the scoreboard / chat / networked events all work but remote player avatars never appear, the custom MP system is missing the **local NetworkIdentityComponent stamp**. Both peers' local players keep `networkId = -1`, peer A's snapshots collide with peer B's own local player on receive, and the adapter never spawns a remote-player proxy.
+
+Fix the system file (e.g. `systems/mp/<your_game>.ts` or `systems/gameplay/<your_game>.ts`):
+
+1. Add `_hashPeerId`, `_findLocalPlayerEntity`, `_stampLocalNetworkIdentity` (copy verbatim from any shipped MP system — `bash library.sh show systems/mp/coin_grab_game.ts` and lift the helpers).
+2. Call `this._stampLocalNetworkIdentity()` from `_initMatch` / `_startMatch` BEFORE broadcasting state.
+3. If the player uses a character GLB with animation clips, also add `_tickRemoteAnimations(dt)` and call it at the top of `onUpdate` — the adapter spawns proxies with `skipBehaviors: true` so the local-input movement script never runs on them, leaving them in bind pose.
+4. If both peers spawn at the same world placement, add a `_positionLocalPlayer` that slots peers by sorted peerId (mirror `coin_grab_game._positionLocalPlayer`) and call from `_initMatch`.
+
+`coin_grab_game.ts` and `pickaxe_keep_game.ts` are the canonical references.
 
 ## Pause menu (optional, reusable)
 

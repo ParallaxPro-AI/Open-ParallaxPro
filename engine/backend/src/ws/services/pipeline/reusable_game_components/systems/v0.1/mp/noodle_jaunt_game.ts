@@ -662,16 +662,17 @@ class NoodleJauntGameSystem extends GameScript {
                 continue;
             }
             var dx = (pos.x - st.x) / step;
+            var dy = (pos.y - st.y) / step;
             var dz = (pos.z - st.z) / step;
             st.x = pos.x; st.y = pos.y; st.z = pos.z;
 
             var spd = Math.sqrt(dx * dx + dz * dz);
-            var grounded = true;
-            if (this.scene.raycast) {
-                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
-                grounded = !!(hit && hit.entityId);
-            }
-            var anim = !grounded ? "Jump_Start" : (spd > 1 ? "Run" : "Idle");
+            // Vertical-velocity grounded check; the prior raycast version
+            // started below the feet on Quaternius models (origin at the
+            // feet) and missed the floor, so stationary remote players were
+            // stuck in Jump_Start. See deathmatch_game for the full write-up.
+            var airborne = Math.abs(dy) > 1.5;
+            var anim = airborne ? "Jump_Start" : (spd > 1 ? "Run" : "Idle");
             if (anim !== st.anim) {
                 st.anim = anim;
                 try { p.playAnimation(anim, { loop: anim !== "Jump_Start" }); } catch (e) { /* missing clip */ }

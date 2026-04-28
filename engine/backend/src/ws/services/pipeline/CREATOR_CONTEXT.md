@@ -232,6 +232,23 @@ If the placement has `rotation: [0, yaw, 0]`, the AABB rotates too — for yaw =
 
 If a result line **lacks the size suffix**, the GLB couldn't be inspected (rare — usually a malformed file, a non-GLB asset, or a brand-new pack the cache hasn't seen yet). Pick a different model, or assume a conservative ~1 m for a single-mesh prop.
 
+### Render cost — vertex budget (guideline, not a hard rule)
+
+`search_assets.sh` results also include each GLB's vertex count, formatted like `[8.4K verts]` after the size:
+
+```
+/assets/quaternius/characters/zombie_pack/Zombie_Male.glb  (Characters, zombie_pack)  0.86x1.83x0.55m  [12.4K verts]
+```
+
+Vertex count is roughly proportional to GPU vertex-shader work and per-mesh VRAM (each vertex carries position + normal + uv ≈ 32 bytes on the GPU). Mid-tier hardware can comfortably handle **~1M live vertices** on screen at once; older or low-power devices feel it earlier. The numbers below are *rules of thumb* — not requirements:
+
+- **Single hero / player mesh**: ≤ ~40K verts is comfortable. There's only one, so even 80K is usually fine.
+- **Common props you'll instantiate many of** (enemies, pickups, breakable crates): aim for ≤ ~10K. 50 enemies × 50K = 2.5M, which is where lag starts.
+- **Background decoration** (trees, rocks, far buildings): LOD usually rescues these past ~30 m, so the close-range count matters more. ≤ ~6K is a good target if you'll place dozens.
+- **Particles, projectiles, collectibles**: ≤ ~2K. These multiply faster than anything else.
+
+**When picking between two assets that both fit the visual brief, prefer the lighter one.** When only one option matches, use it — visual fidelity beats budget for unique assets. There's no validate-time enforcement; this is purely a hint to inform asset selection. The engine already auto-generates LODs (LOD1 ~25% verts at 30-80 m, LOD2 ~5% at >80 m), so far-distance crowds are mostly free; the budget is about what's close to the camera.
+
 **Implication for AI scripts:** when you `lookAt` a target, the model's −Z aligns to that direction automatically. When you set `transform.rotation` from a velocity, use `Math.atan2(velocity.x, velocity.z)` and assign as Y-yaw — no per-asset offsets.
 
 For primitive meshes:
@@ -770,6 +787,168 @@ Mark entities that should sync across the network with a `network` block in `02_
 Only entities with a `network` block are transmitted; everything else is
 strictly local per peer.
 
+### Custom MP system requirements (non-negotiable)
+
+If you author a NEW system that owns a player avatar entity (one with
+`network.ownership: "local_player"`), the system MUST do two things on
+match start. Skip either and remote players will be **invisible** in your
+local world even though networked events still flow (scoreboard works,
+avatars don't appear).
+
+Every shipped MP template (`coin_grab_game`, `pickaxe_keep_game`,
+`deathmatch_game`, `court_match`, `noodle_jaunt_game`, etc.) does this.
+Mirror their pattern verbatim — copy the helpers below, no rewrites.
+
+**1. Stamp the local NetworkIdentityComponent with a per-peer net id.**
+Without this, both peers' local players share `networkId = -1`, peer A's
+snapshots collide with peer B's own local player on receive, and the
+adapter never spawns a remote-player proxy for peer A.
+
+```js
+_stampLocalNetworkIdentity() {
+    var mp = this.scene._mp;
+    if (!mp || !mp.localPeerId) return;
+    var p = this._findLocalPlayerEntity();
+    if (!p) return;
+    var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+    if (ni) {
+        ni.networkId = this._hashPeerId(mp.localPeerId);
+        ni.ownerId = mp.localPeerId;
+        ni.isLocalPlayer = true;
+    }
+}
+
+_findLocalPlayerEntity() {
+    var players = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+    for (var i = 0; i < players.length; i++) {
+        var p = players[i];
+        var tags = p.tags;
+        var hasRemote = false;
+        if (tags) {
+            if (typeof tags.has === "function") hasRemote = tags.has("remote");
+            else if (tags.indexOf) hasRemote = tags.indexOf("remote") >= 0;
+        }
+        if (hasRemote) continue;
+        var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+        if (ni && ni.isLocalPlayer) return p;
+    }
+    return players[0] || null;
+}
+
+_hashPeerId(peerId) {
+    var h = 2166136261;
+    for (var i = 0; i < peerId.length; i++) {
+        h ^= peerId.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 1000000) + 1000;
+}
+```
+
+Call `this._stampLocalNetworkIdentity()` from your match-init path (the
+`onStart` / `match_started` handler) BEFORE you broadcast any state.
+
+**2. If your player uses a character GLB with animation clips, drive the
+remote proxies' Idle/Walk/Run.** The adapter spawns proxies with
+`skipBehaviors: true`, so the local-input movement script never runs on
+them — without this ticker the remote Knight stands in bind pose while
+their synced transform glides around. Skip this only when the player is a
+non-character mesh (kart, cycle, ball, etc.).
+
+```js
+_tickRemoteAnimations(dt) {
+    var all = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("player") : [];
+    if (!all || all.length === 0) return;
+    if (!this._remoteAnimState) this._remoteAnimState = {};
+    var step = dt > 0 ? dt : 1 / 60;
+    for (var i = 0; i < all.length; i++) {
+        var p = all[i];
+        if (!p || !p.transform || !p.playAnimation) continue;
+        var ni = p.getComponent ? p.getComponent("NetworkIdentityComponent") : null;
+        if (!ni || ni.isLocalPlayer) continue;
+        var key = String(ni.ownerId || ni.networkId || p.id);
+        var st = this._remoteAnimState[key];
+        var pos = p.transform.position;
+        if (!st) { this._remoteAnimState[key] = { x: pos.x, y: pos.y, z: pos.z, anim: "" }; continue; }
+        var dx = (pos.x - st.x) / step, dz = (pos.z - st.z) / step;
+        st.x = pos.x; st.y = pos.y; st.z = pos.z;
+        var spd = Math.sqrt(dx * dx + dz * dz);
+        var anim = spd > 7.5 ? "Run" : (spd > 0.5 ? "Walk" : "Idle");
+        if (anim !== st.anim) {
+            st.anim = anim;
+            try { p.playAnimation(anim, { loop: true }); } catch (e) { /* missing clip */ }
+        }
+    }
+}
+```
+
+Call `this._tickRemoteAnimations(dt)` at the top of your system's
+`onUpdate(dt)`.
+
+**3. Spawn peers at distinct positions.** Both peers run the same scene
+and place the same player at the same spot in `03_worlds.json`, so by
+default both spawn on top of each other. Slot peers by sorted peerId
+(see `coin_grab_game._positionLocalPlayer`) and `setPosition` the local
+player into its slot inside `_initMatch`.
+
+### Player physics for multiplayer — always dynamic + setVelocity
+
+**Rule:** Multiplayer character / vehicle players MUST be `dynamic` and
+driven by `setVelocity`. Kinematic + direct `pos.x += …` (or `setPosition`)
+silently teleports the body through every static collider in the world —
+Rapier's `kinematicPositionBased` body type doesn't auto-resolve against
+statics. The colliders on rocks / forge / walls / props *exist*, they just
+don't push the player back. Even in an "empty" arena, the boundary feel
+is wrong (script clamps fight what physics would have done) and the moment
+anyone adds a prop the game silently breaks.
+
+```jsonc
+"player": {
+  "mesh": { ... },
+  "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
+  "network": { "syncTransform": true, "ownership": "local_player", ... },
+  "behaviors": [{ "name": "player_movement", "script": "mp/<your_script>.ts" }]
+}
+```
+
+Movement script body:
+
+```js
+var rb = this.entity.getComponent("RigidbodyComponent");
+var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
+// freeze_rotation: true on the rigidbody keeps physics from clobbering
+// transform.setRotationEuler() — write yaw directly, no quaternion math.
+```
+
+`vy` MUST come from the rigidbody, not zero — overwriting it kills gravity
+and the player floats. Soft-clamp horizontal velocity at any arena boundary
+(`if (pos.x < -19 && vx < 0) vx = 0;`) instead of hard-clamping `pos.x`.
+
+**Canonical references (all shipped MP templates use this pattern):**
+
+| Template | Movement script |
+|---|---|
+| `multiplayer_coin_grab` | `mp/player_arena_movement.ts` (WASD strafe) |
+| `multiplayer_rift_1v1` | `mp/player_moba_champion.ts` (click-to-move) |
+| `multiplayer_zone_royale` | `mp/player_shooter_movement.ts` (FPS strafe) |
+| `multiplayer_neon_cycles` | `mp/bike_player_control.ts` (constant forward) |
+| `court_clash` | `movement/baller_dribble.ts` (arena WASD) |
+| `kart_karnival` | `movement/kart_drive.ts` (kart with drift) |
+| `open_world_crime` | `movement/third_person_movement.ts` (single-player 3D) |
+
+Pick the closest match, pin it via `library.sh show`, tune params if needed.
+
+**Kinematic exception — script-driven Y-locked movers.** Use kinematic ONLY
+when the gameplay model fundamentally rejects gravity-based resolution:
+ships floating on a water plane (`buccaneer_bay/ship_sail.ts` locks Y to
+`_waterLine` and does its own multi-ray hull collision), scripted enemies
+on rails, moving platforms, elevators. For these, the script owns position
+fully and is responsible for collision detection (typically `scene.raycast`
+or its own overlap checks). If you find yourself writing kinematic + a
+gameplay loop where physics-resolved collision would be fine, you've picked
+wrong — switch to dynamic.
+
 ### Multiplayer flow actions
 
 See the "Flow action verbs" section above (`mp:show_browser`, `emit:net.<event>`,
@@ -1237,6 +1416,18 @@ Use `Write` for large single files, heredoc batches for clusters of small ones.
 bash library.sh examples playSound
 bash library.sh examples lightType
 bash library.sh examples scene.events.net.emit
+```
+
+```bash
+# grep: regex sibling of examples. Use when alternation, anchors, or
+# character classes matter — finding every emit/on call site, every
+# system class declaration, every Walk/Run animation usage, etc.
+# Wrap PATTERN in SINGLE quotes (bash mangles backslashes inside
+# double quotes). For a literal substring, `examples` is cheaper.
+bash library.sh grep 'events\.(ui|game)\.(emit|on)\('
+bash library.sh grep '^export class \w+System' --kind systems
+bash library.sh grep 'playAnimation\([^)]*"(Walk|Run)"'
+bash library.sh grep 'TODO|FIXME' --files-only       # paths + counts, no snippets
 ```
 
 ### Kind-inferring paths

@@ -191,19 +191,27 @@ class BikePlayerControlBehavior extends GameScript {
         // Gate on _canControl too — the bike auto-rolls, so without this
         // it would drift through the pre-round countdown and wall itself
         // before the player ever got to steer.
+        // Dynamic body + setVelocity so Rapier auto-resolves against the
+        // arena walls and corner pylons (the old kinematic + pos+= write
+        // teleported through them). Gravity + the ground entity keep the
+        // bike at rest on the floor; no manual Y lock needed.
         var yawRad = this._yawDeg * Math.PI / 180;
+        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
+        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
         if (this._canControl) {
             var speedMult = 1;
             if (this._boosting) speedMult = this._boostMultiplier;
             else if (this._braking) speedMult = this._brakeMultiplier;
             var speed = this._baseSpeed * this._speedRamp * speedMult;
-
-            var pos = this.entity.transform.position;
-            pos.x += Math.sin(yawRad) * speed * dt;
-            pos.z += Math.cos(yawRad) * speed * dt;
-            // Lock to ground plane — the kinematic collider's halfHeight already
-            // sits the bike at y≈0.6, so don't drift it over time.
-            pos.y = 0.6;
+            this.scene.setVelocity(this.entity.id, {
+                x: Math.sin(yawRad) * speed,
+                y: vy,
+                z: Math.cos(yawRad) * speed,
+            });
+        } else {
+            // Pre-round / dead — kill horizontal motion so the bike doesn't
+            // coast forward into walls during the countdown.
+            this.scene.setVelocity(this.entity.id, { x: 0, y: vy, z: 0 });
         }
 
         // setRotationEuler takes DEGREES (scriptTransform adapter). Passing

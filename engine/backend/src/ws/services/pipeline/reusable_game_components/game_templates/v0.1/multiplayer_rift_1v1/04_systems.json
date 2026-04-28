@@ -36,12 +36,13 @@
       }
     },
     "entity_health_bars": {
-      "description": "Floating world-anchored HP bars above champions, minions, towers, and the nexus.",
+      "description": "Floating world-anchored HP bars above champions, minions, towers, and the nexus. Local champion's bar is hidden — own HP shows on the top HUD only.",
       "script": "gameplay/entity_health_bars.ts",
       "params": {
         "allyTags": ["champion", "rift_minion", "rift_tower", "rift_nexus"],
         "enemyTags": ["champion", "rift_minion", "rift_tower", "rift_nexus"],
         "showAllies": true,
+        "hideLocalPlayer": true,
         "defaultMax": 100,
         "hpOverrides": {
           "champion": 520,

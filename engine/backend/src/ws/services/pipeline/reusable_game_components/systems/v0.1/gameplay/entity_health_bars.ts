@@ -38,6 +38,7 @@ class EntityHealthBarsSystem extends GameScript {
     _hpOverrides = {};
     _heightAbove = 2.4;
     _occlusionCheck = false;
+    _hideLocalPlayer = false; // skip the local player's own bar (MOBA convention — own HP is on the top HUD, floating bar would just clutter the screen).
 
     _hp = {};
     _camera = null;
@@ -185,12 +186,26 @@ class EntityHealthBarsSystem extends GameScript {
         // every frame.
         var cam = this._occlusionCheck ? this._getCamera() : null;
         var cp = cam ? cam.transform.position : null;
+        // Dedup pushes — _collect runs twice (enemyPools then allyPools)
+        // and templates with overlapping ally/enemy tags (e.g. rift_1v1
+        // listing "champion" in both) end up projecting each entity
+        // twice. The HTML pool keys by id so only one element survives,
+        // but the wasted work compounds in larger matches.
+        var seenIds = out.__seenIds || (out.__seenIds = {});
 
         for (var i = 0; i < entities.length; i++) {
             var e = entities[i];
             var row = this._hp[e.id];
             if (!row) continue;
             if (row.current <= 0) continue;
+            if (seenIds[e.id]) continue;
+            // MOBA-style template: hide the floating bar above your own
+            // champion so the player's own HP only shows on the top HUD.
+            if (this._hideLocalPlayer) {
+                var niSelf = e.getComponent ? e.getComponent("NetworkIdentityComponent") : null;
+                if (niSelf && niSelf.isLocalPlayer) continue;
+            }
+            seenIds[e.id] = true;
             var pos = e.transform.position;
             var by = pos.y + this._heightAbove;
 

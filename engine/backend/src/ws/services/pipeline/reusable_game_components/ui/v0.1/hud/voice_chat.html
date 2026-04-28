@@ -12,9 +12,15 @@
     overflow: hidden;
   }
   .panel {
-    position: fixed; top: 115px; left: 12px;
+    /* Pulled down from top:115 → 195 (stays 35px below ping per the
+       prior layout) so per-game HUDs have unobstructed top-left.
+       z-index 150 — above every shipped HUD layer (max 100 in
+       soccer/banner_siege), below modal overlays (pause_menu 250,
+       wasted 300, game_over 200). Background alpha 0.55 → 0.3 so the
+       game shows through behind the panel. */
+    position: fixed; top: 195px; left: 12px; z-index: 150;
     min-width: 170px;
-    background: rgba(8,8,14,0.55);
+    background: rgba(8,8,14,0.3);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 10px;
     padding: 8px;

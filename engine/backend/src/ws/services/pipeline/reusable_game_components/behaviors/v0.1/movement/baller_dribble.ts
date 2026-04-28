@@ -83,15 +83,19 @@ class BallerDribbleBehavior extends GameScript {
             this._zVel = 0;
         }
 
-        // Soft court bounds.
+        // Dynamic body + setVelocity so Rapier auto-resolves vs hoops /
+        // court structures. Soft velocity clamp at the court edge replaces
+        // the old hard pos clamp so we don't fight physics. vy preserved
+        // from the rigidbody so gravity holds the baller on the court.
         var pos = this.entity.transform.position;
-        var nx = pos.x + this._xVel * dt;
-        var nz = pos.z + this._zVel * dt;
-        if (nx >  this._arenaHalfX) nx =  this._arenaHalfX;
-        if (nx < -this._arenaHalfX) nx = -this._arenaHalfX;
-        if (nz >  this._arenaHalfZ) nz =  this._arenaHalfZ;
-        if (nz < -this._arenaHalfZ) nz = -this._arenaHalfZ;
-        if (this.scene.setPosition) this.scene.setPosition(this.entity.id, nx, pos.y, nz);
+        var vx = this._xVel, vz = this._zVel;
+        if (pos.x >  this._arenaHalfX && vx > 0) vx = 0;
+        if (pos.x < -this._arenaHalfX && vx < 0) vx = 0;
+        if (pos.z >  this._arenaHalfZ && vz > 0) vz = 0;
+        if (pos.z < -this._arenaHalfZ && vz < 0) vz = 0;
+        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
+        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+        this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
 
         // Smooth visual yaw toward movement direction.
         if (moveLen > 0.01) {

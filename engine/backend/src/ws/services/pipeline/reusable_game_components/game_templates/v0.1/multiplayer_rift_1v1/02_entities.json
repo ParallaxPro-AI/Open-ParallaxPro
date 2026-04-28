@@ -40,7 +40,9 @@
         ]
       },
       "physics": {
-        "type": "kinematic",
+        "type": "dynamic",
+        "mass": 75,
+        "freeze_rotation": true,
         "collider": "capsule"
       },
       "network": {
@@ -108,7 +110,10 @@
           100
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "ground"
       ],
@@ -263,7 +268,9 @@
           1
         ]
       },
-      "physics": { "type": "static" },
+      "physics": {
+        "type": "static"
+      },
       "tags": [
         "tree",
         "decor"

@@ -197,9 +197,26 @@ class FSMInst {
         // The intent of a substate NOT declaring active_lists is "inherit
         // parent" (the whole gameplay behavior set), not "keep whatever
         // was active last." Asteroid run 8028bf94 exposed this.
+        //
+        // PAUSE convention: a substate named "paused" (or marked with
+        // pauses_parent: true) defaults to EMPTY active lists instead of
+        // inheriting the parent's. Without this every game's pause menu
+        // is just a visual overlay — gameplay systems keep ticking
+        // underneath because the parent's active_systems remains. This
+        // makes "P → pause menu" actually pause across all templates
+        // without each one having to author `active_systems: []` and
+        // `active_behaviors: []` on its paused substate. Authors can
+        // still explicitly list active items if they want partial pause.
         var parent = this._cfg.states[this._state] || {};
-        var sysList = s.active_systems || parent.active_systems;
-        var behList = s.active_behaviors || parent.active_behaviors;
+        var isPauseSubstate = name === "paused" || s.pauses_parent === true;
+        var sysList, behList;
+        if (isPauseSubstate) {
+            sysList = s.active_systems || [];
+            behList = s.active_behaviors || [];
+        } else {
+            sysList = s.active_systems || parent.active_systems;
+            behList = s.active_behaviors || parent.active_behaviors;
+        }
         if (sysList) this._applySystems(sysList);
         if (behList) this._applyBehaviors(behList);
         if (s.on_enter) this._runActions(s.on_enter);

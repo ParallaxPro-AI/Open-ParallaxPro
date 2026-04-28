@@ -11,10 +11,10 @@
         ]
       },
       "physics": {
-        "type": "kinematic",
-        "mass": 1200,
+        "type": "dynamic",
+        "mass": 800,
         "freeze_rotation": true,
-        "collider": "cuboid"
+        "collider": "box"
       },
       "network": {
         "syncTransform": true,
@@ -101,7 +101,10 @@
           600
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "ground"
       ],
@@ -379,7 +382,9 @@
           1
         ]
       },
-      "physics": { "type": "static" },
+      "physics": {
+        "type": "static"
+      },
       "tags": [
         "decoration",
         "tree"
@@ -396,7 +401,9 @@
           1
         ]
       },
-      "physics": { "type": "static" },
+      "physics": {
+        "type": "static"
+      },
       "tags": [
         "decoration",
         "tree"

@@ -146,6 +146,113 @@ export function createLibraryRouter(): Router {
         res.json({ query: q, scanned, hits });
     });
 
+    router.get('/grep', (req: Request, res: Response) => {
+        // Real-regex sibling of /examples. Where /examples does
+        // `lines[i].includes(q)` (literal substring), /grep compiles a JS
+        // RegExp so agents can express alternation, anchors, character
+        // classes, repetition. Use cases the literal form can't reach:
+        //   events\.(ui|game)\.(emit|on)\(   — every event API call site
+        //   ^export class \w+System          — every system class decl
+        //   playAnimation\([^)]*"(Walk|Run)" — walk/run anim usages
+        // /examples stays the cheap, no-escaping path; /grep is the
+        // precision tool when a literal substring won't separate signal.
+        const pattern = typeof req.query.pattern === 'string' ? req.query.pattern : '';
+        if (!pattern) return res.status(400).json({ error: 'pattern is required' });
+
+        const ignoreCase = req.query.ignoreCase === '1' || req.query.ignoreCase === 'true';
+        const filesOnly  = req.query.filesOnly  === '1' || req.query.filesOnly  === 'true';
+        const limit = Math.min(Math.max(parseInt(String(req.query.limit || '15'), 10) || 15, 1), 40);
+        const ctxN  = Math.min(Math.max(parseInt(String(req.query.context || '2'), 10) || 2, 0), 6);
+        const kindFilter = isKind(req.query.kind) ? (req.query.kind as LibraryKind) : undefined;
+        const categoryFilter = typeof req.query.category === 'string' && req.query.category.trim()
+            ? req.query.category.trim()
+            : undefined;
+
+        let regex: RegExp;
+        try {
+            regex = new RegExp(pattern, ignoreCase ? 'i' : '');
+        } catch (e: any) {
+            return res.status(400).json({ error: 'bad_regex', detail: e?.message || String(e) });
+        }
+
+        // ReDoS guard: skip absurdly long lines (minified bundles, generated
+        // JSON arrays, etc) so a pathological pattern like `(a+)+b` can't
+        // catastrophically backtrack. 4KB is more than any sane source
+        // line. Internal-token endpoint with a single-agent blast radius —
+        // good enough; swap to RE2 if this turns out to bite in practice.
+        const MAX_LINE_BYTES = 4096;
+        const MAX_BYTES = 5000;
+
+        const hits: Array<{ path: string; line: number; snippet: string }> = [];
+        const fileMatches = new Map<string, number>();
+        let totalBytes = 0;
+        let truncated = false;
+        const scanned = { behaviors: 0, systems: 0, ui: 0, templates: 0 };
+
+        const walk = (dir: string, kind: keyof typeof scanned, extFilter: (p: string) => boolean, relBase: string) => {
+            if (truncated || !fs.existsSync(dir)) return;
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                if (truncated) return;
+                const p = path.join(dir, entry.name);
+                const rel = path.posix.join(relBase, entry.name);
+                if (entry.isDirectory()) {
+                    // First-level subdirs are categories. Apply categoryFilter
+                    // here so we don't descend into unrelated trees.
+                    if (categoryFilter && relBase === kind && entry.name !== categoryFilter) continue;
+                    walk(p, kind, extFilter, rel);
+                    continue;
+                }
+                if (!extFilter(entry.name)) continue;
+                // Drop root-level files when a category filter is set —
+                // they don't belong to any category subdir.
+                if (categoryFilter && relBase === kind) continue;
+                scanned[kind]++;
+                let text: string;
+                try { text = fs.readFileSync(p, 'utf-8'); } catch { continue; }
+                const lines = text.split('\n');
+                let fileMatchCount = 0;
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (line.length > MAX_LINE_BYTES) continue;
+                    if (!regex.test(line)) continue;
+                    fileMatchCount++;
+                    if (filesOnly) continue;
+                    if (hits.length >= limit) { truncated = true; return; }
+                    const start = Math.max(0, i - ctxN);
+                    const end = Math.min(lines.length, i + ctxN + 1);
+                    const snippet = lines.slice(start, end).map((l, k) => {
+                        const n = start + k + 1;
+                        const mark = n === i + 1 ? '→' : ' ';
+                        return `${mark}${String(n).padStart(4)}: ${l}`;
+                    }).join('\n');
+                    const b = Buffer.byteLength(snippet, 'utf-8');
+                    if (totalBytes + b > MAX_BYTES) { truncated = true; return; }
+                    totalBytes += b;
+                    hits.push({ path: rel, line: i + 1, snippet });
+                }
+                if (filesOnly && fileMatchCount > 0) {
+                    fileMatches.set(rel, fileMatchCount);
+                    if (fileMatches.size >= limit) { truncated = true; return; }
+                }
+            }
+        };
+
+        const shouldScan = (k: keyof typeof scanned): boolean => !kindFilter || kindFilter === k;
+        if (shouldScan('behaviors')) walk(path.join(RGC_DIR_FOR_EXAMPLES, 'behaviors',     'v0.1'), 'behaviors', n => n.endsWith('.ts'),   'behaviors');
+        if (shouldScan('systems'))   walk(path.join(RGC_DIR_FOR_EXAMPLES, 'systems',       'v0.1'), 'systems',   n => n.endsWith('.ts'),   'systems');
+        if (shouldScan('ui'))        walk(path.join(RGC_DIR_FOR_EXAMPLES, 'ui',            'v0.1'), 'ui',        n => n.endsWith('.html'), 'ui');
+        if (shouldScan('templates')) walk(path.join(RGC_DIR_FOR_EXAMPLES, 'game_templates','v0.1'), 'templates', n => n.endsWith('.json'), 'templates');
+
+        const flags = ignoreCase ? 'i' : '';
+        if (filesOnly) {
+            const files = Array.from(fileMatches.entries())
+                .map(([p, count]) => ({ path: p, count }))
+                .sort((a, b) => b.count - a.count);
+            return res.json({ pattern, flags, scanned, files, truncated });
+        }
+        res.json({ pattern, flags, scanned, hits, truncated });
+    });
+
     router.get('/file', (req: Request, res: Response) => {
         // Accept one or more ?path=... params. Multi-path responses come
         // back as a concatenated text blob with `=== <resolved> ===`

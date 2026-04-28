@@ -10,6 +10,37 @@ import { VehicleComponent } from '../framework/components/vehicle_component.js';
 import { TerrainComponent } from '../framework/components/terrain_component.js';
 import { MeshRendererComponent } from '../framework/components/mesh_renderer_component.js';
 
+// Friction we clamp character (movement-script-driven) entities to.
+// See the wall-stick comment in createBody() below for the math —
+// 0.05 is enough to keep gameplay grounded-stop behavior intact while
+// dropping airborne wall-press friction below the gravity threshold.
+// Authors who want even less can author rb.friction lower; we never
+// raise it above what they specified.
+const CHARACTER_FRICTION = 0.05;
+
+/** Library `movement/*.ts` scripts drive their own velocity every
+ * frame, which makes default-friction wall-stick a problem only for
+ * this class of entity. Detect by ScriptComponent's scriptURL — paths
+ * that live under the library's movement/ folder match. False
+ * positives only over-lubricate one entity; false negatives leave the
+ * wall-stick visible, which is the louder failure mode, so the regex
+ * is intentionally conservative. */
+function isCharacterMovementEntity(entity: Entity): boolean {
+    const sc = entity.getComponent('ScriptComponent') as any;
+    if (!sc) return false;
+    const urls: string[] = [];
+    if (sc.scriptURL) urls.push(sc.scriptURL);
+    if (Array.isArray(sc.additionalScripts)) {
+        for (const s of sc.additionalScripts) {
+            if (s && s.scriptURL) urls.push(s.scriptURL);
+        }
+    }
+    for (const u of urls) {
+        if (/(^|\/)movement\//.test(u)) return true;
+    }
+    return false;
+}
+
 // Filter Rapier3d-compat's harmless WASM-init deprecation warning before
 // it fires below. Rapier's internal `__wbg_init(wasmBytes)` call passes
 // a Uint8Array — not a plain object — and the bundled WASM bridge prints
@@ -340,7 +371,18 @@ export class PhysicsSystem {
 
         // Create collider attached to body
         colDesc.setRestitution(rb.restitution);
-        colDesc.setFriction(rb.friction);
+        // Wall-stick fix: characters using a library `movement/*.ts`
+        // script set their own velocity every frame, which means high
+        // friction only matters when pressing into a wall airborne —
+        // and at default 0.5 the friction × wall-push force easily
+        // exceeds gravity, holding the player up against the wall.
+        // Clamp to CHARACTER_FRICTION (0.05) so they slide off instead.
+        // Math.min preserves explicit lower-friction overrides.
+        let frictionForCollider = rb.friction;
+        if (rb.bodyType === BodyType.DYNAMIC && isCharacterMovementEntity(entity)) {
+            frictionForCollider = Math.min(frictionForCollider, CHARACTER_FRICTION);
+        }
+        colDesc.setFriction(frictionForCollider);
         if (collider?.isTrigger) colDesc.setSensor(true);
         colDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 

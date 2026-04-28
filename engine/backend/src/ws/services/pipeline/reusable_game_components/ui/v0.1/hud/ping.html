@@ -12,10 +12,17 @@
     overflow: hidden;
   }
   .ping {
-    position: fixed; top: 80px; left: 12px;
+    /* Pulled down from top:80 → 160 so per-game HUDs (score, gold, hp,
+       minimap) have unobstructed top-left real estate. z-index 150
+       sits above every shipped HUD layer (highest in-template HUD is
+       100 in soccer/banner_siege) but stays below modal overlays
+       (pause_menu 250, wasted 300, game_over 200) which legitimately
+       cover everything. Background alpha pulled 0.55 → 0.3 so the
+       game shows through more cleanly behind the comm widget. */
+    position: fixed; top: 160px; left: 12px; z-index: 150;
     display: flex; align-items: baseline; gap: 4px;
     padding: 6px 10px;
-    background: rgba(8, 8, 14, 0.55);
+    background: rgba(8, 8, 14, 0.3);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 8px;
     font-family: 'Menlo', 'Consolas', monospace;

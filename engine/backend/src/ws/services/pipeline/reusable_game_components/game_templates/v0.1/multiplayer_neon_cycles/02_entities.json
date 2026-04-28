@@ -200,8 +200,10 @@
         ]
       },
       "physics": {
-        "type": "kinematic",
-        "collider": "cuboid"
+        "type": "dynamic",
+        "mass": 50,
+        "freeze_rotation": true,
+        "collider": "box"
       },
       "network": {
         "syncTransform": true,

@@ -205,8 +205,17 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
                 continue;
             }
 
-            // Direct match: filename -> state flag
-            const flag = name + 'Visible';
+            // Direct match: filename -> state flag.
+            // Must use the SAME alphanumeric-stripping convention that
+            // ui_bridge.ts uses when it sets the flag. Without this,
+            // panels under a subfolder (e.g. `ui/panel/cooking_minigame.html`)
+            // get flag "panelcooking_minigameVisible" written by the
+            // bridge but read here as "panel/cooking_minigameVisible"
+            // — slash mismatch — so the iframe stays display:none and
+            // the panel never appears even though show_ui fired. The
+            // HUD branch above already strips; this is the same fix
+            // for the rest.
+            const flag = name.replace(/[^a-zA-Z0-9_]/g, '') + 'Visible';
             if (flag in state) {
                 const show = !!state[flag];
                 iframe.style.display = show ? '' : 'none';

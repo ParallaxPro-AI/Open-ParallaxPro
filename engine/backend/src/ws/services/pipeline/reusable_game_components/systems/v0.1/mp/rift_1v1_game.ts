@@ -98,6 +98,7 @@ class Rift1v1GameSystem extends GameScript {
     _projIdCounter = 0;
 
     _hudTickTimer = 0;
+    _shopOpen = false;       // local-only toggle; B opens/closes the shop overlay
 
     onStart() {
         var self = this;
@@ -160,7 +161,18 @@ class Rift1v1GameSystem extends GameScript {
             // Purely informational — movement applied in behavior.
         });
         this.scene.events.game.on("rift_shop_toggle", function() {
-            self.scene.events.ui.emit("hud_update", { _riftShopToggle: true });
+            // State-tracked, NOT edge-triggered. The previous version emitted
+            // hud_update { _riftShopToggle: true }, but ui_bridge merges
+            // hud_update payloads into a sticky _state that's re-broadcast
+            // every frame — so the HTML saw "toggle" every frame and flipped
+            // shopOpen 60×/sec, leaving the shop stuck flickering. Track the
+            // boolean here and push it via _pushHud so the HUD just renders
+            // open vs closed from current state.
+            self._shopOpen = !self._shopOpen;
+            // Mirror to scene flag so the champion behavior can pause input
+            // while the shop is up (clicks land on shop buttons, not aim).
+            self.scene._riftShopOpen = self._shopOpen;
+            self._pushHud();
         });
         this.scene.events.ui.on("ui_event:hud/rift_hud:buy_item", function(d) {
             var p = ((d && d.data) || {}).payload || {};
@@ -212,6 +224,12 @@ class Rift1v1GameSystem extends GameScript {
             this._tickChampionRegenHost(dt);
             this._tickBotHost(dt);
             this._maybeEndMatchHost();
+            // Stamp _riftAlive on every champion entity (including the
+            // remote-peer proxy spawned by the network adapter) before
+            // any per-frame attack/aoe logic looks at it. The client gets
+            // this for free via _applyStateSync; the host has no inbound
+            // state sync, so it has to mirror the map itself.
+            this._syncChampionAliveFlags();
             // Periodic state sync for peers.
             this._syncTimer = (this._syncTimer || 0) + dt;
             if (this._syncTimer >= 0.25) {
@@ -492,6 +510,10 @@ class Rift1v1GameSystem extends GameScript {
         this._minions.push({
             id: d.minionId, ent: ent, team: d.team,
             hp: this._minionHp, attackCd: 0,
+            // Seed the interpolation target at the spawn position so the
+            // first state-sync that arrives doesn't appear to "jump in"
+            // from elsewhere (clients lerp from current → interpX/Z).
+            interpX: d.x || 0, interpZ: d.z || 0,
         });
     }
 
@@ -524,7 +546,29 @@ class Rift1v1GameSystem extends GameScript {
     }
 
     _tickMinionsVisualOnly(dt) {
-        // Non-hosts just let positions settle via state sync; nothing to do.
+        // Smoothly catch up each minion's transform to its last-synced
+        // target. SMOOTHING is in 1/sec; alpha = 1 - exp(-S * dt) gives
+        // framerate-independent exponential ease toward the target.
+        // 12 → ~85ms half-life; perceptible visual smoothness at 4Hz sync.
+        var SMOOTHING = 12;
+        var TELEPORT_SQ = 25 * 25;  // > 25m delta = a teleport (respawn), snap.
+        var alpha = 1 - Math.exp(-SMOOTHING * dt);
+        for (var i = 0; i < this._minions.length; i++) {
+            var m = this._minions[i];
+            if (!m || !m.ent || !m.ent.transform) continue;
+            if (typeof m.interpX !== "number") continue;
+            var pos = m.ent.transform.position;
+            var dx = m.interpX - pos.x;
+            var dz = m.interpZ - pos.z;
+            if (dx * dx + dz * dz > TELEPORT_SQ) {
+                pos.x = m.interpX;
+                pos.z = m.interpZ;
+            } else {
+                pos.x += dx * alpha;
+                pos.z += dz * alpha;
+            }
+            m.ent.transform.markDirty && m.ent.transform.markDirty();
+        }
     }
 
     _findMinionTarget(m, pos) {
@@ -888,6 +932,10 @@ class Rift1v1GameSystem extends GameScript {
                     ent._riftAlive = true;
                     var spawn = this._teams[key] === "red" ? this._redSpawn : this._blueSpawn;
                     this.scene.setPosition(ent.id, spawn.x, spawn.y, spawn.z);
+                    // Zero velocity on respawn so the dynamic body doesn't
+                    // inherit the death-time momentum (champion sliding away
+                    // from spawn for several frames otherwise).
+                    if (this.scene.setVelocity) this.scene.setVelocity(ent.id, { x: 0, y: 0, z: 0 });
                     ent.transform.markDirty && ent.transform.markDirty();
                 }
                 // Refresh the champion's floating bar so it doesn't stay
@@ -961,9 +1009,15 @@ class Rift1v1GameSystem extends GameScript {
         var champs = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("champion") : [];
         for (var i = 0; i < champs.length; i++) {
             var c = champs[i];
-            if (!c || !c._riftAlive) continue;
+            if (!c || !c.active || !c._riftAlive) continue;
             var key = this._championKey(c);
-            if (!key || this._teams[key] === team) continue;
+            // Skip champions whose key isn't a participant in the current
+            // match (e.g., the inactive bot left over from the prefab in
+            // 2-peer mode — _teams[key] undefined). Without this, a host
+            // basic attack would lock onto the inactive bot when it's
+            // closer than the live opponent and silently no-op because
+            // _hp["bot_red"] is undefined.
+            if (!key || !this._teams[key] || this._teams[key] === team) continue;
             var cp = c.transform.position;
             var d = Math.hypot(cp.x - fromPos.x, cp.z - fromPos.z);
             if (d < bestDist) { bestDist = d; best = { key: key, x: cp.x, z: cp.z }; }
@@ -1016,6 +1070,12 @@ class Rift1v1GameSystem extends GameScript {
                 var L = Math.hypot(dx, dz) || 1;
                 var step = Math.min(this._abilityEDash, L);
                 this.scene.setPosition(ent.id, p.x + (dx / L) * step, p.y, p.z + (dz / L) * step);
+                // Zero velocity after the teleport — without this the
+                // dynamic body retains the pre-blink velocity and keeps
+                // sliding past the target. Behavior writes fresh velocity
+                // next frame; the champion has freeze_rotation:true so
+                // angular momentum isn't a concern.
+                if (this.scene.setVelocity) this.scene.setVelocity(ent.id, { x: 0, y: 0, z: 0 });
                 ent.transform.markDirty && ent.transform.markDirty();
             }
             if (isHost) {
@@ -1046,9 +1106,9 @@ class Rift1v1GameSystem extends GameScript {
         var champs = this.scene.findEntitiesByTag ? this.scene.findEntitiesByTag("champion") : [];
         for (var i = 0; i < champs.length; i++) {
             var c = champs[i];
-            if (!c || !c._riftAlive) continue;
+            if (!c || !c.active || !c._riftAlive) continue;
             var key = this._championKey(c);
-            if (!key || this._teams[key] === team) continue;
+            if (!key || !this._teams[key] || this._teams[key] === team) continue;
             var cp = c.transform.position;
             var d = Math.hypot(cp.x - x, cp.z - z);
             if (d < bestDist) { bestDist = d; best = { key: key }; }
@@ -1205,6 +1265,19 @@ class Rift1v1GameSystem extends GameScript {
     }
 
     _applyStateSync(d) {
+        // Track which peers transitioned dead→alive in this sync so the
+        // floating-bar system can refill their dead rows. Without this,
+        // after the host dies and respawns, the client's bar for the
+        // host's proxy stays at row.current=0 forever (host emits
+        // player_respawned only locally, never over the wire) — its bar
+        // remained hidden until the proxy took damage again, which never
+        // happened because current<=0 already.
+        var revived = [];
+        if (d.alive) {
+            for (var rk in d.alive) {
+                if (d.alive[rk] && this._alive[rk] === false) revived.push(rk);
+            }
+        }
         // Mirror authoritative fields.
         if (d.hp) this._hp = d.hp;
         if (d.alive) this._alive = d.alive;
@@ -1218,15 +1291,19 @@ class Rift1v1GameSystem extends GameScript {
             if (this._nexuses.blue) this._nexuses.blue.hp = d.nexus.blue;
             if (this._nexuses.red)  this._nexuses.red.hp  = d.nexus.red;
         }
-        // Minion positions.
+        // Minion positions — store interpolation targets instead of
+        // snapping. The visual tick (_tickMinionsVisualOnly) lerps each
+        // minion's transform toward (interpX, interpZ) every frame so
+        // non-host clients see smooth motion between the 4Hz state syncs.
+        // Hard-snap when the gap is too large (probably a respawn/teleport)
+        // so we don't visibly slide across the whole map.
         if (d.minions) {
             for (var i = 0; i < d.minions.length; i++) {
                 var md = d.minions[i];
                 var existing = this._minionById(md.id);
                 if (!existing) continue;  // new minions come via rift_minion_spawn
-                var pos = existing.ent.transform.position;
-                pos.x = md.x; pos.z = md.z;
-                existing.ent.transform.markDirty && existing.ent.transform.markDirty();
+                existing.interpX = md.x;
+                existing.interpZ = md.z;
                 existing.hp = md.hp;
             }
         }
@@ -1242,7 +1319,22 @@ class Rift1v1GameSystem extends GameScript {
                 t.hp = d.towers[j].hp;
             }
         }
-        // Champion alive flags → entity active flip.
+        this._syncChampionAliveFlags();
+        // Replay player_respawned for peers that just came back alive so
+        // entity_health_bars refills their floating bar rows.
+        for (var ri = 0; ri < revived.length; ri++) {
+            this.scene.events.game.emit("player_respawned", { peerId: revived[ri] });
+        }
+    }
+
+    // Mirror the per-peer this._alive map onto each champion entity's
+    // _riftAlive flag. _findBasicAttackTarget / _findAoeHit / etc. all
+    // filter by _riftAlive, so without this the host (which never runs
+    // _applyStateSync) leaves remote-peer proxies at _riftAlive=undefined
+    // and treats them as dead — host couldn't attack the client champion
+    // even though the client could attack the host. Called from both host
+    // (every tick after _broadcastStateSync) and client (in _applyStateSync).
+    _syncChampionAliveFlags() {
         for (var k in this._alive) {
             var ent = this._findChampionByKey(k);
             if (ent) ent._riftAlive = !!this._alive[k];
@@ -1335,6 +1427,7 @@ class Rift1v1GameSystem extends GameScript {
                 players: players,
                 waveTimer: Math.max(0, Math.round(this._waveTimer)),
                 waveNumber: this._waveNumber,
+                shopOpen: !!this._shopOpen,
             },
         };
         this.scene.events.ui.emit("hud_update", payload);
@@ -1497,17 +1590,23 @@ class Rift1v1GameSystem extends GameScript {
                 continue;
             }
             var dx = (pos.x - st.x) / step;
+            var dy = (pos.y - st.y) / step;
             var dz = (pos.z - st.z) / step;
             st.x = pos.x; st.y = pos.y; st.z = pos.z;
 
             var spd = Math.sqrt(dx * dx + dz * dz);
-            var grounded = true;
-            if (this.scene.raycast) {
-                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
-                grounded = !!(hit && hit.entityId);
-            }
+            // Vertical-velocity grounded check. The previous raycast version
+            // started at `pos.y - 0.3` going downward — for Quaternius
+            // characters (feet-at-origin pivot), that's BELOW the floor, so
+            // the raycast always missed and stationary remote champions were
+            // stuck looping the Jump anim despite this game having no jump.
+            // |dy| is mesh- and pivot-agnostic. See deathmatch_game for the
+            // full write-up. Champions never jump in rift, so any visible
+            // |dy| > 1.5 m/s is a knockback / blink / death-fall, all of
+            // which read fine as "Jump" for one beat.
+            var airborne = Math.abs(dy) > 1.5;
             var anim;
-            if (!grounded)      anim = "Jump";
+            if (airborne)       anim = "Jump";
             else if (spd > 7.5) anim = "Run";
             else if (spd > 0.5) anim = "Walk";
             else                anim = "Idle";

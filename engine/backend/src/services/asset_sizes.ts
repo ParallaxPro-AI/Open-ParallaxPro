@@ -103,7 +103,19 @@ function effectiveEntry(packEntry: FacingEntry | undefined, fileName: string): F
 
 interface RawAabb { min: [number, number, number]; max: [number, number, number]; size: [number, number, number]; }
 
-function inspectGlbAabb(fullPath: string): RawAabb | null {
+interface GlbInspection {
+    aabb: RawAabb;
+    /**
+     * Total vertex count across all primitives in the active scene. Sums
+     * `accessors[POSITION].count` per primitive — i.e. the number of unique
+     * vertices uploaded to the GPU (not 3 × triangles for indexed meshes).
+     * Drives the cost annotation in `searchAssets` so AI can budget
+     * mesh-heavy scenes.
+     */
+    vertices: number;
+}
+
+function inspectGlb(fullPath: string): GlbInspection | null {
     let buf: Buffer;
     try { buf = fs.readFileSync(fullPath); } catch { return null; }
     const view = new DataView(buf.buffer, buf.byteOffset, buf.length);
@@ -125,6 +137,7 @@ function inspectGlbAabb(fullPath: string): RawAabb | null {
 
     let mnX = Infinity, mnY = Infinity, mnZ = Infinity;
     let mxX = -Infinity, mxY = -Infinity, mxZ = -Infinity;
+    let totalVerts = 0;
     for (let i = 0; i < nodes.length; i++) {
         if (inScene.size && !inScene.has(i)) continue;
         const n = nodes[i];
@@ -136,7 +149,9 @@ function inspectGlbAabb(fullPath: string): RawAabb | null {
             const accIdx = prim.attributes?.POSITION;
             if (accIdx === undefined) continue;
             const acc = gltf.accessors[accIdx];
-            if (!acc?.min || !acc?.max) continue;
+            if (!acc) continue;
+            if (typeof acc.count === 'number') totalVerts += acc.count;
+            if (!acc.min || !acc.max) continue;
             for (const c of [
                 [acc.min[0], acc.min[1], acc.min[2]], [acc.min[0], acc.min[1], acc.max[2]],
                 [acc.min[0], acc.max[1], acc.min[2]], [acc.min[0], acc.max[1], acc.max[2]],
@@ -153,7 +168,27 @@ function inspectGlbAabb(fullPath: string): RawAabb | null {
         }
     }
     if (!isFinite(mnX)) return null;
-    return { min: [mnX, mnY, mnZ], max: [mxX, mxY, mxZ], size: [mxX - mnX, mxY - mnY, mxZ - mnZ] };
+    return {
+        aabb: { min: [mnX, mnY, mnZ], max: [mxX, mxY, mxZ], size: [mxX - mnX, mxY - mnY, mxZ - mnZ] },
+        vertices: totalVerts,
+    };
+}
+
+// Cache of raw GLB inspection results — keyed by relative file path.
+// Independent of the registry (registry only affects size scaling, not raw
+// AABB or vertex count), so this cache is permanent for the process lifetime
+// and never invalidated by registry mtime changes.
+const _glbInfoCache = new Map<string, GlbInspection | null>();
+
+function getGlbInfo(filePath: string): GlbInspection | null {
+    if (_glbInfoCache.has(filePath)) return _glbInfoCache.get(filePath)!;
+    if (!filePath.toLowerCase().endsWith('.glb')) {
+        _glbInfoCache.set(filePath, null);
+        return null;
+    }
+    const info = inspectGlb(path.join(assetsDir, filePath));
+    _glbInfoCache.set(filePath, info);
+    return info;
 }
 
 function computeWorldMatrices(gltf: any): Float64Array[] {
@@ -215,11 +250,9 @@ const _sizeCache = new Map<string, [number, number, number] | null>();
 export function getCanonicalSize(filePath: string): [number, number, number] | null {
     const cached = _sizeCache.get(filePath);
     if (cached !== undefined) return cached;
-    if (!filePath.toLowerCase().endsWith('.glb')) {
-        _sizeCache.set(filePath, null); return null;
-    }
-    const raw = inspectGlbAabb(path.join(assetsDir, filePath));
-    if (!raw) { _sizeCache.set(filePath, null); return null; }
+    const info = getGlbInfo(filePath);
+    if (!info) { _sizeCache.set(filePath, null); return null; }
+    const raw = info.aabb;
 
     // Apply registry scale_multiplier (or scale_to_meters fallback)
     const reg = loadFacingRegistry();
@@ -250,4 +283,22 @@ export function getCanonicalSize(filePath: string): [number, number, number] | n
     const size: [number, number, number] = [rotatedSize[0] * scale, rotatedSize[1] * scale, rotatedSize[2] * scale];
     _sizeCache.set(filePath, size);
     return size;
+}
+
+/**
+ * Total vertex count for a GLB asset (sum of `accessors[POSITION].count`
+ * across every primitive in the active scene). Returns null for non-GLBs,
+ * missing files, or assets the inspector can't read. Independent of the
+ * MODEL_FACING.json registry — vertices don't scale with size.
+ *
+ * Used by `searchAssets` so AI tool calls (`bash search_assets.sh`)
+ * can report each match's render cost. Roughly proportional to GPU
+ * vertex-shader work and per-mesh VRAM (each vertex carries position +
+ * normal + uv = 32 bytes interleaved).
+ *
+ * @param filePath  path RELATIVE to assets root (e.g. "kenney/3d_models/car_kit/sedan.glb")
+ */
+export function getCanonicalVertexCount(filePath: string): number | null {
+    const info = getGlbInfo(filePath);
+    return info ? info.vertices : null;
 }
