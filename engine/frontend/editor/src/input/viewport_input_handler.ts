@@ -257,59 +257,56 @@ export class ViewportInputHandler {
 
             let bestT: number | null = null;
 
-            const collider = entity.getComponent('ColliderComponent') as any;
-            if (collider && collider.shapeType === 3 /* MESH */) {
-                const meshAsset = mr?.meshAsset;
-                if (meshAsset) {
-                    const binUrl = meshAsset.replace(/\.glb$/i, '.collision.bin');
-                    const cached = collisionMeshCache.get(binUrl);
-                    if (cached) {
-                        const pos = cached.positions, idx = cached.indices;
-                        for (let i = 0; i < idx.length; i += 3) {
-                            const i0 = idx[i] * 3, i1 = idx[i + 1] * 3, i2 = idx[i + 2] * 3;
-                            const t = rayTriangleIntersect(localOrigin, localDir,
-                                pos[i0], pos[i0 + 1], pos[i0 + 2],
-                                pos[i1], pos[i1 + 1], pos[i1 + 2],
-                                pos[i2], pos[i2 + 1], pos[i2 + 2]);
-                            if (t !== null && (bestT === null || t < bestT)) bestT = t;
-                        }
-                    } else if (cached === undefined && !collisionMeshPending.has(binUrl)) {
-                        collisionMeshPending.add(binUrl);
-                        fetch(binUrl).then(r => r.ok ? r.arrayBuffer() : null).then(buf => {
-                            collisionMeshPending.delete(binUrl);
-                            if (!buf || buf.byteLength < 16) { collisionMeshCache.set(binUrl, null); return; }
-                            const view = new DataView(buf);
-                            if (view.getUint32(0, true) !== 0x434F4C4C) { collisionMeshCache.set(binUrl, null); return; }
-                            const posCount = view.getUint32(8, true), idxCount = view.getUint32(12, true);
-                            collisionMeshCache.set(binUrl, {
-                                positions: new Float32Array(buf, 16, posCount),
-                                indices: new Uint32Array(buf, 16 + posCount * 4, idxCount),
-                            });
-                        }).catch(() => { collisionMeshPending.delete(binUrl); collisionMeshCache.set(binUrl, null); });
-                        bestT = aabbT;
-                    } else {
-                        bestT = aabbT;
+            // Narrow phase against the visible mesh's collision sidecar
+            // (`.collision.bin`, a simplified trimesh of the model generated
+            // at asset-pipeline time). Collider shape is a *physics* concern
+            // — the editor's pick test is pixel-fidelity against the visible
+            // model regardless of whether the entity has a sphere, capsule,
+            // box, or trimesh collider. Without this we either over-pick
+            // (AABB extends past the visible mesh, so empty corners catch
+            // clicks meant for entities behind) or under-pick (collider
+            // dimensions stale from autoFitCollider race, so visible mesh
+            // misses entirely). Falls back to AABB while the sidecar is
+            // streaming, missing, or absent (procedural primitives,
+            // terrain). The sidecar is per-meshAsset and cached, so only
+            // the first click on a fresh asset is imprecise.
+            const meshAsset = mr?.meshAsset;
+            if (meshAsset) {
+                const binUrl = meshAsset.replace(/\.glb$/i, '.collision.bin');
+                const cached = collisionMeshCache.get(binUrl);
+                if (cached) {
+                    const pos = cached.positions, idx = cached.indices;
+                    for (let i = 0; i < idx.length; i += 3) {
+                        const i0 = idx[i] * 3, i1 = idx[i + 1] * 3, i2 = idx[i + 2] * 3;
+                        const t = rayTriangleIntersect(localOrigin, localDir,
+                            pos[i0], pos[i0 + 1], pos[i0 + 2],
+                            pos[i1], pos[i1 + 1], pos[i1 + 2],
+                            pos[i2], pos[i2 + 1], pos[i2 + 2]);
+                        if (t !== null && (bestT === null || t < bestT)) bestT = t;
                     }
+                } else if (cached === undefined && !collisionMeshPending.has(binUrl)) {
+                    collisionMeshPending.add(binUrl);
+                    fetch(binUrl).then(r => r.ok ? r.arrayBuffer() : null).then(buf => {
+                        collisionMeshPending.delete(binUrl);
+                        if (!buf || buf.byteLength < 16) { collisionMeshCache.set(binUrl, null); return; }
+                        const view = new DataView(buf);
+                        if (view.getUint32(0, true) !== 0x434F4C4C) { collisionMeshCache.set(binUrl, null); return; }
+                        const posCount = view.getUint32(8, true), idxCount = view.getUint32(12, true);
+                        collisionMeshCache.set(binUrl, {
+                            positions: new Float32Array(buf, 16, posCount),
+                            indices: new Uint32Array(buf, 16 + posCount * 4, idxCount),
+                        });
+                    }).catch(() => { collisionMeshPending.delete(binUrl); collisionMeshCache.set(binUrl, null); });
+                    bestT = aabbT;
                 } else {
+                    // cached === null: fetch failed / sidecar absent.
                     bestT = aabbT;
                 }
             } else {
-                // Box / sphere / capsule / terrain / compound / no-collider —
-                // all pick against the visible mesh AABB.
-                //
-                // The previous sphere/capsule narrow-phase read
-                // collider.radius / .height / .center directly, but those
-                // fields are runtime state rewritten by
-                // editor_context.autoFitCollider when the mesh's AABB becomes
-                // available. When autoFit hasn't run yet (race during asset
-                // streaming, collider added without a loaded mesh, snapshot
-                // round-trip ordering quirk) the values are stuck at the
-                // ColliderComponent constructor defaults: radius 0.5, height
-                // 1.0, center at origin. That's a unit-sphere hitbox at
-                // local-space origin — invisibly small on a large entity, so
-                // clicks on the visible mesh miss entirely and the entity
-                // appears unselectable. AABB picking is what the user is
-                // looking at and never goes stale.
+                // Procedural primitive (cube/sphere/plane/cylinder/capsule),
+                // terrain, or no-mesh entity — no .glb so no sidecar to
+                // fetch. AABB is the best we can do; primitives are simple
+                // enough that AABB matches the visible mesh closely.
                 bestT = aabbT;
             }
 
