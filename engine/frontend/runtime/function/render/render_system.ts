@@ -189,13 +189,31 @@ export class RenderSystem {
             interleaved[di + 7] = meshData.uvs[ui + 1];
         }
 
+        // Bounds. computeBounds works on raw vertex positions; for skinned
+        // meshes, glb_loader.applyFacingTransformInPlace stashes the
+        // registry scale on `meshData.facingScale` instead of baking it
+        // into positions (baking breaks the skeleton). Physics auto-fit,
+        // frustum cull, picking, etc. all read these bounds and assume
+        // they reflect the rendered size — so we apply facingScale here
+        // before stashing on the GPU mesh handle. Without this, every
+        // skinned character has bounds in pre-scale GLB space (typically
+        // 2-10× the visible mesh, depending on the pack's scale_multiplier),
+        // and the auto-fit capsule ends up that many times too tall.
+        const bounds = computeBounds(meshData.positions);
+        const fs = meshData.facingScale;
+        if (fs && Math.abs(fs - 1) > 1e-4) {
+            bounds.boundRadius = bounds.boundRadius * fs;
+            bounds.boundMin = new Vec3(bounds.boundMin.x * fs, bounds.boundMin.y * fs, bounds.boundMin.z * fs);
+            bounds.boundMax = new Vec3(bounds.boundMax.x * fs, bounds.boundMax.y * fs, bounds.boundMax.z * fs);
+        }
+
         const indexFormat: GPUIndexFormat = meshData.indices instanceof Uint16Array ? 'uint16' : 'uint32';
         return {
             vertexBuffer: this.gpuResources.createVertexBuffer(interleaved, 'mesh_vb'),
             indexBuffer: this.gpuResources.createIndexBuffer(meshData.indices, 'mesh_ib'),
             indexCount: meshData.indices.length,
             indexFormat,
-            ...computeBounds(meshData.positions),
+            ...bounds,
         };
     }
 

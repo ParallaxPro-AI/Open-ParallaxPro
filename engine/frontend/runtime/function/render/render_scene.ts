@@ -7,6 +7,23 @@ export interface MeshData {
     normals: Float32Array;
     uvs: Float32Array;
     indices: Uint16Array | Uint32Array;
+    /**
+     * Registry-driven uniform scale that the renderer composes into the
+     * per-mesh model matrix at draw time. Set by glb_loader for SKINNED
+     * meshes only — those can't bake the scale into vertex positions
+     * (would break the skeleton's bind pose), so the scale rides on the
+     * model matrix instead. STATIC meshes have it baked into positions
+     * directly and leave this undefined.
+     *
+     * uploadMesh consumes it to scale boundMin/boundMax/boundRadius up
+     * to the rendered size — without this, gpuMesh bounds would be the
+     * raw GLB bounds (Quaternius character pack: pre-scale ~3.7m head-
+     * to-toe), and physics auto-fit would build a capsule for the un-
+     * scaled character (visible Knight ~1.85m, capsule 3.7m → 2× too
+     * tall). Same fix applies to anything else reading these bounds
+     * (frustum cull, picking, AABB-fit box / sphere colliders).
+     */
+    facingScale?: number;
 }
 
 export interface GPUMeshHandle {
