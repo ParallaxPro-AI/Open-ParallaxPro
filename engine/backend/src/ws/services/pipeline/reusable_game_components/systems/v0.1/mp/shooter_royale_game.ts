@@ -1133,17 +1133,20 @@ class ShooterRoyaleGameSystem extends GameScript {
                 continue;
             }
             var dx = (pos.x - st.x) / step;
+            var dy = (pos.y - st.y) / step;
             var dz = (pos.z - st.z) / step;
             st.x = pos.x; st.y = pos.y; st.z = pos.z;
 
             var spd = Math.sqrt(dx * dx + dz * dz);
-            var grounded = true;
-            if (this.scene.raycast) {
-                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
-                grounded = !!(hit && hit.entityId);
-            }
+            // Vertical-velocity grounded check — raycast version started
+            // below the floor for feet-pivot characters and got stuck
+            // looping Jump on stationary remote players. See deathmatch_game
+            // for the full write-up. |dy| > 1.5 m/s = airborne (catches the
+            // jumpForce ≈ 7 launch and free-fall, leaves margin for snapshot
+            // interpolation noise).
+            var airborne = Math.abs(dy) > 1.5;
             var anim;
-            if (!grounded)      anim = "Jump";
+            if (airborne)       anim = "Jump";
             else if (spd > 7.5) anim = "Run";
             else if (spd > 0.5) anim = "Walk";
             else                anim = "Idle";
