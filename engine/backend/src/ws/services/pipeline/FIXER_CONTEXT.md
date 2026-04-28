@@ -763,6 +763,23 @@ boot → main_menu → lobby_browser ⇄ lobby_host_config → lobby_room → ga
 
 Phase transitions (six total): `phase_disconnected` (no session), `phase_connecting` (handshake in progress), `phase_browsing` (lobby list), `phase_in_lobby` (entered room), `phase_in_game` (match live), `phase_game_over` (match ended, room still open).
 
+### Required HUD panels for multiplayer (non-negotiable)
+
+If a multiplayer flow is missing any of `hud/ping`, `hud/voice_chat`, `hud/text_chat` from its `show_ui`/`hide_ui` actions, **add them**. The infrastructure already exists in `mp_bridge` (RTT, WebRTC voice, `mp.sendChat()` / `mp.chatHistory`); flows that don't wire the panels leave players unable to communicate or read their connection quality. The `KeyV` mute and `Enter`/`T` chat-open keys are handled inside the panels — no behavior wiring needed.
+
+Mirror exactly:
+
+```jsonc
+"main_menu":  { "on_enter": [..., "hide_ui:hud/voice_chat", "hide_ui:hud/text_chat", ...] },
+"lobby_room": { "on_enter": [..., "show_ui:hud/voice_chat", "show_ui:hud/text_chat", ...] },
+"gameplay": {
+  "on_enter": [..., "show_ui:hud/voice_chat", "show_ui:hud/text_chat", "show_ui:hud/ping", ...],
+  "on_exit":  [..., "hide_ui:hud/ping", ...]   // voice + text persist into game_over
+}
+```
+
+`hud/ping` is gameplay-only (top-right RTT). `voice_chat` + `text_chat` show from `lobby_room` onwards and stay visible through `game_over`.
+
 ## Pause menu (optional, reusable)
 
 Pin `ui/pause_menu.html` and configure via `ui_params.pause_menu.pauseButtons`:

@@ -64,6 +64,7 @@
       "on_enter": [
         "mp:leave_lobby",
         "hide_ui:hud/voice_chat",
+        "hide_ui:hud/text_chat",
         "show_ui:main_menu",
         "show_cursor"
       ],
@@ -111,6 +112,7 @@
       "on_enter": [
         "show_ui:lobby_room",
         "show_ui:hud/voice_chat",
+        "show_ui:hud/text_chat",
         "show_cursor"
       ],
       "on_exit": [
@@ -143,6 +145,7 @@
       "start": "playing",
       "on_enter": [
         "show_ui:hud/voice_chat",
+        "show_ui:hud/text_chat",
         "show_ui:hud/ping",
         "show_ui:hud/noodle_jaunt_hud",
         "hide_cursor"
