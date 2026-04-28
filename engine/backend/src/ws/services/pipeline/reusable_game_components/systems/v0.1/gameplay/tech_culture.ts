@@ -25,12 +25,12 @@ class TechCultureSystem extends GameScript {
 
         // Click-driven research / policy selection.
         this.scene.events.ui.on("ui_event:hud/tech_btn:select_tech", function(d) {
-            var p = ((d && d.data) || {}).payload || {};
+            var p = (d && d.payload) || {};
             if (p.techId) self._startResearch(p.techId);
             self._updateHud();
         });
         this.scene.events.ui.on("ui_event:hud/tech_btn:adopt_policy", function(d) {
-            var p = ((d && d.data) || {}).payload || {};
+            var p = (d && d.payload) || {};
             if (p.policyId) self._adoptPolicy(p.policyId);
         });
 

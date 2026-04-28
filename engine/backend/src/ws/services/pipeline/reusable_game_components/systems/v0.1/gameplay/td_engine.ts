@@ -124,7 +124,7 @@ class TDEngineSystem extends GameScript {
         // HUD click handlers — mirror keyboard shortcuts so the game is
         // fully playable with the mouse alone.
         this.scene.events.ui.on("ui_event:hud/td_hud:select_spot", function(d) {
-            var p = ((d && d.data) || {}).payload || {};
+            var p = (d && d.payload) || {};
             if (typeof p.index === "number" && p.index >= 0 && p.index < self._spots.length) {
                 self._selectedSpot = p.index;
                 self._moveCursor();
@@ -145,7 +145,7 @@ class TDEngineSystem extends GameScript {
         // spot will place it there. Clicking the same card again disarms.
         // If no spot click follows, the keyboard 1-4 path still works.
         this.scene.events.ui.on("ui_event:hud/td_hud:build_tower", function(d) {
-            var p = ((d && d.data) || {}).payload || {};
+            var p = (d && d.payload) || {};
             if (!p.type) return;
             if (self._armedTower === p.type) {
                 self._clearArmed();

@@ -129,7 +129,7 @@ class LawnDefendersEngineSystem extends GameScript {
         // index drives plant kind via the cardIdx → kind map below; the
         // HUD also offers a number-key shortcut so this isn't the only path.
         this.scene.events.ui.on("ui_event:hud/lawn_defenders_hud:select_plant", function(d) {
-            var p = ((d && d.data) || {}).payload || {};
+            var p = (d && d.payload) || {};
             self._armPlant(p.plant || "");
         });
         this.scene.events.ui.on("ui_event:hud/lawn_defenders_hud:cancel_plant", function() {

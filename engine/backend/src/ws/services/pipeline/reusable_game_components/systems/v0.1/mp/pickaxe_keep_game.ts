@@ -163,15 +163,14 @@ class PickaxeKeepGameSystem extends GameScript {
         // the html_ui_manager tags with panel and ui_bridge re-emits as
         // ui_event:hud/pickaxe_inventory:craft.
         this.scene.events.ui.on("ui_event:hud/pickaxe_inventory:craft", function(data) {
-            var dd = (data && data.data) || {};
+            var dd = data || {};
             self._onCraftRequest(dd.recipe);
         });
         // Also accept a slot-swap drag from the inventory panel: drag from
         // bag slot A to hotbar slot B. Useful for promoting a freshly
         // crafted pickaxe into a hotbar slot without reopening the panel.
         this.scene.events.ui.on("ui_event:hud/pickaxe_inventory:swap", function(data) {
-            var dd = (data && data.data) || {};
-            if (!dd) return;
+            var dd = data || {};
             self._swapSlots(Number(dd.from), Number(dd.to));
         });
         // Inventory close button on the panel itself.
