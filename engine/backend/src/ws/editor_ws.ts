@@ -1535,6 +1535,50 @@ function getProjectData(projectId: string): any {
     };
 }
 
+/**
+ * True iff this project has never had a successful LOAD_TEMPLATE or
+ * CREATE_GAME. Used by the chat compile-error retry path to silently
+ * intercept FIX_GAME tool calls on virgin projects (LLM occasionally
+ * misclassifies long feature/UI specs as FIX_GAME despite the system-
+ * prompt guidance — bouncing back via [SYSTEM] retry rephrases the turn
+ * to LOAD_TEMPLATE / OFFER_CREATE_GAME without the user ever seeing
+ * the misfire).
+ *
+ * Two-source check:
+ *   • load_template_count > 0  → ever loaded a real template (counter
+ *     bumps in executor.ts after a successful template= load; not the
+ *     bare-list LOAD_TEMPLATE call). Survives reverts to empty.
+ *   • flow.id != "empty" / flow.name != "Untitled Game" → a real game
+ *     has been written. The seeded blank scaffold uses
+ *     `id: "empty"` + `name: "Untitled Game"`; both LOAD_TEMPLATE and
+ *     CREATE_GAME overwrite 01_flow.json with their own values.
+ *     This catches CREATE_GAME completion without needing a separate
+ *     persistent column (`generation_last_success_at` clears when the
+ *     user opens the project, so it's not reliable for this check).
+ *
+ * Deliberately NOT using isProjectEmpty here — that helper also examines
+ * ui/*.html and behaviors/*.ts presence, but pinned MP scaffolding (e.g.
+ * ui/lobby_browser.html, ui/hud/ping.html) can land in a project before
+ * any real game is built, false-tripping the "userPanels" branch.
+ * Flow-id is the most direct evidence a real game write happened.
+ */
+function projectNeverHadRealGame(projectId: string, projectData: any): boolean {
+    const row = stmtGetLoadTemplateCount.get(projectId) as { load_template_count?: number } | undefined;
+    if ((row?.load_template_count ?? 0) > 0) return false;
+
+    const files = projectData?.files as Record<string, string> | undefined;
+    if (!files) return true;
+    try {
+        const flow = JSON.parse(files['01_flow.json'] || '{}');
+        const flowId = String(flow?.id || '').trim();
+        const flowName = String(flow?.name || '').trim();
+        // Either signal of a real write defeats the guard.
+        if (flowId && flowId !== 'empty') return false;
+        if (flowName && flowName !== 'Untitled Game') return false;
+    } catch { /* fall through — malformed flow is treated as virgin */ }
+    return true;
+}
+
 function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): ExecutionContext {
     return {
         sendToFrontend: (type, data) => send(client, type, data),
@@ -1719,7 +1763,8 @@ async function runLLMWithRetry(
             // Log exact LLM response
             appendToLog(client.projectId, client.chatSessionId, { role: 'assistant', content: fullText });
 
-            const compiled = compile(fullText, getProjectData(client.projectId));
+            const projectDataForCompile = getProjectData(client.projectId);
+            const compiled = compile(fullText, projectDataForCompile);
 
             if (!compiled.success && attempt < MAX_RETRIES) {
                 const errorMsg = formatErrors(compiled.errors);
@@ -1733,6 +1778,32 @@ async function runLLMWithRetry(
 
             if (!compiled.success) {
                 finishChat(client, 'Sorry, I was unable to complete that request. Please try rephrasing.');
+                return;
+            }
+
+            // Semantic guard — FIX_GAME on a virgin project. The runtime
+            // executor already hard-blocks FIX_GAME on empty projects, but
+            // by the time it fires the bad assistant message has rendered
+            // briefly through fix_progress events. Catching it here at
+            // compile-success time uses the same silent-retry path as
+            // [SYSTEM] Compile errors: the bad output goes into retryContext
+            // (so the LLM remembers what it tried), but it never reaches
+            // finishChat or the user-facing chat history.
+            //
+            // Criterion (per user spec): the project has NEVER had a
+            // successful LOAD_TEMPLATE (load_template_count > 0) or
+            // CREATE_GAME (which would have populated user-authored files,
+            // making isProjectEmpty return false). A reverted-to-empty
+            // project that previously loaded a template still passes the
+            // guard — its load count is non-zero.
+            if (compiled.ast.some(n => n.kind === 'tool_call' && (n as any).name === 'FIX_GAME')
+                && attempt < MAX_RETRIES
+                && projectNeverHadRealGame(client.projectId, projectDataForCompile)) {
+                runLLMWithRetry(client, abortController, attempt + 1, [
+                    ...retryContext,
+                    { role: 'assistant', content: fullText },
+                    { role: 'user', content: `[SYSTEM] FIX_GAME blocked — this project has never had a successful LOAD_TEMPLATE or CREATE_GAME, so there is no game content to fix. The user's request is a FRESH game-build request, even if it reads like a feature spec, UI description, or modification ask.\n\nIn your NEXT response, do exactly ONE of:\n  • <<<LOAD_TEMPLATE query="<short phrase from the user's request>">>><<<END>>> — search the catalog for a rough match. Loading is cheap and reversible.\n  • <<<OFFER_CREATE_GAME description="<the user's full request, verbatim>">>><<<END>>> paired with a { } question asking if they want a fresh from-scratch build (20–30 min, project locked, runs in the background).\n\nDo NOT re-emit FIX_GAME — it will be blocked again. Do NOT narrate without a tag.` },
+                ], accumulatedFileChanges);
                 return;
             }
 
