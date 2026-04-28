@@ -13,6 +13,13 @@ class VoxelWorldSystem extends GameScript {
         this.scene.events.game.on("game_ready", function() { self._reset(); });
         this.scene.events.game.on("block_mined", function(d) { self._addToInventory("block", 1); });
         this.scene.events.game.on("entity_killed", function(d) { if (d.dropItem) self._addToInventory(d.dropItem, d.dropAmount || 1); });
+        // Hotbar slot click → select slot, mirrors Digit1-9 keyboard path.
+        this.scene.events.ui.on("ui_event:hud/hotbar:select_slot", function(d) {
+            var p = (d && d.payload) || {};
+            if (typeof p.slot === "number" && p.slot >= 0 && p.slot < self._inventorySlots) {
+                self._selectedSlot = p.slot;
+            }
+        });
         this._reset();
     }
     _reset() {

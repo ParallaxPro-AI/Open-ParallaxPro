@@ -49,6 +49,20 @@ class BlockInteractorBehavior extends GameScript {
             self._cursorY = d.y;
             self._gotCursor = true;
         });
+        // Hotbar slot click → emit pk_hotbar_selected, mirrors Digit1-9.
+        // Only the local player's instance fires the intent; remote
+        // players' block_interactor instances see the same event but bail
+        // on the isLocalPlayer check.
+        this.scene.events.ui.on("ui_event:hud/pickaxe_hotbar:select_slot", function(d) {
+            var ni = self.entity.getComponent
+                ? self.entity.getComponent("NetworkIdentityComponent")
+                : null;
+            if (ni && !ni.isLocalPlayer) return;
+            var p = (d && d.payload) || {};
+            if (typeof p.slot === "number" && p.slot >= 0 && p.slot < 9) {
+                self.scene.events.game.emit("pk_hotbar_selected", { slot: p.slot });
+            }
+        });
     }
 
     onUpdate(dt) {

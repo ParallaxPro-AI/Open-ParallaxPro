@@ -23,6 +23,15 @@ class SandboxWorldSystem extends GameScript {
                 self._addToInventory(data.dropItem, data.dropAmount || 1);
             }
         });
+        // Hotbar slot click → select slot. Mirrors the Digit1-9 keyboard
+        // path so desktop players don't have to use the number row.
+        this.scene.events.ui.on("ui_event:hud/hotbar:select_slot", function(d) {
+            var p = (d && d.payload) || {};
+            if (typeof p.slot === "number" && p.slot >= 0 && p.slot < self._inventorySlots) {
+                self._selectedSlot = p.slot;
+                if (self.audio) self.audio.playSound("/assets/kenney/audio/interface_sounds/click_001.ogg", 0.2);
+            }
+        });
         this._reset();
     }
 
