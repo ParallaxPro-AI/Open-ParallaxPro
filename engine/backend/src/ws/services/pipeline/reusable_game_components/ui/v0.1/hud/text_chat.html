@@ -12,7 +12,12 @@
     overflow: hidden;
   }
   .box {
-    position: fixed; bottom: 14px; left: 14px;
+    /* z-index 150: above every shipped HUD layer (highest in-template
+       HUD is 100 in soccer/banner_siege; rift HUD tops out at 20),
+       below modal overlays (pause_menu 250, wasted 300, game_over 200)
+       which legitimately want to cover the chat. Bottom-left anchor
+       unchanged — only the layering needed adjusting. */
+    position: fixed; bottom: 14px; left: 14px; z-index: 150;
     width: min(380px, 46vw);
     display: flex; flex-direction: column;
     gap: 6px;
