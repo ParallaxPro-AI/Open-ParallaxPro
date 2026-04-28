@@ -891,59 +891,63 @@ default both spawn on top of each other. Slot peers by sorted peerId
 (see `coin_grab_game._positionLocalPlayer`) and `setPosition` the local
 player into its slot inside `_initMatch`.
 
-### Player physics for multiplayer — arena vs obstacle worlds
+### Player physics for multiplayer — always dynamic + setVelocity
 
-The shipped MP templates (`multiplayer_coin_grab`, `multiplayer_rift_1v1`,
-`multiplayer_rocket_pitch`, etc.) declare the player as `physics: kinematic`
-+ capsule and pair it with `behaviors/mp/player_arena_movement.ts`, which
-moves the player by direct `transform.position` writes:
-
-```js
-pos.x += strafe * speed * dt;
-pos.z -= forward * speed * dt;
-```
-
-**This pattern only works in empty arenas.** Rapier's `kinematicPositionBased`
-body type does not auto-resolve against static colliders — the engine moves
-the body to whatever position you write, full stop. The colliders on rocks /
-forge / walls / props *exist*, but they don't push the player back. The
-player walks straight through them.
-
-**Rule:** If your multiplayer world contains static obstacles the player
-should bump into (rocks, trees, buildings, fences, props, level geometry),
-the player MUST be `dynamic` + driven by `setVelocity`:
+**Rule:** Multiplayer character / vehicle players MUST be `dynamic` and
+driven by `setVelocity`. Kinematic + direct `pos.x += …` (or `setPosition`)
+silently teleports the body through every static collider in the world —
+Rapier's `kinematicPositionBased` body type doesn't auto-resolve against
+statics. The colliders on rocks / forge / walls / props *exist*, they just
+don't push the player back. Even in an "empty" arena, the boundary feel
+is wrong (script clamps fight what physics would have done) and the moment
+anyone adds a prop the game silently breaks.
 
 ```jsonc
 "player": {
   "mesh": { ... },
   "physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" },
   "network": { "syncTransform": true, "ownership": "local_player", ... },
-  "behaviors": [{ "name": "player_movement", "script": "movement/<your_script>.ts" }]
+  "behaviors": [{ "name": "player_movement", "script": "mp/<your_script>.ts" }]
 }
 ```
 
-Movement script writes `this.scene.setVelocity(this.entity.id, { x, y, z })`
-(preserving `vy` from the rigidbody so gravity keeps the feet on the ground).
-`open_world_crime` is the canonical reference — same physics shape, paired
-with `behaviors/movement/third_person_movement.ts`. Rapier auto-resolves
-collisions against statics for free.
+Movement script body:
 
-Decision flow when picking the player's body type for a multiplayer game:
-
-```
-Does the world have obstacles the player should collide with?
-├── No  (open arena, top-down dome, rink, sky island)
-│       → kinematic capsule + player_arena_movement.ts (the MP-template default)
-└── Yes (rocks, forge, walls, fences, props, terrain features)
-        → dynamic capsule (mass 75, freeze_rotation: true) + setVelocity
+```js
+var rb = this.entity.getComponent("RigidbodyComponent");
+var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
+// freeze_rotation: true on the rigidbody keeps physics from clobbering
+// transform.setRotationEuler() — write yaw directly, no quaternion math.
 ```
 
-The fact that `multiplayer_coin_grab` uses kinematic is NOT an endorsement
-for all MP games — it works there because there's literally nothing to bump
-into. Don't copy the pattern wholesale; pick by the obstacle question above.
-A failed run shipped a 1v1 mining duel with kinematic + direct-pos-write,
-gave rocks/forge/palms perfect static colliders, and the player walked through
-all of them — author chose the wrong row of this table.
+`vy` MUST come from the rigidbody, not zero — overwriting it kills gravity
+and the player floats. Soft-clamp horizontal velocity at any arena boundary
+(`if (pos.x < -19 && vx < 0) vx = 0;`) instead of hard-clamping `pos.x`.
+
+**Canonical references (all shipped MP templates use this pattern):**
+
+| Template | Movement script |
+|---|---|
+| `multiplayer_coin_grab` | `mp/player_arena_movement.ts` (WASD strafe) |
+| `multiplayer_rift_1v1` | `mp/player_moba_champion.ts` (click-to-move) |
+| `multiplayer_zone_royale` | `mp/player_shooter_movement.ts` (FPS strafe) |
+| `multiplayer_neon_cycles` | `mp/bike_player_control.ts` (constant forward) |
+| `court_clash` | `movement/baller_dribble.ts` (arena WASD) |
+| `kart_karnival` | `movement/kart_drive.ts` (kart with drift) |
+| `open_world_crime` | `movement/third_person_movement.ts` (single-player 3D) |
+
+Pick the closest match, pin it via `library.sh show`, tune params if needed.
+
+**Kinematic exception — script-driven Y-locked movers.** Use kinematic ONLY
+when the gameplay model fundamentally rejects gravity-based resolution:
+ships floating on a water plane (`buccaneer_bay/ship_sail.ts` locks Y to
+`_waterLine` and does its own multi-ray hull collision), scripted enemies
+on rails, moving platforms, elevators. For these, the script owns position
+fully and is responsible for collision detection (typically `scene.raycast`
+or its own overlap checks). If you find yourself writing kinematic + a
+gameplay loop where physics-resolved collision would be fine, you've picked
+wrong — switch to dynamic.
 
 ### Multiplayer flow actions
 

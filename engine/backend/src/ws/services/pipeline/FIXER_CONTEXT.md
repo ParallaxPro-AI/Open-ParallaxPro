@@ -826,10 +826,13 @@ Preserve `vy` (gravity), and replace any hard `pos.x = ±N` arena clamps
 with soft velocity clamps (`if (pos.x < -19 && vx < 0) vx = 0;`) so the
 dynamic body still respects the arena edge without fighting physics.
 
-`open_world_crime` is the canonical reference (third-person character in
-a world with obstacles). The shipped `multiplayer_coin_grab` kinematic
-pattern is correct for empty arenas only — when in doubt, ask whether the
-world has anything to bump into.
+Every shipped MP template (`multiplayer_coin_grab`, `multiplayer_rift_1v1`,
+`multiplayer_zone_royale`, `multiplayer_neon_cycles`, `court_clash`,
+`kart_karnival`) uses dynamic + setVelocity — pull the matching script
+via `library.sh show` and pattern-match. Kinematic is correct only for
+script-driven Y-locked movers (boats on a water plane —
+`buccaneer_bay/ship_sail.ts` is the one shipped example, and it owns
+multi-ray hull collision itself).
 
 ### Symptom: "I can't see other players in the world (but the scoreboard works)"
 
