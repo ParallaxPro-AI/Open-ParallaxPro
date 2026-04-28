@@ -1255,6 +1255,194 @@ function extractMethodBody(src, name) {
 
 
 // ═════════════════════════════════════════════════════════════════════
+// 12b. decoration_only on physical geometry (no collider) — bug class
+// ═════════════════════════════════════════════════════════════════════
+// `decoration_only` is the agent's escape hatch for "no collision needed —
+// purely visual." It causes invariants (interactive_entities_have_colliders)
+// to skip the entity. The trap: agents sometimes use it on entities that
+// the player WILL physically interact with (drive over a ramp, walk on a
+// platform), then implement the interaction via a proximity-zone behavior.
+// The kart_rally regression: ramp_jump tagged decoration_only + physics:false,
+// using track_zones.ts to detect ramp proximity and apply a vertical impulse.
+// User feedback: "ramp doesn't have collider" — they expected to drive on it.
+//
+// Tight name regex: only flags terms unambiguously describing solid
+// surface/structure geometry the player walks on or bumps into. Excludes
+// pickup-y names (coin/gem/orb/powerup) which legitimately use proximity
+// triggers. Excludes enemy names — those are AI agents with their own
+// physics setups. False-positive risk is minimal because the conjunction of
+// (physical name) AND (decoration_only tag) AND (no physics) is highly
+// specific to the bug pattern.
+(function checkDecorationOnlyOnPhysicalGeometry() {
+    // Tight regex of names that almost always describe player-interactive
+    // structural geometry. Excludes terms with frequent decorative use
+    // (floor / ceiling / roof / track / pipe — water surfaces, sky, sea
+    // floor, racetrack signage). Custom non-letter-border match instead of
+    // \b — JS \b treats `_` as a word char, so \bramp\b would NOT match
+    // "ramp_jump" (the canonical bug). Underscore-segmented names are the
+    // engine's idiomatic style; we want each segment matched independently.
+    var PHYSICAL_GEOMETRY_RE = /(^|[^a-z])(ramp|stair|stairs|step|platform|wall|fence|barrier|bridge|gateway|gate|door|pillar|column|catwalk|scaffold|ledge|obstacle)([^a-z]|$)/i;
+
+    // Tag names common in scaffolding / decoration that don't signal
+    // gameplay relevance even when present alongside decoration_only.
+    var GENERIC_TAGS = new Set(['decoration_only', 'no_collide', 'building', 'environment', 'background', 'vfx', 'particle', 'backdrop', 'effect', 'decoration']);
+
+    // Concatenate all .ts files under project/behaviors and project/systems
+    // (recursive). The flag fires only when an entity's tag or def-key
+    // appears as a literal in this corpus — strong signal that gameplay
+    // code references the entity. Avoids false positives on truly
+    // decorative entities whose names happen to contain "wall" / "ramp"
+    // (e.g. "wall_painting", "fence_railing_visual").
+    function scanScriptCorpus() {
+        var bigString = '';
+        function walk(dir) {
+            var entries;
+            try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+            for (var i = 0; i < entries.length; i++) {
+                var ent = entries[i];
+                var full = path.join(dir, ent.name);
+                if (ent.isDirectory()) walk(full);
+                else if (ent.isFile() && ent.name.endsWith('.ts')) {
+                    try { bigString += fs.readFileSync(full, 'utf-8') + '\n'; } catch (e) {}
+                }
+            }
+        }
+        walk(path.join(PROJECT, 'behaviors'));
+        walk(path.join(PROJECT, 'systems'));
+        return bigString;
+    }
+    var scriptCorpus = null;  // lazy
+
+    var errors = [];
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        var key = defKeys[di];
+        var def = defs[key];
+        if (!def) continue;
+        if (def.physics && def.physics !== false) continue;  // has a real physics block — fine
+        var tags = Array.isArray(def.tags) ? def.tags : [];
+        if (tags.indexOf('decoration_only') === -1) continue;
+        if (!PHYSICAL_GEOMETRY_RE.test(key)) continue;
+
+        // Confirming signal: entity's def-key OR a non-generic tag appears
+        // in some behavior/system file. Without this, a "wall_painting"
+        // tagged decoration_only wouldn't be a bug — it's a real visual
+        // prop that no code interacts with.
+        if (scriptCorpus === null) scriptCorpus = scanScriptCorpus();
+        var referenced = false;
+        var refSignal = '';
+        if (scriptCorpus.indexOf('"' + key + '"') !== -1 || scriptCorpus.indexOf("'" + key + "'") !== -1) {
+            referenced = true; refSignal = 'def-key "' + key + '"';
+        } else {
+            for (var ti = 0; ti < tags.length; ti++) {
+                var t = tags[ti];
+                if (typeof t !== 'string' || GENERIC_TAGS.has(t)) continue;
+                if (scriptCorpus.indexOf('"' + t + '"') !== -1 || scriptCorpus.indexOf("'" + t + "'") !== -1) {
+                    referenced = true; refSignal = 'tag "' + t + '"';
+                    break;
+                }
+            }
+        }
+        if (!referenced) continue;
+
+        errors.push(
+            'entity "' + key + '" is tagged "decoration_only" with no physics, but its name describes ' +
+            'physical geometry AND a behavior/system references it (' + refSignal + '). ' +
+            'decoration_only is ONLY for purely visual props the player never walks on, drives over, ' +
+            'or bumps into. Since gameplay code references this entity, the player will interact with it ' +
+            '— remove "decoration_only" from tags AND add a physics block ' +
+            '(`"physics": { "type": "static", "collider": "box" }` is the safe default — auto-fits to ' +
+            'the visible mesh AABB). If you intended the interaction to be proximity-only ' +
+            '(no physical collision), use a trigger collider instead: ' +
+            '`"physics": { "type": "static", "collider": { "shape": "box", "is_trigger": true } }`.'
+        );
+    }
+    if (errors.length > 0) {
+        console.error('decoration_only-on-physical-geometry validation failed: ' + errors.length +
+            ' entit' + (errors.length > 1 ? 'ies' : 'y') + '. ' + errors[0]);
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
+// 12c. Behavior requires DYNAMIC rigidbody — bug class
+// ═════════════════════════════════════════════════════════════════════
+// Scripts that drive movement via `this.scene.setVelocity(this.entity, ...)`
+// only work on DYNAMIC bodies. The physics system's applyPreStepForces
+// loop early-returns on non-dynamic types (kinematic/static/none), so the
+// velocity is silently dropped. The pickaxe_duel regression:
+// player.physics.type set to "kinematic", behaviors include
+// third_person_movement which calls scene.setVelocity — agent didn't know
+// the incompatibility, validate didn't catch it, user feedback: "can't move."
+//
+// Detection: read each behavior's source file from project/behaviors/ and
+// regex-match the canonical self-velocity-set pattern. If found, the
+// entity referencing that behavior must have physics.type === "dynamic".
+//
+// Self-targeted match (this.scene.setVelocity(this.entity...) only) keeps
+// false positives near zero — behaviors that set velocity on OTHER entities
+// (AI controllers driving a player, etc.) don't trigger.
+(function checkBehaviorRequiresDynamicBody() {
+    var SELF_SET_VELOCITY_RE = /this\.scene\.setVelocity\s*\(\s*this\.entity\b/;
+    var behaviorCache = {};  // path → { needsDynamic: bool, exists: bool }
+    function inspectBehavior(scriptPath) {
+        if (behaviorCache[scriptPath]) return behaviorCache[scriptPath];
+        var rec = { needsDynamic: false, exists: false };
+        var rel = scriptPath.replace(/^\/+/, '');
+        var fullPath = path.join(PROJECT, 'behaviors', rel);
+        try {
+            var src = fs.readFileSync(fullPath, 'utf-8');
+            rec.exists = true;
+            rec.needsDynamic = SELF_SET_VELOCITY_RE.test(src);
+        } catch (e) { /* missing — ref-validator will flag separately */ }
+        behaviorCache[scriptPath] = rec;
+        return rec;
+    }
+    var errors = [];
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        var key = defKeys[di];
+        var def = defs[key];
+        if (!def || !Array.isArray(def.behaviors)) continue;
+        for (var bi = 0; bi < def.behaviors.length; bi++) {
+            var beh = def.behaviors[bi];
+            if (!beh || !beh.script) continue;
+            var info = inspectBehavior(beh.script);
+            if (!info.exists || !info.needsDynamic) continue;
+            // Behavior moves `this.entity` via setVelocity → entity must be DYNAMIC.
+            var phys = def.physics;
+            var bodyType = (phys && typeof phys === 'object') ? phys.type : null;
+            if (phys === false) {
+                errors.push(
+                    'entity "' + key + '" uses behavior "' + (beh.name || beh.script) +
+                    '" (which calls scene.setVelocity on this.entity) but has "physics": false. ' +
+                    'Behaviors that drive movement via setVelocity require a DYNAMIC rigidbody. ' +
+                    'Add `"physics": { "type": "dynamic", "mass": 75, "freeze_rotation": true, "collider": "capsule" }` ' +
+                    '(adjust mass/collider as appropriate).'
+                );
+            } else if (!phys || bodyType !== 'dynamic') {
+                errors.push(
+                    'entity "' + key + '" uses behavior "' + (beh.name || beh.script) +
+                    '" (which calls scene.setVelocity on this.entity) but physics.type is "' +
+                    (bodyType || 'static (default)') + '". Behaviors that drive movement via ' +
+                    'setVelocity require physics.type = "dynamic" — kinematic / static bodies ' +
+                    'silently ignore velocity in physics_system.applyPreStepForces. Either change to ' +
+                    '"dynamic" (with mass + freeze_rotation as needed), or swap the behavior for one ' +
+                    'that mutates transform.position directly (e.g., player_arena_movement.ts).'
+                );
+            }
+        }
+    }
+    if (errors.length > 0) {
+        console.error('behavior-body-type validation failed: ' + errors.length +
+            ' issue' + (errors.length > 1 ? 's' : '') + '. ' + errors[0]);
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
 // 13. AI behavior Play Again reset
 // ═════════════════════════════════════════════════════════════════════
 //
