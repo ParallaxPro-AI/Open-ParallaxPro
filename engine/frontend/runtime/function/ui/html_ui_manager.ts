@@ -90,15 +90,39 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
             try {
                 const doc = iframe.contentDocument;
                 if (!doc) return null;
+                const win = iframe.contentWindow;
                 const rect = iframe.getBoundingClientRect();
-                const x = clientX - rect.left;
-                const y = clientY - rect.top;
-                if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null;
+                const xv = clientX - rect.left;
+                const yv = clientY - rect.top;
+                if (xv < 0 || yv < 0 || xv > rect.width || yv > rect.height) return null;
+                // applyScale puts a transform: scale() on the iframe so
+                // visual rect.width != content layout width. Convert
+                // visual click coords → layout coords for elementFromPoint.
+                const layoutW = win?.innerWidth || rect.width;
+                const layoutH = win?.innerHeight || rect.height;
+                const sx = rect.width / layoutW || 1;
+                const sy = rect.height / layoutH || 1;
+                const x = xv / sx;
+                const y = yv / sy;
                 const el = doc.elementFromPoint(x, y);
                 if (!el || el === doc.documentElement || el === doc.body) return null;
                 const interactive = el.closest(INTERACTIVE_SELECTOR) as HTMLElement;
                 if (interactive) return interactive;
-                const pe = iframe.contentWindow?.getComputedStyle(el)?.pointerEvents;
+                // Fallback: walk ancestors looking for the nearest one with
+                // `cursor: pointer`. Picks up the common HUD pattern of
+                // <div class="card" style="cursor:pointer"> with a click
+                // handler attached via addEventListener — these have no
+                // [data-interactive] marker but ARE clickable. Without
+                // this, those HUDs were broken on BOTH desktop (iframe
+                // pointer-events stays at none → click hits canvas) and
+                // mobile (synth-click selector missed them too).
+                let cur: Element | null = el;
+                while (cur && cur !== doc.body && cur !== doc.documentElement) {
+                    const cs = win?.getComputedStyle(cur);
+                    if (cs && cs.cursor === 'pointer') return cur as HTMLElement;
+                    cur = cur.parentElement;
+                }
+                const pe = win?.getComputedStyle(el)?.pointerEvents;
                 if (pe === 'auto' || pe === 'all') return el as HTMLElement;
                 return null;
             } catch {
@@ -284,8 +308,17 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
             container.style.cursor = wantCursor ? 'default' : 'none';
         }
 
-        // Handle virtual cursor clicks (skip on mobile — real taps work directly)
-        if (!isMobileDevice && state._cursorClick && this.container) {
+        // Handle virtual cursor clicks. Was previously gated by
+        // !isMobileDevice on the assumption that real taps reach HUD
+        // elements directly — they don't: HUD iframes are pointer-
+        // events:none so taps fall through to canvas. On real mobile the
+        // synth path is mobile_input_overlay (preventDefault on
+        // touchstart blocks the canvas mousedown so _cursorClick never
+        // sets). On Chrome DevTools mobile emulation that suppression
+        // doesn't always happen, leaving the HUD unclickable. virtualClick
+        // is the safety net: if _cursorClick made it here at all, try to
+        // land it on a HUD element.
+        if (state._cursorClick && this.container) {
             this.virtualClick(state._cursorClick.x, state._cursorClick.y);
             delete state._cursorClick;
         }
@@ -357,7 +390,18 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
                 const el = doc.elementFromPoint(ix, iy);
                 if (!el || el === doc.documentElement || el === doc.body) continue;
 
-                const target = el.closest(INTERACTIVE_SELECTOR) as HTMLElement || el;
+                let target = el.closest(INTERACTIVE_SELECTOR) as HTMLElement | null;
+                if (!target) {
+                    // Cursor:pointer ancestor fallback (matches getInteractiveAt).
+                    const win = iframe.contentWindow;
+                    let cur: Element | null = el;
+                    while (cur && cur !== doc.body && cur !== doc.documentElement) {
+                        const cs = win?.getComputedStyle(cur);
+                        if (cs && cs.cursor === 'pointer') { target = cur as HTMLElement; break; }
+                        cur = cur.parentElement;
+                    }
+                }
+                if (!target) target = el as HTMLElement;
 
                 const opts: MouseEventInit = { clientX: ix, clientY: iy, bubbles: true, cancelable: true };
                 target.dispatchEvent(new MouseEvent('mousedown', opts));

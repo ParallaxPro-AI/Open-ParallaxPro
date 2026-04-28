@@ -193,8 +193,8 @@
 
 <div class="panel">
   <div class="tab-row">
-    <div class="tab active" data-tab="units" id="tabUnits">Units</div>
-    <div class="tab" data-tab="structures" id="tabStruct">Structures</div>
+    <div class="tab active" data-tab="units" id="tabUnits" data-interactive>Units</div>
+    <div class="tab" data-tab="structures" id="tabStruct" data-interactive>Structures</div>
   </div>
   <div class="grid" id="grid"></div>
   <div class="queue" id="queue"></div>
@@ -252,6 +252,8 @@
       var btn = document.createElement('div');
       btn.className = 'build-btn' + (it.affordable ? '' : ' disabled');
       btn.setAttribute('data-type', it.type);
+      // Mobile-controls overlay synth-clicks elements with this attr.
+      btn.setAttribute('data-interactive', '');
 
       var costStr = '<span>' + it.minerals + 'm</span>';
       if (it.gas) costStr += '<span class="gas">' + it.gas + 'g</span>';
@@ -290,6 +292,7 @@
       var btn = document.createElement('div');
       btn.className = 'cancel';
       btn.textContent = '×';
+      btn.setAttribute('data-interactive', '');
       (function (idx) {
         btn.addEventListener('click', function () {
           send('cancel_build', { index: idx });

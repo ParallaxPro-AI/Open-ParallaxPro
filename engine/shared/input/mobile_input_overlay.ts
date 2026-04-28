@@ -892,6 +892,18 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
      * touch devices, leaving HUD buttons unreachable. We manually
      * dispatch the click instead. Cross-origin iframes are skipped
      * because their contentDocument is inaccessible.
+     *
+     * Detection has two paths:
+     *   (a) Tag/attr selector — `<button>`, `<input>`, `<a>`, anything
+     *       marked `[data-interactive]` or `[onclick]`. Cheap, exact.
+     *   (b) Computed-style fallback — walk up the parent chain from the
+     *       hit element and pick the nearest ancestor with
+     *       `cursor: pointer`. Picks up the common pattern in shipped
+     *       HUDs of `<div class="card" style="cursor:pointer">` with a
+     *       click handler attached via addEventListener('click', …).
+     *       Works for projects pinned BEFORE we added `data-interactive`
+     *       markers to the shared HUDs, and for HUDs the LLM authors
+     *       without remembering to mark them up explicitly.
      */
     const findInteractiveHudElement = (x: number, y: number): HTMLElement | null => {
         const iframes = document.getElementsByTagName('iframe');
@@ -905,49 +917,88 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             try {
                 const iDoc = frame.contentDocument;
                 if (!iDoc) continue;
-                const inner = iDoc.elementFromPoint(x - rect.left, y - rect.top);
+                const iWin = frame.contentWindow;
+                if (!iWin) continue;
+                // HUD iframes are CSS-scaled to fit narrow viewports
+                // (transform: scale(0.5) etc) — getBoundingClientRect
+                // returns the *visual* (post-transform) rect, but
+                // elementFromPoint inside the iframe expects layout
+                // (CSS-pixel) coords. Divide visual offset by the
+                // scale factor (rect.width / innerWidth) to convert.
+                const layoutW = iWin.innerWidth || rect.width;
+                const layoutH = iWin.innerHeight || rect.height;
+                const sx = rect.width / layoutW || 1;
+                const sy = rect.height / layoutH || 1;
+                const ix = (x - rect.left) / sx;
+                const iy = (y - rect.top) / sy;
+                const inner = iDoc.elementFromPoint(ix, iy);
                 if (!inner) continue;
-                const interactive = (inner as Element).closest?.(INTERACTIVE) as HTMLElement | null;
-                if (interactive) return interactive;
+                // (a) Direct tag/attr selector match.
+                const tagMatch = (inner as Element).closest?.(INTERACTIVE) as HTMLElement | null;
+                if (tagMatch) return tagMatch;
+                // (b) Computed-style fallback: walk up looking for the
+                // nearest ancestor with cursor:pointer that isn't the
+                // body/document. This handles div-as-button HUDs that
+                // weren't authored with data-interactive markers.
+                let cur: Element | null = inner as Element;
+                while (cur && cur !== iDoc.body && cur !== iDoc.documentElement) {
+                    const cs = iWin.getComputedStyle(cur as Element);
+                    if (cs && cs.cursor === 'pointer') return cur as HTMLElement;
+                    cur = cur.parentElement;
+                }
             } catch { /* cross-origin or sandboxed — skip */ }
         }
         return null;
     };
 
     // ── Touch listeners (capture so HUD iframes don't swallow first) ─────
+    const synthHudClick = (hudEl: HTMLElement) => {
+        try {
+            const view = (hudEl.ownerDocument?.defaultView ?? window) as Window;
+            const evt = new (view as any).MouseEvent('click', {
+                bubbles: true, cancelable: true, view, button: 0,
+            });
+            hudEl.dispatchEvent(evt);
+        } catch { /* swallow */ }
+    };
     const onTouchStart = (e: TouchEvent) => {
         if (!isVisible()) return;
         let consumed = false;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
-            // Overlay widgets take precedence: a tap geometrically over
-            // both an overlay widget and a HUD button (rare but possible)
-            // should fire the widget — the user's hand is on the widget.
+            // dispatchEvent (NOT el.click()) intentionally — .click() on
+            // a <button> triggers the default form-submit action, and
+            // iOS Safari interprets default-type-submit buttons synth-
+            // clicked out of touch context as a navigation request,
+            // which manifests as a full page reload (or worse, repeated
+            // reloads → "A problem repeatedly occurred" tab kill).
+            // dispatchEvent fires the onclick handler without the
+            // default action, which is exactly what we want.
             const w = widgetAt(t.clientX, t.clientY);
-            if (w) {
+            // Action rail / hotbar / system tray / joystick are bespoke
+            // overlay widgets — claim the touch outright. Viewport and
+            // look fall back to canvas-area handling and need a HUD
+            // intercept first: HUD iframes are pointer-events:none, so
+            // `document.elementFromPoint` returns the canvas under them
+            // and widgetAt happily classifies a tap-on-Start-Wave as a
+            // "viewport tap". Without the intercept the touch is
+            // consumed as a world click, MouseLeft is injected, and the
+            // HUD button never sees the tap.
+            const isCanvasFallback = w && (w.kind === 'viewport' || w.kind === 'look');
+            if (w && !isCanvasFallback) {
                 consumed = true;
                 w.onStart(t);
                 continue;
             }
-            // No overlay widget claimed the touch. Try a HUD iframe
-            // button. dispatchEvent (NOT el.click()) intentionally —
-            // .click() on a <button> triggers the default form-submit
-            // action, and iOS Safari interprets default-type-submit
-            // buttons synth-clicked out of touch context as a navigation
-            // request, which manifests as a full page reload (or worse,
-            // repeated reloads → "A problem repeatedly occurred" tab
-            // kill). dispatchEvent fires the onclick handler without the
-            // default action, which is exactly what we want.
             const hudEl = findInteractiveHudElement(t.clientX, t.clientY);
             if (hudEl) {
-                try {
-                    const view = (hudEl.ownerDocument?.defaultView ?? window) as Window;
-                    const evt = new (view as any).MouseEvent('click', {
-                        bubbles: true, cancelable: true, view, button: 0,
-                    });
-                    hudEl.dispatchEvent(evt);
-                } catch { /* swallow */ }
+                synthHudClick(hudEl);
                 consumed = true;
+                continue;
+            }
+            if (w) {
+                consumed = true;
+                w.onStart(t);
                 continue;
             }
         }

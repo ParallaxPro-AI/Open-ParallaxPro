@@ -125,20 +125,16 @@
     },
     "actions": [
       {
-        "key": "KeyQ",
-        "label": "Q"
-      },
-      {
-        "key": "KeyE",
-        "label": "E"
-      },
-      {
         "key": "Space",
         "label": "Center"
       }
     ],
     "viewport": {
       "tap": "click"
-    }
+    },
+    "hudKeys": [
+      "KeyQ",
+      "KeyE"
+    ]
   }
 }

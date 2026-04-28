@@ -292,28 +292,32 @@
   <div class="stat wave"><span class="label">Wave</span><span class="value" id="wave">0/10</span><span class="alive" id="alive"></span></div>
 </div>
 
-<div class="start-wave-btn" id="startWaveBtn">Start Wave</div>
+<!-- data-interactive markers below let the mobile-controls overlay
+     synth-click these on touch devices. The desktop click path runs
+     unchanged via the addEventListener('click') wiring in the script
+     block below. -->
+<div class="start-wave-btn" id="startWaveBtn" data-interactive>Start Wave</div>
 
 <div class="palette" id="palette">
-  <div class="card arrow" data-type="arrow">
+  <div class="card arrow" data-type="arrow" data-interactive>
     <span class="key-hint">1</span>
     <div class="icon-wrap"><div class="icon"></div></div>
     <div class="name">Arrow</div>
     <div class="cost" id="cost-arrow">100</div>
   </div>
-  <div class="card cannon" data-type="cannon">
+  <div class="card cannon" data-type="cannon" data-interactive>
     <span class="key-hint">2</span>
     <div class="icon-wrap"><div class="icon"></div></div>
     <div class="name">Cannon</div>
     <div class="cost" id="cost-cannon">200</div>
   </div>
-  <div class="card ice" data-type="ice">
+  <div class="card ice" data-type="ice" data-interactive>
     <span class="key-hint">3</span>
     <div class="icon-wrap"><div class="icon"></div></div>
     <div class="name">Ice</div>
     <div class="cost" id="cost-ice">150</div>
   </div>
-  <div class="card lightning" data-type="lightning">
+  <div class="card lightning" data-type="lightning" data-interactive>
     <span class="key-hint">4</span>
     <div class="icon-wrap"><div class="icon"></div></div>
     <div class="name">Bolt</div>
@@ -324,14 +328,14 @@
 <div class="hint" id="hint">Click a tower, then click a spot in the world. Or Q/E + 1-4. Right-click / Esc to cancel.</div>
 
 <div class="spot-bar">
-  <div class="spot-arrow" id="spotPrev">&#9664;</div>
+  <div class="spot-arrow" id="spotPrev" data-interactive>&#9664;</div>
   <div class="spot-info">
     <span id="spotLabel">Spot 1 / 12</span>
     <span class="small" id="spotDetail">empty</span>
   </div>
-  <div class="spot-arrow" id="spotNext">&#9654;</div>
-  <div class="spot-action upgrade disabled" id="upgradeBtn">Upgrade</div>
-  <div class="spot-action sell disabled" id="sellBtn">Sell</div>
+  <div class="spot-arrow" id="spotNext" data-interactive>&#9654;</div>
+  <div class="spot-action upgrade disabled" id="upgradeBtn" data-interactive>Upgrade</div>
+  <div class="spot-action sell disabled" id="sellBtn" data-interactive>Sell</div>
 </div>
 
 <script>
