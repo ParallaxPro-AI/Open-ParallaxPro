@@ -197,7 +197,7 @@ export async function runCreator(
             validEventsList = `\n\n# Baseline Game Events\n\nThese events already exist in project/systems/event_definitions.ts — prefer them when a reasonable match is available:\n\n${names.map(n => `- ${n}`).join('\n')}\n\nIf your game's mechanic genuinely needs a new event (e.g. a game-specific phase like \`tornado_spawned\`), you MAY append it to project/systems/event_definitions.ts using the same format as the existing entries. Do NOT rename or remove any existing event.`;
         } catch {}
 
-        let taskContent = `# Game to Create\n\n${description}\n\nIMPORTANT: The description above may be incomplete or paraphrased. Always check the Chat History below for the user's original words and any additional details they mentioned.\n\n# Template ID\n\n${templateId}\n\nFill in the project files in project/ — the 4 template JSONs (01_flow.json / 02_entities.json / 03_worlds.json / 04_systems.json), pinned behaviors in project/behaviors/, systems in project/systems/, UI panels in project/ui/, and any custom scripts in project/scripts/. The reference/ directory has the latest shared library to copy from. Run "bash validate.sh" before finishing.${validEventsList}`;
+        let taskContent = `# Game to Create\n\n${description}\n\nIMPORTANT: The description above may be incomplete or paraphrased. Always check the Chat History below for the user's original words and any additional details they mentioned.\n\n# Template ID\n\n${templateId}\n\nFill in the project files in project/ — the 4 template JSONs (01_flow.json / 02_entities.json / 03_worlds.json / 04_systems.json), pinned behaviors in project/behaviors/, systems in project/systems/, UI panels in project/ui/, and any custom scripts in project/scripts/. reference/game_templates/ holds the 40 shipped templates as worked examples. For behaviors, systems, and UI panels, use "bash library.sh {list|search|show}" — they are NOT in reference/. Run "bash validate.sh" before finishing.${validEventsList}`;
         if (chatHistory) {
             taskContent += `\n\n# Chat History\n\nThis is the recent conversation between the user and the AI assistant before this build was requested. The user's original request is in here — use it as the primary source of truth for what to build, not just the description above.\n\n${chatHistory}`;
         }
@@ -595,7 +595,7 @@ async function createSandbox(
     writeLibraryTool(sandboxDir);
 }
 
-function copyDirRecursive(src: string, dest: string): void {
+export function copyDirRecursive(src: string, dest: string): void {
     if (!fs.existsSync(src)) return;
     fs.mkdirSync(dest, { recursive: true });
     for (const entry of fs.readdirSync(src, { withFileTypes: true })) {

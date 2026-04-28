@@ -32,6 +32,8 @@ project/                          — The user's game (template format). EDIT TH
   scripts/                        — User-written custom scripts (optional)
 reference/                        — Read-only
   event_definitions.ts            — Canonical event schema (convenience pointer)
+  game_templates/                 — All 40 shipped templates (4 JSONs each).
+                                    Read for known-good patterns when fixing.
 TASK.md                           — The user's request + project summary
 search_assets.sh                  — bash search_assets.sh "query" to find assets
 library.sh                        — bash library.sh {list,search,show} to find +

@@ -347,13 +347,14 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
             '--model', opts.claudeModel ?? 'sonnet',
             '--dangerously-skip-permissions',
             '--max-turns', String(opts.maxTurns),
-            // Shrink the CLI baseline: 31 tools → 6. Measured ~16K tokens
-            // cut from the warm-fork prefix, which re-reads every turn.
-            // Agents only use Bash (for our .sh tools + validate),
-            // Read/Write/Edit (for project files), and Glob/Grep
-            // (occasional). --strict-mcp-config drops the Gmail +
-            // Calendar MCP auth tools that --tools doesn't filter out.
-            '--tools', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep',
+            // Trimmed CLI baseline (vs. the 31-tool default). Bash for our
+            // .sh wrappers + validate; Read/Write/Edit/MultiEdit for project
+            // files; Glob/Grep for occasional lookup; TodoWrite to keep the
+            // fixer coherent across multi-issue playtest verdicts; WebFetch +
+            // WebSearch for occasional reference lookup.
+            // --strict-mcp-config drops Gmail + Calendar MCP auth tools that
+            // --tools doesn't filter out.
+            '--tools', 'Bash', 'Read', 'Write', 'Edit', 'MultiEdit', 'Glob', 'Grep', 'TodoWrite', 'WebFetch', 'WebSearch',
             '--strict-mcp-config',
         ];
         if (opts.continueForked) {
