@@ -66,6 +66,16 @@ export class EditorView {
             landscapeQuery.addEventListener('change', reparentChat);
             reparentChat();
 
+            // Wire the toolbar's AI Assistant button (mobile-landscape only)
+            // to the same chat sheet the FAB used to control. The FAB
+            // itself is hidden via CSS in landscape, so users get one
+            // affordance instead of two.
+            this.toolbar.bindMobileChat(
+                () => this.mobileLayout!.toggleChat(),
+                () => this.mobileLayout!.isChatSheetOpen(),
+            );
+            this.mobileLayout.onChatSheetChange((open) => this.toolbar.setMobileChatOpen(open));
+
             this.el.appendChild(this.mobileLayout.el);
 
             this.disconnectOverlay = document.createElement('div');
