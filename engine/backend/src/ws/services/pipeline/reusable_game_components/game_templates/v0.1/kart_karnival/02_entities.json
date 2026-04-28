@@ -101,7 +101,10 @@
           600
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
         "ground"
       ],

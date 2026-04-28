@@ -101,10 +101,12 @@
           30
         ]
       },
-      "physics": false,
+      "physics": {
+        "type": "static",
+        "collider": "box"
+      },
       "tags": [
-        "ground",
-        "decoration_only"
+        "ground"
       ],
       "label": false,
       "mesh_override": {
