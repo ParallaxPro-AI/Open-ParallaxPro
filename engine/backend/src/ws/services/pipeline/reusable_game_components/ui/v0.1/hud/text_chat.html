@@ -24,6 +24,12 @@
     pointer-events: none;
   }
   .log {
+    /* Idle by default — log is invisible until something happens
+       (new message, user opens input, or user double-taps Enter to
+       peek at history). The .show class is added by JS for a few
+       seconds whenever activity occurs, then removed so the log
+       fades back out. Game-chat convention: stay out of the way
+       when nobody's talking. */
     max-height: 180px;
     overflow-y: auto;
     display: flex; flex-direction: column;
@@ -33,8 +39,11 @@
     font-family: 'Menlo', 'Consolas', monospace;
     border-radius: 8px;
     background: rgba(8,8,14,0.35);
-    transition: background 0.2s;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, background 0.2s;
   }
+  .log.show { opacity: 1; pointer-events: auto; }
   .log.empty { background: transparent; }
   .log::-webkit-scrollbar { width: 4px; }
   .log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
@@ -98,6 +107,25 @@
   var localUsername = '';
   var fadeTimer = null;
   var justClosedAt = 0;
+  var IDLE_FADE_MS = 5000;       // how long the log stays visible after activity
+  var DOUBLE_TAP_MS = 400;       // window for double-tap-Enter peek
+  var lastEnterAt = 0;
+
+  function showLog(stayMs) {
+    // Make the log visible. Cancel any pending fade. If stayMs > 0,
+    // schedule a fade after that long; if 0, sticky-show until a
+    // future closeInput / explicit hide. Don't auto-fade while the
+    // input is open — user is mid-conversation.
+    logEl.classList.add('show');
+    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+    if (stayMs > 0) {
+      fadeTimer = setTimeout(function () {
+        if (!inputRow.classList.contains('open')) {
+          logEl.classList.remove('show');
+        }
+      }, stayMs);
+    }
+  }
 
   function emit(action, payload) {
     var msg = { type: 'game_command', action: action };
@@ -123,6 +151,10 @@
     logEl.classList.remove('empty');
     while (logEl.childNodes.length > 80) logEl.removeChild(logEl.firstChild);
     scrollDown();
+    // New activity: surface the log briefly. Reset fade timer on every
+    // append so during ongoing conversation the log stays visible the
+    // whole time and only fades after the chat goes quiet.
+    showLog(IDLE_FADE_MS);
   }
 
   function renderAll(messages) {
@@ -133,7 +165,12 @@
         '<span class="user">' + escape(m.fromUsername) + ':</span>' +
         '<span class="body">' + escape(m.body) + '</span>');
     });
-    if (!messages || !messages.length) logEl.classList.add('empty');
+    if (!messages || !messages.length) {
+      logEl.classList.add('empty');
+      // No history → don't surface anything.
+      logEl.classList.remove('show');
+      if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+    }
   }
 
   function openInput() {
@@ -147,12 +184,17 @@
     input.value = '';
     setTimeout(function () { input.focus(); }, 20);
     emit('chat_focus', { focus: true });
+    // While typing, the log stays visible — clear any pending fade.
+    showLog(0);
   }
   function closeInput() {
     if (!inputRow.classList.contains('open')) return;
     inputRow.classList.remove('open');
     hint.style.display = '';
     justClosedAt = Date.now();
+    // Grace window after close so the user can read what they just sent
+    // / what the other peer typed mid-exchange before the log fades.
+    showLog(IDLE_FADE_MS);
     try { input.blur(); } catch (e) {}
     // Handing focus back to the parent canvas is critical: blurring our
     // own input only moves focus off it within THIS sub-iframe, the
@@ -185,6 +227,20 @@
     // 't' or 'Enter' opens chat (while iframe has focus). Parent forwards its own t/Enter via postMessage too.
     if (e.key === 't' || e.key === 'Enter') {
       e.preventDefault();
+      var now = Date.now();
+      if (e.key === 'Enter' && now - lastEnterAt < DOUBLE_TAP_MS) {
+        // Double-tap Enter: peek at the log without entering chat mode
+        // (read past messages, then let it fade again). The first Enter
+        // opened the input; this second Enter would normally re-trigger
+        // openInput as a no-op, but instead we reveal the log and skip
+        // input. Useful when there's no input race — e.g., user pressed
+        // Enter once, input was already debouncing — they can double-tap
+        // to just see history.
+        showLog(IDLE_FADE_MS);
+        lastEnterAt = 0;
+        return;
+      }
+      lastEnterAt = now;
       openInput();
     }
   });
