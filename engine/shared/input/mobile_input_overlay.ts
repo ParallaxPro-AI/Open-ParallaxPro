@@ -256,7 +256,15 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             'top:0',
             'width:50%',
             'height:75%',
-            'pointer-events:auto',
+            // pointer-events: none, NOT auto. The browser must hit-test
+            // *through* the look pad so taps that land on a HUD iframe in
+            // this region (top-right score, top-center timer, etc.) reach
+            // the iframe instead of being swallowed by an invisible
+            // capture surface. Document-level capture still sees the
+            // touch and we decide in widgetAt() whether this point is
+            // bare canvas (treat as look gesture) or covered by a HUD
+            // (yield, don't consume).
+            'pointer-events:none',
             'touch-action:none',
             'background:transparent',
         ].join(';');
@@ -626,11 +634,25 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         if (joystick && hit(joystick.el, x, y)) {
             return { kind: 'joystick', onStart: joystick.onStart, onMove: joystick.onMove, onEnd: joystick.onEnd };
         }
+        // Look pad and the canvas-area viewport fallback are TRANSPARENT
+        // pass-through zones. If a HUD iframe / HUD HTML element is
+        // visually rendered at the touch point, it must receive the tap —
+        // otherwise the user can see a HUD button but their touch goes
+        // nowhere because the overlay claimed it. Use elementFromPoint
+        // to identify what's actually under the finger; the look pad
+        // itself has pointer-events:none so it's already see-through to
+        // the browser's hit-test, and the viewport-fallback area is bare
+        // canvas with the overlay root at pointer-events:none. We only
+        // claim the touch as a look/viewport gesture when the topmost
+        // element is the canvas itself.
+        const topEl = document.elementFromPoint(x, y);
+        const isCanvasTop = topEl === canvas;
         if (lookPad && hit(lookPad.el, x, y)) {
+            if (!isCanvasTop) return null; // HUD iframe / element below — yield
             return { kind: 'look', onStart: lookPad.onStart, onMove: lookPad.onMove, onEnd: lookPad.onEnd };
         }
-        // Viewport fallback only if the point is over the canvas itself.
         if (hit(canvas, x, y)) {
+            if (!isCanvasTop) return null; // HUD iframe / element on top of canvas — yield
             return {
                 kind: 'viewport',
                 onStart: viewportStart,
