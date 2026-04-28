@@ -785,17 +785,19 @@ class BannerSiegeGameSystem extends GameScript {
                 continue;
             }
             var dx = (pos.x - st.x) / step;
+            var dy = (pos.y - st.y) / step;
             var dz = (pos.z - st.z) / step;
             st.x = pos.x; st.y = pos.y; st.z = pos.z;
 
             var spd = Math.sqrt(dx * dx + dz * dz);
-            var grounded = true;
-            if (this.scene.raycast) {
-                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
-                grounded = !!(hit && hit.entityId);
-            }
+            // Vertical-velocity grounded check; the prior raycast version
+            // started below the feet on Quaternius models (origin at the
+            // feet) and missed the floor, so stationary remote players were
+            // stuck looping the Jump anim. See deathmatch_game for the full
+            // write-up. |dy| > 1.5 m/s is the same threshold used there.
+            var airborne = Math.abs(dy) > 1.5;
             var anim;
-            if (!grounded)      anim = "Jump";
+            if (airborne)       anim = "Jump";
             else if (spd > 7.5) anim = "Run";
             else if (spd > 0.5) anim = "Walk";
             else                anim = "Idle";

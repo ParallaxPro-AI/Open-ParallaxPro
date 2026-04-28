@@ -1590,17 +1590,23 @@ class Rift1v1GameSystem extends GameScript {
                 continue;
             }
             var dx = (pos.x - st.x) / step;
+            var dy = (pos.y - st.y) / step;
             var dz = (pos.z - st.z) / step;
             st.x = pos.x; st.y = pos.y; st.z = pos.z;
 
             var spd = Math.sqrt(dx * dx + dz * dz);
-            var grounded = true;
-            if (this.scene.raycast) {
-                var hit = this.scene.raycast(pos.x, pos.y - 0.3, pos.z, 0, -1, 0, 0.55, p.id);
-                grounded = !!(hit && hit.entityId);
-            }
+            // Vertical-velocity grounded check. The previous raycast version
+            // started at `pos.y - 0.3` going downward — for Quaternius
+            // characters (feet-at-origin pivot), that's BELOW the floor, so
+            // the raycast always missed and stationary remote champions were
+            // stuck looping the Jump anim despite this game having no jump.
+            // |dy| is mesh- and pivot-agnostic. See deathmatch_game for the
+            // full write-up. Champions never jump in rift, so any visible
+            // |dy| > 1.5 m/s is a knockback / blink / death-fall, all of
+            // which read fine as "Jump" for one beat.
+            var airborne = Math.abs(dy) > 1.5;
             var anim;
-            if (!grounded)      anim = "Jump";
+            if (airborne)       anim = "Jump";
             else if (spd > 7.5) anim = "Run";
             else if (spd > 0.5) anim = "Walk";
             else                anim = "Idle";
