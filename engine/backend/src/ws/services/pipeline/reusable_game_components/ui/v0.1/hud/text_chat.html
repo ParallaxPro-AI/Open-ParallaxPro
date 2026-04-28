@@ -110,6 +110,7 @@
   var IDLE_FADE_MS = 5000;       // how long the log stays visible after activity
   var DOUBLE_TAP_MS = 400;       // window for double-tap-Enter peek
   var lastEnterAt = 0;
+  var lastHistoryLen = 0;        // tracks chatHistory.length so we only surface the log on actual new messages, not every gameState re-render
 
   function showLog(stayMs) {
     // Make the log visible. Cancel any pending fade. If stayMs > 0,
@@ -151,10 +152,12 @@
     logEl.classList.remove('empty');
     while (logEl.childNodes.length > 80) logEl.removeChild(logEl.firstChild);
     scrollDown();
-    // New activity: surface the log briefly. Reset fade timer on every
-    // append so during ongoing conversation the log stays visible the
-    // whole time and only fades after the chat goes quiet.
-    showLog(IDLE_FADE_MS);
+    // Note: appendLine does NOT call showLog here — it gets called
+    // from renderAll on every gameState frame (60 Hz), which would
+    // reset the fade timer constantly and the log would never fade.
+    // Genuine "new message arrived" surfacing happens at the call sites
+    // that know it's actually new (chat_append, chat_system, or a
+    // history-length-grew detection in the gameState handler).
   }
 
   function renderAll(messages) {
@@ -252,7 +255,19 @@
       if (s.username) localUsername = s.username;
       var mp = s.multiplayer;
       if (mp) {
-        if (Array.isArray(mp.chatHistory)) renderAll(mp.chatHistory);
+        if (Array.isArray(mp.chatHistory)) {
+          // Only surface the log when the history actually grew. The
+          // gameState event fires every frame, so without this check
+          // the fade timer would reset 60×/sec and the log would never
+          // dim. Initial render (lastHistoryLen=0 → first non-empty
+          // history) is allowed to surface so a late joiner sees the
+          // backlog briefly before it fades.
+          var newLen = mp.chatHistory.length;
+          var grew = newLen > lastHistoryLen;
+          renderAll(mp.chatHistory);
+          if (grew && newLen > 0) showLog(IDLE_FADE_MS);
+          lastHistoryLen = newLen;
+        }
         if (mp.openChat && !inputRow.classList.contains('open')) openInput();
       }
     } else if (e.data.type === 'chat_append') {
@@ -261,8 +276,11 @@
       appendLine(isMe ? 'me' : '',
         '<span class="user">' + escape(m.fromUsername) + ':</span>' +
         '<span class="body">' + escape(m.body) + '</span>');
+      // Genuine new message — surface log briefly.
+      showLog(IDLE_FADE_MS);
     } else if (e.data.type === 'chat_system') {
       appendLine('sys', '<span class="body">' + escape(e.data.body || '') + '</span>');
+      showLog(IDLE_FADE_MS);
     }
   });
 })();
