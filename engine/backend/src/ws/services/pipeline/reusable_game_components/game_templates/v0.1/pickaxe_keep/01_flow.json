@@ -252,17 +252,13 @@
         "label": "Use"
       }
     ],
-    "hotbar": {
-      "from": "Digit1",
-      "to": "Digit5",
-      "labels": [
-        "1",
-        "2",
-        "3",
-        "4",
-        "5"
-      ]
-    },
+    "hudKeys": [
+      "Digit1",
+      "Digit2",
+      "Digit3",
+      "Digit4",
+      "Digit5"
+    ],
     "viewport": {
       "tap": "click"
     }
