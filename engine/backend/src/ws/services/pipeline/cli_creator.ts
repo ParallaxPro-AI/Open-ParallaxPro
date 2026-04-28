@@ -85,6 +85,12 @@ export async function runCreator(
     abortSignal?: AbortSignal,
     jobId?: string,
     chatHistory?: string,
+    // Owner identity — only used for the post-run sandbox archive's
+    // metadata.json so future tooling (deploy gates, ownership audits)
+    // can join archives back to the user. Optional because not every
+    // call path has it (e.g. orphan-job recovery in resumeOrphans).
+    userId?: number,
+    username?: string,
 ): Promise<CreatorResult> {
     // Local AbortController so the cli_active_jobs entry can kill this
     // run from outside — when a newer FIX_GAME or CREATE_GAME on the
@@ -476,6 +482,8 @@ export async function runCreator(
             archiveCreatorSandbox(sandboxDir, {
                 jobId: registryJobId,
                 projectId,
+                userId,
+                username,
                 description,
                 templateId,
                 status: finalResult?.success ? 'success' : 'failed',

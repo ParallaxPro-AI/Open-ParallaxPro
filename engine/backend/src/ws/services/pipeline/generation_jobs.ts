@@ -432,6 +432,8 @@ async function runJob(job: GenerationJob): Promise<void> {
             abortController.signal,
             jobId,
             job.chatHistory,
+            job.userId,
+            job.username,
         );
         costUsd = result.costUsd;
         sessionCapturePath = result.sessionCapturePath ?? null;
