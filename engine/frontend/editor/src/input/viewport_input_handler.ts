@@ -53,46 +53,6 @@ function rayTriangleIntersect(
     return t > 0 ? t : null;
 }
 
-/** Ray-sphere intersection. Returns t or null. */
-function raySphereIntersect(origin: Vec3, dir: Vec3, center: Vec3, radius: number): number | null {
-    const ox = origin.x - center.x, oy = origin.y - center.y, oz = origin.z - center.z;
-    const a = dir.x * dir.x + dir.y * dir.y + dir.z * dir.z;
-    const b = 2 * (ox * dir.x + oy * dir.y + oz * dir.z);
-    const c = ox * ox + oy * oy + oz * oz - radius * radius;
-    const disc = b * b - 4 * a * c;
-    if (disc < 0) return null;
-    const t = (-b - Math.sqrt(disc)) / (2 * a);
-    return t > 0 ? t : null;
-}
-
-/** Ray-capsule intersection (Y-axis aligned). Returns t or null. */
-function rayCapsuleIntersect(origin: Vec3, dir: Vec3, center: Vec3, radius: number, halfHeight: number): number | null {
-    const ox = origin.x - center.x, oz = origin.z - center.z;
-    const a = dir.x * dir.x + dir.z * dir.z;
-    const b = 2 * (ox * dir.x + oz * dir.z);
-    const c = ox * ox + oz * oz - radius * radius;
-    let bestT: number | null = null;
-
-    if (a > 1e-12) {
-        const disc = b * b - 4 * a * c;
-        if (disc >= 0) {
-            const t = (-b - Math.sqrt(disc)) / (2 * a);
-            if (t > 0) {
-                const y = origin.y + t * dir.y;
-                if (y >= center.y - halfHeight && y <= center.y + halfHeight) {
-                    bestT = t;
-                }
-            }
-        }
-    }
-
-    const topT = raySphereIntersect(origin, dir, new Vec3(center.x, center.y + halfHeight, center.z), radius);
-    if (topT !== null && (bestT === null || topT < bestT)) bestT = topT;
-    const botT = raySphereIntersect(origin, dir, new Vec3(center.x, center.y - halfHeight, center.z), radius);
-    if (botT !== null && (bestT === null || botT < bestT)) bestT = botT;
-    return bestT;
-}
-
 /** Collision mesh cache for entity picking. */
 const collisionMeshCache = new Map<string, { positions: Float32Array; indices: Uint32Array } | null>();
 const collisionMeshPending = new Set<string>();
@@ -333,16 +293,23 @@ export class ViewportInputHandler {
                 } else {
                     bestT = aabbT;
                 }
-            } else if (collider && collider.shapeType === 1 /* SPHERE */) {
-                const r = collider.radius ?? 0.5;
-                const c = collider.center ?? { x: 0, y: 0, z: 0 };
-                bestT = raySphereIntersect(localOrigin, localDir, new Vec3(c.x, c.y, c.z), r);
-            } else if (collider && collider.shapeType === 2 /* CAPSULE */) {
-                const r = collider.radius ?? 0.5;
-                const h = collider.height ?? 1.0;
-                const c = collider.center ?? { x: 0, y: 0, z: 0 };
-                bestT = rayCapsuleIntersect(localOrigin, localDir, new Vec3(c.x, c.y, c.z), r, Math.max(0, h / 2 - r));
             } else {
+                // Box / sphere / capsule / terrain / compound / no-collider —
+                // all pick against the visible mesh AABB.
+                //
+                // The previous sphere/capsule narrow-phase read
+                // collider.radius / .height / .center directly, but those
+                // fields are runtime state rewritten by
+                // editor_context.autoFitCollider when the mesh's AABB becomes
+                // available. When autoFit hasn't run yet (race during asset
+                // streaming, collider added without a loaded mesh, snapshot
+                // round-trip ordering quirk) the values are stuck at the
+                // ColliderComponent constructor defaults: radius 0.5, height
+                // 1.0, center at origin. That's a unit-sphere hitbox at
+                // local-space origin — invisibly small on a large entity, so
+                // clicks on the visible mesh miss entirely and the entity
+                // appears unselectable. AABB picking is what the user is
+                // looking at and never goes stale.
                 bestT = aabbT;
             }
 
