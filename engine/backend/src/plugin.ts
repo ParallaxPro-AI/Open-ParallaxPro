@@ -11,6 +11,11 @@ export interface AuthUser {
     id: number;
     email: string;
     username: string;
+    /** True when the JWT belongs to an anonymous (no-password) user.
+     *  Plugins propagate this from the JWT payload onto req.user so
+     *  publish/cloud routes can gate features that anon sessions
+     *  shouldn't trigger (publish, set-live-version, comments, etc.). */
+    isAnonymous?: boolean;
 }
 
 export interface EnginePlugin {
