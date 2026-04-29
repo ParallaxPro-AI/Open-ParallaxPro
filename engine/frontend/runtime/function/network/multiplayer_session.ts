@@ -298,11 +298,15 @@ export class MultiplayerSession {
             this.setPhase('disconnected');
             throw e;
         }
-        // Pre-create the voice AudioContext and arm a one-shot gesture
-        // listener now, so by the time the first remote track arrives the
-        // context is already unlocked. Any click/key/touch anywhere in the
-        // page (which includes the in-game controls) will resume it.
-        this.ensureVoiceAudioCtx();
+        // Voice AudioContext is created lazily on first remote track,
+        // not here. iOS Safari kills tabs when an AudioContext is
+        // constructed outside a user gesture and then anything
+        // downstream touches it — that's the iPhone-multiplayer-tab-
+        // refresh bug we hunted for hours. ensureVoiceAudioCtx() is
+        // still called from attachRemoteVoice/attachLocalVoiceMeter,
+        // both of which run in response to clicks (mic-toggle) or
+        // remote-track arrival (which on iOS is downstream of a gesture
+        // anyway because the lobby-join itself was a tap).
         this.webrtc.initialize(
             this.lobby.peerId,
             (toPeerId, payload) => this.lobby.signal(toPeerId, payload),
