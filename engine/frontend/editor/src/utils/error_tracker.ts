@@ -64,12 +64,58 @@ async function flush(): Promise<void> {
     if (pending.size > 0) scheduleFlush();
 }
 
+// On-screen error banner. iOS Safari has no easily-accessible JS console,
+// and a tab refresh ("A problem repeatedly occurred") happens before any
+// remote log flush completes. The banner gives the user a chance to read
+// the error mid-flight. Only shows when ?debug=1 is on the URL or the
+// 'pp_debug' localStorage flag is set, so production users don't see it.
+const debugVisible = (() => {
+    try {
+        if (typeof window === 'undefined') return false;
+        const u = new URL(window.location.href);
+        if (u.searchParams.get('debug') === '1') return true;
+        return window.localStorage?.getItem('pp_debug') === '1';
+    } catch { return false; }
+})();
+
+let errorBanner: HTMLElement | null = null;
+function showErrorBanner(message: string, stack: string | null): void {
+    if (!debugVisible || typeof document === 'undefined') return;
+    if (!errorBanner) {
+        errorBanner = document.createElement('div');
+        errorBanner.style.cssText =
+            'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+            'background:rgba(180,30,30,0.95);color:#fff;font:12px/1.4 monospace;' +
+            'padding:10px 14px 10px 14px;max-height:40vh;overflow:auto;' +
+            'pointer-events:auto;white-space:pre-wrap;word-break:break-word;' +
+            '-webkit-user-select:text;user-select:text;';
+        const close = document.createElement('span');
+        close.textContent = '×';
+        close.style.cssText = 'position:absolute;top:4px;right:10px;font-size:22px;cursor:pointer;line-height:1;';
+        close.onclick = () => { if (errorBanner) errorBanner.style.display = 'none'; };
+        errorBanner.appendChild(close);
+        if (document.body) document.body.appendChild(errorBanner);
+        else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(errorBanner!));
+    }
+    errorBanner.style.display = '';
+    const stamp = new Date().toLocaleTimeString();
+    const head = document.createElement('div');
+    head.style.cssText = 'font-weight:700;margin-bottom:2px;';
+    head.textContent = '[' + stamp + '] ' + message;
+    const body = document.createElement('div');
+    body.style.cssText = 'opacity:0.85;font-size:11px;';
+    body.textContent = (stack || '').slice(0, 800);
+    errorBanner.appendChild(head);
+    errorBanner.appendChild(body);
+    // Cap entries; oldest fall off
+    while (errorBanner.children.length > 8) errorBanner.removeChild(errorBanner.children[1]);
+}
+
 window.addEventListener('error', (event) => {
     if (event.message === 'Script error.' && !event.filename) return;
-    enqueue(
-        event.message || 'Unknown error',
-        event.error?.stack || `${event.filename}:${event.lineno}:${event.colno}`
-    );
+    const stack = event.error?.stack || `${event.filename}:${event.lineno}:${event.colno}`;
+    enqueue(event.message || 'Unknown error', stack);
+    showErrorBanner(event.message || 'Unknown error', stack);
 });
 
 window.addEventListener('unhandledrejection', (event) => {
@@ -77,6 +123,18 @@ window.addEventListener('unhandledrejection', (event) => {
     const message = reason instanceof Error ? reason.message : String(reason);
     const stack = reason instanceof Error ? reason.stack || null : null;
     enqueue(message, stack);
+    showErrorBanner('Promise rejected: ' + message, stack);
+});
+
+// Errors forwarded from HUD / panel iframes (separate document scope —
+// the parent's window.onerror doesn't see them otherwise).
+window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || data.type !== 'pp_iframe_error') return;
+    const message = String(data.message || 'iframe error');
+    const stack = String(data.stack || '');
+    enqueue('[iframe] ' + message, stack || null);
+    showErrorBanner('[iframe ' + (data.kind || 'error') + '] ' + message, stack);
 });
 
 // Flush pending errors on page hide so they aren't lost

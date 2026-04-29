@@ -54,6 +54,14 @@ button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:bri
 <script>
 document.querySelectorAll('button,input,select,a,[onclick],[data-interactive]').forEach(el=>el.style.pointerEvents='auto');
 new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[onclick],[data-interactive]').forEach(el=>el.style.pointerEvents='auto');}).observe(document.body,{childList:true,subtree:true});
+// Forward iframe-internal errors to the parent. iOS Safari reloads on
+// repeated unhandled errors (no inspector available), and panel scripts
+// (lobby_browser, etc.) live in a separate document scope so the parent
+// window.onerror doesn't see them. postMessage lets the parent's
+// error_tracker enqueue + show its on-screen banner.
+function __ppForwardErr(kind,msg,stack){try{window.parent.postMessage({type:'pp_iframe_error',kind:kind,message:String(msg||''),stack:String(stack||'')},'*');}catch(_){/* swallow */}}
+window.addEventListener('error',function(e){__ppForwardErr('error',e.message||(e.error&&e.error.message)||'iframe error',(e.error&&e.error.stack)||'');});
+window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForwardErr('rejection',(r&&r.message)||String(r),(r&&r.stack)||'');});
 </script></body></html>`;
 
         iframe.srcdoc = wrapped;

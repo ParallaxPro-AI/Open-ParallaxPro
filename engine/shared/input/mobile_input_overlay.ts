@@ -911,6 +911,17 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         for (let i = 0; i < iframes.length; i++) {
             const frame = iframes[i] as HTMLIFrameElement;
             if (frame.style.display === 'none') continue;
+            // Skip iframes that already accept native pointer events (e.g.
+            // top-level panels: lobby_browser, main_menu, lobby_room).
+            // Real iOS Safari delivers the touch directly to those iframes'
+            // buttons natively, *with* user-activation status preserved —
+            // intercepting here and dispatching a synthetic click drops
+            // user-activation, which then breaks WebRTC / getUserMedia /
+            // clipboard / any API that demands a real gesture, and iOS
+            // recovers by reloading the tab ("A problem repeatedly
+            // occurred"). Synth-click is only needed for HUD iframes
+            // which are pointer-events:none and otherwise click-through.
+            if (frame.style.pointerEvents === 'auto') continue;
             const rect = frame.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) continue;
             if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;

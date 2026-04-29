@@ -226,7 +226,12 @@ class MpBridge extends GameScript {
         });
         ui.on("ui_event:lobby_browser:join_lobby", function(d) {
             var p = (d && d.payload) || {};
-            mp.joinLobby({ lobbyId: p.lobbyId, password: p.password || null });
+            try { mp.joinLobby({ lobbyId: p.lobbyId, password: p.password || null }); }
+            catch (e) {
+                var msg = (e && (e.message || String(e))) || "Failed to join";
+                self.scene.events.ui.emit("hud_update", { mpError: "Join failed: " + msg });
+                if (typeof console !== "undefined") console.error("[mp_bridge] joinLobby:", e);
+            }
         });
 
         ui.on("ui_event:lobby_host_config:close_host_config", function() {
@@ -239,13 +244,20 @@ class MpBridge extends GameScript {
             self.scene.events.ui.emit("hide_ui", { panel: "lobby_host_config" });
             // Slot counts come from the game's multiplayer config, not the
             // host — the host can't override the supported player range.
-            mp.hostLobby({
-                name: String(p.name || ""),
-                maxPlayers: mpCfg.maxPlayers || 2,
-                minPlayers: mpCfg.minPlayers || 1,
-                password: p.password || null,
-                allowJoinInProgress: mpCfg.allowJoinInProgress === true,
-            });
+            try {
+                mp.hostLobby({
+                    name: String(p.name || ""),
+                    maxPlayers: mpCfg.maxPlayers || 2,
+                    minPlayers: mpCfg.minPlayers || 1,
+                    password: p.password || null,
+                    allowJoinInProgress: mpCfg.allowJoinInProgress === true,
+                });
+            } catch (e) {
+                var msg = (e && (e.message || String(e))) || "Failed to host";
+                self.scene.events.ui.emit("hud_update", { mpError: "Host failed: " + msg });
+                self.scene.events.ui.emit("show_ui", { panel: "lobby_browser" });
+                if (typeof console !== "undefined") console.error("[mp_bridge] hostLobby:", e);
+            }
         });
 
         ui.on("ui_event:lobby_room:leave_lobby", function() { mp.leaveLobby(); });
@@ -256,7 +268,20 @@ class MpBridge extends GameScript {
             mp.setReady(v);
             self._pushUiUpdate();
         });
-        ui.on("ui_event:lobby_room:start_game", function() { mp.startGame(); });
+        ui.on("ui_event:lobby_room:start_game", function() {
+            // Wrap in try/catch — an unhandled throw here on iOS Safari
+            // (e.g. WebRTC negotiation failure) trips the "A problem
+            // repeatedly occurred" tab-kill heuristic. Surface the error
+            // to the user instead and stay in the lobby.
+            try { mp.startGame(); }
+            catch (e) {
+                try {
+                    var msg = (e && (e.message || String(e))) || "Failed to start game";
+                    self.scene.events.ui.emit("hud_update", { mpError: "Start failed: " + msg });
+                    if (typeof console !== "undefined") console.error("[mp_bridge] startGame:", e);
+                } catch (_) { /* swallow */ }
+            }
+        });
         ui.on("ui_event:lobby_room:kick_player", function(d) {
             var p = (d && d.payload) || {};
             if (p.peerId) mp.kickPlayer(p.peerId);
