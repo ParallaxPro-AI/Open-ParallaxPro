@@ -150,10 +150,17 @@ export function parseProjectData(raw: string | null | undefined): ProjectData {
     let parsed: any;
     try { parsed = JSON.parse(raw); } catch { return defaultProjectData('Untitled Project'); }
     if (parsed && typeof parsed === 'object' && parsed.files && typeof parsed.files === 'object') {
-        return {
-            projectConfig: parsed.projectConfig || { name: 'Untitled Project' },
-            files: parsed.files,
-        };
+        const pc = parsed.projectConfig || { name: 'Untitled Project' };
+        // Backfill useFacingRegistry on every read. Old projects saved
+        // before the flag existed (and CREATE_GAME-generated projects
+        // whose creation path skipped the flag) had projectConfig
+        // without it — engine then refused to apply the registry, so
+        // every model rendered unscaled and unrotated. Default to true
+        // here so any project that doesn't explicitly opt out gets the
+        // registry. Legacy projects with hand-tuned mesh.scale +
+        // modelRotationY can opt out by setting the flag to false.
+        if (pc.useFacingRegistry === undefined) pc.useFacingRegistry = true;
+        return { projectConfig: pc, files: parsed.files };
     }
     // Legacy shape — wrap so callers can detect and migrate.
     return {

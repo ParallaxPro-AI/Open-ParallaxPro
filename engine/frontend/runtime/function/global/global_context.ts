@@ -53,7 +53,14 @@ export class RuntimeGlobalContext {
         // by every "create project" path. Old projects (saved before that
         // field existed) leave it undefined → engine treats as off → their
         // hand-tuned mesh.scale / modelRotationY values apply unchanged.
-        setUseFacingRegistry(projectConfig?.useFacingRegistry === true);
+        // Default to ON — only legacy projects with hand-tuned mesh.scale +
+        // modelRotationY should opt out, and they do that by setting
+        // `useFacingRegistry: false` explicitly. Earlier the default was
+        // OFF and only new-from-template projects (projects.ts:243) got
+        // the flag flipped on; regen / open-old-project paths missed it,
+        // leaving every model unscaled / unrotated until the user noticed
+        // and rage-edited project_data by hand.
+        setUseFacingRegistry(projectConfig?.useFacingRegistry !== false);
 
         // Platform layer
         this.canvasManager.initialize(canvas);
