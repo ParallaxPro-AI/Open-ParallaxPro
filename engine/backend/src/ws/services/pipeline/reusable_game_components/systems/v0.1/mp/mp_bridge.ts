@@ -178,6 +178,11 @@ class MpBridge extends GameScript {
             }
         }));
         this._unsubs.push(mp.onPhase(function(phase) {
+            try {
+                if (typeof globalThis !== "undefined" && globalThis.ppCheckpoint) {
+                    globalThis.ppCheckpoint("mp_phase: " + phase);
+                }
+            } catch (_) { /* swallow */ }
             self._phase = phase;
             // Reset per-match guards on phase change so the next match starts fresh.
             if (phase !== "in_game") self._belowMinFired = false;
@@ -190,6 +195,11 @@ class MpBridge extends GameScript {
             self._pushUiUpdate();
         }));
         this._unsubs.push(mp.onError(function(message) {
+            try {
+                if (typeof globalThis !== "undefined" && globalThis.ppCheckpoint) {
+                    globalThis.ppCheckpoint("mp_error: " + (message || ""));
+                }
+            } catch (_) { /* swallow */ }
             self._pendingError = message || "";
             self._pushUiUpdate();
             // Clear after a few seconds so the UI doesn't stick.
@@ -226,9 +236,12 @@ class MpBridge extends GameScript {
         });
         ui.on("ui_event:lobby_browser:join_lobby", function(d) {
             var p = (d && d.payload) || {};
+            var cp = (typeof globalThis !== "undefined" && globalThis.ppCheckpoint) ? globalThis.ppCheckpoint : null;
+            if (cp) cp("join_lobby: clicked id=" + p.lobbyId);
             try { mp.joinLobby({ lobbyId: p.lobbyId, password: p.password || null }); }
             catch (e) {
                 var msg = (e && (e.message || String(e))) || "Failed to join";
+                if (cp) cp("join_lobby: THROW " + msg);
                 self.scene.events.ui.emit("hud_update", { mpError: "Join failed: " + msg });
                 if (typeof console !== "undefined") console.error("[mp_bridge] joinLobby:", e);
             }
@@ -242,6 +255,8 @@ class MpBridge extends GameScript {
         ui.on("ui_event:lobby_host_config:host_lobby", function(d) {
             var p = (d && d.payload) || {};
             self.scene.events.ui.emit("hide_ui", { panel: "lobby_host_config" });
+            var cp = (typeof globalThis !== "undefined" && globalThis.ppCheckpoint) ? globalThis.ppCheckpoint : null;
+            if (cp) cp("host_lobby: clicked name=" + p.name);
             // Slot counts come from the game's multiplayer config, not the
             // host — the host can't override the supported player range.
             try {
@@ -252,8 +267,10 @@ class MpBridge extends GameScript {
                     password: p.password || null,
                     allowJoinInProgress: mpCfg.allowJoinInProgress === true,
                 });
+                if (cp) cp("host_lobby: hostLobby() returned");
             } catch (e) {
                 var msg = (e && (e.message || String(e))) || "Failed to host";
+                if (cp) cp("host_lobby: THROW " + msg);
                 self.scene.events.ui.emit("hud_update", { mpError: "Host failed: " + msg });
                 self.scene.events.ui.emit("show_ui", { panel: "lobby_browser" });
                 if (typeof console !== "undefined") console.error("[mp_bridge] hostLobby:", e);
@@ -272,11 +289,18 @@ class MpBridge extends GameScript {
             // Wrap in try/catch — an unhandled throw here on iOS Safari
             // (e.g. WebRTC negotiation failure) trips the "A problem
             // repeatedly occurred" tab-kill heuristic. Surface the error
-            // to the user instead and stay in the lobby.
-            try { mp.startGame(); }
-            catch (e) {
+            // to the user instead and stay in the lobby. Checkpoint
+            // markers persist across iOS tab reloads so we can see which
+            // step ran last before a crash.
+            var cp = (typeof globalThis !== "undefined" && globalThis.ppCheckpoint) ? globalThis.ppCheckpoint : null;
+            try {
+                if (cp) cp("start_game: clicked");
+                mp.startGame();
+                if (cp) cp("start_game: startGame() returned");
+            } catch (e) {
                 try {
                     var msg = (e && (e.message || String(e))) || "Failed to start game";
+                    if (cp) cp("start_game: THROW " + msg);
                     self.scene.events.ui.emit("hud_update", { mpError: "Start failed: " + msg });
                     if (typeof console !== "undefined") console.error("[mp_bridge] startGame:", e);
                 } catch (_) { /* swallow */ }
