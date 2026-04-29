@@ -857,9 +857,9 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     // batching behavior; the runtime cap is higher so an
                     // edge-case run that legitimately needs a few extra
                     // fix-loop turns doesn't get killed mid-stride. Bumped
-                    // 60→100 to absorb in-session playtest retries when the
-                    // sandbox image carries the playtest binary.
-                    maxTurns: 100,
+                    // 60→100→120 to absorb in-session playtest retries
+                    // when the sandbox image carries the playtest binary.
+                    maxTurns: 120,
                     timeout: 45 * 60 * 1000,
                     claudeModel: 'claude-opus-4-7',
                     continueForked: true,
@@ -884,9 +884,9 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         prompt: CREATOR_PROMPT,
         // CREATOR_CONTEXT.md tells the agent "15 turns" to drive batching;
         // runtime cap is higher so edge-case fix loops don't get killed.
-        // Bumped 60→100 to absorb in-session playtest retries when the
+        // Bumped 60→100→120 to absorb in-session playtest retries when the
         // sandbox image carries the playtest binary.
-        maxTurns: 100,
+        maxTurns: 120,
         timeout: 45 * 60 * 1000,
         claudeModel: 'claude-opus-4-7',
         statusMapper: creatorStatus,
