@@ -105,6 +105,8 @@
 </div>
 <script>
 (function () {
+  function __cp(n){try{if(window.parent&&window.parent.ppCheckpoint)window.parent.ppCheckpoint('voice_chat: '+n);}catch(_){}}
+  __cp('script booted');
   var micToggle = document.getElementById('mic-toggle');
   var peersEl = document.getElementById('peers');
   var panel = document.getElementById('panel');

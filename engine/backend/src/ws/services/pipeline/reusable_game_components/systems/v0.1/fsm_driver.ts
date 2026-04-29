@@ -147,6 +147,11 @@ class FSMInst {
     // ─── State management ───────────────────────────────────────────────
 
     _enterState(name) {
+        try {
+            if (typeof globalThis !== "undefined" && globalThis.ppCheckpoint) {
+                globalThis.ppCheckpoint("fsm: enter " + name);
+            }
+        } catch (_) { /* swallow */ }
         var states = this._cfg.states;
         if (!states || !states[name]) return;
         var s = states[name];

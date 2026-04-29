@@ -196,7 +196,10 @@
     });
   }
 
+  function __cp(n){try{if(window.parent&&window.parent.ppCheckpoint)window.parent.ppCheckpoint('lobby_room: '+n);}catch(_){}}
+  __cp('script booted');
   function render() {
+    __cp('render rosterPeers=' + (roster ? roster.peers.length : 'null'));
     if (!roster) {
       listEl.innerHTML = '';
       titleEl.textContent = 'Lobby';
