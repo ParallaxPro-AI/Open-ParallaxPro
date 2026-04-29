@@ -9,16 +9,21 @@ const envPath = path.resolve(__dirname, '../.env');
 // .env is optional — every field has a default. If present we load it; if
 // not, we fall through to process.env + the defaults below. Lets new users
 // run the backend with zero configuration.
-//
-// override:true is deliberate — without it, dotenv silently skips any var
-// already set in process.env. On hosted prod, pm2 caches the env it captured
-// at first `pm2 start` (or via `pm2 save`/`pm2 resurrect`); subsequent
-// `pm2 restart` (even with --update-env) keeps those cached values, so a
-// .env edit was being shadowed by stale Groq creds for hours after we'd
-// pointed the file at OpenRouter. Letting .env win matches the operator's
-// intuition that "edit .env + restart" is enough to swap providers.
 if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath, override: true });
+    dotenv.config({ path: envPath });
+    // Special case AI_* vars: on hosted prod, pm2 caches the env it captured
+    // at first `pm2 start` (or via `pm2 save`/resurrect) and re-injects those
+    // values on every restart — even with --update-env. Standard dotenv won't
+    // overwrite them, so a .env edit gets shadowed by stale provider creds
+    // (we burned hours on this with a Groq→OpenRouter swap). Force .env to
+    // win for AI_* only — leaves PORT / NODE_ENV / etc. on standard
+    // "explicit env wins" semantics so check_deploy and tests can still
+    // pass PORT=3013 to spawn a sidecar backend without the .env's PORT
+    // clobbering it.
+    const envFile = dotenv.parse(fs.readFileSync(envPath));
+    for (const key of Object.keys(envFile)) {
+        if (key.startsWith('AI_')) process.env[key] = envFile[key];
+    }
 }
 
 function envString(key: string, fallback: string): string {
