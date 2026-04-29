@@ -1,4 +1,10 @@
 import './styles/theme.css';
+// Side-effect import: registers global error/promise handlers, the
+// ?debug=1 on-screen banner, and the ppCheckpoint persistence trail.
+// play.ts is the entry for published-game pages, which previously had
+// no error visibility — iPhone Safari users hitting issues on
+// games.parallaxpro.ai/play/* had no way to surface what failed.
+import './utils/error_tracker.js';
 
 import { ParallaxEditor } from './editor.js';
 import { EditorContext } from './editor_context.js';
