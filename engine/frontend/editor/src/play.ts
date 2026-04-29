@@ -630,7 +630,11 @@ async function boot(): Promise<void> {
         });
     }
 
-    if (!isLoggedIn) showGuestBanner();
+    // Guest banner intentionally suppressed — covered by site-wide
+    // signup nudges + the multiplayer-specific sign-in modal. The
+    // top-of-screen banner overlapped HUD elements and felt nagging.
+    // showGuestBanner() is preserved for future opt-in.
+    void isLoggedIn;
 
     let relockOverlay: HTMLElement | null = null;
     {
