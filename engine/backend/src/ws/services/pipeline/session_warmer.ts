@@ -418,7 +418,7 @@ function runWarmAgent(kind: WarmKind): Promise<string> {
             // Must match cli_runner's --tools allowlist so the warm
             // fork's cached tool-definition chunk matches what the
             // forked run expects. Mismatch would re-cache on fork.
-            '--tools', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep',
+            '--tools', 'Bash', 'Read', 'Write', 'Edit', 'MultiEdit', 'Glob', 'Grep', 'TodoWrite', 'WebFetch', 'WebSearch',
             '--strict-mcp-config',
         ];
 
