@@ -238,7 +238,10 @@
     msgEl.classList.toggle('err', !!text);
   }
 
+  function __cp(n){try{if(window.parent&&window.parent.ppCheckpoint)window.parent.ppCheckpoint('lobby_browser: '+n);}catch(_){}}
+  __cp('script booted');
   function render() {
+    __cp('render n=' + lobbies.length);
     if (!lobbies.length) {
       listEl.innerHTML = '';
       listEl.appendChild(emptyEl);

@@ -60,8 +60,10 @@ new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[oncl
 // window.onerror doesn't see them. postMessage lets the parent's
 // error_tracker enqueue + show its on-screen banner.
 function __ppForwardErr(kind,msg,stack){try{window.parent.postMessage({type:'pp_iframe_error',kind:kind,message:String(msg||''),stack:String(stack||'')},'*');}catch(_){/* swallow */}}
+function __ppCheckpoint(name){try{if(window.parent&&window.parent.ppCheckpoint)window.parent.ppCheckpoint(name);}catch(_){/* swallow */}}
 window.addEventListener('error',function(e){__ppForwardErr('error',e.message||(e.error&&e.error.message)||'iframe error',(e.error&&e.error.stack)||'');});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForwardErr('rejection',(r&&r.message)||String(r),(r&&r.stack)||'');});
+__ppCheckpoint('iframe loaded: ${path}');
 </script></body></html>`;
 
         iframe.srcdoc = wrapped;
