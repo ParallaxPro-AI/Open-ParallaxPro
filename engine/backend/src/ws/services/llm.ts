@@ -80,6 +80,13 @@ export async function generateProjectName(prompt: string, timeoutMs: number = 10
                 // bounded by the 10s client timeout.
                 max_tokens: 2048,
                 stream: false,
+                // OpenRouter-specific: suppress chain-of-thought entirely on
+                // reasoning models (e.g. z-ai/glm-5.1). Project naming is a
+                // simple kebab-case task — the reasoning trace would just
+                // burn tokens and (more importantly) push the user-visible
+                // content past max_tokens. Other providers ignore unknown
+                // fields, so this is safe across the OpenAI-compat layer.
+                reasoning: { exclude: true },
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: prompt },
@@ -200,6 +207,13 @@ async function _callLLMStreamInner(
                 max_tokens: maxTokens,
                 stream: true,
                 stream_options: { include_usage: true },
+                // OpenRouter-specific: suppress chain-of-thought on reasoning
+                // models (z-ai/glm-5.1, openai/gpt-oss-*, etc). Without this
+                // the streaming parser sees only delta.reasoning until the
+                // model finishes thinking, so the chat UI looks frozen for
+                // 10–60s before any content lands. Non-reasoning providers
+                // ignore unknown OpenAI-compat fields, so this is safe.
+                reasoning: { exclude: true },
                 messages: messages.map(m => ({ role: m.role, content: m.content })),
             }),
             signal: internal.signal,
