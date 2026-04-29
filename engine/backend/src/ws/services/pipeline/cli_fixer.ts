@@ -66,6 +66,14 @@ export async function runFixer(
     abortSignal?: AbortSignal,
     cliOverride?: string,
     chatHistory?: string,
+    /** Skip the per-project preemption inside runFixer. The mobile-
+     *  background FIX_GAME path runs runFixer from inside generation_jobs'
+     *  runJob — by then this very job is already registered in jobs.get(),
+     *  so calling preemptGenerationJob here would abort the run that
+     *  spawned us. generation_jobs.startGenerationJob already preempted
+     *  the previous occupant before kicking us off, so the invariant
+     *  ("at most one CLI per project") is still upheld. */
+    skipProjectPreempt?: boolean,
 ): Promise<FixerResult> {
     // Per-project preemption: at most one CLI run per project. If someone
     // else is already working on this project (fix or create), kill it
@@ -74,8 +82,10 @@ export async function runFixer(
     // project_data writes. preemptGenerationJob covers CREATE_GAMEs that
     // are still in generation_jobs' local map but haven't reached their
     // cli_active_jobs registration yet (queue wait window).
-    await preemptGenerationJob(projectId);
-    await preemptProjectJob(projectId);
+    if (!skipProjectPreempt) {
+        await preemptGenerationJob(projectId);
+        await preemptProjectJob(projectId);
+    }
 
     // Local AbortController so the registry entry can kill us from
     // outside (preemptProjectJob calls abort()). Mirrors the caller's

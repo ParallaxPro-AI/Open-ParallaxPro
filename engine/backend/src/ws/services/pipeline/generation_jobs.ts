@@ -475,6 +475,7 @@ async function runJob(job: GenerationJob): Promise<void> {
                 abortController.signal,
                 cliOverride,
                 job.chatHistory,
+                /* skipProjectPreempt */ true,
             );
             costUsd = fixResult.costUsd ?? 0;
             sessionCapturePath = null; // runFixer doesn't expose a session path today
