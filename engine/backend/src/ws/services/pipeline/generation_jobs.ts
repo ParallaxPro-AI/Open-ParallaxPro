@@ -37,6 +37,7 @@ import db from '../../../db/connection.js';
 import { config } from '../../../config.js';
 import { parseProjectData, serializeProjectData, isLegacyProjectData, ProjectFiles } from './project_files.js';
 import { runCreator } from './cli_creator.js';
+import { runFixer } from './cli_fixer.js';
 import { recordPendingFeedback, resolveFeedback } from '../feedback.js';
 import { getQueuePosition, resolveCLI } from './cli_runner.js';
 import { preemptProjectJob } from './cli_active_jobs.js';
@@ -60,6 +61,13 @@ interface GenerationJob {
     jobId: string;
     projectId: string;
     userId: number;
+    /** 'create' = full from-scratch CREATE_GAME via runCreator (CLI agent
+     *  rewrites the entire project tree). 'fix' = mobile-background
+     *  FIX_GAME via runFixer (patches changed/deleted files only).
+     *  Affects which CLI runs, how files are committed, what feedback
+     *  kind is recorded, and whether plugins should send completion
+     *  email (hosted email plugin filters on kind === 'create'). */
+    kind: 'create' | 'fix';
     /** Captured at start so plugins firing at completion (email, usage
      *  reporting, admin events) can attribute the run without an
      *  active WS client. Username is a nicety; authToken is load-
@@ -78,6 +86,8 @@ interface GenerationJob {
     cliOverride?: string;
     /** Set while we're polling cli_runner's queue for a position update. */
     queuePoll?: NodeJS.Timeout;
+    /** Fix-only: needed by runFixer to know which scene to operate on. */
+    activeSceneKey?: string;
 }
 
 // One active job per project. A second startGenerationJob for the same
@@ -96,6 +106,12 @@ export interface StartJobArgs {
     projectId: string;
     userId: number;
     description: string;
+    /** 'create' (default) runs runCreator (full from-scratch CREATE_GAME);
+     *  'fix' runs runFixer (mobile-background FIX_GAME, patches files). */
+    kind?: 'create' | 'fix';
+    /** Required for kind='fix'. runFixer needs to know which scene to
+     *  operate on for entity-level edits. Ignored for kind='create'. */
+    activeSceneKey?: string;
     /** claude / codex / opencode / copilot — falls back to whichever the
      *  fixer CLI probe found first at startup. */
     cliOverride?: string;
@@ -174,6 +190,8 @@ export async function startGenerationJob(args: StartJobArgs): Promise<string> {
         jobId,
         projectId,
         userId,
+        kind: args.kind || 'create',
+        activeSceneKey: args.activeSceneKey,
         username,
         authToken,
         chatHistory: args.chatHistory,
@@ -250,6 +268,11 @@ export function subscribeToJob(projectId: string, cb: Subscriber): (() => void) 
 
 export interface GenerationState {
     active: boolean;
+    /** Only set for active jobs; orphans / completed runs return undefined
+     *  because the in-memory GenerationJob is the only source of truth
+     *  for kind. Project-list card uses this to label the badge
+     *  ("FIXING" vs "GENERATING"). */
+    kind?: 'create' | 'fix';
     jobId?: string;
     /** ISO */
     startedAt?: string;
@@ -299,6 +322,7 @@ export function readGenerationState(projectId: string): GenerationState {
         const qp = getQueuePosition(job.cliOverride, job.jobId) || undefined;
         return {
             active: true,
+            kind: job.kind,
             jobId: row.generation_job_id,
             startedAt: row.generation_started_at,
             description: row.generation_description,
@@ -365,6 +389,12 @@ export function cleanupOrphanedJobsOnBoot(plugins: EnginePlugin[] = []): void {
                         endedAt,
                         cli: 'unknown',
                         costUsd: 0,
+                        // Orphan kind is unknowable post-restart (in-memory
+                        // GenerationJob is gone). Default to 'create' so the
+                        // hosted email plugin still emails for create orphans
+                        // (the dominant case); a 'fix' orphan email is
+                        // harmless if it ever happens.
+                        kind: 'create',
                     });
                 } catch (e: any) {
                     console.error(`[GenerationJobs] Orphan hook ${p.name} failed for project ${r.id}:`, e?.message);
@@ -424,37 +454,85 @@ async function runJob(job: GenerationJob): Promise<void> {
     let sessionCapturePath: string | null = null;
 
     try {
-        const result = await runCreator(
-            projectId,
-            description,
-            sendStatus,
-            cliOverride,
-            abortController.signal,
-            jobId,
-            job.chatHistory,
-            job.userId,
-            job.username,
-        );
-        costUsd = result.costUsd;
-        sessionCapturePath = result.sessionCapturePath ?? null;
-        if (abortController.signal.aborted) {
-            outcome = 'aborted';
-            summary = 'Build stopped.';
-        } else if (result.success && result.files) {
-            outcome = 'success';
-            summary = result.summary;
-            files = result.files;
+        if (job.kind === 'fix') {
+            // Background FIX_GAME (mobile). Read current files as input,
+            // run runFixer, then merge changedFiles + drop deletedFiles
+            // onto the current snapshot so the existing commit path
+            // below writes the merged tree atomically.
+            const row = db.prepare('SELECT project_data FROM projects WHERE id = ?').get(projectId) as any;
+            const pd = parseProjectData(row?.project_data);
+            if (isLegacyProjectData(pd)) {
+                throw new Error('Project is in the legacy file shape; cannot run background fix.');
+            }
+            const inputFiles = pd.files as ProjectFiles;
+            const sceneKey = job.activeSceneKey || 'main.json';
+            const fixResult = await runFixer(
+                projectId,
+                description,
+                inputFiles,
+                sceneKey,
+                sendStatus,
+                abortController.signal,
+                cliOverride,
+                job.chatHistory,
+            );
+            costUsd = fixResult.costUsd ?? 0;
+            sessionCapturePath = null; // runFixer doesn't expose a session path today
+            if (abortController.signal.aborted) {
+                outcome = 'aborted';
+                summary = 'Fix stopped.';
+            } else if (fixResult.success && fixResult.filesChanged.length > 0) {
+                outcome = 'success';
+                summary = fixResult.summary || 'Fix complete.';
+                // Build the merged file tree the existing commit path expects.
+                const merged: ProjectFiles = { ...inputFiles };
+                for (const [k, v] of Object.entries(fixResult.changedFiles)) merged[k] = v;
+                for (const k of fixResult.deletedFiles) delete merged[k];
+                files = merged;
+            } else if (fixResult.success) {
+                // Successful run that touched no files — treat as success
+                // with an honest summary so the user isn't told their
+                // explicit fix request "succeeded" with no edits.
+                outcome = 'success';
+                summary = fixResult.summary || 'Fix complete (no files changed).';
+                // No files to commit; bypass commit by leaving `files` null.
+            } else {
+                outcome = 'failed';
+                summary = fixResult.summary || 'Fix failed.';
+            }
         } else {
-            outcome = 'failed';
-            summary = result.summary || 'Build failed.';
+            const result = await runCreator(
+                projectId,
+                description,
+                sendStatus,
+                cliOverride,
+                abortController.signal,
+                jobId,
+                job.chatHistory,
+                job.userId,
+                job.username,
+            );
+            costUsd = result.costUsd;
+            sessionCapturePath = result.sessionCapturePath ?? null;
+            if (abortController.signal.aborted) {
+                outcome = 'aborted';
+                summary = 'Build stopped.';
+            } else if (result.success && result.files) {
+                outcome = 'success';
+                summary = result.summary;
+                files = result.files;
+            } else {
+                outcome = 'failed';
+                summary = result.summary || 'Build failed.';
+            }
         }
     } catch (e: any) {
         if (abortController.signal.aborted) {
             outcome = 'aborted';
-            summary = 'Build stopped.';
+            summary = job.kind === 'fix' ? 'Fix stopped.' : 'Build stopped.';
         } else {
             outcome = 'failed';
-            summary = e?.message || 'Build failed.';
+            summary = e?.message || (job.kind === 'fix' ? 'Fix failed.' : 'Build failed.');
         }
     } finally {
         if (job.queuePoll) { clearInterval(job.queuePoll); job.queuePoll = undefined; }
@@ -493,15 +571,17 @@ async function runJob(job: GenerationJob): Promise<void> {
     }
 
     // Record a pending feedback row so the editor puts up the
-    // feedback form on the user's next connect. Strict UX for
-    // CREATE_GAME — no dismiss. Only runs on successful commit;
-    // failed builds don't warrant asking "how did it go?".
+    // feedback form on the user's next connect. CREATE_GAME is strict
+    // (no dismiss); FIX_GAME is soft (dismissable). Only runs on
+    // successful commit; failed builds don't warrant asking
+    // "how did it go?".
+    const feedbackKind = job.kind === 'fix' ? 'fix_game' : 'create_game';
     if (outcome === 'success' && projectAfterSnapshot) {
         try {
             recordPendingFeedback({
                 userId: job.userId,
                 projectId,
-                kind: 'create_game',
+                kind: feedbackKind,
                 jobId,
                 cliSessionPath: sessionCapturePath,
                 prompt: job.description,
@@ -509,7 +589,7 @@ async function runJob(job: GenerationJob): Promise<void> {
                 projectAfter: projectAfterSnapshot,
             });
         } catch (e: any) {
-            console.error(`[GenerationJobs] Failed to record CREATE_GAME feedback row: ${e?.message}`);
+            console.error(`[GenerationJobs] Failed to record ${feedbackKind} feedback row: ${e?.message}`);
         }
     }
 
@@ -530,7 +610,7 @@ async function runJob(job: GenerationJob): Promise<void> {
             const fid = recordPendingFeedback({
                 userId: job.userId,
                 projectId,
-                kind: 'create_game',
+                kind: feedbackKind,
                 jobId,
                 cliSessionPath: sessionCapturePath,
                 prompt: job.description,
@@ -539,7 +619,7 @@ async function runJob(job: GenerationJob): Promise<void> {
             });
             resolveFeedback(fid, 'submitted', 'down', `[auto] ${summary}`);
         } catch (e: any) {
-            console.error(`[GenerationJobs] Failed to record failed CREATE_GAME feedback: ${e?.message}`);
+            console.error(`[GenerationJobs] Failed to record failed ${feedbackKind} feedback: ${e?.message}`);
         }
     }
 
@@ -600,6 +680,7 @@ async function runJob(job: GenerationJob): Promise<void> {
                     cli: cliName,
                     costUsd,
                     sessionCapturePath,
+                    kind: job.kind,
                 });
             } catch (e: any) {
                 console.error(`[GenerationJobs] Plugin ${p.name} onGenerationComplete failed:`, e?.message);

@@ -1644,6 +1644,7 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
         activeSceneKey: client.activeSceneKey,
         editingAgent: client.editingAgent,
         isAnonymous: client.isAnonymous,
+        deviceType: client.deviceType,
         chatHistory: getRecentChatHistory(client.projectId, client.chatSessionId),
         getLoadTemplateCount: () => {
             try {

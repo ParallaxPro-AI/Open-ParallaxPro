@@ -64,6 +64,15 @@ export interface ExecutionContext {
      */
     isAnonymous?: boolean;
     /**
+     * 'mobile' or 'desktop'. Set from the EditorClient's deviceType,
+     * which editor_ws derives from the WS upgrade User-Agent. FIX_GAME
+     * branches on this: desktop runs runFixer synchronously inline (the
+     * user watches progress in the chat panel); mobile runs it as a
+     * background generation_jobs entry so the user can close their
+     * phone tab without aborting the run.
+     */
+    deviceType?: 'mobile' | 'desktop';
+    /**
      * How many times LOAD_TEMPLATE has succeeded on this project. The
      * first load is silent; the 2nd and later loads pause for a user
      * confirmation popup before overwriting the existing project. See
@@ -328,6 +337,45 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                     message: 'Sign up free to unlock more features. Your project will follow you over.',
                 });
                 result.toolResults = `[FIX_GAME] BLOCKED — anonymous sessions cannot run FIX_GAME. In your next response, tell the user to sign up to unlock more features (their work will follow them onto their new account). Do NOT attempt the fix.`;
+                break;
+            }
+
+            // Mobile: route to background generation_jobs (kind: 'fix').
+            // Mirrors CREATE_GAME's flow — the project locks, the user
+            // bounces to the project list, the build outlives the WS
+            // tab, and on completion the project-list card flips back
+            // to "ready". No email is sent (hosted plugin filters on
+            // kind === 'create'). Desktop falls through to the inline
+            // synchronous runFixer below since the user is sitting in
+            // front of the chat panel watching live progress.
+            if (ctx.deviceType === 'mobile') {
+                try {
+                    const jobId = await startGenerationJob({
+                        projectId: ctx.projectId,
+                        userId: ctx.userId,
+                        username: ctx.username,
+                        authToken: ctx.authToken,
+                        description,
+                        kind: 'fix',
+                        activeSceneKey: ctx.activeSceneKey,
+                        cliOverride: ctx.editingAgent,
+                        chatHistory: ctx.chatHistory,
+                    });
+                    ctx.sendToFrontend('generation_started', {
+                        jobId,
+                        projectId: ctx.projectId,
+                        startedAt: new Date().toISOString(),
+                        description,
+                        kind: 'fix',
+                    });
+                    result.toolResults =
+                        `[FIX_GAME] Background fix started (job ${jobId.slice(0, 8)}). ` +
+                        `Reply with a single warm 1–2 sentence { } text block to the user — no tool call. It should say, in your own words: ` +
+                        `"You can safely close the tab while we apply the fix in the background. The project is locked for now — you'll see it ready on the project list when we're done." ` +
+                        `Do NOT mention email, do NOT promise specific generated content.`;
+                } catch (e: any) {
+                    result.toolResults = `[FIX_GAME] Could not start background fix: ${e?.message || 'unknown error'}. Tell the user what went wrong — don't retry automatically.`;
+                }
                 break;
             }
 

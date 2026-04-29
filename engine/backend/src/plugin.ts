@@ -74,16 +74,21 @@ export interface EnginePlugin {
      *  alongside hero-form submissions. */
     onProjectCreate?: (projectId: string, userId: number, username: string | null, prompt: string | null) => void;
 
-    /** Hook: called when a background CREATE_GAME job settles (success, failure,
-     *  abort). Hosted deployments use this to email the user, report token
-     *  usage against their monthly cap, and archive a snapshot so admins
-     *  can later clone the exact build that ran. Self-hosted plugins can
-     *  ignore it.
+    /** Hook: called when a background CREATE_GAME or FIX_GAME job settles
+     *  (success, failure, abort). Hosted deployments use this to email
+     *  the user (CREATE_GAME only), report token usage against their
+     *  monthly cap, and archive a snapshot so admins can later clone the
+     *  exact build that ran. Self-hosted plugins can ignore it.
      *
      *  `authToken` is the JWT captured when the job was started — valid for
      *  the whole 20–30 min run (JWTs are 7-day lived). When absent (self-
      *  hosted dev, non-WS-initiated jobs) plugins that need it should
-     *  no-op gracefully. */
+     *  no-op gracefully.
+     *
+     *  `kind` distinguishes a from-scratch CREATE_GAME (full project
+     *  rewrite, ~20–30 min, hosted email expected) from a mobile-
+     *  background FIX_GAME (file-patch fix, no email). Plugins that send
+     *  user-visible notifications should gate on kind === 'create'. */
     onGenerationComplete?: (args: {
         projectId: string;
         projectName: string;
@@ -105,6 +110,10 @@ export interface EnginePlugin {
          *  when capture was disabled/failed for this run. Admin-only — must
          *  never be surfaced to user-visible routes. */
         sessionCapturePath?: string | null;
+        /** 'create' = CREATE_GAME (default for back-compat with existing
+         *  hooks); 'fix' = mobile-background FIX_GAME. Hosted email plugin
+         *  filters on this to skip emails for fix jobs. */
+        kind?: 'create' | 'fix';
     }) => void;
 
     /** Hook: called on server shutdown */
