@@ -57,7 +57,15 @@ export function isFacingRegistryEnabled(): boolean {
 async function getFacingRegistry(): Promise<Record<string, FacingEntry>> {
     if (_facingRegistry) return _facingRegistry;
     if (_facingRegistryPromise) return _facingRegistryPromise;
-    const url = `${_assetsRoot}/MODEL_FACING.json`;
+    // Cache-bust on engine git hash. /assets/MODEL_FACING.json is served
+    // with `cache-control: immutable, max-age=31536000` — once a browser
+    // fetched it, that copy is pinned for a year regardless of what the
+    // server now serves. Edits to the registry would invisibly look
+    // broken on prod for any user whose browser cached an older copy.
+    // The hash changes on every deploy, so ?v=<hash> turns each deploy
+    // into a fresh URL the browser must re-fetch.
+    const hash = (typeof __ENGINE_GIT_HASH__ !== 'undefined' ? __ENGINE_GIT_HASH__ : '') || 'dev';
+    const url = `${_assetsRoot}/MODEL_FACING.json?v=${encodeURIComponent(hash.slice(0, 12))}`;
     _facingRegistryPromise = (async () => {
         try {
             const r = await fetch(url);
