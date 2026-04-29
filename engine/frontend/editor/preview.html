@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ParallaxPro - Preview</title>
+    <link rel="icon" href="/public/icons/favicon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #111; }
+        #game-container { width: 100%; height: 100%; position: relative; }
+        #game-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            touch-action: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* Lighter splash than play.html — preview is for the project author,
+           who's already inside the editor surface and doesn't need branding.
+           Just a soft fade so engine init has a moment to warm up. */
+        #splash-screen {
+            position: fixed; inset: 0;
+            background: #111;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2000;
+            color: rgba(255,255,255,0.5);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        #loading-screen {
+            position: fixed; inset: 0;
+            background: #111;
+            display: none; align-items: center; justify-content: center;
+            flex-direction: column; gap: 14px;
+            z-index: 1000;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #loading-screen .spinner {
+            width: 32px; height: 32px;
+            border: 3px solid rgba(134, 72, 230, 0.3);
+            border-top-color: #8648e6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-screen .loading-text { font-size: 13px; opacity: 0.7; }
+        #loading-screen .loading-progress-bar {
+            width: 200px; height: 3px;
+            background: rgba(134, 72, 230, 0.2);
+            border-radius: 2px; overflow: hidden;
+        }
+        #loading-screen .loading-progress-fill {
+            height: 100%; width: 0%;
+            background: #8648e6;
+            border-radius: 2px;
+            transition: width 0.2s ease;
+        }
+
+        #error-screen {
+            position: fixed; inset: 0;
+            background: #111;
+            display: none;
+            align-items: center; justify-content: center;
+            flex-direction: column; gap: 12px;
+            z-index: 1000;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            text-align: center;
+            padding: 24px;
+        }
+        #error-screen .error-icon { font-size: 36px; opacity: 0.7; }
+        #error-screen .error-title { font-size: 16px; font-weight: 600; }
+        #error-screen .error-msg { font-size: 13px; color: #888; max-width: 320px; line-height: 1.4; }
+
+        #fps-counter {
+            position: fixed; top: 8px; left: 10px;
+            z-index: 600;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 11px; font-weight: 600;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 3px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0.35;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="splash-screen">Preparing preview…</div>
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading assets…</div>
+        <div class="loading-progress-bar"><div class="loading-progress-fill" id="loading-progress-fill"></div></div>
+    </div>
+    <div id="error-screen">
+        <div class="error-icon">&#x26A0;</div>
+        <div class="error-title">Preview unavailable</div>
+        <div class="error-msg" id="error-detail">No preview data was provided. Open the project in the iOS app or web editor.</div>
+    </div>
+    <!-- Settings + FPS deliberately omitted; the iOS app surfaces these natively. -->
+    <div id="fps-counter">-- FPS</div>
+    <div id="game-container"></div>
+    <!-- Re-uses /src/play.ts: the bootstrap-by-postMessage code path is the
+         same one play.ts already uses for sandboxed iframes, so we don't need
+         a separate entry point. The only difference is that we never fall
+         back to fetching /api/engine/games/:owner/:slug — the host (iOS app)
+         must always deliver a bootstrap. play.ts already handles "no slug,
+         waiting for bootstrap" via its 6-second waitForBootstrap window. -->
+    <script>
+        // Mark this page so play.ts can branch on "preview mode" if it wants.
+        // Today play.ts doesn't read this — the bootstrap-only path falls out
+        // of "no owner/slug + parent posts a payload". Kept for future use.
+        window.__ppPreviewMode = true;
+    </script>
+    <script type="module" src="/src/play.ts"></script>
+</body>
+</html>

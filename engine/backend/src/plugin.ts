@@ -118,4 +118,13 @@ export interface EnginePlugin {
 
     /** Hook: called on server shutdown */
     onShutdown?: () => void;
+
+    /** Hook: called when the landing-side account-deletion flow asks the
+     *  engine to wipe everything owned by `userId`. `projectIds` is the
+     *  pre-computed list so plugins don't need to re-query. Plugins that
+     *  store user-keyed rows (publish: published_games, game_likes, etc.)
+     *  should clear them here. Core engine rows (projects, chat_messages,
+     *  agent_feedback) are removed by the internal route after every
+     *  plugin's hook returns. */
+    onUserDelete?: (userId: number, projectIds: string[]) => Promise<void> | void;
 }

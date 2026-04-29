@@ -352,6 +352,60 @@ router.get('/:id', (req, res) => {
     });
 });
 
+// Preview bundle for in-progress (unpublished) projects. Returns the
+// play-snapshot shape that `play.html` / mobile WebView clients consume —
+// same fields as GET /api/engine/games/:owner/:slug — but assembled from the
+// project's current draft state. Used by the ParallaxPro iOS app to render
+// the in-project Preview tab without first publishing.
+//
+// Why a dedicated endpoint when GET /:id already returns everything: the
+// preview surface has no business carrying the full editable file tree,
+// per-file editor metadata, or build sourceMap — those are editor-only and
+// roughly double the payload. Stripping them keeps mobile bandwidth + the
+// JS-bridge JSON encode cost down. The build cache is shared with GET /:id
+// so this endpoint is essentially free after the first call.
+router.get('/:id/preview-bundle', (req, res) => {
+    const row = stmtGet.get(req.params.id) as any;
+    if (!row) { res.status(404).json({ error: 'Project not found' }); return; }
+    if (row.user_id !== req.user!.id) { res.status(403).json({ error: 'Access denied' }); return; }
+
+    const data = parseProjectData(row.project_data);
+    if (isLegacyProjectData(data)) {
+        res.status(409).json({ error: 'Legacy project — please recreate it after the file-tree migration.' });
+        return;
+    }
+
+    const built = buildProject(row.id, data.files);
+    if (!built.success) {
+        // An unbuildable project still has a valid preview answer:
+        // "no scenes yet". Return 200 with an empty payload so the mobile
+        // Preview tab can show its "ask the AI to make something" empty state
+        // instead of a hard error.
+        res.json({
+            id: row.id,
+            name: row.name,
+            empty: true,
+            buildError: built.error || 'Project not buildable yet.',
+            engineGitHash: row.edited_engine_hash || null,
+        });
+        return;
+    }
+
+    res.json({
+        id: row.id,
+        name: row.name,
+        thumbnail: row.thumbnail,
+        scenes: built.scenes,
+        scripts: built.scripts,
+        uiFiles: built.uiFiles,
+        projectConfig: data.projectConfig,
+        controlsManifest: built.controlsManifest,
+        multiplayerConfig: built.multiplayerConfig,
+        engineGitHash: row.edited_engine_hash || null,
+        updatedAt: row.updated_at,
+    });
+});
+
 // Update project name
 router.put('/:id', (req, res) => {
     const result = stmtUpdate.run(req.body.name || 'Untitled Project', req.params.id, req.user!.id);

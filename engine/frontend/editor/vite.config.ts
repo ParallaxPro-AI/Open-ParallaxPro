@@ -73,6 +73,7 @@ export default defineConfig(({ command }) => ({
             input: {
                 main: path.resolve(__dirname, 'index.html'),
                 play: path.resolve(__dirname, 'play.html'),
+                preview: path.resolve(__dirname, 'preview.html'),
                 authCallback: path.resolve(__dirname, 'auth-callback.html'),
             },
         },

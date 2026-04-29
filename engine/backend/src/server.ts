@@ -244,6 +244,62 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         }
     });
 
+    // Hard-delete every engine-side row owned by `userId`. Called by the
+    // landing backend's account-deletion endpoint (App Store guideline
+    // 5.1.1(v)). Same INTERNAL_API_TOKEN gate as the other internal
+    // endpoints. Removes projects + their build dirs, chat_messages,
+    // agent_feedback, and any plugin-owned rows that the publish plugin
+    // needs to clean up via its own onUserDelete hook.
+    app.post('/api/engine/internal/delete-user', async (req, res) => {
+        const expected = process.env.INTERNAL_API_TOKEN;
+        if (expected) {
+            const provided = req.headers['x-internal-token'];
+            if (provided !== expected) { res.status(401).json({ error: 'Unauthorized' }); return; }
+        }
+        const userId = req.body?.userId;
+        if (typeof userId !== 'number') {
+            res.status(400).json({ error: 'userId must be a number' }); return;
+        }
+        try {
+            const projects = db.prepare('SELECT id FROM projects WHERE user_id = ?').all(userId) as { id: string }[];
+            const projectIds = projects.map(p => p.id);
+
+            // Plugin hooks: each plugin that owns user-keyed rows can declare
+            // an `onUserDelete(userId, projectIds)` cleanup. Implemented for
+            // the publish plugin so published_games / published_versions /
+            // game_likes / game_comments / game_reports go too.
+            for (const p of plugins) {
+                const hook = (p as any).onUserDelete;
+                if (typeof hook === 'function') {
+                    try { await hook(userId, projectIds); }
+                    catch (e: any) { console.error(`[delete-user] plugin ${p.name} onUserDelete failed:`, e.message); }
+                }
+            }
+
+            const tx = db.transaction(() => {
+                if (projectIds.length > 0) {
+                    const placeholders = projectIds.map(() => '?').join(',');
+                    db.prepare(`DELETE FROM chat_messages WHERE project_id IN (${placeholders})`).run(...projectIds);
+                    try { db.prepare(`DELETE FROM agent_feedback WHERE project_id IN (${placeholders})`).run(...projectIds); } catch {}
+                }
+                db.prepare('DELETE FROM projects WHERE user_id = ?').run(userId);
+            });
+            tx();
+
+            // Build dirs aren't transactional with the DB; clean them on a
+            // best-effort basis after the row removal succeeds.
+            try {
+                const { cleanupBuildDir } = await import('./ws/services/pipeline/project_builder.js');
+                for (const id of projectIds) cleanupBuildDir(id);
+            } catch { /* ignore — dirs are reclaimable on next boot */ }
+
+            res.json({ ok: true, projects: projectIds.length });
+        } catch (e: any) {
+            console.error('[delete-user] failed:', e.message);
+            res.status(500).json({ error: e.message });
+        }
+    });
+
     // Library tool endpoints — used by the sandbox's library.sh. Same
     // INTERNAL_API_TOKEN gate as search-assets; mounted as a full
     // router so the three sub-routes (/index, /search, /file) live
