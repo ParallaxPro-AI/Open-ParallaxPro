@@ -2,6 +2,7 @@ import './utils/error_tracker.js';
 import { checkForUpdates } from './utils/version_check.js';
 import { initI18n } from './i18n/index.js';
 import { isMobile } from './utils/mobile.js';
+import { checkWebGPUSupport, showWebGPUUnsupportedScreen } from './utils/webgpu_check.js';
 
 import './styles/theme.css';
 import './styles/editor.css';
@@ -146,6 +147,13 @@ class App {
 if (document.getElementById('app')) {
     if (isMobile()) document.body.classList.add('mobile');
 
+    // Front-load the WebGPU check — engine init throws the same message
+    // later but the user has already loaded the heavy bundle and watched
+    // a frozen splash by then. Catching at boot is clearer.
+    if (!checkWebGPUSupport().supported) {
+        showWebGPUUnsupportedScreen();
+    } else {
+
     window.addEventListener('popstate', () => {
         window.location.reload();
     });
@@ -168,4 +176,6 @@ if (document.getElementById('app')) {
             `;
         }
     });
+
+    } // end !checkWebGPUSupport else
 }

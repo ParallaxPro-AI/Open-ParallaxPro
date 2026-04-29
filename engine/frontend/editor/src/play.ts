@@ -5,6 +5,7 @@ import './styles/theme.css';
 // no error visibility — iPhone Safari users hitting issues on
 // games.parallaxpro.ai/play/* had no way to surface what failed.
 import './utils/error_tracker.js';
+import { checkWebGPUSupport, showWebGPUUnsupportedScreen } from './utils/webgpu_check.js';
 
 import { ParallaxEditor } from './editor.js';
 import { EditorContext } from './editor_context.js';
@@ -669,7 +670,17 @@ async function boot(): Promise<void> {
     resize();
 }
 
-boot().catch((e) => {
-    console.error('Failed to start game:', e);
-    showError(e.message || 'Unknown error.');
-});
+// Front-load the WebGPU check. Engine init throws "WebGPU is not
+// supported" later if navigator.gpu is missing, but by then the user
+// has loaded the play bundle and is staring at a frozen splash. Catch
+// at boot so the user gets a clear, actionable message immediately.
+// Targets older iPhones / iPads that pre-date Safari 16.4, plus
+// Firefox-without-flag and other unsupported runtimes.
+if (!checkWebGPUSupport().supported) {
+    showWebGPUUnsupportedScreen();
+} else {
+    boot().catch((e) => {
+        console.error('Failed to start game:', e);
+        showError(e.message || 'Unknown error.');
+    });
+}
