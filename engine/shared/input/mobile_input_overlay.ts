@@ -76,6 +76,17 @@ export interface MobileInputOverlayOptions {
     manifest: ControlManifest | null | undefined;
     /** Optional container the overlay attaches to. Defaults to canvas.parentElement or body. */
     container?: HTMLElement;
+    /**
+     * Fires once the overlay's DOM is actually attached. With the deferred-
+     * attach path that's not necessarily synchronous with the call to
+     * attachMobileInputOverlay — callers that need to react on attach (e.g.
+     * to flip InputDevice.suppressLegacyTouchAsMouse) should hook here.
+     * `info.enabled` mirrors the persisted user toggle: false means the user
+     * has hidden the overlay via the tray, in which case callers should NOT
+     * suppress the legacy touch-as-mouse path (the user opted out of the
+     * overlay's own touch routing).
+     */
+    onAttach?: (info: { enabled: boolean }) => void;
 }
 
 export interface MobileInputOverlay {
@@ -142,7 +153,7 @@ export function shouldShowMobileOverlay(): boolean {
  */
 export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): MobileInputOverlay {
     if (!shouldShowMobileOverlay()) {
-        return noopOverlay();
+        return deferredAttach(opts);
     }
 
     const manifest = resolveManifest(opts.manifest);
@@ -151,6 +162,11 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     const container = opts.container || canvas.parentElement || document.body;
 
     let enabled = readEnabled();
+    // Notify the caller that the DOM is about to attach. Fires for both
+    // eager and deferred-upgrade paths so they look identical externally.
+    // We pass `enabled` so callers that mirror it (e.g. inputDevice's
+    // suppressLegacyTouchAsMouse) stay consistent with the user's toggle.
+    try { opts.onAttach?.({ enabled }); } catch { /* swallow */ }
     const suspendedReasons = new Set<string>();
     let destroyed = false;
 
@@ -1222,6 +1238,89 @@ function noopOverlay(): MobileInputOverlay {
         setEnabled: () => { /* no-op */ },
         isEnabled: () => false,
         setSuspended: () => { /* no-op */ },
+    };
+}
+
+/**
+ * Returned when shouldShowMobileOverlay() is false at engine boot, so the
+ * "controls don't pop up until I refresh" race resolves itself instead of
+ * requiring the user to actually refresh.
+ *
+ * Causes seen in the wild: matchMedia('(pointer: coarse)') reports a stale
+ * value during iframe CSS settling / iOS Safari address-bar collapse / parent
+ * React hydration, and navigator.maxTouchPoints can be 0 on Android Chrome
+ * cold boots until the first frame. The eager check at attach time misses
+ * these and we'd never re-evaluate.
+ *
+ * The deferred handle listens for signals that touch is now real — first
+ * touchstart anywhere in the document, (pointer: coarse) media-query change,
+ * orientationchange, resize — re-runs shouldShowMobileOverlay(), and if it
+ * now returns true upgrades to the real overlay. setEnabled / setSuspended
+ * calls made before the upgrade are buffered and replayed.
+ */
+function deferredAttach(opts: MobileInputOverlayOptions): MobileInputOverlay {
+    let upgraded: MobileInputOverlay | null = null;
+    let destroyed = false;
+    let pendingEnabled: boolean | null = null;
+    const pendingSuspend = new Map<string, boolean>();
+    let mql: MediaQueryList | null = null;
+
+    const cleanupListeners = () => {
+        try { document.removeEventListener('touchstart', onTrigger, { capture: true } as any); } catch { /* swallow */ }
+        try { window.removeEventListener('orientationchange', onTrigger); } catch { /* swallow */ }
+        try { window.removeEventListener('resize', onTrigger); } catch { /* swallow */ }
+        try { mql?.removeEventListener?.('change', onTrigger); } catch { /* swallow */ }
+    };
+
+    const tryUpgrade = (): void => {
+        if (upgraded || destroyed) return;
+        if (!shouldShowMobileOverlay()) return;
+        cleanupListeners();
+        // Re-enter via the public attach. shouldShowMobileOverlay() just
+        // returned true so we'll take the eager path this time, not recurse
+        // back into deferredAttach.
+        upgraded = attachMobileInputOverlay(opts);
+        if (pendingEnabled !== null) {
+            try { upgraded.setEnabled(pendingEnabled); } catch { /* swallow */ }
+        }
+        for (const [reason, val] of pendingSuspend) {
+            try { upgraded.setSuspended(val, reason); } catch { /* swallow */ }
+        }
+    };
+
+    const onTrigger = (): void => tryUpgrade();
+
+    try {
+        document.addEventListener('touchstart', onTrigger, { capture: true, passive: true } as any);
+        window.addEventListener('orientationchange', onTrigger);
+        window.addEventListener('resize', onTrigger);
+        mql = window.matchMedia?.('(pointer: coarse)') ?? null;
+        mql?.addEventListener?.('change', onTrigger);
+    } catch { /* swallow */ }
+
+    // Belt-and-suspenders: re-check after a frame in case matchMedia was
+    // stale at startup but no `change` event ever fires (some webviews
+    // commit the correct value silently after first paint).
+    try { requestAnimationFrame(() => tryUpgrade()); } catch { /* swallow */ }
+
+    return {
+        destroy: () => {
+            destroyed = true;
+            cleanupListeners();
+            if (upgraded) {
+                try { upgraded.destroy(); } catch { /* swallow */ }
+                upgraded = null;
+            }
+        },
+        setEnabled: (e) => {
+            if (upgraded) { upgraded.setEnabled(e); return; }
+            pendingEnabled = e;
+        },
+        isEnabled: () => upgraded ? upgraded.isEnabled() : false,
+        setSuspended: (s, reason) => {
+            if (upgraded) { upgraded.setSuspended(s, reason); return; }
+            pendingSuspend.set(reason || 'default', s);
+        },
     };
 }
 

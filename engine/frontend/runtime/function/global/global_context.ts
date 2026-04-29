@@ -77,16 +77,23 @@ export class RuntimeGlobalContext {
         const controlsManifest: ControlManifest | undefined =
             projectConfig?.controlsManifest || projectConfig?.controls;
         try {
+            // Non-overlay touch path (primary touch as mouse) is suppressed
+            // when the overlay is active. The overlay owns viewport-tap
+            // handling itself and routes it through injectMouseButtonDown,
+            // so the legacy primary-touch shim would double-fire. We flip
+            // this flag in `onAttach` rather than after the attach call so
+            // the deferred-attach path (overlay materializes later, after
+            // matchMedia settles) also gets the suppression — otherwise
+            // the legacy shim keeps firing forever and double-fires every
+            // tap once the deferred overlay finally shows up.
             this.mobileOverlay = attachMobileInputOverlay({
                 canvas,
                 inputSystem: this.inputSystem,
                 manifest: controlsManifest,
+                onAttach: ({ enabled }) => {
+                    this.inputDevice.suppressLegacyTouchAsMouse = enabled;
+                },
             });
-            // Non-overlay touch path (primary touch as mouse) is suppressed
-            // when the overlay is active. The overlay owns viewport-tap
-            // handling itself and routes it through injectMouseButtonDown,
-            // so the legacy primary-touch shim would double-fire.
-            this.inputDevice.suppressLegacyTouchAsMouse = this.mobileOverlay.isEnabled();
         } catch (e) {
             console.warn('[engine] mobile overlay attach failed:', e);
         }
