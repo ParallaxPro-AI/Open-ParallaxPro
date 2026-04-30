@@ -237,7 +237,6 @@ export class MultiplayerSession {
     // -- Connection lifecycle ----------------------------------------------
 
     async connect(url: string, gameTemplateId: string): Promise<void> {
-        console.log('[mp] session.connect()', JSON.stringify({ urlHost: (() => { try { return new URL(url).host; } catch { return '?'; } })(), gameTemplateId }));
         this._gameTemplateId = gameTemplateId;
         this.setPhase('connecting');
         this.lobby.setEvents({
@@ -294,11 +293,8 @@ export class MultiplayerSession {
             onDisconnect: () => this.handleDisconnect(),
         });
         try {
-            console.log('[mp] session.connect() → lobby.connect awaiting');
             await this.lobby.connect(url);
-            console.log('[mp] session.connect() → lobby.connect resolved');
         } catch (e: any) {
-            console.error('[mp] session.connect() → lobby.connect threw', e?.message || String(e));
             this.setPhase('disconnected');
             throw e;
         }
@@ -306,13 +302,7 @@ export class MultiplayerSession {
         // listener now, so by the time the first remote track arrives the
         // context is already unlocked. Any click/key/touch anywhere in the
         // page (which includes the in-game controls) will resume it.
-        try {
-            this.ensureVoiceAudioCtx();
-            console.log('[mp] ensureVoiceAudioCtx() ok', JSON.stringify({ state: this._voiceAudioCtx?.state ?? null }));
-        } catch (e: any) {
-            console.error('[mp] ensureVoiceAudioCtx() threw', e?.message || String(e));
-        }
-        console.log('[mp] webrtc.initialize() about to start');
+        this.ensureVoiceAudioCtx();
         this.webrtc.initialize(
             this.lobby.peerId,
             (toPeerId, payload) => this.lobby.signal(toPeerId, payload),
@@ -321,16 +311,12 @@ export class MultiplayerSession {
                 onClose: (peerId) => this.handlePeerChannelClosed(peerId),
                 onMessage: (peerId, msg) => this.handleDataChannelMessage(peerId, msg),
                 onRemoteAudio: (peerId, stream) => {
-                    console.log('[mp] webrtc onRemoteAudio', JSON.stringify({ peerId, tracks: stream.getTracks().length }));
                     this.attachRemoteVoice(peerId, stream);
                     for (const cb of this._voiceListeners) cb(peerId, stream);
                 },
             },
         );
-        console.log('[mp] webrtc.initialize() done');
-        console.log('[mp] setPhase("browsing") about to fire');
         this.setPhase('browsing');
-        console.log('[mp] setPhase("browsing") returned, connect() done');
     }
 
     private _teardownVoice(dropGestureHandler: boolean): void {
@@ -1104,7 +1090,6 @@ export class MultiplayerSession {
 
     private setPhase(phase: SessionPhase): void {
         if (this._phase === phase) return;
-        console.log('[mp] setPhase →', phase, JSON.stringify({ listeners: this._phaseListeners.size }));
         this._phase = phase;
         if (phase !== 'in_game') {
             this._simAccumulator = 0;
@@ -1112,16 +1097,7 @@ export class MultiplayerSession {
             this._inputSeq = 0;
             this._inputBuffer = [];
         }
-        let i = 0;
-        for (const cb of this._phaseListeners) {
-            try {
-                cb(phase);
-            } catch (e: any) {
-                console.error('[mp] setPhase listener', i, 'threw', e?.message || String(e));
-            }
-            i++;
-        }
-        console.log('[mp] setPhase →', phase, 'all listeners done');
+        for (const cb of this._phaseListeners) cb(phase);
     }
 
     private fireError(message: string): void {

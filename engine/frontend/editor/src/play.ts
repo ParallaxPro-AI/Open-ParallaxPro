@@ -290,51 +290,13 @@ async function boot(): Promise<void> {
     // parallaxpro.ai/games/<owner>/<slug> (the main-site wrapper) where
     // the iframe bootstrap carries their session across the boundary.
 
-    // [mp-trace] Heavy logging for the multiplayer init path. Tracks
-    // every checkpoint between Play tap and "in-game" so a WKWebView
-    // crash / iOS Safari refresh can be pinpointed by reading the last
-    // log line that printed. Tagged `[mp]` so it greps cleanly out of
-    // Xcode's mixed log output.
-    console.log('[mp] boot() entered', JSON.stringify({
-        href: window.location.href,
-        ua: navigator.userAgent.slice(0, 120),
-        hasParent: window.parent !== window,
-        hasGpu: !!(navigator as any).gpu,
-        ts: Date.now(),
-    }));
-
-    window.addEventListener('pagehide', (e: PageTransitionEvent) => {
-        console.log('[mp] window pagehide', JSON.stringify({ persisted: e.persisted, ts: Date.now() }));
-    });
-    window.addEventListener('beforeunload', () => {
-        console.log('[mp] window beforeunload', JSON.stringify({ ts: Date.now() }));
-    });
-    document.addEventListener('visibilitychange', () => {
-        console.log('[mp] visibilitychange', JSON.stringify({ state: document.visibilityState, ts: Date.now() }));
-    });
-
-    // Heartbeat: every 500ms log we're still alive. The crash repro
-    // shows webrtc.initialize() done as the last engine-side log; if
-    // the heartbeat stops at the same moment, we know the entire JS
-    // event loop is dead (process kill) vs. just the multiplayer
-    // sequence finishing without further triggers.
-    let __mpHeartbeat = 0;
-    setInterval(() => {
-        __mpHeartbeat++;
-        // mem is non-standard but Safari/WKWebView surface it. Helps
-        // confirm whether we're approaching a memory wall.
-        const mem: any = (performance as any).memory;
-        const memSummary = mem ? { used: Math.round(mem.usedJSHeapSize / (1024 * 1024)), total: Math.round(mem.totalJSHeapSize / (1024 * 1024)), limit: Math.round(mem.jsHeapSizeLimit / (1024 * 1024)) } : null;
-        console.log('[mp] heartbeat', __mpHeartbeat, JSON.stringify(memSummary));
-    }, 500);
-
-    // Forward any iframe-internal errors (from html_ui_manager wrapper
-    // script) up to the main `[mp]` trace so srcdoc-iframe panel
-    // crashes don't disappear silently.
+    // Forward iframe-internal errors (from html_ui_manager's wrapper
+    // script) up to the parent's console so srcdoc-iframe panel
+    // crashes don't disappear silently in their own document scope.
     window.addEventListener('message', (e: MessageEvent) => {
         const d = e.data;
         if (d && typeof d === 'object' && d.type === 'pp_iframe_error') {
-            console.error('[mp] iframe error', d.kind, d.message, '\n', d.stack || '');
+            console.error('[ui-iframe error]', d.kind, d.message, '\n', d.stack || '');
         }
     });
 
@@ -411,27 +373,16 @@ async function boot(): Promise<void> {
 
     let gameData: any;
 
-    console.log('[mp] route classified', JSON.stringify({
-        isMultiplayerJoin, roomId, queryOwner, querySlug, hasBootstrap: !!bootstrap, hasMpTicket: !!bootstrap?.mpTicket
-    }));
-
     if (isMultiplayerJoin) {
-        console.log('[mp] mp-join: fetching room project', { roomId });
         try {
             const res = await fetch(`/api/engine/multiplayer/rooms/${roomId}/project`);
-            console.log('[mp] mp-join: room project fetch', JSON.stringify({ ok: res.ok, status: res.status }));
             if (res.ok) {
                 gameData = await res.json();
-                console.log('[mp] mp-join: room project parsed', JSON.stringify({
-                    hasGame: !!gameData,
-                    hasMpConfig: !!gameData?.multiplayerConfig || !!gameData?.projectConfig?.multiplayerConfig,
-                }));
             } else {
                 showError('This multiplayer room no longer exists. The host may have left or the session has ended.');
                 return;
             }
-        } catch (e: any) {
-            console.error('[mp] mp-join: room fetch threw', e?.message || String(e));
+        } catch {
             showError('Network error. Please try again.');
             return;
         }
@@ -507,9 +458,6 @@ async function boot(): Promise<void> {
     const isMultiplayerGame = !!mpConfig?.enabled
         || Object.keys(scripts).some(k => k.includes('network_sync'));
     // Multiplayer games no longer require auth — guests play as "Guest".
-    console.log('[mp] game classified', JSON.stringify({
-        isMultiplayerGame, mpEnabled: !!mpConfig?.enabled, scriptCount: Object.keys(scripts).length,
-    }));
 
     document.title = `${gameData.name} - ParallaxPro`;
 
@@ -520,7 +468,6 @@ async function boot(): Promise<void> {
     canvas.style.height = '100%';
     canvas.style.display = 'block';
     gameContainer.appendChild(canvas);
-    console.log('[mp] canvas mounted', JSON.stringify({ w: canvas.width, h: canvas.height }));
 
     // Mobile-controls manifest. Sourced from `01_flow.json:controls`,
     // assembled into `gameData.controlsManifest` by the build pipeline.
@@ -531,17 +478,10 @@ async function boot(): Promise<void> {
         : { controlsManifest: gameData.controlsManifest };
 
     const editor = new ParallaxEditor();
-    console.log('[mp] editor.initialize() about to start');
-    try {
-        await editor.initialize(canvas, {
-            config: projectConfig,
-            scenes: gameData.scenes,
-        });
-    } catch (e: any) {
-        console.error('[mp] editor.initialize() threw', e?.message || String(e), e?.stack || '');
-        throw e;
-    }
-    console.log('[mp] editor.initialize() done');
+    await editor.initialize(canvas, {
+        config: projectConfig,
+        scenes: gameData.scenes,
+    });
 
     const ctx = EditorContext.instance;
     (window as any).__editorContext = ctx;

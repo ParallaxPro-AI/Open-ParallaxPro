@@ -177,11 +177,7 @@ export class WebRTCManager {
      * removes the "both sides glare" problem.
      */
     async connect(peerId: PeerId, amInitiator: boolean): Promise<void> {
-        console.log('[mp] webrtc.connect()', JSON.stringify({ peerId, amInitiator, hasDynIce: !!this.dynamicIceServers }));
-        if (this.peers.has(peerId)) {
-            console.log('[mp] webrtc.connect() — peer already exists, returning');
-            return;
-        }
+        if (this.peers.has(peerId)) return;
 
         // Prefer dynamic (server-issued) ICE servers when present; they
         // override the bundled STUN+OpenRelay defaults. STUN entries from
@@ -195,14 +191,7 @@ export class WebRTCManager {
                   ...this.dynamicIceServers,
               ] }
             : RTC_CONFIG;
-        let pc: RTCPeerConnection;
-        try {
-            pc = new RTCPeerConnection(config);
-            console.log('[mp] webrtc.connect() — RTCPeerConnection created');
-        } catch (e: any) {
-            console.error('[mp] webrtc.connect() — RTCPeerConnection ctor threw', e?.message || String(e));
-            throw e;
-        }
+        const pc = new RTCPeerConnection(config);
         const info: PeerInfo = {
             peerId,
             connection: pc,
@@ -227,18 +216,8 @@ export class WebRTCManager {
             }
         };
 
-        pc.oniceconnectionstatechange = () => {
-            console.log('[mp] webrtc iceConnectionState', JSON.stringify({ peerId, state: pc.iceConnectionState }));
-        };
-        pc.onicegatheringstatechange = () => {
-            console.log('[mp] webrtc iceGatheringState', JSON.stringify({ peerId, state: pc.iceGatheringState }));
-        };
-        pc.onsignalingstatechange = () => {
-            console.log('[mp] webrtc signalingState', JSON.stringify({ peerId, state: pc.signalingState }));
-        };
         pc.onconnectionstatechange = () => {
             const state = pc.connectionState;
-            console.log('[mp] webrtc connectionState', JSON.stringify({ peerId, state }));
             if (state === 'failed' || state === 'closed') {
                 if (info.disconnectGraceTimer) {
                     clearTimeout(info.disconnectGraceTimer);
@@ -309,7 +288,6 @@ export class WebRTCManager {
         }
 
         if (amInitiator) {
-            console.log('[mp] webrtc — initiator: creating data channel + offer');
             const channel = pc.createDataChannel(DATA_CHANNEL_LABEL, {
                 ordered: false,
                 maxRetransmits: 0,
@@ -317,22 +295,15 @@ export class WebRTCManager {
             this.attachChannel(info, channel);
             try {
                 const offer = await pc.createOffer();
-                console.log('[mp] webrtc — createOffer ok');
                 await pc.setLocalDescription(offer);
-                console.log('[mp] webrtc — setLocalDescription(offer) ok');
                 this.sendSignal(peerId, { kind: 'offer', sdp: offer });
-                console.log('[mp] webrtc — offer sent to', peerId);
-            } catch (e: any) {
-                console.error('[mp] webrtc — offer pipeline threw', e?.message || String(e));
+            } catch (e) {
+                console.warn('[WebRTC] createOffer failed', e);
                 this.teardown(peerId);
                 return;
             }
         } else {
-            console.log('[mp] webrtc — non-initiator: awaiting datachannel from peer');
-            pc.ondatachannel = (e) => {
-                console.log('[mp] webrtc — datachannel arrived from', peerId);
-                this.attachChannel(info, e.channel);
-            };
+            pc.ondatachannel = (e) => this.attachChannel(info, e.channel);
         }
 
         info.connectionTimeout = setTimeout(() => {
@@ -440,21 +411,19 @@ export class WebRTCManager {
     // -- Voice --------------------------------------------------------------
 
     async enableLocalMic(): Promise<boolean> {
-        console.log('[mp] enableLocalMic() called', JSON.stringify({ alreadyHasTrack: !!this.localAudioTrack }));
         if (this.localAudioTrack) return true;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
                 video: false,
             });
-            console.log('[mp] enableLocalMic() — getUserMedia ok', JSON.stringify({ tracks: stream.getAudioTracks().length }));
             this.localAudioTrack = stream.getAudioTracks()[0] ?? null;
             if (!this.localAudioTrack) return false;
             for (const info of this.peers.values()) this.attachLocalAudio(info);
             this._broadcastVoiceState();
             return true;
-        } catch (e: any) {
-            console.error('[mp] enableLocalMic() — getUserMedia threw', e?.name || '?', e?.message || String(e));
+        } catch (e) {
+            console.warn('[WebRTC] mic permission denied or unavailable', e);
             return false;
         }
     }

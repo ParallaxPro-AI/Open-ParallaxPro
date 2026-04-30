@@ -81,7 +81,6 @@ export class HTMLUIManager {
     }
 
     loadUI(path: string, htmlContent: string): void {
-        console.log('[mp] HTMLUIManager.loadUI', JSON.stringify({ path, bytes: htmlContent.length, total: this.overlays.size, lazy: this.isMobile }));
         // Always cache, regardless of platform. Mobile uses the cache to
         // lazy-attach on first show; desktop never reads it but the cost
         // is trivial (a string ref).
@@ -205,10 +204,7 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
     /** Mobile-only HUD attach via the bundle. Idempotent. */
     private _attachHudToBundle(path: string, html: string): void {
         const iframe = this._ensureHudBundle();
-        if (!iframe) {
-            console.warn('[mp] _attachHudToBundle — no container yet, skipping', path);
-            return;
-        }
+        if (!iframe) return;  // No container yet — sendState will retry on the next push.
         if (this.hudBundleAttachedPaths.has(path)) return;
         this.hudBundleAttachedPaths.add(path);
         this._bundlePost({ type: '__pp_addPanel', path, html });
@@ -237,13 +233,17 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         this._bundlePost({ type: '__pp_setVisible', path, visible });
     }
 
-    /** Queue an iframe for one-per-rAF attach. Mobile-only; desktop
-     *  attaches synchronously in loadUI. */
+    /** Queue a non-HUD iframe for one-at-a-time attach. Mobile-only;
+     *  desktop attaches synchronously in loadUI. HUD panels go through
+     *  the shared bundle iframe (see `_attachHudToBundle`); this queue
+     *  is for modal/full-screen panels (lobby_browser, lobby_room, etc.)
+     *  which still get one iframe each but at most one is visible at a
+     *  time. The 250ms gap stays as defence-in-depth in case multiple
+     *  modals queue at once during a phase transition. */
     private _enqueueAttach(path: string, htmlContent: string, isHud: boolean): void {
         // Replace any prior pending entry for this path (idempotent).
         this.attachQueue = this.attachQueue.filter(q => q.path !== path);
         this.attachQueue.push({ path, html: htmlContent });
-        console.log('[mp] HTMLUIManager.enqueueAttach', JSON.stringify({ path, queued: this.attachQueue.length }));
         if (this.attachDraining) return;
         this.attachDraining = true;
         const drain = () => {
@@ -259,16 +259,9 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
                     const isHudPanel = next.path.replace('ui/', '').replace('.html', '').startsWith('hud/');
                     created.style.pointerEvents = isHudPanel ? 'none' : 'auto';
                 }
-            } catch (e: any) {
-                console.error('[mp] HTMLUIManager.enqueueAttach drain — _attachIframe threw', next.path, e?.message || String(e));
+            } catch (e) {
+                console.warn('[HTMLUIManager] iframe attach failed', next.path, e);
             }
-            // 250ms gap between iframe parses. rAF (16ms) was too tight —
-            // the prior crash repro spread 6 HUDs across one ~500ms
-            // heartbeat and still hit the WebContent OOM. With 250ms the
-            // 6 HUDs are spread across ~1.5s, giving WebGPU buffer
-            // alloc + entity-spawn from the in_game transition time to
-            // settle and any temp iframe parse memory time to be GC'd
-            // before the next iframe lands.
             setTimeout(drain, 250);
         };
         // First attach also gets a delay so the in_game transition's
@@ -280,12 +273,11 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         void isHud;
     }
 
+    /** Synchronous iframe attach (desktop or mobile-modal-panel). HUDs on
+     *  mobile go through the bundle path instead — see _attachHudToBundle. */
     private _attachIframe(path: string, htmlContent: string): void {
         const container = this.container || document.querySelector('.viewport-canvas-container') as HTMLElement | null;
-        if (!container) {
-            console.warn('[mp] HTMLUIManager._attachIframe — no container, skipping', path);
-            return;
-        }
+        if (!container) return;
 
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:transparent;pointer-events:none;z-index:15;display:none;';
@@ -322,16 +314,10 @@ window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForw
 ${wrapperScript}
 </script></body></html>`;
 
-        try {
-            iframe.srcdoc = wrapped;
-            container.appendChild(iframe);
-            this.overlays.set(path, iframe);
-            this.applyScale(iframe);
-            console.log('[mp] HTMLUIManager.loadUI', path, 'iframe attached');
-        } catch (e: any) {
-            console.error('[mp] HTMLUIManager.loadUI — iframe attach threw', path, e?.message || String(e));
-            throw e;
-        }
+        iframe.srcdoc = wrapped;
+        container.appendChild(iframe);
+        this.overlays.set(path, iframe);
+        this.applyScale(iframe);
 
         // Scale UI based on viewport size (designed for 1920px width).
         // Uses transform:scale + enlarged dimensions so the iframe fills
