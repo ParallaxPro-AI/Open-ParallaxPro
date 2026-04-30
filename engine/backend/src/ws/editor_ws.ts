@@ -173,6 +173,23 @@ export function broadcastProjectRenamed(projectId: string, name: string): void {
     }
 }
 
+/**
+ * Fan a project_reload to every editor WS client connected to `projectId`.
+ * Used after any chat-driven file commit (LOAD_TEMPLATE, FIX_GAME inline,
+ * direct fixer) and at the end of a successful background CREATE_GAME /
+ * FIX_GAME job, so multi-client setups (e.g. the iOS app's chat surface
+ * + its embedded editor preview pane both connected with separate
+ * tickets) all re-render the scene off a single source of truth instead
+ * of leaving non-originating clients on a stale view.
+ */
+export function broadcastProjectReload(projectId: string, payload: Record<string, any>): void {
+    for (const client of clients.values()) {
+        if (client.projectId === projectId) {
+            send(client, 'project_reload', payload);
+        }
+    }
+}
+
 // Recorded once at module load. Used to tag the first 60s of post-restart
 // connections with a system_updated message so the editor can show a quick
 // "engine updated" toast — the user's natural signal that their disconnect
@@ -1136,7 +1153,10 @@ function rebuildAndPush(client: EditorClient, pd: ProjectData, opts: { sceneKey:
         return built;
     }
     const sceneData = built.scenes[opts.sceneKey] || built.scenes[built.activeSceneKey];
-    send(client, 'project_reload', {
+    // Broadcast: every client on this project (e.g. the iOS embedded
+    // editor preview running on a different ticket) needs the new
+    // scene, not just whoever triggered the rebuild.
+    broadcastProjectReload(client.projectId, {
         sceneKey: built.activeSceneKey,
         sceneData,
         scripts: built.scripts,
@@ -1183,6 +1203,9 @@ function commitProjectFilesWithValidation(
             const recovery = buildProject(client.projectId, current.files, { activeSceneKey: opts.sceneKey });
             if (recovery.success) {
                 const sceneData = recovery.scenes[opts.sceneKey] || recovery.scenes[recovery.activeSceneKey];
+                // Recovery path is only meaningful to the originating
+                // client (everyone else's view was already in sync with
+                // the DB). Single-target send is fine here.
                 send(client, 'project_reload', {
                     sceneKey: recovery.activeSceneKey,
                     sceneData,
@@ -1196,7 +1219,9 @@ function commitProjectFilesWithValidation(
     }
     stmtUpdateData.run(serializeProjectData(pd), client.projectId);
     const sceneData = built.scenes[opts.sceneKey] || built.scenes[built.activeSceneKey];
-    send(client, 'project_reload', {
+    // Broadcast on success — same reasoning as rebuildAndPush, every
+    // client on this project needs the new scene.
+    broadcastProjectReload(client.projectId, {
         sceneKey: built.activeSceneKey,
         sceneData,
         scripts: built.scripts,

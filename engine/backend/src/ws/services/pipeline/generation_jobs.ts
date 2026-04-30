@@ -41,6 +41,8 @@ import { runFixer } from './cli_fixer.js';
 import { recordPendingFeedback, resolveFeedback } from '../feedback.js';
 import { getQueuePosition, resolveCLI } from './cli_runner.js';
 import { preemptProjectJob } from './cli_active_jobs.js';
+import { broadcastProjectReload } from '../../editor_ws.js';
+import { buildProject } from './project_builder.js';
 import type { EnginePlugin } from '../../../plugin.js';
 
 export interface QueuePosition {
@@ -565,6 +567,31 @@ async function runJob(job: GenerationJob): Promise<void> {
             projectAfterSnapshot = serializeProjectData(pd);
             db.prepare(`UPDATE projects SET project_data = ?, updated_at = strftime('%Y-%m-%d %H:%M:%f','now') WHERE id = ?`)
                 .run(projectAfterSnapshot, projectId);
+
+            // After a successful background commit, fan a project_reload
+            // out to every connected editor WS client on this project.
+            // The chat-driven path (commitProjectFilesWithValidation in
+            // editor_ws.ts) already broadcasts on each turn; without
+            // this analogous broadcast here, anyone watching the scene
+            // when CREATE_GAME / FIX_GAME finishes (e.g. the iOS app's
+            // embedded editor preview pane) sees the old scene until
+            // they manually reload. buildProject is cheap on a
+            // freshly-committed project so it's fine to run inline.
+            try {
+                const built = buildProject(projectId, files);
+                if (built.success) {
+                    broadcastProjectReload(projectId, {
+                        sceneKey: built.activeSceneKey,
+                        sceneData: built.scenes[built.activeSceneKey],
+                        scripts: built.scripts,
+                        uiFiles: built.uiFiles,
+                        sourceMap: built.sourceMap,
+                        controlsManifest: built.controlsManifest,
+                    });
+                }
+            } catch (e: any) {
+                console.warn(`[GenerationJobs] post-commit broadcast failed for ${projectId}: ${e?.message}`);
+            }
         } catch (e: any) {
             outcome = 'failed';
             summary = `Build produced files but commit failed: ${e?.message || e}`;
