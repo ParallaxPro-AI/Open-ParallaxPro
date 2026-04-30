@@ -23,17 +23,6 @@ export class HTMLUIManager {
      *  so peak iframe count tracks visible-panels rather than total-panels. */
     private readonly isMobile: boolean = (typeof navigator !== 'undefined') &&
         /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
-    /** Pending iframe attaches drained one-per-rAF. The previous "lazy"
-     *  fix moved iframes off boot, but the in_game transition still
-     *  flipped 6 HUDs visible on the same tick, and 6 simultaneous
-     *  iframe.srcdoc parses tipped the WebContent process over its
-     *  memory ceiling concurrent with entity spawn + WebGPU buffer
-     *  alloc. This queue spreads attaches across frames so each
-     *  iframe's parse-time scratch memory is released before the next
-     *  one starts. */
-    private attachQueue: { path: string; html: string }[] = [];
-    private attachDraining = false;
-
     /** Mobile-only: ALL HUD panels share ONE iframe instead of one each.
      *  Every attempted per-HUD-iframe approach (lazy loadUI, rAF
      *  staggering, 250ms staggering, aggressive unload of lobby panels)
@@ -233,44 +222,17 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         this._bundlePost({ type: '__pp_setVisible', path, visible });
     }
 
-    /** Queue a non-HUD iframe for one-at-a-time attach. Mobile-only;
-     *  desktop attaches synchronously in loadUI. HUD panels go through
-     *  the shared bundle iframe (see `_attachHudToBundle`); this queue
-     *  is for modal/full-screen panels (lobby_browser, lobby_room, etc.)
-     *  which still get one iframe each but at most one is visible at a
-     *  time. The 250ms gap stays as defence-in-depth in case multiple
-     *  modals queue at once during a phase transition. */
-    private _enqueueAttach(path: string, htmlContent: string, isHud: boolean): void {
-        // Replace any prior pending entry for this path (idempotent).
-        this.attachQueue = this.attachQueue.filter(q => q.path !== path);
-        this.attachQueue.push({ path, html: htmlContent });
-        if (this.attachDraining) return;
-        this.attachDraining = true;
-        const drain = () => {
-            const next = this.attachQueue.shift();
-            if (!next) { this.attachDraining = false; return; }
-            try {
-                this._attachIframe(next.path, next.html);
-                const created = this.overlays.get(next.path);
-                if (created) {
-                    created.style.display = '';
-                    // HUDs default to pointer-events:none; modal panels need
-                    // 'auto' so taps work. Mirror the synchronous-path logic.
-                    const isHudPanel = next.path.replace('ui/', '').replace('.html', '').startsWith('hud/');
-                    created.style.pointerEvents = isHudPanel ? 'none' : 'auto';
-                }
-            } catch (e) {
-                console.warn('[HTMLUIManager] iframe attach failed', next.path, e);
-            }
-            setTimeout(drain, 250);
-        };
-        // First attach also gets a delay so the in_game transition's
-        // own work (script-system rebind, entity instantiation, scene
-        // assembly) starts before iframe parsing piles on.
-        setTimeout(drain, 250);
-        // Acknowledge `isHud` so the param isn't unused; future calls may
-        // want to special-case scheduling for HUDs vs modals.
-        void isHud;
+    /** Mobile-only synchronous attach for non-HUD modal panels. HUDs go
+     *  through the shared bundle (see _attachHudToBundle); this is for
+     *  lobby_browser, lobby_room, etc. — modal-style panels that only
+     *  show one at a time. Desktop uses the eager loadUI path instead. */
+    private _attachModal(path: string, htmlContent: string, isHud: boolean): void {
+        this._attachIframe(path, htmlContent);
+        const created = this.overlays.get(path);
+        if (created) {
+            created.style.display = '';
+            created.style.pointerEvents = isHud ? 'none' : 'auto';
+        }
     }
 
     /** Synchronous iframe attach (desktop or mobile-modal-panel). HUDs on
@@ -498,14 +460,11 @@ ${wrapperScript}
                 // lobby panels' flags after the user enters in_game, so
                 // absence == hide.
                 const existing = this.overlays.get(path);
-                const queued = this.attachQueue.some(q => q.path === path);
-                if (shouldShow && !existing && !queued) {
-                    this._enqueueAttach(path, html, false);
+                if (shouldShow && !existing) {
+                    this._attachModal(path, html, false);
                 } else if (!shouldShow && existing) {
                     if (this.focusedIframe === existing) this.focusedIframe = null;
                     this.unloadUI(path);
-                } else if (!shouldShow && queued) {
-                    this.attachQueue = this.attachQueue.filter(q => q.path !== path);
                 } else if (existing) {
                     try { existing.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
                 }
