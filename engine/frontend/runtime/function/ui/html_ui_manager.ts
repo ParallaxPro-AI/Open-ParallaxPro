@@ -281,6 +281,14 @@ function __ppForwardErr(kind,msg,stack){try{window.parent.postMessage({type:'pp_
 function __ppCheckpoint(name){try{if(window.parent&&window.parent.ppCheckpoint)window.parent.ppCheckpoint(name);}catch(_){/* swallow */}}
 window.addEventListener('error',function(e){__ppForwardErr('error',e.message||(e.error&&e.error.message)||'iframe error',(e.error&&e.error.stack)||'');});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForwardErr('rejection',(r&&r.message)||String(r),(r&&r.stack)||'');});
+// Iframe console.log lives in a separate JS realm from the parent
+// document — on iOS the ios_bridge console-patch only covers the top
+// document, so console output from inside this iframe is invisible to
+// the [WebView log] capture. Forward console.log/info/warn/error from
+// this iframe to the parent via postMessage; the parent re-logs them
+// in its own console (which IS captured). Lets [lobby-debug] iframe /
+// panel logs show up alongside the parent-side mgr / net logs.
+(function(){try{var levels=['log','info','warn','error','debug'];for(var i=0;i<levels.length;i++){(function(lvl){var orig=console[lvl]||console.log;console[lvl]=function(){var parts=[];for(var j=0;j<arguments.length;j++){var a=arguments[j];if(typeof a==='string')parts.push(a);else{try{parts.push(JSON.stringify(a));}catch(_){parts.push(String(a));}}}try{window.parent.postMessage({type:'pp_iframe_console',level:lvl,message:parts.join(' ')},'*');}catch(_){}try{orig.apply(console,arguments);}catch(_){}};})(levels[i]);}}catch(_){}})();
 ${wrapperScript}
 ${debugLobbyScript}
 </script></body></html>`;
@@ -396,6 +404,14 @@ ${debugLobbyScript}
         const onMessage = (e: MessageEvent) => {
             if (e.source === iframe.contentWindow && e.data?.type === 'game_command') {
                 this.onUICommand?.({ ...e.data, panel: panelName });
+            }
+            // Re-emit iframe console.logs into the parent's console so the
+            // ios_bridge console-patch (top document only) picks them up and
+            // forwards them to native via postNative — otherwise iframe logs
+            // never reach Xcode / [WebView log] capture.
+            if (e.source === iframe.contentWindow && e.data?.type === 'pp_iframe_console') {
+                const lvl = (e.data.level === 'warn' || e.data.level === 'error' || e.data.level === 'info' || e.data.level === 'debug') ? e.data.level : 'log';
+                try { (console as any)[lvl]('[iframe ' + panelName + '] ' + e.data.message); } catch {}
             }
         };
         window.addEventListener('message', onMessage);
