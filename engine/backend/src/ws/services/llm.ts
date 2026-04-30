@@ -176,7 +176,15 @@ async function _callLLMStreamInner(
     //
     // Implementation: own an internal AbortController. Idle timer aborts it
     // on silence; the caller's abortSignal (if any) is forwarded to it too.
-    const STALL_TIMEOUT_MS = 10_000;
+    // Idle window between bytes from the upstream LLM. Resets on every
+    // chunk, so this isn't a total-request cap — just "we've been silent
+    // too long, probably a brownout / dead connection." Claude with
+    // reasoning routinely goes quiet for 30+ seconds before the first
+    // token; 10s was too tight and surfaced as a "AI taking too long"
+    // chat error on every long Claude turn. 60s is generous enough that
+    // a real stall (provider down) still trips it within a minute, but
+    // a slow-thinking Claude has plenty of room.
+    const STALL_TIMEOUT_MS = 60_000;
     const internal = new AbortController();
     let stalled = false;
     let idleTimer: NodeJS.Timeout | null = null;
