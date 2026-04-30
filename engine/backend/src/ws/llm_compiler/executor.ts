@@ -83,6 +83,14 @@ export interface ExecutionContext {
     getLoadTemplateCount: () => number;
     /** Bumps the load_template_count after a load succeeds. */
     incrementLoadTemplateCount: () => void;
+    /** Subscribe the originating WS client to the just-started
+     *  background job so they receive `generation_complete` when it
+     *  finishes (or when the user presses Stop). Without this, FIX_GAME
+     *  on the mobile-async path leaves the user's lock screen stuck —
+     *  the connect-time subscription only catches clients reconnecting
+     *  to an already-active job. Optional because some callers (warmup,
+     *  tests) don't have an originating WS client. */
+    onJobStarted?: () => void;
 }
 
 export interface ExecutionResult {
@@ -363,6 +371,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                         cliOverride: ctx.editingAgent,
                         chatHistory: ctx.chatHistory,
                     });
+                    ctx.onJobStarted?.();
                     ctx.sendToFrontend('generation_started', {
                         jobId,
                         projectId: ctx.projectId,

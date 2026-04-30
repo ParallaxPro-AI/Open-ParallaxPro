@@ -190,6 +190,38 @@ export function broadcastProjectReload(projectId: string, payload: Record<string
     }
 }
 
+/**
+ * Subscribe this client to the active generation job for its project,
+ * if there is one and we haven't already subscribed. Idempotent.
+ *
+ * Called both at WS connect (for clients who reconnect mid-build) and
+ * at job-start (for clients who triggered the build themselves —
+ * CREATE_GAME confirm, FIX_GAME mobile path). Without this second
+ * call site, the user who pressed "Create from scratch" never received
+ * generation_complete on Stop / finish, so their lock screen + timer
+ * stayed on screen indefinitely while the server had already cleaned up.
+ */
+function ensureJobSubscription(client: EditorClient): void {
+    if (client.jobUnsubscribe) return;
+    const unsub = subscribeToJob(client.projectId, (event) => {
+        if (event.type === 'status') {
+            send(client, 'generation_status', { text: event.text });
+        } else if (event.type === 'queue_position') {
+            send(client, 'generation_queue', event.queuePosition);
+        } else if (event.type === 'complete') {
+            send(client, 'generation_complete', { status: event.status, summary: event.summary });
+            // Job is over — drop our subscription so the next build on
+            // this project gets a fresh one. The job-side broadcaster
+            // would happily keep firing into a dead handler otherwise.
+            if (client.jobUnsubscribe) {
+                client.jobUnsubscribe();
+                client.jobUnsubscribe = null;
+            }
+        }
+    });
+    if (unsub) client.jobUnsubscribe = unsub;
+}
+
 // Recorded once at module load. Used to tag the first 60s of post-restart
 // connections with a system_updated message so the editor can show a quick
 // "engine updated" toast — the user's natural signal that their disconnect
@@ -356,16 +388,7 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
                 description: genState.description,
                 lastStatus: genState.lastStatus,
             });
-            const unsub = subscribeToJob(projectId, (event) => {
-                if (event.type === 'status') {
-                    send(client, 'generation_status', { text: event.text });
-                } else if (event.type === 'queue_position') {
-                    send(client, 'generation_queue', event.queuePosition);
-                } else if (event.type === 'complete') {
-                    send(client, 'generation_complete', { status: event.status, summary: event.summary });
-                }
-            });
-            if (unsub) client.jobUnsubscribe = unsub;
+            ensureJobSubscription(client);
         }
 
         // Plugin connection hooks
@@ -1102,6 +1125,15 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
             startedAt: new Date().toISOString(),
             description,
         });
+        // Subscribe THIS client to the just-started job's status +
+        // completion stream. The connect-time subscription only ran if
+        // a job was already active at handshake — when the user is the
+        // one who triggered the build (CREATE_GAME confirm here, or
+        // FIX_GAME in executor.ts), the connect path skipped them, and
+        // they never received generation_complete on Stop / finish.
+        // Symptom: lock screen + "Starting…" timer hung indefinitely on
+        // iOS even though abortJob worked server-side.
+        ensureJobSubscription(client);
         // Persist a friendly confirmation message so the chat history
         // looks intentional on return.
         const assistantMsg = 'Starting the background build. You can safely close your browser — we\'ll let you know when it\'s ready.';
@@ -1685,6 +1717,7 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
         isAnonymous: client.isAnonymous,
         deviceType: client.deviceType,
         chatHistory: getRecentChatHistory(client.projectId, client.chatSessionId),
+        onJobStarted: () => ensureJobSubscription(client),
         getLoadTemplateCount: () => {
             try {
                 const row = stmtGetLoadTemplateCount.get(client.projectId) as { load_template_count?: number } | undefined;
