@@ -1732,6 +1732,43 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
     };
 }
 
+/**
+ * Translate a raw LLM/CLI error message into a user-friendly chat
+ * reply. Pattern-matches the strings llm.ts emits (rate limits,
+ * stalls, 5xx upstreams, config gaps) plus generic CLI failures from
+ * runCLIForText, and returns a single italic line the chat renders as
+ * the assistant's "couldn't respond" turn. Server-side logs still
+ * keep the verbatim error for debugging — this only softens what the
+ * end user sees in the chat surface.
+ */
+function friendlyLLMErrorMessage(raw: string): string {
+    const e = String(raw || '');
+    // Stall — Groq brownouts, OpenRouter slow proxies, network drops
+    if (/stalled|no bytes received|timeout|timed out/i.test(e)) {
+        return "*The AI is taking too long to respond. This usually clears up in a few seconds — please try again.*";
+    }
+    // 5xx upstream — Anthropic / OpenAI / Groq / OpenRouter is down
+    if (/\b5\d{2}\b|service unavailable|bad gateway|upstream/i.test(e)) {
+        return "*The AI service is temporarily unavailable. Please try again in a moment — we'll keep retrying server-side too.*";
+    }
+    // Rate limit — usually transient
+    if (/\b429\b|rate limit|too many requests/i.test(e)) {
+        return "*The AI is busy right now (rate-limited). Please wait a few seconds and try again.*";
+    }
+    // Auth/config failure on the server
+    if (/AI_BASE_URL|AI_API_KEY|AI_MODEL|not configured|\b401\b|\b403\b/i.test(e)) {
+        return "*The AI service is misconfigured on the server. We've been notified — try again shortly.*";
+    }
+    // CLI-side failures (claude / codex / opencode / copilot)
+    if (/exited with code|spawn|ENOENT|not installed|cli not available/i.test(e)) {
+        return "*The AI agent failed to start on the server. Try again, or pick a different agent in settings if available.*";
+    }
+    // Catch-all — keep a short tail of the raw message for context but
+    // wrap it so it doesn't read like a stack trace.
+    const tail = e.length > 200 ? e.slice(0, 200) + '…' : e;
+    return `*The AI couldn't respond right now${tail ? `: ${tail}` : ''}. Please try again.*`;
+}
+
 function finishChat(
     client: EditorClient,
     displayContent: string,
@@ -1931,7 +1968,10 @@ async function runLLMWithRetry(
         },
         onError: (error) => {
             client.abortController = null;
-            finishChat(client, `*Error: ${error}*`);
+            // Always log the raw error so server-side debugging keeps the
+            // technical detail (provider, status, stall window, etc.).
+            console.warn('[chat] LLM error:', error);
+            finishChat(client, friendlyLLMErrorMessage(error));
         },
     }, abortController.signal, client.chatAgent);
 }
