@@ -12,6 +12,18 @@ export class HTMLUIManager {
     private cursorRelY: number = 0;
     private focusedIframe: HTMLIFrameElement | null = null;
 
+    /** Cached panel HTML keyed by path. On mobile we defer iframe creation
+     *  until the panel actually needs to be shown — the original eager
+     *  loadUI was attaching all 15+ panel iframes at boot, blowing through
+     *  the iOS WKWebView WebContent process memory ceiling once the game
+     *  world started spawning on top of them. */
+    private cachedContent: Map<string, string> = new Map();
+    /** True when we're running inside iOS Safari / WKWebView. The mobile
+     *  code path lazy-creates iframes on show + fully removes them on hide
+     *  so peak iframe count tracks visible-panels rather than total-panels. */
+    private readonly isMobile: boolean = (typeof navigator !== 'undefined') &&
+        /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+
     onUICommand: ((data: any) => void) | null = null;
 
     private applyScale(f: HTMLIFrameElement): void {
@@ -37,11 +49,24 @@ export class HTMLUIManager {
     }
 
     loadUI(path: string, htmlContent: string): void {
-        console.log('[mp] HTMLUIManager.loadUI', JSON.stringify({ path, bytes: htmlContent.length, total: this.overlays.size }));
+        console.log('[mp] HTMLUIManager.loadUI', JSON.stringify({ path, bytes: htmlContent.length, total: this.overlays.size, lazy: this.isMobile }));
+        // Always cache, regardless of platform. Mobile uses the cache to
+        // lazy-attach on first show; desktop never reads it but the cost
+        // is trivial (a string ref).
+        this.cachedContent.set(path, htmlContent);
         this.unloadUI(path);
+        if (this.isMobile) {
+            // Defer iframe creation. sendState's lazy-attach will pick it
+            // up when the panel needs to be visible.
+            return;
+        }
+        this._attachIframe(path, htmlContent);
+    }
+
+    private _attachIframe(path: string, htmlContent: string): void {
         const container = this.container || document.querySelector('.viewport-canvas-container') as HTMLElement | null;
         if (!container) {
-            console.warn('[mp] HTMLUIManager.loadUI — no container, skipping', path);
+            console.warn('[mp] HTMLUIManager._attachIframe — no container, skipping', path);
             return;
         }
 
@@ -223,23 +248,79 @@ __ppCheckpoint('iframe loaded: ${path}');
         }
     }
 
+    /** Compute the sendState visibility flag for a panel path. Mirrors
+     *  the alphanumeric-stripping convention ui_bridge.ts uses when
+     *  emitting `<name>Visible` flags. Returns the flag name and whether
+     *  the panel is HUD-style (HUD panels are always managed via their
+     *  specific flag; non-HUDs only react when the flag is present in
+     *  the state object — see existing branches in the desktop path).
+     */
+    private flagFor(path: string): { name: string; flag: string; isHud: boolean } {
+        const name = path.replace('ui/', '').replace('.html', '');
+        const isHud = name.startsWith('hud/') || name === 'game_hud';
+        const flag = name.replace(/[^a-zA-Z0-9_]/g, '') + 'Visible';
+        return { name, flag, isHud };
+    }
+
     /**
      * Send full state update: dispatch to iframes, toggle panel visibility,
      * render virtual cursor, handle hover/clicks.
      */
     sendState(state: any): void {
+        // Mobile path: lazy-attach iframes that should be visible, fully
+        // unload iframes that should be hidden. Keeps peak iframe count
+        // pinned to "currently visible" rather than "all panels in the
+        // game", which is what kills the iOS WebContent process when
+        // CTF/multiplayer drops 16 panels into the page at boot.
+        if (this.isMobile) {
+            for (const [path, html] of this.cachedContent.entries()) {
+                const { flag, isHud } = this.flagFor(path);
+                let shouldShow: boolean;
+                if (isHud) {
+                    shouldShow = state[flag] === true;
+                } else {
+                    // Non-HUD panels only react when the flag is present
+                    // (matches the desktop branch's `if (flag in state)`).
+                    if (!(flag in state)) {
+                        // Flag not in state → preserve current state.
+                        const existing = this.overlays.get(path);
+                        if (existing) {
+                            try { existing.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
+                        }
+                        continue;
+                    }
+                    shouldShow = !!state[flag];
+                }
+
+                const existing = this.overlays.get(path);
+                if (shouldShow && !existing) {
+                    this._attachIframe(path, html);
+                    const created = this.overlays.get(path);
+                    if (created) {
+                        created.style.display = '';
+                        created.style.pointerEvents = isHud ? 'none' : 'auto';
+                    }
+                } else if (!shouldShow && existing) {
+                    if (this.focusedIframe === existing) this.focusedIframe = null;
+                    this.unloadUI(path);
+                }
+                const f = this.overlays.get(path);
+                if (f) {
+                    try { f.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
+                }
+            }
+        } else {
         for (const [path, iframe] of this.overlays.entries()) {
             try {
                 iframe.contentWindow?.postMessage({ type: 'gameState', state }, '*');
             } catch { /* iframe may be unloaded */ }
 
-            const name = path.replace('ui/', '').replace('.html', '');
+            const { flag, isHud } = this.flagFor(path);
 
             // HUD components (hud/*.html) — each shown only by its own flag
-            if (name.startsWith('hud/') || name === 'game_hud') {
-                const specificFlag = name.replace(/[^a-zA-Z0-9_]/g, '') + 'Visible';
+            if (isHud) {
                 const wasVisible = iframe.style.display !== 'none';
-                const show = state[specificFlag] === true;
+                const show = state[flag] === true;
                 iframe.style.display = show ? '' : 'none';
                 // Only force pointer-events:none when hiding or just shown
                 // (default). The mousemove handler flips it to auto while the
@@ -251,15 +332,7 @@ __ppCheckpoint('iframe loaded: ${path}');
 
             // Direct match: filename -> state flag.
             // Must use the SAME alphanumeric-stripping convention that
-            // ui_bridge.ts uses when it sets the flag. Without this,
-            // panels under a subfolder (e.g. `ui/panel/cooking_minigame.html`)
-            // get flag "panelcooking_minigameVisible" written by the
-            // bridge but read here as "panel/cooking_minigameVisible"
-            // — slash mismatch — so the iframe stays display:none and
-            // the panel never appears even though show_ui fired. The
-            // HUD branch above already strips; this is the same fix
-            // for the rest.
-            const flag = name.replace(/[^a-zA-Z0-9_]/g, '') + 'Visible';
+            // ui_bridge.ts uses when it sets the flag.
             if (flag in state) {
                 const show = !!state[flag];
                 iframe.style.display = show ? '' : 'none';
@@ -267,6 +340,7 @@ __ppCheckpoint('iframe loaded: ${path}');
                     iframe.style.pointerEvents = show ? 'auto' : 'none';
                 }
             }
+        }
         }
 
         // Virtual cursor
@@ -364,6 +438,8 @@ __ppCheckpoint('iframe loaded: ${path}');
 
     destroyAll(): void {
         for (const path of [...this.overlays.keys()]) this.unloadUI(path);
+        // Drop the lazy-mode HTML cache too so a re-init starts cleanly.
+        this.cachedContent.clear();
         if (this.resizeObserver) { this.resizeObserver.disconnect(); this.resizeObserver = null; }
         if (this.tabInterceptor) { document.removeEventListener('keydown', this.tabInterceptor, true); this.tabInterceptor = null; }
         const vc = document.getElementById('__virtual_cursor__');
