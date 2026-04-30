@@ -159,10 +159,7 @@ export class LobbyClient {
         }
     }
 
-    list(gameTemplateId: string): void {
-        try { console.log('[lobby-debug] net send lobby.list tid=' + gameTemplateId + ' t=' + Date.now()); } catch {}
-        this.send('lobby.list', { gameTemplateId });
-    }
+    list(gameTemplateId: string): void { this.send('lobby.list', { gameTemplateId }); }
 
     create(opts: {
         gameTemplateId: string;
@@ -201,7 +198,6 @@ export class LobbyClient {
     private dispatch(type: string, data: any): void {
         switch (type) {
             case 'lobby.list_result':
-                try { console.log('[lobby-debug] net recv lobby.list_result tid=' + data.gameTemplateId + ' n=' + (data.lobbies ? data.lobbies.length : 0) + ' t=' + Date.now()); } catch {}
                 this.events.onListResult?.(data.gameTemplateId, data.lobbies);
                 return;
             case 'lobby.created':

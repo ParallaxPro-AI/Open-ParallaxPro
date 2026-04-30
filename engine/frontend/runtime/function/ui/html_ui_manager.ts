@@ -44,18 +44,14 @@ export class HTMLUIManager {
     private hudBundleReady = false;
     private hudBundlePendingMessages: any[] = [];
     private hudBundleAttachedPaths: Set<string> = new Set();
-    /** [lobby-debug] last-logged sendState signature per path so we only emit
-     *  the per-frame mgr trace when the state actually changes — otherwise
-     *  it floods at ~60Hz. Cleared on UNLOAD so the next ATTACH re-logs. */
-    private debugLastState: Map<string, string> = new Map();
     /** Hash of the last `state.lobbies` value posted into iframes. lobby_browser
      *  re-renders on every gameState push that contains state.lobbies (rebuilds
      *  the row list via listEl.innerHTML=''). At 60Hz that DOM churn makes
      *  iOS WKWebView suppress the click synthesised after a button touchend —
-     *  the smoking-gun pattern from the [lobby-debug] traces was touchstart +
-     *  touchend on BUTTON#btn-host with no following click event. By stripping
-     *  state.lobbies from the postMessage payload when it hasn't changed, we
-     *  let the iframe stay stable between actual lobby-list updates. */
+     *  touchstart + touchend would fire on BUTTON#btn-host with no following
+     *  click event. Stripping state.lobbies from the postMessage payload when
+     *  it hasn't changed lets the iframe stay stable between actual lobby-list
+     *  updates so iOS dispatches clicks normally. */
     private lastLobbiesHash: string | null = null;
 
     onUICommand: ((data: any) => void) | null = null;
@@ -268,28 +264,6 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         const mobileWrapperScript = `${interactiveAutoSelector}__ppCheckpoint('iframe loaded: ${path}');`;
         const desktopWrapperScript = `${interactiveAutoSelector}new MutationObserver(()=>{${interactiveAutoSelector}}).observe(document.body,{childList:true,subtree:true});__ppCheckpoint('iframe loaded: ${path}');`;
         const wrapperScript = this.isMobile ? mobileWrapperScript : desktopWrapperScript;
-        // [lobby-debug] body-level touch + message tracking, only enabled for
-        // the lobby_browser panel so we don't spam every iframe's console.
-        // Logs every touchstart/touchend/click target inside the iframe so we
-        // can see whether the second-tap-after-row-select is reaching the
-        // panel at all on mobile, and what target it lands on.
-        const debugLobbyScript = path.includes('lobby_browser')
-          ? `(function(){
-              // Console-patch FIRST so plog's console.log forwards to parent.
-              // Scoped here (not the global wrapper) so HUDs etc. don't all
-              // postMessage every console call. Each call is also tagged with
-              // panel='${path}' so the parent listener can dedupe to a single
-              // log line.
-              try{var levels=['log','info','warn','error','debug'];for(var i=0;i<levels.length;i++){(function(lvl){var orig=console[lvl]||console.log;console[lvl]=function(){var parts=[];for(var j=0;j<arguments.length;j++){var a=arguments[j];if(typeof a==='string')parts.push(a);else{try{parts.push(JSON.stringify(a));}catch(_){parts.push(String(a));}}}try{window.parent.postMessage({type:'pp_iframe_console',level:lvl,panel:'${path}',message:parts.join(' ')},'*');}catch(_){}try{orig.apply(console,arguments);}catch(_){}};})(levels[i]);}}catch(_){}
-              function plog(m){try{console.log('[lobby-debug] iframe ${path} '+m);}catch(_){}}
-              function tdesc(t){if(!t)return 'null';var c=(t.className&&t.className.baseVal!==undefined)?t.className.baseVal:(t.className||'');return (t.tagName||'?')+(t.id?'#'+t.id:'')+(c?'.'+String(c).split(' ').join('.'):'');}
-              ['touchstart','touchend','click'].forEach(function(ev){document.addEventListener(ev,function(e){plog(ev+' target='+tdesc(e.target));},true);});
-              // gameState-on-message log dropped — fired every frame and was
-              // noise. We confirmed messages reach the iframe; touch logs
-              // above + the dedupe at the parent are what matter now.
-              plog('debug installed');
-            })();`
-          : '';
 
         const wrapped = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -309,7 +283,6 @@ function __ppCheckpoint(name){try{if(window.parent&&window.parent.ppCheckpoint)w
 window.addEventListener('error',function(e){__ppForwardErr('error',e.message||(e.error&&e.error.message)||'iframe error',(e.error&&e.error.stack)||'');});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForwardErr('rejection',(r&&r.message)||String(r),(r&&r.stack)||'');});
 ${wrapperScript}
-${debugLobbyScript}
 </script></body></html>`;
 
         iframe.srcdoc = wrapped;
@@ -420,26 +393,9 @@ ${debugLobbyScript}
         container.addEventListener('mousemove', onMouseMove);
 
         const panelName = path.replace('ui/', '').replace('.html', '');
-        // Confirm the parent-side message listener is wired — without this it's
-        // ambiguous whether iframe logs are missing because they never fired or
-        // because the listener never ran.
-        try { console.log('[lobby-debug] mgr listener wired for ' + panelName); } catch {}
         const onMessage = (e: MessageEvent) => {
             if (e.source === iframe.contentWindow && e.data?.type === 'game_command') {
                 this.onUICommand?.({ ...e.data, panel: panelName });
-            }
-            // Re-emit iframe console.logs into the parent's console so the
-            // ios_bridge console-patch (top document only) picks them up and
-            // forwards them to native via postNative — otherwise iframe logs
-            // never reach Xcode / [WebView log] capture. Dedupe across the
-            // N iframe onMessage listeners by only re-logging when the
-            // message's `panel` field matches THIS listener's path. The
-            // strict `e.source === iframe.contentWindow` check used to do
-            // that, but on iOS WKWebView source pointers can drift across
-            // srcdoc, so we filter by panel field instead.
-            if (e.data?.type === 'pp_iframe_console' && e.data?.panel === path) {
-                const lvl = (e.data.level === 'warn' || e.data.level === 'error' || e.data.level === 'info' || e.data.level === 'debug') ? e.data.level : 'log';
-                try { (console as any)[lvl]('[iframe ' + panelName + '] ' + e.data.message); } catch {}
             }
         };
         window.addEventListener('message', onMessage);
@@ -527,21 +483,9 @@ ${debugLobbyScript}
                 // lobby panels' flags after the user enters in_game, so
                 // absence == hide.
                 const existing = this.overlays.get(path);
-                // [lobby-debug] trace the lobby_browser show/hide decision —
-                // log only when the (shouldShow, existing, lobbies) signature
-                // changes. Per-frame logging at ~60Hz floods the console.
-                if (path.includes('lobby_browser')) {
-                    const sig = String(shouldShow) + '|' + String(!!existing) + '|' + (state.lobbies ? state.lobbies.length : 'none');
-                    if (this.debugLastState.get(path) !== sig) {
-                        this.debugLastState.set(path, sig);
-                        try { console.log('[lobby-debug] mgr sendState(mobile) path=' + path + ' shouldShow=' + shouldShow + ' existing=' + !!existing + ' lobbies=' + (state.lobbies ? state.lobbies.length : 'none')); } catch {}
-                    }
-                }
                 if (shouldShow && !existing) {
-                    if (path.includes('lobby_browser')) { try { console.log('[lobby-debug] mgr ATTACH ' + path); } catch {} }
                     this._attachModal(path, html, false);
                 } else if (!shouldShow && existing) {
-                    if (path.includes('lobby_browser')) { try { console.log('[lobby-debug] mgr UNLOAD ' + path); } catch {} this.debugLastState.delete(path); }
                     if (this.focusedIframe === existing) this.focusedIframe = null;
                     this.unloadUI(path);
                 } else if (existing) {
@@ -583,15 +527,6 @@ ${debugLobbyScript}
                 iframe.style.display = show ? '' : 'none';
                 if (this.focusedIframe !== iframe) {
                     iframe.style.pointerEvents = show ? 'auto' : 'none';
-                }
-                // [lobby-debug] trace lobby_browser flag-driven show/hide on
-                // desktop — same dedupe pattern as mobile.
-                if (path.includes('lobby_browser')) {
-                    const sig = 'd|' + String(show) + '|' + iframe.style.pointerEvents + '|' + String(this.focusedIframe === iframe);
-                    if (this.debugLastState.get(path) !== sig) {
-                        this.debugLastState.set(path, sig);
-                        try { console.log('[lobby-debug] mgr sendState(desktop) path=' + path + ' show=' + show + ' iframePE=' + iframe.style.pointerEvents + ' focused=' + (this.focusedIframe === iframe)); } catch {}
-                    }
                 }
             }
         }

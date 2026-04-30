@@ -469,7 +469,6 @@ class MpBridge extends GameScript {
     _pushUiUpdate() {
         var mp = this._session;
         if (!mp) return;
-        try { console.log('[lobby-debug] mp_bridge _pushUiUpdate phase=' + this._phase + ' lobbies=' + this._lobbies.length); } catch (_e) {}
         var payload = {
             lobbies: this._lobbies,
             username: mp.localUsername,
