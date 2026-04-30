@@ -290,6 +290,29 @@ async function boot(): Promise<void> {
     // parallaxpro.ai/games/<owner>/<slug> (the main-site wrapper) where
     // the iframe bootstrap carries their session across the boundary.
 
+    // [mp-trace] Heavy logging for the multiplayer init path. Tracks
+    // every checkpoint between Play tap and "in-game" so a WKWebView
+    // crash / iOS Safari refresh can be pinpointed by reading the last
+    // log line that printed. Tagged `[mp]` so it greps cleanly out of
+    // Xcode's mixed log output.
+    console.log('[mp] boot() entered', JSON.stringify({
+        href: window.location.href,
+        ua: navigator.userAgent.slice(0, 120),
+        hasParent: window.parent !== window,
+        hasGpu: !!(navigator as any).gpu,
+        ts: Date.now(),
+    }));
+
+    window.addEventListener('pagehide', (e: PageTransitionEvent) => {
+        console.log('[mp] window pagehide', JSON.stringify({ persisted: e.persisted, ts: Date.now() }));
+    });
+    window.addEventListener('beforeunload', () => {
+        console.log('[mp] window beforeunload', JSON.stringify({ ts: Date.now() }));
+    });
+    document.addEventListener('visibilitychange', () => {
+        console.log('[mp] visibilitychange', JSON.stringify({ state: document.visibilityState, ts: Date.now() }));
+    });
+
     const pathParts = window.location.pathname.replace(/^\/play\/?/, '').split('/').filter(Boolean);
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -363,16 +386,27 @@ async function boot(): Promise<void> {
 
     let gameData: any;
 
+    console.log('[mp] route classified', JSON.stringify({
+        isMultiplayerJoin, roomId, queryOwner, querySlug, hasBootstrap: !!bootstrap, hasMpTicket: !!bootstrap?.mpTicket
+    }));
+
     if (isMultiplayerJoin) {
+        console.log('[mp] mp-join: fetching room project', { roomId });
         try {
             const res = await fetch(`/api/engine/multiplayer/rooms/${roomId}/project`);
+            console.log('[mp] mp-join: room project fetch', JSON.stringify({ ok: res.ok, status: res.status }));
             if (res.ok) {
                 gameData = await res.json();
+                console.log('[mp] mp-join: room project parsed', JSON.stringify({
+                    hasGame: !!gameData,
+                    hasMpConfig: !!gameData?.multiplayerConfig || !!gameData?.projectConfig?.multiplayerConfig,
+                }));
             } else {
                 showError('This multiplayer room no longer exists. The host may have left or the session has ended.');
                 return;
             }
-        } catch {
+        } catch (e: any) {
+            console.error('[mp] mp-join: room fetch threw', e?.message || String(e));
             showError('Network error. Please try again.');
             return;
         }
@@ -448,6 +482,9 @@ async function boot(): Promise<void> {
     const isMultiplayerGame = !!mpConfig?.enabled
         || Object.keys(scripts).some(k => k.includes('network_sync'));
     // Multiplayer games no longer require auth — guests play as "Guest".
+    console.log('[mp] game classified', JSON.stringify({
+        isMultiplayerGame, mpEnabled: !!mpConfig?.enabled, scriptCount: Object.keys(scripts).length,
+    }));
 
     document.title = `${gameData.name} - ParallaxPro`;
 
@@ -458,6 +495,7 @@ async function boot(): Promise<void> {
     canvas.style.height = '100%';
     canvas.style.display = 'block';
     gameContainer.appendChild(canvas);
+    console.log('[mp] canvas mounted', JSON.stringify({ w: canvas.width, h: canvas.height }));
 
     // Mobile-controls manifest. Sourced from `01_flow.json:controls`,
     // assembled into `gameData.controlsManifest` by the build pipeline.
@@ -468,10 +506,17 @@ async function boot(): Promise<void> {
         : { controlsManifest: gameData.controlsManifest };
 
     const editor = new ParallaxEditor();
-    await editor.initialize(canvas, {
-        config: projectConfig,
-        scenes: gameData.scenes,
-    });
+    console.log('[mp] editor.initialize() about to start');
+    try {
+        await editor.initialize(canvas, {
+            config: projectConfig,
+            scenes: gameData.scenes,
+        });
+    } catch (e: any) {
+        console.error('[mp] editor.initialize() threw', e?.message || String(e), e?.stack || '');
+        throw e;
+    }
+    console.log('[mp] editor.initialize() done');
 
     const ctx = EditorContext.instance;
     (window as any).__editorContext = ctx;

@@ -81,9 +81,11 @@ export class LobbyClient {
     async connect(url: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             let resolved = false;
+            console.log('[mp] lobby.connect() opening WS', JSON.stringify({ host: (() => { try { return new URL(url).host; } catch { return '?'; } })() }));
             try {
                 this.ws = new WebSocket(url);
-            } catch (e) {
+            } catch (e: any) {
+                console.error('[mp] lobby.connect() — WebSocket ctor threw', e?.message || String(e));
                 reject(e);
                 return;
             }
@@ -93,11 +95,13 @@ export class LobbyClient {
                 if (!resolved) {
                     resolved = true;
                     try { ws.close(); } catch { /* ignored */ }
+                    console.error('[mp] lobby.connect() — 10s connect timeout');
                     reject(new Error('Lobby server connect timeout'));
                 }
             }, 10_000);
 
             ws.onopen = () => {
+                console.log('[mp] lobby WS open');
                 this.connected = true;
             };
 
@@ -108,6 +112,7 @@ export class LobbyClient {
                     resolved = true;
                     clearTimeout(timer);
                     const serverV = Number(msg.data.protocolVersion || 0);
+                    console.log('[mp] lobby hello_ack', JSON.stringify({ serverV, clientV: LOBBY_PROTOCOL_VERSION, peerId: msg.data.peerId, username: msg.data.username }));
                     if (serverV && serverV !== LOBBY_PROTOCOL_VERSION) {
                         try { ws.close(); } catch { /* ignored */ }
                         reject(new Error(
@@ -125,7 +130,8 @@ export class LobbyClient {
                 this.dispatch(msg.type, msg.data);
             };
 
-            ws.onclose = () => {
+            ws.onclose = (e: CloseEvent) => {
+                console.log('[mp] lobby WS close', JSON.stringify({ code: e.code, reason: e.reason, wasClean: e.wasClean, resolved }));
                 this.connected = false;
                 if (!resolved) {
                     resolved = true;
@@ -136,6 +142,7 @@ export class LobbyClient {
             };
 
             ws.onerror = () => {
+                console.error('[mp] lobby WS error', JSON.stringify({ resolved }));
                 if (!resolved) {
                     resolved = true;
                     clearTimeout(timer);

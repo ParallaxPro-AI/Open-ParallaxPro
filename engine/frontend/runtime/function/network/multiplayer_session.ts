@@ -237,6 +237,7 @@ export class MultiplayerSession {
     // -- Connection lifecycle ----------------------------------------------
 
     async connect(url: string, gameTemplateId: string): Promise<void> {
+        console.log('[mp] session.connect()', JSON.stringify({ urlHost: (() => { try { return new URL(url).host; } catch { return '?'; } })(), gameTemplateId }));
         this._gameTemplateId = gameTemplateId;
         this.setPhase('connecting');
         this.lobby.setEvents({
@@ -293,8 +294,11 @@ export class MultiplayerSession {
             onDisconnect: () => this.handleDisconnect(),
         });
         try {
+            console.log('[mp] session.connect() → lobby.connect awaiting');
             await this.lobby.connect(url);
+            console.log('[mp] session.connect() → lobby.connect resolved');
         } catch (e: any) {
+            console.error('[mp] session.connect() → lobby.connect threw', e?.message || String(e));
             this.setPhase('disconnected');
             throw e;
         }
@@ -302,7 +306,13 @@ export class MultiplayerSession {
         // listener now, so by the time the first remote track arrives the
         // context is already unlocked. Any click/key/touch anywhere in the
         // page (which includes the in-game controls) will resume it.
-        this.ensureVoiceAudioCtx();
+        try {
+            this.ensureVoiceAudioCtx();
+            console.log('[mp] ensureVoiceAudioCtx() ok', JSON.stringify({ state: this._voiceAudioCtx?.state ?? null }));
+        } catch (e: any) {
+            console.error('[mp] ensureVoiceAudioCtx() threw', e?.message || String(e));
+        }
+        console.log('[mp] webrtc.initialize() about to start');
         this.webrtc.initialize(
             this.lobby.peerId,
             (toPeerId, payload) => this.lobby.signal(toPeerId, payload),
@@ -311,11 +321,13 @@ export class MultiplayerSession {
                 onClose: (peerId) => this.handlePeerChannelClosed(peerId),
                 onMessage: (peerId, msg) => this.handleDataChannelMessage(peerId, msg),
                 onRemoteAudio: (peerId, stream) => {
+                    console.log('[mp] webrtc onRemoteAudio', JSON.stringify({ peerId, tracks: stream.getTracks().length }));
                     this.attachRemoteVoice(peerId, stream);
                     for (const cb of this._voiceListeners) cb(peerId, stream);
                 },
             },
         );
+        console.log('[mp] webrtc.initialize() done');
         this.setPhase('browsing');
     }
 
