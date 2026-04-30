@@ -23,6 +23,16 @@ export class HTMLUIManager {
      *  so peak iframe count tracks visible-panels rather than total-panels. */
     private readonly isMobile: boolean = (typeof navigator !== 'undefined') &&
         /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+    /** Pending iframe attaches drained one-per-rAF. The previous "lazy"
+     *  fix moved iframes off boot, but the in_game transition still
+     *  flipped 6 HUDs visible on the same tick, and 6 simultaneous
+     *  iframe.srcdoc parses tipped the WebContent process over its
+     *  memory ceiling concurrent with entity spawn + WebGPU buffer
+     *  alloc. This queue spreads attaches across frames so each
+     *  iframe's parse-time scratch memory is released before the next
+     *  one starts. */
+    private attachQueue: { path: string; html: string }[] = [];
+    private attachDraining = false;
 
     onUICommand: ((data: any) => void) | null = null;
 
@@ -63,6 +73,51 @@ export class HTMLUIManager {
         this._attachIframe(path, htmlContent);
     }
 
+    /** Queue an iframe for one-per-rAF attach. Mobile-only; desktop
+     *  attaches synchronously in loadUI. */
+    private _enqueueAttach(path: string, htmlContent: string, isHud: boolean): void {
+        // Replace any prior pending entry for this path (idempotent).
+        this.attachQueue = this.attachQueue.filter(q => q.path !== path);
+        this.attachQueue.push({ path, html: htmlContent });
+        console.log('[mp] HTMLUIManager.enqueueAttach', JSON.stringify({ path, queued: this.attachQueue.length }));
+        if (this.attachDraining) return;
+        this.attachDraining = true;
+        const drain = () => {
+            const next = this.attachQueue.shift();
+            if (!next) { this.attachDraining = false; return; }
+            try {
+                this._attachIframe(next.path, next.html);
+                const created = this.overlays.get(next.path);
+                if (created) {
+                    created.style.display = '';
+                    // HUDs default to pointer-events:none; modal panels need
+                    // 'auto' so taps work. Mirror the synchronous-path logic.
+                    const isHudPanel = next.path.replace('ui/', '').replace('.html', '').startsWith('hud/');
+                    created.style.pointerEvents = isHudPanel ? 'none' : 'auto';
+                }
+            } catch (e: any) {
+                console.error('[mp] HTMLUIManager.enqueueAttach drain — _attachIframe threw', next.path, e?.message || String(e));
+            }
+            // requestAnimationFrame on iOS: yields ~16ms (60fps) — enough
+            // for the WebContent process to release temp parse buffers
+            // and for WebGPU/entity work on the same frame to settle
+            // before the next iframe parses.
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(drain);
+            } else {
+                setTimeout(drain, 16);
+            }
+        };
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(drain);
+        } else {
+            setTimeout(drain, 0);
+        }
+        // Acknowledge `isHud` so the param isn't unused; future calls may
+        // want to special-case scheduling for HUDs vs modals.
+        void isHud;
+    }
+
     private _attachIframe(path: string, htmlContent: string): void {
         const container = this.container || document.querySelector('.viewport-canvas-container') as HTMLElement | null;
         if (!container) {
@@ -73,6 +128,18 @@ export class HTMLUIManager {
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:transparent;pointer-events:none;z-index:15;display:none;';
 
+        // Wrapper script. On mobile we omit the persistent
+        // MutationObserver — its closure stays alive for the iframe's
+        // lifetime, observes every DOM change, and re-runs
+        // querySelectorAll on every mutation. HUDs (the bulk of mobile
+        // panels) don't add new interactive elements after init, so a
+        // single querySelectorAll at load is enough. Saves ~1MB of
+        // resident JS engine state per iframe times ~6 HUDs in-game.
+        const interactiveAutoSelector = `document.querySelectorAll('button,input,select,a,[onclick],[data-interactive]').forEach(el=>el.style.pointerEvents='auto');`;
+        const mobileWrapperScript = `${interactiveAutoSelector}__ppCheckpoint('iframe loaded: ${path}');`;
+        const desktopWrapperScript = `${interactiveAutoSelector}new MutationObserver(()=>{${interactiveAutoSelector}}).observe(document.body,{childList:true,subtree:true});__ppCheckpoint('iframe loaded: ${path}');`;
+        const wrapperScript = this.isMobile ? mobileWrapperScript : desktopWrapperScript;
+
         const wrapped = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:none;font-family:'Segoe UI',sans-serif;color:white;}
@@ -81,8 +148,6 @@ button,input,select,a,[data-interactive]{cursor:pointer;}
 button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:brightness(1.4) !important;outline:1px solid rgba(255,255,255,0.5) !important;}
 </style></head><body>${htmlContent}
 <script>
-document.querySelectorAll('button,input,select,a,[onclick],[data-interactive]').forEach(el=>el.style.pointerEvents='auto');
-new MutationObserver(()=>{document.querySelectorAll('button,input,select,a,[onclick],[data-interactive]').forEach(el=>el.style.pointerEvents='auto');}).observe(document.body,{childList:true,subtree:true});
 // Forward iframe-internal errors to the parent. iOS Safari reloads on
 // repeated unhandled errors (no inspector available), and panel scripts
 // (lobby_browser, etc.) live in a separate document scope so the parent
@@ -92,7 +157,7 @@ function __ppForwardErr(kind,msg,stack){try{window.parent.postMessage({type:'pp_
 function __ppCheckpoint(name){try{if(window.parent&&window.parent.ppCheckpoint)window.parent.ppCheckpoint(name);}catch(_){/* swallow */}}
 window.addEventListener('error',function(e){__ppForwardErr('error',e.message||(e.error&&e.error.message)||'iframe error',(e.error&&e.error.stack)||'');});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForwardErr('rejection',(r&&r.message)||String(r),(r&&r.stack)||'');});
-__ppCheckpoint('iframe loaded: ${path}');
+${wrapperScript}
 </script></body></html>`;
 
         try {
@@ -293,16 +358,17 @@ __ppCheckpoint('iframe loaded: ${path}');
                 }
 
                 const existing = this.overlays.get(path);
-                if (shouldShow && !existing) {
-                    this._attachIframe(path, html);
-                    const created = this.overlays.get(path);
-                    if (created) {
-                        created.style.display = '';
-                        created.style.pointerEvents = isHud ? 'none' : 'auto';
-                    }
+                const queued = this.attachQueue.some(q => q.path === path);
+                if (shouldShow && !existing && !queued) {
+                    this._enqueueAttach(path, html, isHud);
                 } else if (!shouldShow && existing) {
                     if (this.focusedIframe === existing) this.focusedIframe = null;
                     this.unloadUI(path);
+                } else if (!shouldShow && queued) {
+                    // Cancel a pending attach the user no longer needs —
+                    // common when phases flip rapidly (browsing → in_lobby
+                    // → in_game) before the queue has drained.
+                    this.attachQueue = this.attachQueue.filter(q => q.path !== path);
                 }
                 const f = this.overlays.get(path);
                 if (f) {
