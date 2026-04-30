@@ -64,16 +64,17 @@ export interface ExecutionContext {
      */
     isAnonymous?: boolean;
     /**
-     * 'mobile', 'desktop', or 'ios_app'. Set from the EditorClient's
-     * deviceType, which editor_ws derives from the WS upgrade User-Agent.
-     * FIX_GAME branches on this: desktop runs runFixer synchronously
-     * inline (the user watches progress in the chat panel); mobile and
-     * ios_app run it as a background generation_jobs entry so the user
-     * can close their phone tab without aborting the run. The ios_app
-     * bucket is functionally equivalent to mobile here — kept distinct
-     * only so admin charts can split native iOS from mobile Safari.
+     * 'mobile', 'desktop', 'ios_app', or 'android_app'. Set from the
+     * EditorClient's deviceType, which editor_ws derives from the WS
+     * upgrade User-Agent. FIX_GAME branches on this: desktop runs
+     * runFixer synchronously inline (the user watches progress in the
+     * chat panel); mobile, ios_app, and android_app run it as a
+     * background generation_jobs entry so the user can close their
+     * phone tab/app without aborting the run. The native-app buckets
+     * are functionally equivalent to mobile here — kept distinct only
+     * so admin charts can split native traffic from mobile-browser.
      */
-    deviceType?: 'mobile' | 'desktop' | 'ios_app';
+    deviceType?: 'mobile' | 'desktop' | 'ios_app' | 'android_app';
     /**
      * How many times LOAD_TEMPLATE has succeeded on this project. The
      * first load is silent; the 2nd and later loads pause for a user
@@ -358,7 +359,7 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
             // kind === 'create'). Desktop falls through to the inline
             // synchronous runFixer below since the user is sitting in
             // front of the chat panel watching live progress.
-            if (ctx.deviceType === 'mobile' || ctx.deviceType === 'ios_app') {
+            if (ctx.deviceType === 'mobile' || ctx.deviceType === 'ios_app' || ctx.deviceType === 'android_app') {
                 try {
                     const jobId = await startGenerationJob({
                         projectId: ctx.projectId,

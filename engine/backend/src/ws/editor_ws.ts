@@ -72,15 +72,19 @@ interface EditorClient {
     isAnonymous: boolean;
     /** User-Agent from the WebSocket upgrade request. */
     userAgent: string;
-    /** 'mobile' or 'desktop' derived from userAgent. */
-    /** 'ios_app' = native iOS app (UA contains "ParallaxPro-iOS"),
-     *  'mobile'  = mobile-browser (Mobi/Android/iPhone/iPad/iPod regex),
-     *  'desktop' = everything else. Decided once at WS upgrade and
-     *  forwarded into the executor / events / admin overview. The
-     *  ios_app classification is a strict subset of mobile and gets the
-     *  same async-FIX_GAME path — the distinction exists so admin
-     *  charts can distinguish native iOS from mobile Safari. */
-    deviceType: 'mobile' | 'desktop' | 'ios_app';
+    /** Derived from userAgent at WS upgrade and forwarded into the
+     *  executor / events / admin overview:
+     *    'ios_app'     = native iOS (UA contains "ParallaxPro-iOS")
+     *    'android_app' = native Android (UA contains "ParallaxPro-Android")
+     *    'mobile'      = mobile-browser (Mobi/Android/iPhone/iPad/iPod regex)
+     *    'desktop'     = everything else
+     *  Order matters — the native UAs also contain "iPhone" / "Android"
+     *  which would otherwise be captured by the broader mobile bucket.
+     *  ios_app and android_app are functionally equivalent to mobile for
+     *  the executor's async-FIX_GAME path; the distinction exists so
+     *  admin charts can split native traffic from web traffic on the
+     *  same device class. */
+    deviceType: 'mobile' | 'desktop' | 'ios_app' | 'android_app';
     /** Set by the FIX_GAME commit paths (direct fixer + LLM tool) when a
      *  successful commit wrote a pending agent_feedback row. Fired as a
      *  `feedback_required` WS event at end-of-turn so the form doesn't
@@ -347,13 +351,14 @@ export function setupEditorWebSocket(wss: WebSocketServer): void {
         const built = buildProject(projectId, pd.files);
         const firstSceneKey = built.activeSceneKey;
         const ua = req.headers['user-agent'] || '';
-        // Classify in three buckets: ios_app first (matches the iOS app's
-        // "ParallaxPro-iOS" UA token), then mobile (any browser on a
-        // mobile device), else desktop. Order matters — the iOS UA also
-        // contains "iPhone" which would otherwise fall into the mobile
-        // bucket and lose the distinction the admin panels need.
-        const deviceType: 'mobile' | 'desktop' | 'ios_app' =
+        // Classify in four buckets: native-app tokens first
+        // (ParallaxPro-iOS / ParallaxPro-Android), then mobile-browser,
+        // else desktop. Order matters — the native UAs also contain
+        // "iPhone" / "Android" which would otherwise fall into the
+        // mobile bucket and lose the distinction admin panels need.
+        const deviceType: 'mobile' | 'desktop' | 'ios_app' | 'android_app' =
             /ParallaxPro-iOS/i.test(ua) ? 'ios_app' :
+            /ParallaxPro-Android/i.test(ua) ? 'android_app' :
             /Mobi|Android|iPhone|iPad|iPod/i.test(ua) ? 'mobile' : 'desktop';
         const client: EditorClient = {
             ws,
