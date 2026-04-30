@@ -98,21 +98,19 @@ export class HTMLUIManager {
             } catch (e: any) {
                 console.error('[mp] HTMLUIManager.enqueueAttach drain — _attachIframe threw', next.path, e?.message || String(e));
             }
-            // requestAnimationFrame on iOS: yields ~16ms (60fps) — enough
-            // for the WebContent process to release temp parse buffers
-            // and for WebGPU/entity work on the same frame to settle
-            // before the next iframe parses.
-            if (typeof requestAnimationFrame === 'function') {
-                requestAnimationFrame(drain);
-            } else {
-                setTimeout(drain, 16);
-            }
+            // 250ms gap between iframe parses. rAF (16ms) was too tight —
+            // the prior crash repro spread 6 HUDs across one ~500ms
+            // heartbeat and still hit the WebContent OOM. With 250ms the
+            // 6 HUDs are spread across ~1.5s, giving WebGPU buffer
+            // alloc + entity-spawn from the in_game transition time to
+            // settle and any temp iframe parse memory time to be GC'd
+            // before the next iframe lands.
+            setTimeout(drain, 250);
         };
-        if (typeof requestAnimationFrame === 'function') {
-            requestAnimationFrame(drain);
-        } else {
-            setTimeout(drain, 0);
-        }
+        // First attach also gets a delay so the in_game transition's
+        // own work (script-system rebind, entity instantiation, scene
+        // assembly) starts before iframe parsing piles on.
+        setTimeout(drain, 250);
         // Acknowledge `isHud` so the param isn't unused; future calls may
         // want to special-case scheduling for HUDs vs modals.
         void isHud;
@@ -338,29 +336,25 @@ ${wrapperScript}
         // game", which is what kills the iOS WebContent process when
         // CTF/multiplayer drops 16 panels into the page at boot.
         if (this.isMobile) {
+            // Mobile aggressive-unload: every panel (HUD and non-HUD) is
+            // unloaded whenever its visibility flag isn't an explicit
+            // `true` in this state push. The original code preserved
+            // non-HUD panels whose flag was missing — fine on desktop,
+            // but mp_bridge omits the lobby panels' flags entirely when
+            // entering in_game (they were "shown" via being mentioned at
+            // browsing time, then mentioned-not-at-all after). On iOS
+            // every dormant iframe is ~5–15MB of WebContent memory, so
+            // absence == hide is the right rule. mp_bridge re-asserts
+            // the flag on the next state push when it actually wants the
+            // panel back.
             for (const [path, html] of this.cachedContent.entries()) {
-                const { flag, isHud } = this.flagFor(path);
-                let shouldShow: boolean;
-                if (isHud) {
-                    shouldShow = state[flag] === true;
-                } else {
-                    // Non-HUD panels only react when the flag is present
-                    // (matches the desktop branch's `if (flag in state)`).
-                    if (!(flag in state)) {
-                        // Flag not in state → preserve current state.
-                        const existing = this.overlays.get(path);
-                        if (existing) {
-                            try { existing.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
-                        }
-                        continue;
-                    }
-                    shouldShow = !!state[flag];
-                }
-
+                const { flag } = this.flagFor(path);
+                const shouldShow = state[flag] === true;
                 const existing = this.overlays.get(path);
                 const queued = this.attachQueue.some(q => q.path === path);
+
                 if (shouldShow && !existing && !queued) {
-                    this._enqueueAttach(path, html, isHud);
+                    this._enqueueAttach(path, html, this.flagFor(path).isHud);
                 } else if (!shouldShow && existing) {
                     if (this.focusedIframe === existing) this.focusedIframe = null;
                     this.unloadUI(path);
@@ -369,10 +363,9 @@ ${wrapperScript}
                     // common when phases flip rapidly (browsing → in_lobby
                     // → in_game) before the queue has drained.
                     this.attachQueue = this.attachQueue.filter(q => q.path !== path);
-                }
-                const f = this.overlays.get(path);
-                if (f) {
-                    try { f.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
+                } else if (existing) {
+                    // Still visible, just push the new state through.
+                    try { existing.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
                 }
             }
         } else {
