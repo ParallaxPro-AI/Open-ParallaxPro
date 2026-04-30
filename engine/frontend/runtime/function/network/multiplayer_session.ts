@@ -328,7 +328,9 @@ export class MultiplayerSession {
             },
         );
         console.log('[mp] webrtc.initialize() done');
+        console.log('[mp] setPhase("browsing") about to fire');
         this.setPhase('browsing');
+        console.log('[mp] setPhase("browsing") returned, connect() done');
     }
 
     private _teardownVoice(dropGestureHandler: boolean): void {
@@ -1102,6 +1104,7 @@ export class MultiplayerSession {
 
     private setPhase(phase: SessionPhase): void {
         if (this._phase === phase) return;
+        console.log('[mp] setPhase →', phase, JSON.stringify({ listeners: this._phaseListeners.size }));
         this._phase = phase;
         if (phase !== 'in_game') {
             this._simAccumulator = 0;
@@ -1109,7 +1112,16 @@ export class MultiplayerSession {
             this._inputSeq = 0;
             this._inputBuffer = [];
         }
-        for (const cb of this._phaseListeners) cb(phase);
+        let i = 0;
+        for (const cb of this._phaseListeners) {
+            try {
+                cb(phase);
+            } catch (e: any) {
+                console.error('[mp] setPhase listener', i, 'threw', e?.message || String(e));
+            }
+            i++;
+        }
+        console.log('[mp] setPhase →', phase, 'all listeners done');
     }
 
     private fireError(message: string): void {

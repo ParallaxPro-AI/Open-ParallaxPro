@@ -37,9 +37,13 @@ export class HTMLUIManager {
     }
 
     loadUI(path: string, htmlContent: string): void {
+        console.log('[mp] HTMLUIManager.loadUI', JSON.stringify({ path, bytes: htmlContent.length, total: this.overlays.size }));
         this.unloadUI(path);
         const container = this.container || document.querySelector('.viewport-canvas-container') as HTMLElement | null;
-        if (!container) return;
+        if (!container) {
+            console.warn('[mp] HTMLUIManager.loadUI — no container, skipping', path);
+            return;
+        }
 
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:transparent;pointer-events:none;z-index:15;display:none;';
@@ -66,10 +70,16 @@ window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForw
 __ppCheckpoint('iframe loaded: ${path}');
 </script></body></html>`;
 
-        iframe.srcdoc = wrapped;
-        container.appendChild(iframe);
-        this.overlays.set(path, iframe);
-        this.applyScale(iframe);
+        try {
+            iframe.srcdoc = wrapped;
+            container.appendChild(iframe);
+            this.overlays.set(path, iframe);
+            this.applyScale(iframe);
+            console.log('[mp] HTMLUIManager.loadUI', path, 'iframe attached');
+        } catch (e: any) {
+            console.error('[mp] HTMLUIManager.loadUI — iframe attach threw', path, e?.message || String(e));
+            throw e;
+        }
 
         // Scale UI based on viewport size (designed for 1920px width).
         // Uses transform:scale + enlarged dimensions so the iframe fills

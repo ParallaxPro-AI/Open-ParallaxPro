@@ -313,6 +313,31 @@ async function boot(): Promise<void> {
         console.log('[mp] visibilitychange', JSON.stringify({ state: document.visibilityState, ts: Date.now() }));
     });
 
+    // Heartbeat: every 500ms log we're still alive. The crash repro
+    // shows webrtc.initialize() done as the last engine-side log; if
+    // the heartbeat stops at the same moment, we know the entire JS
+    // event loop is dead (process kill) vs. just the multiplayer
+    // sequence finishing without further triggers.
+    let __mpHeartbeat = 0;
+    setInterval(() => {
+        __mpHeartbeat++;
+        // mem is non-standard but Safari/WKWebView surface it. Helps
+        // confirm whether we're approaching a memory wall.
+        const mem: any = (performance as any).memory;
+        const memSummary = mem ? { used: Math.round(mem.usedJSHeapSize / (1024 * 1024)), total: Math.round(mem.totalJSHeapSize / (1024 * 1024)), limit: Math.round(mem.jsHeapSizeLimit / (1024 * 1024)) } : null;
+        console.log('[mp] heartbeat', __mpHeartbeat, JSON.stringify(memSummary));
+    }, 500);
+
+    // Forward any iframe-internal errors (from html_ui_manager wrapper
+    // script) up to the main `[mp]` trace so srcdoc-iframe panel
+    // crashes don't disappear silently.
+    window.addEventListener('message', (e: MessageEvent) => {
+        const d = e.data;
+        if (d && typeof d === 'object' && d.type === 'pp_iframe_error') {
+            console.error('[mp] iframe error', d.kind, d.message, '\n', d.stack || '');
+        }
+    });
+
     const pathParts = window.location.pathname.replace(/^\/play\/?/, '').split('/').filter(Boolean);
 
     const urlParams = new URLSearchParams(window.location.search);
