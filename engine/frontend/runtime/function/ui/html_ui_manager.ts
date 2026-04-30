@@ -34,6 +34,28 @@ export class HTMLUIManager {
     private attachQueue: { path: string; html: string }[] = [];
     private attachDraining = false;
 
+    /** Mobile-only: ALL HUD panels share ONE iframe instead of one each.
+     *  Every attempted per-HUD-iframe approach (lazy loadUI, rAF
+     *  staggering, 250ms staggering, aggressive unload of lobby panels)
+     *  still crashed the iOS WebContent process at in_game because the
+     *  baseline cost of each iframe is ~10–15MB regardless of content
+     *  and 6 of them concurrent with WebGPU world init exceeds the
+     *  process memory ceiling.
+     *
+     *  Bundle approach: keep one iframe (`hudBundleIframe`) whose
+     *  srcdoc loads a small dispatcher; each HUD panel gets injected
+     *  into the bundle's <body> as a <section data-panel-path="…">
+     *  via postMessage. Visibility is toggled by setting/clearing
+     *  data-shown="1" on the section, which a CSS rule keys off of.
+     *  Panel scripts that listen for window.addEventListener('message',
+     *  …, gameState) still work because they share the bundle's window
+     *  with every other HUD — postMessage targets one window, all
+     *  listeners fire (this is fine: HUDs filter on flag names anyway). */
+    private hudBundleIframe: HTMLIFrameElement | null = null;
+    private hudBundleReady = false;
+    private hudBundlePendingMessages: any[] = [];
+    private hudBundleAttachedPaths: Set<string> = new Set();
+
     onUICommand: ((data: any) => void) | null = null;
 
     private applyScale(f: HTMLIFrameElement): void {
@@ -71,6 +93,127 @@ export class HTMLUIManager {
             return;
         }
         this._attachIframe(path, htmlContent);
+    }
+
+    /** Mobile bundle: lazy-create the single iframe that hosts ALL HUDs.
+     *  Returns it (creating on first call). Returns null only if there
+     *  is no container yet — caller can retry on next sendState. */
+    private _ensureHudBundle(): HTMLIFrameElement | null {
+        if (this.hudBundleIframe) return this.hudBundleIframe;
+        const container = this.container || document.querySelector('.viewport-canvas-container') as HTMLElement | null;
+        if (!container) return null;
+
+        const iframe = document.createElement('iframe');
+        iframe.dataset.bundle = 'hud';
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:transparent;pointer-events:none;z-index:15;';
+
+        // Wrapper script: a small dispatcher that listens for
+        // __pp_addPanel and __pp_setVisible postMessages and applies
+        // them to <section data-panel-path="…"> children. Inline
+        // scripts inside injected HTML are reactivated via the
+        // copy-then-replace trick (innerHTML doesn't execute scripts).
+        // postMessage events of type 'gameState' are NOT relayed —
+        // they reach every listener registered in this iframe's window
+        // automatically because all panels share the same window.
+        const srcdoc = `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:none;font-family:'Segoe UI',sans-serif;color:white;position:relative;}
+button,input,select,a,[data-interactive]{cursor:pointer;}
+section[data-panel-path]{position:absolute;inset:0;display:none;pointer-events:none;}
+section[data-panel-path][data-shown="1"]{display:block;}
+.virtual-hover{filter:brightness(1.3) !important;outline:1px solid rgba(255,255,255,0.3) !important;}
+button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:brightness(1.4) !important;outline:1px solid rgba(255,255,255,0.5) !important;}
+</style></head><body><script>
+function __ppForwardErr(kind,msg,stack){try{window.parent.postMessage({type:'pp_iframe_error',kind:kind,message:String(msg||''),stack:String(stack||'')},'*');}catch(_){}}
+window.addEventListener('error',function(e){__ppForwardErr('error',e.message||(e.error&&e.error.message)||'iframe error',(e.error&&e.error.stack)||'');});
+window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForwardErr('rejection',(r&&r.message)||String(r),(r&&r.stack)||'');});
+function __ppAddPanel(path, html){
+    if (document.querySelector('section[data-panel-path="'+path+'"]')) return;
+    var s = document.createElement('section');
+    s.setAttribute('data-panel-path', path);
+    s.innerHTML = html;
+    document.body.appendChild(s);
+    var scripts = s.querySelectorAll('script');
+    for (var i = 0; i < scripts.length; i++) {
+        var orig = scripts[i];
+        var copy = document.createElement('script');
+        for (var j = 0; j < orig.attributes.length; j++) copy.setAttribute(orig.attributes[j].name, orig.attributes[j].value);
+        copy.text = orig.text;
+        orig.parentNode.replaceChild(copy, orig);
+    }
+    s.querySelectorAll('button,input,select,a,[onclick],[data-interactive]').forEach(function(el){ el.style.pointerEvents='auto'; });
+}
+function __ppSetVisible(path, visible){
+    var el = document.querySelector('section[data-panel-path="'+path+'"]');
+    if (!el) return;
+    if (visible) el.setAttribute('data-shown', '1');
+    else el.removeAttribute('data-shown');
+}
+window.addEventListener('message', function(e){
+    var d = e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === '__pp_addPanel') __ppAddPanel(d.path, d.html);
+    else if (d.type === '__pp_setVisible') __ppSetVisible(d.path, !!d.visible);
+});
+try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
+</script></body></html>`;
+        iframe.srcdoc = srcdoc;
+        container.appendChild(iframe);
+        this.hudBundleIframe = iframe;
+
+        // Drain queued messages once the bundle's dispatcher is up.
+        const onMsg = (e: MessageEvent) => {
+            if (e.source !== iframe.contentWindow) return;
+            if (e.data?.type === '__pp_bundleReady') {
+                this.hudBundleReady = true;
+                window.removeEventListener('message', onMsg);
+                for (const m of this.hudBundlePendingMessages) {
+                    try { iframe.contentWindow?.postMessage(m, '*'); } catch {}
+                }
+                this.hudBundlePendingMessages = [];
+            }
+        };
+        window.addEventListener('message', onMsg);
+        return iframe;
+    }
+
+    private _bundlePost(message: any): void {
+        if (!this.hudBundleIframe) return;
+        if (!this.hudBundleReady) {
+            this.hudBundlePendingMessages.push(message);
+            return;
+        }
+        try { this.hudBundleIframe.contentWindow?.postMessage(message, '*'); } catch {}
+    }
+
+    /** Mobile-only HUD attach via the bundle. Idempotent. */
+    private _attachHudToBundle(path: string, html: string): void {
+        const iframe = this._ensureHudBundle();
+        if (!iframe) {
+            console.warn('[mp] _attachHudToBundle — no container yet, skipping', path);
+            return;
+        }
+        if (this.hudBundleAttachedPaths.has(path)) return;
+        this.hudBundleAttachedPaths.add(path);
+        this._bundlePost({ type: '__pp_addPanel', path, html });
+        // Track the bundle iframe in `overlays` under a SENTINEL key so
+        // sendState's existing iframe.contentWindow.postMessage(gameState)
+        // loop reaches the bundle's panel scripts. Using the path as the
+        // map key would let later `iframe.remove()` calls in unloadUI
+        // accidentally tear the bundle down for everyone.
+        if (!this.overlays.has('__hud_bundle__')) {
+            this.overlays.set('__hud_bundle__', iframe);
+        }
+    }
+
+    /** Hide a HUD panel from the bundle without removing it. Cheap; no
+     *  DOM teardown needed because the bundle owns one iframe for all
+     *  HUDs and we're just toggling display via CSS. */
+    private _setHudVisibility(path: string, visible: boolean): void {
+        if (!this.hudBundleAttachedPaths.has(path)) return;
+        this._bundlePost({ type: '__pp_setVisible', path, visible });
     }
 
     /** Queue an iframe for one-per-rAF attach. Mobile-only; desktop
@@ -336,37 +479,46 @@ ${wrapperScript}
         // game", which is what kills the iOS WebContent process when
         // CTF/multiplayer drops 16 panels into the page at boot.
         if (this.isMobile) {
-            // Mobile aggressive-unload: every panel (HUD and non-HUD) is
-            // unloaded whenever its visibility flag isn't an explicit
-            // `true` in this state push. The original code preserved
-            // non-HUD panels whose flag was missing — fine on desktop,
-            // but mp_bridge omits the lobby panels' flags entirely when
-            // entering in_game (they were "shown" via being mentioned at
-            // browsing time, then mentioned-not-at-all after). On iOS
-            // every dormant iframe is ~5–15MB of WebContent memory, so
-            // absence == hide is the right rule. mp_bridge re-asserts
-            // the flag on the next state push when it actually wants the
-            // panel back.
+            // Mobile path: HUDs share ONE bundle iframe (memory savings);
+            // non-HUD modal panels still get one-iframe-each but get
+            // aggressively unloaded when their flag is missing or false.
             for (const [path, html] of this.cachedContent.entries()) {
-                const { flag } = this.flagFor(path);
+                const { flag, isHud } = this.flagFor(path);
                 const shouldShow = state[flag] === true;
+
+                if (isHud) {
+                    // Bundle: attach once, toggle visibility forever.
+                    if (shouldShow && !this.hudBundleAttachedPaths.has(path)) {
+                        this._attachHudToBundle(path, html);
+                    }
+                    if (this.hudBundleAttachedPaths.has(path)) {
+                        this._setHudVisibility(path, shouldShow);
+                    }
+                    continue;
+                }
+
+                // Non-HUD: aggressive unload of any panel whose flag
+                // isn't an explicit `true` in this push. mp_bridge omits
+                // lobby panels' flags after the user enters in_game, so
+                // absence == hide.
                 const existing = this.overlays.get(path);
                 const queued = this.attachQueue.some(q => q.path === path);
-
                 if (shouldShow && !existing && !queued) {
-                    this._enqueueAttach(path, html, this.flagFor(path).isHud);
+                    this._enqueueAttach(path, html, false);
                 } else if (!shouldShow && existing) {
                     if (this.focusedIframe === existing) this.focusedIframe = null;
                     this.unloadUI(path);
                 } else if (!shouldShow && queued) {
-                    // Cancel a pending attach the user no longer needs —
-                    // common when phases flip rapidly (browsing → in_lobby
-                    // → in_game) before the queue has drained.
                     this.attachQueue = this.attachQueue.filter(q => q.path !== path);
                 } else if (existing) {
-                    // Still visible, just push the new state through.
                     try { existing.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
                 }
+            }
+
+            // Forward gameState into the HUD bundle so panel scripts
+            // listening for window.message events get their updates.
+            if (this.hudBundleIframe) {
+                try { this.hudBundleIframe.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
             }
         } else {
         for (const [path, iframe] of this.overlays.entries()) {
@@ -499,6 +651,14 @@ ${wrapperScript}
         for (const path of [...this.overlays.keys()]) this.unloadUI(path);
         // Drop the lazy-mode HTML cache too so a re-init starts cleanly.
         this.cachedContent.clear();
+        // Tear down the mobile HUD bundle iframe.
+        if (this.hudBundleIframe) {
+            try { this.hudBundleIframe.remove(); } catch {}
+            this.hudBundleIframe = null;
+        }
+        this.hudBundleReady = false;
+        this.hudBundleAttachedPaths.clear();
+        this.hudBundlePendingMessages = [];
         if (this.resizeObserver) { this.resizeObserver.disconnect(); this.resizeObserver = null; }
         if (this.tabInterceptor) { document.removeEventListener('keydown', this.tabInterceptor, true); this.tabInterceptor = null; }
         const vc = document.getElementById('__virtual_cursor__');
