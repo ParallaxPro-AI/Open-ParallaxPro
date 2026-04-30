@@ -33,7 +33,12 @@ export class RenderPipeline {
     private decalPass = new DecalPass();
     private debugRenderer = new DebugRenderer();
     private canvasFormat: GPUTextureFormat = 'bgra8unorm';
-    private quality: GraphicsQuality = 'low';
+    // Sentinel `null` so the first setGraphicsQuality() call passes the
+    // early-out below and propagates through onResize() → all child passes.
+    // Defaulting to a real value let a cold-boot at persisted "low" skip
+    // the whole resize chain (FXAA/HBAO/SSR/skybox/bloom never sized,
+    // GeometryPass.recreateRenderTargets never called) → blue viewport.
+    private quality: GraphicsQuality | null = null;
     private canvasWidth = 0;
     private canvasHeight = 0;
 
@@ -154,7 +159,7 @@ export class RenderPipeline {
     }
 
     render(scene: RenderScene, particleRenderer?: ParticleRenderer, particleData?: ParticleRenderData[]): void {
-        if (!this.device || !this.context) return;
+        if (!this.device || !this.context || this.quality === null) return;
 
         this.stats.reset();
         this.stats.meshesTotal = scene.meshes.length;

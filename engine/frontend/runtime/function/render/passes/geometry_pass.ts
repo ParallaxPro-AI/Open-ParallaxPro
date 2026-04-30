@@ -119,7 +119,11 @@ export class GeometryPass {
     // State
     private canvasWidth = 0;
     private canvasHeight = 0;
-    private quality: GraphicsQuality = 'low';
+    // Sentinel `null` so the first setGraphicsQuality() call always passes
+    // the early-out and runs recreateRenderTargets(). Defaulting to a real
+    // quality value meant a persisted "low" boot path early-outed and left
+    // offscreen render targets null → blue viewport with only HUDs visible.
+    private quality: GraphicsQuality | null = null;
     private shadowEnabled = false;
     private shadowMapSize = 2048;
 
@@ -829,6 +833,9 @@ export class GeometryPass {
 
     private recreateRenderTargets(): void {
         if (!this.device) return;
+        // Quality not yet known (pre-setGraphicsQuality onResize): leave the
+        // targets null. setGraphicsQuality() always calls back into here.
+        if (this.quality === null) return;
         const w = this.canvasWidth;
         const h = this.canvasHeight;
         if (w === 0 || h === 0) return;
