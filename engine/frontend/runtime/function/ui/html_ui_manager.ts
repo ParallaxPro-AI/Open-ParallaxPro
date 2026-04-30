@@ -48,6 +48,15 @@ export class HTMLUIManager {
      *  the per-frame mgr trace when the state actually changes — otherwise
      *  it floods at ~60Hz. Cleared on UNLOAD so the next ATTACH re-logs. */
     private debugLastState: Map<string, string> = new Map();
+    /** Hash of the last `state.lobbies` value posted into iframes. lobby_browser
+     *  re-renders on every gameState push that contains state.lobbies (rebuilds
+     *  the row list via listEl.innerHTML=''). At 60Hz that DOM churn makes
+     *  iOS WKWebView suppress the click synthesised after a button touchend —
+     *  the smoking-gun pattern from the [lobby-debug] traces was touchstart +
+     *  touchend on BUTTON#btn-host with no following click event. By stripping
+     *  state.lobbies from the postMessage payload when it hasn't changed, we
+     *  let the iframe stay stable between actual lobby-list updates. */
+    private lastLobbiesHash: string | null = null;
 
     onUICommand: ((data: any) => void) | null = null;
 
@@ -275,7 +284,9 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
               function plog(m){try{console.log('[lobby-debug] iframe ${path} '+m);}catch(_){}}
               function tdesc(t){if(!t)return 'null';var c=(t.className&&t.className.baseVal!==undefined)?t.className.baseVal:(t.className||'');return (t.tagName||'?')+(t.id?'#'+t.id:'')+(c?'.'+String(c).split(' ').join('.'):'');}
               ['touchstart','touchend','click'].forEach(function(ev){document.addEventListener(ev,function(e){plog(ev+' target='+tdesc(e.target));},true);});
-              window.addEventListener('message',function(e){if(!e.data||e.data.type!=='gameState')return;var s=e.data.state||{};plog('msg gameState lobbies='+(s.lobbies?s.lobbies.length:'none')+' visible='+s.lobby_browserVisible+' phase='+(s.multiplayer&&s.multiplayer.phase));});
+              // gameState-on-message log dropped — fired every frame and was
+              // noise. We confirmed messages reach the iframe; touch logs
+              // above + the dedupe at the parent are what matter now.
               plog('debug installed');
             })();`
           : '';
@@ -473,11 +484,25 @@ ${debugLobbyScript}
      * render virtual cursor, handle hover/clicks.
      */
     sendState(state: any): void {
-        // Mobile path: lazy-attach iframes that should be visible, fully
-        // unload iframes that should be hidden. Keeps peak iframe count
-        // pinned to "currently visible" rather than "all panels in the
-        // game", which is what kills the iOS WebContent process when
-        // CTF/multiplayer drops 16 panels into the page at boot.
+        // Dedupe state.lobbies before fanning out to iframes. lobby_browser
+        // re-renders its row list on every gameState push that contains
+        // state.lobbies — at 60Hz that's a constant listEl.innerHTML='' DOM
+        // wipe, which on iOS WKWebView blocks the synthesized click event
+        // after a button touchend (root cause of "buttons unresponsive on
+        // iOS lobby browser"). When lobbies hasn't changed, post the
+        // payload without the field so the iframe's `if (state.lobbies)`
+        // gate skips render(). Only the postMessage payload is touched —
+        // the visibility decisions below still see the original state.
+        let postState: any = state;
+        if (state && 'lobbies' in state) {
+            const hash = JSON.stringify(state.lobbies);
+            if (this.lastLobbiesHash === hash) {
+                postState = { ...state };
+                delete postState.lobbies;
+            } else {
+                this.lastLobbiesHash = hash;
+            }
+        }
         if (this.isMobile) {
             // Mobile path: HUDs share ONE bundle iframe (memory savings);
             // non-HUD modal panels still get one-iframe-each but get
@@ -520,19 +545,19 @@ ${debugLobbyScript}
                     if (this.focusedIframe === existing) this.focusedIframe = null;
                     this.unloadUI(path);
                 } else if (existing) {
-                    try { existing.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
+                    try { existing.contentWindow?.postMessage({ type: 'gameState', state: postState }, '*'); } catch {}
                 }
             }
 
             // Forward gameState into the HUD bundle so panel scripts
             // listening for window.message events get their updates.
             if (this.hudBundleIframe) {
-                try { this.hudBundleIframe.contentWindow?.postMessage({ type: 'gameState', state }, '*'); } catch {}
+                try { this.hudBundleIframe.contentWindow?.postMessage({ type: 'gameState', state: postState }, '*'); } catch {}
             }
         } else {
         for (const [path, iframe] of this.overlays.entries()) {
             try {
-                iframe.contentWindow?.postMessage({ type: 'gameState', state }, '*');
+                iframe.contentWindow?.postMessage({ type: 'gameState', state: postState }, '*');
             } catch { /* iframe may be unloaded */ }
 
             const { flag, isHud } = this.flagFor(path);
