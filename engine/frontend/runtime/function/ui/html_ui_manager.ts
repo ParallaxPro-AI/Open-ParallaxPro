@@ -255,6 +255,14 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         const mobileWrapperScript = `${interactiveAutoSelector}__ppCheckpoint('iframe loaded: ${path}');`;
         const desktopWrapperScript = `${interactiveAutoSelector}new MutationObserver(()=>{${interactiveAutoSelector}}).observe(document.body,{childList:true,subtree:true});__ppCheckpoint('iframe loaded: ${path}');`;
         const wrapperScript = this.isMobile ? mobileWrapperScript : desktopWrapperScript;
+        // [lobby-debug] body-level touch + message tracking, only enabled for
+        // the lobby_browser panel so we don't spam every iframe's console.
+        // Logs every touchstart/touchend/click target inside the iframe so we
+        // can see whether the second-tap-after-row-select is reaching the
+        // panel at all on mobile, and what target it lands on.
+        const debugLobbyScript = path.includes('lobby_browser')
+          ? `(function(){function plog(m){try{console.log('[lobby-debug] iframe ${path} '+m);}catch(_){}}function tdesc(t){if(!t)return 'null';var c=(t.className&&t.className.baseVal!==undefined)?t.className.baseVal:(t.className||'');return (t.tagName||'?')+(t.id?'#'+t.id:'')+(c?'.'+String(c).split(' ').join('.'):'');}['touchstart','touchend','click'].forEach(function(ev){document.addEventListener(ev,function(e){plog(ev+' target='+tdesc(e.target));},true);});window.addEventListener('message',function(e){if(!e.data||e.data.type!=='gameState')return;var s=e.data.state||{};plog('msg gameState lobbies='+(s.lobbies?s.lobbies.length:'none')+' visible='+s.lobby_browserVisible+' phase='+(s.multiplayer&&s.multiplayer.phase));});plog('debug installed');})();`
+          : '';
 
         const wrapped = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -274,6 +282,7 @@ function __ppCheckpoint(name){try{if(window.parent&&window.parent.ppCheckpoint)w
 window.addEventListener('error',function(e){__ppForwardErr('error',e.message||(e.error&&e.error.message)||'iframe error',(e.error&&e.error.stack)||'');});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForwardErr('rejection',(r&&r.message)||String(r),(r&&r.stack)||'');});
 ${wrapperScript}
+${debugLobbyScript}
 </script></body></html>`;
 
         iframe.srcdoc = wrapped;
@@ -460,9 +469,17 @@ ${wrapperScript}
                 // lobby panels' flags after the user enters in_game, so
                 // absence == hide.
                 const existing = this.overlays.get(path);
+                // [lobby-debug] trace the lobby_browser show/hide decision on every
+                // sendState — confirms whether the iframe is being attached/unloaded
+                // mid-interaction on mobile.
+                if (path.includes('lobby_browser')) {
+                    try { console.log('[lobby-debug] mgr sendState(mobile) path=' + path + ' flag=' + flag + ' shouldShow=' + shouldShow + ' existing=' + !!existing + ' lobbies=' + (state.lobbies ? state.lobbies.length : 'none')); } catch {}
+                }
                 if (shouldShow && !existing) {
+                    if (path.includes('lobby_browser')) { try { console.log('[lobby-debug] mgr ATTACH ' + path); } catch {} }
                     this._attachModal(path, html, false);
                 } else if (!shouldShow && existing) {
+                    if (path.includes('lobby_browser')) { try { console.log('[lobby-debug] mgr UNLOAD ' + path); } catch {} }
                     if (this.focusedIframe === existing) this.focusedIframe = null;
                     this.unloadUI(path);
                 } else if (existing) {
@@ -504,6 +521,10 @@ ${wrapperScript}
                 iframe.style.display = show ? '' : 'none';
                 if (this.focusedIframe !== iframe) {
                     iframe.style.pointerEvents = show ? 'auto' : 'none';
+                }
+                // [lobby-debug] trace lobby_browser flag-driven show/hide on desktop
+                if (path.includes('lobby_browser')) {
+                    try { console.log('[lobby-debug] mgr sendState(desktop) path=' + path + ' show=' + show + ' iframePE=' + iframe.style.pointerEvents + ' focused=' + (this.focusedIframe === iframe)); } catch {}
                 }
             }
         }

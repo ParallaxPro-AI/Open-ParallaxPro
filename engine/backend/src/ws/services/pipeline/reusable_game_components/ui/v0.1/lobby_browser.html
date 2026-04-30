@@ -239,9 +239,12 @@
   }
 
   function __cp(n){try{if(window.parent&&window.parent.ppCheckpoint)window.parent.ppCheckpoint('lobby_browser: '+n);}catch(_){}}
+  function __dbg(n){try{console.log('[lobby-debug] panel '+n);}catch(_){}}
   __cp('script booted');
+  __dbg('script booted');
   function render() {
     __cp('render n=' + lobbies.length);
+    __dbg('render n=' + lobbies.length + ' selectedId=' + selectedId);
     if (!lobbies.length) {
       listEl.innerHTML = '';
       listEl.appendChild(emptyEl);
@@ -279,6 +282,7 @@
         '<div class="state">' + (lb.state === 'playing' ? 'in game' : 'waiting') + '</div>';
 
       row.onclick = function () {
+        __dbg('row.onclick id=' + lb.id + ' state=' + lb.state + ' wasSelected=' + (selectedId === lb.id));
         selectedId = lb.id;
         render();
         // Lobbies in 'playing' state are joinable iff the game opted into
@@ -300,10 +304,11 @@
     });
   }
 
-  document.getElementById('btn-refresh').onclick = function () { showError(''); emit('refresh_lobbies'); };
-  document.getElementById('btn-host').onclick = function () { showError(''); emit('open_host_config'); };
-  document.getElementById('btn-back').onclick = function () { showError(''); emit('back_to_menu'); };
+  document.getElementById('btn-refresh').onclick = function () { __dbg('btn-refresh click'); showError(''); emit('refresh_lobbies'); };
+  document.getElementById('btn-host').onclick = function () { __dbg('btn-host click'); showError(''); emit('open_host_config'); };
+  document.getElementById('btn-back').onclick = function () { __dbg('btn-back click'); showError(''); emit('back_to_menu'); };
   joinBtn.onclick = function () {
+    __dbg('joinBtn click selectedId=' + selectedId);
     if (!selectedId) return;
     var lb = lobbies.find(function (x) { return x.id === selectedId; });
     if (!lb) return;
@@ -318,10 +323,12 @@
   };
 
   document.getElementById('pw-cancel').onclick = function () {
+    __dbg('pw-cancel click');
     pwOverlay.style.display = 'none';
     pendingPasswordFor = null;
   };
   document.getElementById('pw-submit').onclick = function () {
+    __dbg('pw-submit click pendingFor=' + pendingPasswordFor);
     if (pendingPasswordFor) {
       emit('join_lobby', { lobbyId: pendingPasswordFor, password: pwInput.value });
     }
@@ -336,6 +343,7 @@
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'gameState') return;
     var state = e.data.state;
+    __dbg('msg gameState lobbies=' + (state.lobbies ? state.lobbies.length : 'none') + ' visible=' + state.lobby_browserVisible + ' phase=' + (state.multiplayer && state.multiplayer.phase));
     if (state.lobbies) { lobbies = state.lobbies; render(); }
     if (state.errorMessage !== undefined) showError(state.errorMessage);
     if (state.gameTitle) document.getElementById('title').textContent = state.gameTitle;
