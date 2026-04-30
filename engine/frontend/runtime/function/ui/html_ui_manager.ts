@@ -163,6 +163,20 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         container.appendChild(iframe);
         this.hudBundleIframe = iframe;
 
+        // Register the bundle in `overlays` immediately so the
+        // ResizeObserver loop iterates it on rotation / window resize
+        // and applyScale stays in sync. Sentinel key prevents collisions
+        // with real panel paths.
+        this.overlays.set('__hud_bundle__', iframe);
+
+        // Make sure the resize observer is running and currentZoom is
+        // computed for this container — the bundle inherits 1920-px
+        // design width like the per-panel iframes do, and panels
+        // authored at 1920×1080 render at full physical size inside a
+        // ~400px-wide phone viewport without this scale-down.
+        this._ensureResizeObserver(container);
+        this.applyScale(iframe);
+
         // Drain queued messages once the bundle's dispatcher is up.
         const onMsg = (e: MessageEvent) => {
             if (e.source !== iframe.contentWindow) return;
@@ -198,14 +212,21 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         if (this.hudBundleAttachedPaths.has(path)) return;
         this.hudBundleAttachedPaths.add(path);
         this._bundlePost({ type: '__pp_addPanel', path, html });
-        // Track the bundle iframe in `overlays` under a SENTINEL key so
-        // sendState's existing iframe.contentWindow.postMessage(gameState)
-        // loop reaches the bundle's panel scripts. Using the path as the
-        // map key would let later `iframe.remove()` calls in unloadUI
-        // accidentally tear the bundle down for everyone.
-        if (!this.overlays.has('__hud_bundle__')) {
-            this.overlays.set('__hud_bundle__', iframe);
-        }
+    }
+
+    /** Lazy-install the container's ResizeObserver so panels auto-scale
+     *  when the window rotates or resizes. Both _attachIframe and
+     *  _ensureHudBundle call this; idempotent. */
+    private _ensureResizeObserver(container: HTMLElement): void {
+        if (this.resizeObserver) return;
+        const updateZoom = () => {
+            const w = container.clientWidth || 1920;
+            this.currentZoom = Math.min(w / 1920, 1);
+            for (const f of this.overlays.values()) this.applyScale(f);
+        };
+        updateZoom();
+        this.resizeObserver = new ResizeObserver(updateZoom);
+        this.resizeObserver.observe(container);
     }
 
     /** Hide a HUD panel from the bundle without removing it. Cheap; no
@@ -316,18 +337,7 @@ ${wrapperScript}
         // Uses transform:scale + enlarged dimensions so the iframe fills
         // the container while its content is scaled down. CSS zoom would
         // shrink the iframe's layout box, leaving dead space.
-        if (!this.resizeObserver) {
-            const updateZoom = () => {
-                const w = container.clientWidth || 1920;
-                this.currentZoom = Math.min(w / 1920, 1);
-                for (const f of this.overlays.values()) {
-                    this.applyScale(f);
-                }
-            };
-            updateZoom();
-            this.resizeObserver = new ResizeObserver(updateZoom);
-            this.resizeObserver.observe(container);
-        }
+        this._ensureResizeObserver(container);
 
         // Prevent Tab from cycling through page elements during play
         if (!this.tabInterceptor) {
