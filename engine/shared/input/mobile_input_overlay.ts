@@ -885,7 +885,65 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     // Singleplayer tray = Hide Controls + Pause.
     const showMpButtons = opts.isMultiplayer === true;
     if (showMpButtons && sys.voice) trayItems.appendChild(buildSystemBtnTagged('Voice', sys.voice, false, true));
-    if (showMpButtons && sys.chat)  trayItems.appendChild(buildSystemBtnTagged('Chat', sys.chat, true));
+    if (showMpButtons && sys.chat) {
+        // Chat needs special treatment for mobile Safari: focusing the
+        // chat input inside text_chat.html only brings up the software
+        // keyboard if focus() is called within the user-gesture stack
+        // of the original tap. The default route — press(Enter) → engine
+        // input poll → mp_bridge sets _openChatPulse → next gameState
+        // pushes openChat:true → iframe handler → setTimeout 20ms →
+        // input.focus() — bounces through the frame loop and a timer,
+        // both of which drop the gesture activation; mobile web users
+        // saw the chat row appear with no cursor / no keyboard.
+        // Wrap the touch-start handler so it ALSO synchronously walks
+        // iframes, finds the text_chat panel, opens its input row, and
+        // calls .focus() in the same call stack as the touchstart event.
+        // The press() call below still runs so mp_bridge stays in sync
+        // (sets _chatFocused in the engine, hides movement key bindings,
+        // etc.) — the direct focus is purely additive.
+        const chatBtn = buildSystemBtn('Chat', sys.chat, true);
+        const origStart = chatBtn.onStart;
+        chatBtn.onStart = (touch: Touch) => {
+            openChatInputSync();
+            origStart(touch);
+        };
+        (chatBtn.el as any).__pp_handlers = {
+            onStart: chatBtn.onStart, onMove: chatBtn.onMove, onEnd: chatBtn.onEnd,
+        };
+        trayItems.appendChild(chatBtn.el);
+    }
+
+    /**
+     * Synchronously open + focus the multiplayer chat input by walking
+     * iframes for the text_chat HUD panel. Bypasses the engine's frame
+     * loop so mobile Safari sees a user-gesture-driven focus and pops
+     * the keyboard. Returns true if it found and focused the input.
+     * Idempotent — if the row was already open the focus call is
+     * harmless (input is already focusable).
+     */
+    function openChatInputSync(): boolean {
+        try {
+            const ifs = document.querySelectorAll('iframe');
+            for (let i = 0; i < ifs.length; i++) {
+                try {
+                    const doc = (ifs[i] as HTMLIFrameElement).contentDocument;
+                    if (!doc) continue;
+                    const section = doc.querySelector('section[data-panel-path*="text_chat"]') as HTMLElement | null;
+                    if (!section) continue;
+                    const inputRow = section.querySelector('.input-row') as HTMLElement | null;
+                    const input = section.querySelector('#input') as HTMLInputElement | null;
+                    const hint = section.querySelector('#hint') as HTMLElement | null;
+                    if (!input || !inputRow) continue;
+                    inputRow.classList.add('open');
+                    if (hint) hint.style.display = 'none';
+                    input.value = '';
+                    input.focus();
+                    return true;
+                } catch { /* cross-origin or torn-down iframe — try the next one */ }
+            }
+        } catch { /* no document / detached overlay */ }
+        return false;
+    }
 
     /**
      * "Hide Controls" toggle button. Suspends the gameplay-controls
