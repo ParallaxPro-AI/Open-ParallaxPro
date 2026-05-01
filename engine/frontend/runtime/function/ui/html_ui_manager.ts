@@ -49,6 +49,11 @@ export class HTMLUIManager {
     private hudBundleReady = false;
     private hudBundlePendingMessages: any[] = [];
     private hudBundleAttachedPaths: Set<string> = new Set();
+    /** game_command relay listener registered against window when the
+     *  bundle iframe is created. Stored so destroyAll() can remove it
+     *  cleanly — without this, repeated play/stop cycles in the editor
+     *  pile up dead listeners that re-fire on every postMessage. */
+    private hudBundleCommandListener: ((e: MessageEvent) => void) | null = null;
     /** Hash of the last `state.lobbies` value posted into iframes. lobby_browser
      *  re-renders on every gameState push that contains state.lobbies (rebuilds
      *  the row list via listEl.innerHTML=''). At 60Hz that DOM churn makes
@@ -411,6 +416,7 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
             this.onUICommand?.({ ...e.data });
         };
         window.addEventListener('message', onBundleCommand);
+        this.hudBundleCommandListener = onBundleCommand;
         return iframe;
     }
 
@@ -962,10 +968,14 @@ ${wrapperScript}
         for (const path of [...this.overlays.keys()]) this.unloadUI(path);
         // Drop the lazy-mode HTML cache too so a re-init starts cleanly.
         this.cachedContent.clear();
-        // Tear down the mobile HUD bundle iframe.
+        // Tear down the mobile HUD bundle iframe + its command listener.
         if (this.hudBundleIframe) {
             try { this.hudBundleIframe.remove(); } catch {}
             this.hudBundleIframe = null;
+        }
+        if (this.hudBundleCommandListener) {
+            window.removeEventListener('message', this.hudBundleCommandListener);
+            this.hudBundleCommandListener = null;
         }
         this.hudBundleReady = false;
         this.hudBundleAttachedPaths.clear();
