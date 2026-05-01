@@ -1580,39 +1580,47 @@ function renderIconSvg(name: string, size: number): string {
  * up in ICON_PATHS, or null when no good match is found (in which case
  * the button falls back to its text label).
  *
- * Strategy: key-code matches first (universal mappings — Space=jump
- * regardless of label), then label keyword matches (game-specific
- * labels like "Reload" / "Boost"), then null.
+ * Strategy: label keyword matches first (the label is the strongest
+ * signal of intent — a button labelled "Right Cannon" should get the
+ * cannon icon regardless of which mouse button it's bound to), then
+ * key-code fallbacks for unlabeled / generic buttons.
+ *
+ * Keyword regexes use `\b…\b` word boundaries instead of `^…` start
+ * anchors so multi-word labels (e.g. "Right Cannon", "Heavy Attack",
+ * "Mini Map") still match the relevant keyword.
  */
 function pickIconForBinding(key: string, label: string): string | null {
+    const l = (label || '').toLowerCase().trim();
+    if (l) {
+        if (/\b(fire|shoot|attack|hit|cannon|tap)\b/.test(l)) return 'target';
+        if (/\b(aim|look|scope)\b/.test(l)) return 'eye';
+        if (/\b(jump|hop|leap|bounce)\b/.test(l)) return 'chevronsUp';
+        if (/\b(crouch|duck|down)\b/.test(l)) return 'chevronsDown';
+        if (/\b(sprint|run|dash|drift|boost|brake)\b/.test(l)) return 'zap';
+        if (/\b(reload)\b/.test(l)) return 'rotateCw';
+        if (/\b(switch|cycle|next|change|swap|rotate)\b/.test(l)) return 'refresh';
+        if (/\b(use|grab|interact|enter|pick|kick|action|press)\b/.test(l)) return 'hand';
+        if (/\b(drop|throw|toss)\b/.test(l)) return 'arrowDown';
+        if (/\b(heal|repair|add|cancel)\b/.test(l)) return 'plus';
+        if (/\b(map)\b/.test(l)) return 'map';
+        if (/\b(item|powerup|skill|ability|special|magic|spell|q|e|skill 1|skill 2)\b/.test(l)) return 'sparkles';
+        if (/\b(inventory|menu|wave)\b/.test(l)) return 'box';
+        if (/\b(reduce|remove|−|-)\b/.test(l)) return 'minus';
+        if (/\b(pause)\b/.test(l)) return 'pause';
+        if (/\b(select|target)\b/.test(l)) return 'crosshair';
+        if (/\b(block|defend|guard|shield)\b/.test(l)) return 'shield';
+        if (/\b(plant|place|build|put)\b/.test(l)) return 'plus';
+        if (/\b(mine|dig)\b/.test(l)) return 'target';
+    }
+
+    // Key-code fallback. Only kicks in when the label was empty or had
+    // no recognized keyword — explicit labels always win above.
     if (key === 'MouseLeft') return 'target';
     if (key === 'MouseRight') return 'eye';
     if (key === 'Space') return 'chevronsUp';
     if (key === 'ControlLeft' || key === 'ControlRight') return 'chevronsDown';
     if (key === 'ShiftLeft' || key === 'ShiftRight') return 'zap';
     if (key === 'Tab') return 'box';
-
-    const l = (label || '').toLowerCase().trim();
-    if (!l) return null;
-    if (/^(fire|shoot|attack|hit|cannon|tap)/.test(l)) return 'target';
-    if (/^(aim|look|scope)/.test(l)) return 'eye';
-    if (/^(jump|hop|leap|bounce)/.test(l)) return 'chevronsUp';
-    if (/^(crouch|duck|down)/.test(l)) return 'chevronsDown';
-    if (/^(sprint|run|dash|drift|boost|brake)/.test(l)) return 'zap';
-    if (/^(reload)/.test(l)) return 'rotateCw';
-    if (/^(switch|cycle|next|change|swap|rotate)/.test(l)) return 'refresh';
-    if (/^(use|grab|interact|enter|pick|kick|action|press)/.test(l)) return 'hand';
-    if (/^(drop|throw|toss)/.test(l)) return 'arrowDown';
-    if (/^(heal|repair|add|cancel)/.test(l)) return 'plus';
-    if (/^(map)/.test(l)) return 'map';
-    if (/^(item|powerup|skill|ability|special|magic|spell|q|e|skill 1|skill 2)/.test(l)) return 'sparkles';
-    if (/^(inventory|menu|wave|item)/.test(l)) return 'box';
-    if (/^(reduce|remove|−|-)/.test(l)) return 'minus';
-    if (/^(pause)/.test(l)) return 'pause';
-    if (/^(select|target)/.test(l)) return 'crosshair';
-    if (/^(block|defend|guard|shield)/.test(l)) return 'shield';
-    if (/^(plant|place|build|put)/.test(l)) return 'plus';
-    if (/^(mine|dig)/.test(l)) return 'target';
 
     return null;
 }

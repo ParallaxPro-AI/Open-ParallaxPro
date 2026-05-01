@@ -273,8 +273,8 @@
     "fire": {
       "primary": "MouseLeft",
       "secondary": "MouseRight",
-      "label": "Cannon",
-      "secondaryLabel": "Aim",
+      "label": "Left Cannon",
+      "secondaryLabel": "Right Cannon",
       "holdPrimary": false,
       "holdSecondary": true
     },
