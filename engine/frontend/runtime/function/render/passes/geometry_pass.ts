@@ -65,6 +65,18 @@ export class GeometryPass {
     private pipelineMRT: GPURenderPipeline | null = null;
     private pipelineMSAA: GPURenderPipeline | null = null;
 
+    // Instanced opaque pipelines — same shaders as the per-mesh
+    // versions above, but use a storage-buffer model bind group keyed
+    // by @builtin(instance_index). drawMeshes detects runs of same-
+    // (kind=standard, vertex-buffer, baseColor, normalMap, drawIndex
+    // offset, drawIndexCount) within the already-sorted mesh list and
+    // emits one drawIndexed(instanceCount=runSize) per run instead of
+    // N per-mesh draws. Skinned / building / terrain / transparent
+    // meshes still use the original per-mesh path.
+    private pipelineStandardInstanced: GPURenderPipeline | null = null;
+    private pipelineMRTInstanced: GPURenderPipeline | null = null;
+    private pipelineMSAAInstanced: GPURenderPipeline | null = null;
+
     // Transparent pipelines (alpha blend, no depth write)
     private pipelineStandardBlend: GPURenderPipeline | null = null;
     private pipelineMRTBlend: GPURenderPipeline | null = null;
@@ -88,6 +100,12 @@ export class GeometryPass {
     // Bind group layouts
     private cameraBindGroupLayout: GPUBindGroupLayout | null = null;
     private modelBindGroupLayout: GPUBindGroupLayout | null = null;
+    /** Storage-buffer variant of modelBindGroupLayout used by the
+     *  instanced standard pipelines. group(1) binding(0) is a
+     *  read-only-storage `array<ModelUniforms>` instead of a uniform
+     *  ModelUniforms — the vertex shader indexes it by
+     *  @builtin(instance_index). */
+    private instancedModelBindGroupLayout: GPUBindGroupLayout | null = null;
     private skinnedModelBindGroupLayout: GPUBindGroupLayout | null = null;
     private materialBindGroupLayout: GPUBindGroupLayout | null = null;
     private buildingMaterialBindGroupLayout: GPUBindGroupLayout | null = null;
@@ -99,6 +117,39 @@ export class GeometryPass {
     private lightUniformBuffer: GPUBuffer | null = null;
     private cameraBindGroup: GPUBindGroup | null = null;
     private lightBindGroup: GPUBindGroup | null = null;
+
+    // ── Instancing buffer + scratch ──────────────────────────────────
+    // The geometry-pass instancing path packs all standard-pipeline
+    // batches' (modelMatrix + normalMatrix) pairs into one CPU-side
+    // Float32Array per frame, uploads once via writeBuffer, and binds
+    // the storage buffer once for the whole pass. Each batch issues
+    // drawIndexed with `firstInstance` set to its packed offset so the
+    // shader's @builtin(instance_index) reads the right slot.
+    //
+    // Buffer grows on demand (capacity tracked in INSTANCES, not
+    // bytes). 32 floats / 128 bytes per instance.
+    private instanceBuffer: GPUBuffer | null = null;
+    private instanceBufferCapacity: number = 0;
+    /** Storage-bind-group built against `instanceBuffer`. Recreated
+     *  whenever the buffer is grown; otherwise reused across frames. */
+    private instanceBindGroup: GPUBindGroup | null = null;
+    /** CPU scratch packed with [modelMatrix(16), normalMatrix(16)] per
+     *  instance, length = capacity * 32. Reused per frame. Resized to
+     *  match `instanceBufferCapacity` on every grow so the
+     *  writeBuffer source-byte-length matches. */
+    private _instanceScratch: Float32Array = new Float32Array(0);
+    /** Per-call schedule of draw entries. Each entry is 3 numbers:
+     *  [start, end, firstInstance]. If end - start >= 2 it's an
+     *  instanced batch; otherwise a single-mesh draw at meshes[start].
+     *  firstInstance is meaningful only for batched entries. Reused
+     *  across frames; cleared at the start of each drawMeshes call. */
+    private _scheduleScratch: number[] = [];
+    /** Parallel to `_scheduleScratch` (indexed by entry, i.e. s/3): the
+     *  material bind group to use for the entry. Only populated for
+     *  batched entries (where every instance shares the same material
+     *  by construction). For single-mesh entries the value is null and
+     *  the material BG is computed inline at draw time. */
+    private _scheduleMaterialBGs: (GPUBindGroup | null)[] = [];
 
     // Depth textures
     private depthTexture: GPUTexture | null = null;
@@ -385,6 +436,15 @@ export class GeometryPass {
             buffer: { type: 'uniform' },
         }], 'model_bgl');
 
+        // Storage-buffer variant: vertex shader reads
+        // models[@builtin(instance_index)]. Used by the instanced
+        // standard pipelines.
+        this.instancedModelBindGroupLayout = resources.createBindGroupLayout([{
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX,
+            buffer: { type: 'read-only-storage' },
+        }], 'instanced_model_bgl');
+
         this.skinnedModelBindGroupLayout = resources.createBindGroupLayout([
             { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
             { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
@@ -626,6 +686,73 @@ export class GeometryPass {
             label: 'pbr_pipeline_msaa_mrt',
             layout: mrtPipelineLayout,
             vertex: vertexState,
+            fragment: {
+                module: fragmentMRTModule,
+                entryPoint: 'fs_main',
+                targets: [{ format: canvasFormat }, { format: 'rgba16float' }],
+            },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 4 },
+        });
+
+        // ── Instanced pipeline variants ────────────────────────────
+        // Same fragment shaders + vertex layout as the per-mesh
+        // pipelines above; only the vertex module changes
+        // (pbr_vertex_instanced reads models[instance_index] from a
+        // storage buffer) and group(1) is the storage variant.
+        const instancedVertexModule = shaderLib.getModule('pbr_vertex_instanced');
+        const instancedPipelineLayout = resources.createPipelineLayout([
+            this.cameraBindGroupLayout!,
+            this.instancedModelBindGroupLayout!,
+            this.materialBindGroupLayout!,
+            this.lightBindGroupLayout!,
+        ], 'pbr_instanced_pipeline_layout');
+        const instancedMrtPipelineLayout = resources.createPipelineLayout([
+            this.cameraBindGroupLayout!,
+            this.instancedModelBindGroupLayout!,
+            this.materialBindGroupLayout!,
+            this.lightBindGroupLayout!,
+        ], 'pbr_instanced_mrt_pipeline_layout');
+        const instancedVertexState: GPUVertexState = {
+            module: instancedVertexModule,
+            entryPoint: 'vs_main',
+            buffers: [{
+                arrayStride: 32,
+                stepMode: 'vertex',
+                attributes: [
+                    { shaderLocation: 0, offset: 0, format: 'float32x3' as GPUVertexFormat },
+                    { shaderLocation: 1, offset: 12, format: 'float32x3' as GPUVertexFormat },
+                    { shaderLocation: 2, offset: 24, format: 'float32x2' as GPUVertexFormat },
+                ],
+            }],
+        };
+        this.pipelineStandardInstanced = device.createRenderPipeline({
+            label: 'pbr_pipeline_standard_instanced',
+            layout: instancedPipelineLayout,
+            vertex: instancedVertexState,
+            fragment: { module: fragmentModule, entryPoint: 'fs_main', targets: [{ format: canvasFormat }] },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 1 },
+        });
+        this.pipelineMRTInstanced = device.createRenderPipeline({
+            label: 'pbr_pipeline_mrt_instanced',
+            layout: instancedPipelineLayout,
+            vertex: instancedVertexState,
+            fragment: {
+                module: fragmentMRTModule,
+                entryPoint: 'fs_main',
+                targets: [{ format: canvasFormat }, { format: 'rgba16float' }],
+            },
+            primitive: opaquePrimitive,
+            depthStencil: opaqueDepthStencil,
+            multisample: { count: 1 },
+        });
+        this.pipelineMSAAInstanced = device.createRenderPipeline({
+            label: 'pbr_pipeline_msaa_mrt_instanced',
+            layout: instancedMrtPipelineLayout,
+            vertex: instancedVertexState,
             fragment: {
                 module: fragmentMRTModule,
                 entryPoint: 'fs_main',
@@ -1020,59 +1147,233 @@ export class GeometryPass {
 
     // ── Private: Mesh Drawing ─────────────────────────────────────────
 
+    /** Grow the instance buffer + recreate its bind group + resize the
+     *  CPU scratch when more instances are needed. Buffer doubles to
+     *  amortize growth; min capacity 64 instances (8 KiB). Idempotent
+     *  when the existing capacity is sufficient. */
+    private ensureInstanceCapacity(needed: number): void {
+        if (needed <= this.instanceBufferCapacity) return;
+        const newCap = Math.max(needed, Math.max(64, this.instanceBufferCapacity * 2));
+        this.instanceBuffer?.destroy();
+        const sizeBytes = newCap * 32 * 4; // 32 floats × 4 bytes per instance
+        this.instanceBuffer = this.device!.createBuffer({
+            label: 'instanced_models',
+            size: sizeBytes,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        this.instanceBufferCapacity = newCap;
+        this._instanceScratch = new Float32Array(newCap * 32);
+        this.instanceBindGroup = this.resources!.createBindGroup(
+            this.instancedModelBindGroupLayout!,
+            [{ binding: 0, resource: { buffer: this.instanceBuffer } }],
+            'instanced_models_bg',
+        );
+    }
+
+    /** Pack one instance's modelMatrix + normalMatrix (32 floats) into
+     *  the CPU scratch at the given float offset. Mirrors writeModelData
+     *  for the per-mesh path; identity normal matrix when inverse fails
+     *  (degenerate transform — same fallback the per-mesh path uses). */
+    private packInstance(mesh: RenderMeshInstance, target: Float32Array, floatOffset: number): void {
+        target.set(mesh.modelMatrix.data, floatOffset);
+        const inv = mesh.modelMatrix.inverse();
+        if (inv) target.set(inv.transpose().data, floatOffset + 16);
+        else {
+            target.fill(0, floatOffset + 16, floatOffset + 32);
+            target[floatOffset + 16] = 1;
+            target[floatOffset + 21] = 1;
+            target[floatOffset + 26] = 1;
+            target[floatOffset + 31] = 1;
+        }
+    }
+
+    /** Pick the instanced opaque pipeline matching the active pass. */
+    private getActiveInstancedPipeline(): GPURenderPipeline {
+        if (this.activePassVariant === 'msaa') return this.pipelineMSAAInstanced!;
+        if (this.activePassVariant === 'mrt') return this.pipelineMRTInstanced!;
+        return this.pipelineStandardInstanced!;
+    }
+
+    /** Two-pass renderer:
+     *  (1) Scan input meshes, identify runs of consecutive standard-kind
+     *      meshes that share vertex buffer + draw range + material bind
+     *      group (object identity from getMaterialBindGroup); pack
+     *      runs of size ≥ 2 into the per-frame instance buffer scratch
+     *      and emit a single instanced draw entry. Other meshes fall
+     *      through as single-mesh entries, matching the prior path.
+     *  (2) Upload the instance buffer once, then encode draws.
+     *
+     *  Transparent input (drawMeshes called by the BLEND path) skips
+     *  instancing entirely — back-to-front order matters for blending,
+     *  and grouping by material would reorder draws across alpha sort.
+     *
+     *  The 3-tier sort in render_scene.getVisibleMeshes already
+     *  clusters meshes by (kind, vertexBuffer, baseColorTexture), so
+     *  the run-detection here simply walks consecutive items. */
     private drawMeshes(renderPass: GPURenderPassEncoder, meshes: RenderMeshInstance[]): void {
+        if (meshes.length === 0) return;
+        const isTransparentInput = meshes[0].alphaMode === 'BLEND';
+
+        const schedule = this._scheduleScratch;
+        const scheduleMatBGs = this._scheduleMaterialBGs;
+        schedule.length = 0;
+        scheduleMatBGs.length = 0;
+        let totalInstances = 0;
+
+        // ── Pass 1: build schedule ─────────────────────────────────
+        if (isTransparentInput) {
+            // Transparent: never batch. One entry per mesh.
+            for (let i = 0; i < meshes.length; i++) {
+                schedule.push(i, i + 1, 0);
+                scheduleMatBGs.push(null);
+            }
+        } else {
+            for (let i = 0; i < meshes.length; ) {
+                const m = meshes[i];
+                const mSkinned = !!(m.meshHandle.skinBuffer && m.jointMatricesBuffer);
+                const mBuilding = !!m.meshHandle.hasBuildingMeta && !mSkinned;
+                const mTerrain = !!m.gpuTerrainTextures && !mSkinned && !mBuilding;
+                const mStandard = !mSkinned && !mBuilding && !mTerrain;
+                if (mStandard) {
+                    const sampleMatBG = this.getMaterialBindGroup(m);
+                    let runEnd = i + 1;
+                    while (runEnd < meshes.length) {
+                        const n = meshes[runEnd];
+                        const nSkinned = !!(n.meshHandle.skinBuffer && n.jointMatricesBuffer);
+                        if (nSkinned) break;
+                        if (n.meshHandle.hasBuildingMeta) break;
+                        if (n.gpuTerrainTextures) break;
+                        if (n.meshHandle.vertexBuffer !== m.meshHandle.vertexBuffer) break;
+                        if ((n.firstIndex ?? 0) !== (m.firstIndex ?? 0)) break;
+                        const nIdx = n.drawIndexCount ?? n.meshHandle.indexCount;
+                        const mIdx = m.drawIndexCount ?? m.meshHandle.indexCount;
+                        if (nIdx !== mIdx) break;
+                        if (this.getMaterialBindGroup(n) !== sampleMatBG) break;
+                        runEnd++;
+                    }
+                    if (runEnd - i >= 2) {
+                        schedule.push(i, runEnd, totalInstances);
+                        scheduleMatBGs.push(sampleMatBG);
+                        totalInstances += runEnd - i;
+                        i = runEnd;
+                        continue;
+                    }
+                    // size 1 — fall through to single
+                }
+                schedule.push(i, i + 1, 0);
+                scheduleMatBGs.push(null);
+                i++;
+            }
+        }
+
+        // ── Upload instance buffer if any batches ──────────────────
+        if (totalInstances > 0) {
+            this.ensureInstanceCapacity(totalInstances);
+            const scratch = this._instanceScratch;
+            for (let s = 0; s < schedule.length; s += 3) {
+                const start = schedule[s];
+                const end = schedule[s + 1];
+                const fInstance = schedule[s + 2];
+                if (end - start < 2) continue;
+                for (let k = start; k < end; k++) {
+                    this.packInstance(meshes[k], scratch, (fInstance + (k - start)) * 32);
+                }
+            }
+            this.device!.queue.writeBuffer(
+                this.instanceBuffer!,
+                0,
+                scratch.buffer,
+                scratch.byteOffset,
+                totalInstances * 32 * 4,
+            );
+        }
+
+        // ── Pass 2: encode draws ───────────────────────────────────
         let lastVertexBuffer: GPUBuffer | null = null;
         let lastModelMatrix: Mat4 | null = null;
         let lastModelBindGroup: GPUBindGroup | null = null;
-        let currentKind: 'skinned' | 'building' | 'terrain' | 'standard' | null = null;
+        let currentPipeline: GPURenderPipeline | null = null;
 
-        for (const mesh of meshes) {
-            const isSkinned = !!(mesh.meshHandle.skinBuffer && mesh.jointMatricesBuffer);
-            const isBuilding = !!mesh.meshHandle.hasBuildingMeta && !isSkinned;
-            const isTerrain = !!mesh.gpuTerrainTextures && !isSkinned && !isBuilding;
-            const kind: 'skinned' | 'building' | 'terrain' | 'standard' =
-                isSkinned ? 'skinned' : (isBuilding ? 'building' : (isTerrain ? 'terrain' : 'standard'));
+        for (let s = 0; s < schedule.length; s += 3) {
+            const start = schedule[s];
+            const end = schedule[s + 1];
+            const fInstance = schedule[s + 2];
+            const instanceCount = end - start;
+            const isBatch = instanceCount >= 2;
+            const sample = meshes[start];
 
-            if (kind !== currentKind) {
-                const pipeline = kind === 'skinned'
-                    ? this.getSkinnedPipeline()
-                    : (kind === 'building' ? this.getBuildingPipeline()
-                    : (kind === 'terrain' ? this.getTerrainPipeline()
-                    : this.getActivePipeline()));
-                renderPass.setPipeline(pipeline);
-                currentKind = kind;
-                lastVertexBuffer = null;
-            }
+            const isSkinned = !!(sample.meshHandle.skinBuffer && sample.jointMatricesBuffer);
+            const isBuilding = !!sample.meshHandle.hasBuildingMeta && !isSkinned;
+            const isTerrain = !!sample.gpuTerrainTextures && !isSkinned && !isBuilding;
 
-            // Reuse model bind group for sub-meshes of the same entity
-            const sameEntity = mesh.meshHandle.vertexBuffer === lastVertexBuffer && mesh.modelMatrix === lastModelMatrix;
-            let modelBindGroup: GPUBindGroup;
-            if (sameEntity && lastModelBindGroup) {
-                modelBindGroup = lastModelBindGroup;
+            // Pipeline selection
+            let pipeline: GPURenderPipeline;
+            if (isBatch) {
+                pipeline = this.getActiveInstancedPipeline();
+            } else if (isSkinned) {
+                pipeline = this.getSkinnedPipeline();
+            } else if (isBuilding) {
+                pipeline = this.getBuildingPipeline();
+            } else if (isTerrain) {
+                pipeline = this.getTerrainPipeline();
             } else {
-                modelBindGroup = isSkinned ? this.getSkinnedModelBindGroup(mesh) : this.getModelBindGroup(mesh);
-                lastModelBindGroup = modelBindGroup;
+                pipeline = this.getActivePipeline();
+            }
+            if (pipeline !== currentPipeline) {
+                renderPass.setPipeline(pipeline);
+                currentPipeline = pipeline;
+                // Pipeline change invalidates the per-pipeline state cache:
+                // even when the new pipeline expects the same vertex buffer,
+                // we must re-issue setVertexBuffer because WebGPU treats
+                // bind-state as scoped to a pipeline.
+                lastVertexBuffer = null;
+                lastModelBindGroup = null;
             }
 
-            if (mesh.meshHandle.vertexBuffer !== lastVertexBuffer) {
-                renderPass.setVertexBuffer(0, mesh.meshHandle.vertexBuffer);
-                if (isSkinned) renderPass.setVertexBuffer(1, mesh.meshHandle.skinBuffer!);
-                renderPass.setIndexBuffer(mesh.meshHandle.indexBuffer, mesh.meshHandle.indexFormat);
-                lastVertexBuffer = mesh.meshHandle.vertexBuffer;
+            // Model bind group: instance buffer for batches, per-mesh otherwise.
+            // For non-batch path, preserve the same-entity reuse the prior
+            // implementation had (sub-mesh of the same entity → reuse BG).
+            let modelBindGroup: GPUBindGroup;
+            if (isBatch) {
+                modelBindGroup = this.instanceBindGroup!;
+            } else {
+                const sameEntity = sample.meshHandle.vertexBuffer === lastVertexBuffer
+                    && sample.modelMatrix === lastModelMatrix;
+                if (sameEntity && lastModelBindGroup) {
+                    modelBindGroup = lastModelBindGroup;
+                } else {
+                    modelBindGroup = isSkinned ? this.getSkinnedModelBindGroup(sample) : this.getModelBindGroup(sample);
+                }
             }
-            lastModelMatrix = mesh.modelMatrix;
+
+            // Vertex / index buffer
+            if (sample.meshHandle.vertexBuffer !== lastVertexBuffer) {
+                renderPass.setVertexBuffer(0, sample.meshHandle.vertexBuffer);
+                if (isSkinned) renderPass.setVertexBuffer(1, sample.meshHandle.skinBuffer!);
+                renderPass.setIndexBuffer(sample.meshHandle.indexBuffer, sample.meshHandle.indexFormat);
+                lastVertexBuffer = sample.meshHandle.vertexBuffer;
+            }
+            lastModelMatrix = sample.modelMatrix;
 
             renderPass.setBindGroup(1, modelBindGroup);
-            const materialBindGroup = isTerrain
-                ? this.getTerrainMaterialBindGroup(mesh)
-                : (isBuilding
-                    ? (this.buildingMaterialBindGroup || this.getMaterialBindGroup(mesh))
-                    : this.getMaterialBindGroup(mesh));
-            renderPass.setBindGroup(2, materialBindGroup);
-            const idxCount = mesh.drawIndexCount ?? mesh.meshHandle.indexCount;
-            renderPass.drawIndexed(idxCount, 1, mesh.firstIndex ?? 0, 0, 0);
-            this.stats?.addDraw(idxCount / 3);
-            this.stats?.addMeshRendered();
+            lastModelBindGroup = modelBindGroup;
+
+            const matBG = isBatch
+                ? scheduleMatBGs[s / 3]!  // pre-computed in scan
+                : (isTerrain
+                    ? this.getTerrainMaterialBindGroup(sample)
+                    : (isBuilding
+                        ? (this.buildingMaterialBindGroup || this.getMaterialBindGroup(sample))
+                        : this.getMaterialBindGroup(sample)));
+            renderPass.setBindGroup(2, matBG);
+
+            const idxCount = sample.drawIndexCount ?? sample.meshHandle.indexCount;
+            renderPass.drawIndexed(idxCount, instanceCount, sample.firstIndex ?? 0, 0, fInstance);
+
+            if (this.stats) {
+                this.stats.addDraw((idxCount / 3) * instanceCount);
+                for (let k = 0; k < instanceCount; k++) this.stats.addMeshRendered();
+            }
         }
     }
 

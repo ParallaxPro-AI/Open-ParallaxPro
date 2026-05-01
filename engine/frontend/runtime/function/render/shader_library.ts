@@ -12,6 +12,7 @@ export class ShaderLibrary {
     initialize(device: GPUDevice): void {
         this.device = device;
         this.compileModule('pbr_vertex', PBR_VERTEX_SHADER);
+        this.compileModule('pbr_vertex_instanced', PBR_VERTEX_SHADER_INSTANCED);
         this.compileModule('pbr_vertex_skinned', PBR_VERTEX_SHADER_SKINNED);
         this.compileModule('pbr_fragment', PBR_FRAGMENT_SHADER);
         this.compileModule('pbr_fragment_mrt', PBR_FRAGMENT_SHADER_MRT);
@@ -21,6 +22,7 @@ export class ShaderLibrary {
         this.compileModule('terrain_fragment', TERRAIN_FRAGMENT_SHADER);
         this.compileModule('terrain_fragment_mrt', TERRAIN_FRAGMENT_SHADER_MRT);
         this.compileModule('shadow_vertex', SHADOW_VERTEX_SHADER);
+        this.compileModule('shadow_vertex_instanced', SHADOW_VERTEX_SHADER_INSTANCED);
         this.compileModule('shadow_vertex_skinned', SHADOW_VERTEX_SHADER_SKINNED);
         this.compileModule('fullscreen_vertex', FULLSCREEN_VERTEX_SHADER);
         this.compileModule('fxaa_fragment', FXAA_FRAGMENT_SHADER);
@@ -125,6 +127,54 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     output.worldPosition = worldPos.xyz;
     output.clipPosition = camera.projMatrix * camera.viewMatrix * worldPos;
     let wn = (model.normalMatrix * vec4<f32>(input.normal, 0.0)).xyz;
+    output.worldNormal = normalize(wn);
+    output.uv = input.uv;
+    return output;
+}
+`;
+
+// ============================================================
+// PBR Vertex Shader — INSTANCED variant
+// ============================================================
+//
+// Identical math to PBR_VERTEX_SHADER, but reads its per-instance
+// model matrix + normal matrix from a storage buffer indexed by
+// @builtin(instance_index). Used by the geometry pass when several
+// consecutive draws share the same mesh + material; one drawIndexed
+// with instanceCount > 1 replaces N drawIndexed calls.
+//
+// Group(1) is a STORAGE buffer here (not uniform), so this shader
+// requires a pipeline + bind-group-layout that reflects that. The
+// fragment shader is unchanged — the instanced path reuses
+// pbr_fragment / pbr_fragment_mrt verbatim.
+export const PBR_VERTEX_SHADER_INSTANCED = /* wgsl */ `
+${CAMERA_STRUCT}
+${MODEL_STRUCT}
+
+@group(0) @binding(0) var<uniform> camera: CameraUniforms;
+@group(1) @binding(0) var<storage, read> models: array<ModelUniforms>;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+};
+
+struct VertexOutput {
+    @builtin(position) clipPosition: vec4<f32>,
+    @location(0) worldPosition: vec3<f32>,
+    @location(1) worldNormal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput, @builtin(instance_index) iidx: u32) -> VertexOutput {
+    var output: VertexOutput;
+    let m = models[iidx];
+    let worldPos = m.modelMatrix * vec4<f32>(input.position, 1.0);
+    output.worldPosition = worldPos.xyz;
+    output.clipPosition = camera.projMatrix * camera.viewMatrix * worldPos;
+    let wn = (m.normalMatrix * vec4<f32>(input.normal, 0.0)).xyz;
     output.worldNormal = normalize(wn);
     output.uv = input.uv;
     return output;
@@ -1492,6 +1542,28 @@ ${MODEL_STRUCT}
 @vertex
 fn vs_main(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
     return lightCamera.projMatrix * lightCamera.viewMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
+}
+`;
+
+// Shadow vertex shader — INSTANCED variant. Same math as the standard
+// SHADOW_VERTEX_SHADER, but reads its per-instance model matrix from
+// a storage buffer keyed by @builtin(instance_index). Mirrors the
+// pbr_vertex_instanced design so the geometry-pass and shadow-pass
+// instancing paths share the same per-frame instance buffer layout.
+export const SHADOW_VERTEX_SHADER_INSTANCED = /* wgsl */ `
+struct LightCamera {
+    viewMatrix: mat4x4<f32>,
+    projMatrix: mat4x4<f32>,
+};
+${MODEL_STRUCT}
+
+@group(0) @binding(0) var<uniform> lightCamera: LightCamera;
+@group(1) @binding(0) var<storage, read> models: array<ModelUniforms>;
+
+@vertex
+fn vs_main(@location(0) position: vec3<f32>, @builtin(instance_index) iidx: u32) -> @builtin(position) vec4<f32> {
+    let m = models[iidx];
+    return lightCamera.projMatrix * lightCamera.viewMatrix * m.modelMatrix * vec4<f32>(position, 1.0);
 }
 `;
 

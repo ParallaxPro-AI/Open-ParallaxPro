@@ -64,6 +64,27 @@ export class ShadowPass {
     private skinnedModelBGL: GPUBindGroupLayout | null = null;
     private skinnedModelBindGroupCache = new Map<string, GPUBindGroup>();
 
+    // ── Instanced shadow path ─────────────────────────────────────────
+    // Mirrors the geometry-pass instancing approach: one shadow pipeline
+    // variant that reads modelMatrix from a storage buffer keyed by
+    // @builtin(instance_index). Standard-stride (non-skinned, non-
+    // building) meshes whose model matrices share a vertex buffer get
+    // packed into a per-frame instance buffer and drawn in a single
+    // drawIndexed(instanceCount > 1).
+    //
+    // The shadow pass owns its OWN instance buffer (separate from the
+    // geometry pass) because both passes share one queue: a single
+    // queue.writeBuffer would have only one winning copy by the time
+    // draws execute. Two buffers keeps each pass's data live for its
+    // own draws.
+    private instancedModelBGL: GPUBindGroupLayout | null = null;
+    private pipelineInstanced: GPURenderPipeline | null = null;
+    private instanceBuffer: GPUBuffer | null = null;
+    private instanceBufferCapacity: number = 0;
+    private instanceBindGroup: GPUBindGroup | null = null;
+    private _instanceScratch: Float32Array = new Float32Array(0);
+    private _scheduleScratch: number[] = [];
+
     private viewMatrix: Mat4 = new Mat4();
     private projMatrix: Mat4 = new Mat4();
 
@@ -205,6 +226,80 @@ export class ShadowPass {
                 depthBias: 4, depthBiasSlopeScale: 3.0, depthBiasClamp: 0.002,
             },
         });
+
+        // Instanced shadow pipeline (32-byte stride only; building stride36
+        // and skinned variants stay non-instanced for now). Uses the
+        // shadow_vertex_instanced shader which reads
+        // models[@builtin(instance_index)] from a storage buffer.
+        this.instancedModelBGL = resources.createBindGroupLayout([{
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX,
+            buffer: { type: 'read-only-storage' },
+        }], 'shadow_instanced_model_bgl');
+
+        const instancedPipelineLayout = resources.createPipelineLayout(
+            [this.lightCameraBGL, this.instancedModelBGL],
+            'shadow_instanced_pipeline_layout'
+        );
+        const instancedShadowModule = shaderLib.getModule('shadow_vertex_instanced');
+
+        this.pipelineInstanced = device.createRenderPipeline({
+            label: 'shadow_pipeline_instanced',
+            layout: instancedPipelineLayout,
+            vertex: {
+                module: instancedShadowModule,
+                entryPoint: 'vs_main',
+                buffers: [{
+                    arrayStride: 32,
+                    stepMode: 'vertex',
+                    attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' as GPUVertexFormat }],
+                }],
+            },
+            primitive: { topology: 'triangle-list', cullMode: 'none' },
+            depthStencil: {
+                format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less',
+                depthBias: 4, depthBiasSlopeScale: 3.0, depthBiasClamp: 0.002,
+            },
+        });
+    }
+
+    /** Grow the instance buffer + recreate its bind group + resize the
+     *  CPU scratch when more instances are needed. Mirrors the geometry
+     *  pass helper but owns its own buffer (separate queue.writeBuffer
+     *  destinations are needed because shadow + geometry encode in the
+     *  same command buffer). */
+    private ensureInstanceCapacity(needed: number): void {
+        if (needed <= this.instanceBufferCapacity) return;
+        const newCap = Math.max(needed, Math.max(64, this.instanceBufferCapacity * 2));
+        this.instanceBuffer?.destroy();
+        const sizeBytes = newCap * 32 * 4;
+        this.instanceBuffer = this.device!.createBuffer({
+            label: 'shadow_instanced_models',
+            size: sizeBytes,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        this.instanceBufferCapacity = newCap;
+        this._instanceScratch = new Float32Array(newCap * 32);
+        this.instanceBindGroup = this.resources!.createBindGroup(
+            this.instancedModelBGL!,
+            [{ binding: 0, resource: { buffer: this.instanceBuffer } }],
+            'shadow_instanced_models_bg',
+        );
+    }
+
+    /** Pack one instance's modelMatrix (slots 0..15) + identity normal
+     *  matrix (slots 16..31) into the CPU scratch. The shadow vertex
+     *  shader only reads modelMatrix; normal matrix slots are written
+     *  to keep the per-instance stride identical to the geometry pass
+     *  format (32 floats/instance) — that way packInstance and the
+     *  storage layout match the same ModelUniforms struct. */
+    private packShadowInstance(mesh: RenderMeshInstance, target: Float32Array, floatOffset: number): void {
+        target.set(mesh.modelMatrix.data, floatOffset);
+        target.fill(0, floatOffset + 16, floatOffset + 32);
+        target[floatOffset + 16] = 1;
+        target[floatOffset + 21] = 1;
+        target[floatOffset + 26] = 1;
+        target[floatOffset + 31] = 1;
     }
 
     execute(commandEncoder: GPUCommandEncoder, scene: RenderScene): void {
@@ -250,21 +345,32 @@ export class ShadowPass {
                 return true;
             });
 
+            // ── Build draw schedule for this cascade ──────────────
+            // Mirrors the geometry-pass two-pass approach. Standard-
+            // stride non-skinned non-building meshes that share a
+            // vertex buffer (and have the same draw range) are batched
+            // into instanced draws. Building-stride and skinned meshes
+            // pass through as singletons. Transparent meshes are
+            // skipped entirely (shadow doesn't render BLEND).
+            const schedule = this._scheduleScratch;
+            schedule.length = 0;
+            let totalShadowInstances = 0;
             const meshBindGroups: (GPUBindGroup | null)[] = [];
+
+            // Per-mesh bind group prebuild for the per-mesh path. For
+            // skinned + non-batched standard meshes we still use the
+            // pooled per-mesh model BG (preserves the matrix-cache
+            // behavior of the previous code path). Batched standard
+            // meshes use the shared instance bind group instead.
             let lastVertexBuffer: GPUBuffer | null = null;
             let lastModelMatrix: Mat4 | null = null;
             let lastBindGroup: GPUBindGroup | null = null;
 
-            for (const mesh of visibleMeshes) {
-                if (mesh.alphaMode === 'BLEND') {
-                    meshBindGroups.push(null);
-                    continue;
-                }
+            for (let i = 0; i < visibleMeshes.length; i++) {
+                const mesh = visibleMeshes[i];
+                if (mesh.alphaMode === 'BLEND') { meshBindGroups.push(null); continue; }
                 const isSkinned = !!(mesh.meshHandle.skinBuffer && mesh.jointMatricesBuffer);
                 if (isSkinned) {
-                    // Skinned draws always take a per-mesh bind group (joint
-                    // buffer changes even when the model matrix matches), so
-                    // skip the consecutive-mesh fast path.
                     meshBindGroups.push(this.getSkinnedModelBindGroup(mesh));
                     lastVertexBuffer = null;
                     lastModelMatrix = null;
@@ -282,6 +388,61 @@ export class ShadowPass {
                 }
             }
 
+            // Schedule build (separate from per-mesh BG prebuild above).
+            for (let i = 0; i < visibleMeshes.length; ) {
+                const m = visibleMeshes[i];
+                if (m.alphaMode === 'BLEND' || !meshBindGroups[i]) { i++; continue; }
+                const mSkinned = !!(m.meshHandle.skinBuffer && m.jointMatricesBuffer);
+                const mStride36 = !mSkinned && !!m.meshHandle.hasBuildingMeta;
+                const mStandard = !mSkinned && !mStride36;
+                if (mStandard) {
+                    let runEnd = i + 1;
+                    while (runEnd < visibleMeshes.length) {
+                        const n = visibleMeshes[runEnd];
+                        if (n.alphaMode === 'BLEND' || !meshBindGroups[runEnd]) break;
+                        const nSkinned = !!(n.meshHandle.skinBuffer && n.jointMatricesBuffer);
+                        if (nSkinned) break;
+                        if (n.meshHandle.hasBuildingMeta) break;
+                        if (n.meshHandle.vertexBuffer !== m.meshHandle.vertexBuffer) break;
+                        if ((n.firstIndex ?? 0) !== (m.firstIndex ?? 0)) break;
+                        const nIdx = n.drawIndexCount ?? n.meshHandle.indexCount;
+                        const mIdx = m.drawIndexCount ?? m.meshHandle.indexCount;
+                        if (nIdx !== mIdx) break;
+                        runEnd++;
+                    }
+                    if (runEnd - i >= 2) {
+                        schedule.push(i, runEnd, totalShadowInstances);
+                        totalShadowInstances += runEnd - i;
+                        i = runEnd;
+                        continue;
+                    }
+                }
+                schedule.push(i, i + 1, 0);
+                i++;
+            }
+
+            // Pack + upload instance data for this cascade
+            if (totalShadowInstances > 0) {
+                this.ensureInstanceCapacity(totalShadowInstances);
+                const scratch = this._instanceScratch;
+                for (let s = 0; s < schedule.length; s += 3) {
+                    const start = schedule[s];
+                    const end = schedule[s + 1];
+                    const fInstance = schedule[s + 2];
+                    if (end - start < 2) continue;
+                    for (let k = start; k < end; k++) {
+                        this.packShadowInstance(visibleMeshes[k], scratch, (fInstance + (k - start)) * 32);
+                    }
+                }
+                this.device.queue.writeBuffer(
+                    this.instanceBuffer!,
+                    0,
+                    scratch.buffer,
+                    scratch.byteOffset,
+                    totalShadowInstances * 32 * 4,
+                );
+            }
+
             const renderPass = commandEncoder.beginRenderPass({
                 label: `shadow_pass_cascade_${cascade}`,
                 colorAttachments: [],
@@ -293,42 +454,46 @@ export class ShadowPass {
                 },
             });
 
-            renderPass.setPipeline(this.pipeline);
             renderPass.setBindGroup(0, this.lightCameraBindGroups[cascade]);
 
             let lastVB: GPUBuffer | null = null;
-            type ActivePipeline = 'standard' | 'stride36' | 'skinned';
-            let activePipeline: ActivePipeline = 'standard';
+            type ActivePipeline = 'standard' | 'stride36' | 'skinned' | 'instanced';
+            let activePipeline: ActivePipeline | null = null;
 
-            for (let i = 0; i < visibleMeshes.length; i++) {
-                const mesh = visibleMeshes[i];
-                if (mesh.alphaMode === 'BLEND' || !meshBindGroups[i]) continue;
+            for (let s = 0; s < schedule.length; s += 3) {
+                const start = schedule[s];
+                const end = schedule[s + 1];
+                const fInstance = schedule[s + 2];
+                const instanceCount = end - start;
+                const isBatch = instanceCount >= 2;
+                const sample = visibleMeshes[start];
 
-                const isSkinned = !!(mesh.meshHandle.skinBuffer && mesh.jointMatricesBuffer);
-                const needsStride36 = !isSkinned && !!mesh.meshHandle.hasBuildingMeta;
-                const wanted: ActivePipeline = isSkinned ? 'skinned' : (needsStride36 ? 'stride36' : 'standard');
+                const isSkinned = !!(sample.meshHandle.skinBuffer && sample.jointMatricesBuffer);
+                const needsStride36 = !isSkinned && !!sample.meshHandle.hasBuildingMeta;
+                const wanted: ActivePipeline = isBatch ? 'instanced'
+                    : (isSkinned ? 'skinned' : (needsStride36 ? 'stride36' : 'standard'));
                 if (wanted !== activePipeline) {
-                    const pipe = wanted === 'skinned'
-                        ? this.skinnedPipeline!
-                        : (wanted === 'stride36' ? this.pipeline36! : this.pipeline);
+                    const pipe = wanted === 'instanced' ? this.pipelineInstanced!
+                        : (wanted === 'skinned' ? this.skinnedPipeline!
+                            : (wanted === 'stride36' ? this.pipeline36! : this.pipeline));
                     renderPass.setPipeline(pipe);
                     activePipeline = wanted;
                     lastVB = null;
                 }
 
-                if (mesh.meshHandle.vertexBuffer !== lastVB) {
-                    renderPass.setVertexBuffer(0, mesh.meshHandle.vertexBuffer);
-                    renderPass.setIndexBuffer(mesh.meshHandle.indexBuffer, mesh.meshHandle.indexFormat);
-                    lastVB = mesh.meshHandle.vertexBuffer;
+                if (sample.meshHandle.vertexBuffer !== lastVB) {
+                    renderPass.setVertexBuffer(0, sample.meshHandle.vertexBuffer);
+                    renderPass.setIndexBuffer(sample.meshHandle.indexBuffer, sample.meshHandle.indexFormat);
+                    lastVB = sample.meshHandle.vertexBuffer;
                 }
-                if (isSkinned) {
-                    renderPass.setVertexBuffer(1, mesh.meshHandle.skinBuffer!);
-                }
+                if (isSkinned) renderPass.setVertexBuffer(1, sample.meshHandle.skinBuffer!);
 
-                renderPass.setBindGroup(1, meshBindGroups[i]!);
-                const idxCount = mesh.drawIndexCount ?? mesh.meshHandle.indexCount;
-                renderPass.drawIndexed(idxCount, 1, mesh.firstIndex ?? 0, 0, 0);
-                this.stats?.addDraw(idxCount / 3);
+                const modelBG = isBatch ? this.instanceBindGroup! : meshBindGroups[start]!;
+                renderPass.setBindGroup(1, modelBG);
+
+                const idxCount = sample.drawIndexCount ?? sample.meshHandle.indexCount;
+                renderPass.drawIndexed(idxCount, instanceCount, sample.firstIndex ?? 0, 0, fInstance);
+                this.stats?.addDraw((idxCount / 3) * instanceCount);
             }
 
             renderPass.end();

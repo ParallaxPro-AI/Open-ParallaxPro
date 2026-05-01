@@ -24,6 +24,10 @@ export const MAX_JOINTS_GL2 = 64;
 export const MAX_DIR_LIGHTS_GL2 = 4;
 export const MAX_POINT_LIGHTS_GL2 = 8;
 export const MAX_SPOT_LIGHTS_GL2 = 4;
+/** Max instances per drawElementsInstanced batch. 128 mat4 = 8 KiB UBO,
+ *  comfortably below WebGL2's MAX_UNIFORM_BLOCK_SIZE (16 KiB minimum
+ *  spec, 64 KiB on most desktop drivers). Larger batches are split. */
+export const MAX_INSTANCES_GL2 = 128;
 
 const FRAME_UBO_DEFS = `
 struct PointLight {
@@ -59,6 +63,43 @@ layout(std140) uniform MaterialUBO {
     vec4 u_uvScale;            // xy
 };
 `;
+
+/** Build the instanced lit vertex shader. Reads per-instance model
+ *  matrix from `u_models[gl_InstanceID]` (UBO) instead of the
+ *  `u_modelMatrix` uniform the per-mesh path uses. Skinned variant is
+ *  not generated — skinned meshes can't share a joints buffer across
+ *  instances, so they always use the per-mesh path. */
+export function buildLitInstancedVertexShader(): string {
+    return `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec3 a_position;
+layout(location = 1) in vec3 a_normal;
+layout(location = 2) in vec2 a_uv;
+
+layout(std140) uniform InstanceModelsUBO {
+    mat4 u_models[${MAX_INSTANCES_GL2}];
+};
+
+${FRAME_UBO_DEFS}
+${MATERIAL_UBO_DEFS}
+
+out vec3 v_worldPos;
+out vec3 v_worldNormal;
+out vec2 v_uv;
+out vec4 v_lightSpacePos;
+
+void main() {
+    mat4 m = u_models[gl_InstanceID];
+    vec4 worldPos = m * vec4(a_position, 1.0);
+    v_worldPos     = worldPos.xyz;
+    v_worldNormal  = normalize(mat3(m) * a_normal);
+    v_uv           = a_uv * u_uvScale.xy;
+    v_lightSpacePos = u_lightViewProj * worldPos;
+    gl_Position    = u_projMatrix * u_viewMatrix * worldPos;
+}
+`;
+}
 
 export function buildLitVertexShader(skinned: boolean): string {
     return `#version 300 es
@@ -251,6 +292,28 @@ void main() {
  * Depth-only shadow caster. Same skinning/static branch as the lit
  * vertex shader so animated characters cast shadows.
  */
+/** Instanced shadow caster — like buildShadowVertexShader(false) but
+ *  reads modelMatrix from `u_models[gl_InstanceID]`. Mirrors
+ *  buildLitInstancedVertexShader in layout/binding so the same
+ *  InstanceModelsUBO buffer can drive both the main and shadow passes. */
+export function buildShadowInstancedVertexShader(): string {
+    return `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec3 a_position;
+
+layout(std140) uniform InstanceModelsUBO {
+    mat4 u_models[${MAX_INSTANCES_GL2}];
+};
+
+uniform mat4 u_lightViewProj;
+
+void main() {
+    gl_Position = u_lightViewProj * u_models[gl_InstanceID] * vec4(a_position, 1.0);
+}
+`;
+}
+
 export function buildShadowVertexShader(skinned: boolean): string {
     return `#version 300 es
 precision highp float;

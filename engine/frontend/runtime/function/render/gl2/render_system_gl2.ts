@@ -16,11 +16,12 @@ import {
     GL2Buffer, GL2Texture, asGL2Buffer, asGL2Texture, isGL2Texture, makeGL2Texture,
 } from './gl2_handles.js';
 import {
-    buildLitVertexShader, LIT_FRAGMENT_SHADER,
-    buildShadowVertexShader, SHADOW_FRAGMENT_SHADER,
+    buildLitVertexShader, buildLitInstancedVertexShader, LIT_FRAGMENT_SHADER,
+    buildShadowVertexShader, buildShadowInstancedVertexShader, SHADOW_FRAGMENT_SHADER,
     SKYBOX_VERTEX_SHADER, SKYBOX_FRAGMENT_SHADER,
     DEBUG_LINES_VERTEX_SHADER, DEBUG_LINES_FRAGMENT_SHADER,
-    buildProgram, MAX_JOINTS_GL2, MAX_DIR_LIGHTS_GL2, MAX_POINT_LIGHTS_GL2, MAX_SPOT_LIGHTS_GL2,
+    buildProgram, MAX_JOINTS_GL2, MAX_INSTANCES_GL2,
+    MAX_DIR_LIGHTS_GL2, MAX_POINT_LIGHTS_GL2, MAX_SPOT_LIGHTS_GL2,
 } from './shader_library_gl2.js';
 
 const VERTEX_STRIDE = 32;       // float[8]: position(12) + normal(12) + uv(8)
@@ -35,6 +36,8 @@ const JOINTS_UBO_BYTES = MAX_JOINTS_GL2 * 64;
 const FRAME_UBO_BINDING = 0;
 const MATERIAL_UBO_BINDING = 1;
 const JOINTS_UBO_BINDING = 2;
+const INSTANCE_MODELS_UBO_BINDING = 3;
+const INSTANCE_MODELS_UBO_BYTES = MAX_INSTANCES_GL2 * 64;  // mat4[N], 64 bytes each
 
 // Shadow tuning. Map size varies per quality (low: off, medium: 1024,
 // high: 2048). Half-extent is the same across qualities — gameplay
@@ -99,12 +102,24 @@ export class RenderSystemWebGL2 implements IRenderer {
 
     private litStaticProgram: WebGLProgram | null = null;
     private litSkinnedProgram: WebGLProgram | null = null;
+    private litInstancedProgram: WebGLProgram | null = null;
     private shadowStaticProgram: WebGLProgram | null = null;
     private shadowSkinnedProgram: WebGLProgram | null = null;
+    private shadowInstancedProgram: WebGLProgram | null = null;
     private skyboxProgram: WebGLProgram | null = null;
 
     private frameUBO: GL2Buffer | null = null;
     private materialUBO: GL2Buffer | null = null;
+    /** UBO of mat4[MAX_INSTANCES_GL2] for instanced draws. The vertex
+     *  shaders (lit + shadow instanced variants) read
+     *  `u_models[gl_InstanceID]` from this. Each batch fills the UBO,
+     *  binds, and issues drawElementsInstanced — runs of >MAX_INSTANCES_GL2
+     *  are split across multiple submits. */
+    private instanceModelsUBO: GL2Buffer | null = null;
+    private instanceModelsScratch = new Float32Array(MAX_INSTANCES_GL2 * 16);
+    /** Scan-pass schedule. 3 numbers per entry: [start, end, _unused].
+     *  `end - start >= 2` means instanced batch; otherwise single mesh. */
+    private _scheduleScratch: number[] = [];
 
     private defaultWhiteTexture: GL2Texture | null = null;
     private defaultFlatNormalTexture: GL2Texture | null = null;
@@ -160,17 +175,23 @@ export class RenderSystemWebGL2 implements IRenderer {
 
         this.litStaticProgram = buildProgram(gl, buildLitVertexShader(false), LIT_FRAGMENT_SHADER, 'lit_static');
         this.litSkinnedProgram = buildProgram(gl, buildLitVertexShader(true), LIT_FRAGMENT_SHADER, 'lit_skinned');
+        this.litInstancedProgram = buildProgram(gl, buildLitInstancedVertexShader(), LIT_FRAGMENT_SHADER, 'lit_instanced');
         this.shadowStaticProgram = buildProgram(gl, buildShadowVertexShader(false), SHADOW_FRAGMENT_SHADER, 'shadow_static');
         this.shadowSkinnedProgram = buildProgram(gl, buildShadowVertexShader(true), SHADOW_FRAGMENT_SHADER, 'shadow_skinned');
+        this.shadowInstancedProgram = buildProgram(gl, buildShadowInstancedVertexShader(), SHADOW_FRAGMENT_SHADER, 'shadow_instanced');
         this.skyboxProgram = buildProgram(gl, SKYBOX_VERTEX_SHADER, SKYBOX_FRAGMENT_SHADER, 'skybox');
 
         this.bindUBOBlockBindings(this.litStaticProgram, true);
         this.bindUBOBlockBindings(this.litSkinnedProgram, true);
+        this.bindUBOBlockBindings(this.litInstancedProgram, true);
+        this.bindInstancedProgramBindings(this.litInstancedProgram);
         this.bindShadowProgramBindings(this.shadowSkinnedProgram);
+        this.bindInstancedProgramBindings(this.shadowInstancedProgram);
         this.bindUBOBlockBindings(this.skyboxProgram, false);
 
         this.frameUBO = this.resources.createUniformBuffer(FRAME_UBO_BYTES, 'frame_ubo');
         this.materialUBO = this.resources.createUniformBuffer(MATERIAL_UBO_BYTES, 'material_ubo');
+        this.instanceModelsUBO = this.resources.createUniformBuffer(INSTANCE_MODELS_UBO_BYTES, 'instance_models_ubo');
         this.defaultWhiteTexture = this.resources.createDefaultWhiteTexture();
         this.defaultFlatNormalTexture = this.createFlatNormalTexture();
         this.createShadowFramebuffer();
@@ -182,6 +203,15 @@ export class RenderSystemWebGL2 implements IRenderer {
         const gl = this.gl!;
         const jointsIdx = gl.getUniformBlockIndex(prog, 'JointsUBO');
         if (jointsIdx !== gl.INVALID_INDEX) gl.uniformBlockBinding(prog, jointsIdx, JOINTS_UBO_BINDING);
+    }
+
+    /** Bind the InstanceModelsUBO block on a program that uses it. Both
+     *  the lit and shadow instanced variants declare the same block at
+     *  the same binding so a single UBO buffer feeds both passes. */
+    private bindInstancedProgramBindings(prog: WebGLProgram): void {
+        const gl = this.gl!;
+        const idx = gl.getUniformBlockIndex(prog, 'InstanceModelsUBO');
+        if (idx !== gl.INVALID_INDEX) gl.uniformBlockBinding(prog, idx, INSTANCE_MODELS_UBO_BINDING);
     }
 
     private createFlatNormalTexture(): GL2Texture {
@@ -341,8 +371,82 @@ export class RenderSystemWebGL2 implements IRenderer {
         }
 
         const visible = this.renderScene.getVisibleMeshes();
-        for (const inst of visible) {
-            this.drawMesh(inst);
+
+        // Batched main pass: walk the sorted visible list, identifying
+        // runs of consecutive non-skinned meshes that share VB / IBO /
+        // draw range / material inputs. Runs of size ≥ 2 dispatch via
+        // drawMeshBatchGL2 with one drawElementsInstanced; runs of 1
+        // fall through to the per-mesh drawMesh path. Runs longer than
+        // MAX_INSTANCES_GL2 are split into chunks because the
+        // InstanceModelsUBO can't hold more than that.
+        for (let i = 0; i < visible.length; ) {
+            const m = visible[i];
+            const skinned = !!m.jointMatricesBuffer && !!m.meshHandle.skinBuffer;
+            if (!skinned) {
+                let runEnd = i + 1;
+                while (runEnd < visible.length && this.canBatchGL2(m, visible[runEnd])) runEnd++;
+                if (runEnd - i >= 2) {
+                    this.dispatchInstancedMainBatchGL2(visible, i, runEnd);
+                    i = runEnd;
+                    continue;
+                }
+            }
+            this.drawMesh(m);
+            i++;
+        }
+    }
+
+    /** Set up the instanced lit program with the same per-batch state
+     *  the per-mesh drawMesh would set, then split the run into
+     *  ≤MAX_INSTANCES_GL2 chunks and dispatch drawMeshBatchGL2 for each. */
+    private dispatchInstancedMainBatchGL2(visible: RenderMeshInstance[], start: number, end: number): void {
+        const gl = this.gl!;
+        const inst = visible[start];
+        const handle = inst.meshHandle;
+        const program = this.litInstancedProgram!;
+        gl.useProgram(program);
+
+        const state = this.getOrCreateMeshState(handle);
+        gl.bindVertexArray(state.vao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, state.iboGL);
+
+        // Material UBO is constant across the batch — write once.
+        this.writeMaterialUBO(inst);
+        gl.bindBufferBase(gl.UNIFORM_BUFFER, MATERIAL_UBO_BINDING, this.materialUBO!.glBuffer);
+
+        // Albedo + normal textures + shadow unit assignments — same for
+        // every instance, so set once.
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_BASE);
+        if (inst.baseColorTexture && isGL2Texture(inst.baseColorTexture)) {
+            gl.bindTexture(gl.TEXTURE_2D, asGL2Texture(inst.baseColorTexture).glTexture);
+        } else {
+            gl.bindTexture(gl.TEXTURE_2D, this.defaultWhiteTexture!.glTexture);
+        }
+        gl.uniform1i(gl.getUniformLocation(program, 'u_baseColorTex'), TEXTURE_UNIT_BASE);
+
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_NORMAL);
+        if (inst.normalMapTexture && isGL2Texture(inst.normalMapTexture)) {
+            gl.bindTexture(gl.TEXTURE_2D, asGL2Texture(inst.normalMapTexture).glTexture);
+        } else {
+            gl.bindTexture(gl.TEXTURE_2D, this.defaultFlatNormalTexture!.glTexture);
+        }
+        gl.uniform1i(gl.getUniformLocation(program, 'u_normalMap'), TEXTURE_UNIT_NORMAL);
+
+        gl.uniform1i(gl.getUniformLocation(program, 'u_shadowMap'), TEXTURE_UNIT_SHADOW);
+
+        const firstIndex = inst.firstIndex ?? 0;
+        const drawCount = inst.drawIndexCount ?? handle.indexCount;
+        const indexByteSize = state.indexType === gl.UNSIGNED_SHORT ? 2 : 4;
+        const firstIndexBytes = firstIndex * indexByteSize;
+
+        // Split runs >MAX_INSTANCES_GL2 into chunks.
+        for (let chunkStart = start; chunkStart < end; chunkStart += MAX_INSTANCES_GL2) {
+            const chunkEnd = Math.min(chunkStart + MAX_INSTANCES_GL2, end);
+            this.drawMeshBatchGL2(visible, chunkStart, chunkEnd, state.indexType, firstIndexBytes, drawCount);
+            const cnt = chunkEnd - chunkStart;
+            this.stats.drawCalls++;
+            this.stats.triangles += Math.floor(drawCount / 3) * cnt;
+            this.stats.meshesRendered += cnt;
         }
     }
 
@@ -383,33 +487,85 @@ export class RenderSystemWebGL2 implements IRenderer {
         gl.polygonOffset(2.5, 4.0);
 
         const visible = this.renderScene.getVisibleMeshes();
-        for (const inst of visible) {
-            const handle = inst.meshHandle;
-            const skinned = !!inst.jointMatricesBuffer && !!handle.skinBuffer;
-            const program = skinned ? this.shadowSkinnedProgram! : this.shadowStaticProgram!;
-            gl.useProgram(program);
 
-            const state = this.getOrCreateMeshState(handle);
-            gl.bindVertexArray(skinned ? state.skinVAO! : state.vao);
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, state.iboGL);
-
-            if (skinned) {
-                const jointBuf = asGL2Buffer(inst.jointMatricesBuffer);
-                gl.bindBufferBase(gl.UNIFORM_BUFFER, JOINTS_UBO_BINDING, jointBuf.glBuffer);
+        // Walk visible meshes detecting batchable runs (same VB/IBO/
+        // draw range, non-skinned). Skinned meshes never batch — joint
+        // UBO is per-mesh — so they pass through to the per-mesh path.
+        for (let i = 0; i < visible.length; ) {
+            const m = visible[i];
+            const skinned = !!m.jointMatricesBuffer && !!m.meshHandle.skinBuffer;
+            if (!skinned) {
+                let runEnd = i + 1;
+                while (runEnd < visible.length && this.canBatchGL2(m, visible[runEnd])) runEnd++;
+                if (runEnd - i >= 2) {
+                    this.dispatchInstancedShadowBatchGL2(visible, i, runEnd);
+                    i = runEnd;
+                    continue;
+                }
             }
-
-            const lightVPLoc = gl.getUniformLocation(program, 'u_lightViewProj');
-            gl.uniformMatrix4fv(lightVPLoc, false, this.shadowMatrix.data);
-            const modelLoc = gl.getUniformLocation(program, 'u_modelMatrix');
-            gl.uniformMatrix4fv(modelLoc, false, inst.modelMatrix.data);
-
-            const firstIndex = inst.firstIndex ?? 0;
-            const drawCount = inst.drawIndexCount ?? handle.indexCount;
-            const indexByteSize = state.indexType === gl.UNSIGNED_SHORT ? 2 : 4;
-            gl.drawElements(gl.TRIANGLES, drawCount, state.indexType, firstIndex * indexByteSize);
+            this.drawShadowMesh(m);
+            i++;
         }
 
         gl.disable(gl.POLYGON_OFFSET_FILL);
+    }
+
+    /** Per-mesh shadow draw — extracted from the renderShadowPass loop
+     *  so the new batching logic can fall through here for singletons
+     *  / skinned meshes without duplicating state setup. */
+    private drawShadowMesh(inst: RenderMeshInstance): void {
+        const gl = this.gl!;
+        const handle = inst.meshHandle;
+        const skinned = !!inst.jointMatricesBuffer && !!handle.skinBuffer;
+        const program = skinned ? this.shadowSkinnedProgram! : this.shadowStaticProgram!;
+        gl.useProgram(program);
+
+        const state = this.getOrCreateMeshState(handle);
+        gl.bindVertexArray(skinned ? state.skinVAO! : state.vao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, state.iboGL);
+
+        if (skinned) {
+            const jointBuf = asGL2Buffer(inst.jointMatricesBuffer);
+            gl.bindBufferBase(gl.UNIFORM_BUFFER, JOINTS_UBO_BINDING, jointBuf.glBuffer);
+        }
+
+        const lightVPLoc = gl.getUniformLocation(program, 'u_lightViewProj');
+        gl.uniformMatrix4fv(lightVPLoc, false, this.shadowMatrix.data);
+        const modelLoc = gl.getUniformLocation(program, 'u_modelMatrix');
+        gl.uniformMatrix4fv(modelLoc, false, inst.modelMatrix.data);
+
+        const firstIndex = inst.firstIndex ?? 0;
+        const drawCount = inst.drawIndexCount ?? handle.indexCount;
+        const indexByteSize = state.indexType === gl.UNSIGNED_SHORT ? 2 : 4;
+        gl.drawElements(gl.TRIANGLES, drawCount, state.indexType, firstIndex * indexByteSize);
+    }
+
+    /** Instanced shadow batch dispatch. Sets up program + VAO + IBO +
+     *  the lightViewProj uniform once, then runs through chunks of
+     *  ≤MAX_INSTANCES_GL2 instances each as drawElementsInstanced. */
+    private dispatchInstancedShadowBatchGL2(visible: RenderMeshInstance[], start: number, end: number): void {
+        const gl = this.gl!;
+        const inst = visible[start];
+        const handle = inst.meshHandle;
+        const program = this.shadowInstancedProgram!;
+        gl.useProgram(program);
+
+        const state = this.getOrCreateMeshState(handle);
+        gl.bindVertexArray(state.vao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, state.iboGL);
+
+        const lightVPLoc = gl.getUniformLocation(program, 'u_lightViewProj');
+        gl.uniformMatrix4fv(lightVPLoc, false, this.shadowMatrix.data);
+
+        const firstIndex = inst.firstIndex ?? 0;
+        const drawCount = inst.drawIndexCount ?? handle.indexCount;
+        const indexByteSize = state.indexType === gl.UNSIGNED_SHORT ? 2 : 4;
+        const firstIndexBytes = firstIndex * indexByteSize;
+
+        for (let chunkStart = start; chunkStart < end; chunkStart += MAX_INSTANCES_GL2) {
+            const chunkEnd = Math.min(chunkStart + MAX_INSTANCES_GL2, end);
+            this.drawMeshBatchGL2(visible, chunkStart, chunkEnd, state.indexType, firstIndexBytes, drawCount);
+        }
     }
 
     private writeFrameUBO(): void {
@@ -554,6 +710,59 @@ export class RenderSystemWebGL2 implements IRenderer {
         gl.disable(gl.CULL_FACE);
         gl.bindBufferBase(gl.UNIFORM_BUFFER, FRAME_UBO_BINDING, this.frameUBO!.glBuffer);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+
+    /** Two consecutive RenderMeshInstance can share an instanced draw
+     *  iff they hit the same shader path (non-skinned), the same VB +
+     *  IBO + draw range (so one drawElementsInstanced rasterizes the
+     *  same triangles N times), AND have identical material inputs
+     *  (textures, material UBO contents). The batch reads each
+     *  instance's modelMatrix from u_models[gl_InstanceID]; everything
+     *  else is uniform across the batch. */
+    private canBatchGL2(a: RenderMeshInstance, b: RenderMeshInstance): boolean {
+        if (a.meshHandle.vertexBuffer !== b.meshHandle.vertexBuffer) return false;
+        if (a.meshHandle.indexBuffer !== b.meshHandle.indexBuffer) return false;
+        if ((a.firstIndex ?? 0) !== (b.firstIndex ?? 0)) return false;
+        const aIdx = a.drawIndexCount ?? a.meshHandle.indexCount;
+        const bIdx = b.drawIndexCount ?? b.meshHandle.indexCount;
+        if (aIdx !== bIdx) return false;
+        // Skinned meshes can't batch: each carries its own joint UBO.
+        const aSkinned = !!a.jointMatricesBuffer && !!a.meshHandle.skinBuffer;
+        const bSkinned = !!b.jointMatricesBuffer && !!b.meshHandle.skinBuffer;
+        if (aSkinned || bSkinned) return false;
+        if (a.baseColorTexture !== b.baseColorTexture) return false;
+        if (a.normalMapTexture !== b.normalMapTexture) return false;
+        if (a.baseColor[0] !== b.baseColor[0]) return false;
+        if (a.baseColor[1] !== b.baseColor[1]) return false;
+        if (a.baseColor[2] !== b.baseColor[2]) return false;
+        if (a.baseColor[3] !== b.baseColor[3]) return false;
+        if (a.metallic !== b.metallic) return false;
+        if (a.roughness !== b.roughness) return false;
+        if (a.emissive[0] !== b.emissive[0]) return false;
+        if (a.emissive[1] !== b.emissive[1]) return false;
+        if (a.emissive[2] !== b.emissive[2]) return false;
+        if ((a.normalScale ?? 1) !== (b.normalScale ?? 1)) return false;
+        if ((a.uvScaleX ?? 1) !== (b.uvScaleX ?? 1)) return false;
+        if ((a.uvScaleY ?? 1) !== (b.uvScaleY ?? 1)) return false;
+        return true;
+    }
+
+    /** Pack [start..end) instances' model matrices into the
+     *  InstanceModelsUBO scratch + upload, then issue a single
+     *  drawElementsInstanced. Caller has already set up the program /
+     *  VAO / IBO / material UBO / textures since those are uniform
+     *  across the batch. */
+    private drawMeshBatchGL2(visible: RenderMeshInstance[], start: number, end: number, indexType: number, firstIndexBytes: number, drawCount: number): void {
+        const gl = this.gl!;
+        const scratch = this.instanceModelsScratch;
+        const count = end - start;
+        for (let k = 0; k < count; k++) {
+            scratch.set(visible[start + k].modelMatrix.data, k * 16);
+        }
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.instanceModelsUBO!.glBuffer);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, scratch, 0, count * 16);
+        gl.bindBufferBase(gl.UNIFORM_BUFFER, INSTANCE_MODELS_UBO_BINDING, this.instanceModelsUBO!.glBuffer);
+        gl.drawElementsInstanced(gl.TRIANGLES, drawCount, indexType, firstIndexBytes, count);
     }
 
     private drawMesh(inst: RenderMeshInstance): void {
