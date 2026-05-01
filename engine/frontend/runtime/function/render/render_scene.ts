@@ -133,6 +133,16 @@ export interface RenderFogData {
  * Per-frame render scene built from the active game scene.
  * Collects visible meshes, lights, and the active camera.
  */
+/** Pipeline-kind id used to sort RenderMeshInstance for fewer setPipeline
+ *  calls. MUST match the kind discrimination in geometry_pass.drawMeshes:
+ *  skinned wins over building wins over terrain wins over standard. */
+function kindOf(m: RenderMeshInstance): number {
+    if (m.meshHandle.skinBuffer && m.jointMatricesBuffer) return 0;
+    if (m.meshHandle.hasBuildingMeta) return 1;
+    if (m.gpuTerrainTextures) return 2;
+    return 3;
+}
+
 export class RenderScene {
     meshes: RenderMeshInstance[] = [];
     camera: RenderCamera | null = null;
@@ -160,6 +170,11 @@ export class RenderScene {
     ];
     private _visibleScratch: RenderMeshInstance[] = [];
     private _bufferIdsScratch: Map<GPUBuffer, number> = new Map();
+    /** Stable ids for unique baseColor textures within a frame. Sorting
+     *  by this id (after vertex-buffer) clusters meshes that share a
+     *  material so the geometry pass's material bind-group cache hits
+     *  on consecutive draws. Reused per frame; cleared + refilled. */
+    private _materialIdsScratch: Map<GPUTexture | null | undefined, number> = new Map();
 
     clear(): void {
         this.meshes.length = 0;
@@ -231,16 +246,39 @@ export class RenderScene {
             visible.push(mesh);
         }
 
-        // Sort by vertex buffer identity to minimize GPU state changes.
-        // Meshes sharing the same GLB skip setVertexBuffer/setIndexBuffer rebinding.
+        // Sort to minimize GPU state changes. Three-tier:
+        //   1. Pipeline kind (skinned / building / terrain / standard) —
+        //      pipeline switch is the most expensive transition; cluster
+        //      same-kind draws first so setPipeline fires once per kind.
+        //   2. Vertex buffer identity — meshes sharing a GLB skip
+        //      setVertexBuffer / setIndexBuffer rebinding.
+        //   3. baseColor texture identity — geometry pass caches material
+        //      bind groups by texture set; clustering same-material
+        //      meshes maximizes cache hits, fewer setBindGroup(2, ...)
+        //      switches inside a vertex-buffer run.
         const bufferIds = this._bufferIdsScratch;
+        const materialIds = this._materialIdsScratch;
         bufferIds.clear();
-        let nextId = 0;
+        materialIds.clear();
+        let nextBufferId = 0;
+        let nextMaterialId = 0;
         for (let i = 0; i < visible.length; i++) {
-            const vb = visible[i].meshHandle.vertexBuffer;
-            if (!bufferIds.has(vb)) bufferIds.set(vb, nextId++);
+            const m = visible[i];
+            const vb = m.meshHandle.vertexBuffer;
+            if (!bufferIds.has(vb)) bufferIds.set(vb, nextBufferId++);
+            const baseColor = m.baseColorTexture ?? null;
+            if (!materialIds.has(baseColor)) materialIds.set(baseColor, nextMaterialId++);
         }
-        visible.sort((a, b) => bufferIds.get(a.meshHandle.vertexBuffer)! - bufferIds.get(b.meshHandle.vertexBuffer)!);
+        visible.sort((a, b) => {
+            const ka = kindOf(a), kb = kindOf(b);
+            if (ka !== kb) return ka - kb;
+            const vba = bufferIds.get(a.meshHandle.vertexBuffer)!;
+            const vbb = bufferIds.get(b.meshHandle.vertexBuffer)!;
+            if (vba !== vbb) return vba - vbb;
+            const ma = materialIds.get(a.baseColorTexture ?? null)!;
+            const mb = materialIds.get(b.baseColorTexture ?? null)!;
+            return ma - mb;
+        });
 
         return visible;
     }
