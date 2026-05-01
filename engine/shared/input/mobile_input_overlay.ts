@@ -208,6 +208,14 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     ].join(';');
     container.appendChild(root);
 
+    // Cross-platform UI hint. Responsive panels (those with
+    // <meta name="pp-responsive">) key off this attribute via
+    // :root[data-pp-mobile] selectors injected by HTMLUIManager —
+    // they reserve --pp-bottom-clear for the joystick footprint and
+    // clamp font-size for legibility. Desktop never sets this attr,
+    // so the same HTML reads fine at full size.
+    try { document.documentElement.setAttribute('data-pp-mobile', '1'); } catch { /* swallow */ }
+
     // Track which Touch.identifier each widget owns + the keys it pressed.
     type FingerState = {
         widget: 'joystick' | 'look' | 'action' | 'hotbar' | 'system' | 'viewport';
@@ -1125,6 +1133,15 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         // Don't react to keys we know we never synthesized as DOM events
         // (we only inject into InputSystem). Belt-and-braces: ignore repeat.
         if (e.repeat) return;
+        // Ignore OS/modifier keys — those aren't gameplay input. The big
+        // offender was Alt-Tab: switching apps fires an `Alt` keydown
+        // (and the browser's window-level capture sees it), which used
+        // to trigger autoFade. The user returns to the tab to find the
+        // overlay invisible. Same for Cmd-T, Cmd-W, Ctrl-Shift-anything,
+        // Escape, F-keys — all OS-level shortcuts, never gameplay.
+        const code = e.code || '';
+        if (/^(Alt|Tab|Meta|Control|Shift|OS|CapsLock|ContextMenu|Escape|F\d+)/.test(code)) return;
+        if (e.altKey || e.metaKey || e.ctrlKey) return;
         autoFadeOverlay();
     };
     window.addEventListener('keydown', onPhysicalKey, true);
@@ -1202,6 +1219,80 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     }
     applyVisibility();
 
+    // Measure rail + joystick heights and publish as CSS variables on
+    // <html>. Responsive HUDs key their corner-lift rules off these vars
+    // (var(--pp-rail-h, fallback)) so a game with 8 actions vs 2 actions
+    // gets the right reserve, not a hardcoded guess. Re-measures on
+    // resize / orientation change. Each iframe pulls these from the
+    // parent (srcdoc inherits origin so window.parent works) and copies
+    // to its own :root — see html_ui_manager's wrapper script.
+    const measureAndPublishControlSizes = () => {
+        try {
+            // Rail children are all position:absolute (placeAt sets their
+            // bottom + right via inline style) so the rail container has
+            // no intrinsic content height — getBoundingClientRect().height
+            // returns 0. Compute the rail's vertical extent manually by
+            // walking children: each button's effective top from the
+            // viewport bottom = its computed `bottom` + its rendered
+            // height. Use getComputedStyle so CSS functions like
+            // `max(20px, env(safe-area-inset-bottom))` resolve to final
+            // pixel values — parseFloat on the raw inline string returns
+            // NaN for those.
+            let railTopFromBottom = 0;
+            for (let i = 0; i < railContainer.children.length; i++) {
+                const c = railContainer.children[i] as HTMLElement;
+                const cb = parseFloat(window.getComputedStyle(c).bottom) || 0;
+                const ch = c.offsetHeight || 0;
+                const top = cb + ch;
+                if (top > railTopFromBottom) railTopFromBottom = top;
+            }
+            // The rail container itself has its own `bottom:env(safe-area-
+            // inset-bottom, 12px)` offset that the children's bottoms
+            // are RELATIVE TO — add it so the published value is the
+            // distance from the actual viewport bottom, not from the
+            // container's local origin.
+            const railContainerBottom = parseFloat(window.getComputedStyle(railContainer).bottom) || 0;
+            railTopFromBottom += railContainerBottom;
+            // Joystick has explicit 140x140 plus its own
+            // `bottom:max(20px, env(safe-area-inset-bottom))`. Compute
+            // offset from viewport bottom = computed bottom + height.
+            let stickTopFromBottom = 0;
+            if (joystick) {
+                const jel = joystick.el;
+                const jb = parseFloat(window.getComputedStyle(jel).bottom) || 0;
+                const jh = jel.offsetHeight || 0;
+                stickTopFromBottom = jb + jh;
+            }
+            // Add a small buffer (12px) above each control for breathing
+            // room — HUDs sitting flush against the controls feels cramped.
+            // Publish only if we got a real measurement; otherwise leave
+            // the previous value in place so a momentary display:none
+            // (suspension) doesn't reset HUDs back under the controls
+            // until the next visibility flip re-measures.
+            if (railTopFromBottom > 0) {
+                document.documentElement.style.setProperty('--pp-rail-h', Math.ceil(railTopFromBottom + 20) + 'px');
+            }
+            if (stickTopFromBottom > 0) {
+                document.documentElement.style.setProperty('--pp-joystick-h', Math.ceil(stickTopFromBottom + 20) + 'px');
+            }
+        } catch { /* swallow */ }
+    };
+    // Defer one frame so children laid out before we measure. Then watch
+    // for resize / DOM mutation in case actions get added or buttons resized.
+    // Initial measure after layout settles. railContainer itself is
+    // 0×0 (children are absolute-positioned) so observe individual
+    // children — when any button resizes (e.g. accent state change),
+    // re-measure the rail's vertical extent. Same for joystick.
+    requestAnimationFrame(measureAndPublishControlSizes);
+    requestAnimationFrame(() => requestAnimationFrame(measureAndPublishControlSizes)); // double-rAF for late layout
+    const sizeObserver = new ResizeObserver(measureAndPublishControlSizes);
+    for (let i = 0; i < railContainer.children.length; i++) {
+        sizeObserver.observe(railContainer.children[i] as HTMLElement);
+    }
+    if (joystick) sizeObserver.observe(joystick.el);
+    window.addEventListener('resize', measureAndPublishControlSizes);
+    window.addEventListener('orientationchange', measureAndPublishControlSizes);
+
     // ── Public handle ────────────────────────────────────────────────────
     return {
         destroy: () => {
@@ -1216,6 +1307,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             releaseAllFingers();
             try { root.remove(); } catch { /* swallow */ }
             if (settingsRow) try { settingsRow.remove(); } catch { /* swallow */ }
+            try { document.documentElement.removeAttribute('data-pp-mobile'); } catch { /* swallow */ }
         },
         setEnabled: (e) => {
             enabled = e;

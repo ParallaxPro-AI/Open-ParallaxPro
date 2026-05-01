@@ -317,6 +317,47 @@ existing manifest in any template's `01_flow.json` (every shipped
 template has one). The shared types live in
 `engine/shared/input/control_manifest.ts`.
 
+### Cross-platform UI — every panel must work on phones AND desktops
+
+When patching any HTML in `project/ui/`, preserve the cross-platform contract. Apple App Store rejects games with illegible mobile UI or HUD elements hidden under the joystick.
+
+**Every UI panel must have:**
+```html
+<meta name="pp-responsive" content="1">
+```
+at the top (inside `<head>` for full-doc panels, at the top of the file for fragments). This opts the panel into the responsive layout — without it, the engine renders at a 1920px design width and scales down to ~21% on a phone (unreadable).
+
+**Common fix patterns:**
+
+- **HUD hidden under joystick on mobile** (panel anchored bottom-left or bottom-right):
+  ```css
+  /* Before */
+  .my-hud { position: fixed; left: 20px; bottom: 20px; }
+  /* After */
+  .my-hud { position: fixed; left: 20px; bottom: calc(20px + var(--pp-bottom-clear, 0px)); }
+  ```
+  Desktop: `--pp-bottom-clear` is `0` (no joystick), unchanged. Mobile: lifts ~160px above safe-area to clear the joystick + button rail.
+
+- **Title text too small on mobile** (e.g. `.title { font-size: 64px }` becomes huge in absolute terms but dwarfs a phone screen):
+  ```css
+  .title { font-size: 64px; }            /* keep desktop */
+  @media (pointer: coarse) {
+    .title { font-size: clamp(32px, 9vw, 64px); }   /* mobile clamp */
+  }
+  ```
+
+- **Modal/card overflows phone screen** (`width: 520px` on a 390px iPhone):
+  ```css
+  .card { width: min(520px, calc(100vw - 32px)); }
+  ```
+
+- **Missing `pp-responsive` meta in an existing panel**: just add the meta tag. The engine's responsive base CSS (defining `--pp-bottom-clear`, mobile padding, 44×44 tap targets) only fires when the meta is present.
+
+**Don't**:
+- Don't sniff `navigator.userAgent` for mobile detection. Use `@media (pointer: coarse)`.
+- Don't author a separate mobile HTML file. One file, two media queries.
+- Don't add `<meta name="viewport">` — the engine wraps each panel and provides one.
+
 ## Asset Search
 
 **Use `bash search_assets.sh` to find assets.** Semantic search — returns the most relevant asset paths.

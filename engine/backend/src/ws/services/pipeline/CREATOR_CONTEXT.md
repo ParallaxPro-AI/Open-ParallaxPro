@@ -1299,6 +1299,7 @@ to fix the *mesh* (scale it, swap to a tighter asset), not the collider.
 ## UI Panels
 HTML files in `project/ui/` receive game state via postMessage. Example HUD:
 ```html
+<meta name="pp-responsive" content="1">
 <div id="hp" style="position:fixed;bottom:20px;left:20px;color:white;">100</div>
 <script>
 function update(state) {
@@ -1311,6 +1312,73 @@ window.addEventListener('message', function(e) { if (e.data && e.data.type === '
 Scripts push state via: `this.scene.events.ui.emit("hud_update", { health: 75, maxHealth: 100, score: 42 })`
 
 The `state` object is merged — every emit adds/updates keys; nothing clears them. Each panel's `update(state)` should tolerate missing keys (use `if (state.foo !== undefined)` guards).
+
+### Cross-platform UI — mobile + desktop, ONE HTML
+
+**Every game must work on phones AND desktops.** Apple App Store rejects games whose in-game UI is illegible on mobile or whose joystick blocks UI elements. Don't author two parallel UIs — author ONE responsive HTML per panel.
+
+**Hard requirements for every panel in `project/ui/`:**
+
+1. **Declare responsive at the top of the file:**
+   ```html
+   <meta name="pp-responsive" content="1">
+   ```
+   This single tag opts the panel into the cross-platform layout. Without it, the engine renders the panel at a 1920px design width and scales down to ~21% on a phone — text becomes unreadable. With it, the panel uses the real device viewport.
+
+2. **Bottom-anchored elements use `--pp-bottom-clear` to clear the joystick.** On mobile the joystick + action-button rail occupy the bottom-left and bottom-right corners (~160px footprint). Reserve that space:
+   ```css
+   .my-bottom-hud {
+     position: fixed;
+     left: 20px;
+     bottom: calc(20px + var(--pp-bottom-clear, 0px));
+   }
+   ```
+   Desktop: `--pp-bottom-clear` is `0` (no joystick), HUD sits at `bottom: 20px`.
+   Mobile: `--pp-bottom-clear` resolves to `~160px + safe-area-inset-bottom`, HUD lifts above the joystick.
+   The engine ALSO has a safety net that auto-lifts inline-styled `bottom:Npx` elements on mobile, but explicit `var(--pp-bottom-clear, 0px)` is preferred — it composes cleanly with custom offsets and survives future engine changes.
+
+3. **Mobile-specific overrides go in `@media (pointer: coarse)` blocks:**
+   ```css
+   .game-title { font-size: 56px; }                /* desktop */
+   @media (pointer: coarse) {
+     .game-title { font-size: clamp(34px, 9vw, 56px); }   /* mobile clamp */
+   }
+   ```
+   `(pointer: coarse)` matches devices whose **primary** input is a finger — phones, tablets without keyboards. It does NOT match desktops with touchscreens (primary is mouse). This is the right query for "this is a phone-class device."
+
+4. **Cap fixed panel widths.** A `width: 520px` modal overflows a 390px iPhone. Use:
+   ```css
+   .modal-card { width: min(520px, calc(100vw - 32px)); }
+   ```
+   Or wrap the original value in a mobile media query. Either works; `min()` is fewer lines.
+
+5. **Buttons/interactive targets ≥ 44×44px on mobile (Apple HIG).** The engine sets this for `button`, `[role="button"]`, `[data-interactive]` automatically when the panel is responsive. If you build clickable widgets out of `<div>`s, mark them `data-interactive` so the floor applies.
+
+**Don'ts:**
+- Don't write a separate `mobile_main_menu.html`. One file, one HTML, two media queries.
+- Don't use `<meta name="viewport">` — the engine wraps each panel and provides one.
+- Don't put critical UI in the bottom-left or bottom-right corners *without* `var(--pp-bottom-clear)` — it'll be hidden under the joystick on phones.
+- Don't sniff `navigator.userAgent` to detect mobile in JS. CSS `@media (pointer: coarse)` is the contract.
+
+**Worked example — game over panel that works on both:**
+```html
+<meta name="pp-responsive" content="1">
+<style>
+  .panel { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .card { background: rgba(0,0,0,0.85); padding: 32px; border-radius: 16px; width: min(400px, calc(100vw - 32px)); }
+  .title { font-size: 72px; font-weight: 800; text-align: center; margin-bottom: 16px; }
+  .btn { width: 100%; padding: 14px; font-size: 16px; }
+  @media (pointer: coarse) {
+    .title { font-size: clamp(40px, 11vw, 72px); }
+    .card { padding: 20px; }
+  }
+</style>
+<div class="panel"><div class="card">
+  <div class="title">GAME OVER</div>
+  <button class="btn" data-action="restart">Play Again</button>
+</div></div>
+<script>/* postMessage handlers */</script>
+```
 
 ### State keys the reusable HUDs expect
 

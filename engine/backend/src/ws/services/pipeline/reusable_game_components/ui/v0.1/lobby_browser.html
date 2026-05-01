@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -175,6 +176,28 @@
     outline: none;
   }
   .pw-card input:focus { border-color: var(--accent-1); }
+
+  /* Mobile (touch primary): tighten side padding, compress the row
+     layout, and shrink list gaps so more lobbies fit in the visible
+     area. Don't override panel sizing — the original height:min(640px,
+     90vh) is what gives the panel its uniform BG. */
+  @media (pointer: coarse) {
+    .wrap { padding: 16px 10px; }
+    .panel { padding: 14px 14px 12px; }
+    .header { padding-bottom: 10px; margin-bottom: 10px; }
+    .toolbar { margin-bottom: 8px; }
+    .list { gap: 4px; }
+    .pw-card { width: min(320px, calc(100vw - 32px)); }
+    .row { grid-template-columns: 1.6fr 0.55fr 0.6fr auto; padding: 6px 8px; gap: 6px; }
+    .row .host { display: none; }
+    .row .name { font-size: 13px; }
+    .row .count { font-size: 11px; }
+    .row .ping { font-size: 11px; }
+    .row .state { font-size: 9px; }
+    .pill-btn { font-size: 11px; padding: 8px 10px; letter-spacing: 1px; }
+    .footer-bar { padding-top: 10px; margin-top: 10px; }
+    .empty { padding: 24px 0; font-size: 12px; }
+  }
 </style>
 </head>
 <body>

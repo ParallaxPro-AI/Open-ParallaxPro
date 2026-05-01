@@ -53,10 +53,53 @@ export class HTMLUIManager {
      *  it hasn't changed lets the iframe stay stable between actual lobby-list
      *  updates so iOS dispatches clicks normally. */
     private lastLobbiesHash: string | null = null;
+    /** Panels that opted into the cross-platform layout via
+     *  `<meta name="pp-responsive">` in their HTML. These panels:
+     *    - skip the 1920px design-width down-scale (they author for the
+     *      real device viewport using rem/clamp/% directly).
+     *    - get the responsive base CSS injected by the wrapper, which
+     *      defines `--pp-bottom-clear` (joystick reserve), font-size
+     *      clamp, and safe-area padding. The base rules fire only
+     *      under `@media (pointer: coarse)`, so desktop renders the
+     *      same HTML at full size with no platform branching. */
+    private responsivePaths: Set<string> = new Set();
+    private static readonly RESPONSIVE_META_RE = /<meta\s+[^>]*name\s*=\s*["']pp-responsive["']/i;
 
     onUICommand: ((data: any) => void) | null = null;
+    /** Fires whenever sendState reports a virtual-cursor visibility change.
+     *  Used to suspend the mobile joystick + action rail while the player
+     *  is interacting with a clickable UI panel (lobby browser, lobby room,
+     *  pause menu, etc) — the cursor visibility is the engine's existing
+     *  "interactive UI is showing" signal so this stays in sync with every
+     *  state that already raises it. The callback receives the new
+     *  visibility; callers should call mobileOverlay.setSuspended(visible,
+     *  'virtual-cursor'). */
+    onVirtualCursorVisible: ((visible: boolean) => void) | null = null;
+    /** Latest cursor-visible value seen by sendState. Public so external
+     *  pollers (the editor's 1s suspension re-asserter) can read the
+     *  current desired joystick-suspension state without wiring through
+     *  the callback path. Stays null until the first sendState sets it. */
+    lastCursorVisible: boolean | null = null;
 
     private applyScale(f: HTMLIFrameElement): void {
+        // Mobile-only branch for responsive panels: apply a mild 0.82x
+        // scale so a 390px phone gets ~476px of effective design width.
+        // Full 1x rendered "zoomed in" on a phone; the desktop scale
+        // (0.21x on a phone) was unreadably small. 0.82 is the sweet
+        // spot. Desktop responsive panels fall through to the same
+        // scale logic legacy panels use — desktop UI must remain
+        // pixel-identical to its pre-responsive-overhaul rendering.
+        const isResponsive = f.dataset.ppResponsive === '1';
+        const isCoarse = typeof window !== 'undefined'
+            && window.matchMedia?.('(pointer: coarse)')?.matches === true;
+        if (isResponsive && isCoarse) {
+            const s = 0.82;
+            f.style.transform = `scale(${s})`;
+            f.style.transformOrigin = 'top left';
+            f.style.width = `${100 / s}%`;
+            f.style.height = `${100 / s}%`;
+            return;
+        }
         const s = this.currentZoom;
         if (s < 1) {
             f.style.transform = `scale(${s})`;
@@ -83,6 +126,11 @@ export class HTMLUIManager {
         // lazy-attach on first show; desktop never reads it but the cost
         // is trivial (a string ref).
         this.cachedContent.set(path, htmlContent);
+        if (HTMLUIManager.RESPONSIVE_META_RE.test(htmlContent)) {
+            this.responsivePaths.add(path);
+        } else {
+            this.responsivePaths.delete(path);
+        }
         this.unloadUI(path);
         if (this.isMobile) {
             // Defer iframe creation. sendState's lazy-attach will pick it
@@ -113,7 +161,7 @@ export class HTMLUIManager {
         // they reach every listener registered in this iframe's window
         // automatically because all panels share the same window.
         const srcdoc = `<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:none;font-family:'Segoe UI',sans-serif;color:white;position:relative;}
@@ -122,14 +170,53 @@ section[data-panel-path]{position:absolute;inset:0;display:none;pointer-events:n
 section[data-panel-path][data-shown="1"]{display:block;}
 .virtual-hover{filter:brightness(1.3) !important;outline:1px solid rgba(255,255,255,0.3) !important;}
 button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:brightness(1.4) !important;outline:1px solid rgba(255,255,255,0.5) !important;}
+/* Responsive base, scoped per-section so a single bundle can mix
+   responsive HUDs with legacy non-responsive ones safely. The
+   non-responsive sections inherit nothing from these vars/media
+   rules. Desktop sees --pp-bottom-clear=0; mobile sees ~160px
+   reserved for the joystick + button-rail footprint. */
+section[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:0px;}
+@media (pointer: coarse){
+section[data-pp-responsive]{--pp-bottom-clear:max(160px,calc(env(safe-area-inset-bottom) + 160px));--pp-top-clear:max(56px,env(safe-area-inset-top));padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
+section[data-pp-responsive] button,section[data-pp-responsive] [role="button"],section[data-pp-responsive] [data-interactive]{min-height:44px;min-width:44px;}
+/* Two-tier corner-lift: bottom-LEFT clears the joystick (~140px); the
+   bottom-RIGHT action rail stacks 4+ buttons in two columns (~280px)
+   and needs more lift. Anchored neither-side defaults to joystick-side. */
+section[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
+bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+}
+section[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
+bottom:max(var(--pp-rail-h, 240px),calc(env(safe-area-inset-bottom) + var(--pp-rail-h, 240px)))!important;
+}
+section[data-pp-responsive] [style*="position:fixed"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position: fixed"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position:absolute"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
+section[data-pp-responsive] [style*="position: absolute"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]){
+bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+}
+}
 </style></head><body><script>
 function __ppForwardErr(kind,msg,stack){try{window.parent.postMessage({type:'pp_iframe_error',kind:kind,message:String(msg||''),stack:String(stack||'')},'*');}catch(_){}}
 window.addEventListener('error',function(e){__ppForwardErr('error',e.message||(e.error&&e.error.message)||'iframe error',(e.error&&e.error.stack)||'');});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForwardErr('rejection',(r&&r.message)||String(r),(r&&r.stack)||'');});
-function __ppAddPanel(path, html){
+// Mirror parent's --pp-rail-h / --pp-joystick-h into this bundle iframe's
+// :root every 500ms so the corner-lift CSS uses the live measured rail
+// height instead of a hardcoded number. Divide by the iframe's mobile
+// scale (0.82, must match MOBILE_RESPONSIVE_SCALE in applyScale) so
+// N visible-pixels published by the parent map to N/0.82 logical-pixels
+// inside the iframe. srcdoc inherits parent origin.
+(function(){var SCALE=0.82;function pull(){try{var cs=window.parent.document.documentElement.style;var rh=cs.getPropertyValue('--pp-rail-h');var jh=cs.getPropertyValue('--pp-joystick-h');if(rh){var rp=parseFloat(rh);if(rp>0)document.documentElement.style.setProperty('--pp-rail-h',Math.ceil(rp/SCALE)+'px');}if(jh){var jp=parseFloat(jh);if(jp>0)document.documentElement.style.setProperty('--pp-joystick-h',Math.ceil(jp/SCALE)+'px');}}catch(_){}}pull();setInterval(pull,500);})();
+function __ppAddPanel(path, html, responsive){
     if (document.querySelector('section[data-panel-path="'+path+'"]')) return;
     var s = document.createElement('section');
     s.setAttribute('data-panel-path', path);
+    if (responsive) s.setAttribute('data-pp-responsive', '1');
     s.innerHTML = html;
     document.body.appendChild(s);
     var scripts = s.querySelectorAll('script');
@@ -151,7 +238,7 @@ function __ppSetVisible(path, visible){
 window.addEventListener('message', function(e){
     var d = e.data;
     if (!d || typeof d !== 'object') return;
-    if (d.type === '__pp_addPanel') __ppAddPanel(d.path, d.html);
+    if (d.type === '__pp_addPanel') __ppAddPanel(d.path, d.html, !!d.responsive);
     else if (d.type === '__pp_setVisible') __ppSetVisible(d.path, !!d.visible);
 });
 try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
@@ -205,7 +292,16 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         if (!iframe) return;  // No container yet — sendState will retry on the next push.
         if (this.hudBundleAttachedPaths.has(path)) return;
         this.hudBundleAttachedPaths.add(path);
-        this._bundlePost({ type: '__pp_addPanel', path, html });
+        const responsive = this.responsivePaths.has(path);
+        this._bundlePost({ type: '__pp_addPanel', path, html, responsive });
+        // Bundle iframe is responsive iff every panel in it is. Only
+        // then can we safely skip the 1920px design-width down-scale —
+        // a mixed bundle has at least one panel that needs the scale,
+        // so the bundle keeps it.
+        const allResponsive = [...this.hudBundleAttachedPaths].every(p => this.responsivePaths.has(p));
+        if (allResponsive) iframe.dataset.ppResponsive = '1';
+        else delete iframe.dataset.ppResponsive;
+        this.applyScale(iframe);
     }
 
     /** Lazy-install the container's ResizeObserver so panels auto-scale
@@ -252,6 +348,8 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
 
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:transparent;pointer-events:none;z-index:15;display:none;';
+        const isResponsive = this.responsivePaths.has(path);
+        if (isResponsive) iframe.dataset.ppResponsive = '1';
 
         // Wrapper script. On mobile we omit the persistent
         // MutationObserver — its closure stays alive for the iframe's
@@ -261,16 +359,72 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         // single querySelectorAll at load is enough. Saves ~1MB of
         // resident JS engine state per iframe times ~6 HUDs in-game.
         const interactiveAutoSelector = `document.querySelectorAll('button,input,select,a,[onclick],[data-interactive]').forEach(el=>el.style.pointerEvents='auto');`;
-        const mobileWrapperScript = `${interactiveAutoSelector}__ppCheckpoint('iframe loaded: ${path}');`;
-        const desktopWrapperScript = `${interactiveAutoSelector}new MutationObserver(()=>{${interactiveAutoSelector}}).observe(document.body,{childList:true,subtree:true});__ppCheckpoint('iframe loaded: ${path}');`;
+        // Bridge parent's --pp-rail-h / --pp-joystick-h CSS vars (set by
+        // mobile_input_overlay's runtime measurement of the actual rail
+        // and joystick heights) into this iframe's :root so the corner-
+        // lift rules below can use them. srcdoc inherits parent origin,
+        // so window.parent.document is reachable. rAF loop handles
+        // resize / orientation changes / dynamic action additions.
+        // The iframe is scaled by 0.82 on mobile (matches MOBILE_RESPONSIVE_SCALE
+        // in applyScale), so a parent-published value of N visible-pixels
+        // corresponds to N/0.82 logical-pixels inside the iframe. Divide
+        // before setting so HUDs lift to the right *visible* position.
+        // Desktop iframes don't fire the lift rule (gated on @media coarse)
+        // so the divide-by-mobile-scale is a no-op there.
+        const ppMirrorVars = `(function(){var SCALE=0.82;function pull(){try{var cs=window.parent.document.documentElement.style;var rh=cs.getPropertyValue('--pp-rail-h');var jh=cs.getPropertyValue('--pp-joystick-h');if(rh){var rp=parseFloat(rh);if(rp>0)document.documentElement.style.setProperty('--pp-rail-h',Math.ceil(rp/SCALE)+'px');}if(jh){var jp=parseFloat(jh);if(jp>0)document.documentElement.style.setProperty('--pp-joystick-h',Math.ceil(jp/SCALE)+'px');}}catch(_){}}pull();setInterval(pull,500);})();`;
+        const mobileWrapperScript = `${interactiveAutoSelector}${ppMirrorVars}__ppCheckpoint('iframe loaded: ${path}');`;
+        const desktopWrapperScript = `${interactiveAutoSelector}${ppMirrorVars}new MutationObserver(()=>{${interactiveAutoSelector}}).observe(document.body,{childList:true,subtree:true});__ppCheckpoint('iframe loaded: ${path}');`;
         const wrapperScript = this.isMobile ? mobileWrapperScript : desktopWrapperScript;
 
-        const wrapped = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><style>
+        const htmlAttrs = isResponsive ? ' data-pp-responsive="1"' : '';
+        const wrapped = `<!DOCTYPE html><html${htmlAttrs}><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover"><style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:none;font-family:'Segoe UI',sans-serif;color:white;}
 button,input,select,a,[data-interactive]{cursor:pointer;}
 .virtual-hover{filter:brightness(1.3) !important;outline:1px solid rgba(255,255,255,0.3) !important;}
 button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:brightness(1.4) !important;outline:1px solid rgba(255,255,255,0.5) !important;}
+/* Responsive base — fires only for panels that opted in via
+   <meta name="pp-responsive">. Desktop value of --pp-bottom-clear
+   is 0, so the same HTML reads at full size on a wide monitor.
+   Mobile branch fires under @media (pointer: coarse) — coarse
+   pointer is a device-level capability, not iframe-viewport-
+   dependent, so it works correctly even though our scale-down
+   path is bypassed for these panels. */
+:root[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:0px;}
+@media (pointer: coarse){
+:root[data-pp-responsive]{--pp-bottom-clear:max(160px,calc(env(safe-area-inset-bottom) + 160px));--pp-top-clear:max(56px,env(safe-area-inset-top));}
+:root[data-pp-responsive] body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
+:root[data-pp-responsive] button,:root[data-pp-responsive] [role="button"],:root[data-pp-responsive] [data-interactive]{min-height:44px;min-width:44px;}
+/* Universal corner-lift: bottom-anchored fixed/absolute elements in a
+   responsive panel get pushed above the joystick + action-rail
+   footprint on mobile. Two-tier because the action rail (bottom-right)
+   stacks 4+ buttons in two columns and is much taller than the
+   single-element joystick (bottom-left). !important beats inline
+   declarations; panels can opt out per-element via [data-pp-no-lift]. */
+/* Bottom-LEFT: above joystick (~140px + safe-area). 200px reserve. */
+:root[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
+bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+}
+/* Bottom-RIGHT: above the taller action rail (~280px). */
+:root[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
+bottom:max(var(--pp-rail-h, 240px),calc(env(safe-area-inset-bottom) + var(--pp-rail-h, 240px)))!important;
+}
+/* Bottom-anchored without explicit left/right (centered or grid-placed):
+   default to the smaller joystick-side reserve; safer than over-lifting
+   centered HUDs. */
+:root[data-pp-responsive] [style*="position:fixed"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position: fixed"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position:absolute"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
+:root[data-pp-responsive] [style*="position: absolute"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]){
+bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+}
+}
 </style></head><body>${htmlContent}
 <script>
 // Forward iframe-internal errors to the parent. iOS Safari reloads on
@@ -440,6 +594,17 @@ ${wrapperScript}
      * render virtual cursor, handle hover/clicks.
      */
     sendState(state: any): void {
+        // Detect virtual-cursor visibility transitions and fan out to the
+        // overlay-suspension callback. UIBridge raises state._cursor.visible
+        // for every interactive UI screen (lobby_*, pause, main_menu, etc),
+        // so this single signal covers every "user is clicking, not playing"
+        // case. Edge-triggered to avoid hammering setSuspended at 60Hz.
+        const cursorVisible = !!(state?._cursor?.visible);
+        if (cursorVisible !== this.lastCursorVisible) {
+            this.lastCursorVisible = cursorVisible;
+            try { this.onVirtualCursorVisible?.(cursorVisible); } catch { /* swallow */ }
+        }
+
         // Dedupe state.lobbies before fanning out to iframes. lobby_browser
         // re-renders its row list on every gameState push that contains
         // state.lobbies — at 60Hz that's a constant listEl.innerHTML='' DOM
@@ -637,6 +802,7 @@ ${wrapperScript}
         this.hudBundleReady = false;
         this.hudBundleAttachedPaths.clear();
         this.hudBundlePendingMessages = [];
+        this.responsivePaths.clear();
         if (this.resizeObserver) { this.resizeObserver.disconnect(); this.resizeObserver = null; }
         if (this.tabInterceptor) { document.removeEventListener('keydown', this.tabInterceptor, true); this.tabInterceptor = null; }
         const vc = document.getElementById('__virtual_cursor__');

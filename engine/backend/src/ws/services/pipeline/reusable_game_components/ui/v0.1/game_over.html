@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -234,6 +235,13 @@
   .ambient-glow.defeat { background: var(--defeat-glow); }
 
   .go-overlay.visible .ambient-glow { opacity: 0.5; }
+
+  /* Mobile (touch primary): scale hero, cap glow + score widths. */
+  @media (pointer: coarse) {
+    .go-title { font-size: clamp(40px, 11vw, 72px); letter-spacing: 4px; }
+    .go-score-value { font-size: clamp(32px, 9vw, 48px); }
+    .ambient-glow { width: min(400px, 90vw); }
+  }
 </style>
 </head>
 <body>

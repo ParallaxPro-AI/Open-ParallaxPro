@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -269,6 +270,14 @@
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 10px;
     color: var(--text-dim);
+  }
+
+  /* Mobile (touch primary): cap card width to viewport, scale hero. */
+  @media (pointer: coarse) {
+    .pm-card { min-width: 0; max-width: calc(100vw - 32px); }
+    .pm-ambient { width: min(520px, 90vw); }
+    .pm-title { font-size: clamp(28px, 8vw, 44px); }
+    .pm-buttons { width: min(260px, calc(100vw - 64px)); }
   }
 </style>
 </head>

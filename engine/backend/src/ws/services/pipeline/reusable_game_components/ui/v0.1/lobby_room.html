@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -138,6 +139,23 @@
 
   .err {
     font-size: 12px; color: var(--err); margin-top: 8px;
+  }
+
+  /* Mobile (touch primary) only — desktop must stay identical to its
+     pre-responsive-overhaul layout. Three things here:
+       1. Tighten side padding so the panel uses available width.
+       2. Give the panel a fixed-ish height (560px or 85vh) like
+          lobby_browser, so the player list scrolls internally rather
+          than the panel growing/shrinking with the player count.
+          Drop list min-height to 0 so it shrinks inside the panel.
+       3. Tighter actions margin/pad and smaller button text so all
+          three buttons fit on a phone width. */
+  @media (pointer: coarse) {
+    .wrap { padding: 24px 12px; }
+    .panel { height: min(560px, 85vh); max-height: none; }
+    .list { min-height: 0; }
+    .actions { margin-top: 10px; padding-top: 10px; }
+    .actions .btn { font-size: 11px; padding: 10px 8px; letter-spacing: 1px; }
   }
 </style>
 </head>

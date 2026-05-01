@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -92,6 +93,12 @@
   .btn.primary {
     background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
     border-color: transparent;
+  }
+
+  /* Mobile (touch primary): tighten side padding so the modal fits a
+     phone width without horizontal cramping. */
+  @media (pointer: coarse) {
+    .wrap { padding: 24px 12px; }
   }
 </style>
 </head>
