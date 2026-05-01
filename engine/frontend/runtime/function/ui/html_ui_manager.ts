@@ -193,7 +193,7 @@ section[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:0px;}
 [data-pp-mobile-only],.pp-mobile-only{display:none!important;}
 }
 @media (pointer: coarse){
-section[data-pp-responsive]{--pp-bottom-clear:max(160px,calc(env(safe-area-inset-bottom) + 160px));--pp-top-clear:max(56px,env(safe-area-inset-top));padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
+section[data-pp-responsive]{--pp-bottom-clear:var(--pp-joystick-h, 0px);--pp-top-clear:max(56px,env(safe-area-inset-top));padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
 section[data-pp-responsive] button,section[data-pp-responsive] [role="button"],section[data-pp-responsive] [data-interactive]{min-height:44px;min-width:44px;}
 /* Two-tier corner-lift: bottom-LEFT clears the joystick (~140px); the
    bottom-RIGHT action rail stacks 4+ buttons in two columns (~280px)
@@ -202,19 +202,19 @@ section[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="l
 section[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+bottom:max(var(--pp-joystick-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 0px)))!important;
 }
 section[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-rail-h, 240px),calc(env(safe-area-inset-bottom) + var(--pp-rail-h, 240px)))!important;
+bottom:max(var(--pp-rail-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-rail-h, 0px)))!important;
 }
 section[data-pp-responsive] [style*="position:fixed"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position: fixed"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position:absolute"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position: absolute"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+bottom:max(var(--pp-joystick-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 0px)))!important;
 }
 /* Universal width cap to prevent horizontal overflow of fixed-width
    panels designed at 1920px on small viewports. */
@@ -525,7 +525,7 @@ button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:bri
 [data-pp-mobile-only],.pp-mobile-only{display:none!important;}
 }
 @media (pointer: coarse){
-:root[data-pp-responsive]{--pp-bottom-clear:max(160px,calc(env(safe-area-inset-bottom) + 160px));--pp-top-clear:max(56px,env(safe-area-inset-top));}
+:root[data-pp-responsive]{--pp-bottom-clear:var(--pp-joystick-h, 0px);--pp-top-clear:max(56px,env(safe-area-inset-top));}
 :root[data-pp-responsive] body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
 :root[data-pp-responsive] button,:root[data-pp-responsive] [role="button"],:root[data-pp-responsive] [data-interactive]{min-height:44px;min-width:44px;}
 /* Universal corner-lift: bottom-anchored fixed/absolute elements in a
@@ -539,14 +539,14 @@ button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:bri
 :root[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
 :root[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
 :root[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+bottom:max(var(--pp-joystick-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 0px)))!important;
 }
 /* Bottom-RIGHT: above the taller action rail (~280px). */
 :root[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
 :root[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
 :root[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
 :root[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-rail-h, 240px),calc(env(safe-area-inset-bottom) + var(--pp-rail-h, 240px)))!important;
+bottom:max(var(--pp-rail-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-rail-h, 0px)))!important;
 }
 /* Bottom-anchored without explicit left/right (centered or grid-placed):
    default to the smaller joystick-side reserve; safer than over-lifting
@@ -555,7 +555,7 @@ bottom:max(var(--pp-rail-h, 240px),calc(env(safe-area-inset-bottom) + var(--pp-r
 :root[data-pp-responsive] [style*="position: fixed"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
 :root[data-pp-responsive] [style*="position:absolute"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
 :root[data-pp-responsive] [style*="position: absolute"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+bottom:max(var(--pp-joystick-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 0px)))!important;
 }
 /* Universal width cap: any inline-positioned fixed/absolute element
    gets max-width capped to viewport so panels designed at 1920px never

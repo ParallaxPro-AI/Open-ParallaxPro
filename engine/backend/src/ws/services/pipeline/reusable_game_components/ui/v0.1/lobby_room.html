@@ -305,6 +305,35 @@
   };
   btnStart.onclick = function () { emit('start_game'); };
 
+  // Dedupe state pushes: render() does listEl.innerHTML='' which on iOS
+  // WKWebView suppresses the synthesized click after a touchend if the
+  // mutation lands between touchstart and touchend. mp_bridge re-pushes
+  // state at the framework's push rate, including ping fluctuations and
+  // identical roster snapshots — re-rendering the player list 30-60Hz
+  // for visually-identical content kills the Start Game button click on
+  // iOS when peers are present (with 1 row, the mutation window is too
+  // small to overlap; with 2+ rows, it widens enough to swallow clicks).
+  // Same root cause as the lobby_browser fix in commit cf36385. Hash
+  // the fields render() actually consumes; bucket ping at 10ms granularity
+  // so cosmetic drift doesn't trigger a rebuild.
+  var lastRenderKey = '';
+  function computeRenderKey() {
+    var rosterPart = 'null';
+    if (roster) {
+      rosterPart = roster.name + '|' + (roster.maxPlayers || 0) + '|' + (roster.minPlayers || 0)
+        + '|' + roster.peers.map(function(p){
+          return p.peerId + ':' + (p.isHost?'H':'') + (p.isReady?'R':'') + ':' + (p.username||'');
+        }).join(',');
+    }
+    return [
+      rosterPart,
+      amHost ? '1' : '0',
+      ready ? '1' : '0',
+      Math.max(0, Math.round(pingMs / 10)),
+      pingConnected ? '1' : '0',
+      errEl.textContent || ''
+    ].join('::');
+  }
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'gameState') return;
     var state = e.data.state || {};
@@ -317,6 +346,9 @@
       pingConnected = state.multiplayer.connected !== false;
     }
     if (state.errorMessage !== undefined) errEl.textContent = state.errorMessage || '';
+    var key = computeRenderKey();
+    if (key === lastRenderKey) return;  // nothing visible changed; skip render()
+    lastRenderKey = key;
     render();
   });
 })();
