@@ -77,6 +77,14 @@ export interface MobileInputOverlayOptions {
     /** Optional container the overlay attaches to. Defaults to canvas.parentElement or body. */
     container?: HTMLElement;
     /**
+     * Whether the loaded game is multiplayer. Drives system-tray button
+     * inclusion: chat / voice are MP-only features (text_chat + voice_chat
+     * HUDs are no-ops in singleplayer), so showing their tray buttons in
+     * a singleplayer game is dead UI. Pause + Hide-Controls always show.
+     * Sourced from `projectConfig.multiplayer?.enabled` at attach time.
+     */
+    isMultiplayer?: boolean;
+    /**
      * Fires once the overlay's DOM is actually attached. With the deferred-
      * attach path that's not necessarily synchronous with the call to
      * attachMobileInputOverlay — callers that need to react on attach (e.g.
@@ -852,8 +860,14 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     const hideBtn = buildHideControlsBtnTagged();
     trayItems.appendChild(hideBtn);
     if (sys.pause) trayItems.appendChild(buildSystemBtnTagged('Pause', sys.pause, true));
-    if (sys.voice) trayItems.appendChild(buildSystemBtnTagged('Voice', sys.voice, false, true));
-    if (sys.chat)  trayItems.appendChild(buildSystemBtnTagged('Chat', sys.chat, true));
+    // Chat + Voice are multiplayer features (the corresponding HUDs are
+    // no-ops without other peers). DEFAULT_SYSTEM seeds chat:Enter /
+    // voice:KeyV unconditionally so desktop key bindings still work, but
+    // the tray buttons should only appear when the game is actually MP.
+    // Singleplayer tray = Hide Controls + Pause.
+    const showMpButtons = opts.isMultiplayer === true;
+    if (showMpButtons && sys.voice) trayItems.appendChild(buildSystemBtnTagged('Voice', sys.voice, false, true));
+    if (showMpButtons && sys.chat)  trayItems.appendChild(buildSystemBtnTagged('Chat', sys.chat, true));
 
     /**
      * "Hide Controls" toggle button. Suspends the gameplay-controls

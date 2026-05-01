@@ -113,10 +113,16 @@ export class RuntimeGlobalContext {
             // matchMedia settles) also gets the suppression — otherwise
             // the legacy shim keeps firing forever and double-fires every
             // tap once the deferred overlay finally shows up.
+            // Multiplayer detection drives whether the system tray's
+            // Chat / Voice buttons are included. flow.multiplayer.enabled
+            // is the canonical signal — text_chat + voice_chat HUDs are
+            // no-ops without other peers.
+            const isMultiplayer = projectConfig?.multiplayer?.enabled === true;
             this.mobileOverlay = attachMobileInputOverlay({
                 canvas,
                 inputSystem: this.inputSystem,
                 manifest: controlsManifest,
+                isMultiplayer,
                 onAttach: ({ enabled }) => {
                     this.inputDevice.suppressLegacyTouchAsMouse = enabled;
                 },
