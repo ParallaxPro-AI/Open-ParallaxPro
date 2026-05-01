@@ -614,6 +614,12 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     const TRAY_TOGGLE_SIZE = 42;
     const TRAY_GAP = 8;
     const trayContainer = document.createElement('div');
+    // Stable id so native chrome (iOS WKWebView) can hide the in-page
+    // tray via injected CSS while still letting mobile web Safari
+    // render it. Combined with `window.__pp_system` exposed below, the
+    // native side draws SwiftUI buttons in the bezel that drive the
+    // same actions through evaluateJavaScript.
+    trayContainer.id = 'pp-mobile-system-tray';
     // Sized to wrap both the absolutely-positioned toggle and items, so
     // hit-tests against `trayContainer` continue to fire correctly via
     // its bounding rect (which expands when items are visible).
@@ -1325,6 +1331,42 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     window.addEventListener('resize', measureAndPublishControlSizes);
     window.addEventListener('orientationchange', measureAndPublishControlSizes);
 
+    // ── Programmatic system-tray API for native chrome ───────────────────
+    // The iOS app hides the in-page ☰ tray via injected CSS and draws
+    // its own SwiftUI buttons in the left bezel; those buttons drive
+    // the same actions through this object. Mobile web Safari ignores
+    // it (the in-page tray remains the user-facing surface there).
+    // Idempotent — a deferred-then-upgraded attach simply overwrites
+    // the prior reference, which is fine because the closures captured
+    // here belong to the latest live overlay.
+    (window as any).__pp_system = {
+        pause: () => {
+            if (!sys.pause) return;
+            inputSystem.injectKeyDown(sys.pause);
+            setTimeout(() => { if (sys.pause) inputSystem.injectKeyUp(sys.pause); }, 50);
+        },
+        chat: () => {
+            if (!sys.chat) return;
+            inputSystem.injectKeyDown(sys.chat);
+            setTimeout(() => { if (sys.chat) inputSystem.injectKeyUp(sys.chat); }, 50);
+        },
+        voicePress: () => { if (sys.voice) inputSystem.injectKeyDown(sys.voice); },
+        voiceRelease: () => { if (sys.voice) inputSystem.injectKeyUp(sys.voice); },
+        toggleHideControls: () => {
+            if (suspendedReasons.has('manual-hide')) suspendedReasons.delete('manual-hide');
+            else suspendedReasons.add('manual-hide');
+            applyVisibility();
+            updateHideControlsLabel?.();
+        },
+        state: () => ({
+            isMultiplayer: opts.isMultiplayer === true,
+            hasPause: !!sys.pause,
+            hasChat: !!sys.chat,
+            hasVoice: !!sys.voice,
+            controlsHidden: suspendedReasons.has('manual-hide'),
+        }),
+    };
+
     // ── Public handle ────────────────────────────────────────────────────
     return {
         destroy: () => {
@@ -1340,6 +1382,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             try { root.remove(); } catch { /* swallow */ }
             if (settingsRow) try { settingsRow.remove(); } catch { /* swallow */ }
             try { document.documentElement.removeAttribute('data-pp-mobile'); } catch { /* swallow */ }
+            try { delete (window as any).__pp_system; } catch { /* swallow */ }
         },
         setEnabled: (e) => {
             enabled = e;
