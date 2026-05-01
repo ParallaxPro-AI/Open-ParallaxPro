@@ -231,6 +231,14 @@ void main() {
     vec3 ambient = (u_ambient.rgb + hemi * u_fogParams.w) * albedo.rgb;
     vec3 color = ambient + u_emissive.rgb;
 
+    // Lambertian normalization: the WebGPU PBR path divides every
+    // diffuse light contribution by π (kD * albedo / π). The WebGL2
+    // forward path was missing this, making every light ~3.14× too
+    // bright relative to ambient + emissive — most visible on spot /
+    // point lights at close range. The 1/PI is folded into each
+    // light loop's accumulator as a single multiply by INV_PI.
+    const float INV_PI = 0.31830988618;
+
     // Directional lights — only the first casts shadows (matches the
     // WebGPU path's main-light convention, and we only have one shadow
     // map to sample).
@@ -240,10 +248,13 @@ void main() {
         vec3 L = normalize(-u_dirLightDir[i].xyz);
         float NdotL = max(dot(N, L), 0.0);
         float shadow = (i == 0) ? sampleShadow(v_lightSpacePos) : 1.0;
-        color += u_dirLightColor[i].rgb * albedo.rgb * NdotL * shadow;
+        color += u_dirLightColor[i].rgb * albedo.rgb * NdotL * shadow * INV_PI;
     }
 
-    // Point lights
+    // Point lights — attenuation formula mirrors the WebGPU path
+    // (function pointLightAttenuation in shader_library.ts):
+    //   windowing = clamp(1 - d⁴/r⁴, 0, 1)
+    //   attn = windowing² / (d² + 1)
     int numPoint = int(u_misc.y);
     for (int i = 0; i < ${MAX_POINT_LIGHTS_GL2}; i++) {
         if (i >= numPoint) break;
@@ -253,14 +264,15 @@ void main() {
         if (dist > pl.posRange.w) continue;
         vec3 L = toL / max(dist, 1e-4);
         float NdotL = max(dot(N, L), 0.0);
-        // Inverse-square with smooth range cutoff (matches the WebGPU
-        // path closely enough that swap-over isn't jarring).
-        float atten = 1.0 / (1.0 + dist * dist);
-        float rangeFade = 1.0 - smoothstep(pl.posRange.w * 0.75, pl.posRange.w, dist);
-        color += pl.colorIntensity.rgb * albedo.rgb * NdotL * atten * rangeFade;
+        float d2 = dist * dist;
+        float r2 = pl.posRange.w * pl.posRange.w;
+        float windowing = clamp(1.0 - (d2 * d2) / (r2 * r2), 0.0, 1.0);
+        float atten = (windowing * windowing) / (d2 + 1.0);
+        color += pl.colorIntensity.rgb * albedo.rgb * NdotL * atten * INV_PI;
     }
 
-    // Spot lights
+    // Spot lights — same attenuation formula as point, gated by
+    // the in-cone factor.
     int numSpot = int(u_misc.z);
     for (int i = 0; i < ${MAX_SPOT_LIGHTS_GL2}; i++) {
         if (i >= numSpot) break;
@@ -273,9 +285,11 @@ void main() {
         float spotCos = dot(-L, normalize(sl.dirInnerCos.xyz));
         float spotFactor = smoothstep(sl.colorOuterCos.w, sl.dirInnerCos.w, spotCos);
         if (spotFactor <= 0.0) continue;
-        float atten = 1.0 / (1.0 + dist * dist);
-        float rangeFade = 1.0 - smoothstep(sl.posRange.w * 0.75, sl.posRange.w, dist);
-        color += sl.colorOuterCos.rgb * albedo.rgb * NdotL * atten * rangeFade * spotFactor;
+        float d2 = dist * dist;
+        float r2 = sl.posRange.w * sl.posRange.w;
+        float windowing = clamp(1.0 - (d2 * d2) / (r2 * r2), 0.0, 1.0);
+        float atten = (windowing * windowing) / (d2 + 1.0);
+        color += sl.colorOuterCos.rgb * albedo.rgb * NdotL * atten * spotFactor * INV_PI;
     }
 
     if (u_fogParams.x > 0.5) {
