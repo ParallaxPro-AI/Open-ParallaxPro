@@ -186,7 +186,12 @@ export class ViewportPanel {
         // Play mode
         this.ctx.on('playModeChanged', (isPlaying: boolean) => {
             if (isPlaying) {
-                this.tabBar!.style.display = '';
+                // Mobile players don't have a Scene-camera workflow during
+                // play (no gizmos / scene-cam tab) — the Game/Scene tabs +
+                // fullscreen icon just steal vertical space from the
+                // playable canvas. Hide the entire tab bar on touch
+                // devices; desktop/iPad-with-keyboard users keep it.
+                this.tabBar!.style.display = isMobile() ? 'none' : '';
                 this.setActiveTab('game');
             } else {
                 this.tabBar!.style.display = 'none';
