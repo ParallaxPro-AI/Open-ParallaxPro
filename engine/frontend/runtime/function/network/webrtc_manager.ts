@@ -117,6 +117,22 @@ interface PeerInfo {
      * can be detected as glare. Part of the perfect-negotiation pattern.
      */
     makingOffer: boolean;
+    /**
+     * Last sampled `RTCInboundRtpStreamStats.bytesReceived` for the
+     * audio receiver. The voice-reconcile tick uses tick-over-tick byte
+     * deltas as the source of truth for "actually receiving audio" —
+     * Chrome's `track.muted` flag is unreliable after renegotiation
+     * hiccups (stays false for tens of seconds even when no RTP is
+     * arriving). Reset to `null` whenever the peer claims their mic is
+     * off so the next 'on' doesn't compare against a stale snapshot.
+     */
+    lastInboundAudioBytes: number | null;
+    /**
+     * Wall-clock of the most recent voice_missing we sent to this peer.
+     * Used to suppress repeated repair requests while a renegotiation
+     * triggered by a prior request is still in flight.
+     */
+    lastVoiceMissingSentMs: number;
 }
 
 export interface WebRTCEvents {
@@ -207,6 +223,8 @@ export class WebRTCManager {
             makingOffer: false,
             disconnectGraceTimer: null,
             lastRecvMs: performance.now(),
+            lastInboundAudioBytes: null,
+            lastVoiceMissingSentMs: 0,
         };
         this.peers.set(peerId, info);
 
@@ -633,13 +651,36 @@ export class WebRTCManager {
         this._broadcastVoiceState();
         for (const info of this.peers.values()) {
             if (!info.ready || !info.channel || info.channel.readyState !== 'open') continue;
+            // Don't trigger repair while we're mid-renegotiation; the
+            // in-flight offer is the most likely cure for the silence.
+            if (info.makingOffer) continue;
             const theyClaimMicOn = this.remoteMicState.get(info.peerId) === true;
-            if (!theyClaimMicOn) continue;
-            if (this._remoteAudioAppearsAlive(info)) continue;
-            try {
-                info.channel.send(JSON.stringify({ t: 'voice_missing' }));
-            } catch { /* channel half-closed */ }
+            if (!theyClaimMicOn) {
+                // Reset byte tracking — a future 'on' shouldn't compare
+                // against bytes from before the peer last muted.
+                info.lastInboundAudioBytes = null;
+                continue;
+            }
+            // _remoteAudioAppearsAlive is async (queries getStats). Fire
+            // and forget — the next tick will re-evaluate either way.
+            void this._checkAndRepairAudio(info);
         }
+    }
+
+    private async _checkAndRepairAudio(info: PeerInfo): Promise<void> {
+        const alive = await this._remoteAudioAppearsAlive(info);
+        if (alive) return;
+        // Suppress repeated repair requests while a prior repair is
+        // still propagating. 4s is long enough for an SDP roundtrip on
+        // a poor link; the next tick will re-fire if it still hasn't
+        // fixed the audio path.
+        const now = performance.now();
+        if (now - info.lastVoiceMissingSentMs < 4000) return;
+        if (!info.channel || info.channel.readyState !== 'open') return;
+        info.lastVoiceMissingSentMs = now;
+        try {
+            info.channel.send(JSON.stringify({ t: 'voice_missing' }));
+        } catch { /* channel half-closed */ }
     }
 
     private _broadcastVoiceState(): void {
@@ -655,21 +696,56 @@ export class WebRTCManager {
     }
 
     /**
-     * Heuristic for "I'm actually receiving audio from this peer": we have
-     * a MediaStream for them AND at least one of its audio tracks is
-     * unmuted. Chrome sets `track.muted = true` when no RTP is flowing,
-     * so this reliably catches the "ontrack fired with a ghost track"
-     * case where the stream exists but nothing's coming through.
+     * "Am I actually receiving audio from this peer?" Source of truth is
+     * the RTP receiver's `bytesReceived` counter, sampled tick-over-tick.
+     * If bytes haven't moved between two reconcile ticks (~2s apart) the
+     * peer is silent regardless of what `track.muted` reports. The track
+     * flag is not reliable: Chrome leaves `muted=false` for tens of
+     * seconds after RTP actually stops flowing post-renegotiation, and
+     * the previous heuristic missed exactly that case — speaker's local
+     * level meter danced while everyone else heard silence.
      */
-    private _remoteAudioAppearsAlive(info: PeerInfo): boolean {
+    private async _remoteAudioAppearsAlive(info: PeerInfo): Promise<boolean> {
+        // Fast-fail: no inbound stream at all → definitely not receiving.
+        // ontrack hasn't fired or the receiver was torn down. No need
+        // to query stats; voice_missing is the right repair.
         const stream = info.remoteAudioStream;
         if (!stream) return false;
         const tracks = stream.getAudioTracks();
         if (!tracks || tracks.length === 0) return false;
-        for (const t of tracks) {
-            if (!t.muted && t.readyState === 'live') return true;
+
+        let bytesReceived = -1;
+        try {
+            const receiver = info.audioTransceiver?.receiver;
+            if (receiver && typeof receiver.getStats === 'function') {
+                const stats = await receiver.getStats();
+                stats.forEach((s: any) => {
+                    if (s && s.type === 'inbound-rtp' && s.kind === 'audio') {
+                        const b = typeof s.bytesReceived === 'number' ? s.bytesReceived : -1;
+                        if (b > bytesReceived) bytesReceived = b;
+                    }
+                });
+            }
+        } catch { /* getStats can throw on closed pcs — treat as unknown */ }
+
+        if (bytesReceived < 0) {
+            // No usable stats (browser quirk / pc closed) — fall back to
+            // the track flag heuristic. Less reliable but better than
+            // false-firing voice_missing every tick.
+            for (const t of tracks) {
+                if (!t.muted && t.readyState === 'live') return true;
+            }
+            return false;
         }
-        return false;
+
+        const prev = info.lastInboundAudioBytes;
+        info.lastInboundAudioBytes = bytesReceived;
+        if (prev === null) {
+            // First sample after the peer claimed mic-on — we don't have
+            // a delta yet, give them one tick of grace.
+            return true;
+        }
+        return bytesReceived > prev;
     }
 
     private _handleVoiceState(peerId: PeerId, micOn: boolean): void {
