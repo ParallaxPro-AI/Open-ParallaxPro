@@ -435,6 +435,11 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         const b = buildButton({ key: movement.jump, label: 'Jump', size: 54 });
         placeAt(b, 8, 72);
     }
+    // The secondary fire button is opt-in: presets no longer inject a
+    // `fire.secondary: 'MouseRight'` default, so the only way it lands
+    // here is if the game's own controls block declared it. (Pre-fix,
+    // every FPS / RTS / click game got a useless eye-icon button that
+    // synthesized a right-click no script read.)
     if (fire?.secondary) {
         const b = buildButton({
             key: fire.secondary, label: fire.secondaryLabel || 'Aim', size: 48,

@@ -153,7 +153,12 @@ const PRESET_DEFAULTS: Record<ControlPreset, ControlManifest> = {
     fps: {
         movement: { type: 'wasd', sprint: 'ShiftLeft', jump: 'Space', crouch: 'ControlLeft' },
         look: { type: 'mouseDelta', sensitivity: 1.0, gyro: false },
-        fire: { primary: 'MouseLeft', secondary: 'MouseRight', label: 'Fire', secondaryLabel: 'Aim', holdPrimary: true, holdSecondary: true },
+        // No `fire.secondary` default — only games that actually read
+        // MouseRight (scope/aim/alt-fire) should opt in via their own
+        // `controls.fire.secondary`. Otherwise the mobile overlay
+        // renders a useless eye-icon button that synthesizes a
+        // right-click no script reads.
+        fire: { primary: 'MouseLeft', label: 'Fire', holdPrimary: true },
         viewport: { tap: 'none' },
         scroll: { type: 'none' },
     },
@@ -199,14 +204,19 @@ const PRESET_DEFAULTS: Record<ControlPreset, ControlManifest> = {
     rts: {
         movement: { type: 'wasd+arrows' },
         look: { type: 'none' },
-        fire: { primary: 'MouseLeft', secondary: 'MouseRight', label: 'Select', secondaryLabel: 'Order' },
+        // No `fire.secondary` default — RTS games that actually use
+        // right-click (Order/Cancel/etc.) opt in by setting
+        // `controls.fire.secondary` in their own controls block.
+        fire: { primary: 'MouseLeft', label: 'Select' },
         viewport: { tap: 'click' },
         scroll: { type: 'pinch', sensitivity: 1.0 },
     },
     click: {
         movement: { type: 'none' },
         look: { type: 'none' },
-        fire: { primary: 'MouseLeft', secondary: 'MouseRight', label: 'Click' },
+        // No `fire.secondary` default — click games that actually read
+        // MouseRight opt in by setting it in their own controls block.
+        fire: { primary: 'MouseLeft', label: 'Click' },
         viewport: { tap: 'click' },
         scroll: { type: 'none' },
     },

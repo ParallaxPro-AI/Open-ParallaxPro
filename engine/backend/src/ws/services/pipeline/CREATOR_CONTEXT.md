@@ -645,6 +645,7 @@ top of `01_flow.json`:
   - `primary` / `secondary`: `"MouseLeft"` | `"MouseRight"` | `"MouseMiddle"` or any KeyboardEvent `code`.
   - `label` / `secondaryLabel`: 1-2 word button text.
   - `holdPrimary` / `holdSecondary`: true (default) = key stays down while finger is down; false = momentary tap.
+  - **`secondary` is opt-in.** Presets do NOT inject `fire.secondary` for you. Add it ONLY if your scripts actually read MouseRight (scope-aim, place-block, order, cancel, etc.). Adding it without a script that reads it ships a dead eye-icon button on mobile.
 - `actions[]` — every other gameplay key your scripts read. Each entry needs `key`, `label`, optional `hold` (default true), `toggle` (default false). **If your behavior reads a key here, it MUST appear in `actions[]` (or in `movement` / `fire` / `hotbar`) — otherwise mobile players cannot trigger it.**
 - `hotbar` — number-key inventory or ability strip.
   - `from`, `to`: inclusive range, e.g. `"Digit1"` to `"Digit9"`.

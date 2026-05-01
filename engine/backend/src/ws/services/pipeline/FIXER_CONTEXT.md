@@ -305,6 +305,7 @@ in the same edit:
 - **Add a new key your behavior reads** (e.g. introduce `KeyR` for reload):
   add an entry to `controls.actions[]` with a label, e.g. `{ "key": "KeyR", "label": "Reload" }`. Or, if it's movement-related, set the right field on `controls.movement` (`sprint`, `crouch`, `jump`).
 - **Change which key fires the gun**: update `controls.fire.primary` (or `secondary`) to match.
+- **Add a right-click action** (scope-aim, place-block, order, cancel, etc.): set `controls.fire.secondary` AND `controls.fire.secondaryLabel`. Presets no longer auto-inject a secondary fire button — it's opt-in only. Conversely, **if you remove a script's MouseRight reads, also delete `controls.fire.secondary`** so the dead eye-icon button doesn't ship on mobile.
 - **Add a hotbar / inventory slot**: extend `controls.hotbar.from`/`to`/`labels`.
 - **Switch to mouse-look from a no-look game**: set `controls.look.type: "mouseDelta"`. Most click-to-play games should keep `"none"` and `viewport.tap: "click"`.
 - **Convert from FPS to click-to-play (or vice versa)**: change `controls.preset`, `controls.movement.type`, and `controls.viewport.tap` together.
