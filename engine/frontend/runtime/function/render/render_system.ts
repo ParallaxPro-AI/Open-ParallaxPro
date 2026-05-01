@@ -9,6 +9,7 @@ import { RenderScene, MeshData, GPUMeshHandle, RenderCamera, RenderMeshInstance,
 import { DebugRenderer } from './debug_renderer.js';
 import { GraphicsQuality } from './passes/geometry_pass.js';
 import { ParticleRenderer, ParticleRenderData } from './particle_renderer.js';
+import { IRenderer, GfxBackend } from './i_renderer.js';
 
 /**
  * Lightweight interface for extracting renderable data from the active scene.
@@ -32,7 +33,8 @@ export interface RenderSceneSource {
  * Manages GPU resources, builds the RenderScene each frame,
  * and drives the RenderPipeline.
  */
-export class RenderSystem {
+export class RenderSystem implements IRenderer {
+    readonly backend: GfxBackend = 'webgpu';
     private gpuDevice!: GPUDeviceManager;
     private canvasManager!: CanvasManager;
     private shaderLibrary = new ShaderLibrary();

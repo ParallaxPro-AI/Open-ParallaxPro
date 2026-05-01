@@ -36,7 +36,8 @@ export class ParallaxEditor {
                 ?? baseConfig.controls,
         };
 
-        await this.engine.startEngine(canvas, projectConfig);
+        const backend = (window as any).__ppGfxBackend;
+        await this.engine.startEngine(canvas, projectConfig, backend ? { backend } : undefined);
         this.engine.setEditorMode(true);
 
         const ctx = EditorContext.instance;

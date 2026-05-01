@@ -5,7 +5,7 @@ import './styles/theme.css';
 // no error visibility — iPhone Safari users hitting issues on
 // games.parallaxpro.ai/play/* had no way to surface what failed.
 import './utils/error_tracker.js';
-import { checkWebGPUSupport, showWebGPUUnsupportedScreen } from './utils/webgpu_check.js';
+import { detectBackend, showNoGpuScreen } from './utils/webgpu_check.js';
 
 import { ParallaxEditor } from './editor.js';
 import { EditorContext } from './editor_context.js';
@@ -684,17 +684,22 @@ async function boot(): Promise<void> {
     resize();
 }
 
-// Front-load the WebGPU check. Engine init throws "WebGPU is not
-// supported" later if navigator.gpu is missing, but by then the user
-// has loaded the play bundle and is staring at a frozen splash. Catch
-// at boot so the user gets a clear, actionable message immediately.
-// Targets older iPhones / iPads that pre-date Safari 16.4, plus
-// Firefox-without-flag and other unsupported runtimes.
-if (!checkWebGPUSupport().supported) {
-    showWebGPUUnsupportedScreen();
-} else {
+// Front-load the GPU backend probe. Engine init would throw later if
+// no backend is available, but by then the user has loaded the play
+// bundle and is staring at a frozen splash. Detect at boot, prefer
+// WebGPU, fall back to WebGL2 (reduced-feature pipeline — no shadows,
+// no SSR/HBAO/bloom). Show the unsupported overlay only when neither
+// works. The chosen backend is stashed on `window` so editor.initialize
+// can pass it to ParallaxEngine.startEngine.
+(async () => {
+    const backend = await detectBackend();
+    if (backend === null) {
+        showNoGpuScreen();
+        return;
+    }
+    (window as any).__ppGfxBackend = backend;
     boot().catch((e) => {
         console.error('Failed to start game:', e);
         showError(e.message || 'Unknown error.');
     });
-}
+})();

@@ -18,7 +18,7 @@
  */
 import { Scene } from '../../../engine/frontend/runtime/function/framework/scene.js';
 import { MeshRendererComponent } from '../../../engine/frontend/runtime/function/framework/components/mesh_renderer_component.js';
-import { RenderSystem } from '../../../engine/frontend/runtime/function/render/render_system.js';
+import { IRenderer } from '../../../engine/frontend/runtime/function/render/i_renderer.js';
 import { GPUMeshHandle } from '../../../engine/frontend/runtime/function/render/render_scene.js';
 import {
 	loadBuildingTextureArrays,
@@ -86,7 +86,7 @@ const BUILD_BUDGET_PER_FRAME = 1;
 
 export class StreamedBuildings {
     private scene: Scene;
-    private renderSystem: RenderSystem;
+    private renderSystem: IRenderer;
     private assetBasePath: string;
     private loadRadius: number;
     private unloadRadius: number;
@@ -110,7 +110,7 @@ export class StreamedBuildings {
     private textureArrays: Awaited<ReturnType<typeof loadBuildingTextureArrays>> | null = null;
     private polyHavenBasePath: string;
 
-    constructor(scene: Scene, renderSystem: RenderSystem, config: StreamedBuildingsConfig) {
+    constructor(scene: Scene, renderSystem: IRenderer, config: StreamedBuildingsConfig) {
         this.scene = scene;
         this.renderSystem = renderSystem;
         this.assetBasePath = config.assetBasePath.endsWith('/') ? config.assetBasePath : config.assetBasePath + '/';

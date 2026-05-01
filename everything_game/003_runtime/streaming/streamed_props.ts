@@ -17,7 +17,7 @@
 
 import { Scene } from '../../../engine/frontend/runtime/function/framework/scene.js';
 import { MeshRendererComponent } from '../../../engine/frontend/runtime/function/framework/components/mesh_renderer_component.js';
-import { RenderSystem } from '../../../engine/frontend/runtime/function/render/render_system.js';
+import { IRenderer } from '../../../engine/frontend/runtime/function/render/i_renderer.js';
 import { GPUMeshHandle, MeshData } from '../../../engine/frontend/runtime/function/render/render_scene.js';
 import {
     FURNITURE_CATEGORY, FURNITURE_MATERIALS, FURNITURE_GENERATORS,
@@ -54,7 +54,7 @@ interface LoadedChunk {
 
 export class StreamedProps {
     private scene: Scene;
-    private renderSystem: RenderSystem;
+    private renderSystem: IRenderer;
     private assetBasePath: string;
     private loadRadius: number;
     private unloadRadius: number;
@@ -76,7 +76,7 @@ export class StreamedProps {
      *  this at 1 so a single chunk-worth of work never stalls the frame. */
     private static readonly BUILD_BUDGET_PER_FRAME = 1;
 
-    constructor(scene: Scene, renderSystem: RenderSystem, config: StreamedPropsConfig) {
+    constructor(scene: Scene, renderSystem: IRenderer, config: StreamedPropsConfig) {
         this.scene         = scene;
         this.renderSystem  = renderSystem;
         this.assetBasePath = config.assetBasePath.endsWith('/') ? config.assetBasePath : config.assetBasePath + '/';

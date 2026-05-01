@@ -1,6 +1,7 @@
 import { RuntimeGlobalContext } from './function/global/global_context.js';
 import { Scene } from './function/framework/scene.js';
 import { PerfRecorder, PerfSnapshotCore } from './function/profiling/perf_recorder.js';
+import { GfxBackend } from './function/render/i_renderer.js';
 
 export interface PerfSnapshot extends PerfSnapshotCore {
     fps: number;
@@ -46,9 +47,9 @@ export class ParallaxEngine {
      */
     private prevFrameGPUDone: Promise<void> | null = null;
 
-    async startEngine(canvasElement: HTMLCanvasElement, projectConfig: any): Promise<void> {
+    async startEngine(canvasElement: HTMLCanvasElement, projectConfig: any, options?: { backend?: GfxBackend }): Promise<void> {
         await this.initialize();
-        await this.globalContext.startSystems(canvasElement, projectConfig);
+        await this.globalContext.startSystems(canvasElement, projectConfig, options?.backend);
 
         // Resume audio context on first user interaction.
         // iOS Safari requires AudioContext creation + resume inside a
@@ -122,11 +123,18 @@ export class ParallaxEngine {
             }
 
             // Capture a completion handle for this frame's just-submitted
-            // GPU work so the next iteration can await it.
-            try {
-                const device = this.globalContext.gpuDevice.getDevice();
-                this.prevFrameGPUDone = device.queue.onSubmittedWorkDone();
-            } catch { this.prevFrameGPUDone = null; }
+            // GPU work so the next iteration can await it. WebGPU-only;
+            // WebGL2 has no equivalent — gl.finish() blocks the CPU which
+            // is worse than the queue depth it'd cap. The fallback path
+            // accepts a slightly deeper queue rather than stalling.
+            if (this.globalContext.backend === 'webgpu') {
+                try {
+                    const device = this.globalContext.gpuDevice!.getDevice();
+                    this.prevFrameGPUDone = device.queue.onSubmittedWorkDone();
+                } catch { this.prevFrameGPUDone = null; }
+            } else {
+                this.prevFrameGPUDone = null;
+            }
 
             this.animFrameId = requestAnimationFrame(loop);
         };

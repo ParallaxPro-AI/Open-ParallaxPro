@@ -1161,10 +1161,19 @@ export class Toolbar {
         gfxLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
         const gfxSelect = document.createElement('select');
         gfxSelect.style.cssText = 'width:100%;height:28px;';
-        const qualities = [
-            { value: 'low', label: 'Low', hint: 'Basic rendering, no shadows' },
+        // Hints are backend-specific — the WebGL2 fallback ships a
+        // reduced pipeline (no FXAA / MSAA / HBAO / SSR / bloom) so we
+        // describe what's actually on rather than promising features
+        // that won't render on potato hardware.
+        const isWebGL2 = (window as any).__ppGfxBackend === 'webgl2';
+        const qualities = isWebGL2 ? [
+            { value: 'low',    label: 'Low',    hint: 'WebGL2 — no shadows' },
+            { value: 'medium', label: 'Medium', hint: 'WebGL2 — soft shadows' },
+            { value: 'high',   label: 'High',   hint: 'WebGL2 — sharp shadows' },
+        ] : [
+            { value: 'low',    label: 'Low',    hint: 'Basic rendering, no shadows' },
             { value: 'medium', label: 'Medium', hint: 'Shadows, FXAA anti-aliasing, HBAO' },
-            { value: 'high', label: 'High', hint: 'Shadows, MSAA anti-aliasing, HBAO, screen-space reflections, bloom' },
+            { value: 'high',   label: 'High',   hint: 'Shadows, MSAA anti-aliasing, HBAO, screen-space reflections, bloom' },
         ];
         const currentQuality = (localStorage.getItem('graphics_quality') as string) ?? 'medium';
         for (const q of qualities) {

@@ -2,7 +2,7 @@ import './utils/error_tracker.js';
 import { checkForUpdates } from './utils/version_check.js';
 import { initI18n } from './i18n/index.js';
 import { isMobile } from './utils/mobile.js';
-import { checkWebGPUSupport, showWebGPUUnsupportedScreen } from './utils/webgpu_check.js';
+import { detectBackend, showNoGpuScreen } from './utils/webgpu_check.js';
 
 import './styles/theme.css';
 import './styles/editor.css';
@@ -147,35 +147,40 @@ class App {
 if (document.getElementById('app')) {
     if (isMobile()) document.body.classList.add('mobile');
 
-    // Front-load the WebGPU check — engine init throws the same message
-    // later but the user has already loaded the heavy bundle and watched
-    // a frozen splash by then. Catching at boot is clearer.
-    if (!checkWebGPUSupport().supported) {
-        showWebGPUUnsupportedScreen();
-    } else {
-
-    window.addEventListener('popstate', () => {
-        window.location.reload();
-    });
-
-    checkForUpdates();
-    initI18n();
-
-    const app = new App();
-    app.start().catch(e => {
-        console.error('Failed to start ParallaxPro Editor:', e);
-        const appEl = document.getElementById('app');
-        if (appEl) {
-            appEl.innerHTML = `
-                <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:16px;color:#e0e0e0;font-family:sans-serif;">
-                    <div style="font-size:48px;">&#x26A0;</div>
-                    <div style="font-size:18px;font-weight:600;">Failed to start the editor</div>
-                    <div style="color:#999;font-size:14px;">${e.message || 'Unknown error'}</div>
-                    <button onclick="window.location.reload()" style="padding:8px 24px;background:#69bbf3;color:#1e1e1e;border:none;border-radius:5px;cursor:pointer;font-weight:600;">Reload</button>
-                </div>
-            `;
+    // Front-load the GPU backend probe — engine init would throw later
+    // but the user has already loaded the heavy bundle and watched a
+    // frozen splash by then. Detect at boot, prefer WebGPU, fall back to
+    // WebGL2 (reduced-feature pipeline). Show the unsupported overlay
+    // only when neither works.
+    (async () => {
+        const backend = await detectBackend();
+        if (backend === null) {
+            showNoGpuScreen();
+            return;
         }
-    });
+        (window as any).__ppGfxBackend = backend;
 
-    } // end !checkWebGPUSupport else
+        window.addEventListener('popstate', () => {
+            window.location.reload();
+        });
+
+        checkForUpdates();
+        initI18n();
+
+        const app = new App();
+        app.start().catch(e => {
+            console.error('Failed to start ParallaxPro Editor:', e);
+            const appEl = document.getElementById('app');
+            if (appEl) {
+                appEl.innerHTML = `
+                    <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:16px;color:#e0e0e0;font-family:sans-serif;">
+                        <div style="font-size:48px;">&#x26A0;</div>
+                        <div style="font-size:18px;font-weight:600;">Failed to start the editor</div>
+                        <div style="color:#999;font-size:14px;">${e.message || 'Unknown error'}</div>
+                        <button onclick="window.location.reload()" style="padding:8px 24px;background:#69bbf3;color:#1e1e1e;border:none;border-radius:5px;cursor:pointer;font-weight:600;">Reload</button>
+                    </div>
+                `;
+            }
+        });
+    })();
 }

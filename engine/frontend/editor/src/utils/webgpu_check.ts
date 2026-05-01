@@ -1,21 +1,27 @@
 /**
- * Early WebGPU support check. Engine init also throws "WebGPU is not
- * supported" inside GPUDeviceManager.initialize, but by then the user
- * has already loaded the heavy editor/play bundle and is staring at a
- * loading spinner that never finishes (iOS Safari) or a generic error
- * dialog. Catching this at module-load gives a clear, actionable
- * message before any of that runs.
+ * GPU backend detection. Probes WebGPU first (preferred — used by the
+ * full pipeline with shadows, HBAO, SSR, bloom, decals). Falls back to
+ * WebGL2 (a reduced-feature pipeline: lit geometry + skybox + skinning
+ * only) when WebGPU is unavailable. Both-fail produces a single
+ * unsupported-browser overlay.
  *
- * Targets the iOS Safari case primarily — WebGPU is behind a flag in
- * iOS 17+ and unsupported entirely on older versions. Also catches
- * Firefox-without-WebGPU-flag, very old Chrome, in-app browsers.
+ * Caught at boot in main.ts / play.ts so the user sees the message
+ * before the heavy bundle loads and a frozen splash.
  */
+
+import { GfxBackend } from '../../../runtime/function/render/i_renderer.js';
 
 export interface WebGPUSupportResult {
     supported: boolean;
     reason?: string;
 }
 
+/**
+ * Synchronous WebGPU presence check. `navigator.gpu` is the cheapest
+ * proxy — full readiness requires `requestAdapter()` which is async.
+ * Kept exported for legacy call sites; new code should use
+ * `detectBackend()` instead.
+ */
 export function checkWebGPUSupport(): WebGPUSupportResult {
     if (typeof navigator === 'undefined' || !(navigator as any).gpu) {
         return { supported: false, reason: 'navigator.gpu is undefined' };
@@ -24,34 +30,60 @@ export function checkWebGPUSupport(): WebGPUSupportResult {
 }
 
 /**
- * Mount a fullscreen, non-dismissable error overlay. Returns nothing —
- * caller should not continue past this point.
+ * Real backend probe. Tries WebGPU adapter first, then WebGL2 context
+ * on a throwaway canvas. Returns `null` only when neither works —
+ * that's the single case that should display the unsupported overlay.
  */
-export function showWebGPUUnsupportedScreen(): void {
+export async function detectBackend(): Promise<GfxBackend | null> {
+    // ?backend=webgl2 / ?backend=webgpu URL override for testing the
+    // fallback path without disabling WebGPU at the browser level.
+    // Survives reloads (unlike a console-side `navigator.gpu = undefined`
+    // override, which gets wiped by the new document).
+    let forced: GfxBackend | null = null;
+    try {
+        const sp = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+        const v = sp.get('backend');
+        if (v === 'webgl2' || v === 'webgpu') forced = v;
+    } catch { /* swallow */ }
+
+    if (forced !== 'webgl2') {
+        if (typeof navigator !== 'undefined' && (navigator as any).gpu) {
+            try {
+                const adapter = await (navigator as any).gpu.requestAdapter({ powerPreference: 'high-performance' });
+                if (adapter) return 'webgpu';
+            } catch { /* fall through to WebGL2 */ }
+        }
+    }
+
+    if (typeof document !== 'undefined') {
+        try {
+            const probe = document.createElement('canvas');
+            const ctx = probe.getContext('webgl2');
+            if (ctx) {
+                const lose = (ctx as WebGL2RenderingContext).getExtension('WEBGL_lose_context');
+                if (lose) lose.loseContext();
+                return 'webgl2';
+            }
+        } catch { /* fall through */ }
+    }
+
+    return null;
+}
+
+/**
+ * Mount a fullscreen, non-dismissable error overlay shown only when
+ * BOTH WebGPU and WebGL2 are unavailable. Call once and stop further
+ * boot.
+ */
+export function showNoGpuScreen(): void {
     if (typeof document === 'undefined') return;
-    // If the splash / loading screens exist (play.html), hide them so
-    // the WebGPU message is the only thing visible.
     for (const id of ['splash-screen', 'loading-screen', 'error-screen']) {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     }
 
-    const ua = navigator.userAgent || '';
-    const isIOS = /iPad|iPhone|iPod/i.test(ua);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-    const isFirefox = /firefox/i.test(ua);
-
-    let suggestion = 'Try Chrome or Edge on desktop, or a recent Chromium-based browser on Android.';
-    if (isIOS) {
-        suggestion = 'WebGPU is required to run the engine, but iPhone Safari does not support it yet. Please use a desktop browser (Chrome, Edge, or Safari 16.4+) to play.';
-    } else if (isSafari) {
-        suggestion = 'Safari supports WebGPU starting in macOS 14 / Safari 16.4. Update your browser, or try Chrome or Edge.';
-    } else if (isFirefox) {
-        suggestion = 'Firefox does not enable WebGPU by default. Use Chrome or Edge, or enable WebGPU in about:config under dom.webgpu.enabled.';
-    }
-
     const overlay = document.createElement('div');
-    overlay.id = 'webgpu-unsupported-overlay';
+    overlay.id = 'no-gpu-overlay';
     overlay.style.cssText =
         'position:fixed;inset:0;z-index:2147483646;background:#0f1117;color:#e7e9ee;' +
         'display:flex;align-items:center;justify-content:center;padding:24px;' +
@@ -59,15 +91,23 @@ export function showWebGPUUnsupportedScreen(): void {
     overlay.innerHTML =
         '<div style="max-width:520px;text-align:center;">' +
             '<div style="font-size:56px;margin-bottom:18px;">&#x26A0;&#xFE0F;</div>' +
-            '<div style="font-size:22px;font-weight:700;margin-bottom:10px;letter-spacing:0.2px;">WebGPU is not supported in this browser</div>' +
+            '<div style="font-size:22px;font-weight:700;margin-bottom:10px;letter-spacing:0.2px;">WebGPU and WebGL2 are not supported</div>' +
             '<div style="font-size:14px;line-height:1.55;color:#9aa3b3;margin-bottom:20px;">' +
-                suggestion +
-            '</div>' +
-            '<div style="font-size:11px;color:#5a6376;border-top:1px solid rgba(255,255,255,0.08);padding-top:14px;margin-top:10px;">' +
-                'ParallaxPro renders games with WebGPU for performance. We can\'t fall back to WebGL.' +
+                'ParallaxPro needs a recent browser with hardware-accelerated graphics. ' +
+                'Please try Chrome, Edge, Firefox, or Safari 16+ on a desktop or modern mobile device.' +
             '</div>' +
         '</div>';
 
     if (document.body) document.body.appendChild(overlay);
     else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(overlay));
+}
+
+/**
+ * Legacy shim. Old callers expected a "WebGPU not supported" screen;
+ * preserved so external imports keep compiling, but routes through the
+ * new no-gpu screen since the fallback path now handles WebGPU-missing
+ * automatically (it probes WebGL2 next).
+ */
+export function showWebGPUUnsupportedScreen(): void {
+    showNoGpuScreen();
 }

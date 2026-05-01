@@ -1,10 +1,13 @@
 import { GPUDeviceManager } from '../../platform/gpu/gpu_device.js';
+import { GL2DeviceManager } from '../../platform/gpu/gl2_device.js';
 import { CanvasManager } from '../../platform/canvas/canvas_manager.js';
 import { InputDevice } from '../../platform/input/input_device.js';
 import { HttpClient } from '../../platform/network/http_client.js';
 import { LocalCache } from '../../platform/storage/local_cache.js';
 
 import { RenderSystem } from '../render/render_system.js';
+import { RenderSystemWebGL2 } from '../render/gl2/render_system_gl2.js';
+import { IRenderer, GfxBackend } from '../render/i_renderer.js';
 import { PhysicsSystem } from '../physics/physics_system.js';
 import { AnimationSystem } from '../animation/animation_system.js';
 import { AudioSystem } from '../audio/audio_system.js';
@@ -22,15 +25,29 @@ import { setUseFacingRegistry } from '../../../editor/src/utils/glb_loader.js';
 /**
  * Central registry holding all engine systems.
  * Provides ordered initialization and shutdown of all subsystems.
+ *
+ * Backend selection: WebGPU is preferred. WebGL2 is the fallback for
+ * browsers without WebGPU (older iOS, Firefox-without-flag, etc.). The
+ * `backend` field is set in `startSystems` based on the caller's choice
+ * (defaulting to 'webgpu' for backward compatibility with old callers
+ * that don't pass it).
  */
 export class RuntimeGlobalContext {
+    backend: GfxBackend = 'webgpu';
     readonly gpuDevice: GPUDeviceManager = new GPUDeviceManager();
+    readonly gl2Device: GL2DeviceManager = new GL2DeviceManager();
     readonly canvasManager: CanvasManager = new CanvasManager();
     readonly inputDevice: InputDevice = new InputDevice();
     readonly httpClient: HttpClient = new HttpClient();
     readonly localCache: LocalCache = new LocalCache();
 
-    readonly renderSystem: RenderSystem = new RenderSystem();
+    /**
+     * Live renderer. Default-constructs the WebGPU `RenderSystem` so the
+     * field is always populated (legacy callers reference it before
+     * `startSystems` has run). Replaced with `RenderSystemWebGL2` in
+     * `startSystems` when backend === 'webgl2'.
+     */
+    renderSystem: IRenderer = new RenderSystem();
     readonly physicsSystem: PhysicsSystem = new PhysicsSystem();
     readonly animationSystem: AnimationSystem = new AnimationSystem();
     readonly audioSystem: AudioSystem = new AudioSystem();
@@ -45,8 +62,10 @@ export class RuntimeGlobalContext {
     /** Mobile-controls overlay handle, created during startSystems if a controlsManifest is provided. */
     mobileOverlay: MobileInputOverlay | null = null;
 
-    async startSystems(canvas: HTMLCanvasElement, projectConfig?: any): Promise<void> {
+    async startSystems(canvas: HTMLCanvasElement, projectConfig?: any, backend: GfxBackend = 'webgpu'): Promise<void> {
         this.projectConfig = projectConfig ?? null;
+        this.backend = backend;
+        console.log(`[engine] gfx backend: ${backend}`);
 
         // Asset-normalization registry (MODEL_FACING.json) is opt-in per
         // project. New projects are stamped with `useFacingRegistry: true`
@@ -64,7 +83,15 @@ export class RuntimeGlobalContext {
 
         // Platform layer
         this.canvasManager.initialize(canvas);
-        await this.gpuDevice.initialize(canvas);
+        if (backend === 'webgpu') {
+            await this.gpuDevice.initialize(canvas);
+        } else {
+            this.gl2Device.initialize(canvas);
+            // Replace the default-constructed WebGPU RenderSystem with
+            // the WebGL2 sibling. Runs once per process; the next play
+            // session reuses the same context.
+            this.renderSystem = new RenderSystemWebGL2();
+        }
         this.inputDevice.initialize(canvas);
 
         // Function layer (in dependency order)
@@ -105,7 +132,11 @@ export class RuntimeGlobalContext {
             fixedTimestep
         );
 
-        await this.renderSystem.initialize(this.gpuDevice, this.canvasManager);
+        if (backend === 'webgpu') {
+            await (this.renderSystem as RenderSystem).initialize(this.gpuDevice, this.canvasManager);
+        } else {
+            await (this.renderSystem as RenderSystemWebGL2).initialize(this.gl2Device, this.canvasManager);
+        }
         this.animationSystem.initialize();
         this.audioSystem.initialize();
         this.scriptSystem.initialize(this.inputSystem);
@@ -136,7 +167,11 @@ export class RuntimeGlobalContext {
         }
 
         this.inputDevice.destroy();
-        this.gpuDevice.destroy();
+        if (this.backend === 'webgpu') {
+            this.gpuDevice.destroy();
+        } else {
+            this.gl2Device.destroy();
+        }
         this.canvasManager.destroy();
 
         this.projectConfig = null;
