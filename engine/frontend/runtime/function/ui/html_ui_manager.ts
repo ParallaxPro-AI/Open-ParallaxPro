@@ -396,6 +396,21 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
             }
         };
         window.addEventListener('message', onMsg);
+
+        // game_command relay for the bundle. Per-panel iframes (desktop +
+        // modal mobile) register this in _attachIframe; the bundle was
+        // missing it, so HUDs inside the bundle (sidebar's `emit(
+        // 'open_orders')`, etc.) posted game_command messages that landed
+        // on this window with no listener — every clickable HUD button
+        // on mobile was silently dropped. Sidebar already sets
+        // `panel: 'hud/<name>'` in the payload so we don't need a path
+        // lookup; just forward to onUICommand.
+        const onBundleCommand = (e: MessageEvent) => {
+            if (e.source !== iframe.contentWindow) return;
+            if (e.data?.type !== 'game_command') return;
+            this.onUICommand?.({ ...e.data });
+        };
+        window.addEventListener('message', onBundleCommand);
         return iframe;
     }
 
