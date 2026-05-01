@@ -635,12 +635,14 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         `width:${TRAY_TOGGLE_SIZE}px`,
         `height:${TRAY_TOGGLE_SIZE}px`,
         'border-radius:50%',
-        'background:rgba(0,0,0,0.40)',
-        'border:1px solid rgba(255,255,255,0.20)',
-        'color:white', 'font-size:18px',
+        'background:rgba(0,0,0,0.18)',
+        'border:1px solid rgba(255,255,255,0.10)',
+        'color:rgba(255,255,255,0.65)', 'font-size:18px',
         'display:flex', 'align-items:center', 'justify-content:center',
         'pointer-events:auto',
         'touch-action:none', 'user-select:none',
+        'backdrop-filter:blur(4px)',
+        '-webkit-backdrop-filter:blur(4px)',
     ].join(';');
     const trayItems = document.createElement('div');
     // Anchored to the LEFT of the toggle: right edge = toggle.right + toggle.width + gap.
