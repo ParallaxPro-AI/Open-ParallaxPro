@@ -21,8 +21,13 @@ export class HTMLUIManager {
     /** True when we're running inside iOS Safari / WKWebView. The mobile
      *  code path lazy-creates iframes on show + fully removes them on hide
      *  so peak iframe count tracks visible-panels rather than total-panels. */
-    private readonly isMobile: boolean = (typeof navigator !== 'undefined') &&
-        /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+    /** Capability-based mobile detection — touch-capable AND primary
+     *  pointer is coarse. UA-regex alone missed iPadOS 13+ Desktop
+     *  Site mode (UA reports as Mac, no "iPad" substring). */
+    private readonly isMobile: boolean = (typeof navigator !== 'undefined') && (
+        (('ontouchstart' in window) || ((navigator as any)?.maxTouchPoints ?? 0) > 0)
+        && (typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)')?.matches ?? false))
+    );
     /** Mobile-only: ALL HUD panels share ONE iframe instead of one each.
      *  Every attempted per-HUD-iframe approach (lazy loadUI, rAF
      *  staggering, 250ms staggering, aggressive unload of lobby panels)

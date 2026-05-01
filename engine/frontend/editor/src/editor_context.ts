@@ -16,6 +16,7 @@ import { GameUISystem } from '../../runtime/function/ui/game_ui.js';
 import { HTMLUIManager } from '../../runtime/function/ui/html_ui_manager.js';
 import { buildScriptScene } from './play_mode_helpers.js';
 import { MultiplayerManager } from './network/multiplayer_manager.js';
+import { isMobile } from './utils/mobile.js';
 
 function resolvePropertyValue(value: any, scriptScene: any): any {
     if (value && typeof value === 'object') {
@@ -304,7 +305,9 @@ export class EditorContext extends EventBus {
         this.state.isPlaying = true;
         const viewportCanvas = document.querySelector('.viewport-canvas') as HTMLCanvasElement;
         if (viewportCanvas) viewportCanvas.focus();
-        const isMobileDevice = ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        // Capability-based detection — UA regex misses iPadOS 13+ in
+        // Desktop Site mode (UA reports as Mac, no "iPad" string).
+        const isMobileDevice = isMobile();
         if (isMobileDevice && this.engine) {
             this.engine.globalContext.inputDevice.forcePointerLocked = true;
         }

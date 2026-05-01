@@ -10,6 +10,7 @@ import { detectBackend, showNoGpuScreen } from './utils/webgpu_check.js';
 import { ParallaxEditor } from './editor.js';
 import { EditorContext } from './editor_context.js';
 import { StreamingManager } from './streaming_manager.js';
+import { isMobile as detectMobile } from './utils/mobile.js';
 
 const splashScreen = document.getElementById('splash-screen')!;
 const loadingScreen = document.getElementById('loading-screen')!;
@@ -237,8 +238,10 @@ function showSignInToPlayBanner(owner: string, slug: string): Promise<boolean> {
         document.getElementById('pp-signin-btn')!.addEventListener('click', () => {
             const popupUrl = `${MAIN_ORIGIN}/play-auth?owner=${encodeURIComponent(owner)}&slug=${encodeURIComponent(slug)}&origin=${encodeURIComponent(window.location.origin)}`;
             // On mobile, popups are unreliable — redirect the whole page.
-            // play-auth will redirect back after login.
-            const isMobile = ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            // play-auth will redirect back after login. Capability-based
+            // detection so iPadOS Desktop Site (UA reports as Mac) is
+            // still treated as mobile.
+            const isMobile = detectMobile();
             if (isMobile) {
                 window.location.href = popupUrl + '&redirect=1';
                 return;
@@ -648,7 +651,7 @@ async function boot(): Promise<void> {
 
     let relockOverlay: HTMLElement | null = null;
     {
-        const isMobile = ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isMobile = detectMobile();
         if (!isMobile) {
             const showOverlay = () => {
                 if (relockOverlay) return;
