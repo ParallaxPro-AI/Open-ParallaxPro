@@ -29,10 +29,10 @@
         { "ref": "stage_arch", "position": [ 44, 3,  5], "rotation": [0, 0, 0] },
         { "ref": "stage_banner", "position": [ 44, 6, 0], "rotation": [0, 0, 0] },
 
-        { "ref": "stage_pillar", "position": [-46, 2.5,  10] },
-        { "ref": "stage_pillar", "position": [-46, 2.5, -10] },
-        { "ref": "stage_pillar", "position": [ 46, 2.5,  10] },
-        { "ref": "stage_pillar", "position": [ 46, 2.5, -10] },
+        { "ref": "stage_pillar", "position": [-46, 0,  10] },
+        { "ref": "stage_pillar", "position": [-46, 0, -10] },
+        { "ref": "stage_pillar", "position": [ 46, 0,  10] },
+        { "ref": "stage_pillar", "position": [ 46, 0, -10] },
 
         { "ref": "stand_audience", "position": [0, 2,  14], "rotation": [0, 0, 0] },
         { "ref": "stand_audience", "position": [0, 2, -14], "rotation": [0, 0, 0] },

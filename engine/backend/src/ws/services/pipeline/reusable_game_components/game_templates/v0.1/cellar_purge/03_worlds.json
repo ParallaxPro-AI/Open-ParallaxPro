@@ -76,7 +76,7 @@
         { "ref": "cp_pillar",  "position": [-22.5, 2.0,  5.5] },
         { "ref": "cp_pillar",  "position": [-22.5, 2.0, -5.5] },
         { "ref": "cp_chest",   "position": [-20.0, 0.4,  4.5] },
-        { "ref": "cp_barrel",  "position": [-15.0, 0.4, -4.0] },
+        { "ref": "cp_barrel",  "position": [-15.0, 0, -4.0] },
 
         { "ref": "cp_floor_tile", "position": [ 18, 0, 0], "meta": { "room": "Room_Combat2" } },
         { "ref": "cp_room_region","name": "Room_Combat2", "position": [ 18, 0.05, 0], "meta": { "room": "combat" } },
@@ -90,8 +90,8 @@
         { "ref": "cp_torch",   "position": [ 23.0, 1.7,  0] },
         { "ref": "cp_pillar",  "position": [ 22.5, 2.0,  5.5] },
         { "ref": "cp_pillar",  "position": [ 22.5, 2.0, -5.5] },
-        { "ref": "cp_barrel",  "position": [ 14.5, 0.4,  3.0] },
-        { "ref": "cp_barrel",  "position": [ 21.0, 0.4, -3.5] },
+        { "ref": "cp_barrel",  "position": [ 14.5, 0,  3.0] },
+        { "ref": "cp_barrel",  "position": [ 21.0, 0, -3.5] },
         { "ref": "cp_rocks",   "position": [ 18.5, 0.4,  4.0] },
 
         { "ref": "cp_floor_tile", "position": [  0, 0, -18], "meta": { "room": "Room_Boss" } },

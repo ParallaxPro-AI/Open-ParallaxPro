@@ -57,7 +57,7 @@
         { "ref": "stand_end", "position": [58, 3, 0] },
         { "ref": "stand_end", "position": [-58, 3, 0] },
 
-        { "ref": "ball", "position": [0, 0.3, 0] },
+        { "ref": "ball", "position": [0, 0, 0] },
 
         { "name": "Player", "ref": "team_a_player", "position": [-5, 0, 0] },
         { "name": "A_Forward", "ref": "team_a_forward", "position": [-8, 0, 12] },

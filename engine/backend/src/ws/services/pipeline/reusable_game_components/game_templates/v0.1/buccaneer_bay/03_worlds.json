@@ -165,7 +165,7 @@
           "ref": "tavern_house",
           "position": [
             40,
-            0.7,
+            0,
             40
           ]
         },
@@ -173,7 +173,7 @@
           "ref": "fishery_house",
           "position": [
             46,
-            0.7,
+            0,
             36
           ]
         },
@@ -181,7 +181,7 @@
           "ref": "sawmill_house",
           "position": [
             34,
-            0.7,
+            0,
             36
           ]
         },
@@ -189,7 +189,7 @@
           "ref": "dock_long",
           "position": [
             40,
-            0.4,
+            0,
             50
           ],
           "rotation": [
@@ -202,7 +202,7 @@
           "ref": "dock_pole",
           "position": [
             38,
-            0.4,
+            0,
             53
           ]
         },
@@ -210,7 +210,7 @@
           "ref": "dock_pole",
           "position": [
             42,
-            0.4,
+            0,
             53
           ]
         },
@@ -218,7 +218,7 @@
           "ref": "palm_a",
           "position": [
             33,
-            0.7,
+            0,
             42
           ]
         },
@@ -226,7 +226,7 @@
           "ref": "palm_b",
           "position": [
             47,
-            0.7,
+            0,
             38
           ]
         },
@@ -234,7 +234,7 @@
           "ref": "palm_c",
           "position": [
             44,
-            0.7,
+            0,
             45
           ]
         },
@@ -242,7 +242,7 @@
           "ref": "rock_a",
           "position": [
             37,
-            0.7,
+            0,
             33
           ]
         },
@@ -250,7 +250,7 @@
           "ref": "rock_b",
           "position": [
             49,
-            0.7,
+            0,
             42
           ]
         },
@@ -258,7 +258,7 @@
           "ref": "barrel_decor",
           "position": [
             42,
-            0.7,
+            0,
             47
           ]
         },
@@ -266,7 +266,7 @@
           "ref": "anchor_decor",
           "position": [
             38,
-            0.7,
+            0,
             49
           ]
         },
@@ -274,7 +274,7 @@
           "ref": "captain_statue",
           "position": [
             40,
-            0.7,
+            0,
             38
           ]
         },
@@ -295,7 +295,7 @@
           "ref": "cliff_face",
           "position": [
             -55,
-            0.4,
+            0,
             30
           ]
         },
@@ -303,7 +303,7 @@
           "ref": "cliff_face",
           "position": [
             -58,
-            0.4,
+            0,
             36
           ],
           "rotation": [
@@ -316,7 +316,7 @@
           "ref": "cliff_face",
           "position": [
             -52,
-            0.4,
+            0,
             24
           ],
           "rotation": [
@@ -329,7 +329,7 @@
           "ref": "skull_decor",
           "position": [
             -55,
-            1.5,
+            0,
             28
           ]
         },
@@ -337,7 +337,7 @@
           "ref": "bones_decor",
           "position": [
             -52,
-            0.6,
+            0,
             32
           ]
         },
@@ -345,7 +345,7 @@
           "ref": "bones_decor",
           "position": [
             -58,
-            0.6,
+            0,
             28
           ]
         },
@@ -353,7 +353,7 @@
           "ref": "treasure_chest_gold",
           "position": [
             -55,
-            0.6,
+            0,
             30
           ]
         },
@@ -361,7 +361,7 @@
           "ref": "treasure_chest_closed",
           "position": [
             -53,
-            0.6,
+            0,
             28
           ]
         },
@@ -369,7 +369,7 @@
           "ref": "gold_pile",
           "position": [
             -56,
-            0.6,
+            0,
             31
           ]
         },
@@ -377,7 +377,7 @@
           "ref": "gold_bag",
           "position": [
             -55,
-            0.6,
+            0,
             33
           ]
         },
@@ -385,7 +385,7 @@
           "ref": "skeleton_decor",
           "position": [
             -54,
-            0.6,
+            0,
             30
           ]
         },
@@ -393,7 +393,7 @@
           "ref": "palm_a",
           "position": [
             -49,
-            0.7,
+            0,
             28
           ]
         },
@@ -401,7 +401,7 @@
           "ref": "palm_c",
           "position": [
             -60,
-            0.7,
+            0,
             36
           ]
         },
@@ -409,7 +409,7 @@
           "ref": "rock_c",
           "position": [
             -62,
-            0.7,
+            0,
             30
           ]
         },
@@ -430,7 +430,7 @@
           "ref": "palm_a",
           "position": [
             62,
-            0.7,
+            0,
             -48
           ]
         },
@@ -438,7 +438,7 @@
           "ref": "palm_b",
           "position": [
             55,
-            0.7,
+            0,
             -52
           ]
         },
@@ -446,7 +446,7 @@
           "ref": "palm_c",
           "position": [
             65,
-            0.7,
+            0,
             -55
           ]
         },
@@ -454,7 +454,7 @@
           "ref": "rock_a",
           "position": [
             58,
-            0.7,
+            0,
             -45
           ]
         },
@@ -462,7 +462,7 @@
           "ref": "treasure_chest_gold",
           "position": [
             60,
-            0.6,
+            0,
             -50
           ]
         },
@@ -470,7 +470,7 @@
           "ref": "gold_pile",
           "position": [
             62,
-            0.6,
+            0,
             -50
           ]
         },
@@ -478,7 +478,7 @@
           "ref": "barrel_decor",
           "position": [
             58,
-            0.6,
+            0,
             -50
           ]
         },
@@ -486,7 +486,7 @@
           "ref": "anchor_decor",
           "position": [
             60,
-            0.6,
+            0,
             -53
           ]
         },
@@ -507,7 +507,7 @@
           "ref": "palm_b",
           "position": [
             -40,
-            0.7,
+            0,
             -50
           ]
         },
@@ -515,7 +515,7 @@
           "ref": "palm_c",
           "position": [
             -44,
-            0.7,
+            0,
             -58
           ]
         },
@@ -523,7 +523,7 @@
           "ref": "rock_b",
           "position": [
             -38,
-            0.7,
+            0,
             -60
           ]
         },
@@ -531,7 +531,7 @@
           "ref": "rock_c",
           "position": [
             -46,
-            0.7,
+            0,
             -52
           ]
         },
@@ -539,7 +539,7 @@
           "ref": "treasure_chest_closed",
           "position": [
             -40,
-            0.6,
+            0,
             -55
           ]
         },
@@ -547,7 +547,7 @@
           "ref": "skeleton_decor",
           "position": [
             -42,
-            0.6,
+            0,
             -57
           ]
         },
@@ -555,7 +555,7 @@
           "ref": "skull_decor",
           "position": [
             -39,
-            0.6,
+            0,
             -56
           ]
         },
@@ -563,7 +563,7 @@
           "ref": "bones_decor",
           "position": [
             -44,
-            0.6,
+            0,
             -54
           ]
         },
@@ -571,7 +571,7 @@
           "ref": "barrel_decor",
           "position": [
             -37,
-            0.6,
+            0,
             -52
           ]
         },
@@ -587,7 +587,7 @@
           "ref": "palm_a",
           "position": [
             85,
-            0.7,
+            0,
             10
           ]
         },
@@ -595,7 +595,7 @@
           "ref": "rock_a",
           "position": [
             88,
-            0.7,
+            0,
             12
           ]
         },
@@ -611,7 +611,7 @@
           "ref": "palm_c",
           "position": [
             -80,
-            0.7,
+            0,
             -15
           ]
         },
@@ -619,7 +619,7 @@
           "ref": "rock_b",
           "position": [
             -78,
-            0.7,
+            0,
             -18
           ]
         },
@@ -635,7 +635,7 @@
           "ref": "palm_b",
           "position": [
             10,
-            0.7,
+            0,
             80
           ]
         },
@@ -643,7 +643,7 @@
           "ref": "rock_c",
           "position": [
             13,
-            0.7,
+            0,
             82
           ]
         },
@@ -659,7 +659,7 @@
           "ref": "palm_a",
           "position": [
             -15,
-            0.7,
+            0,
             -85
           ]
         },
@@ -667,7 +667,7 @@
           "ref": "rock_a",
           "position": [
             -18,
-            0.7,
+            0,
             -87
           ]
         },
@@ -683,7 +683,7 @@
           "ref": "palm_b",
           "position": [
             110,
-            0.7,
+            0,
             -75
           ]
         },
@@ -691,7 +691,7 @@
           "ref": "skull_decor",
           "position": [
             110,
-            1.5,
+            0,
             -75
           ]
         },
@@ -699,7 +699,7 @@
           "ref": "treasure_chest_closed",
           "position": [
             108,
-            0.6,
+            0,
             -75
           ]
         },
@@ -707,7 +707,7 @@
           "ref": "rock_b",
           "position": [
             113,
-            0.7,
+            0,
             -73
           ]
         },
@@ -723,7 +723,7 @@
           "ref": "palm_c",
           "position": [
             -100,
-            0.7,
+            0,
             80
           ]
         },
@@ -731,7 +731,7 @@
           "ref": "treasure_chest_gold",
           "position": [
             -100,
-            0.6,
+            0,
             80
           ]
         },
@@ -739,7 +739,7 @@
           "ref": "rock_c",
           "position": [
             -103,
-            0.7,
+            0,
             82
           ]
         },

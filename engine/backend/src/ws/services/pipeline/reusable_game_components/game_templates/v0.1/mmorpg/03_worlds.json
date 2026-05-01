@@ -858,7 +858,7 @@
           "ref": "health_potion",
           "position": [
             -40,
-            0.5,
+            0,
             -42
           ]
         },
@@ -1066,7 +1066,7 @@
           "ref": "mana_potion",
           "position": [
             -42,
-            0.5,
+            0,
             40
           ]
         },
@@ -1234,7 +1234,7 @@
           "ref": "health_potion",
           "position": [
             38,
-            0.5,
+            0,
             -38
           ]
         },
@@ -1795,7 +1795,7 @@
           "ref": "health_potion",
           "position": [
             20,
-            0.5,
+            0,
             -20
           ]
         },
@@ -1803,7 +1803,7 @@
           "ref": "mana_potion",
           "position": [
             -20,
-            0.5,
+            0,
             22
           ]
         },

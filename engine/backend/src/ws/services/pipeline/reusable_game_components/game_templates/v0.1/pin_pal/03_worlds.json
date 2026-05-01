@@ -358,7 +358,7 @@
           "ref": "pp_score_pillar",
           "position": [
             -15,
-            1.5,
+            0,
             6
           ]
         },
@@ -366,7 +366,7 @@
           "ref": "pp_score_pillar",
           "position": [
             -15,
-            1.5,
+            0,
             -6
           ]
         },
@@ -374,7 +374,7 @@
           "ref": "pp_score_pillar",
           "position": [
             16,
-            1.5,
+            0,
             10
           ]
         },
@@ -382,7 +382,7 @@
           "ref": "pp_score_pillar",
           "position": [
             16,
-            1.5,
+            0,
             -10
           ]
         },

@@ -77,7 +77,7 @@
         { "ref": "spectator_bald",   "position": [ 15, 0.5, -18], "rotation": [0, 180, 0] },
         { "ref": "spectator_male",   "position": [ 22, 0.5, -18], "rotation": [0, 200, 0] },
 
-        { "ref": "trophy_chest", "position": [ 0, 0.5, -14] }
+        { "ref": "trophy_chest", "position": [ 0, 0, -14] }
       ]
     }
   ]
