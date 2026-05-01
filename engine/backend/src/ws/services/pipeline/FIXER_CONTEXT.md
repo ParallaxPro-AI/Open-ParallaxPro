@@ -358,6 +358,16 @@ at the top (inside `<head>` for full-doc panels, at the top of the file for frag
 - Don't author a separate mobile HTML file. One file, two media queries.
 - Don't add `<meta name="viewport">` — the engine wraps each panel and provides one.
 
+**Hide desktop-only hints with `data-pp-desktop-only`.** Keyboard / mouse hints ("Press R to reload", "WASD to move", "[V] mute", "LMB shoot") render fine on desktop but waste screen space and confuse mobile players. Mark the smallest enclosing element:
+
+```html
+<span data-pp-desktop-only>Press <kbd>R</kbd> to reload</span>
+```
+
+The engine's base CSS hides `[data-pp-desktop-only]` and `.pp-desktop-only` under `@media (pointer: coarse)`. Inverse: `[data-pp-mobile-only]` / `.pp-mobile-only` for tap-only hints. No per-panel CSS needed.
+
+When patching panels that already include kbd hints without the attribute, add it — that's a frequent FIX_GAME class.
+
 ## Asset Search
 
 **Use `bash search_assets.sh` to find assets.** Semantic search — returns the most relevant asset paths.

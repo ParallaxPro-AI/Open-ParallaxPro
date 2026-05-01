@@ -176,6 +176,14 @@ button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:bri
    rules. Desktop sees --pp-bottom-clear=0; mobile sees ~160px
    reserved for the joystick + button-rail footprint. */
 section[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:0px;}
+/* desktop-only / mobile-only visibility helpers. Universal — apply
+   regardless of responsive opt-in so legacy panels can use them too. */
+@media (pointer: coarse){
+[data-pp-desktop-only],.pp-desktop-only{display:none!important;}
+}
+@media not (pointer: coarse){
+[data-pp-mobile-only],.pp-mobile-only{display:none!important;}
+}
 @media (pointer: coarse){
 section[data-pp-responsive]{--pp-bottom-clear:max(160px,calc(env(safe-area-inset-bottom) + 160px));--pp-top-clear:max(56px,env(safe-area-inset-top));padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
 section[data-pp-responsive] button,section[data-pp-responsive] [role="button"],section[data-pp-responsive] [data-interactive]{min-height:44px;min-width:44px;}
@@ -391,6 +399,17 @@ button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:bri
    dependent, so it works correctly even though our scale-down
    path is bypassed for these panels. */
 :root[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:0px;}
+/* Hide elements that only make sense on desktop (keyboard hints,
+   mouse-button cues, "Press P to pause" prompts) when the device is
+   touch-primary. Pair: [data-pp-mobile-only] / .pp-mobile-only for
+   elements that should ONLY render on mobile. Both rules apply
+   universally — legacy non-responsive panels can use them too. */
+@media (pointer: coarse){
+[data-pp-desktop-only],.pp-desktop-only{display:none!important;}
+}
+@media not (pointer: coarse){
+[data-pp-mobile-only],.pp-mobile-only{display:none!important;}
+}
 @media (pointer: coarse){
 :root[data-pp-responsive]{--pp-bottom-clear:max(160px,calc(env(safe-area-inset-bottom) + 160px));--pp-top-clear:max(56px,env(safe-area-inset-top));}
 :root[data-pp-responsive] body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}

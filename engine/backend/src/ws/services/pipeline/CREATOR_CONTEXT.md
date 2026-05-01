@@ -1360,6 +1360,24 @@ The `state` object is merged — every emit adds/updates keys; nothing clears th
 - Don't put critical UI in the bottom-left or bottom-right corners *without* `var(--pp-bottom-clear)` — it'll be hidden under the joystick on phones.
 - Don't sniff `navigator.userAgent` to detect mobile in JS. CSS `@media (pointer: coarse)` is the contract.
 
+**Hide platform-specific hints — `data-pp-desktop-only` / `data-pp-mobile-only`.** Keyboard and mouse hints ("WASD to move", "LMB to fire", "Press R to reload", "[V] mute") are meaningless on touch — phones can't press R. Mark those elements so they auto-hide on mobile:
+
+```html
+<!-- These spans render on desktop only, vanish on phones -->
+<span data-pp-desktop-only>Press <kbd>R</kbd> to reload</span>
+<span data-pp-desktop-only>WASD to move · Mouse to look · LMB to fire</span>
+
+<!-- Inverse: tap-only hints, hidden on desktop -->
+<span data-pp-mobile-only>Tap to fire</span>
+```
+
+Use the attribute on the smallest enclosing element — usually the `<span>` / `<div>` that wraps just the hint, not the whole panel. Both `data-pp-*-only` attributes and `.pp-*-only` classes work; pick whichever is more readable inline. The engine's base CSS handles the `display: none` switch via `@media (pointer: coarse)`, so no per-panel CSS is needed.
+
+Cases where this matters in templates and custom UI:
+- Main menu / pause menu controls hint (kbd shortcuts).
+- HUD overlays that show a key glyph next to an action ("[Q] ability").
+- Onboarding tooltips: "Press SPACE to jump" → desktop-only.
+
 **Worked example — game over panel that works on both:**
 ```html
 <meta name="pp-responsive" content="1">
