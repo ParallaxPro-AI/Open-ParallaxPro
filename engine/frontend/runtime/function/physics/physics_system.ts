@@ -531,6 +531,47 @@ export class PhysicsSystem {
                     rLocal = collider.radius ?? 0.5;
                     totalHLocal = collider.height ?? 1.0;
                 }
+
+                // Non-uniform horizontal scale (sx ≠ sz) makes the visual
+                // capsule have an elliptical horizontal cross-section.
+                // RAPIER's capsule is single-radius, so the ball formula
+                // below would build it with `r * max(sx, sz)` — too big
+                // on the squished axis (same flavor of bug as the SPHERE
+                // case fixed in this file). Synthesize convex-hull sample
+                // points from two ellipsoid caps at the cylinder tops;
+                // the hull of two ellipsoids is exactly the elliptical-
+                // cross-section capsule we want.
+                if (sx !== sz) {
+                    const cylHalfHLocal = Math.max(0, totalHLocal / 2 - rLocal);
+                    const capCenterY = cylHalfHLocal * sy;
+                    const N_CAP = 32;
+                    const pts = new Float32Array(N_CAP * 2 * 3);
+                    const golden = Math.PI * (3 - Math.sqrt(5));
+                    for (let i = 0; i < N_CAP; i++) {
+                        const y = 1 - (2 * i) / (N_CAP - 1);
+                        const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+                        const theta = golden * i;
+                        const x = Math.cos(theta) * radiusAtY;
+                        const z = Math.sin(theta) * radiusAtY;
+                        const ex = x * rLocal * sx;
+                        const ey = y * rLocal * sy;
+                        const ez = z * rLocal * sz;
+                        // Top cap (ellipsoid at +cylHalfHLocal * sy)
+                        pts[i * 3]     = ex;
+                        pts[i * 3 + 1] = capCenterY + ey;
+                        pts[i * 3 + 2] = ez;
+                        // Bottom cap (ellipsoid at -cylHalfHLocal * sy)
+                        const j = N_CAP + i;
+                        pts[j * 3]     = ex;
+                        pts[j * 3 + 1] = -capCenterY + ey;
+                        pts[j * 3 + 2] = ez;
+                    }
+                    const hull = RAPIER.ColliderDesc.convexHull(pts);
+                    if (hull) return hull;
+                    // convexHull failure (degenerate input) → fall through
+                    // to the legacy capsule path so we always emit a shape.
+                }
+
                 const r = Math.max(0.01, rLocal * maxHorizS);
                 const totalH = Math.max(0.02, totalHLocal * sy);
                 const cylHalfH = Math.max(0.01, totalH / 2 - r);
