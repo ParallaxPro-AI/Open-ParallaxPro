@@ -145,6 +145,22 @@ export class RenderScene {
     timeOfDay = 12.0;
     decals: DecalInstance[] = [];
 
+    // ── Scratch storage for getVisibleMeshes() ────────────────────────
+    // Reused every frame to avoid allocating a fresh Mat4 + 6 plane
+    // objects + visible array + bufferIds Map on the render hot path.
+    // All contents are overwritten before use; nothing carries over.
+    private _vpScratch = new Mat4();
+    private _planesScratch: { normal: Vec3; d: number }[] = [
+        { normal: new Vec3(0, 0, 0), d: 0 },
+        { normal: new Vec3(0, 0, 0), d: 0 },
+        { normal: new Vec3(0, 0, 0), d: 0 },
+        { normal: new Vec3(0, 0, 0), d: 0 },
+        { normal: new Vec3(0, 0, 0), d: 0 },
+        { normal: new Vec3(0, 0, 0), d: 0 },
+    ];
+    private _visibleScratch: RenderMeshInstance[] = [];
+    private _bufferIdsScratch: Map<GPUBuffer, number> = new Map();
+
     clear(): void {
         this.meshes.length = 0;
         this.directionalLights.length = 0;
@@ -197,25 +213,32 @@ export class RenderScene {
     getVisibleMeshes(): RenderMeshInstance[] {
         if (!this.camera) return this.meshes;
 
-        const vp = this.camera.projectionMatrix.multiply(this.camera.viewMatrix);
-        const planes = vp.extractFrustumPlanes();
+        // Reuse member scratch — see _vpScratch / _planesScratch / etc.
+        // Same logic as the prior allocating version; just no fresh
+        // objects per frame. The Map is cleared and refilled in-place.
+        const vp = this.camera.projectionMatrix.multiply(this.camera.viewMatrix, this._vpScratch);
+        const planes = vp.extractFrustumPlanes(this._planesScratch);
 
-        const visible = this.meshes.filter(mesh => {
-            for (const plane of planes) {
-                const dist = plane.normal.dot(mesh.boundCenter) + plane.d;
-                if (dist < -mesh.boundRadius) return false;
+        const visible = this._visibleScratch;
+        visible.length = 0;
+        const meshes = this.meshes;
+        outer: for (let i = 0; i < meshes.length; i++) {
+            const mesh = meshes[i];
+            for (let p = 0; p < planes.length; p++) {
+                const plane = planes[p];
+                if (plane.normal.dot(mesh.boundCenter) + plane.d < -mesh.boundRadius) continue outer;
             }
-            return true;
-        });
+            visible.push(mesh);
+        }
 
         // Sort by vertex buffer identity to minimize GPU state changes.
         // Meshes sharing the same GLB skip setVertexBuffer/setIndexBuffer rebinding.
-        const bufferIds = new Map<GPUBuffer, number>();
+        const bufferIds = this._bufferIdsScratch;
+        bufferIds.clear();
         let nextId = 0;
-        for (const m of visible) {
-            if (!bufferIds.has(m.meshHandle.vertexBuffer)) {
-                bufferIds.set(m.meshHandle.vertexBuffer, nextId++);
-            }
+        for (let i = 0; i < visible.length; i++) {
+            const vb = visible[i].meshHandle.vertexBuffer;
+            if (!bufferIds.has(vb)) bufferIds.set(vb, nextId++);
         }
         visible.sort((a, b) => bufferIds.get(a.meshHandle.vertexBuffer)! - bufferIds.get(b.meshHandle.vertexBuffer)!);
 

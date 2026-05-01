@@ -451,26 +451,41 @@ export class Mat4 {
         return r;
     }
 
-    /** Extract 6 frustum planes from a view-projection matrix. Order: left, right, bottom, top, near, far. */
-    extractFrustumPlanes(): { normal: Vec3; d: number }[] {
+    /** Extract 6 frustum planes from a view-projection matrix. Order: left, right, bottom, top, near, far.
+     *  Pass a 6-element `out` array of `{normal: Vec3, d: number}` to reuse
+     *  scratch storage and avoid per-frame allocations on hot paths
+     *  (render_scene.getVisibleMeshes, shadow_pass shadow-camera cull).
+     *  Without `out` the method allocates fresh objects each call (legacy
+     *  callers behave identically). */
+    extractFrustumPlanes(out?: { normal: Vec3; d: number }[]): { normal: Vec3; d: number }[] {
         const d = this.data;
-        return [
-            Mat4.normalizePlane(d[3] + d[0], d[7] + d[4], d[11] + d[8], d[15] + d[12]),   // left
-            Mat4.normalizePlane(d[3] - d[0], d[7] - d[4], d[11] - d[8], d[15] - d[12]),   // right
-            Mat4.normalizePlane(d[3] + d[1], d[7] + d[5], d[11] + d[9], d[15] + d[13]),   // bottom
-            Mat4.normalizePlane(d[3] - d[1], d[7] - d[5], d[11] - d[9], d[15] - d[13]),   // top
-            Mat4.normalizePlane(d[2], d[6], d[10], d[14]),                                  // near
-            Mat4.normalizePlane(d[3] - d[2], d[7] - d[6], d[11] - d[10], d[15] - d[14]),  // far
+        const r = out ?? [
+            { normal: new Vec3(0, 0, 0), d: 0 },
+            { normal: new Vec3(0, 0, 0), d: 0 },
+            { normal: new Vec3(0, 0, 0), d: 0 },
+            { normal: new Vec3(0, 0, 0), d: 0 },
+            { normal: new Vec3(0, 0, 0), d: 0 },
+            { normal: new Vec3(0, 0, 0), d: 0 },
         ];
+        Mat4.normalizePlane(d[3] + d[0], d[7] + d[4], d[11] + d[8], d[15] + d[12], r[0]);   // left
+        Mat4.normalizePlane(d[3] - d[0], d[7] - d[4], d[11] - d[8], d[15] - d[12], r[1]);   // right
+        Mat4.normalizePlane(d[3] + d[1], d[7] + d[5], d[11] + d[9], d[15] + d[13], r[2]);   // bottom
+        Mat4.normalizePlane(d[3] - d[1], d[7] - d[5], d[11] - d[9], d[15] - d[13], r[3]);   // top
+        Mat4.normalizePlane(d[2], d[6], d[10], d[14], r[4]);                                  // near
+        Mat4.normalizePlane(d[3] - d[2], d[7] - d[6], d[11] - d[10], d[15] - d[14], r[5]);  // far
+        return r;
     }
 
-    private static normalizePlane(a: number, b: number, c: number, d: number): { normal: Vec3; d: number } {
+    private static normalizePlane(a: number, b: number, c: number, d: number, out: { normal: Vec3; d: number }): void {
         const len = Math.sqrt(a * a + b * b + c * c);
         if (len > 1e-10) {
             const invLen = 1 / len;
-            return { normal: new Vec3(a * invLen, b * invLen, c * invLen), d: d * invLen };
+            out.normal.set(a * invLen, b * invLen, c * invLen);
+            out.d = d * invLen;
+        } else {
+            out.normal.set(a, b, c);
+            out.d = d;
         }
-        return { normal: new Vec3(a, b, c), d };
     }
 
     equals(m: Mat4, epsilon: number = 1e-6): boolean {

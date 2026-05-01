@@ -63,6 +63,13 @@ export class HTMLUIManager {
      *  it hasn't changed lets the iframe stay stable between actual lobby-list
      *  updates so iOS dispatches clicks normally. */
     private lastLobbiesHash: string | null = null;
+    /** Reference of the last `state.lobbies` array we observed. Lets the
+     *  dedupe path skip the JSON.stringify hash entirely when the
+     *  game's emit_script handed us the same array reference (which is
+     *  the common "no change" pattern when the script keeps the array
+     *  cached between frames). On a churning ref we fall through to the
+     *  JSON.stringify hash and behavior is identical to before. */
+    private lastLobbiesRef: any = null;
     /** Panels that opted into the cross-platform layout via
      *  `<meta name="pp-responsive">` in their HTML. These panels:
      *    - skip the 1920px design-width down-scale (they author for the
@@ -790,12 +797,24 @@ ${wrapperScript}
         // the visibility decisions below still see the original state.
         let postState: any = state;
         if (state && 'lobbies' in state) {
-            const hash = JSON.stringify(state.lobbies);
-            if (this.lastLobbiesHash === hash) {
+            // Fast path: same array reference as last frame → unchanged,
+            // strip the field. Avoids the JSON.stringify entirely when
+            // the emit_script keeps the lobbies array cached between
+            // frames (the common case during gameplay between the
+            // ~1Hz lobby-list pushes). Falls through to the full hash
+            // when refs differ so behavior stays identical.
+            if (state.lobbies === this.lastLobbiesRef) {
                 postState = { ...state };
                 delete postState.lobbies;
             } else {
-                this.lastLobbiesHash = hash;
+                this.lastLobbiesRef = state.lobbies;
+                const hash = JSON.stringify(state.lobbies);
+                if (this.lastLobbiesHash === hash) {
+                    postState = { ...state };
+                    delete postState.lobbies;
+                } else {
+                    this.lastLobbiesHash = hash;
+                }
             }
         }
         if (this.isMobile) {

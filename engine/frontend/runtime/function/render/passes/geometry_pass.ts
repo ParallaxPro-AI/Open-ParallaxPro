@@ -15,6 +15,42 @@ export class GeometryPass {
     private stats: RenderStats | null = null;
     setStats(stats: RenderStats): void { this.stats = stats; }
 
+    // ── Per-frame scratch ─────────────────────────────────────────────
+    // Reused across frames to avoid allocations in the render hot path.
+    // Two execute*Quality() variants run per frame depending on the
+    // graphics-quality setting; only one fires, so a single pair of
+    // partition arrays is enough. The Float32 / Uint32 views share a
+    // backing buffer so writeBuffer copies a single contiguous payload.
+    // All scratch is written-then-uploaded; nothing carries over between
+    // frames except where intentional (uniforms get .fill(0) before use
+    // so sparse writes match the original fresh-allocation behavior).
+    private _opaqueScratch: RenderMeshInstance[] = [];
+    private _transparentScratch: RenderMeshInstance[] = [];
+    private _cameraUniformScratch = new Float32Array(104);
+    private _lightUniformScratch = new Float32Array(180);
+    private _lightUniformU32 = new Uint32Array(this._lightUniformScratch.buffer);
+    private _terrainMaterialScratch = new Float32Array(16);
+    private _terrainMaterialU32 = new Uint32Array(this._terrainMaterialScratch.buffer);
+
+    /** Partition meshes by alphaMode in one pass into reusable scratch
+     *  arrays. Replaces three pairs of `meshes.filter(...)` calls (one
+     *  per quality variant) that each allocated two arrays + two
+     *  closures per frame. The two scratch arrays are returned by
+     *  reference; callers MUST consume them before the next call to
+     *  this method. */
+    private partitionByAlpha(meshes: RenderMeshInstance[]): { opaque: RenderMeshInstance[]; transparent: RenderMeshInstance[] } {
+        const o = this._opaqueScratch;
+        const t = this._transparentScratch;
+        o.length = 0;
+        t.length = 0;
+        for (let i = 0; i < meshes.length; i++) {
+            const m = meshes[i];
+            if (m.alphaMode === 'BLEND') t.push(m);
+            else o.push(m);
+        }
+        return { opaque: o, transparent: t };
+    }
+
     private device: GPUDevice | null = null;
     private resources: GPUResourceManager | null = null;
     private canvasFormat: GPUTextureFormat = 'bgra8unorm';
@@ -897,8 +933,7 @@ export class GeometryPass {
         depthView: GPUTextureView,
         meshes: RenderMeshInstance[]
     ): void {
-        const opaque = meshes.filter(m => m.alphaMode !== 'BLEND');
-        const transparent = meshes.filter(m => m.alphaMode === 'BLEND');
+        const { opaque, transparent } = this.partitionByAlpha(meshes);
 
         const renderPass = commandEncoder.beginRenderPass({
             label: 'geometry_pass_standard',
@@ -924,8 +959,7 @@ export class GeometryPass {
     }
 
     private executeMediumQuality(commandEncoder: GPUCommandEncoder, meshes: RenderMeshInstance[]): void {
-        const opaque = meshes.filter(m => m.alphaMode !== 'BLEND');
-        const transparent = meshes.filter(m => m.alphaMode === 'BLEND');
+        const { opaque, transparent } = this.partitionByAlpha(meshes);
         const clearColor = { r: 0.1, g: 0.1, b: 0.15, a: 1.0 };
 
         const renderPass = commandEncoder.beginRenderPass({
@@ -955,8 +989,7 @@ export class GeometryPass {
     }
 
     private executeHighQuality(commandEncoder: GPUCommandEncoder, meshes: RenderMeshInstance[]): void {
-        const opaque = meshes.filter(m => m.alphaMode !== 'BLEND');
-        const transparent = meshes.filter(m => m.alphaMode === 'BLEND');
+        const { opaque, transparent } = this.partitionByAlpha(meshes);
         const clearColor = { r: 0.1, g: 0.1, b: 0.15, a: 1.0 };
 
         const renderPass = commandEncoder.beginRenderPass({
@@ -1098,8 +1131,11 @@ export class GeometryPass {
         // (as road-atlas presence flags) and `emissive` (left zero) from the
         // MaterialUniforms struct. The rest of the PBR layout stays zeroed
         // to keep the struct binary-compatible with the generic shader.
-        const matData = new Float32Array(16);
-        const matU32 = new Uint32Array(matData.buffer);
+        // Reused scratch — zeroed first so unused slots stay 0 for the
+        // generic-shader binary compatibility note above.
+        const matData = this._terrainMaterialScratch;
+        const matU32 = this._terrainMaterialU32;
+        matData.fill(0);
         matU32[6] = mesh.roadAtlasNear ? 1 : 0;
         matU32[7] = mesh.roadAtlasFar  ? 1 : 0;
 
@@ -1263,13 +1299,13 @@ export class GeometryPass {
         // Layout: viewMatrix[0..15], projMatrix[16..31], cameraPos+pad[32..35],
         //         cascadeMatrices[36..99] (4 x mat4), cascadeSplits[100..103]
         // Total: 104 floats = 416 bytes
-        const data = new Float32Array(104);
+        const data = this._cameraUniformScratch;
+        data[35] = 0;  // padding slot — every other index is fully overwritten below
         data.set(camera.viewMatrix.data, 0);
         data.set(camera.projectionMatrix.data, 16);
         data[32] = camera.position.x;
         data[33] = camera.position.y;
         data[34] = camera.position.z;
-        // data[35] = padding (0)
         for (let i = 0; i < 4; i++) {
             data.set(this.cascadeMatrices[i].data, 36 + i * 16);
         }
@@ -1283,8 +1319,15 @@ export class GeometryPass {
     private uploadLightUniforms(scene: RenderScene): void {
         if (!this.device || !this.lightUniformBuffer) return;
 
-        const data = new Float32Array(180);
-        const u32View = new Uint32Array(data.buffer);
+        // Reused scratch — zeroed first because slots are written
+        // sparsely (light counts cap at numDirLights/numPointLights/
+        // numSpotLights; the unused trailing slots must be 0 for the
+        // shader to stop reading dead lights). The original
+        // `new Float32Array(180)` was zero-initialized; .fill(0)
+        // restores that property.
+        const data = this._lightUniformScratch;
+        const u32View = this._lightUniformU32;
+        data.fill(0);
 
         // Ambient
         data[0] = scene.ambientColor.x;
