@@ -95,10 +95,10 @@ export class HTMLUIManager {
     lastModalVisible: boolean | null = null;
 
     private applyScale(f: HTMLIFrameElement): void {
-        // Mobile-only branch for responsive panels: apply a mild 0.82x
+        // Mobile-only branch for responsive panels: apply a mild 0.62x
         // scale so a 390px phone gets ~476px of effective design width.
         // Full 1x rendered "zoomed in" on a phone; the desktop scale
-        // (0.21x on a phone) was unreadably small. 0.82 is the sweet
+        // (0.21x on a phone) was unreadably small. 0.62 is the sweet
         // spot. Desktop responsive panels fall through to the same
         // scale logic legacy panels use — desktop UI must remain
         // pixel-identical to its pre-responsive-overhaul rendering.
@@ -106,7 +106,7 @@ export class HTMLUIManager {
         const isCoarse = typeof window !== 'undefined'
             && window.matchMedia?.('(pointer: coarse)')?.matches === true;
         if (isResponsive && isCoarse) {
-            const s = 0.82;
+            const s = 0.62;
             f.style.transform = `scale(${s})`;
             f.style.transformOrigin = 'top left';
             f.style.width = `${100 / s}%`;
@@ -198,7 +198,7 @@ section[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:0px;}
 [data-pp-mobile-only],.pp-mobile-only{display:none!important;}
 }
 @media (pointer: coarse){
-section[data-pp-responsive]{--pp-bottom-clear:var(--pp-joystick-h, 0px);--pp-top-clear:max(56px,env(safe-area-inset-top));padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
+section[data-pp-responsive]{--pp-joystick-h:0px;--pp-rail-h:0px;--pp-bottom-clear:0px;--pp-top-clear:max(56px,env(safe-area-inset-top));padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
 section[data-pp-responsive] button,section[data-pp-responsive] [role="button"],section[data-pp-responsive] [data-interactive]{min-height:44px;min-width:44px;}
 /* Two-tier corner-lift: bottom-LEFT clears the joystick (~140px); the
    bottom-RIGHT action rail stacks 4+ buttons in two columns (~280px)
@@ -241,10 +241,10 @@ window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForw
 // Mirror parent's --pp-rail-h / --pp-joystick-h into this bundle iframe's
 // :root every 500ms so the corner-lift CSS uses the live measured rail
 // height instead of a hardcoded number. Divide by the iframe's mobile
-// scale (0.82, must match MOBILE_RESPONSIVE_SCALE in applyScale) so
-// N visible-pixels published by the parent map to N/0.82 logical-pixels
+// scale (0.62, must match MOBILE_RESPONSIVE_SCALE in applyScale) so
+// N visible-pixels published by the parent map to N/0.62 logical-pixels
 // inside the iframe. srcdoc inherits parent origin.
-(function(){var SCALE=0.82;function pull(){try{var cs=window.parent.document.documentElement.style;var rh=cs.getPropertyValue('--pp-rail-h');var jh=cs.getPropertyValue('--pp-joystick-h');if(rh){var rp=parseFloat(rh);if(rp>0)document.documentElement.style.setProperty('--pp-rail-h',Math.ceil(rp/SCALE)+'px');}if(jh){var jp=parseFloat(jh);if(jp>0)document.documentElement.style.setProperty('--pp-joystick-h',Math.ceil(jp/SCALE)+'px');}}catch(_){}}pull();setInterval(pull,500);})();
+(function(){var SCALE=0.62;function pull(){try{var cs=window.parent.document.documentElement.style;var rh=cs.getPropertyValue('--pp-rail-h');var jh=cs.getPropertyValue('--pp-joystick-h');if(rh){var rp=parseFloat(rh);if(rp>0)document.documentElement.style.setProperty('--pp-rail-h',Math.ceil(rp/SCALE)+'px');}if(jh){var jp=parseFloat(jh);if(jp>0)document.documentElement.style.setProperty('--pp-joystick-h',Math.ceil(jp/SCALE)+'px');}}catch(_){}}pull();setInterval(pull,500);})();
 // Rewrite a HUD's CSS so every rule is scoped to its <section>. The
 // mobile bundle puts all HUDs in ONE iframe to dodge iOS WKWebView's
 // per-iframe memory cost — but that means every HUD's CSS lives in
@@ -508,13 +508,13 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         // lift rules below can use them. srcdoc inherits parent origin,
         // so window.parent.document is reachable. rAF loop handles
         // resize / orientation changes / dynamic action additions.
-        // The iframe is scaled by 0.82 on mobile (matches MOBILE_RESPONSIVE_SCALE
+        // The iframe is scaled by 0.62 on mobile (matches MOBILE_RESPONSIVE_SCALE
         // in applyScale), so a parent-published value of N visible-pixels
-        // corresponds to N/0.82 logical-pixels inside the iframe. Divide
+        // corresponds to N/0.62 logical-pixels inside the iframe. Divide
         // before setting so HUDs lift to the right *visible* position.
         // Desktop iframes don't fire the lift rule (gated on @media coarse)
         // so the divide-by-mobile-scale is a no-op there.
-        const ppMirrorVars = `(function(){var SCALE=0.82;function pull(){try{var cs=window.parent.document.documentElement.style;var rh=cs.getPropertyValue('--pp-rail-h');var jh=cs.getPropertyValue('--pp-joystick-h');if(rh){var rp=parseFloat(rh);if(rp>0)document.documentElement.style.setProperty('--pp-rail-h',Math.ceil(rp/SCALE)+'px');}if(jh){var jp=parseFloat(jh);if(jp>0)document.documentElement.style.setProperty('--pp-joystick-h',Math.ceil(jp/SCALE)+'px');}}catch(_){}}pull();setInterval(pull,500);})();`;
+        const ppMirrorVars = `(function(){var SCALE=0.62;function pull(){try{var cs=window.parent.document.documentElement.style;var rh=cs.getPropertyValue('--pp-rail-h');var jh=cs.getPropertyValue('--pp-joystick-h');if(rh){var rp=parseFloat(rh);if(rp>0)document.documentElement.style.setProperty('--pp-rail-h',Math.ceil(rp/SCALE)+'px');}if(jh){var jp=parseFloat(jh);if(jp>0)document.documentElement.style.setProperty('--pp-joystick-h',Math.ceil(jp/SCALE)+'px');}}catch(_){}}pull();setInterval(pull,500);})();`;
         const mobileWrapperScript = `${interactiveAutoSelector}${ppMirrorVars}__ppCheckpoint('iframe loaded: ${path}');`;
         const desktopWrapperScript = `${interactiveAutoSelector}${ppMirrorVars}new MutationObserver(()=>{${interactiveAutoSelector}}).observe(document.body,{childList:true,subtree:true});__ppCheckpoint('iframe loaded: ${path}');`;
         const wrapperScript = this.isMobile ? mobileWrapperScript : desktopWrapperScript;

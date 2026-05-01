@@ -273,7 +273,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         el.style.cssText = [
             'position:absolute',
             'left:max(20px, env(safe-area-inset-left))',
-            'bottom:max(20px, env(safe-area-inset-bottom))',
+            'bottom:max(60px, calc(env(safe-area-inset-bottom) + 40px))',
             'width:140px',
             'height:140px',
             'pointer-events:auto',
@@ -401,7 +401,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     railContainer.style.cssText = [
         'position:absolute',
         'right:env(safe-area-inset-right, 12px)',
-        'bottom:env(safe-area-inset-bottom, 12px)',
+        'bottom:max(52px, calc(env(safe-area-inset-bottom) + 40px))',
         'pointer-events:none',
     ].join(';');
     root.appendChild(railContainer);
