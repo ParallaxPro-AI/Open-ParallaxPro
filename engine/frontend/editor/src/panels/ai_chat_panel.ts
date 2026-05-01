@@ -375,7 +375,7 @@ export class AiChatPanel {
             const last = btns[btns.length - 1];
             if (last) {
                 last.disabled = false;
-                last.textContent = t('chat.createScratch');
+                this.restoreCreateScratchButtonContent(last);
             }
             const errMsg: ChatMessage = {
                 role: 'assistant',
@@ -831,6 +831,22 @@ export class AiChatPanel {
      *  Anon sessions hit the backend's signup_required refusal, which
      *  the signup_required WS handler below turns into an in-chat
      *  signup bubble + re-enables this button. */
+    /** Reset the two-span layout used by `appendCreateFromScratchButton`.
+     *  Called from error / signup-required paths that need to put a
+     *  "Starting..." button back into its clickable state — wiping
+     *  textContent there would orphan the badge span. */
+    private restoreCreateScratchButtonContent(btn: HTMLButtonElement): void {
+        btn.replaceChildren();
+        const labelEl = document.createElement('span');
+        labelEl.className = 'chat-create-scratch-btn__label';
+        labelEl.textContent = t('chat.createScratch');
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'chat-create-scratch-btn__badge';
+        badgeEl.textContent = t('chat.createScratchRecommended');
+        btn.appendChild(labelEl);
+        btn.appendChild(badgeEl);
+    }
+
     private appendCreateFromScratchButton(description: string): void {
         const assistants = this.messagesContainer.querySelectorAll<HTMLElement>('.chat-message.assistant');
         const last = assistants[assistants.length - 1];
@@ -839,12 +855,23 @@ export class AiChatPanel {
         if (last.querySelector('.chat-create-scratch-btn')) return;
 
         const btn = document.createElement('button');
-        btn.className = 'chat-create-scratch-btn';
-        btn.textContent = t('chat.createScratch');
+        btn.className = 'chat-create-scratch-btn chat-create-scratch-btn--recommended';
+        // Two-line layout: action text on top, "Highly Recommended" badge
+        // below. We build child spans (instead of textContent) so the
+        // badge can carry its own emphasis styling + per-language label.
+        const labelEl = document.createElement('span');
+        labelEl.className = 'chat-create-scratch-btn__label';
+        labelEl.textContent = t('chat.createScratch');
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'chat-create-scratch-btn__badge';
+        badgeEl.textContent = t('chat.createScratchRecommended');
+        btn.appendChild(labelEl);
+        btn.appendChild(badgeEl);
         btn.addEventListener('click', () => {
             if (btn.disabled) return;
             btn.disabled = true;
-            btn.textContent = 'Starting...';
+            labelEl.textContent = 'Starting...';
+            badgeEl.remove();
             this.ctx.backend.sendWsMessage('confirm_create_game', { description });
         });
         last.appendChild(btn);
@@ -863,7 +890,7 @@ export class AiChatPanel {
         this.messagesContainer.querySelectorAll<HTMLButtonElement>('.chat-create-scratch-btn').forEach(btn => {
             if (btn.disabled || btn.textContent === 'Starting...') {
                 btn.disabled = false;
-                btn.textContent = t('chat.createScratch');
+                this.restoreCreateScratchButtonContent(btn);
             }
         });
 

@@ -17,6 +17,7 @@
     "templateBanner": "템플릿이 로드되었습니다. 이전 프로젝트 파일이 교체되었습니다.",
     "templateRestore": "이전 프로젝트 복원",
     "createScratch": "이 템플릿 대신 처음부터 만들기 (20-30분)",
+    "createScratchRecommended": "보통 템플릿보다 결과가 더 좋습니다",
     "fixerHint": "최대 10분이 걸릴 수 있습니다. 페이지를 열어 두되 닫지 마세요.",
     "continue": "계속",
     "rawFilesTitle": "세션 대화 원본",

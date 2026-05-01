@@ -17,6 +17,7 @@
     "templateBanner": "Um template foi carregado — seus arquivos de projeto anteriores foram substituídos.",
     "templateRestore": "Restaurar meu projeto anterior",
     "createScratch": "Criar do zero em vez de usar este template (20-30 min)",
+    "createScratchRecommended": "Geralmente dá melhores resultados que templates",
     "fixerHint": "Isso pode levar até 10 minutos — fique à vontade para deixar a página aberta, mas não feche esta página.",
     "continue": "Continuar",
     "rawFilesTitle": "Diálogo bruto da sessão",

@@ -17,6 +17,7 @@
     "templateBanner": "A template was just loaded — your previous project files were replaced.",
     "templateRestore": "Restore my previous project",
     "createScratch": "Create from scratch instead of using this template (20-30 min)",
+    "createScratchRecommended": "Usually gives better results than templates",
     "fixerHint": "This can take up to 10 minutes — feel free to leave the page open, but do not close this page.",
     "continue": "Continue",
     "rawFilesTitle": "Raw Session Dialogue",

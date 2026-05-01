@@ -17,6 +17,7 @@
     "templateBanner": "Se cargó una plantilla — tus archivos de proyecto anteriores fueron reemplazados.",
     "templateRestore": "Restaurar mi proyecto anterior",
     "createScratch": "Crear desde cero en vez de usar esta plantilla (20-30 min)",
+    "createScratchRecommended": "Normalmente da mejores resultados que las plantillas",
     "fixerHint": "Esto puede tomar hasta 10 minutos — puedes dejar la página abierta, pero no la cierres.",
     "continue": "Continuar",
     "rawFilesTitle": "Diálogo sin procesar de la sesión",

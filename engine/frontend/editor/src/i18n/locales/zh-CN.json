@@ -17,6 +17,7 @@
     "templateBanner": "模板已加载 — 你之前的项目文件已被替换。",
     "templateRestore": "恢复我之前的项目",
     "createScratch": "从零开始创建，而不是使用模板（20-30 分钟）",
+    "createScratchRecommended": "通常比使用模板效果更好",
     "fixerHint": "这可能需要10分钟 — 你可以保持页面打开，但请不要关闭此页面。",
     "continue": "继续",
     "rawFilesTitle": "原始会话对话",

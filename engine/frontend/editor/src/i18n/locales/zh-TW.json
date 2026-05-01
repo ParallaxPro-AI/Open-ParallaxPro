@@ -17,6 +17,7 @@
     "templateBanner": "範本已載入——你之前的專案檔案已被取代。",
     "templateRestore": "還原我之前的專案",
     "createScratch": "不使用此範本，從頭開始建立（20-30 分鐘）",
+    "createScratchRecommended": "通常比使用範本效果更好",
     "fixerHint": "這可能需要最多 10 分鐘——請保持頁面開啟，但不要關閉此頁面。",
     "continue": "繼續",
     "rawFilesTitle": "工作階段對話原始資料",
