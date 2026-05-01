@@ -274,8 +274,8 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             'position:absolute',
             'left:max(20px, env(safe-area-inset-left))',
             'bottom:max(60px, calc(env(safe-area-inset-bottom) + 40px))',
-            'width:140px',
-            'height:140px',
+            'width:108px',
+            'height:108px',
             'pointer-events:auto',
             'touch-action:none',
         ].join(';');
@@ -283,7 +283,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         const base = document.createElement('div');
         base.style.cssText = 'position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,0.10);border:2px solid rgba(255,255,255,0.22);backdrop-filter:blur(4px);';
         const thumb = document.createElement('div');
-        thumb.style.cssText = 'position:absolute;width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.28);border:2px solid rgba(255,255,255,0.45);top:50%;left:50%;transform:translate(-50%,-50%);transition:background 0.08s;';
+        thumb.style.cssText = 'position:absolute;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.28);border:2px solid rgba(255,255,255,0.45);top:50%;left:50%;transform:translate(-50%,-50%);transition:background 0.08s;';
         el.appendChild(base);
         el.appendChild(thumb);
 
@@ -293,7 +293,9 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             const rect = el.getBoundingClientRect();
             cx = rect.left + rect.width / 2;
             cy = rect.top + rect.height / 2;
-            r = rect.width / 2 - 28;
+            // Half thumb width — keeps the thumb fully inside the ring
+            // at max deflection. Update if thumb size changes.
+            r = rect.width / 2 - 22;
             const state: FingerState = {
                 widget: 'joystick', keys: new Set(),
                 lastX: touch.clientX, lastY: touch.clientY,
@@ -411,9 +413,9 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
 
     // Primary cluster offsets, hand-tuned for thumb reach. Coordinates
     // are (right, bottom) px from the cluster's bottom-right corner.
-    //   Fire    bottom-right anchor (84×84)
-    //   Jump    above Fire, slightly indented left (12 px)
-    //   Aim     left of Fire, raised 8 px (visual offset from Fire's bottom)
+    //   Fire    bottom-right anchor (64×64)
+    //   Jump    above Fire, slightly indented left (8 px)
+    //   Aim     left of Fire, raised slightly
     //   Crouch  above Aim, between Jump and Aim diagonally
     const placeAt = (b: ReturnType<typeof buildButton>, right: number, bottom: number) => {
         b.el.style.position = 'absolute';
@@ -424,32 +426,32 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     };
     if (fire?.primary) {
         const b = buildButton({
-            key: fire.primary, label: fire.label || 'Fire', size: 84, accent: true,
+            key: fire.primary, label: fire.label || 'Fire', size: 64, accent: true,
             hold: fire.holdPrimary !== false,
         });
         placeAt(b, 0, 0);
     }
     if (movement.jump) {
-        const b = buildButton({ key: movement.jump, label: 'Jump', size: 72 });
-        placeAt(b, 12, 96);
+        const b = buildButton({ key: movement.jump, label: 'Jump', size: 54 });
+        placeAt(b, 8, 72);
     }
     if (fire?.secondary) {
         const b = buildButton({
-            key: fire.secondary, label: fire.secondaryLabel || 'Aim', size: 64,
+            key: fire.secondary, label: fire.secondaryLabel || 'Aim', size: 48,
             hold: fire.holdSecondary !== false,
         });
-        placeAt(b, 94, 14);
+        placeAt(b, 72, 10);
     }
     if (movement.crouch) {
-        const b = buildButton({ key: movement.crouch, label: 'Crouch', size: 56, hold: true });
-        placeAt(b, 102, 90);
+        const b = buildButton({ key: movement.crouch, label: 'Crouch', size: 44, hold: true });
+        placeAt(b, 78, 68);
     }
 
     // Secondary grid (2 columns × N rows, growing up). Anchored to the
     // left of the primary cluster.
-    const SECONDARY_SIZE = 56;
+    const SECONDARY_SIZE = 44;
     const SECONDARY_GAP = 8;
-    const PRIMARY_CLUSTER_WIDTH = ((fire?.secondary || movement.crouch) ? 158 : 84);
+    const PRIMARY_CLUSTER_WIDTH = ((fire?.secondary || movement.crouch) ? 122 : 64);
     const SECONDARY_OFFSET = PRIMARY_CLUSTER_WIDTH + 12;
     const actions = manifest.actions || [];
     actions.forEach((action, i) => {
