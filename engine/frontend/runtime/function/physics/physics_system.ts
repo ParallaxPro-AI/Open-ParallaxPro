@@ -479,6 +479,40 @@ export class PhysicsSystem {
                 const r = (meshHalfX !== null && meshHalfY !== null && meshHalfZ !== null)
                     ? Math.max(meshHalfX, meshHalfY, meshHalfZ)
                     : (collider.radius ?? 0.5);
+
+                // Non-uniform scale → visual ellipsoid. RAPIER ball is
+                // single-radius and can't represent an ellipsoid, so a
+                // ball of `r * maxS` simulates as the unsquished sphere
+                // (player walks on top of empty space, etc). Synthesize
+                // a polyhedral approximation via convex hull of points
+                // sampled from the ellipsoid surface — independent of
+                // whether the entity uses a primitive sphere (no
+                // meshData populated) or a GLB sphere mesh, since we
+                // generate the points analytically from r + scale.
+                const isUniformScale = sx === sy && sy === sz;
+                if (!isUniformScale) {
+                    // Fibonacci-sphere sampling: 64 evenly-distributed
+                    // points on a unit sphere, then scale each axis by
+                    // (r*sx, r*sy, r*sz) to land on the ellipsoid.
+                    const N = 64;
+                    const pts = new Float32Array(N * 3);
+                    const golden = Math.PI * (3 - Math.sqrt(5));
+                    for (let i = 0; i < N; i++) {
+                        const y = 1 - (2 * i) / (N - 1);  // 1 → -1
+                        const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+                        const theta = golden * i;
+                        const x = Math.cos(theta) * radiusAtY;
+                        const z = Math.sin(theta) * radiusAtY;
+                        pts[i * 3]     = x * r * sx;
+                        pts[i * 3 + 1] = y * r * sy;
+                        pts[i * 3 + 2] = z * r * sz;
+                    }
+                    const hull = RAPIER.ColliderDesc.convexHull(pts);
+                    if (hull) return hull;
+                    // convexHull can fail on degenerate input — fall
+                    // through to the ball fallback so we always emit
+                    // a collider.
+                }
                 return RAPIER.ColliderDesc.ball(Math.max(0.01, r * maxS));
             }
             case ShapeType.CAPSULE: {
