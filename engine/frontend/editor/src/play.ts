@@ -477,8 +477,12 @@ async function boot(): Promise<void> {
     // Stuff it onto projectConfig so global_context can pick it up at
     // engine init and attach the overlay before the first frame.
     const projectConfig = gameData.projectConfig
-        ? { ...gameData.projectConfig, controlsManifest: gameData.controlsManifest ?? gameData.projectConfig.controlsManifest }
-        : { controlsManifest: gameData.controlsManifest };
+        ? {
+            ...gameData.projectConfig,
+            controlsManifest: gameData.controlsManifest ?? gameData.projectConfig.controlsManifest,
+            multiplayerConfig: gameData.multiplayerConfig ?? gameData.projectConfig.multiplayerConfig,
+        }
+        : { controlsManifest: gameData.controlsManifest, multiplayerConfig: gameData.multiplayerConfig };
 
     const editor = new ParallaxEditor();
     await editor.initialize(canvas, {

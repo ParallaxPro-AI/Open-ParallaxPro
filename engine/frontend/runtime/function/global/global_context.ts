@@ -114,10 +114,20 @@ export class RuntimeGlobalContext {
             // the legacy shim keeps firing forever and double-fires every
             // tap once the deferred overlay finally shows up.
             // Multiplayer detection drives whether the system tray's
-            // Chat / Voice buttons are included. flow.multiplayer.enabled
-            // is the canonical signal — text_chat + voice_chat HUDs are
-            // no-ops without other peers.
-            const isMultiplayer = projectConfig?.multiplayer?.enabled === true;
+            // Chat / Voice buttons are included — those HUDs are no-ops
+            // without other peers, so we hide their tray entries in
+            // singleplayer. Two shapes show up at this layer:
+            //   - `multiplayerConfig.enabled` — the assembled shape the
+            //     build pipeline emits (sibling of projectConfig in the
+            //     /projects + /play API responses; threaded onto
+            //     projectConfig by editor.ts and play.ts).
+            //   - `multiplayer.enabled` — the raw flow shape, which is
+            //     what hand-rolled tooling / tests sometimes pass.
+            // Accept either so editor preview, /play published games,
+            // and direct-flow callers all light up correctly.
+            const isMultiplayer =
+                projectConfig?.multiplayerConfig?.enabled === true
+                || projectConfig?.multiplayer?.enabled === true;
             this.mobileOverlay = attachMobileInputOverlay({
                 canvas,
                 inputSystem: this.inputSystem,

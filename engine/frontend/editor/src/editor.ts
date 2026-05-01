@@ -34,6 +34,15 @@ export class ParallaxEditor {
                 baseConfig.controlsManifest
                 ?? projectData?.controlsManifest
                 ?? baseConfig.controls,
+            // Same reasoning as controlsManifest: the build response carries
+            // multiplayerConfig as a sibling of projectConfig, but the
+            // engine reads it off projectConfig. Thread it through so
+            // `global_context` can flag the session as multiplayer (drives
+            // the mobile system tray's Chat / Voice buttons).
+            multiplayerConfig:
+                baseConfig.multiplayerConfig
+                ?? projectData?.multiplayerConfig
+                ?? projectData?.config?.multiplayerConfig,
         };
 
         const backend = (window as any).__ppGfxBackend;
