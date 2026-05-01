@@ -1092,6 +1092,16 @@ walk('project/ui', (full) => {
 
 if (errors.length === 0) {
     console.log('UI responsive check passed.');
+} else if (process.env.PP_DEPLOY_REPLAY_SKIP_RESPONSIVE === '1') {
+    // check_deploy.sh Phase 4 replays this validator against the latest
+    // prod sandbox archive, but archives generated before the responsive
+    // opt-in shipped don't carry the meta tag. Skip the hard-fail in
+    // that context — engine still renders old panels at the legacy
+    // 1920px design-width scale-down, so deploying isn't unsafe — and
+    // print the findings so they're still visible. Real CREATE_GAME /
+    // FIX_GAME runs don't set this env var; they keep hard-failing.
+    console.log('UI responsive check: ' + errors.length + ' panel(s) missing meta tag (deploy-replay context, not blocking):');
+    for (const e of errors) console.log('  ' + e);
 } else {
     for (const e of errors) console.error(e);
     process.exit(1);
