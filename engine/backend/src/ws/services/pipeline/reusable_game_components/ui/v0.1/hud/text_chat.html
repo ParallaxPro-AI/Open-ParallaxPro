@@ -138,7 +138,7 @@
   }
 
   function emit(action, payload) {
-    var msg = { type: 'game_command', action: action };
+    var msg = { type: 'game_command', action: action, panel: 'hud/text_chat' };
     if (payload) msg.payload = payload;
     window.parent.postMessage(msg, '*');
   }
