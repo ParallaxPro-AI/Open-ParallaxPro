@@ -400,6 +400,14 @@ export class Scene {
 
     private _activeCameraPos: Vec3 | null = null;
 
+    /** Last-rendered active camera world position. Updated by
+     *  `getMeshInstances()` (which runs once per frame during the
+     *  render path); other systems that need a cheap camera-distance
+     *  reference can read this without re-walking the entity list.
+     *  Up to 1 frame stale relative to the camera's current transform —
+     *  fine for distance-gated optimizations (LOD, animator skip). */
+    getActiveCameraPos(): Vec3 | null { return this._activeCameraPos; }
+
     /** True if a point is inside an entity's rendered volume. Uses collider
      * bounds when present (authoritative), else falls back to a capsule
      * inscribed around the origin scaled by transform.scale. Tolerant

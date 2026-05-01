@@ -285,12 +285,34 @@ export class ParallaxEngine {
         perf.beginPhase('animation');
         ctx.animationSystem.tick(deltaTime);
         if (this.activeScene) {
+            // Distance-gated skinning: skip the per-entity joint-matrix
+            // cascade + GPU upload for animators farther than
+            // SKIN_SKIP_DIST from the active camera. animationSystem.tick
+            // above kept their currentTime + currentPose advancing, so
+            // when an entity later comes back into range the next
+            // animator.tick computes joint matrices for the current
+            // animation time — no pose snap.
+            //
+            // 200 m is well past typical camera/render range; characters
+            // beyond it can't show skinning detail anyway. Same source
+            // of truth as scene's LOD path (cached camera position from
+            // the previous render frame, 1-frame stale at worst).
+            const camPos = this.activeScene.getActiveCameraPos();
+            const SKIN_SKIP_DIST_SQ = 200 * 200;
             for (const entity of this.activeScene.entities.values()) {
                 if (!entity.active) continue;
                 const animator = entity.getComponent('AnimatorComponent') as any;
                 if (!animator) continue;
-
                 if (!animator.isPlaying) continue;
+
+                if (camPos) {
+                    const ePos = entity.getWorldPosition();
+                    const dx = ePos.x - camPos.x;
+                    const dy = ePos.y - camPos.y;
+                    const dz = ePos.z - camPos.z;
+                    if (dx * dx + dy * dy + dz * dz > SKIN_SKIP_DIST_SQ) continue;
+                }
+
                 animator.tick(deltaTime);
                 if (animator.gpuJointMatricesBuffer && animator.jointMatrices?.length > 0) {
                     ctx.renderSystem.updateJointMatrices(animator.gpuJointMatricesBuffer, animator.jointMatrices);
