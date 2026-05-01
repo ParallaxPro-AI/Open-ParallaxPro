@@ -857,6 +857,9 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     // tray flex-direction is row-reverse, so the FIRST appendChild is the
     // rightmost visual position. The user wants the "Hide Controls" toggle
     // at the rightmost end of the menu (closest to the hamburger).
+    // Hook for autoFadeOverlay to refresh the button label when it
+    // toggles 'manual-hide' externally — set inside buildHideControlsBtnTagged.
+    let updateHideControlsLabel: (() => void) | null = null;
     const hideBtn = buildHideControlsBtnTagged();
     trayItems.appendChild(hideBtn);
     if (sys.pause) trayItems.appendChild(buildSystemBtnTagged('Pause', sys.pause, true));
@@ -889,9 +892,16 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             'display:flex', 'align-items:center', 'justify-content:center',
             'touch-action:none', 'white-space:nowrap',
         ].join(';');
-        let hidden = false;
-        const updateLabel = () => { el.textContent = hidden ? 'Show Controls' : 'Hide Controls'; };
+        // Label is derived from suspendedReasons — autoFadeOverlay also
+        // sets 'manual-hide' (when a real keyboard event arrives), so this
+        // single source of truth keeps the button label in sync regardless
+        // of who toggled the suspension.
+        const isHidden = () => suspendedReasons.has('manual-hide');
+        const updateLabel = () => { el.textContent = isHidden() ? 'Show Controls' : 'Hide Controls'; };
         updateLabel();
+        // Expose for the autoFade path to refresh the label after it
+        // adds/removes 'manual-hide' externally.
+        updateHideControlsLabel = updateLabel;
         const onStart = (touch: Touch) => {
             const state: FingerState = {
                 widget: 'system', keys: new Set(),
@@ -901,9 +911,8 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             };
             fingers.set(touch.identifier, state);
             el.style.background = activeBg;
-            hidden = !hidden;
-            if (hidden) suspendedReasons.add('manual-hide');
-            else suspendedReasons.delete('manual-hide');
+            if (isHidden()) suspendedReasons.delete('manual-hide');
+            else suspendedReasons.add('manual-hide');
             applyVisibility();
             updateLabel();
         };
@@ -1162,9 +1171,16 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
 
     function autoFadeOverlay() {
         if (!isVisible()) return;
-        enabled = false;
+        // Use the same 'manual-hide' key the tray's "Hide Controls" button
+        // toggles. That key is NOT in TRAY_HIDING_REASONS, so the system
+        // tray (☰) stays visible — meaning the user can always tap "Show
+        // Controls" to bring the joystick + action rail back. Previously
+        // we flipped `enabled = false`, which killed the tray too and
+        // left no way to recover except a refresh.
+        if (suspendedReasons.has('manual-hide')) return;
+        suspendedReasons.add('manual-hide');
         applyVisibility();
-        // Don't write to localStorage — this is a soft, session-only fade.
+        updateHideControlsLabel?.();
     }
 
     function releaseAllFingers() {
