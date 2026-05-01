@@ -19,6 +19,15 @@
   .unit-counts { font-size: 11px; font-weight: 700; color: #999; margin-top: 2px; }
   .pcol { color: #22c55e; }
   .acol { color: #ef4444; }
+
+  /* Mobile (touch primary): tighter top-left turn counter. Mirrors
+     era_indicator on the right so they don't crowd the resource_bar
+     below the toolbar. */
+  @media (pointer: coarse) {
+    .turn-panel { top: max(40px, calc(env(safe-area-inset-top) + 38px)); left: 8px; max-width: 180px; padding: 5px 10px; }
+    .turn-val { font-size: 16px; }
+    .unit-counts { font-size: 10px; }
+  }
 </style>
 </head>
 <body>

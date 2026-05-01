@@ -28,6 +28,16 @@
     background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
     border-radius: 3px; padding: 1px 4px; font-size: 8px; font-weight: 700; color: #ccc;
   }
+
+  /* Mobile (touch primary): primary action — clear the action-rail
+     (4X games have a tiny rail or none, so 0 fallback is correct;
+     real value is published by mobile_input_overlay when buttons are
+     mounted). Tech_btn and diplomacy_btn stack above this with their
+     own mobile bottoms keyed off the same var. */
+  @media (pointer: coarse) {
+    .end-turn-wrap { bottom: max(20px, calc(var(--pp-rail-h, 0px) + 12px)); right: 8px; }
+    .end-turn-btn { padding: 9px 18px; font-size: 12px; }
+  }
 </style>
 </head>
 <body>

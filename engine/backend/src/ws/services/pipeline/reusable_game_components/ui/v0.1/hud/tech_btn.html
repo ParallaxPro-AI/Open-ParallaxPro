@@ -169,6 +169,19 @@
   .policy-card.adopted { opacity: 0.6; cursor: default; background: rgba(167, 139, 250, 0.18); }
   .policy-card.disabled { opacity: 0.4; cursor: not-allowed; }
   .policy-card .pcost { color: #a78bfa; font-weight: 700; }
+
+  /* Mobile (touch primary): tech panel sits between end_turn (bottom)
+     and diplomacy_btn (above). Lift to clear the joystick reserve and
+     narrow so it fits 390px viewport. The expandable tech list also
+     gets a shorter max-height to leave room for the rest of the right
+     stack. */
+  @media (pointer: coarse) {
+    .tech-wrap { bottom: max(80px, calc(var(--pp-rail-h, 0px) + 80px)); right: 8px; width: min(200px, calc(100vw - 16px)); }
+    .tech-info { padding: 6px 10px; }
+    .tech-current { font-size: 10px; }
+    .tech-toggle { font-size: 9px; padding: 5px 8px; }
+    .tech-list { max-height: 180px; }
+  }
 </style>
 </head>
 <body>

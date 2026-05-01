@@ -1360,6 +1360,51 @@ The `state` object is merged — every emit adds/updates keys; nothing clears th
 - Don't put critical UI in the bottom-left or bottom-right corners *without* `var(--pp-bottom-clear)` — it'll be hidden under the joystick on phones.
 - Don't sniff `navigator.userAgent` to detect mobile in JS. CSS `@media (pointer: coarse)` is the contract.
 
+**Dense HUDs (5+ visible panels) need a mobile layout strategy.** A 1920×1080 desktop fits 6-8 simultaneous panels (turn counter, forces, status, minimap, diplomacy, research, end-turn) just fine. A 390×844 phone doesn't — they overlap, clip, and become unreadable. The engine auto-caps panel widths to viewport (universal `max-width: calc(100vw - 16px)` rule on fixed/absolute positioned elements), but that only stops horizontal overflow — vertical stacking is still your problem.
+
+Pick one of three patterns based on game type:
+
+**Pattern 1: Primary + drawer** — for strategy/RTS/MOBA where most panels are reference, not interactive. Always-visible primary panels: minimap, current resources strip, end-turn or fire button. Everything else (diplomacy, tech tree, unit details, settings) marked `data-pp-mobile-secondary` and hidden by default; a corner toggle button reveals them.
+
+```html
+<!-- Always-visible primary -->
+<div class="end-turn-btn" style="position:fixed;right:12px;bottom:12px;...">END TURN</div>
+
+<!-- Secondary, mobile-collapsed -->
+<div class="diplomacy-panel" data-pp-mobile-secondary style="position:fixed;right:12px;top:80px;...">...</div>
+<div class="research-panel" data-pp-mobile-secondary style="position:fixed;right:12px;top:200px;...">...</div>
+
+<!-- Toggle button (only visible on mobile, mounted in your main HUD) -->
+<button data-pp-mobile-only class="hud-drawer-toggle"
+        onclick="document.querySelectorAll('[data-pp-mobile-secondary]').forEach(el => el.classList.toggle('open'))">
+  ☰
+</button>
+
+<style>
+  @media (pointer: coarse) {
+    [data-pp-mobile-secondary] { display: none; }
+    [data-pp-mobile-secondary].open { display: block; }
+  }
+</style>
+```
+
+**Pattern 2: Vertical column with scroll** — for games where the player wants to see everything at once but the list is too tall. Wrap related panels in one container; make it scrollable on mobile.
+
+```css
+@media (pointer: coarse) {
+  .right-stack {
+    position: fixed; top: 80px; right: 8px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+}
+```
+
+**Pattern 3: Bottom tabs** — for games with 3-4 distinct info "channels" (map / inventory / quests / chat). Tap a tab to reveal that channel as a sheet that covers part of the screen. Heavier to author but the cleanest UX.
+
+**Don't** stack 6 absolute-positioned panels at fixed coordinates and hope they fit. Mobile users will see a clipped, jumbled mess.
+
 **Hide platform-specific hints — `data-pp-desktop-only` / `data-pp-mobile-only`.** Keyboard and mouse hints ("WASD to move", "LMB to fire", "Press R to reload", "[V] mute") are meaningless on touch — phones can't press R. Mark those elements so they auto-hide on mobile:
 
 ```html

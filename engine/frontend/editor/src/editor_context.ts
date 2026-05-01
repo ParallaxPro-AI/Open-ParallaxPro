@@ -486,31 +486,29 @@ export class EditorContext extends EventBus {
         const htmlUIManager = this.htmlUIManager;
         (gameUI as any).sendState = (state: any) => htmlUIManager.sendState(state);
 
-        // Suspend the mobile joystick + action rail whenever an interactive
-        // UI panel demands the virtual cursor (lobby browser, lobby room,
-        // pause menu, etc). Cursor visible == "user is clicking, not
-        // controlling a player" so the on-screen joystick should disappear.
-        // Reappears as soon as the cursor goes hidden (gameplay resumes).
+        // Suspend the mobile joystick + action rail whenever a top-level
+        // modal panel is showing (lobby_browser, lobby_room, main_menu,
+        // pause_menu, game_over, host_config). HUDs alone never trigger
+        // suspension — that's the key fix for click-to-play games with
+        // camera pan (4X / RTS / MOBA / tower defense), where the cursor
+        // is core gameplay AND the joystick pans the camera. Cursor
+        // visibility was the prior signal but it conflated "in a UI
+        // screen" with "user is clicking", which broke for those games.
         const ctx = this.engine.globalContext;
-        htmlUIManager.onVirtualCursorVisible = (visible) => {
-            try { ctx.mobileOverlay?.setSuspended(visible, 'virtual-cursor'); } catch { /* swallow */ }
+        htmlUIManager.onModalPanelVisible = (visible) => {
+            try { ctx.mobileOverlay?.setSuspended(visible, 'modal-panel'); } catch { /* swallow */ }
         };
 
         // Re-assertion poll. Some lifecycle events leave the suspension
-        // flag out of sync with what htmlUIManager actually sees as the
-        // current cursor state — observed cases include alt-tab causing
-        // visibilitychange to release+reset the overlay, scene reloads
-        // dropping the overlay's reason set, and the overlay's deferred-
-        // attach upgrade path missing a transition that fired before
-        // upgrade. Edge-triggered callbacks can't recover from any of
-        // these. A 1s re-apply (idempotent — setSuspended with the same
-        // value flips no state) self-heals within a second of any drift
-        // in either direction (joystick stuck visible / stuck hidden).
-        // Engine instance is long-lived; the interval rides for the
-        // lifetime of the page like the FSM driver itself.
+        // flag out of sync with what htmlUIManager actually sees — alt-tab
+        // visibilitychange resets the overlay, scene reloads drop the
+        // overlay's reason set, and the deferred-attach upgrade path can
+        // miss a transition fired before upgrade. Edge-triggered callbacks
+        // can't recover. A 1s re-apply (idempotent) self-heals within a
+        // second of any drift in either direction.
         window.setInterval(() => {
-            const visible = htmlUIManager.lastCursorVisible ?? false;
-            try { ctx.mobileOverlay?.setSuspended(visible, 'virtual-cursor'); } catch { /* swallow */ }
+            const visible = htmlUIManager.lastModalVisible ?? false;
+            try { ctx.mobileOverlay?.setSuspended(visible, 'modal-panel'); } catch { /* swallow */ }
         }, 1000);
 
         scriptSystem.setGameUI(gameUI);

@@ -22,6 +22,16 @@
   .prod { color: #f97316; text-shadow: 0 0 6px rgba(249,115,22,0.3); }
   .sci { color: #3b82f6; text-shadow: 0 0 6px rgba(59,130,246,0.3); }
   .cult { color: #a78bfa; text-shadow: 0 0 6px rgba(167,139,250,0.3); }
+
+  /* Mobile (touch primary): tighter top strip — 5 resources need to fit
+     a phone width. Drop the labels (icons + numbers are enough on a phone).
+     Respect the top safe area. */
+  @media (pointer: coarse) {
+    .resource-bar { gap: 10px; padding: 4px 8px; height: 32px; padding-top: max(4px, env(safe-area-inset-top)); }
+    .res-icon { font-size: 12px; }
+    .res-label { display: none; }
+    .res-val { font-size: 13px; }
+  }
 </style>
 </head>
 <body>

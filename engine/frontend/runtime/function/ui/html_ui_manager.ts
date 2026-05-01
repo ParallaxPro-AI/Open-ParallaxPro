@@ -71,20 +71,23 @@ export class HTMLUIManager {
     private static readonly RESPONSIVE_META_RE = /<meta\s+[^>]*name\s*=\s*["']pp-responsive["']/i;
 
     onUICommand: ((data: any) => void) | null = null;
-    /** Fires whenever sendState reports a virtual-cursor visibility change.
-     *  Used to suspend the mobile joystick + action rail while the player
-     *  is interacting with a clickable UI panel (lobby browser, lobby room,
-     *  pause menu, etc) — the cursor visibility is the engine's existing
-     *  "interactive UI is showing" signal so this stays in sync with every
-     *  state that already raises it. The callback receives the new
-     *  visibility; callers should call mobileOverlay.setSuspended(visible,
-     *  'virtual-cursor'). */
-    onVirtualCursorVisible: ((visible: boolean) => void) | null = null;
-    /** Latest cursor-visible value seen by sendState. Public so external
-     *  pollers (the editor's 1s suspension re-asserter) can read the
-     *  current desired joystick-suspension state without wiring through
-     *  the callback path. Stays null until the first sendState sets it. */
-    lastCursorVisible: boolean | null = null;
+    /** Fires whenever sendState detects that a top-level modal panel
+     *  (lobby_browser, lobby_room, main_menu, pause_menu, game_over,
+     *  host_config, etc — anything whose path doesn't start with `hud/`)
+     *  has become visible or hidden. Used to suspend the mobile joystick
+     *  + action rail during full-screen UI screens. Cursor-visibility
+     *  was the prior signal but it's wrong for click-to-play games with
+     *  camera pan (4X strategy, RTS, MOBA, tower defense): the cursor is
+     *  visible during gameplay there because clicks ARE the gameplay,
+     *  and the joystick is also needed for WASD-style camera pan. The
+     *  modal-visible signal correctly distinguishes "in a UI screen"
+     *  from "playing the game with a HUD overlay". */
+    onModalPanelVisible: ((visible: boolean) => void) | null = null;
+    /** Latest modal-panel-visible value seen by sendState. Public so the
+     *  editor's 1s suspension re-asserter can read the current desired
+     *  joystick-suspension state without wiring through the callback
+     *  path. Stays null until the first sendState sets it. */
+    lastModalVisible: boolean | null = null;
 
     private applyScale(f: HTMLIFrameElement): void {
         // Mobile-only branch for responsive panels: apply a mild 0.82x
@@ -212,6 +215,18 @@ section[data-pp-responsive] [style*="position: fixed"][style*="bottom"]:not([sty
 section[data-pp-responsive] [style*="position:absolute"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
 section[data-pp-responsive] [style*="position: absolute"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]){
 bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
+}
+/* Universal width cap to prevent horizontal overflow of fixed-width
+   panels designed at 1920px on small viewports. */
+section[data-pp-responsive] [style*="position:fixed"][style*="right"]:not([data-pp-no-cap]),
+section[data-pp-responsive] [style*="position: fixed"][style*="right"]:not([data-pp-no-cap]),
+section[data-pp-responsive] [style*="position:absolute"][style*="right"]:not([data-pp-no-cap]),
+section[data-pp-responsive] [style*="position: absolute"][style*="right"]:not([data-pp-no-cap]),
+section[data-pp-responsive] [style*="position:fixed"][style*="left"]:not([data-pp-no-cap]),
+section[data-pp-responsive] [style*="position: fixed"][style*="left"]:not([data-pp-no-cap]),
+section[data-pp-responsive] [style*="position:absolute"][style*="left"]:not([data-pp-no-cap]),
+section[data-pp-responsive] [style*="position: absolute"][style*="left"]:not([data-pp-no-cap]){
+max-width:calc(100vw - 16px)!important;
 }
 }
 </style></head><body><script>
@@ -542,6 +557,20 @@ bottom:max(var(--pp-rail-h, 240px),calc(env(safe-area-inset-bottom) + var(--pp-r
 :root[data-pp-responsive] [style*="position: absolute"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]){
 bottom:max(var(--pp-joystick-h, 200px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 200px)))!important;
 }
+/* Universal width cap: any inline-positioned fixed/absolute element
+   gets max-width capped to viewport so panels designed at 1920px never
+   overflow on a phone. Author can opt out per-element with [data-pp-no-cap]
+   or override via a class selector with higher specificity. */
+:root[data-pp-responsive] [style*="position:fixed"][style*="right"]:not([data-pp-no-cap]),
+:root[data-pp-responsive] [style*="position: fixed"][style*="right"]:not([data-pp-no-cap]),
+:root[data-pp-responsive] [style*="position:absolute"][style*="right"]:not([data-pp-no-cap]),
+:root[data-pp-responsive] [style*="position: absolute"][style*="right"]:not([data-pp-no-cap]),
+:root[data-pp-responsive] [style*="position:fixed"][style*="left"]:not([data-pp-no-cap]),
+:root[data-pp-responsive] [style*="position: fixed"][style*="left"]:not([data-pp-no-cap]),
+:root[data-pp-responsive] [style*="position:absolute"][style*="left"]:not([data-pp-no-cap]),
+:root[data-pp-responsive] [style*="position: absolute"][style*="left"]:not([data-pp-no-cap]){
+max-width:calc(100vw - 16px)!important;
+}
 }
 </style></head><body>${htmlContent}
 <script>
@@ -712,15 +741,21 @@ ${wrapperScript}
      * render virtual cursor, handle hover/clicks.
      */
     sendState(state: any): void {
-        // Detect virtual-cursor visibility transitions and fan out to the
-        // overlay-suspension callback. UIBridge raises state._cursor.visible
-        // for every interactive UI screen (lobby_*, pause, main_menu, etc),
-        // so this single signal covers every "user is clicking, not playing"
-        // case. Edge-triggered to avoid hammering setSuspended at 60Hz.
-        const cursorVisible = !!(state?._cursor?.visible);
-        if (cursorVisible !== this.lastCursorVisible) {
-            this.lastCursorVisible = cursorVisible;
-            try { this.onVirtualCursorVisible?.(cursorVisible); } catch { /* swallow */ }
+        // Detect modal-panel visibility transitions and fan out to the
+        // suspension callback. Walk every loaded panel; if any non-HUD
+        // (lobby_*, main_menu, pause_menu, game_over, host_config, etc)
+        // has its `<name>Visible` flag true in the current state, a modal
+        // is showing and the joystick should suspend. HUDs don't trigger
+        // suspension because their visibility represents in-game state,
+        // not "user is in a UI screen". Edge-triggered.
+        let anyModalVisible = false;
+        for (const path of this.cachedContent.keys()) {
+            const f = this.flagFor(path);
+            if (!f.isHud && state?.[f.flag] === true) { anyModalVisible = true; break; }
+        }
+        if (anyModalVisible !== this.lastModalVisible) {
+            this.lastModalVisible = anyModalVisible;
+            try { this.onModalPanelVisible?.(anyModalVisible); } catch { /* swallow */ }
         }
 
         // Dedupe state.lobbies before fanning out to iframes. lobby_browser
