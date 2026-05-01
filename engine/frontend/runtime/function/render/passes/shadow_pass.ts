@@ -72,17 +72,23 @@ export class ShadowPass {
     // packed into a per-frame instance buffer and drawn in a single
     // drawIndexed(instanceCount > 1).
     //
-    // The shadow pass owns its OWN instance buffer (separate from the
-    // geometry pass) because both passes share one queue: a single
-    // queue.writeBuffer would have only one winning copy by the time
-    // draws execute. Two buffers keeps each pass's data live for its
-    // own draws.
+    // ONE BUFFER PER CASCADE. The geometry pass's single instance buffer
+    // is fine because that pass runs once per frame, but shadow runs 4
+    // cascade passes inside the same command-buffer submit. WebGPU's
+    // queue serializes all queue.writeBuffer calls BEFORE any submitted
+    // command buffer's GPU work — so a single shared buffer would end
+    // up with only the LAST cascade's data by the time the first
+    // cascade's render pass actually executes, popping shadows in and
+    // out depending on which cascade a caster fell into. Per-cascade
+    // buffers (4× ~8 KiB) sidesteps the ordering issue entirely.
     private instancedModelBGL: GPUBindGroupLayout | null = null;
     private pipelineInstanced: GPURenderPipeline | null = null;
-    private instanceBuffer: GPUBuffer | null = null;
-    private instanceBufferCapacity: number = 0;
-    private instanceBindGroup: GPUBindGroup | null = null;
-    private _instanceScratch: Float32Array = new Float32Array(0);
+    private instanceBuffers: (GPUBuffer | null)[] = [null, null, null, null];
+    private instanceBufferCapacities: number[] = [0, 0, 0, 0];
+    private instanceBindGroups: (GPUBindGroup | null)[] = [null, null, null, null];
+    private _instanceScratches: Float32Array[] = [
+        new Float32Array(0), new Float32Array(0), new Float32Array(0), new Float32Array(0),
+    ];
     private _scheduleScratch: number[] = [];
 
     private viewMatrix: Mat4 = new Mat4();
@@ -263,27 +269,26 @@ export class ShadowPass {
         });
     }
 
-    /** Grow the instance buffer + recreate its bind group + resize the
-     *  CPU scratch when more instances are needed. Mirrors the geometry
-     *  pass helper but owns its own buffer (separate queue.writeBuffer
-     *  destinations are needed because shadow + geometry encode in the
-     *  same command buffer). */
-    private ensureInstanceCapacity(needed: number): void {
-        if (needed <= this.instanceBufferCapacity) return;
-        const newCap = Math.max(needed, Math.max(64, this.instanceBufferCapacity * 2));
-        this.instanceBuffer?.destroy();
+    /** Per-cascade variant of ensureInstanceCapacity. Each cascade owns
+     *  its own GPUBuffer + bind group + CPU scratch — see the comment
+     *  on the buffer fields above for why. */
+    private ensureInstanceCapacity(cascade: number, needed: number): void {
+        if (needed <= this.instanceBufferCapacities[cascade]) return;
+        const newCap = Math.max(needed, Math.max(64, this.instanceBufferCapacities[cascade] * 2));
+        this.instanceBuffers[cascade]?.destroy();
         const sizeBytes = newCap * 32 * 4;
-        this.instanceBuffer = this.device!.createBuffer({
-            label: 'shadow_instanced_models',
+        const buf = this.device!.createBuffer({
+            label: `shadow_instanced_models_${cascade}`,
             size: sizeBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        this.instanceBufferCapacity = newCap;
-        this._instanceScratch = new Float32Array(newCap * 32);
-        this.instanceBindGroup = this.resources!.createBindGroup(
+        this.instanceBuffers[cascade] = buf;
+        this.instanceBufferCapacities[cascade] = newCap;
+        this._instanceScratches[cascade] = new Float32Array(newCap * 32);
+        this.instanceBindGroups[cascade] = this.resources!.createBindGroup(
             this.instancedModelBGL!,
-            [{ binding: 0, resource: { buffer: this.instanceBuffer } }],
-            'shadow_instanced_models_bg',
+            [{ binding: 0, resource: { buffer: buf } }],
+            `shadow_instanced_models_bg_${cascade}`,
         );
     }
 
@@ -421,10 +426,13 @@ export class ShadowPass {
                 i++;
             }
 
-            // Pack + upload instance data for this cascade
+            // Pack + upload instance data for this cascade.
+            // Each cascade writes to its own dedicated buffer — see the
+            // `instanceBuffers` field comment for why a single shared
+            // buffer can't work across cascades.
             if (totalShadowInstances > 0) {
-                this.ensureInstanceCapacity(totalShadowInstances);
-                const scratch = this._instanceScratch;
+                this.ensureInstanceCapacity(cascade, totalShadowInstances);
+                const scratch = this._instanceScratches[cascade];
                 for (let s = 0; s < schedule.length; s += 3) {
                     const start = schedule[s];
                     const end = schedule[s + 1];
@@ -435,7 +443,7 @@ export class ShadowPass {
                     }
                 }
                 this.device.queue.writeBuffer(
-                    this.instanceBuffer!,
+                    this.instanceBuffers[cascade]!,
                     0,
                     scratch.buffer,
                     scratch.byteOffset,
@@ -488,7 +496,7 @@ export class ShadowPass {
                 }
                 if (isSkinned) renderPass.setVertexBuffer(1, sample.meshHandle.skinBuffer!);
 
-                const modelBG = isBatch ? this.instanceBindGroup! : meshBindGroups[start]!;
+                const modelBG = isBatch ? this.instanceBindGroups[cascade]! : meshBindGroups[start]!;
                 renderPass.setBindGroup(1, modelBG);
 
                 const idxCount = sample.drawIndexCount ?? sample.meshHandle.indexCount;
