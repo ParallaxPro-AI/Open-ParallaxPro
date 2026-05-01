@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -93,6 +94,63 @@
   .peer .bar.on { background: #22c55e; }
   .peer .bar.hot { background: #eab308; }
   .peer .bar.max { background: #ef4444; }
+
+  /* Mobile (touch primary): pull up close to ping (which moves to ~48px
+     on mobile), hide the "VOICE" title label (the mic button itself is
+     self-explanatory), drop padding, drop BG opacity. Saves ~20-25px of
+     vertical real estate vs the desktop layout. */
+  @media (pointer: coarse) {
+    .panel {
+      top: max(82px, calc(env(safe-area-inset-top) + 42px));
+      left: max(8px, env(safe-area-inset-left));
+      min-width: 140px;
+      padding: 5px 6px;
+      opacity: 0.92;
+      background: rgba(8, 8, 14, 0.22);
+    }
+    .title-row { margin-bottom: 4px; }
+    .title { display: none; }
+    /* Override the engine's 44x44 tap-target floor for the mic toggle —
+       Apple's HIG min applies to PRIMARY actions, and the mic toggle is
+       secondary status info. !important is required because the engine's
+       base CSS uses :root[data-pp-responsive] button which has higher
+       specificity than a class selector. Forces the button to size to
+       its content (~22px tall) so the panel doesn't waste 25+ vertical
+       pixels. */
+    .mic-toggle {
+      min-height: 0 !important;
+      min-width: 0 !important;
+      font-size: 9px;
+      padding: 3px 7px;
+      line-height: 1.2;
+    }
+    .peer { padding: 3px 5px; font-size: 10px; }
+    /* Hide the [V] keyboard hint — mobile players have the mic button
+       itself, no keyboard shortcut to advertise. */
+    .mic-toggle .kbd { display: none; }
+    /* Inline ping pill, shown only on mobile. Replaces the standalone
+       ping HUD (hidden via @media in ping.html) so mobile players see
+       one consolidated comm widget. */
+    .inline-ping {
+      display: inline-flex !important;
+      align-items: baseline;
+      gap: 3px;
+      margin-left: auto;
+      padding: 0 4px;
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .inline-ping .p-label { color: #eaf0f6; font-size: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    .inline-ping .p-val { font-variant-numeric: tabular-nums; min-width: 22px; text-align: right; }
+    .inline-ping .p-unit { color: #eaf0f6; font-size: 8px; }
+    .inline-ping.disconnected .p-val { color: #ef4444; }
+    .inline-ping .v-good { color: #22c55e; }
+    .inline-ping .v-mid  { color: #eab308; }
+    .inline-ping .v-bad  { color: #ef4444; }
+  }
+  .inline-ping { display: none; }  /* desktop: hidden, standalone ping HUD owns it */
 </style>
 </head>
 <body>
@@ -100,6 +158,11 @@
   <div class="title-row">
     <div class="title">Voice</div>
     <button class="mic-toggle" id="mic-toggle">Mic off</button>
+    <div class="inline-ping" id="inline-ping">
+      <span class="p-label">PING</span>
+      <span class="p-val v-good" id="inline-ping-val">—</span>
+      <span class="p-unit">ms</span>
+    </div>
   </div>
   <div class="peers" id="peers"></div>
 </div>
@@ -157,9 +220,17 @@
     }
   };
 
-  function renderPeers(peers) {
+  function renderPeers(peers, mpEnabled) {
     peersEl.innerHTML = '';
-    if (!peers || !peers.length) { panel.classList.add('hidden'); return; }
+    // When multiplayer is enabled keep the panel visible even with no
+    // peers — on mobile the inline ping (in title-row) still wants a
+    // host to render in. On desktop the panel only carries the mic
+    // toggle, which is also fine to show in singleplayer-host mode.
+    if (!peers || !peers.length) {
+      if (!mpEnabled) { panel.classList.add('hidden'); return; }
+      panel.classList.remove('hidden');
+      return;
+    }
     panel.classList.remove('hidden');
     peers.forEach(function (p) {
       var row = document.createElement('div');
@@ -191,13 +262,32 @@
     });
   }
 
+  // Inline ping (mobile-only via CSS). Same color thresholds as the
+  // standalone ping HUD: <80 good, <150 mid, >=150 bad. Hidden via
+  // @media on desktop so the standalone ping HUD owns the display.
+  var inlinePing = document.getElementById('inline-ping');
+  var inlinePingVal = document.getElementById('inline-ping-val');
+  function pingColorFor(ms) {
+    if (ms < 0) return 'v-bad';
+    if (ms < 80) return 'v-good';
+    if (ms < 150) return 'v-mid';
+    return 'v-bad';
+  }
+
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'gameState') return;
     var mp = (e.data.state || {}).multiplayer || {};
     if (typeof mp.micOn === 'boolean') micOn = mp.micOn;
     if (typeof mp.muted === 'boolean') muted = mp.muted;
     updateMicButton();
-    renderPeers(mp.voicePeers || []);
+    renderPeers(mp.voicePeers || [], !!mp.enabled);
+    // Inline ping update
+    if (mp.enabled) {
+      inlinePing.classList.toggle('disconnected', mp.connected === false);
+      var pms = typeof mp.ping === 'number' ? mp.ping : -1;
+      inlinePingVal.textContent = pms < 0 ? '—' : String(Math.round(pms));
+      inlinePingVal.className = 'p-val ' + pingColorFor(pms);
+    }
   });
 
   updateMicButton();

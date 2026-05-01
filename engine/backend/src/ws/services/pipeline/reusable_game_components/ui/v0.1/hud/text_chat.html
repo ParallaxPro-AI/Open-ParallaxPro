@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -87,6 +88,12 @@
     pointer-events: auto; cursor: pointer;
   }
   .hint:hover { color: #6b7280; }
+
+  /* Mobile (touch primary): hide the "Press Enter to chat" prompt —
+     mobile players have the dedicated chat button in the system tray. */
+  @media (pointer: coarse) {
+    .hint { display: none; }
+  }
 </style>
 </head>
 <body>

@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; }
@@ -25,6 +26,16 @@
   .ai-state { text-align: center; margin-top: 4px; font-size: 10px; font-weight: 700; }
   .peace { color: #22c55e; }
   .war { color: #ef4444; }
+
+  /* Mobile (touch primary): smaller minimap and lift above the joystick
+     (bottom-left zone). Joystick footprint is published as
+     --pp-joystick-h by mobile_input_overlay; fallback 0 means desktop. */
+  @media (pointer: coarse) {
+    .minimap-panel { bottom: max(14px, calc(var(--pp-joystick-h, 0px) + 8px)); left: 8px; width: 100px; padding: 5px; }
+    .minimap-box { width: 90px; height: 90px; }
+    .minimap-label { font-size: 7px; }
+    .ai-state { font-size: 9px; }
+  }
 </style>
 </head>
 <body>

@@ -50,6 +50,7 @@ export function writeValidateScripts(sandboxDir: string): void {
     fs.writeFileSync(path.join(sandboxDir, 'validate_headless.js'), VALIDATE_HEADLESS_JS);
     fs.writeFileSync(path.join(sandboxDir, 'validate_assembler.js'), VALIDATE_ASSEMBLER_JS);
     fs.writeFileSync(path.join(sandboxDir, 'validate_uihandlers.js'), VALIDATE_UIHANDLERS_JS);
+    fs.writeFileSync(path.join(sandboxDir, 'validate_responsive.js'), VALIDATE_RESPONSIVE_JS);
 }
 
 /**
@@ -995,6 +996,16 @@ echo "=== UI Event Handler Lint ==="
 node validate_uihandlers.js 2>&1
 if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
 
+echo "=== UI Responsive Check ==="
+# Every HTML panel under project/ui/ MUST declare
+# <meta name="pp-responsive" content="1">. Without it the engine renders
+# the panel at a 1920px design width and scales down to ~21% on a phone —
+# Apple App Store rejects games whose mobile UI is illegible. The
+# CREATOR_CONTEXT/FIXER_CONTEXT "Cross-platform UI" sections cover the
+# required pattern and the available CSS variables.
+node validate_responsive.js 2>&1
+if [ $? -ne 0 ]; then ERRORS=$((ERRORS+1)); fi
+
 echo "=== Assembler Check (strict) ==="
 # Runs the same validation as assembleGame() against this project's
 # files, plus asset path validation. Catches everything the local
@@ -1040,7 +1051,54 @@ fi
 // module init time (see top of file). It runs all 8 validation
 // categories offline — no HTTP calls, no soft-fails.
 
-// Static lint for `events.ui.on("ui_event:...", function(d) { ... })`
+// Walks project/ui/**/*.html and fails the build if any panel is missing
+// the <meta name="pp-responsive"> opt-in. Without that tag, the engine's
+// runtime renders the panel at a 1920px design width and visually scales
+// it to ~21% on a phone — text becomes unreadable, which is the exact
+// class of issue that triggered the Apple App Store rejection. Every
+// shipped template has the tag; the validator catches AI-authored panels
+// that diverge from the templates and forget it. See
+// CREATOR_CONTEXT.md → "Cross-platform UI".
+const VALIDATE_RESPONSIVE_JS = `
+const fs = require('fs');
+const path = require('path');
+
+const META_RE = /<meta\\s+[^>]*name\\s*=\\s*["']pp-responsive["']/i;
+
+function walk(dir, visit) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full, visit);
+        else if (entry.name.endsWith('.html')) visit(full);
+    }
+}
+
+const errors = [];
+walk('project/ui', (full) => {
+    const src = fs.readFileSync(full, 'utf-8');
+    if (!META_RE.test(src)) {
+        errors.push(
+            full + ': missing <meta name="pp-responsive" content="1">. ' +
+            'Every UI panel must declare the responsive opt-in or it will ' +
+            'render unreadably small on phones (1920px design-width scale-down). ' +
+            'Add the tag at the top of the file, then use ' +
+            '@media (pointer: coarse) blocks for mobile-specific overrides ' +
+            'and var(--pp-bottom-clear) on bottom-anchored elements to clear ' +
+            'the joystick. See CREATOR_CONTEXT.md → "Cross-platform UI".'
+        );
+    }
+});
+
+if (errors.length === 0) {
+    console.log('UI responsive check passed.');
+} else {
+    for (const e of errors) console.error(e);
+    process.exit(1);
+}
+`;
+
+// Static lint for \`events.ui.on("ui_event:...", function(d) { ... })\`
 // handlers. Mirror of checkUiEventHandlers() in this same file —
 // keep the two in sync if you change either.
 const VALIDATE_UIHANDLERS_JS = `

@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -75,6 +76,16 @@
     background: linear-gradient(135deg, #15803d, #166534);
     border-color: rgba(74, 222, 128, 0.6);
     color: #dcfce7;
+  }
+
+  /* Mobile (touch primary): narrower so it fits 390px portrait;
+     positioned higher above tech_btn (which moves up too on mobile)
+     so the right-side stack doesn't overlap. */
+  @media (pointer: coarse) {
+    .diplo-wrap { bottom: max(210px, calc(var(--pp-rail-h, 0px) + 210px)); right: 8px; width: min(200px, calc(100vw - 16px)); }
+    .diplo-info { padding: 6px 10px; }
+    .diplo-val { font-size: 13px; }
+    .diplo-action { font-size: 10px; padding: 6px 8px; }
   }
 </style>
 </head>

@@ -1,4 +1,5 @@
 <!-- description: Bottom-right ammo counter showing current bullets and reserve — ammunition display, weapon ammo, magazine counter, bullet count, reload indicator -->
+<meta name="pp-responsive" content="1">
 <div id="ammo-display" style="position:fixed;bottom:20px;right:20px;text-align:right;pointer-events:none;">
   <div id="weapon-name" style="font-size:11px;color:#aaa;">RIFLE</div>
   <div style="display:flex;align-items:baseline;gap:4px;justify-content:flex-end;">
@@ -7,7 +8,7 @@
     <span id="ammo-reserve" style="font-size:16px;color:#888;">90</span>
   </div>
 </div>
-<script>
+<script>(function(){
 function update(state) {
   if (!state) return;
   if (state.ammo !== undefined) {
@@ -24,4 +25,4 @@ function update(state) {
   }
 }
 window.addEventListener('message', function(e) { if (e.data && e.data.type === 'gameState') update(e.data.state); });
-</script>
+})();</script>

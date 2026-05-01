@@ -16,6 +16,7 @@ import { GameUISystem } from '../../runtime/function/ui/game_ui.js';
 import { HTMLUIManager } from '../../runtime/function/ui/html_ui_manager.js';
 import { buildScriptScene } from './play_mode_helpers.js';
 import { MultiplayerManager } from './network/multiplayer_manager.js';
+import { isMobile } from './utils/mobile.js';
 
 function resolvePropertyValue(value: any, scriptScene: any): any {
     if (value && typeof value === 'object') {
@@ -304,7 +305,9 @@ export class EditorContext extends EventBus {
         this.state.isPlaying = true;
         const viewportCanvas = document.querySelector('.viewport-canvas') as HTMLCanvasElement;
         if (viewportCanvas) viewportCanvas.focus();
-        const isMobileDevice = ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        // Capability-based detection — UA regex misses iPadOS 13+ in
+        // Desktop Site mode (UA reports as Mac, no "iPad" string).
+        const isMobileDevice = isMobile();
         if (isMobileDevice && this.engine) {
             this.engine.globalContext.inputDevice.forcePointerLocked = true;
         }
@@ -482,6 +485,31 @@ export class EditorContext extends EventBus {
 
         const htmlUIManager = this.htmlUIManager;
         (gameUI as any).sendState = (state: any) => htmlUIManager.sendState(state);
+
+        // Suspend the mobile joystick + action rail whenever a top-level
+        // modal panel is showing (lobby_browser, lobby_room, main_menu,
+        // pause_menu, game_over, host_config). HUDs alone never trigger
+        // suspension — that's the key fix for click-to-play games with
+        // camera pan (4X / RTS / MOBA / tower defense), where the cursor
+        // is core gameplay AND the joystick pans the camera. Cursor
+        // visibility was the prior signal but it conflated "in a UI
+        // screen" with "user is clicking", which broke for those games.
+        const ctx = this.engine.globalContext;
+        htmlUIManager.onModalPanelVisible = (visible) => {
+            try { ctx.mobileOverlay?.setSuspended(visible, 'modal-panel'); } catch { /* swallow */ }
+        };
+
+        // Re-assertion poll. Some lifecycle events leave the suspension
+        // flag out of sync with what htmlUIManager actually sees — alt-tab
+        // visibilitychange resets the overlay, scene reloads drop the
+        // overlay's reason set, and the deferred-attach upgrade path can
+        // miss a transition fired before upgrade. Edge-triggered callbacks
+        // can't recover. A 1s re-apply (idempotent) self-heals within a
+        // second of any drift in either direction.
+        window.setInterval(() => {
+            const visible = htmlUIManager.lastModalVisible ?? false;
+            try { ctx.mobileOverlay?.setSuspended(visible, 'modal-panel'); } catch { /* swallow */ }
+        }, 1000);
 
         scriptSystem.setGameUI(gameUI);
 

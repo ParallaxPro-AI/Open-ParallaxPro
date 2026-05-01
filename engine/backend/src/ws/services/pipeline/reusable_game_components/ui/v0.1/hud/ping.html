@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -38,6 +39,14 @@
   .v-mid  { color: #eab308; }
   .v-bad  { color: #ef4444; }
   .unit { color: #6b7280; font-size: 9px; }
+
+  /* Mobile (touch primary): hide the standalone ping pill — the
+     voice_chat panel renders its own inline ping next to the mic
+     toggle so mobile players see one consolidated comm widget instead
+     of two stacked status pills. */
+  @media (pointer: coarse) {
+    .ping { display: none !important; }
+  }
 </style>
 </head>
 <body>

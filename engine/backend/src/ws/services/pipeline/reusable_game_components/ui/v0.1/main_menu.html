@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -274,6 +275,14 @@
   }
 
   .hidden { display: none !important; }
+
+  /* Mobile (touch primary): clamp hero size and button-group width so
+     the menu fits a phone screen. Desktop branch never fires. */
+  @media (pointer: coarse) {
+    .game-title { font-size: clamp(34px, 9vw, 56px); letter-spacing: 3px; }
+    .btn-group { width: min(280px, calc(100vw - 32px)); }
+    .menu-btn { padding: 14px 20px; }
+  }
 </style>
 </head>
 <body>

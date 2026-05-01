@@ -77,6 +77,14 @@ export interface MobileInputOverlayOptions {
     /** Optional container the overlay attaches to. Defaults to canvas.parentElement or body. */
     container?: HTMLElement;
     /**
+     * Whether the loaded game is multiplayer. Drives system-tray button
+     * inclusion: chat / voice are MP-only features (text_chat + voice_chat
+     * HUDs are no-ops in singleplayer), so showing their tray buttons in
+     * a singleplayer game is dead UI. Pause + Hide-Controls always show.
+     * Sourced from `projectConfig.multiplayer?.enabled` at attach time.
+     */
+    isMultiplayer?: boolean;
+    /**
      * Fires once the overlay's DOM is actually attached. With the deferred-
      * attach path that's not necessarily synchronous with the call to
      * attachMobileInputOverlay — callers that need to react on attach (e.g.
@@ -207,6 +215,14 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         'font-family:-apple-system,BlinkMacSystemFont,sans-serif',
     ].join(';');
     container.appendChild(root);
+
+    // Cross-platform UI hint. Responsive panels (those with
+    // <meta name="pp-responsive">) key off this attribute via
+    // :root[data-pp-mobile] selectors injected by HTMLUIManager —
+    // they reserve --pp-bottom-clear for the joystick footprint and
+    // clamp font-size for legibility. Desktop never sets this attr,
+    // so the same HTML reads fine at full size.
+    try { document.documentElement.setAttribute('data-pp-mobile', '1'); } catch { /* swallow */ }
 
     // Track which Touch.identifier each widget owns + the keys it pressed.
     type FingerState = {
@@ -619,12 +635,14 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         `width:${TRAY_TOGGLE_SIZE}px`,
         `height:${TRAY_TOGGLE_SIZE}px`,
         'border-radius:50%',
-        'background:rgba(0,0,0,0.40)',
-        'border:1px solid rgba(255,255,255,0.20)',
-        'color:white', 'font-size:18px',
+        'background:rgba(0,0,0,0.18)',
+        'border:1px solid rgba(255,255,255,0.10)',
+        'color:rgba(255,255,255,0.65)', 'font-size:18px',
         'display:flex', 'align-items:center', 'justify-content:center',
         'pointer-events:auto',
         'touch-action:none', 'user-select:none',
+        'backdrop-filter:blur(4px)',
+        '-webkit-backdrop-filter:blur(4px)',
     ].join(';');
     const trayItems = document.createElement('div');
     // Anchored to the LEFT of the toggle: right edge = toggle.right + toggle.width + gap.
@@ -841,11 +859,20 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     // tray flex-direction is row-reverse, so the FIRST appendChild is the
     // rightmost visual position. The user wants the "Hide Controls" toggle
     // at the rightmost end of the menu (closest to the hamburger).
+    // Hook for autoFadeOverlay to refresh the button label when it
+    // toggles 'manual-hide' externally — set inside buildHideControlsBtnTagged.
+    let updateHideControlsLabel: (() => void) | null = null;
     const hideBtn = buildHideControlsBtnTagged();
     trayItems.appendChild(hideBtn);
     if (sys.pause) trayItems.appendChild(buildSystemBtnTagged('Pause', sys.pause, true));
-    if (sys.voice) trayItems.appendChild(buildSystemBtnTagged('Voice', sys.voice, false, true));
-    if (sys.chat)  trayItems.appendChild(buildSystemBtnTagged('Chat', sys.chat, true));
+    // Chat + Voice are multiplayer features (the corresponding HUDs are
+    // no-ops without other peers). DEFAULT_SYSTEM seeds chat:Enter /
+    // voice:KeyV unconditionally so desktop key bindings still work, but
+    // the tray buttons should only appear when the game is actually MP.
+    // Singleplayer tray = Hide Controls + Pause.
+    const showMpButtons = opts.isMultiplayer === true;
+    if (showMpButtons && sys.voice) trayItems.appendChild(buildSystemBtnTagged('Voice', sys.voice, false, true));
+    if (showMpButtons && sys.chat)  trayItems.appendChild(buildSystemBtnTagged('Chat', sys.chat, true));
 
     /**
      * "Hide Controls" toggle button. Suspends the gameplay-controls
@@ -867,9 +894,16 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             'display:flex', 'align-items:center', 'justify-content:center',
             'touch-action:none', 'white-space:nowrap',
         ].join(';');
-        let hidden = false;
-        const updateLabel = () => { el.textContent = hidden ? 'Show Controls' : 'Hide Controls'; };
+        // Label is derived from suspendedReasons — autoFadeOverlay also
+        // sets 'manual-hide' (when a real keyboard event arrives), so this
+        // single source of truth keeps the button label in sync regardless
+        // of who toggled the suspension.
+        const isHidden = () => suspendedReasons.has('manual-hide');
+        const updateLabel = () => { el.textContent = isHidden() ? 'Show Controls' : 'Hide Controls'; };
         updateLabel();
+        // Expose for the autoFade path to refresh the label after it
+        // adds/removes 'manual-hide' externally.
+        updateHideControlsLabel = updateLabel;
         const onStart = (touch: Touch) => {
             const state: FingerState = {
                 widget: 'system', keys: new Set(),
@@ -879,9 +913,8 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             };
             fingers.set(touch.identifier, state);
             el.style.background = activeBg;
-            hidden = !hidden;
-            if (hidden) suspendedReasons.add('manual-hide');
-            else suspendedReasons.delete('manual-hide');
+            if (isHidden()) suspendedReasons.delete('manual-hide');
+            else suspendedReasons.add('manual-hide');
             applyVisibility();
             updateLabel();
         };
@@ -1125,15 +1158,31 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         // Don't react to keys we know we never synthesized as DOM events
         // (we only inject into InputSystem). Belt-and-braces: ignore repeat.
         if (e.repeat) return;
+        // Ignore OS/modifier keys — those aren't gameplay input. The big
+        // offender was Alt-Tab: switching apps fires an `Alt` keydown
+        // (and the browser's window-level capture sees it), which used
+        // to trigger autoFade. The user returns to the tab to find the
+        // overlay invisible. Same for Cmd-T, Cmd-W, Ctrl-Shift-anything,
+        // Escape, F-keys — all OS-level shortcuts, never gameplay.
+        const code = e.code || '';
+        if (/^(Alt|Tab|Meta|Control|Shift|OS|CapsLock|ContextMenu|Escape|F\d+)/.test(code)) return;
+        if (e.altKey || e.metaKey || e.ctrlKey) return;
         autoFadeOverlay();
     };
     window.addEventListener('keydown', onPhysicalKey, true);
 
     function autoFadeOverlay() {
         if (!isVisible()) return;
-        enabled = false;
+        // Use the same 'manual-hide' key the tray's "Hide Controls" button
+        // toggles. That key is NOT in TRAY_HIDING_REASONS, so the system
+        // tray (☰) stays visible — meaning the user can always tap "Show
+        // Controls" to bring the joystick + action rail back. Previously
+        // we flipped `enabled = false`, which killed the tray too and
+        // left no way to recover except a refresh.
+        if (suspendedReasons.has('manual-hide')) return;
+        suspendedReasons.add('manual-hide');
         applyVisibility();
-        // Don't write to localStorage — this is a soft, session-only fade.
+        updateHideControlsLabel?.();
     }
 
     function releaseAllFingers() {
@@ -1202,6 +1251,80 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
     }
     applyVisibility();
 
+    // Measure rail + joystick heights and publish as CSS variables on
+    // <html>. Responsive HUDs key their corner-lift rules off these vars
+    // (var(--pp-rail-h, fallback)) so a game with 8 actions vs 2 actions
+    // gets the right reserve, not a hardcoded guess. Re-measures on
+    // resize / orientation change. Each iframe pulls these from the
+    // parent (srcdoc inherits origin so window.parent works) and copies
+    // to its own :root — see html_ui_manager's wrapper script.
+    const measureAndPublishControlSizes = () => {
+        try {
+            // Rail children are all position:absolute (placeAt sets their
+            // bottom + right via inline style) so the rail container has
+            // no intrinsic content height — getBoundingClientRect().height
+            // returns 0. Compute the rail's vertical extent manually by
+            // walking children: each button's effective top from the
+            // viewport bottom = its computed `bottom` + its rendered
+            // height. Use getComputedStyle so CSS functions like
+            // `max(20px, env(safe-area-inset-bottom))` resolve to final
+            // pixel values — parseFloat on the raw inline string returns
+            // NaN for those.
+            let railTopFromBottom = 0;
+            for (let i = 0; i < railContainer.children.length; i++) {
+                const c = railContainer.children[i] as HTMLElement;
+                const cb = parseFloat(window.getComputedStyle(c).bottom) || 0;
+                const ch = c.offsetHeight || 0;
+                const top = cb + ch;
+                if (top > railTopFromBottom) railTopFromBottom = top;
+            }
+            // The rail container itself has its own `bottom:env(safe-area-
+            // inset-bottom, 12px)` offset that the children's bottoms
+            // are RELATIVE TO — add it so the published value is the
+            // distance from the actual viewport bottom, not from the
+            // container's local origin.
+            const railContainerBottom = parseFloat(window.getComputedStyle(railContainer).bottom) || 0;
+            railTopFromBottom += railContainerBottom;
+            // Joystick has explicit 140x140 plus its own
+            // `bottom:max(20px, env(safe-area-inset-bottom))`. Compute
+            // offset from viewport bottom = computed bottom + height.
+            let stickTopFromBottom = 0;
+            if (joystick) {
+                const jel = joystick.el;
+                const jb = parseFloat(window.getComputedStyle(jel).bottom) || 0;
+                const jh = jel.offsetHeight || 0;
+                stickTopFromBottom = jb + jh;
+            }
+            // Add a small buffer (12px) above each control for breathing
+            // room — HUDs sitting flush against the controls feels cramped.
+            // Publish only if we got a real measurement; otherwise leave
+            // the previous value in place so a momentary display:none
+            // (suspension) doesn't reset HUDs back under the controls
+            // until the next visibility flip re-measures.
+            if (railTopFromBottom > 0) {
+                document.documentElement.style.setProperty('--pp-rail-h', Math.ceil(railTopFromBottom + 20) + 'px');
+            }
+            if (stickTopFromBottom > 0) {
+                document.documentElement.style.setProperty('--pp-joystick-h', Math.ceil(stickTopFromBottom + 20) + 'px');
+            }
+        } catch { /* swallow */ }
+    };
+    // Defer one frame so children laid out before we measure. Then watch
+    // for resize / DOM mutation in case actions get added or buttons resized.
+    // Initial measure after layout settles. railContainer itself is
+    // 0×0 (children are absolute-positioned) so observe individual
+    // children — when any button resizes (e.g. accent state change),
+    // re-measure the rail's vertical extent. Same for joystick.
+    requestAnimationFrame(measureAndPublishControlSizes);
+    requestAnimationFrame(() => requestAnimationFrame(measureAndPublishControlSizes)); // double-rAF for late layout
+    const sizeObserver = new ResizeObserver(measureAndPublishControlSizes);
+    for (let i = 0; i < railContainer.children.length; i++) {
+        sizeObserver.observe(railContainer.children[i] as HTMLElement);
+    }
+    if (joystick) sizeObserver.observe(joystick.el);
+    window.addEventListener('resize', measureAndPublishControlSizes);
+    window.addEventListener('orientationchange', measureAndPublishControlSizes);
+
     // ── Public handle ────────────────────────────────────────────────────
     return {
         destroy: () => {
@@ -1216,6 +1339,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
             releaseAllFingers();
             try { root.remove(); } catch { /* swallow */ }
             if (settingsRow) try { settingsRow.remove(); } catch { /* swallow */ }
+            try { document.documentElement.removeAttribute('data-pp-mobile'); } catch { /* swallow */ }
         },
         setEnabled: (e) => {
             enabled = e;

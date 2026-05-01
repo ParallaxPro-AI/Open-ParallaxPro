@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; }
@@ -17,6 +18,16 @@
   .tech-name { color: #3b82f6; font-weight: 700; }
   .tech-bar { margin-top: 4px; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
   .tech-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 2px; transition: width 0.3s; width: 0%; }
+
+  /* Mobile (touch primary): tighter for the 4X right-stack. The stack
+     is era-indicator at top, then diplomacy_btn / tech_btn / end_turn
+     anchored from bottom — keep this one compact so the bottom stack
+     has room without overlap. */
+  @media (pointer: coarse) {
+    .era-panel { top: max(40px, calc(env(safe-area-inset-top) + 38px)); right: 8px; max-width: 200px; padding: 5px 10px; }
+    .era-val { font-size: 12px; }
+    .tech-info { font-size: 9px; }
+  }
 </style>
 </head>
 <body>

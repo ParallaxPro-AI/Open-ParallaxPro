@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -313,11 +314,11 @@
 </div>
 
 <div class="hands">
-  <div class="hand-slot" id="hand-l"><span class="hand-dot"></span><span class="hand-key">LMB</span><span>L HAND</span></div>
-  <div class="hand-slot" id="hand-r"><span class="hand-dot"></span><span class="hand-key">RMB</span><span>R HAND</span></div>
+  <div class="hand-slot" id="hand-l"><span class="hand-dot"></span><span class="hand-key" data-pp-desktop-only>LMB</span><span>L HAND</span></div>
+  <div class="hand-slot" id="hand-r"><span class="hand-dot"></span><span class="hand-key" data-pp-desktop-only>RMB</span><span>R HAND</span></div>
 </div>
 
-<div class="controls">
+<div class="controls" data-pp-desktop-only>
   <span><kbd>WASD</kbd>Walk</span>
   <span><kbd>SPACE</kbd>Jump</span>
   <span><kbd>MOUSE</kbd>Look</span>

@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="pp-responsive" content="1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Inter', system-ui, sans-serif; color: #f0f0f0; pointer-events: none; overflow: hidden; }
@@ -18,6 +19,15 @@
   .unit-counts { font-size: 11px; font-weight: 700; color: #999; margin-top: 2px; }
   .pcol { color: #22c55e; }
   .acol { color: #ef4444; }
+
+  /* Mobile (touch primary): tighter top-left turn counter. Mirrors
+     era_indicator on the right so they don't crowd the resource_bar
+     below the toolbar. */
+  @media (pointer: coarse) {
+    .turn-panel { top: max(40px, calc(env(safe-area-inset-top) + 38px)); left: 8px; max-width: 180px; padding: 5px 10px; }
+    .turn-val { font-size: 16px; }
+    .unit-counts { font-size: 10px; }
+  }
 </style>
 </head>
 <body>
