@@ -225,11 +225,105 @@ window.addEventListener('unhandledrejection',function(e){var r=e.reason;__ppForw
 // N visible-pixels published by the parent map to N/0.82 logical-pixels
 // inside the iframe. srcdoc inherits parent origin.
 (function(){var SCALE=0.82;function pull(){try{var cs=window.parent.document.documentElement.style;var rh=cs.getPropertyValue('--pp-rail-h');var jh=cs.getPropertyValue('--pp-joystick-h');if(rh){var rp=parseFloat(rh);if(rp>0)document.documentElement.style.setProperty('--pp-rail-h',Math.ceil(rp/SCALE)+'px');}if(jh){var jp=parseFloat(jh);if(jp>0)document.documentElement.style.setProperty('--pp-joystick-h',Math.ceil(jp/SCALE)+'px');}}catch(_){}}pull();setInterval(pull,500);})();
+// Rewrite a HUD's CSS so every rule is scoped to its <section>. The
+// mobile bundle puts all HUDs in ONE iframe to dodge iOS WKWebView's
+// per-iframe memory cost — but that means every HUD's CSS lives in
+// the same document scope. Generic class names (.panel, .row, .bar,
+// .title, .label, .item) collide: e.g. ship_status declares
+// ".panel { position:fixed; bottom:16px; left:50%; ...pirate gradient }"
+// which clobbers voice_chat's tiny corner ".panel { top:195px; left:12px }".
+// Voice chat ended up rendering as a giant centered pirate box inside
+// buccaneer_bay games. Walk the CSS, prepend the section selector to
+// each top-level rule, remap body/html/:root to the section itself,
+// descend into @media / @supports / @container / @layer to scope
+// nested rules, leave @keyframes / @font-face / @page alone (those
+// are name-scoped, not selector-scoped — renaming would break panel
+// scripts referencing them).
+function __ppScopeCSS(css, scope){
+    var result = '';
+    var i = 0;
+    var len = css.length;
+    function consumeBody(){
+        var depth = 1;
+        var body = '';
+        i++;
+        while (i < len && depth > 0){
+            var c = css[i];
+            if (c === '{') depth++;
+            else if (c === '}') depth--;
+            if (depth > 0) body += c;
+            i++;
+        }
+        return body;
+    }
+    while (i < len){
+        while (i < len && /\\s/.test(css[i])){ result += css[i]; i++; }
+        if (i >= len) break;
+        // Strip CSS comments — they can contain {} and break our brace tracking.
+        if (css[i] === '/' && css[i+1] === '*'){
+            var endC = css.indexOf('*/', i+2);
+            if (endC < 0) break;
+            result += css.slice(i, endC+2);
+            i = endC + 2;
+            continue;
+        }
+        var startSel = i;
+        while (i < len && css[i] !== '{' && css[i] !== ';'){
+            // Track strings so braces inside content:"…" don't fool us.
+            if (css[i] === '"' || css[i] === "'"){
+                var q = css[i++];
+                while (i < len && css[i] !== q){
+                    if (css[i] === '\\\\') i++;
+                    i++;
+                }
+            }
+            i++;
+        }
+        var sel = css.slice(startSel, i).trim();
+        if (i < len && css[i] === ';'){ result += sel + ';'; i++; continue; }
+        if (i >= len){ result += sel; break; }
+        if (sel.charAt(0) === '@'){
+            var kwm = sel.match(/^@([a-zA-Z-]+)/);
+            var kw = kwm ? kwm[1].toLowerCase() : '';
+            var body = consumeBody();
+            if (kw === 'media' || kw === 'supports' || kw === 'container' || kw === 'layer' || kw === 'scope'){
+                result += sel + '{' + __ppScopeCSS(body, scope) + '}';
+            } else {
+                // @keyframes / @font-face / @page / @counter-style / @property / @import — global by name; emit as-is.
+                result += sel + '{' + body + '}';
+            }
+        } else {
+            var scoped = sel.split(',').map(function(s){
+                s = s.trim();
+                if (!s) return '';
+                if (s === 'body' || s === 'html' || s === ':root') return scope;
+                if (/^(body|html|:root)\\b/.test(s)){
+                    var rest = s.replace(/^(body|html|:root)/, '');
+                    if (rest.charAt(0) === '.' || rest.charAt(0) === '#' || rest.charAt(0) === '['){
+                        return scope + rest;
+                    }
+                    return scope + ' ' + rest.trim();
+                }
+                return scope + ' ' + s;
+            }).filter(Boolean).join(', ');
+            var body2 = consumeBody();
+            result += scoped + '{' + body2 + '}';
+        }
+    }
+    return result;
+}
 function __ppAddPanel(path, html, responsive){
     if (document.querySelector('section[data-panel-path="'+path+'"]')) return;
     var s = document.createElement('section');
     s.setAttribute('data-panel-path', path);
     if (responsive) s.setAttribute('data-pp-responsive', '1');
+    // Scope every <style> block in this panel to its section so
+    // generic class names (.panel, .row, .bar) don't bleed across HUDs.
+    var scope = 'section[data-panel-path="' + path + '"]';
+    html = html.replace(/<style([^>]*)>([\\s\\S]*?)<\\/style>/gi, function(m, attrs, css){
+        try { return '<style' + attrs + '>' + __ppScopeCSS(css, scope) + '</style>'; }
+        catch(_) { return m; }
+    });
     s.innerHTML = html;
     document.body.appendChild(s);
     var scripts = s.querySelectorAll('script');
