@@ -53,6 +53,14 @@ export class InputDevice {
     private touchEndCallbacks: Set<TouchCallback> = new Set();
     private gamepadConnectedCallbacks: Set<GamepadCallback> = new Set();
     private gamepadDisconnectedCallbacks: Set<GamepadCallback> = new Set();
+    /**
+     * Fires whenever the page can no longer reliably observe key/mouse-up
+     * events — window blur, tab hidden via visibilitychange, page being
+     * unloaded. Subscribers should drop any held-key state because an
+     * Alt-Tab / Cmd-Tab / dialog-eating-the-keyup leaves keysDown stuck
+     * (player drifts forward forever even though the user has let go).
+     */
+    private focusLostCallbacks: Set<() => void> = new Set();
 
     private boundKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private boundKeyUp: ((e: KeyboardEvent) => void) | null = null;
@@ -66,6 +74,9 @@ export class InputDevice {
     private boundGamepadConnected: ((e: GamepadEvent) => void) | null = null;
     private boundGamepadDisconnected: ((e: GamepadEvent) => void) | null = null;
     private boundContextMenu: ((e: Event) => void) | null = null;
+    private boundWindowBlur: (() => void) | null = null;
+    private boundVisibilityChange: (() => void) | null = null;
+    private boundPageHide: (() => void) | null = null;
 
     initialize(canvasElement: HTMLCanvasElement): void {
         this.canvas = canvasElement;
@@ -177,8 +188,27 @@ export class InputDevice {
             e.preventDefault();
         };
 
+        // Stuck-key recovery. The browser sends keydown but doesn't
+        // guarantee a matching keyup will reach us — Alt-Tab / Cmd-Tab,
+        // OS shortcuts that switch apps mid-press, browser dialogs that
+        // steal focus, and pointer-lock release with held keys all eat
+        // the keyup. Without this, a player who Cmd-Tabs while holding
+        // W keeps drifting forward when they come back. We treat any
+        // loss-of-focus signal as "release everything".
+        const fireFocusLost = () => {
+            for (const cb of this.focusLostCallbacks) cb();
+        };
+        this.boundWindowBlur = fireFocusLost;
+        this.boundVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') fireFocusLost();
+        };
+        this.boundPageHide = fireFocusLost;
+
         window.addEventListener('keydown', this.boundKeyDown);
         window.addEventListener('keyup', this.boundKeyUp);
+        window.addEventListener('blur', this.boundWindowBlur);
+        document.addEventListener('visibilitychange', this.boundVisibilityChange);
+        window.addEventListener('pagehide', this.boundPageHide);
 
         canvasElement.addEventListener('mousedown', this.boundMouseDown);
         canvasElement.addEventListener('mouseup', this.boundMouseUp);
@@ -205,6 +235,7 @@ export class InputDevice {
     onTouchEnd(callback: TouchCallback): void { this.touchEndCallbacks.add(callback); }
     onGamepadConnected(callback: GamepadCallback): void { this.gamepadConnectedCallbacks.add(callback); }
     onGamepadDisconnected(callback: GamepadCallback): void { this.gamepadDisconnectedCallbacks.add(callback); }
+    onFocusLost(callback: () => void): void { this.focusLostCallbacks.add(callback); }
 
     requestPointerLock(): void {
         if (this.canvas) {
@@ -229,6 +260,9 @@ export class InputDevice {
         if (this.boundKeyUp) window.removeEventListener('keyup', this.boundKeyUp);
         if (this.boundGamepadConnected) window.removeEventListener('gamepadconnected', this.boundGamepadConnected);
         if (this.boundGamepadDisconnected) window.removeEventListener('gamepaddisconnected', this.boundGamepadDisconnected);
+        if (this.boundWindowBlur) window.removeEventListener('blur', this.boundWindowBlur);
+        if (this.boundVisibilityChange) document.removeEventListener('visibilitychange', this.boundVisibilityChange);
+        if (this.boundPageHide) window.removeEventListener('pagehide', this.boundPageHide);
 
         if (this.canvas) {
             if (this.boundMouseDown) this.canvas.removeEventListener('mousedown', this.boundMouseDown);
@@ -252,6 +286,7 @@ export class InputDevice {
         this.touchEndCallbacks.clear();
         this.gamepadConnectedCallbacks.clear();
         this.gamepadDisconnectedCallbacks.clear();
+        this.focusLostCallbacks.clear();
 
         this.canvas = null;
     }

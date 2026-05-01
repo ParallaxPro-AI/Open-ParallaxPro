@@ -38,6 +38,15 @@ export function connectInputDevice(inputSystem: InputSystem, inputDevice: InputD
         inputSystem.injectWheel(deltaX, deltaY);
     });
 
+    // Browser doesn't deliver keyup when focus leaves the window mid-press
+    // (Alt-Tab, Cmd-Tab, OS shortcut, dialog stealing focus, pointer-lock
+    // release, etc.), so a player who Cmd-Tabs while holding W comes back
+    // to find their character drifting forward forever. Treat any
+    // loss-of-focus signal as a release-everything edge.
+    inputDevice.onFocusLost(() => {
+        inputSystem.clearAllInputState();
+    });
+
     // Touch-to-mouse simulation for touch devices.
     //
     // This is the LEGACY path: a primary-touch-as-mouse shim that lets a
