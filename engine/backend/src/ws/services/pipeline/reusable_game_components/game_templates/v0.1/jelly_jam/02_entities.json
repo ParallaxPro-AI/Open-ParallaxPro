@@ -93,7 +93,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "course_floor": {
@@ -120,7 +122,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_08.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_08.png",
+        "uvScaleX": 64,
+        "uvScaleY": 18
       }
     },
     "stage_pillar": {
@@ -203,7 +207,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 50,
+        "uvScaleY": 4
       }
     },
     "fan_pink": {

@@ -105,7 +105,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 40,
+        "uvScaleY": 10
       }
     },
     "track_wall": {
@@ -128,7 +130,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 40,
+        "uvScaleY": 2
       }
     },
     "obstacle_van": {
@@ -202,7 +206,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png",
+        "uvScaleX": 2,
+        "uvScaleY": 1
       }
     },
     "obstacle_cone": {

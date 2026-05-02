@@ -81,7 +81,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_07.png",
+        "uvScaleX": 14,
+        "uvScaleY": 14
       }
     },
     "cp_corridor_floor": {
@@ -108,7 +110,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png",
+        "uvScaleX": 4,
+        "uvScaleY": 4
       }
     },
     "cp_room_region": {
@@ -156,7 +160,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 14,
+        "uvScaleY": 4
       }
     },
     "cp_wall_side": {
@@ -183,7 +189,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 14,
+        "uvScaleY": 4
       }
     },
     "cp_wall_short": {
@@ -210,7 +218,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 4,
+        "uvScaleY": 4
       }
     },
     "cp_door_panel": {
@@ -238,7 +248,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_03.png",
+        "uvScaleX": 4,
+        "uvScaleY": 3
       }
     },
     "cp_door_panel_side": {
@@ -266,7 +278,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_03.png",
+        "uvScaleX": 4,
+        "uvScaleY": 3
       }
     },
     "cp_torch": {
@@ -388,7 +402,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     }
   }

@@ -96,7 +96,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_06.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_06.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "background_hill": {

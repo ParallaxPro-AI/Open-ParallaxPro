@@ -175,7 +175,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 38,
+        "uvScaleY": 1
       }
     },
     "sand_atoll_small": {
@@ -202,7 +204,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 19,
+        "uvScaleY": 1
       }
     },
     "ghost_ship_small": {

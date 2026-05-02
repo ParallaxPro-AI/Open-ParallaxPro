@@ -97,7 +97,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "nj_floor_pad": {
@@ -124,7 +126,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 10,
+        "uvScaleY": 8
       }
     },
     "nj_floor_pad_long": {
@@ -151,7 +155,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 16,
+        "uvScaleY": 8
       }
     },
     "nj_bridge_plank": {
@@ -178,7 +184,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png",
+        "uvScaleX": 4,
+        "uvScaleY": 1
       }
     },
     "nj_wall_block": {
@@ -206,7 +214,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 5,
+        "uvScaleY": 4
       }
     },
     "nj_climb_ledge": {
@@ -301,7 +311,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_03.png",
+        "uvScaleX": 4,
+        "uvScaleY": 4
       }
     },
     "nj_door_side": {
@@ -329,7 +341,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_03.png",
+        "uvScaleX": 4,
+        "uvScaleY": 4
       }
     },
     "nj_carry_cube": {

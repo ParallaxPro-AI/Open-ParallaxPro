@@ -109,7 +109,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_07.png",
+        "uvScaleX": 14,
+        "uvScaleY": 6
       }
     },
     "ground_grass_strip": {

@@ -295,7 +295,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "road": {
@@ -319,7 +321,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png",
+        "uvScaleX": 15,
+        "uvScaleY": 64
       }
     },
     "barrier_outer": {
@@ -342,7 +346,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png",
+        "uvScaleX": 2,
+        "uvScaleY": 1
       }
     },
     "barrier_inner": {
@@ -365,7 +371,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 2,
+        "uvScaleY": 1
       }
     },
     "start_line": {
@@ -389,7 +397,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_05.png",
+        "uvScaleX": 15,
+        "uvScaleY": 2
       }
     },
     "cone": {

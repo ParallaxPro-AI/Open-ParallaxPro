@@ -163,7 +163,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 10,
+        "uvScaleY": 8
       }
     },
     "bunker_small": {
@@ -186,7 +188,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png",
+        "uvScaleX": 6,
+        "uvScaleY": 5
       }
     },
     "watchtower": {
@@ -312,7 +316,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 12,
+        "uvScaleY": 3
       }
     },
     "wall_perimeter": {
@@ -335,7 +341,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png",
+        "uvScaleX": 4,
+        "uvScaleY": 1
       }
     },
     "ground": {
@@ -358,7 +366,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "tree_common": {

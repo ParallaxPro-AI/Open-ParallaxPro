@@ -24,7 +24,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "arena_wall_n": {

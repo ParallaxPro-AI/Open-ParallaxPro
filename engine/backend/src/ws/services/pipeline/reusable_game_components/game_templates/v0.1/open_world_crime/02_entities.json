@@ -492,7 +492,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "road": {
@@ -516,7 +518,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png",
+        "uvScaleX": 12,
+        "uvScaleY": 64
       }
     },
     "sidewalk": {
@@ -540,7 +544,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 4,
+        "uvScaleY": 64
       }
     },
     "traffic_light": {
@@ -643,7 +649,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png",
+        "uvScaleX": 2,
+        "uvScaleY": 2
       }
     },
     "fire_hydrant": {

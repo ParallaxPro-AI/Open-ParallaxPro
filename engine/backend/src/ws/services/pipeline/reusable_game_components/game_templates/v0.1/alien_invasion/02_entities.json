@@ -79,7 +79,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_04.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_04.png",
+        "uvScaleX": 48,
+        "uvScaleY": 44
       }
     },
     "playfield_grid_line": {

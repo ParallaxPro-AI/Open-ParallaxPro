@@ -189,7 +189,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_04.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_04.png",
+        "uvScaleX": 64,
+        "uvScaleY": 60
       }
     },
     "pitch_midline": {
@@ -272,7 +274,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png",
+        "uvScaleX": 64,
+        "uvScaleY": 5
       }
     },
     "arena_wall_short": {
@@ -299,7 +303,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png",
+        "uvScaleX": 20,
+        "uvScaleY": 5
       }
     },
     "goal_red_backing": {

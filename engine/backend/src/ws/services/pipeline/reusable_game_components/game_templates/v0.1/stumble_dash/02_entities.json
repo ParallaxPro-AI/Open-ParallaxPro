@@ -87,7 +87,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png",
+        "uvScaleX": 22,
+        "uvScaleY": 14
       }
     },
     "platform_orange": {
@@ -110,7 +112,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png",
+        "uvScaleX": 28,
+        "uvScaleY": 14
       }
     },
     "platform_blue": {
@@ -133,7 +137,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 8,
+        "uvScaleY": 5
       }
     },
     "platform_purple": {
@@ -156,7 +162,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_05.png",
+        "uvScaleX": 18,
+        "uvScaleY": 2
       }
     },
     "platform_gold": {
@@ -179,7 +187,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_13.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_13.png",
+        "uvScaleX": 20,
+        "uvScaleY": 14
       }
     },
     "platform_moving": {
@@ -208,7 +218,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 5,
+        "uvScaleY": 5
       },
       "behaviors": [
         {
@@ -246,7 +258,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png",
+        "uvScaleX": 12,
+        "uvScaleY": 1
       },
       "behaviors": [
         {
@@ -279,7 +293,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 22,
+        "uvScaleY": 2
       }
     },
     "checkpoint_crystal": {
@@ -367,7 +383,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_05.png",
+        "uvScaleX": 14,
+        "uvScaleY": 2
       }
     },
     "finish_banner": {
@@ -391,7 +409,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_13.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_13.png",
+        "uvScaleX": 14,
+        "uvScaleY": 2
       }
     }
   }

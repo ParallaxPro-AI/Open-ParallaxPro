@@ -197,7 +197,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "pitch_border": {
@@ -220,7 +222,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_01.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_01.png",
+        "uvScaleX": 64,
+        "uvScaleY": 64
       }
     },
     "line_long": {
@@ -430,7 +434,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 64,
+        "uvScaleY": 6
       }
     },
     "stand_end": {
@@ -453,7 +459,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 60,
+        "uvScaleY": 6
       }
     }
   }

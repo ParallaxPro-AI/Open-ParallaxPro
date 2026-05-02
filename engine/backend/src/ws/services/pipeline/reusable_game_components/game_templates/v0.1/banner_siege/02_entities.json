@@ -104,7 +104,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
+        "uvScaleX": 64,
+        "uvScaleY": 50
       }
     },
     "ground_strip_red": {
@@ -128,7 +130,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png",
+        "uvScaleX": 16,
+        "uvScaleY": 24
       }
     },
     "ground_strip_blue": {
@@ -152,7 +156,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_04.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_04.png",
+        "uvScaleX": 16,
+        "uvScaleY": 24
       }
     },
     "wall_long": {
@@ -175,7 +181,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 10,
+        "uvScaleY": 3
       }
     },
     "wall": {
@@ -198,7 +206,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_02.png",
+        "uvScaleX": 4,
+        "uvScaleY": 3
       }
     },
     "wall_low": {
@@ -221,7 +231,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 4,
+        "uvScaleY": 1
       }
     },
     "wall_perimeter": {
@@ -244,7 +256,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png",
+        "uvScaleX": 64,
+        "uvScaleY": 5
       }
     },
     "wall_perimeter_side": {
@@ -267,7 +281,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png",
+        "uvScaleX": 50,
+        "uvScaleY": 5
       }
     },
     "crate": {
@@ -370,7 +386,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_07.png",
+        "uvScaleX": 4,
+        "uvScaleY": 1
       }
     },
     "pedestal_blue": {
@@ -397,7 +415,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_07.png",
+        "uvScaleX": 4,
+        "uvScaleY": 1
       }
     },
     "capture_marker_red": {
@@ -422,7 +442,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_10.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_10.png",
+        "uvScaleX": 5,
+        "uvScaleY": 5
       }
     },
     "capture_marker_blue": {
@@ -447,7 +469,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_10.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_10.png",
+        "uvScaleX": 5,
+        "uvScaleY": 5
       }
     },
     "banner_red": {

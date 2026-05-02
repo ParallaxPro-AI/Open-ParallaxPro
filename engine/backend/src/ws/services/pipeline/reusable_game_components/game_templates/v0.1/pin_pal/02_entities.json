@@ -47,7 +47,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_06.png",
+        "uvScaleX": 60,
+        "uvScaleY": 40
       }
     },
     "pp_lane_floor": {
@@ -74,7 +76,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_07.png",
+        "uvScaleX": 26,
+        "uvScaleY": 2
       }
     },
     "pp_gutter": {
@@ -101,7 +105,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 26,
+        "uvScaleY": 1
       }
     },
     "pp_lane_rail": {
@@ -128,7 +134,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png",
+        "uvScaleX": 26,
+        "uvScaleY": 1
       }
     },
     "pp_throw_line": {
@@ -223,7 +231,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 60,
+        "uvScaleY": 8
       }
     },
     "pp_room_side_wall": {
@@ -250,7 +260,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_03.png",
+        "uvScaleX": 40,
+        "uvScaleY": 8
       }
     },
     "pp_pin_backstop": {
@@ -277,7 +289,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_03.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_03.png",
+        "uvScaleX": 4,
+        "uvScaleY": 4
       }
     },
     "pp_lamp": {

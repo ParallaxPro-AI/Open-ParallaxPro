@@ -126,7 +126,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png",
+        "uvScaleX": 22,
+        "uvScaleY": 22
       }
     },
     "arena_border": {
@@ -190,7 +192,9 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png"
+        "textureBundle": "/assets/kenney/textures/prototype_textures/Red/texture_05.png",
+        "uvScaleX": 18,
+        "uvScaleY": 1
       }
     },
     "flag_blue": {
