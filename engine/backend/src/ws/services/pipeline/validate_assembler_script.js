@@ -18,6 +18,7 @@
 //   9-13. Tag/name lookups, kinematic-body / camera / collider / decoration /
 //        body-type / Play-Again rules
 //  14. Click pattern — cursor_click events vs cached cursor_move + MouseLeft poll
+//  15. World-to-HUD scale — worldToScreen → hud_update needs iframe-scale compensation
 
 var fs = require('fs');
 var path = require('path');
@@ -1801,6 +1802,69 @@ function extractMethodBody(src, name) {
             '(and cursor_right_click for the right button). The event payload carries the ' +
             'press-frame canvas-relative coords. Affected: ' + warnings.join(', ') + '. ' +
             'Reference: chess_interaction.ts, rts_input.ts, kitchen_master_engine.ts.'
+        );
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
+// 15. World-anchored HUD scale — worldToScreen → hud_update payloads
+//     must compensate for the iframe's CSS scale.
+// ═════════════════════════════════════════════════════════════════════
+//
+// HUD HTMLs are loaded into iframes that html_ui_manager scales:
+//   - non-responsive panels: transform: scale(canvas_w / 1920), so the
+//     iframe's design width is fixed at 1920px. canvas-x → iframe-x
+//     needs `* 1920 / canvas_w`.
+//   - pp-responsive panels on coarse-pointer devices: hardcoded
+//     transform: scale(0.62), iframe design width = canvas_w / 0.62.
+//     canvas-x → iframe-x needs `/ 0.62`.
+//
+// Scripts that pass worldToScreen output STRAIGHT to hud_update render
+// world-anchored elements (HP bars, damage numbers, speech bubbles, name
+// tags) at the wrong screen pixel — drifted away from where the entity
+// is. Reference good pattern: entity_health_bars.ts (branches on
+// (pointer: coarse) for the right multiplier).
+(function checkWorldToScreenScale() {
+    var warnings = [];
+    var scriptEntries = Object.entries(allScripts);
+    for (var sei = 0; sei < scriptEntries.length; sei++) {
+        var scriptKey = scriptEntries[sei][0];
+        var source = scriptEntries[sei][1];
+        if (ENGINE_MACHINERY_RE.test(scriptKey)) continue;
+        // Trigger only when both: worldToScreen IS called AND a payload
+        // is emitted via hud_update somewhere in the same script. A
+        // script that uses worldToScreen for a non-HUD purpose (distance
+        // gate, debug log) and never emits hud_update at all stays clean.
+        if (!/\bworldToScreen\s*\(/.test(source)) continue;
+        if (!/hud_update/.test(source)) continue;
+        // Skip if the script already references the iframe-scale
+        // compensation. Any of these tokens means the author already
+        // thought about scaling: looking up the canvas element, branching
+        // on coarse-pointer mediaquery, the html_ui_manager zoom field,
+        // the mobile pp-responsive 0.62 multiplier, or the legacy
+        // 1920/canvas_w divisor.
+        if (/viewport-canvas-container/.test(source)) continue;
+        if (/pointer:\s*coarse/.test(source)) continue;
+        if (/currentZoom/.test(source)) continue;
+        if (/0\.62/.test(source)) continue;
+        if (/1920\s*\//.test(source)) continue;
+        warnings.push(scriptKey);
+    }
+    if (warnings.length > 0) {
+        console.error(
+            'World-to-HUD scale check failed: ' + warnings.length + ' script(s) ' +
+            'pass scene.worldToScreen output to hud_update without compensating for ' +
+            'the HUD iframe\'s CSS scale. World-anchored HUD elements (HP bars, name ' +
+            'tags, speech bubbles, damage numbers) will drift off the entity on any ' +
+            'non-1920px viewport — and badly off-target on mobile, where pp-responsive ' +
+            'panels use a hardcoded 0.62x scale (1920/390 ≈ 4.9, but the right ' +
+            'multiplier is 1/0.62 ≈ 1.6). ' +
+            'Affected: ' + warnings.join(', ') + '. ' +
+            'Reference good pattern: branch on (pointer: coarse) for the mobile ' +
+            'multiplier (1/0.62), fall through to the legacy canvas_w/1920 path on ' +
+            'desktop. See entity_health_bars.ts in the library for an exact template.'
         );
         process.exit(1);
     }

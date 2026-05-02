@@ -2097,6 +2097,36 @@ Quick mental checklist when something looks wrong but the validator passes:
     }
     ```
 
+30. **World-anchored HUD elements need iframe-scale compensation when emitting `worldToScreen` coords**: HUD HTMLs live in iframes that `html_ui_manager` CSS-scales — and the scale factor depends on the panel's responsive opt-in AND the device pointer type. Passing `scene.worldToScreen(x, y, z)` output STRAIGHT into a `hud_update` payload (`{x: sp.x, y: sp.y}`) makes any world-anchored HTML element (HP bar, name tag, speech bubble, damage number) drift off the entity. The MMORPG dialogue-bubble run hit this twice: once misaligned on desktop, then misaligned the OTHER way on mobile after the first fix only handled desktop. **Rule: when the system passes worldToScreen output to a HUD with `<meta name="pp-responsive">`, branch on `(pointer: coarse)` for the right multiplier.** Pattern (mirror of `entity_health_bars.ts`):
+
+    ```ts
+    var isCoarse = (typeof window !== "undefined" && window.matchMedia)
+        ? !!window.matchMedia("(pointer: coarse)").matches
+        : false;
+    var uiScale;
+    if (isCoarse) {
+        // pp-responsive panels use a hardcoded 0.62× scale on coarse-
+        // pointer devices, so canvas-x → iframe-x is canvas_x / 0.62.
+        uiScale = 1 / 0.62;
+    } else {
+        // Desktop or non-responsive panels use canvas_w / 1920 scale,
+        // so canvas-x → iframe-x is canvas_x × 1920 / canvas_w (no-op
+        // when canvas is already ≥ 1920px).
+        var canvasW = 1920;
+        if (typeof document !== "undefined") {
+            var c = document.querySelector(".viewport-canvas-container canvas");
+            if (c && c.clientWidth) canvasW = c.clientWidth;
+        }
+        uiScale = (canvasW < 1920) ? (1920 / canvasW) : 1;
+    }
+    var sp = this.scene.worldToScreen(p.x, p.y + 2.4, p.z);
+    if (sp) {
+        out.push({ x: sp.x * uiScale, y: sp.y * uiScale, /* ... */ });
+    }
+    ```
+
+    The `world_to_hud_scale` lint in validate.sh hard-fails any script that calls `worldToScreen` AND emits `hud_update` without referencing one of the scale tokens (`viewport-canvas-container`, `pointer: coarse`, `0.62`, `1920 /`, or `currentZoom`). On non-mobile non-responsive panels the desktop branch still applies, so the same code is right everywhere. Skip this entirely if your script uses `worldToScreen` for distance/visibility math only and doesn't render via HTML — `this.ui.createText({...})` already lives in canvas-pixel space and doesn't need compensation.
+
 ## Quality Checklist
 
 **Validator-enforced** — `validate.sh` will fail if any of these is missing:
