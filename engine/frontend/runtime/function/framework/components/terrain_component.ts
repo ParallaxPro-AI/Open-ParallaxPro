@@ -81,6 +81,9 @@ export class TerrainComponent extends Component {
     gpuRoadAtlasNear: GPUTexture | undefined = undefined;
     /** Road atlas far tile (reuses normalMapTexture slot in render_scene). */
     gpuRoadAtlasFar: GPUTexture | undefined = undefined;
+    /** WebGL2 fallback: tiled 2D texture when the terrain shader is unavailable. */
+    gpuFallbackTexture: GPUTexture | undefined = undefined;
+    fallbackUvScale: number = 1.0;
 
     // LOD state
     lodEnabled: boolean = false;

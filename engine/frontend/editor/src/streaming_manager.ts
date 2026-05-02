@@ -113,7 +113,10 @@ export class StreamingManager {
                 console.log('[Terrain] onReady fired, isInline:', isInline);
                 this.ctx.ensurePrimitiveMeshes();
                 const device = this.ctx.engine?.globalContext.renderSystem.getDevice();
-                if (!device) { console.warn('[Terrain] no GPU device'); return; }
+                if (!device) {
+                    this.loadTerrainFallbackTexture(terrain, cfg);
+                    return;
+                }
 
                 if (isInline) {
                     const spec: InlineTerrainSpec = {
@@ -220,5 +223,25 @@ export class StreamingManager {
             });
             break;
         }
+    }
+
+    private loadTerrainFallbackTexture(terrain: HeightmapTerrain, cfg: HeightmapTerrainSceneCfg): void {
+        if (!this.ctx.engine) return;
+        const renderSystem = this.ctx.engine.globalContext.renderSystem;
+        const defaultLayer = cfg.layers?.[0];
+        if (!defaultLayer) return;
+
+        const url = `/assets/poly_haven/textures/${defaultLayer.dir}/${defaultLayer.dir}_diff_1k.jpg`;
+        const uvScale = terrain.worldWidth / defaultLayer.uvMetersPerTile;
+
+        fetch(url)
+            .then(r => { if (!r.ok) throw new Error(r.statusText); return r.blob(); })
+            .then(b => createImageBitmap(b))
+            .then(bmp => {
+                const tex = renderSystem.uploadTexture(bmp, {});
+                bmp.close();
+                terrain.setFallbackTexture(tex, uvScale);
+            })
+            .catch(err => console.warn('[Terrain] fallback texture failed:', err));
     }
 }

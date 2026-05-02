@@ -680,10 +680,11 @@ export class Scene {
             const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
             if (!terrain || !terrain.gpuMesh) continue;
 
+            const hasFallback = !terrain.gpuTerrainTextures && terrain.gpuFallbackTexture;
             result.push({
                 meshHandle: terrain.gpuMesh,
                 modelMatrix: entity.getWorldMatrix(),
-                baseColor: terrain.baseColor as [number, number, number, number],
+                baseColor: hasFallback ? [1, 1, 1, 1] as [number, number, number, number] : terrain.baseColor as [number, number, number, number],
                 metallic: terrain.metallic,
                 roughness: terrain.roughness,
                 emissive: [0, 0, 0] as [number, number, number],
@@ -693,6 +694,9 @@ export class Scene {
                 gpuTerrainTextures: terrain.gpuTerrainTextures,
                 roadAtlasNear: terrain.gpuRoadAtlasNear,
                 roadAtlasFar: terrain.gpuRoadAtlasFar,
+                baseColorTexture: hasFallback ? terrain.gpuFallbackTexture : undefined,
+                uvScaleX: hasFallback ? terrain.fallbackUvScale : undefined,
+                uvScaleY: hasFallback ? terrain.fallbackUvScale : undefined,
             });
         }
 

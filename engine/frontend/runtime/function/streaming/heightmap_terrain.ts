@@ -138,6 +138,16 @@ export class HeightmapTerrain {
         terrain.gpuRoadAtlasFar = roadAtlasFar;
     }
 
+    setFallbackTexture(texture: GPUTexture, uvScale: number): void {
+        if (this.terrainEntityId < 0) return;
+        const entity = this.scene.entities.get(this.terrainEntityId);
+        if (!entity) return;
+        const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
+        if (!terrain) return;
+        terrain.gpuFallbackTexture = texture;
+        terrain.fallbackUvScale = uvScale;
+    }
+
     /** Bilinear height lookup in world coords. Returns 0 outside the heightmap. */
     getWorldHeight(wx: number, wz: number): number {
         const data = this.heightData;
