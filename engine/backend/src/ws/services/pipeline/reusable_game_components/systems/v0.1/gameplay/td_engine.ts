@@ -173,6 +173,7 @@ class TDEngineSystem extends GameScript {
         var i;
         for (i = 0; i < this._enemies.length; i++) {
             if (this._enemies[i].entity) this._enemies[i].entity.active = false;
+            this._destroyHealthBar(this._enemies[i]);
         }
         for (i = 0; i < this._towers.length; i++) {
             if (this._towers[i].entity) this._towers[i].entity.active = false;
@@ -502,7 +503,7 @@ class TDEngineSystem extends GameScript {
             enemy.playAnimation("Walk", { loop: true });
         }
 
-        this._enemies.push({
+        var enemyData = {
             entity: enemy,
             health: stats.health,
             maxHealth: stats.health,
@@ -512,8 +513,74 @@ class TDEngineSystem extends GameScript {
             waypointIndex: 1,
             slowed: false,
             slowTimer: 0,
-            slowFactor: 1
-        });
+            slowFactor: 1,
+            hpBgId: null,
+            hpFgId: null
+        };
+        this._spawnHealthBar(enemyData);
+        // Anchor the bars to the spawn point so they aren't visible at
+        // world origin for the one frame between createEntity and the
+        // first _updateHealthBar tick.
+        this._updateHealthBar(enemyData);
+        this._enemies.push(enemyData);
+    }
+
+    /* ================================================================
+     *  HEALTH BAR — runtime-created cube pair floating above each enemy.
+     *  BG (dark) is full width; FG (green) is left-anchored and shrinks
+     *  with health/maxHealth. The td camera is fixed top-down-ish, so
+     *  the bars' XY-plane faces the camera without per-frame rotation.
+     * ================================================================ */
+    _spawnHealthBar(enemyData) {
+        if (!this.scene.createEntity) return;
+        var sfx = "_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        var bgId = this.scene.createEntity("hp_bg" + sfx);
+        if (bgId != null && bgId !== -1) {
+            this.scene.setScale && this.scene.setScale(bgId, 1.2, 0.18, 0.05);
+            this.scene.addComponent(bgId, "MeshRendererComponent", {
+                meshType: "cube",
+                baseColor: [0.18, 0.05, 0.05, 1]
+            });
+            if (this.scene.addTag) this.scene.addTag(bgId, "hp_bar");
+        }
+        var fgId = this.scene.createEntity("hp_fg" + sfx);
+        if (fgId != null && fgId !== -1) {
+            this.scene.setScale && this.scene.setScale(fgId, 1.2, 0.18, 0.05);
+            this.scene.addComponent(fgId, "MeshRendererComponent", {
+                meshType: "cube",
+                baseColor: [0.22, 0.85, 0.30, 1]
+            });
+            if (this.scene.addTag) this.scene.addTag(fgId, "hp_bar");
+        }
+        enemyData.hpBgId = bgId;
+        enemyData.hpFgId = fgId;
+    }
+
+    _updateHealthBar(e) {
+        if (e.hpBgId == null) return;
+        var pos = e.entity.transform.position;
+        var pct = Math.max(0, Math.min(1, e.health / e.maxHealth));
+        var w = 1.2;
+        var y = pos.y + 2.4;
+        // BG centered above enemy.
+        this.scene.setPosition(e.hpBgId, pos.x, y, pos.z);
+        // FG anchored to BG's left edge so it shrinks rightward as health
+        // drops. Pushed slightly toward camera (+Z) to avoid z-fighting
+        // with BG; the td camera is at +Z from the look target.
+        var fgX = pos.x - 0.5 * w * (1 - pct);
+        this.scene.setPosition(e.hpFgId, fgX, y, pos.z + 0.04);
+        this.scene.setScale && this.scene.setScale(e.hpFgId, w * pct, 0.18, 0.05);
+    }
+
+    _destroyHealthBar(e) {
+        if (e.hpBgId != null && e.hpBgId !== -1) {
+            try { this.scene.destroyEntity && this.scene.destroyEntity(e.hpBgId); } catch (ex) {}
+            e.hpBgId = null;
+        }
+        if (e.hpFgId != null && e.hpFgId !== -1) {
+            try { this.scene.destroyEntity && this.scene.destroyEntity(e.hpFgId); } catch (ex) {}
+            e.hpFgId = null;
+        }
     }
 
     /* ================================================================
@@ -523,6 +590,7 @@ class TDEngineSystem extends GameScript {
         for (var i = this._enemies.length - 1; i >= 0; i--) {
             var e = this._enemies[i];
             if (!e.entity || !e.entity.active) {
+                this._destroyHealthBar(e);
                 this._enemies.splice(i, 1);
                 continue;
             }
@@ -550,6 +618,7 @@ class TDEngineSystem extends GameScript {
                     // Enemy reached exit — lose lives
                     this._lives -= e.liveCost;
                     e.entity.active = false;
+                    this._destroyHealthBar(e);
                     this._enemies.splice(i, 1);
                     if (this.audio) this.audio.playSound("/assets/kenney/audio/digital_audio/phaserDown1.ogg", 0.4);
                     this.scene.events.game.emit("enemy_reached_end", {});
@@ -572,6 +641,8 @@ class TDEngineSystem extends GameScript {
                 // Face direction
                 e.entity.transform.setRotationEuler(0, Math.atan2(-dx, -dz) * 180 / Math.PI, 0);
             }
+
+            this._updateHealthBar(e);
         }
     }
 
@@ -677,6 +748,7 @@ class TDEngineSystem extends GameScript {
         enemyData.health -= damage;
         if (enemyData.health <= 0 && enemyData.entity && enemyData.entity.active) {
             enemyData.entity.active = false;
+            this._destroyHealthBar(enemyData);
             this._gold += enemyData.reward;
             this.scene.events.game.emit("entity_killed", {});
             if (this.audio) this.audio.playSound("/assets/kenney/audio/digital_audio/pepSound3.ogg", 0.25);
