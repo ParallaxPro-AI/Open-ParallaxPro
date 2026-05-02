@@ -30,7 +30,7 @@ const SKIN_STRIDE = 32;         // u32[4] joints + f32[4] weights
 // ambient, fogParams, fogColor, misc) + 2 dir-light arrays of 4 vec4
 // each + MAX_POINT_LIGHTS × 2 vec4 + MAX_SPOT_LIGHTS × 3 vec4.
 const FRAME_UBO_BYTES = 16 * 4 * 3 + 4 * 4 * 5 + MAX_DIR_LIGHTS_GL2 * 32 + MAX_POINT_LIGHTS_GL2 * 32 + MAX_SPOT_LIGHTS_GL2 * 48;
-const MATERIAL_UBO_BYTES = 4 * 4 * 4;   // 4 vec4
+const MATERIAL_UBO_BYTES = 5 * 4 * 4;   // 5 vec4
 const JOINTS_UBO_BYTES = MAX_JOINTS_GL2 * 64;
 
 const FRAME_UBO_BINDING = 0;
@@ -645,7 +645,7 @@ export class RenderSystemWebGL2 implements IRenderer {
         buf[92] = fog.color.x;
         buf[93] = fog.color.y;
         buf[94] = fog.color.z;
-        buf[95] = 0;
+        buf[95] = performance.now() / 1000.0;
 
         const numPoint = Math.min(this.renderScene.pointLights.length, MAX_POINT_LIGHTS_GL2);
         const numSpot = Math.min(this.renderScene.spotLights.length, MAX_SPOT_LIGHTS_GL2);
@@ -839,6 +839,10 @@ export class RenderSystemWebGL2 implements IRenderer {
         buf[12] = inst.uvScaleX ?? 1.0;
         buf[13] = inst.uvScaleY ?? 1.0;
         buf[14] = 0; buf[15] = 0;
+        buf[16] = inst.waterEffect ? 1.0 : 0.0;
+        buf[17] = inst.waterLevel ?? -1e20;
+        buf[18] = inst.waterScale ?? 1.0;
+        buf[19] = 0;
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.materialUBO!.glBuffer);
         gl.bufferSubData(gl.UNIFORM_BUFFER, 0, buf);
     }

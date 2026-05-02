@@ -61,6 +61,7 @@ layout(std140) uniform MaterialUBO {
     vec4 u_pbr;                // x=metallic, y=roughness, z=normalScale, w=hasNormalMap
     vec4 u_emissive;           // rgb
     vec4 u_uvScale;            // xy
+    vec4 u_water;              // x=waterEffect, y=waterLevel, z=waterScale
 };
 `;
 
@@ -215,13 +216,52 @@ void main() {
         N = normalize(TBN * nm);
     }
 
-    // Hemispherical sky-tint ambient — fakes the "look-up sees blue sky,
-    // look-down sees ground" lighting that real IBL probes provide. The
-    // WebGPU path doesn't have this either, but its specular term and
-    // bloom carry the visual weight; on the WebGL2 fallback this is the
-    // cheapest way to recover scene brightness without a real IBL pass.
-    // Scaled by daylight so night scenes don't get an unnatural blue
-    // tint. Always additive, never subtractive — only brightens.
+    bool isWater = u_water.x > 0.5 || v_worldPos.y <= u_water.y;
+
+    if (isWater) {
+        float t = u_fogColor.w;
+        float wsInv = 1.0 / max(u_water.z, 0.001);
+        float wpx = v_worldPos.x * wsInv;
+        float wpz = v_worldPos.z * wsInv;
+        float camDist = distance(u_cameraPos.xyz, v_worldPos);
+
+        float warpAx = sin(wpx * 0.18 + wpz * 0.15 + t * 0.45) * 1.6;
+        float warpAz = sin(wpz * 0.20 - wpx * 0.12 + t * 0.50) * 1.6;
+        float warpBx = sin(wpx * 0.45 - wpz * 0.31 + t * 0.85) * 0.6;
+        float warpBz = sin(wpz * 0.52 + wpx * 0.36 + t * 0.95) * 0.6;
+        float qx = wpx + warpAx + warpBx;
+        float qz = wpz + warpAz + warpBz;
+
+        float waveNx = 0.0;
+        float waveNz = 0.0;
+        waveNx += cos(qx * 0.8 + qz * 0.3 + t * 0.9) * 0.28;
+        waveNz += cos(qz * 1.0 - qx * 0.2 + t * 0.7) * 0.26;
+        waveNx += cos(qx * 1.8 - qz * 0.6 + t * 1.4) * 0.17;
+        waveNz += cos(qz * 2.2 + qx * 0.4 + t * 1.6) * 0.15;
+        waveNx += cos(qx * 3.5 + qz * 1.5 + t * 2.5) * 0.09;
+        waveNz += cos(qz * 4.0 - qx * 1.2 + t * 2.8) * 0.08;
+        waveNx += cos(qx * 7.0 - qz * 3.0 + t * 3.8) * 0.045;
+        waveNz += cos(qz * 8.5 + qx * 2.5 + t * 4.2) * 0.04;
+        float lod5 = clamp(1.0 - camDist / 200.0, 0.0, 1.0);
+        waveNx += cos(qx * 15.0 + qz * 7.0 + t * 5.5) * 0.025 * lod5;
+        waveNz += cos(qz * 17.0 - qx * 6.0 + t * 6.0) * 0.022 * lod5;
+
+        N = normalize(vec3(waveNx, 1.0, waveNz));
+
+        vec3 deepColor = vec3(0.02, 0.08, 0.18);
+        vec3 shallowColor = vec3(0.05, 0.35, 0.45);
+        float viewDot = max(dot(vec3(0.0, 1.0, 0.0), normalize(u_cameraPos.xyz - v_worldPos)), 0.0);
+        float depthBlend = pow(1.0 - viewDot, 2.0);
+        albedo.rgb = mix(deepColor, shallowColor, depthBlend);
+
+        float waveHeight = (waveNx + waveNz) * 0.5 + 0.5;
+        albedo.rgb += vec3(0.08, 0.45, 0.35) * pow(waveHeight, 3.0) * 0.25;
+
+        float steepness = 1.0 - N.y;
+        float foam = smoothstep(0.12, 0.20, steepness);
+        albedo.rgb = mix(albedo.rgb, vec3(0.85, 0.9, 0.95), foam * 0.7);
+    }
+
     float upness = N.y * 0.5 + 0.5;
     float dayFactor = clamp(1.0 - abs(u_misc.x - 12.0) / 6.0, 0.0, 1.0);
     vec3 skyTint    = vec3(0.55, 0.70, 1.00);
@@ -231,17 +271,8 @@ void main() {
     vec3 ambient = (u_ambient.rgb + hemi * u_fogParams.w) * albedo.rgb;
     vec3 color = ambient + u_emissive.rgb;
 
-    // Lambertian normalization: the WebGPU PBR path divides every
-    // diffuse light contribution by π (kD * albedo / π). The WebGL2
-    // forward path was missing this, making every light ~3.14× too
-    // bright relative to ambient + emissive — most visible on spot /
-    // point lights at close range. The 1/PI is folded into each
-    // light loop's accumulator as a single multiply by INV_PI.
     const float INV_PI = 0.31830988618;
 
-    // Directional lights — only the first casts shadows (matches the
-    // WebGPU path's main-light convention, and we only have one shadow
-    // map to sample).
     int numDir = int(u_ambient.a);
     for (int i = 0; i < ${MAX_DIR_LIGHTS_GL2}; i++) {
         if (i >= numDir) break;
@@ -251,10 +282,6 @@ void main() {
         color += u_dirLightColor[i].rgb * albedo.rgb * NdotL * shadow * INV_PI;
     }
 
-    // Point lights — attenuation formula mirrors the WebGPU path
-    // (function pointLightAttenuation in shader_library.ts):
-    //   windowing = clamp(1 - d⁴/r⁴, 0, 1)
-    //   attn = windowing² / (d² + 1)
     int numPoint = int(u_misc.y);
     for (int i = 0; i < ${MAX_POINT_LIGHTS_GL2}; i++) {
         if (i >= numPoint) break;
@@ -271,8 +298,6 @@ void main() {
         color += pl.colorIntensity.rgb * albedo.rgb * NdotL * atten * INV_PI;
     }
 
-    // Spot lights — same attenuation formula as point, gated by
-    // the in-cone factor.
     int numSpot = int(u_misc.z);
     for (int i = 0; i < ${MAX_SPOT_LIGHTS_GL2}; i++) {
         if (i >= numSpot) break;
@@ -290,6 +315,24 @@ void main() {
         float windowing = clamp(1.0 - (d2 * d2) / (r2 * r2), 0.0, 1.0);
         float atten = (windowing * windowing) / (d2 + 1.0);
         color += sl.colorOuterCos.rgb * albedo.rgb * NdotL * atten * spotFactor * INV_PI;
+    }
+
+    if (isWater) {
+        vec3 V = normalize(u_cameraPos.xyz - v_worldPos);
+        float NdotV = max(dot(N, V), 0.0);
+        vec3 fresnel = vec3(0.02) + vec3(0.98) * pow(1.0 - NdotV, 5.0);
+        vec3 reflDir = reflect(-V, N);
+        float skyUp = max(reflDir.y, 0.0);
+        vec3 skyRefl = mix(vec3(0.55, 0.7, 0.85), vec3(0.25, 0.45, 0.75), skyUp);
+        color = mix(color, skyRefl, fresnel);
+
+        if (numDir > 0) {
+            vec3 sunDir = normalize(-u_dirLightDir[0].xyz);
+            vec3 H = normalize(V + sunDir);
+            float NdotH = max(dot(N, H), 0.0);
+            float glint = pow(NdotH, 512.0) * 2.0;
+            color += u_dirLightColor[0].rgb * glint;
+        }
     }
 
     if (u_fogParams.x > 0.5) {
