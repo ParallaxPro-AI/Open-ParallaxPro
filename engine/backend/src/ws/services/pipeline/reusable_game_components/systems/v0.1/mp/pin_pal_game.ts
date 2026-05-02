@@ -73,6 +73,9 @@ class PinPalGameSystem extends GameScript {
     _cursorX = 0;               // virtual-cursor screen pos from ui_bridge —
     _cursorY = 0;               //   needed because pointer lock freezes the
     _gotCursor = false;         //   raw getMousePosition().
+    _pendingChargeStart = null; // queued cursor_click event ({x,y}) — drives
+                                //   the press-frame charge transition with
+                                //   coords that match the actual touch.
     _aimTargetX = 12;           // world-space ground point the cursor is on
     _aimTargetZ = 0;            //   — the ball is thrown straight at this
     _hasAimTarget = false;      //   so "shoot where I point" is literal.
@@ -166,6 +169,15 @@ class PinPalGameSystem extends GameScript {
             self._cursorX = d.x;
             self._cursorY = d.y;
             self._gotCursor = true;
+        });
+        // Charge starts on tap. Coords come from the cursor_click event
+        // payload so the initial aim point matches the actual touch on
+        // the press frame; polling MouseLeft against cached _cursorX/Y
+        // would land the first-frame aim at the previous cursor location
+        // on touch (where a tap is the only event that moves the cursor).
+        this.scene.events.ui.on("cursor_click", function(d) {
+            if (!d) return;
+            self._pendingChargeStart = d;
         });
 
         // Session lifecycle.
@@ -492,8 +504,13 @@ class PinPalGameSystem extends GameScript {
         }
 
         var lDown = this.input.isKeyDown && this.input.isKeyDown("MouseLeft");
-        var lJust = this.input.isKeyPressed && this.input.isKeyPressed("MouseLeft");
-        if (lJust) this._charging = true;
+        // Charge start consumed from the cursor_click event (set in
+        // onStart). Releasing is held-state, so the existing isKeyDown
+        // poll handles the throw on release.
+        if (this._pendingChargeStart) {
+            this._charging = true;
+            this._pendingChargeStart = null;
+        }
         if (this._charging && lDown) {
             this._phase = "charging";
             this._power = Math.min(1, this._power + dt * 0.85);

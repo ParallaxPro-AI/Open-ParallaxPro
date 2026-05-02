@@ -5,7 +5,7 @@
 // directory. Replaces the HTTP-based approach that soft-failed when
 // the backend was unreachable (e.g. Docker on remote workers).
 //
-// The 9 validation categories, checked in order (first failure exits):
+// The validation categories, checked in order (first failure exits):
 //   1. Event validation — unknown game events, wrong bus, missing payload fields
 //   2. Reference validation — missing behavior/system files, missing UI panels
 //   3. FSM structural — missing start fields, unknown active_behaviors/systems
@@ -15,6 +15,9 @@
 //   6. hud_update key collision — system keys shadowed by FSM reserved keys
 //   7. Inline onclick IIFE — onclick attrs calling IIFE-scoped functions
 //   8. Asset path validation — mesh assets, audio, textures vs asset catalogs
+//   9-13. Tag/name lookups, kinematic-body / camera / collider / decoration /
+//        body-type / Play-Again rules
+//  14. Click pattern — cursor_click events vs cached cursor_move + MouseLeft poll
 
 var fs = require('fs');
 var path = require('path');
@@ -1740,6 +1743,64 @@ function extractMethodBody(src, name) {
             'entity.active=true in the handler. Example: ' +
             '`this.scene.events.game.on("game_ready", function() { self._dead = false; ' +
             'self.entity.active = true; });` in onStart.'
+        );
+        process.exit(1);
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
+// 14. Click pattern — cursor_click vs cached cursor_move + MouseLeft poll
+// ═════════════════════════════════════════════════════════════════════
+//
+// One-shot click intents (place a turret, select a unit, attack, loot,
+// move order) MUST consume the `cursor_click` / `cursor_right_click`
+// events emitted by ui_bridge. Polling `isKeyPressed("MouseLeft")` /
+// `isKeyPressed("MouseRight")` against `_cursorX`/`_cursorY` cached from
+// a `cursor_move` handler silently breaks taps on touch devices.
+//
+// ui_bridge emits `cursor_move` and then `cursor_click` synchronously on
+// the press frame. On desktop the mouse moves continuously so the cached
+// coords stay fresh; on touch a tap is the ONLY event that updates the
+// cursor — and if this script's onUpdate runs before ui_bridge's, the
+// cached coords are one tap stale (action lands at the previous click
+// location). The fix is mechanical: subscribe to `cursor_click` /
+// `cursor_right_click` and use the event's `d.x` / `d.y` directly.
+//
+// Reference good patterns: chess_interaction.ts, rts_input.ts,
+// kitchen_master_engine.ts (all consume cursor_click events).
+(function checkClickPattern() {
+    var warnings = [];
+    var scriptEntries = Object.entries(allScripts);
+    for (var sei = 0; sei < scriptEntries.length; sei++) {
+        var scriptKey = scriptEntries[sei][0];
+        var source = scriptEntries[sei][1];
+        if (ENGINE_MACHINERY_RE.test(scriptKey)) continue;
+        // Only flag scripts that BOTH cache cursor_move AND poll
+        // isKeyPressed("MouseLeft|Right"). isKeyDown is intentionally
+        // allowed — held-fire / continuous-aim patterns re-read every
+        // frame so the cache stays fresh by definition.
+        var hasCursorMove = /\.events\.ui\.on\(\s*["']cursor_move["']/.test(source);
+        if (!hasCursorMove) continue;
+        var pollLeft  = /isKeyPressed\(\s*["']MouseLeft["']\s*\)/.test(source);
+        var pollRight = /isKeyPressed\(\s*["']MouseRight["']\s*\)/.test(source);
+        if (!pollLeft && !pollRight) continue;
+        var which = (pollLeft && pollRight) ? 'MouseLeft + MouseRight'
+                  : (pollLeft ? 'MouseLeft' : 'MouseRight');
+        warnings.push(scriptKey + ' (polls isKeyPressed("' + which + '"))');
+    }
+    if (warnings.length > 0) {
+        console.error(
+            'Click-pattern check failed: ' + warnings.length + ' script(s) cache ' +
+            'cursor_move and poll isKeyPressed("MouseLeft" / "MouseRight"). ' +
+            'On touch devices a tap is the only event that moves the cursor — ' +
+            'if this script ticks before ui_bridge in the frame, the cached ' +
+            '_cursorX/_cursorY is one tap stale and the action lands at the ' +
+            'previous click. Replace with: ' +
+            'this.scene.events.ui.on("cursor_click", function(d) { /* use d.x, d.y */ }); ' +
+            '(and cursor_right_click for the right button). The event payload carries the ' +
+            'press-frame canvas-relative coords. Affected: ' + warnings.join(', ') + '. ' +
+            'Reference: chess_interaction.ts, rts_input.ts, kitchen_master_engine.ts.'
         );
         process.exit(1);
     }

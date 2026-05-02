@@ -1974,7 +1974,17 @@ Quick mental checklist when something looks wrong but the validator passes:
             self._cursorX = d.x;
             self._cursorY = d.y;
         });
-        // cursor_click / cursor_right_click events fire on single-frame press.
+        // One-shot click intents — consume cursor_click directly. The
+        // event payload's d.x / d.y is the press-frame canvas-relative
+        // pointer position and matches what the user actually touched.
+        this.scene.events.ui.on("cursor_click", function(d) {
+            if (!d) return;
+            // d.x, d.y → screenPointToGround → place / select / attack
+        });
+        this.scene.events.ui.on("cursor_right_click", function(d) {
+            if (!d) return;
+            // right-click intents (cancel placement, MOBA move order, etc.)
+        });
     }
     onUpdate(dt) {
         // use this._cursorX / this._cursorY for aim; compare against
@@ -1982,7 +1992,7 @@ Quick mental checklist when something looks wrong but the validator passes:
     }
     ```
 
-    `this.input.isMouseButtonDown(0)` is safe for *held-button* detection because the raw state is synchronous with what the user actually pressed — only position needs the virtual-cursor bridge. Angry-birds run fd4c9fcd couldn't drag the ball because the slingshot compared raw mouse position against the ball's worldToScreen, and the two lived in different coordinate spaces.
+    **Critical: do NOT poll `isKeyPressed("MouseLeft")` (or `MouseRight`) for click intents and use the cached `_cursorX/_cursorY` as the click target.** It works on desktop because the mouse moves continuously, so the cache stays fresh. On touch a tap is the only event that updates the cursor — and `ui_bridge` emits `cursor_move` and then `cursor_click` synchronously on the press frame, so if your script's `onUpdate` runs before `ui_bridge`'s, the cached coords are one tap stale and the action lands at the previous click location. validate.sh hard-fails on this pattern (lint #14). Reference good patterns: `chess_interaction.ts`, `rts_input.ts`, `kitchen_master_engine.ts`. `isKeyDown("MouseLeft")` IS fine for held-button detection (continuous fire, charge meters, drag) — only the press-frame just-pressed path needs the event. Angry-birds run fd4c9fcd couldn't drag the ball because the slingshot compared raw mouse position against the ball's worldToScreen; the same coordinate-mismatch class.
 
 25. **Player-spawn coords come from the placement, NOT a hardcoded constant in the level-manager system**: Level-manager systems often have `_resetPlayer()` / `_softReset()` methods that teleport the player back to a "spawn" position on death/restart. Hardcoding `_spawnY = 2` (or any specific value) decouples the spawn from the actual world geometry — when the placement in `03_worlds.json` puts the player at (0, 11, 0) above a first platform at y=8, but the level-manager teleports to (0, 2, 0) where no platform exists, the player falls forever on every respawn. Platformer run 7846a351 shipped with exactly that bug. **Rule: in `_fullReset()` / `_setupSpawn()` / equivalent, READ the player's authored spawn from its placement and use that:**
 
