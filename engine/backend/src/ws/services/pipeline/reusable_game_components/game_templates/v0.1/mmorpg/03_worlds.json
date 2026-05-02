@@ -466,7 +466,7 @@
           "ref": "guard_male",
           "position": [
             -16,
-            1.0,
+            0,
             -14
           ]
         },
@@ -474,7 +474,7 @@
           "ref": "guard_female",
           "position": [
             16,
-            1.0,
+            0,
             -14
           ]
         },
@@ -482,7 +482,7 @@
           "ref": "guard_male",
           "position": [
             0,
-            1.0,
+            0,
             18
           ]
         },
@@ -794,7 +794,7 @@
           "ref": "goblin_scout",
           "position": [
             -32,
-            1.0,
+            0,
             -35
           ]
         },
@@ -802,7 +802,7 @@
           "ref": "goblin_scout",
           "position": [
             -38,
-            1.0,
+            0,
             -42
           ]
         },
@@ -810,7 +810,7 @@
           "ref": "goblin_scout",
           "position": [
             -45,
-            1.0,
+            0,
             -30
           ]
         },
@@ -818,7 +818,7 @@
           "ref": "goblin_scout",
           "position": [
             -50,
-            1.0,
+            0,
             -40
           ]
         },
@@ -826,7 +826,7 @@
           "ref": "goblin_scout",
           "position": [
             -35,
-            1.0,
+            0,
             -50
           ]
         },
@@ -1010,7 +1010,7 @@
           "ref": "undead_warrior",
           "position": [
             -33,
-            1.0,
+            0,
             32
           ]
         },
@@ -1018,7 +1018,7 @@
           "ref": "undead_warrior",
           "position": [
             -42,
-            1.0,
+            0,
             38
           ]
         },
@@ -1026,7 +1026,7 @@
           "ref": "undead_warrior",
           "position": [
             -50,
-            1.0,
+            0,
             42
           ]
         },
@@ -1034,7 +1034,7 @@
           "ref": "undead_warrior",
           "position": [
             -35,
-            1.0,
+            0,
             45
           ]
         },
@@ -1186,7 +1186,7 @@
           "ref": "dark_knight",
           "position": [
             33,
-            1.0,
+            0,
             -35
           ]
         },
@@ -1194,7 +1194,7 @@
           "ref": "dark_knight",
           "position": [
             37,
-            1.0,
+            0,
             -38
           ]
         },
@@ -1202,7 +1202,7 @@
           "ref": "dark_knight",
           "position": [
             35,
-            1.0,
+            0,
             -48
           ]
         },
@@ -1210,7 +1210,7 @@
           "ref": "shadow_assassin",
           "position": [
             30,
-            1.0,
+            0,
             -42
           ]
         },
@@ -1218,7 +1218,7 @@
           "ref": "shadow_assassin",
           "position": [
             40,
-            1.0,
+            0,
             -48
           ]
         },
@@ -1226,7 +1226,7 @@
           "ref": "war_chief",
           "position": [
             35,
-            1.0,
+            0,
             -42
           ]
         },
@@ -1491,7 +1491,7 @@
           "ref": "shadow_assassin",
           "position": [
             33,
-            1.0,
+            0,
             34
           ]
         },
@@ -1499,7 +1499,7 @@
           "ref": "shadow_assassin",
           "position": [
             43,
-            1.0,
+            0,
             36
           ]
         },
@@ -1507,7 +1507,7 @@
           "ref": "shadow_assassin",
           "position": [
             35,
-            1.0,
+            0,
             42
           ]
         },
@@ -1515,7 +1515,7 @@
           "ref": "dark_knight",
           "position": [
             40,
-            1.0,
+            0,
             40
           ]
         },
@@ -1523,7 +1523,7 @@
           "ref": "dark_knight",
           "position": [
             36,
-            1.0,
+            0,
             36
           ]
         },
@@ -1531,7 +1531,7 @@
           "ref": "dungeon_lord",
           "position": [
             38,
-            1.0,
+            0,
             42
           ]
         },
@@ -1819,7 +1819,7 @@
           "ref": "goblin_scout",
           "position": [
             60,
-            1.0,
+            0,
             -55
           ]
         },
@@ -1827,7 +1827,7 @@
           "ref": "undead_warrior",
           "position": [
             -60,
-            1.0,
+            0,
             55
           ]
         },
@@ -1835,7 +1835,7 @@
           "ref": "goblin_scout",
           "position": [
             65,
-            1.0,
+            0,
             25
           ]
         }
