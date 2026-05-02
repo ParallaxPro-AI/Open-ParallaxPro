@@ -27,6 +27,11 @@ class TDEngineSystem extends GameScript {
     _enemies = [];
     _towers = [];
 
+    // Visible projectile tracers — purely cosmetic, damage is still
+    // instant in _updateTowers. Each entry: { id, t, duration, fromX/Y/Z,
+    // toX/Y/Z, kind, arc }.
+    _projectiles = [];
+
     // Waypoints
     _waypoints = [];
 
@@ -178,8 +183,12 @@ class TDEngineSystem extends GameScript {
         for (i = 0; i < this._towers.length; i++) {
             if (this._towers[i].entity) this._towers[i].entity.active = false;
         }
+        for (i = 0; i < this._projectiles.length; i++) {
+            try { this.scene.destroyEntity && this.scene.destroyEntity(this._projectiles[i].id); } catch (e) {}
+        }
         this._enemies = [];
         this._towers = [];
+        this._projectiles = [];
 
         // Reset spots
         for (i = 0; i < this._spots.length; i++) {
@@ -222,6 +231,7 @@ class TDEngineSystem extends GameScript {
 
         this._updateEnemies(dt);
         this._updateTowers(dt);
+        this._updateProjectiles(dt);
 
         // Wave complete check
         if (this._waveActive && this._spawnQueue.length === 0 && this._enemies.length === 0) {
@@ -670,16 +680,24 @@ class TDEngineSystem extends GameScript {
             var tdz = target.entity.transform.position.z - tp.z;
             tw.entity.transform.setRotationEuler(0, Math.atan2(-tdx, -tdz) * 180 / Math.PI, 0);
 
-            // Apply damage by tower type
+            // Apply damage by tower type. Tracers fly from the tower's
+            // muzzle (~1 unit above the tower base) toward the target's
+            // chest (~0.8 above ground). Damage is still applied
+            // immediately — the tracer is purely cosmetic.
+            var targetPos = target.entity.transform.position;
             switch (tw.special) {
                 case "single":
                     this._damageEnemy(target, tw.damage);
+                    this._spawnTracer(tp.x, tp.y + 1.0, tp.z,
+                                      targetPos.x, targetPos.y + 0.8, targetPos.z, "arrow");
                     if (this.audio) this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserSmall_000.ogg", 0.2);
                     break;
 
                 case "splash":
                     this._damageEnemy(target, tw.damage);
-                    var ep = target.entity.transform.position;
+                    this._spawnTracer(tp.x, tp.y + 1.0, tp.z,
+                                      targetPos.x, targetPos.y + 0.8, targetPos.z, "cannon");
+                    var ep = targetPos;
                     for (var s = 0; s < this._enemies.length; s++) {
                         if (this._enemies[s] === target) continue;
                         if (!this._enemies[s].entity || !this._enemies[s].entity.active) continue;
@@ -694,6 +712,8 @@ class TDEngineSystem extends GameScript {
 
                 case "slow":
                     this._damageEnemy(target, tw.damage);
+                    this._spawnTracer(tp.x, tp.y + 1.0, tp.z,
+                                      targetPos.x, targetPos.y + 0.8, targetPos.z, "ice");
                     target.slowed = true;
                     target.slowTimer = tw.slowDuration;
                     target.slowFactor = tw.slowFactor;
@@ -703,6 +723,8 @@ class TDEngineSystem extends GameScript {
                 case "chain":
                     var chainHit = [target];
                     this._damageEnemy(target, tw.damage);
+                    this._spawnTracer(tp.x, tp.y + 1.0, tp.z,
+                                      targetPos.x, targetPos.y + 0.8, targetPos.z, "lightning");
                     var last = target;
                     for (var c = 1; c < tw.chainCount; c++) {
                         var next = this._findNearest(
@@ -712,12 +734,76 @@ class TDEngineSystem extends GameScript {
                         );
                         if (!next) break;
                         this._damageEnemy(next, Math.floor(tw.damage * 0.7));
+                        var lp = last.entity.transform.position;
+                        var np = next.entity.transform.position;
+                        this._spawnTracer(lp.x, lp.y + 0.8, lp.z,
+                                          np.x, np.y + 0.8, np.z, "lightning");
                         chainHit.push(next);
                         last = next;
                     }
                     if (this.audio) this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserLarge_000.ogg", 0.25);
                     break;
             }
+        }
+    }
+
+    /* ================================================================
+     *  PROJECTILE TRACERS — spawn a short-lived cosmetic mesh that lerps
+     *  from `from` to `to` so the player can SEE the shot. Damage is
+     *  applied at fire-time (above) so a fast enemy can't outrun a slow
+     *  visual. Per-kind color/size and an arc for cannonballs.
+     * ================================================================ */
+    _spawnTracer(fromX, fromY, fromZ, toX, toY, toZ, kind) {
+        if (!this.scene.createEntity) return;
+        var name = "tracer_" + kind + "_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        var id = this.scene.createEntity(name);
+        if (id == null || id === -1) return;
+        var color, scaleR, speed;
+        if (kind === "arrow") {
+            color = [0.95, 0.92, 0.55, 1]; scaleR = 0.18; speed = 42;
+        } else if (kind === "cannon") {
+            color = [0.20, 0.18, 0.18, 1]; scaleR = 0.45; speed = 26;
+        } else if (kind === "ice") {
+            color = [0.55, 0.85, 1.00, 1]; scaleR = 0.30; speed = 36;
+        } else if (kind === "lightning") {
+            color = [1.00, 0.95, 0.30, 1]; scaleR = 0.22; speed = 60;
+        } else {
+            color = [1, 1, 1, 1]; scaleR = 0.2; speed = 40;
+        }
+        this.scene.setScale && this.scene.setScale(id, scaleR, scaleR, scaleR);
+        this.scene.addComponent(id, "MeshRendererComponent", {
+            meshType: "sphere",
+            baseColor: color
+        });
+        this.scene.setPosition(id, fromX, fromY, fromZ);
+        if (this.scene.addTag) this.scene.addTag(id, "tracer");
+        var dx = toX - fromX, dy = toY - fromY, dz = toZ - fromZ;
+        var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        var duration = Math.max(0.05, dist / speed);
+        this._projectiles.push({
+            id: id, t: 0, duration: duration,
+            fromX: fromX, fromY: fromY, fromZ: fromZ,
+            toX: toX, toY: toY, toZ: toZ,
+            kind: kind, arc: kind === "cannon"
+        });
+    }
+
+    _updateProjectiles(dt) {
+        for (var i = this._projectiles.length - 1; i >= 0; i--) {
+            var p = this._projectiles[i];
+            p.t += dt;
+            var alpha = p.t / p.duration;
+            if (alpha >= 1) {
+                try { this.scene.destroyEntity && this.scene.destroyEntity(p.id); } catch (e) {}
+                this._projectiles.splice(i, 1);
+                continue;
+            }
+            var x = p.fromX + (p.toX - p.fromX) * alpha;
+            var y = p.fromY + (p.toY - p.fromY) * alpha;
+            var z = p.fromZ + (p.toZ - p.fromZ) * alpha;
+            // Cannonballs arc up and back down — sin(πα) peaks at α=0.5.
+            if (p.arc) y += Math.sin(alpha * Math.PI) * 1.6;
+            this.scene.setPosition(p.id, x, y, z);
         }
     }
 
