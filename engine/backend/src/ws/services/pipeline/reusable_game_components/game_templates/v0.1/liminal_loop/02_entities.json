@@ -51,7 +51,7 @@
           "script": "camera/camera_fps.ts",
           "params": {
             "sensitivity": 0.16,
-            "eyeHeight": 1.65
+            "eyeHeight": 0.65
           }
         }
       ]
