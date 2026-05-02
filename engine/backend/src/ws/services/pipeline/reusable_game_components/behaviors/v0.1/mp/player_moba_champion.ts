@@ -36,12 +36,18 @@ class PlayerMobaChampionBehavior extends GameScript {
     _prevQ = false;
     _prevE = false;
     _prevR = false;
-    _prevRightClick = false;
-    _prevLeftClick = false;
     _prevShop = false;
     _cursorX = 0;
     _cursorY = 0;
     _gotCursor = false;
+    // One-shot click intents queued by ui_bridge. The press-frame coords
+    // baked into the events match what the user actually clicked —
+    // polling MouseLeft / MouseRight against cached _cursorX/Y from
+    // cursor_move loses the press-frame coords on touch devices, where
+    // a tap is the only event that moves the cursor and would issue a
+    // move order at the previous click location.
+    _pendingLeftClick = null;
+    _pendingRightClick = null;
 
     onStart() {
         var self = this;
@@ -56,9 +62,24 @@ class PlayerMobaChampionBehavior extends GameScript {
             self._cursorY = d.y;
             self._gotCursor = true;
         });
+        this.scene.events.ui.on("cursor_click", function(d) {
+            if (!d) return;
+            self._pendingLeftClick = d;
+        });
+        this.scene.events.ui.on("cursor_right_click", function(d) {
+            if (!d) return;
+            self._pendingRightClick = d;
+        });
     }
 
     onUpdate(dt) {
+        // Capture and clear pending click events at the top so any
+        // early-return path drops them rather than letting them queue.
+        var pendingLeft = this._pendingLeftClick;
+        var pendingRight = this._pendingRightClick;
+        this._pendingLeftClick = null;
+        this._pendingRightClick = null;
+
         var ni = this.entity.getComponent
             ? this.entity.getComponent("NetworkIdentityComponent")
             : null;
@@ -77,8 +98,6 @@ class PlayerMobaChampionBehavior extends GameScript {
         if (this.scene._riftFrozen || !alive) {
             this._targetX = null;
             this._targetZ = null;
-            this._prevRightClick = false;
-            this._prevLeftClick = false;
             this._prevQ = this._prevE = this._prevR = false;
             this._prevShop = false;
             this.scene.setVelocity(this.entity.id, { x: 0, y: vy, z: 0 });
@@ -93,8 +112,6 @@ class PlayerMobaChampionBehavior extends GameScript {
         if (this.scene._riftShopOpen) {
             this._targetX = null;
             this._targetZ = null;
-            this._prevRightClick = false;
-            this._prevLeftClick = false;
             this._prevQ = this._prevE = this._prevR = false;
             this.scene.setVelocity(this.entity.id, { x: 0, y: vy, z: 0 });
             // Still allow B to close the shop.
@@ -111,17 +128,17 @@ class PlayerMobaChampionBehavior extends GameScript {
         this.scene._riftMouseAim = aim;
 
         // Right-click issues a move order or an auto-attack if it lands
-        // on an enemy entity. Left-click could also issue move orders,
-        // but we keep that intent open for UI clicks elsewhere.
-        var rmb = this.input && this.input.isKeyDown("MouseRight");
-        if (rmb && !this._prevRightClick) {
-            this._targetX = aim.x;
-            this._targetZ = aim.z;
+        // on an enemy entity. The destination comes from the cursor_right_click
+        // event payload so it matches the actual click point on the
+        // press frame.
+        if (pendingRight) {
+            var rAim = this._screenToWorld(pos, pendingRight.x, pendingRight.y);
+            this._targetX = rAim.x;
+            this._targetZ = rAim.z;
             this.scene.events.game.emit("rift_move_order", {
-                x: aim.x, z: aim.z,
+                x: rAim.x, z: rAim.z,
             });
         }
-        this._prevRightClick = rmb;
 
         // Drive toward target if one is set. Velocity-driven on a dynamic
         // body so Rapier auto-resolves against decor trees / arena walls.
@@ -167,16 +184,17 @@ class PlayerMobaChampionBehavior extends GameScript {
         this._abilityTap("KeyE", "_prevE", "E", aim);
         this._abilityTap("KeyR", "_prevR", "R", aim);
 
-        // Auto-attack: single left-click as an emulation for basic attack
-        // toward the mouse cursor (the system validates range + damages).
-        var lmb = this.input && this.input.isKeyDown("MouseLeft");
-        if (lmb && !this._prevLeftClick && this._attackCd <= 0) {
+        // Auto-attack: a left-click fires a basic attack toward the
+        // click point (the system validates range + damages). Coords
+        // come from the cursor_click event so the attack points where
+        // the player tapped, not where the cursor was a frame ago.
+        if (pendingLeft && this._attackCd <= 0) {
             this._attackCd = this._attackCooldown;
+            var lAim = this._screenToWorld(pos, pendingLeft.x, pendingLeft.y);
             this.scene.events.game.emit("rift_basic_attack", {
-                aimX: aim.x, aimZ: aim.z,
+                aimX: lAim.x, aimZ: lAim.z,
             });
         }
-        this._prevLeftClick = lmb;
 
         // B opens the shop overlay. The UI bridges it through; the system
         // honours open/close via its own handler.
@@ -195,6 +213,16 @@ class PlayerMobaChampionBehavior extends GameScript {
             });
         }
         this[prevProp] = now;
+    }
+
+    _screenToWorld(pos, sx, sy) {
+        // Screen→ground projection at a specific click coord. Falls back
+        // to the champion's own position when the projection misses.
+        if (this.scene.screenPointToGround) {
+            var g = this.scene.screenPointToGround(sx, sy, 0);
+            if (g) return { x: g.x, z: g.z };
+        }
+        return { x: pos.x, z: pos.z };
     }
 
     _resolveMouseWorld(pos) {

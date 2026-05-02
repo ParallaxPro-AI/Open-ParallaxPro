@@ -7,9 +7,6 @@
 //     `move_unit` (unit_control walks the unit, deducting movement points).
 class CivInputSystem extends GameScript {
     _gameActive = false;
-    _cursorX = 0;
-    _cursorY = 0;
-    _gotCursor = false;
     _selectedId = "";
     _pickRadius = 1.6;
 
@@ -20,11 +17,15 @@ class CivInputSystem extends GameScript {
             self._selectedId = "";
             self._publishHud();
         });
-        this.scene.events.ui.on("cursor_move", function(d) {
+        // Click handling is event-driven so the click coords match what
+        // the user actually touched. ui_bridge emits cursor_click with
+        // the freshest canvas-relative pointer position; polling MouseLeft
+        // against a cached _cursorX/Y from cursor_move loses the tap-frame
+        // coords on touch devices, where a tap is the only event that
+        // moves the cursor.
+        this.scene.events.ui.on("cursor_click", function(d) {
             if (!d) return;
-            self._cursorX = d.x;
-            self._cursorY = d.y;
-            self._gotCursor = true;
+            self._handleClick(d.x, d.y);
         });
         this.scene.events.game.on("entity_killed", function(d) {
             if (d && d.entityId === self._selectedId) {
@@ -41,16 +42,12 @@ class CivInputSystem extends GameScript {
         // substate's active_systems boot up, so onStart subscribed too
         // late and the handler never fired. Same shape as the rts_battle
         // fix in 5a29bbe.
-        if (!this.input || !this.scene.screenPointToGround) return;
+        this._publishHud();
+    }
 
-        var leftClicked = !!(this.input.isKeyPressed && this.input.isKeyPressed("MouseLeft"));
-        if (!leftClicked) {
-            this._publishHud();
-            return;
-        }
-        if (!this._gotCursor) return;
-
-        var ground = this.scene.screenPointToGround(this._cursorX, this._cursorY, 0);
+    _handleClick(sx, sy) {
+        if (!this.scene.screenPointToGround) return;
+        var ground = this.scene.screenPointToGround(sx, sy, 0);
         if (!ground) return;
 
         // Priority 1: click on a player unit → select.

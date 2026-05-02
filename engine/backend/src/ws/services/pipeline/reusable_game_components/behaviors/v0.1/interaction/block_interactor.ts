@@ -35,6 +35,15 @@ class BlockInteractorBehavior extends GameScript {
     _cursorX = 0;
     _cursorY = 0;
     _gotCursor = false;
+    // One-shot click intents queued by ui_bridge's cursor_click /
+    // cursor_right_click events. The press-frame coords baked into the
+    // event match what the user actually touched — polling MouseLeft /
+    // MouseRight against the cached cursor would land the first tap at
+    // the previous cursor location on touch devices. Held auto-repeat
+    // still uses the cached cursor, which is correct because the user
+    // is dragging continuously across many cursor_move emissions.
+    _pendingMineClick = null;
+    _pendingPlaceClick = null;
 
     onStart() {
         var self = this;
@@ -48,6 +57,14 @@ class BlockInteractorBehavior extends GameScript {
             self._cursorX = d.x;
             self._cursorY = d.y;
             self._gotCursor = true;
+        });
+        this.scene.events.ui.on("cursor_click", function(d) {
+            if (!d) return;
+            self._pendingMineClick = d;
+        });
+        this.scene.events.ui.on("cursor_right_click", function(d) {
+            if (!d) return;
+            self._pendingPlaceClick = d;
         });
         // Hotbar slot click → emit pk_hotbar_selected, mirrors Digit1-9.
         // Only the local player's instance fires the intent; remote
@@ -66,6 +83,14 @@ class BlockInteractorBehavior extends GameScript {
     }
 
     onUpdate(dt) {
+        // Capture and clear pending click events at the top so any
+        // early-return path (match over, inventory open, remote player,
+        // no cursor yet) drops them rather than letting them queue.
+        var pendingMine = this._pendingMineClick;
+        var pendingPlace = this._pendingPlaceClick;
+        this._pendingMineClick = null;
+        this._pendingPlaceClick = null;
+
         if (this._matchOver) return;
         var ni = this.entity.getComponent
             ? this.entity.getComponent("NetworkIdentityComponent")
@@ -92,21 +117,23 @@ class BlockInteractorBehavior extends GameScript {
         // hidden behind them.
         if (this._inventoryOpen) return;
 
-        // Mining / placing — both are click-and-hold: tap to fire one
-        // intent, hold to repeat at _mineHoldRate / _placeHoldRate. The
-        // match system handles cooldowns on its own for mining time.
-        // Aim with the virtual cursor (visible reticle), not the raw OS
-        // mouse — they diverge under pointer lock and CSS-scaled
-        // canvases, and the player aims at what they SEE.
+        // Mining / placing — both are click-and-hold: the cursor_click /
+        // cursor_right_click event fires one intent at the press-frame
+        // coords, hold-down repeats at _mineHoldRate / _placeHoldRate
+        // using the cached cursor (which is fresh because the user is
+        // dragging across many frames). The match system handles
+        // cooldowns on its own for mining time. Aim with the virtual
+        // cursor (visible reticle), not the raw OS mouse — they diverge
+        // under pointer lock and CSS-scaled canvases, and the player
+        // aims at what they SEE.
         if (!this._gotCursor) return;
         var mouse = { x: this._cursorX, y: this._cursorY };
 
         // Left-click = mine / attack
         var lDown = this.input.isKeyDown ? this.input.isKeyDown("MouseLeft") : false;
-        var lJustPressed = this.input.isKeyPressed ? this.input.isKeyPressed("MouseLeft") : false;
-        if (lJustPressed) {
+        if (pendingMine) {
             this._holdMineTimer = 0;
-            this._fireMineOrAttack(mouse);
+            this._fireMineOrAttack({ x: pendingMine.x, y: pendingMine.y });
         } else if (lDown) {
             this._holdMineTimer += dt;
             if (this._holdMineTimer >= this._mineHoldRate) {
@@ -119,10 +146,9 @@ class BlockInteractorBehavior extends GameScript {
 
         // Right-click = place
         var rDown = this.input.isKeyDown ? this.input.isKeyDown("MouseRight") : false;
-        var rJustPressed = this.input.isKeyPressed ? this.input.isKeyPressed("MouseRight") : false;
-        if (rJustPressed) {
+        if (pendingPlace) {
             this._holdPlaceTimer = 0;
-            this._firePlace(mouse);
+            this._firePlace({ x: pendingPlace.x, y: pendingPlace.y });
         } else if (rDown) {
             this._holdPlaceTimer += dt;
             if (this._holdPlaceTimer >= this._placeHoldRate) {

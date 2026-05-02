@@ -15,9 +15,6 @@
 //     pickup sound.
 class MMORPGInteractSystem extends GameScript {
     _gameActive = false;
-    _cursorX = 0;
-    _cursorY = 0;
-    _gotCursor = false;
     _pickRadius = 2.2;
     _clickDamage = 5;
     _interactRange = 8; // world-units; click-to-loot/talk requires the
@@ -32,11 +29,15 @@ class MMORPGInteractSystem extends GameScript {
             self._targetId = "";
             self._npcDialog = "";
         });
-        this.scene.events.ui.on("cursor_move", function(d) {
+        // Click handling is event-driven so the click coords match what
+        // the user actually touched. ui_bridge emits cursor_click with
+        // the freshest canvas-relative pointer position; polling MouseLeft
+        // against a cached _cursorX/Y from cursor_move loses the tap-frame
+        // coords on touch devices, where a tap is the only event that
+        // moves the cursor.
+        this.scene.events.ui.on("cursor_click", function(d) {
             if (!d) return;
-            self._cursorX = d.x;
-            self._cursorY = d.y;
-            self._gotCursor = true;
+            self._handleClick(d.x, d.y);
         });
         this.scene.events.game.on("entity_killed", function(d) {
             if (d && d.entityId === self._targetId) self._targetId = "";
@@ -45,16 +46,14 @@ class MMORPGInteractSystem extends GameScript {
 
     onUpdate(dt) {
         if (!this._gameActive) return;
-        if (!this.input || !this.scene.screenPointToGround) return;
+        this._publishHud();
+    }
 
-        var clicked = !!(this.input.isKeyPressed && this.input.isKeyPressed("MouseLeft"));
-        if (!clicked) {
-            this._publishHud();
-            return;
-        }
-        if (!this._gotCursor) return;
+    _handleClick(sx, sy) {
+        if (!this._gameActive) return;
+        if (!this.scene.screenPointToGround) return;
 
-        var ground = this.scene.screenPointToGround(this._cursorX, this._cursorY, 0);
+        var ground = this.scene.screenPointToGround(sx, sy, 0);
         if (!ground) return;
 
         // Player position used for proximity gates (talk / loot only land

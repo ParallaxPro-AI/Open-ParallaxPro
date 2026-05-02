@@ -90,7 +90,6 @@ class LawnDefendersEngineSystem extends GameScript {
     _gameOver = false;
     _won = false;
     _initialized = false;
-    _mouseClickArmed = false; // edge-detect MouseLeft
     _hoverCell = null;        // {col, row} under mouse, for HUD cursor preview
     _cursorX = 0;             // virtual-cursor screen pos from ui_bridge.
     _cursorY = 0;             //   Raw getMousePosition() is frozen under
@@ -125,6 +124,22 @@ class LawnDefendersEngineSystem extends GameScript {
             self._gotCursor = true;
         });
 
+        // Click handling is event-driven so the click coords match what
+        // the user actually touched. ui_bridge emits cursor_move and then
+        // cursor_click in the same scope on the press frame — the click
+        // handler is guaranteed to see the freshest pointer position even
+        // if our system updates before ui_bridge in the frame. Polling
+        // MouseLeft here would miss the tap-frame coords on touch devices,
+        // where a tap is the only event that moves the cursor and would
+        // place at the previous tap location.
+        this.scene.events.ui.on("cursor_click", function(d) {
+            if (!d) return;
+            self._handleClick(d.x, d.y);
+        });
+        this.scene.events.ui.on("cursor_right_click", function() {
+            self._clearArmed();
+        });
+
         // Plant card clicked in the HUD palette → arm placement. Card
         // index drives plant kind via the cardIdx → kind map below; the
         // HUD also offers a number-key shortcut so this isn't the only path.
@@ -157,11 +172,10 @@ class LawnDefendersEngineSystem extends GameScript {
             if (this.input.isKeyPressed && this.input.isKeyPressed("Digit3")) this._armPlant("wallnut");
             if (this.input.isKeyPressed && this.input.isKeyPressed("Digit4")) this._armPlant("cherry");
             if (this.input.isKeyPressed && this.input.isKeyPressed("Escape")) this._clearArmed();
-            if (this.input.isKeyPressed && this.input.isKeyPressed("MouseRight")) this._clearArmed();
         }
 
-        // Mouse input — convert screen position to world ground.
-        this._tickMouse();
+        // Refresh the HUD ghost-cell preview from the latest cursor pos.
+        this._tickHover();
 
         // Wave spawning.
         this._tickWaves(dt);
@@ -259,18 +273,19 @@ class LawnDefendersEngineSystem extends GameScript {
 
     // ─── Mouse input ────────────────────────────────────────────────────
 
-    _tickMouse() {
-        if (!this.input || !this.scene.screenPointToGround) return;
+    _tickHover() {
+        if (!this.scene.screenPointToGround) return;
         if (!this._gotCursor) return;
         var ground = this.scene.screenPointToGround(this._cursorX, this._cursorY, this._interactGroundY);
         if (!ground) return;
-
-        // Resolve which cell we're hovering for the HUD ghost cursor.
         this._hoverCell = this._worldToCell(ground.x, ground.z);
+    }
 
-        // Edge-detect a click — MouseLeft just-pressed.
-        var clickedThisFrame = !!(this.input.isKeyPressed && this.input.isKeyPressed("MouseLeft"));
-        if (!clickedThisFrame) return;
+    _handleClick(x, y) {
+        if (!this._initialized || this._gameOver) return;
+        if (!this.scene.screenPointToGround) return;
+        var ground = this.scene.screenPointToGround(x, y, this._interactGroundY);
+        if (!ground) return;
 
         // Priority 1: collecting sun blobs that overlap the click point.
         var clickR2 = this._clickRadius * this._clickRadius;
@@ -283,9 +298,10 @@ class LawnDefendersEngineSystem extends GameScript {
             }
         }
 
-        // Priority 2: place an armed plant on an empty cell.
-        if (this._armedPlant && this._hoverCell) {
-            this._tryPlace(this._armedPlant, this._hoverCell.col, this._hoverCell.row);
+        // Priority 2: place an armed plant on the cell under the click.
+        if (this._armedPlant) {
+            var cell = this._worldToCell(ground.x, ground.z);
+            if (cell) this._tryPlace(this._armedPlant, cell.col, cell.row);
         }
     }
 
@@ -702,7 +718,7 @@ class LawnDefendersEngineSystem extends GameScript {
                 // Auto-collect a short moment after landing so sunflower
                 // income actually lands in the bank even if the player
                 // never reaches the blob with the cursor. Click-to-
-                // collect still works instantly via _tickMouse.
+                // collect still works instantly via the cursor_click handler.
                 s.landedAge += dt;
                 if (s.landedAge >= this._sunAutoCollectDelay) {
                     this._collectSunBlob(i);

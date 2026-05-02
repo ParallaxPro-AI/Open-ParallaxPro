@@ -21,9 +21,6 @@ class TDEngineSystem extends GameScript {
 
     // Click-to-place state
     _armedTower = "";  // tower type the user has "armed" via the HUD palette
-    _cursorX = 0;       // virtual-cursor screen position from ui_bridge
-    _cursorY = 0;       //   (raw mouse is frozen by pointer lock; cursor_move is the source of truth)
-    _gotCursor = false;
     _spotClickRadius = 5; // world-units tolerance for clicking near a spot center
 
     // Active enemies and towers
@@ -111,14 +108,18 @@ class TDEngineSystem extends GameScript {
             self._fullReset();
         });
 
-        // Track the virtual cursor from ui_bridge. Pointer lock is engaged
-        // in play mode, which freezes the raw mouse reading, so spot
-        // hover/click must be driven by the visible cursor.
-        this.scene.events.ui.on("cursor_move", function(d) {
+        // World-click handling is event-driven so the click coords match
+        // what the user actually touched. ui_bridge emits cursor_click /
+        // cursor_right_click with the freshest canvas-relative pointer
+        // position; polling MouseLeft against a cached _cursorX/Y from
+        // cursor_move loses the tap-frame coords on touch devices, where
+        // a tap is the only event that moves the cursor.
+        this.scene.events.ui.on("cursor_click", function(d) {
             if (!d) return;
-            self._cursorX = d.x;
-            self._cursorY = d.y;
-            self._gotCursor = true;
+            self._handleWorldClick(d.x, d.y);
+        });
+        this.scene.events.ui.on("cursor_right_click", function() {
+            self._clearArmed();
         });
 
         // HUD click handlers — mirror keyboard shortcuts so the game is
@@ -275,22 +276,14 @@ class TDEngineSystem extends GameScript {
         }
 
         // Cancel armed placement.
-        if (this.input.isKeyPressed("Escape") || this.input.isKeyPressed("MouseRight")) {
+        if (this.input.isKeyPressed("Escape")) {
             this._clearArmed();
         }
-
-        // World-click handling — pick the nearest tower spot under the
-        // cursor. Always selects; if a tower type is armed, also builds.
-        this._tickWorldClick();
     }
 
-    _tickWorldClick() {
-        if (!this.input || !this.scene.screenPointToGround) return;
-        if (!this._gotCursor) return;
-        var clicked = !!(this.input.isKeyPressed && this.input.isKeyPressed("MouseLeft"));
-        if (!clicked) return;
-
-        var ground = this.scene.screenPointToGround(this._cursorX, this._cursorY, 0);
+    _handleWorldClick(sx, sy) {
+        if (!this.scene.screenPointToGround) return;
+        var ground = this.scene.screenPointToGround(sx, sy, 0);
         if (!ground) return;
 
         var spot = this._findSpotNear(ground.x, ground.z);
