@@ -99,8 +99,8 @@
           "params": {
             "health": 80,
             "maxHealth": 80,
-            "detectionRange": 25,
-            "fireRange": 18,
+            "detectionRange": 13,
+            "fireRange": 9,
             "damage": 8,
             "fireRate": 1.2,
             "moveSpeed": 3
@@ -134,8 +134,8 @@
           "params": {
             "health": 70,
             "maxHealth": 70,
-            "detectionRange": 28,
-            "fireRange": 20,
+            "detectionRange": 14,
+            "fireRange": 10,
             "damage": 10,
             "fireRate": 1.5,
             "moveSpeed": 4

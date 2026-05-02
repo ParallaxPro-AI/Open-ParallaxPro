@@ -23,6 +23,11 @@ class EnemyAIBehavior extends GameScript {
     _spawnY = 0;
     _spawnZ = 0;
     _spawnCaptured = false;
+    // Visible bullet tracers — short-lived red spheres lerping from the
+    // enemy's gun toward the player so the player can see who is
+    // shooting them. Damage is still applied at fire-time; the tracer
+    // is purely cosmetic.
+    _tracers = [];
 
     onStart() {
         var self = this;
@@ -68,6 +73,7 @@ class EnemyAIBehavior extends GameScript {
     }
 
     onUpdate(dt) {
+        this._updateTracers(dt);
         if (this._dead) return;
         var player = this.scene.findEntityByName("Player");
         if (!player) return;
@@ -110,6 +116,10 @@ class EnemyAIBehavior extends GameScript {
                     amount: this._damage,
                     source: "enemy"
                 });
+                // Spawn a red bullet from the enemy's chest toward the
+                // player's chest. Player's fps_combat tracer is yellow;
+                // red here makes "incoming fire" obvious.
+                this._spawnTracer(pos.x, pos.y + 1.2, pos.z, pp.x, pp.y + 1.2, pp.z);
             }
         } else {
             this._patrolTimer += dt;
@@ -137,6 +147,45 @@ class EnemyAIBehavior extends GameScript {
         this._currentAnim = name;
         if (this.entity.playAnimation) {
             this.entity.playAnimation(name, options || {});
+        }
+    }
+
+    _spawnTracer(fromX, fromY, fromZ, toX, toY, toZ) {
+        if (!this.scene.createEntity) return;
+        var name = "tr_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        var id = this.scene.createEntity(name);
+        if (id == null || id === -1) return;
+        this.scene.setScale && this.scene.setScale(id, 0.14, 0.14, 0.14);
+        this.scene.addComponent(id, "MeshRendererComponent", {
+            meshType: "sphere",
+            baseColor: [1.0, 0.30, 0.20, 1]
+        });
+        this.scene.setPosition(id, fromX, fromY, fromZ);
+        if (this.scene.addTag) this.scene.addTag(id, "tracer");
+        var dx = toX - fromX, dy = toY - fromY, dz = toZ - fromZ;
+        var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        var duration = Math.max(0.05, dist / 60);
+        this._tracers.push({
+            id: id, t: 0, duration: duration,
+            fromX: fromX, fromY: fromY, fromZ: fromZ,
+            toX: toX, toY: toY, toZ: toZ
+        });
+    }
+
+    _updateTracers(dt) {
+        for (var i = this._tracers.length - 1; i >= 0; i--) {
+            var pr = this._tracers[i];
+            pr.t += dt;
+            var alpha = pr.t / pr.duration;
+            if (alpha >= 1) {
+                try { this.scene.destroyEntity && this.scene.destroyEntity(pr.id); } catch (e) {}
+                this._tracers.splice(i, 1);
+                continue;
+            }
+            this.scene.setPosition(pr.id,
+                pr.fromX + (pr.toX - pr.fromX) * alpha,
+                pr.fromY + (pr.toY - pr.fromY) * alpha,
+                pr.fromZ + (pr.toZ - pr.fromZ) * alpha);
         }
     }
 }
