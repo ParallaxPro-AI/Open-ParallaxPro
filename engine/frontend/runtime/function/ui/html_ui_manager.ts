@@ -1,5 +1,68 @@
 const INTERACTIVE_SELECTOR = 'button,input,select,a,[data-interactive],[onclick]';
 
+// Wheel router for pointer-locked play. In games that lock the pointer
+// to the canvas (FPS-style mouseDelta look), the OS cursor is captured
+// on the canvas and wheel events fire there — never on overlay iframes,
+// regardless of where the user *sees* the engine's virtual cursor. The
+// canvas wheel handler (input_device.ts:146) preventDefaults for camera
+// zoom, so any HUD / setup panel with `overflow:auto` content becomes
+// unscrollable on desktop. (Mobile is unaffected: touch scroll bypasses
+// pointer-lock entirely.)
+//
+// This intercepts wheel at window-capture, and IF pointer is locked AND
+// the virtual cursor is over a scrollable element inside a visible
+// overlay iframe, scrolls it directly and stops the canvas zoom from
+// also firing. Falls through to native handling otherwise.
+//
+// Module-top + once-flag so HMR and multiple HTMLUIManager instances
+// don't pile up listeners.
+if (typeof window !== 'undefined' && !(window as any).__ppWheelRouterInstalled) {
+    (window as any).__ppWheelRouterInstalled = true;
+    const findScrollableAt = (doc: Document, win: Window, lx: number, ly: number): HTMLElement | null => {
+        let cur: Element | null = doc.elementFromPoint(lx, ly);
+        while (cur && cur !== doc.documentElement) {
+            const cs = win.getComputedStyle(cur);
+            const el = cur as HTMLElement;
+            const scrollableY = (cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
+            const scrollableX = (cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth;
+            if (scrollableY || scrollableX) return el;
+            cur = cur.parentElement;
+        }
+        return null;
+    };
+    window.addEventListener('wheel', (e: WheelEvent) => {
+        if (!document.pointerLockElement) return;
+        const vc = document.getElementById('__virtual_cursor__');
+        if (!vc) return;
+        const vcRect = vc.getBoundingClientRect();
+        const vcX = vcRect.left + vcRect.width / 2;
+        const vcY = vcRect.top + vcRect.height / 2;
+        for (const f of Array.from(document.querySelectorAll('iframe'))) {
+            if ((f as HTMLElement).style.display === 'none') continue;
+            const ir = f.getBoundingClientRect();
+            if (vcX < ir.left || vcX > ir.right || vcY < ir.top || vcY > ir.bottom) continue;
+            const doc = (f as HTMLIFrameElement).contentDocument;
+            const win = (f as HTMLIFrameElement).contentWindow;
+            if (!doc || !win) continue;
+            // applyScale puts a transform: scale() on the iframe; convert
+            // virtual-cursor visual coords to iframe layout coords for
+            // elementFromPoint, then later divide wheel deltas by the
+            // same scale so one wheel tick advances the same visible
+            // distance regardless of how shrunk the iframe is.
+            const sx = ir.width / (win.innerWidth || ir.width) || 1;
+            const sy = ir.height / (win.innerHeight || ir.height) || 1;
+            const target = findScrollableAt(doc, win, (vcX - ir.left) / sx, (vcY - ir.top) / sy);
+            if (!target) return; // over iframe but no scrollable — leave canvas zoom alone
+            const lineH = 16;
+            target.scrollLeft += (e.deltaMode === 1 ? e.deltaX * lineH : e.deltaX) / sx;
+            target.scrollTop  += (e.deltaMode === 1 ? e.deltaY * lineH : e.deltaY) / sy;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+    }, { capture: true, passive: false });
+}
+
 export class HTMLUIManager {
     private overlays: Map<string, HTMLIFrameElement> = new Map();
     private container: HTMLElement | null = null;
