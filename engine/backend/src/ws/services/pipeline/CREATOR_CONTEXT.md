@@ -329,6 +329,132 @@ Floating name labels appear above non-camera, non-manager, non-custom-mesh entit
 - `fog: { enabled: bool, color: [r,g,b], near: number, far: number }` — distance fog.
 - `gravity: [x, y, z]` — physics gravity vector, e.g. `[0, -9.81, 0]`.
 
+### Terrain — `heightmapTerrain` (outdoor games with natural ground)
+
+When a game has outdoor terrain with multiple ground types (grass, sand, stone, roads, etc.), use a `heightmapTerrain` block in `03_worlds.json` instead of placing plane entities for ground. The engine blends textures seamlessly — no jagged edges, no overlapping planes.
+
+**When to use:**
+- Any game with grass/sand/dirt/road transitions
+- Open-world, racing, farming, exploration, RTS, survival games
+- Any game where the ground should look like natural terrain
+
+**When NOT to use:**
+- Indoor games (use floor planes)
+- Space/void games (no ground)
+- Small arenas with uniform ground (a single textured plane is fine)
+
+When you use `heightmapTerrain`, do NOT create a `ground` entity in `02_entities.json` and do NOT place a ground plane in placements — the terrain IS the ground.
+
+#### JSON format
+
+Add `heightmapTerrain` as a sibling of `environment` and `placements` in `03_worlds.json`:
+
+```json
+{
+  "worlds": [{
+    "environment": { ... },
+    "heightmapTerrain": {
+      "size": [200, 200],
+      "layers": [
+        {"name": "grass", "dir": "leafy_grass", "uvMetersPerTile": 6},
+        {"name": "sand", "dir": "coast_sand_01", "uvMetersPerTile": 8},
+        {"name": "rock", "dir": "rocky_terrain", "uvMetersPerTile": 12},
+        {"name": "road", "dir": "brushed_concrete", "uvMetersPerTile": 4}
+      ],
+      "default_layer": "grass",
+      "paints": [
+        {"shape": "circle", "center": [40, 30], "radius": 25, "feather": 8, "noise": 0.4, "layer": "sand"}
+      ],
+      "paths": [
+        {"points": [[-80,0],[-40,5],[0,10],[40,30],[80,40]], "width": 6, "feather": 1.5, "layer": "road"}
+      ]
+    },
+    "placements": [
+      { "name": "Player", "ref": "player", "position": [0, 1, 0] },
+      { "ref": "camera", "position": [0, 6, 10] }
+    ]
+  }]
+}
+```
+
+#### Fields
+
+- **`size`**: `[width, depth]` in meters. The terrain is centered at world origin. `[200, 200]` = 200 m × 200 m.
+- **`layers`**: 1–4 ground texture layers. Each has:
+  - `name`: identifier used by paints/paths (e.g. `"grass"`, `"sand"`, `"road"`)
+  - `dir`: Poly Haven texture directory name (see available textures below)
+  - `uvMetersPerTile`: how many meters one texture tile covers (lower = more repetition, sharper detail)
+- **`default_layer`**: name of the layer that covers everything before paints/paths are applied
+- **`paints`**: (optional) array of painted regions, applied in order
+- **`paths`**: (optional) array of smooth spline paths (roads, trails), applied last (always on top)
+
+#### Available terrain textures
+
+| `dir` value | Description | Suggested `uvMetersPerTile` |
+|---|---|---|
+| `leafy_grass` | Lush green grass | 4–8 |
+| `coast_sand_01` | Beach/desert sand | 6–10 |
+| `rocky_terrain` | Mountain rock | 8–14 |
+| `aerial_grass_rock` | Hillside grass/rock blend | 8–12 |
+| `brushed_concrete` | Concrete/asphalt for roads | 3–6 |
+
+#### Paint shapes
+
+Paints fill regions with a ground texture. The `feather` field controls how wide the soft edge is (in meters). The `noise` field (0–1) adds organic irregularity to the edge.
+
+```json
+{"shape": "circle", "center": [x, z], "radius": 25, "feather": 8, "noise": 0.4, "layer": "sand"}
+{"shape": "rect",   "center": [x, z], "size": [w, d], "feather": 5, "noise": 0.3, "layer": "rock"}
+{"shape": "polygon","points": [[x1,z1],[x2,z2],[x3,z3]], "feather": 6, "noise": 0.3, "layer": "sand"}
+```
+
+- Coordinates are world-space XZ (same as placement positions).
+- `feather`: gradient transition width in meters (default 3). Larger = softer edges.
+- `noise`: 0–1, edge irregularity (default 0). 0 = smooth geometric edge, 0.5 = organic natural look.
+
+#### Paths (roads, trails, rivers)
+
+Paths draw a smooth Catmull-Rom spline through the control points. The engine anti-aliases the edges — no jagged stacked planes.
+
+```json
+{"points": [[x1,z1],[x2,z2],[x3,z3],[x4,z4]], "width": 6, "feather": 1.5, "layer": "road"}
+```
+
+- `points`: 2+ control points in world-space XZ. The engine fits a smooth curve through them. Use 4–8 points for a typical road — too few = stiff, too many = wobbly.
+- `width`: road width in meters.
+- `feather`: soft edge width in meters (default 1.5). Adds a gradient from road to surrounding terrain.
+- `layer`: which layer texture to paint along the path.
+
+#### Sizing guidelines
+
+- **Small arena** (fighting, platformer): `size: [80, 80]` to `[120, 120]`
+- **Medium world** (racing, farming): `size: [200, 200]` to `[400, 400]`
+- **Large open world**: `size: [600, 600]` to `[1000, 1000]`
+- **Road width**: car road = 6–8 m, footpath = 2–3 m, highway = 12 m
+- **Biome patch radius**: 20–60 m for distinct regions, 8–15 m for small patches
+
+#### Example: racing game terrain
+
+```json
+"heightmapTerrain": {
+  "size": [300, 300],
+  "layers": [
+    {"name": "grass", "dir": "leafy_grass", "uvMetersPerTile": 5},
+    {"name": "sand", "dir": "coast_sand_01", "uvMetersPerTile": 8},
+    {"name": "road", "dir": "brushed_concrete", "uvMetersPerTile": 4}
+  ],
+  "default_layer": "grass",
+  "paints": [
+    {"shape": "circle", "center": [80, -50], "radius": 40, "feather": 12, "noise": 0.5, "layer": "sand"},
+    {"shape": "circle", "center": [-60, 70], "radius": 30, "feather": 10, "noise": 0.4, "layer": "sand"}
+  ],
+  "paths": [
+    {"points": [[-120,0],[-80,40],[-20,60],[40,50],[100,20],[120,-30],[80,-80],[0,-100],[-80,-60],[-120,0]],
+     "width": 8, "feather": 2, "layer": "road"}
+  ]
+}
+```
+
 ### Placement fields
 
 - `ref` (required) — entity def key in `02_entities.json`.

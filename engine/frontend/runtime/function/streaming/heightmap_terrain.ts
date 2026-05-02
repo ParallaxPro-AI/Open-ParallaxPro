@@ -19,7 +19,7 @@ import { TerrainComponent, TerrainGpuTextures } from '../framework/components/te
 export interface HeightmapTerrainConfig {
     /** URL of the heightmap meta JSON. The binary is resolved relative
      * to this URL via `meta.heightmapFile`. */
-    metaUrl: string;
+    metaUrl?: string;
 
     /** Optional terrain base color (RGBA 0..1). Used before textures load. */
     baseColor?: [number, number, number, number];
@@ -29,6 +29,15 @@ export interface HeightmapTerrainConfig {
      * the terrain shader's built-in per-pixel water path. Also used as
      * the LOD contour-lock level to keep the shoreline crisp. */
     waterLevel?: number;
+
+    /** Inline terrain: flat mesh, no external heightmap file needed.
+     *  When set, metaUrl is ignored and a flat terrain of the given
+     *  world-space dimensions is generated directly. */
+    inline?: {
+        worldWidth: number;
+        worldDepth: number;
+        resolution?: number;
+    };
 }
 
 /**
@@ -167,21 +176,67 @@ export class HeightmapTerrain {
 
     private async init(): Promise<void> {
         try {
-            const metaResp = await fetch(this.config.metaUrl);
-            const meta = await metaResp.json() as HeightmapMeta;
-            await this.createTerrain(meta);
-            this._ready = true;
-            this.onReady?.();
+            if (this.config.inline) {
+                this.createInlineTerrain(this.config.inline);
+                this._ready = true;
+                // Defer so the caller can set onReady after construction
+                queueMicrotask(() => this.onReady?.());
+            } else if (this.config.metaUrl) {
+                const metaResp = await fetch(this.config.metaUrl);
+                const meta = await metaResp.json() as HeightmapMeta;
+                await this.createTerrain(meta);
+                this._ready = true;
+                this.onReady?.();
+            }
         } catch (e) {
             console.warn('[HeightmapTerrain] Init failed:', e);
         }
+    }
+
+    private createInlineTerrain(cfg: NonNullable<HeightmapTerrainConfig['inline']>): void {
+        const worldW = cfg.worldWidth;
+        const worldD = cfg.worldDepth;
+        const res = Math.min(cfg.resolution ?? 128, MAX_LOD_RESOLUTION);
+        const heightData = new Float32Array(res * res);
+
+        const entity = this.scene.createEntity('Terrain', this.parentId);
+        entity.addTag('heightmap_terrain');
+        this.terrainEntityId = entity.id;
+        entity.addComponent('TransformComponent', {
+            position: { x: 0, y: 0, z: 0 },
+        });
+        entity.addComponent('TerrainComponent', {
+            width: worldW,
+            depth: worldD,
+            resolution: res,
+            heightScale: 1.0,
+            heightData,
+            baseColor: this.config.baseColor ?? [0.45, 0.55, 0.35, 1],
+            roughness: 0.9,
+            metallic: 0.0,
+            waterLevel: this.config.waterLevel,
+        });
+
+        const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
+        if (terrain) terrain.lodEnabled = true;
+
+        this.heightData = heightData;
+        this.res = res;
+        this.worldWidth = worldW;
+        this.worldDepth = worldD;
+        this.centerX = 0;
+        this.centerZ = 0;
+        this.originX = -worldW / 2;
+        this.originZ = -worldD / 2;
+        this.contentWidth = worldW;
+        this.contentDepth = worldD;
     }
 
     private async createTerrain(meta: HeightmapMeta): Promise<void> {
         // Resolve the binary URL relative to the meta URL so the meta can
         // use a bare filename (`heightmap.bin`) and still work regardless
         // of where the meta itself is served from.
-        const binUrl = new URL(meta.heightmapFile, new URL(this.config.metaUrl, window.location.href)).href;
+        const binUrl = new URL(meta.heightmapFile, new URL(this.config.metaUrl!, window.location.href)).href;
         const resp = await fetch(binUrl);
         const rawData = new Float32Array(await resp.arrayBuffer());
 

@@ -472,82 +472,14 @@
       ],
       "label": false
     },
-    "ground": {
+    "ground_collider": {
       "mesh": {
         "type": "plane",
-        "color": [
-          0.3,
-          0.45,
-          0.25,
-          1
-        ],
-        "scale": [
-          200,
-          1,
-          200
-        ]
+        "color": [0.3, 0.45, 0.25, 1],
+        "scale": [200, 1, 200]
       },
-      "tags": [
-        "ground"
-      ],
-      "label": false,
-      "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Green/texture_07.png",
-        "uvScaleX": 64,
-        "uvScaleY": 64
-      }
-    },
-    "road": {
-      "mesh": {
-        "type": "plane",
-        "color": [
-          0.2,
-          0.2,
-          0.22,
-          1
-        ],
-        "scale": [
-          12,
-          1,
-          130
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "road"
-      ],
-      "label": false,
-      "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Dark/texture_01.png",
-        "uvScaleX": 12,
-        "uvScaleY": 64
-      }
-    },
-    "sidewalk": {
-      "mesh": {
-        "type": "plane",
-        "color": [
-          0.55,
-          0.53,
-          0.5,
-          1
-        ],
-        "scale": [
-          4,
-          1,
-          130
-        ]
-      },
-      "physics": false,
-      "tags": [
-        "sidewalk"
-      ],
-      "label": false,
-      "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Light/texture_07.png",
-        "uvScaleX": 4,
-        "uvScaleY": 64
-      }
+      "tags": ["ground"],
+      "label": false
     },
     "traffic_light": {
       "mesh": {

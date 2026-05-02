@@ -3,12 +3,21 @@ import { StreamedBuildings } from '../../../../everything_game/003_runtime/strea
 import { StreamedRoads } from '../../../../everything_game/003_runtime/streaming/streamed_roads.js';
 import { StreamedProps } from '../../../../everything_game/003_runtime/streaming/streamed_props.js';
 import { loadTerrainTextureArrays } from '../../../../everything_game/003_runtime/streaming/terrain_texture_cache.js';
+import { loadInlineTerrainTextures } from '../../runtime/function/streaming/terrain_inline_loader.js';
+import type { InlineTerrainSpec } from '../../runtime/function/streaming/terrain_baker.js';
 import type { EditorContext } from './editor_context.js';
 
 interface HeightmapTerrainSceneCfg {
-    metaUrl: string;
+    metaUrl?: string;
     baseColor?: [number, number, number, number];
     waterLevel?: number;
+    // Inline terrain fields (AI-authored)
+    size?: [number, number];
+    layers?: InlineTerrainSpec['layers'];
+    default_layer?: string;
+    paints?: InlineTerrainSpec['paints'];
+    paths?: InlineTerrainSpec['paths'];
+    splatmap_resolution?: number;
 }
 
 /**
@@ -61,7 +70,7 @@ export class StreamingManager {
 
     private initHeightmapTerrain(): void {
         const scene = this.ctx.getActiveScene();
-        if (!scene) return;
+        if (!scene) { console.warn('[Terrain] no active scene'); return; }
 
         // Clean up any stale heightmap-terrain entities restored from a
         // previous scene snapshot (the runtime re-spawns its own on init).
@@ -73,36 +82,67 @@ export class StreamingManager {
 
         const pd = this.ctx.state.projectData;
         const scenes = pd?.scenes || {};
+        console.log('[Terrain] scene count:', Object.keys(scenes).length);
         for (const sceneData of Object.values(scenes) as any[]) {
             const cfg = sceneData?.heightmapTerrain as HeightmapTerrainSceneCfg | undefined;
-            if (!cfg?.metaUrl) continue;
-            const terrain = new HeightmapTerrain(scene, {
-                metaUrl: cfg.metaUrl,
-                baseColor: cfg.baseColor,
-                waterLevel: cfg.waterLevel,
-            });
-            // After the heightmap geometry lands, upload it to GPU and then
-            // asynchronously load the PBR ground textures to activate the
-            // dedicated terrain shader pipeline. Content dims come from the
-            // heightmap meta, not the scene config, so the two don't drift.
+            console.log('[Terrain] heightmapTerrain cfg:', cfg ? Object.keys(cfg) : 'none');
+            if (!cfg) continue;
+
+            const isInline = !!(cfg.layers && cfg.size);
+            console.log('[Terrain] isInline:', isInline, 'layers:', cfg.layers?.length, 'paths:', (cfg as any).paths?.length);
+
+            if (!isInline && !cfg.metaUrl) continue;
+
+            const terrain = isInline
+                ? new HeightmapTerrain(scene, {
+                    inline: {
+                        worldWidth: cfg.size![0],
+                        worldDepth: cfg.size![1],
+                        resolution: 128,
+                    },
+                    baseColor: cfg.baseColor,
+                    waterLevel: cfg.waterLevel,
+                })
+                : new HeightmapTerrain(scene, {
+                    metaUrl: cfg.metaUrl!,
+                    baseColor: cfg.baseColor,
+                    waterLevel: cfg.waterLevel,
+                });
+
             terrain.onReady = () => {
+                console.log('[Terrain] onReady fired, isInline:', isInline);
                 this.ctx.ensurePrimitiveMeshes();
                 const device = this.ctx.engine?.globalContext.renderSystem.getDevice();
-                if (!device) return;
-                loadTerrainTextureArrays(device, {
-                    worldWidth:   terrain.worldWidth,
-                    worldDepth:   terrain.worldDepth,
-                    originX:      terrain.originX,
-                    originZ:      terrain.originZ,
-                    contentWidth: terrain.contentWidth,
-                    contentDepth: terrain.contentDepth,
-                })
-                    .then(arrays => terrain.applyTerrainTextures(
-                        arrays,
-                        this.streamedRoads?.atlas.nearTexture,
-                        this.streamedRoads?.atlas.farTexture,
-                    ))
-                    .catch(err => console.warn('[Terrain] Failed to load ground textures:', err));
+                if (!device) { console.warn('[Terrain] no GPU device'); return; }
+
+                if (isInline) {
+                    const spec: InlineTerrainSpec = {
+                        size: cfg.size!,
+                        layers: cfg.layers!,
+                        default_layer: cfg.default_layer ?? cfg.layers![0].name,
+                        paints: cfg.paints,
+                        paths: cfg.paths,
+                        splatmap_resolution: cfg.splatmap_resolution,
+                    };
+                    loadInlineTerrainTextures(device, spec, terrain.worldWidth, terrain.worldDepth)
+                        .then(arrays => terrain.applyTerrainTextures(arrays))
+                        .catch(err => console.warn('[InlineTerrain] Failed to load textures:', err));
+                } else {
+                    loadTerrainTextureArrays(device, {
+                        worldWidth:   terrain.worldWidth,
+                        worldDepth:   terrain.worldDepth,
+                        originX:      terrain.originX,
+                        originZ:      terrain.originZ,
+                        contentWidth: terrain.contentWidth,
+                        contentDepth: terrain.contentDepth,
+                    })
+                        .then(arrays => terrain.applyTerrainTextures(
+                            arrays,
+                            this.streamedRoads?.atlas.nearTexture,
+                            this.streamedRoads?.atlas.farTexture,
+                        ))
+                        .catch(err => console.warn('[Terrain] Failed to load ground textures:', err));
+                }
             };
             this.heightmapTerrain = terrain;
             break;

@@ -1277,6 +1277,53 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   const streamedBuildings = worlds?.worlds?.[0]?.streamedBuildings;
   const environment = worlds?.worlds?.[0]?.environment;
 
+  // ══════════════════════════════════════════════════════════════════════
+  // Inline terrain validation
+  // ══════════════════════════════════════════════════════════════════════
+  if (heightmapTerrain && heightmapTerrain.layers && heightmapTerrain.size) {
+    const terrainErrors: string[] = [];
+    const ht = heightmapTerrain;
+    if (!Array.isArray(ht.size) || ht.size.length !== 2 || ht.size[0] <= 0 || ht.size[1] <= 0) {
+      terrainErrors.push('heightmapTerrain.size must be [width, depth] with positive values');
+    }
+    if (!Array.isArray(ht.layers) || ht.layers.length < 1 || ht.layers.length > 4) {
+      terrainErrors.push('heightmapTerrain.layers must have 1-4 entries');
+    }
+    const layerNames = new Set<string>();
+    if (Array.isArray(ht.layers)) {
+      for (const layer of ht.layers) {
+        if (!layer.name || !layer.dir) {
+          terrainErrors.push(`heightmapTerrain layer missing "name" or "dir": ${JSON.stringify(layer)}`);
+        } else {
+          layerNames.add(layer.name);
+        }
+        if (typeof layer.uvMetersPerTile !== 'number' || layer.uvMetersPerTile <= 0) {
+          terrainErrors.push(`heightmapTerrain layer "${layer.name}": uvMetersPerTile must be a positive number`);
+        }
+      }
+    }
+    if (ht.default_layer && !layerNames.has(ht.default_layer)) {
+      terrainErrors.push(`heightmapTerrain.default_layer "${ht.default_layer}" not found in layers: [${[...layerNames].join(', ')}]`);
+    }
+    for (const paint of (ht.paints || [])) {
+      if (!layerNames.has(paint.layer)) {
+        terrainErrors.push(`heightmapTerrain paint references unknown layer "${paint.layer}". Valid: [${[...layerNames].join(', ')}]`);
+      }
+    }
+    for (const pathSpec of (ht.paths || [])) {
+      if (!layerNames.has(pathSpec.layer)) {
+        terrainErrors.push(`heightmapTerrain path references unknown layer "${pathSpec.layer}". Valid: [${[...layerNames].join(', ')}]`);
+      }
+      if (!Array.isArray(pathSpec.points) || pathSpec.points.length < 2) {
+        terrainErrors.push('heightmapTerrain path must have at least 2 points');
+      }
+    }
+    if (terrainErrors.length > 0) {
+      console.error(`[Assembler] Inline terrain validation errors:\n  ${terrainErrors.join('\n  ')}`);
+      throw new Error(`Inline terrain validation failed: ${terrainErrors.length} error(s). ${terrainErrors[0]}`);
+    }
+  }
+
   // Emit every entity definition as a prefab blueprint so the runtime
   // can instantiate them on demand (e.g. the network adapter building a
   // remote-player avatar). Each blueprint is the same shape as an

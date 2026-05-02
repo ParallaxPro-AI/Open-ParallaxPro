@@ -20,14 +20,37 @@
           0.8
         ]
       },
+      "heightmapTerrain": {
+        "size": [200, 200],
+        "layers": [
+          {"name": "grass", "dir": "leafy_grass", "uvMetersPerTile": 5},
+          {"name": "road", "dir": "brushed_concrete", "uvMetersPerTile": 3},
+          {"name": "sidewalk", "dir": "rocky_terrain", "uvMetersPerTile": 4}
+        ],
+        "default_layer": "grass",
+        "paths": [
+          {"points": [[0,-70],[0,-30],[0,0],[0,30],[0,70]], "width": 12, "feather": 0.5, "layer": "road"},
+          {"points": [[-70,0],[-30,0],[0,0],[30,0],[70,0]], "width": 12, "feather": 0.5, "layer": "road"},
+          {"points": [[8,-70],[8,-40],[8,-10]], "width": 4, "feather": 0.3, "layer": "sidewalk"},
+          {"points": [[8,10],[8,40],[8,70]], "width": 4, "feather": 0.3, "layer": "sidewalk"},
+          {"points": [[-8,-70],[-8,-40],[-8,-10]], "width": 4, "feather": 0.3, "layer": "sidewalk"},
+          {"points": [[-8,10],[-8,40],[-8,70]], "width": 4, "feather": 0.3, "layer": "sidewalk"},
+          {"points": [[-70,8],[-40,8],[-10,8]], "width": 4, "feather": 0.3, "layer": "sidewalk"},
+          {"points": [[10,8],[40,8],[70,8]], "width": 4, "feather": 0.3, "layer": "sidewalk"},
+          {"points": [[-70,-8],[-40,-8],[-10,-8]], "width": 4, "feather": 0.3, "layer": "sidewalk"},
+          {"points": [[10,-8],[40,-8],[70,-8]], "width": 4, "feather": 0.3, "layer": "sidewalk"},
+
+          {"points": [[3,30],[12,28],[22,22],[28,12],[30,3]], "width": 10, "feather": 0.8, "layer": "road"},
+          {"points": [[-3,-30],[-12,-28],[-22,-22],[-28,-12],[-30,-3]], "width": 10, "feather": 0.8, "layer": "road"},
+
+          {"points": [[-3,30],[-14,32],[-28,38],[-38,48],[-45,60]], "width": 8, "feather": 0.8, "layer": "road"},
+          {"points": [[3,-55],[12,-58],[25,-60],[40,-58],[50,-50]], "width": 8, "feather": 0.8, "layer": "road"}
+        ]
+      },
       "placements": [
         {
-          "ref": "ground",
-          "position": [
-            0,
-            0,
-            0
-          ]
+          "ref": "ground_collider",
+          "position": [0, -0.01, 0]
         },
         {
           "ref": "camera",
@@ -44,84 +67,6 @@
             0,
             1.5,
             0
-          ]
-        },
-        {
-          "ref": "road",
-          "position": [
-            0,
-            0.02,
-            0
-          ],
-          "scale": [
-            12,
-            1,
-            140
-          ]
-        },
-        {
-          "ref": "road",
-          "position": [
-            0,
-            0.025,
-            0
-          ],
-          "scale": [
-            140,
-            1,
-            12
-          ]
-        },
-        {
-          "ref": "sidewalk",
-          "position": [
-            8,
-            0.015,
-            0
-          ],
-          "scale": [
-            4,
-            1,
-            140
-          ]
-        },
-        {
-          "ref": "sidewalk",
-          "position": [
-            -8,
-            0.015,
-            0
-          ],
-          "scale": [
-            4,
-            1,
-            140
-          ]
-        },
-        {
-          "ref": "sidewalk",
-          "position": [
-            0,
-            0.015,
-            8
-          ],
-          "scale": [
-            140,
-            1,
-            4
-          ]
-        },
-        {
-          "ref": "sidewalk",
-          "position": [
-            0,
-            0.015,
-            -8
-          ],
-          "scale": [
-            140,
-            1,
-            4
           ]
         },
         {
@@ -175,7 +120,7 @@
         {
           "ref": "building_commercial_c",
           "position": [
-            -35,
+            -50,
             0,
             48
           ]
@@ -688,19 +633,19 @@
 
         { "ref": "industrial_building_a", "position": [-30, 0, -65] },
         { "ref": "industrial_building_b", "position": [-50, 0, -65] },
-        { "ref": "industrial_building_c", "position": [30, 0, -65] },
-        { "ref": "industrial_building_a", "position": [50, 0, -65] },
+        { "ref": "industrial_building_c", "position": [30, 0, -75] },
+        { "ref": "industrial_building_a", "position": [50, 0, -75] },
 
         { "ref": "chimney", "position": [-30, 0, -75] },
         { "ref": "chimney", "position": [50, 0, -75] },
 
         { "ref": "low_detail_building_a", "position": [70, 0, 30] },
-        { "ref": "low_detail_building_b", "position": [70, 0, 0] },
+        { "ref": "low_detail_building_b", "position": [70, 0, 15] },
         { "ref": "low_detail_building_a", "position": [70, 0, -30] },
         { "ref": "low_detail_building_c", "position": [-70, 0, 30] },
-        { "ref": "low_detail_building_b", "position": [-70, 0, 0] },
+        { "ref": "low_detail_building_b", "position": [-70, 0, 15] },
         { "ref": "low_detail_building_a", "position": [-70, 0, -30] },
-        { "ref": "low_detail_building_c", "position": [0, 0, 75] },
+        { "ref": "low_detail_building_c", "position": [15, 0, 75] },
         { "ref": "low_detail_building_a", "position": [-30, 0, 75] },
         { "ref": "low_detail_building_b", "position": [30, 0, 75] },
 

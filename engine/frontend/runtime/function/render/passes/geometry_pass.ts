@@ -1423,6 +1423,7 @@ export class GeometryPass {
             texId(arrays.sidewalkDiffuse),
             texId(arrays.sidewalkNormal),
             texId(arrays.groundTypeMap),
+            mesh.waterLevel ?? -1e20,
         ].join('|');
 
         let bg = this.terrainMaterialBindGroupCache.get(key);
@@ -1439,6 +1440,7 @@ export class GeometryPass {
         matData.fill(0);
         matU32[6] = mesh.roadAtlasNear ? 1 : 0;
         matU32[7] = mesh.roadAtlasFar  ? 1 : 0;
+        matData[15] = mesh.waterLevel ?? -1e20;
 
         const matBuffer = this.resources!.createUniformBuffer(MATERIAL_UNIFORM_SIZE, 'terrain_material');
         this.device!.queue.writeBuffer(matBuffer, 0, matData);

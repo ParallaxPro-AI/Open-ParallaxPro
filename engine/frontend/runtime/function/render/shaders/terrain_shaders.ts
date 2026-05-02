@@ -46,7 +46,7 @@ struct MaterialUniforms {
     waterEffect: u32,
     uvScaleX: f32,
     uvScaleY: f32,
-    terrainHeightColor: u32,
+    waterLevel: f32,
     // Layout-only; mirrors PBR MaterialUniforms (waterScale + 12 bytes pad)
     // so a single 80-byte uniform buffer feeds either shader.
     _terrainPadW: f32,
@@ -462,7 +462,7 @@ fn computeTerrainPBR(input: FragmentInput) -> PBRResult {
     var metallic = 0.0;
     var alpha = 1.0;
 
-    if (h <= 0.5) {
+    if (h <= material.waterLevel) {
         // Ocean / sea-level water
         albedo = vec3<f32>(0.06, 0.15, 0.30);
         roughness = 0.15;
