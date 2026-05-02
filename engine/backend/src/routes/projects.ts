@@ -483,7 +483,17 @@ router.delete('/:id/generation-success', (req, res) => {
 });
 
 // Delete project
+//
+// If a CREATE_GAME / FIX_GAME job is in flight for this project,
+// silently no-op: the sandbox is still consuming CLI credits and will
+// UPDATE the row when it finishes — DELETE here would race that write
+// (silently lost) and orphan cli_sandbox_archives/<id>/. Returning
+// success keeps the UX clean; the user can re-issue the delete after
+// the job settles (`generation_job_id` is cleared).
+const stmtIsGenerating = db.prepare('SELECT generation_job_id FROM projects WHERE id = ? AND user_id = ?');
 router.delete('/:id', (req, res) => {
+    const guard = stmtIsGenerating.get(req.params.id, req.user!.id) as { generation_job_id: string | null } | undefined;
+    if (guard?.generation_job_id) { res.json({ success: true }); return; }
     const result = stmtDelete.run(req.params.id, req.user!.id);
     if (result.changes === 0) { res.status(404).json({ error: 'Project not found' }); return; }
     cleanupBuildDir(req.params.id);
