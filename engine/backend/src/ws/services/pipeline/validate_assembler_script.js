@@ -1442,6 +1442,68 @@ function extractMethodBody(src, name) {
 
 
 // ═════════════════════════════════════════════════════════════════════
+// 12c. Primitive mesh + collider:"mesh" — wrong primitive, mis-fit hull
+// ═════════════════════════════════════════════════════════════════════
+// When mesh.type is a primitive shape (sphere/cube/box/plane/cylinder/
+// capsule), physics.collider should be the matching primitive — never
+// "mesh". A "mesh" collider builds a triangle hull from the geometry,
+// which (a) is heavier at runtime than a primitive and (b) doesn't fit
+// the visible shape correctly when the mesh is non-uniformly scaled
+// (a sphere mesh squashed on Y becomes an ellipsoidal triangle hull;
+// the primitive sphere collider would auto-fit to the AABB instead).
+//
+// Engine has no native cylinder or plane primitive collider, so the
+// recommendation falls back to the closest fit: cylinder → capsule,
+// plane → box. (See level_assembler.buildColliderData accepted shapes:
+// box/cuboid, sphere/ball, capsule, mesh.)
+//
+// Warning, not error — same reasoning as check 12: many existing
+// projects predate this rule and an error would put cli_fixer into a
+// fail loop on legacy 02_entities.json files it isn't otherwise touching.
+(function warnPrimitiveMeshWithMeshCollider() {
+    var SUGGESTED_COLLIDER = {
+        sphere:   'sphere',
+        cube:     'box',
+        box:      'box',
+        capsule:  'capsule',
+        cylinder: 'capsule',
+        plane:    'box',
+    };
+    var warnings = [];
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        var key = defKeys[di];
+        var def = defs[key];
+        if (!def || def.physics === false || !def.mesh) continue;
+        var meshType = def.mesh.type;
+        if (!meshType || !SUGGESTED_COLLIDER.hasOwnProperty(meshType)) continue;
+        var col = def.physics && def.physics.collider;
+        var actualShape = (typeof col === 'string') ? col
+                        : (col && typeof col === 'object') ? (col.shape || col.shapeType)
+                        : null;
+        if (actualShape !== 'mesh') continue;
+        warnings.push(
+            'entity "' + key + '" has mesh.type="' + meshType + '" (primitive) ' +
+            'but physics.collider="mesh" — use "' + SUGGESTED_COLLIDER[meshType] + '" instead. ' +
+            'A mesh collider on a primitive builds a triangle hull from the geometry ' +
+            '(heavier at runtime; non-uniform scales produce a hull that won\'t fit a ' +
+            'primitive — e.g. a sphere mesh scaled [30,8,30] gets an ellipsoidal hull ' +
+            'instead of an auto-fit sphere). Fix next time you touch this file.'
+        );
+    }
+    if (warnings.length > 0) {
+        console.warn(
+            '[validate-assembler] ' + warnings.length +
+            ' primitive-mesh-with-mesh-collider warning' + (warnings.length > 1 ? 's' : '') +
+            ' (non-fatal):\n  - ' +
+            warnings.slice(0, 3).join('\n  - ') +
+            (warnings.length > 3 ? '\n  - ...(+' + (warnings.length - 3) + ' more)' : ''),
+        );
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
 // 12b. decoration_only on physical geometry (no collider) — bug class
 // ═════════════════════════════════════════════════════════════════════
 // `decoration_only` is the agent's escape hatch for "no collision needed —
