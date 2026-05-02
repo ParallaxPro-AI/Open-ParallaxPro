@@ -54,6 +54,34 @@ These are the recurring pitfalls that flip a clean run into a fix loop. Get them
 
 **Game logic in HTML script tags.** UI panel `<script>` blocks should be presentational only: read state via the `gameState` message handler, emit actions via `postMessage({type: 'game_command', ...})`. State machines, scoring, spawning, NPC AI, and other cross-entity logic belong in a system `.ts` under `project/systems/gameplay/`. The validator will pass either way, but logic-in-HTML is harder for you to debug mid-run and the structure doesn't extend.
 
+**Reactive selection in lists — the build-once + sync-selection pattern.** Whenever a panel renders a list of items where ONE is highlighted as "selected" (difficulty cards, character picker, club/team grid, level select, weapon grid, color swatches, etc.), DO NOT bake the `.sel` class into the initial `buildList()` and stop there. The user clicks an item, your system updates the chosen ID and rebroadcasts state, but the panel's selection won't visually update — clicks look ignored. Always-rebuilding the list every state push fixes selection but causes DOM churn that iOS WKWebView turns into dropped clicks (we've shipped fixes for this exact issue). Right pattern: build the list once with a guard, AND every state push, run a tiny sync function that toggles `.sel` on existing nodes by `data-*` id.
+
+```js
+// build (once, on first show)
+function buildTeams(teams, currentId) {
+  for (const t of teams) {
+    const d = document.createElement('div');
+    d.className = 'cs-team' + (t.id === currentId ? ' sel' : '');
+    d.setAttribute('data-team-id', t.id);          // ← required for sync
+    d.addEventListener('click', () => emit('select_team', { teamId: t.id }));
+    grid.appendChild(d);
+  }
+}
+
+// sync (every state push) — keep selection in lockstep with state
+function syncTeamSelection(currentId) {
+  for (const n of document.querySelectorAll('.cs-team')) {
+    n.classList.toggle('sel', n.getAttribute('data-team-id') === String(currentId));
+  }
+}
+
+// in the gameState handler:
+if (setup.teams && !teamsBuilt) { buildTeams(setup.teams, career.teamId); teamsBuilt = true; }
+syncTeamSelection(career.teamId);  // always — handles user clicks AND state-driven changes
+```
+
+The same shape applies to any "current X" the user can switch between: `data-<thing>-id` on the element, a tiny `sync<Thing>Selection(currentId)` that toggles `.sel`, called unconditionally on every gameState message.
+
 ## Sandbox Layout
 
 Every file shown below is **guaranteed present** in the sandbox (or optional where noted). You do NOT need to `ls`, `find`, or `cat .search_config.json` to orient — trust this map. The project is in template format (the same 4-file format every game uses).

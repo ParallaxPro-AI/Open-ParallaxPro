@@ -372,6 +372,40 @@ The engine's base CSS hides `[data-pp-desktop-only]` and `.pp-desktop-only` unde
 
 When patching panels that already include kbd hints without the attribute, add it — that's a frequent FIX_GAME class.
 
+### "I clicked but the selection didn't change" — list selection bug
+
+A frequent fix request: a panel renders a list of items where ONE is highlighted as "selected" (difficulty cards, character picker, club/team grid, level select, weapon grid, color swatches, etc.), the user clicks a different item, and nothing visually updates. Almost always the same shape:
+
+```js
+// PROBLEM — buildList runs once, .sel is baked into the initial className,
+// no resync runs on subsequent gameState messages.
+var teamsBuilt = false;
+window.addEventListener('message', function(e) {
+  ...
+  if (setup.teams && !teamsBuilt) { buildTeams(setup.teams, career.teamId); teamsBuilt = true; }
+  // ← missing: syncTeamSelection(career.teamId);
+});
+```
+
+Always-rebuilding the list every state push fixes selection but causes DOM churn that iOS WKWebView turns into dropped clicks. Right pattern: keep the build-once guard, AND add a tiny sync function that toggles `.sel` on existing nodes by `data-*` id every state push.
+
+```js
+// Patch: tag each list item with data-<thing>-id during build
+d.setAttribute('data-team-id', t.id);
+
+// Add a sync function
+function syncTeamSelection(currentId) {
+  for (const n of document.querySelectorAll('.cs-team')) {
+    n.classList.toggle('sel', n.getAttribute('data-team-id') === String(currentId));
+  }
+}
+
+// Call it unconditionally on every gameState message (not gated by teamsBuilt).
+syncTeamSelection(career.teamId);
+```
+
+Compare: the same panel's mode/position selection probably already works — the mode buttons typically use an `applyMode()` function that toggles `.sel` on existing elements every state push (the right pattern). The list-with-build-guard usually missed it.
+
 ## Asset Search
 
 **Use `bash search_assets.sh` to find assets.** Semantic search — returns the most relevant asset paths.
