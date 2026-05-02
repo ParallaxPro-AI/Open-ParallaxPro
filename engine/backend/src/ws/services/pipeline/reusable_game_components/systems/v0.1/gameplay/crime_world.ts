@@ -17,6 +17,11 @@ class CrimeWorldSystem extends GameScript {
     _vehicleYaw = 0;
     _vehicleSpeed = 0;
     _nearVehicle = false;
+    // Anti-stuck state: time spent commanding throttle while the
+    // rigidbody barely moved. Crossing _stuckThreshold triggers a
+    // one-shot reversed nudge so a head-on crash can't pin the car.
+    _stuckTimer = 0;
+    _stuckThreshold = 1.0;
 
     onStart() {
         var self = this;
@@ -200,15 +205,55 @@ class CrimeWorldSystem extends GameScript {
             this._vehicleYaw += steer * this._carTurn * dt * Math.min(speedFactor * 2, 1) * reverseSign;
         }
 
+        // Read actual physics velocity. vy is preserved as before so
+        // gravity isn't cancelled by our setVelocity. Lateral magnitude
+        // tells us if the rigidbody is actually moving — if it's much
+        // slower than we're commanding, the car is pressing into an
+        // obstacle and Rapier's separation impulse is being erased by
+        // the next setVelocity call.
+        var rb = this._vehicleEntity.getComponent ? this._vehicleEntity.getComponent("RigidbodyComponent") : null;
+        var vy = 0;
+        var actualLat = Math.abs(this._vehicleSpeed);
+        if (rb && rb.getLinearVelocity) {
+            var av = rb.getLinearVelocity();
+            vy = av.y || 0;
+            actualLat = Math.sqrt((av.x || 0) * (av.x || 0) + (av.z || 0) * (av.z || 0));
+        }
+
+        // Soft-clamp commanded speed to the physics speed + small
+        // headroom. When the car is rolling free this is a no-op; when
+        // it's pinned against a tree/wall the commanded speed bleeds
+        // down so setVelocity stops fighting Rapier's separation push.
+        // The 3 m/s buffer is enough to keep the car gently pressing
+        // forward in case the obstacle is something it can climb /
+        // slide off, while leaving room for steering to redirect the
+        // car (steering still applies as long as speedFactor > 0.05,
+        // i.e. ~1.25 m/s of script speed).
+        var commandedAbs = Math.abs(this._vehicleSpeed);
+        var maxAllowed = actualLat + 3;
+        if (commandedAbs > maxAllowed) {
+            var clampSign = this._vehicleSpeed >= 0 ? 1 : -1;
+            this._vehicleSpeed = maxAllowed * clampSign;
+        }
+
+        // Stuck detection — backup safety net when the player's holding
+        // throttle but the car isn't moving even with the soft-clamp
+        // (perfectly head-on collision, can't steer out). After ~1s of
+        // throttle-but-no-progress, briefly reverse so the player can
+        // re-aim. Self-resets every frame the car is moving normally.
+        if (throttle !== 0 && actualLat < 0.5) {
+            this._stuckTimer += dt;
+            if (this._stuckTimer >= this._stuckThreshold) {
+                this._stuckTimer = 0;
+                this._vehicleSpeed = -4 * (throttle > 0 ? 1 : -1);
+            }
+        } else {
+            this._stuckTimer = 0;
+        }
+
         var yawRad = this._vehicleYaw * Math.PI / 180;
         var vx = Math.sin(yawRad) * this._vehicleSpeed;
         var vz = -Math.cos(yawRad) * this._vehicleSpeed;
-
-        var rb = this._vehicleEntity.getComponent ? this._vehicleEntity.getComponent("RigidbodyComponent") : null;
-        var vy = 0;
-        if (rb && rb.getLinearVelocity) {
-            vy = rb.getLinearVelocity().y || 0;
-        }
 
         this.scene.setVelocity(this._vehicleEntity.id, { x: vx, y: vy, z: vz });
         this._vehicleEntity.transform.setRotationEuler(0, -this._vehicleYaw, 0);
