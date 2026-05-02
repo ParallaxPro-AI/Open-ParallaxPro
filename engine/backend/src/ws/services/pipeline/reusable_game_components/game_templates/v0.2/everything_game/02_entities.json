@@ -26,8 +26,7 @@
       "mesh": {
         "type": "custom",
         "asset": "/assets/quaternius/characters/ultimate_animated_character_pack/Casual_Male.glb",
-        "scale": [0.4, 0.4, 0.4],
-        "modelRotationY": 180
+        "scale": [0.4, 0.4, 0.4]
       },
       "physics": false,
       "network": {
