@@ -328,6 +328,11 @@ var GAME_EVENTS = {
     net_royale_storm_tick:      { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_royale_loot_picked:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_royale_shot:            { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
+    // Generic FPS bullet tracer broadcast used by fps_combat so remote
+    // peers see each shot's visible bullet — the shooter spawns a local
+    // tracer immediately and broadcasts the same from/to/shooterPeerId
+    // so peers can spawn matching world-space tracers.
+    net_fps_shot:               { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_royale_damage:          { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_royale_player_died:     { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },
     net_royale_heal:            { fields: { from: { type: 'string', optional: true }, data: { type: 'any', optional: true } } },

@@ -50,8 +50,13 @@ class CameraFPSBehavior extends GameScript {
         var lookZ = pp.z - Math.cos(yawRad) * Math.cos(pitchRad);
         this.entity.transform.lookAt(lookX, lookY, lookZ);
 
-        // Share yaw with player movement
+        // Share yaw with player movement and pitch with weapon aim. The
+        // weapon behaviors (fps_combat, fps_melee_bow) need pitch to
+        // shoot where the crosshair points; without the shared write
+        // their fallback path resolves pitch=0 and the bullets always
+        // travel horizontally regardless of where the player is looking.
         this.scene._fpsYaw = this._yawDeg;
+        this.scene._fpsPitch = this._pitchDeg;
     }
 
     _findLocalPlayer() {

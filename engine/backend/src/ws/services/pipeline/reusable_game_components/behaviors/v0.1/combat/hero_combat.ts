@@ -42,6 +42,12 @@ class HeroCombatBehavior extends GameScript {
     _startX = -45;
     _startZ = 0;
 
+    // Visible tracers — short-lived spheres that lerp from hero toward
+    // the target so the player can see auto-attacks and Q-burst beams.
+    // Damage is still applied at fire-time; the tracer is purely
+    // cosmetic.
+    _tracers = [];
+
     onStart() {
         var pos = this.entity.transform.position;
         this._startX = pos.x;
@@ -91,6 +97,7 @@ class HeroCombatBehavior extends GameScript {
     }
 
     onUpdate(dt) {
+        this._updateTracers(dt);
         if (this._dead) {
             this._sendHUD();
             return;
@@ -123,8 +130,11 @@ class HeroCombatBehavior extends GameScript {
             this._qCooldown = this._qMaxCooldown;
             this.scene.events.game.emit("ability_used", {});
             var enemies = this._getEnemiesInRange(this._qRange);
+            var hp = this.entity.transform.position;
             for (var i = 0; i < enemies.length; i++) {
                 this.scene.events.game.emit("entity_damaged", { entityId: enemies[i].id, amount: this._qDamage, source: "hero_q" });
+                var ep = enemies[i].transform.position;
+                this._spawnTracer(hp.x, hp.y + 1.0, hp.z, ep.x, ep.y + 1.0, ep.z, [0.65, 0.30, 0.95, 1], 0.32, 24);
             }
             if (this.audio) this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserSmall_002.ogg", 0.5);
         }
@@ -156,6 +166,9 @@ class HeroCombatBehavior extends GameScript {
             if (target) {
                 this._attackCooldown = this._attackRate;
                 this.scene.events.game.emit("entity_damaged", { entityId: target.id, amount: this._attackDamage, source: "hero_attack" });
+                var hpos = this.entity.transform.position;
+                var tpos = target.transform.position;
+                this._spawnTracer(hpos.x, hpos.y + 1.0, hpos.z, tpos.x, tpos.y + 1.0, tpos.z, [1.0, 0.95, 0.40, 1], 0.18, 30);
                 if (this.audio) this.audio.playSound(this._attackSound, 0.3);
             }
         }
@@ -193,6 +206,45 @@ class HeroCombatBehavior extends GameScript {
             if (Math.sqrt(dx * dx + dz * dz) <= range) result.push(e);
         }
         return result;
+    }
+
+    _spawnTracer(fromX, fromY, fromZ, toX, toY, toZ, color, scaleR, speed) {
+        if (!this.scene.createEntity) return;
+        var name = "tr_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        var id = this.scene.createEntity(name);
+        if (id == null || id === -1) return;
+        this.scene.setScale && this.scene.setScale(id, scaleR, scaleR, scaleR);
+        this.scene.addComponent(id, "MeshRendererComponent", {
+            meshType: "sphere",
+            baseColor: color
+        });
+        this.scene.setPosition(id, fromX, fromY, fromZ);
+        if (this.scene.addTag) this.scene.addTag(id, "tracer");
+        var dx = toX - fromX, dy = toY - fromY, dz = toZ - fromZ;
+        var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        var duration = Math.max(0.05, dist / speed);
+        this._tracers.push({
+            id: id, t: 0, duration: duration,
+            fromX: fromX, fromY: fromY, fromZ: fromZ,
+            toX: toX, toY: toY, toZ: toZ
+        });
+    }
+
+    _updateTracers(dt) {
+        for (var i = this._tracers.length - 1; i >= 0; i--) {
+            var pr = this._tracers[i];
+            pr.t += dt;
+            var alpha = pr.t / pr.duration;
+            if (alpha >= 1) {
+                try { this.scene.destroyEntity && this.scene.destroyEntity(pr.id); } catch (e) {}
+                this._tracers.splice(i, 1);
+                continue;
+            }
+            this.scene.setPosition(pr.id,
+                pr.fromX + (pr.toX - pr.fromX) * alpha,
+                pr.fromY + (pr.toY - pr.fromY) * alpha,
+                pr.fromZ + (pr.toZ - pr.fromZ) * alpha);
+        }
     }
 
     _sendHUD() {

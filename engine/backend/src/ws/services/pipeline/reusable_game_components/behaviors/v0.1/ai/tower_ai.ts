@@ -11,6 +11,10 @@ class TowerAIBehavior extends GameScript {
     _dead = false;
     _team = "";
     _isNexus = false;
+    // Visible energy-bolt tracers — short-lived spheres lerping from
+    // the tower toward each shot's target. Damage is applied at fire-
+    // time; the tracer is purely cosmetic.
+    _tracers = [];
 
     onStart() {
         var tags = this.entity.tags || [];
@@ -66,6 +70,7 @@ class TowerAIBehavior extends GameScript {
     }
 
     onUpdate(dt) {
+        this._updateTracers(dt);
         if (this._dead) return;
         if (this._attackRange <= 0) return;
 
@@ -92,7 +97,51 @@ class TowerAIBehavior extends GameScript {
         if (nearest) {
             this._attackCooldown = this._attackRate;
             this.scene.events.game.emit("entity_damaged", { entityId: nearest.id, amount: this._damage, source: "tower" });
+            var np = nearest.transform.position;
+            // Blue towers fire blue bolts, red fire red. Spawn from the
+            // tower's mid-height (~2u) toward enemy chest (~1u).
+            var color = this._team === "red" ? [1.0, 0.30, 0.30, 1] : [0.35, 0.70, 1.0, 1];
+            this._spawnTracer(pos.x, pos.y + 2.0, pos.z, np.x, np.y + 1.0, np.z, color);
             if (this.audio) this.audio.playSound("/assets/kenney/audio/sci_fi_sounds/laserSmall_001.ogg", 0.3);
+        }
+    }
+
+    _spawnTracer(fromX, fromY, fromZ, toX, toY, toZ, color) {
+        if (!this.scene.createEntity) return;
+        var name = "tr_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        var id = this.scene.createEntity(name);
+        if (id == null || id === -1) return;
+        this.scene.setScale && this.scene.setScale(id, 0.28, 0.28, 0.28);
+        this.scene.addComponent(id, "MeshRendererComponent", {
+            meshType: "sphere",
+            baseColor: color
+        });
+        this.scene.setPosition(id, fromX, fromY, fromZ);
+        if (this.scene.addTag) this.scene.addTag(id, "tracer");
+        var dx = toX - fromX, dy = toY - fromY, dz = toZ - fromZ;
+        var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        var duration = Math.max(0.05, dist / 32);
+        this._tracers.push({
+            id: id, t: 0, duration: duration,
+            fromX: fromX, fromY: fromY, fromZ: fromZ,
+            toX: toX, toY: toY, toZ: toZ
+        });
+    }
+
+    _updateTracers(dt) {
+        for (var i = this._tracers.length - 1; i >= 0; i--) {
+            var pr = this._tracers[i];
+            pr.t += dt;
+            var alpha = pr.t / pr.duration;
+            if (alpha >= 1) {
+                try { this.scene.destroyEntity && this.scene.destroyEntity(pr.id); } catch (e) {}
+                this._tracers.splice(i, 1);
+                continue;
+            }
+            this.scene.setPosition(pr.id,
+                pr.fromX + (pr.toX - pr.fromX) * alpha,
+                pr.fromY + (pr.toY - pr.fromY) * alpha,
+                pr.fromZ + (pr.toZ - pr.fromZ) * alpha);
         }
     }
 }
