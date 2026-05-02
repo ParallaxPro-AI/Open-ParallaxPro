@@ -84,7 +84,17 @@ class EntityHealthBarsSystem extends GameScript {
             if (!d) return;
             var id = d.entityId != null ? d.entityId : d.targetId;
             if (id == null) return;
-            delete self._hp[id];
+            // Pin to 0 instead of deleting. Many AI behaviors keep the
+            // entity active for a couple of seconds while a death
+            // animation plays — if we delete the row, _collect on the
+            // next frame sees the still-active entity, doesn't find a
+            // row, and creates a fresh one with current=max. The bar
+            // flashes back to full above the dying corpse. Setting
+            // current=0 keeps _project skipping the bar (its `if
+            // (row.current <= 0) continue` guard fires) until the entity
+            // actually deactivates or Play Again clears the table.
+            var row = self._hp[id];
+            if (row) row.current = 0;
         });
 
         // Respawn events: hero_combat / player_vitals reset their internal

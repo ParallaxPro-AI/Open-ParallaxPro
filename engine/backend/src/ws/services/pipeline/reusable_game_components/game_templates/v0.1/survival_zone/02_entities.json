@@ -84,7 +84,7 @@
         ]
       },
       "physics": {
-        "type": "kinematic",
+        "type": "dynamic",
         "mass": 70,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -119,7 +119,7 @@
         ]
       },
       "physics": {
-        "type": "kinematic",
+        "type": "dynamic",
         "mass": 65,
         "freeze_rotation": true,
         "collider": "capsule"
@@ -267,6 +267,7 @@
       "tags": [
         "cover"
       ],
+      "label": false,
       "mesh_override": {
         "textureBundle": "/assets/kenney/textures/prototype_textures/Orange/texture_05.png"
       }
@@ -288,7 +289,8 @@
       },
       "tags": [
         "cover"
-      ]
+      ],
+      "label": false
     },
     "wall_long": {
       "mesh": {

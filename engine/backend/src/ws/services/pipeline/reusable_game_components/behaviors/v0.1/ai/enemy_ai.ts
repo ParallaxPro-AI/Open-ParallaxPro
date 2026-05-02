@@ -81,17 +81,22 @@ class EnemyAIBehavior extends GameScript {
         this._fireCooldown -= dt;
         var isMoving = false;
 
+        // Preserve the rigidbody's vertical velocity so gravity keeps
+        // pulling the enemy down — they're now dynamic, not kinematic,
+        // so writing a fresh setVelocity each frame would cancel the
+        // gravity tick if we passed y:0 instead of the current vy.
+        var rb = this.entity.getComponent ? this.entity.getComponent("RigidbodyComponent") : null;
+        var vy = (rb && rb.getLinearVelocity) ? (rb.getLinearVelocity().y || 0) : 0;
+        var vx = 0, vz = 0;
+
         if (dist < this._detectionRange) {
             var angle = Math.atan2(-dx, -dz) * 180 / Math.PI;
             this.entity.transform.setRotationEuler(0, angle, 0);
 
             if (dist > this._fireRange) {
                 var ndx = dx / dist, ndz = dz / dist;
-                this.scene.setPosition(this.entity.id,
-                    pos.x + ndx * this._moveSpeed * dt,
-                    pos.y,
-                    pos.z + ndz * this._moveSpeed * dt
-                );
+                vx = ndx * this._moveSpeed;
+                vz = ndz * this._moveSpeed;
                 isMoving = true;
             }
 
@@ -112,12 +117,11 @@ class EnemyAIBehavior extends GameScript {
                 this._patrolTimer = 0;
                 this._patrolDir *= -1;
             }
-            this.scene.setPosition(this.entity.id,
-                pos.x + this._patrolDir * this._moveSpeed * 0.5 * dt,
-                pos.y,
-                pos.z
-            );
+            vx = this._patrolDir * this._moveSpeed * 0.5;
             isMoving = true;
+        }
+        if (this.scene.setVelocity) {
+            this.scene.setVelocity(this.entity.id, { x: vx, y: vy, z: vz });
         }
 
         // Animation
