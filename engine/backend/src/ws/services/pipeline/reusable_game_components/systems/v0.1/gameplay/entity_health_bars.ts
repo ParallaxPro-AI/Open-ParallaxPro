@@ -138,12 +138,32 @@ class EntityHealthBarsSystem extends GameScript {
         var allies = this._showAllies ? this._collect(allyPools, false) : [];
 
         var bars = [];
-        var canvasW = 1920;
-        if (typeof document !== "undefined") {
-            var c = document.querySelector(".viewport-canvas-container canvas");
-            if (c && c.clientWidth) canvasW = c.clientWidth;
+        // Convert canvas-pixel coords (from worldToScreen) into the
+        // iframe's design-pixel coords. html_ui_manager picks ONE of
+        // two CSS scales for the HUD iframe, so the multiplier branches:
+        //   - On a coarse-pointer device (mobile/touch) showing a
+        //     pp-responsive panel (which entity_health_bars.html is),
+        //     the iframe gets transform:scale(0.62), so canvas-x →
+        //     iframe-x is canvas_x / 0.62.
+        //   - Otherwise (desktop, or any non-responsive panel), the
+        //     scale is canvas_w / 1920, so canvas-x → iframe-x is
+        //     canvas_x * 1920 / canvas_w (no-op when canvas_w >= 1920).
+        // Without the mobile branch bars drift far off enemies on phones
+        // because 1920/390 ≈ 4.9 vs 1/0.62 ≈ 1.6.
+        var isCoarse = (typeof window !== "undefined" && window.matchMedia)
+            ? !!window.matchMedia("(pointer: coarse)").matches
+            : false;
+        var scale;
+        if (isCoarse) {
+            scale = 1 / 0.62;
+        } else {
+            var canvasW = 1920;
+            if (typeof document !== "undefined") {
+                var c = document.querySelector(".viewport-canvas-container canvas");
+                if (c && c.clientWidth) canvasW = c.clientWidth;
+            }
+            scale = (canvasW < 1920) ? (1920 / canvasW) : 1;
         }
-        var scale = (canvasW < 1920) ? (1920 / canvasW) : 1;
 
         this._project(enemies, bars, scale);
         if (this._showAllies) this._project(allies, bars, scale);
