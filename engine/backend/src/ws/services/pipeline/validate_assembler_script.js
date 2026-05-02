@@ -1839,18 +1839,28 @@ function extractMethodBody(src, name) {
         // gate, debug log) and never emits hud_update at all stays clean.
         if (!/\bworldToScreen\s*\(/.test(source)) continue;
         if (!/hud_update/.test(source)) continue;
-        // Skip if the script already references the iframe-scale
-        // compensation. Any of these tokens means the author already
-        // thought about scaling: looking up the canvas element, branching
-        // on coarse-pointer mediaquery, the html_ui_manager zoom field,
-        // the mobile pp-responsive 0.62 multiplier, or the legacy
-        // 1920/canvas_w divisor.
-        if (/viewport-canvas-container/.test(source)) continue;
-        if (/pointer:\s*coarse/.test(source)) continue;
-        if (/currentZoom/.test(source)) continue;
-        if (/0\.62/.test(source)) continue;
-        if (/1920\s*\//.test(source)) continue;
-        warnings.push(scriptKey);
+        // Require BOTH branches: a desktop / non-responsive multiplier
+        // (typically `1920 / canvas_w` keyed by a `.viewport-canvas-
+        // container canvas` query OR the html_ui_manager `currentZoom`
+        // field) AND a mobile pp-responsive multiplier (typically
+        // `1 / 0.62`, keyed by either the `(pointer: coarse)`
+        // mediaquery or a literal `0.62`). If a script handles only
+        // one branch the other platform drifts — the dialogue-bubble
+        // bug bit on desktop first, then the mobile fix landed but a
+        // desktop-only fix was the regression. Token-set match means
+        // we don't have to introspect call sites; either token's
+        // presence reliably indicates the author thought about that
+        // platform's scale.
+        var hasMobileBranch = /pointer:\s*coarse/.test(source) || /0\.62/.test(source);
+        var hasDesktopBranch = /viewport-canvas-container/.test(source) ||
+                               /1920\s*\//.test(source) ||
+                               /currentZoom/.test(source);
+        if (hasMobileBranch && hasDesktopBranch) continue;
+        warnings.push(scriptKey + (
+            hasMobileBranch ? ' (mobile branch only)' :
+            hasDesktopBranch ? ' (desktop branch only)' :
+            ' (no scale compensation)'
+        ));
     }
     if (warnings.length > 0) {
         console.error(
