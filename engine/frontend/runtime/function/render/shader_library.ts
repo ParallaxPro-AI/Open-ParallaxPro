@@ -70,7 +70,7 @@ export const CAMERA_UNIFORM_SIZE = 416;
 /** modelMatrix(64) + normalMatrix(64) = 128 */
 export const MODEL_UNIFORM_SIZE = 128;
 /** Material uniform buffer size */
-export const MATERIAL_UNIFORM_SIZE = 64;
+export const MATERIAL_UNIFORM_SIZE = 80;
 /** Light uniform buffer size */
 export const LIGHT_UNIFORM_SIZE = 720;
 
@@ -263,6 +263,18 @@ struct MaterialUniforms {
      * disable — any mesh not opting in stays non-water.
      */
     waterLevel: f32,
+    /**
+     * Wavelength multiplier for the water shader. 1.0 = original tuning.
+     * Values <1 shorten wavelengths so more waves fit on screen — looks
+     * like ocean viewed from a distance (buccaneer_bay's 320m sea uses
+     * 0.5). Values >1 stretch wavelengths so each wave covers more
+     * screen — close-up magnified swell. Default 1.0 keeps existing
+     * meshes unchanged.
+     */
+    waterScale: f32,
+    _matPad0: f32,
+    _matPad1: f32,
+    _matPad2: f32,
 };
 
 struct DirectionalLight {
@@ -494,38 +506,55 @@ fn computePBR(input: FragmentInput) -> PBRResult {
         let t = lights.time;
         let wp = input.worldPosition;
         let camDist = distance(camera.cameraPosition, wp);
+        // wpx/wpz feed the wave equations; dividing by waterScale stretches
+        // wavelengths (waterScale=1 reproduces the original tuning).
+        let wsInv = 1.0 / max(material.waterScale, 0.001);
+        let wpx = wp.x * wsInv;
+        let wpz = wp.z * wsInv;
+
+        // Domain warp: a stack of pure cos waves on a fixed xz grid forms
+        // visible axis-aligned interference fringes ("patterned" look). A
+        // low-frequency sin offset wobbles the input coordinate so the
+        // octaves sample at organically-perturbed positions, breaking the
+        // grid without changing wavelength or count.
+        let warpAx = sin(wpx * 0.18 + wpz * 0.15 + t * 0.45) * 1.6;
+        let warpAz = sin(wpz * 0.20 - wpx * 0.12 + t * 0.50) * 1.6;
+        let warpBx = sin(wpx * 0.45 - wpz * 0.31 + t * 0.85) * 0.6;
+        let warpBz = sin(wpz * 0.52 + wpx * 0.36 + t * 0.95) * 0.6;
+        let qx = wpx + warpAx + warpBx;
+        let qz = wpz + warpAz + warpBz;
 
         // 8-octave directional waves with distance-based LOD fade
         var waveNx = 0.0;
         var waveNz = 0.0;
         // Octave 1: broad ocean swell
-        waveNx += cos(wp.x * 0.8 + wp.z * 0.3 + t * 0.9) * 0.28;
-        waveNz += cos(wp.z * 1.0 - wp.x * 0.2 + t * 0.7) * 0.26;
+        waveNx += cos(qx * 0.8 + qz * 0.3 + t * 0.9) * 0.28;
+        waveNz += cos(qz * 1.0 - qx * 0.2 + t * 0.7) * 0.26;
         // Octave 2: medium waves
-        waveNx += cos(wp.x * 1.8 - wp.z * 0.6 + t * 1.4) * 0.17;
-        waveNz += cos(wp.z * 2.2 + wp.x * 0.4 + t * 1.6) * 0.15;
+        waveNx += cos(qx * 1.8 - qz * 0.6 + t * 1.4) * 0.17;
+        waveNz += cos(qz * 2.2 + qx * 0.4 + t * 1.6) * 0.15;
         // Octave 3: chop
-        waveNx += cos(wp.x * 3.5 + wp.z * 1.5 + t * 2.5) * 0.09;
-        waveNz += cos(wp.z * 4.0 - wp.x * 1.2 + t * 2.8) * 0.08;
+        waveNx += cos(qx * 3.5 + qz * 1.5 + t * 2.5) * 0.09;
+        waveNz += cos(qz * 4.0 - qx * 1.2 + t * 2.8) * 0.08;
         // Octave 4: small waves
-        waveNx += cos(wp.x * 7.0 - wp.z * 3.0 + t * 3.8) * 0.045;
-        waveNz += cos(wp.z * 8.5 + wp.x * 2.5 + t * 4.2) * 0.04;
+        waveNx += cos(qx * 7.0 - qz * 3.0 + t * 3.8) * 0.045;
+        waveNz += cos(qz * 8.5 + qx * 2.5 + t * 4.2) * 0.04;
         // Octave 5: ripples (fade with distance)
         let lod5 = clamp(1.0 - camDist / 200.0, 0.0, 1.0);
-        waveNx += cos(wp.x * 15.0 + wp.z * 7.0 + t * 5.5) * 0.025 * lod5;
-        waveNz += cos(wp.z * 17.0 - wp.x * 6.0 + t * 6.0) * 0.022 * lod5;
+        waveNx += cos(qx * 15.0 + qz * 7.0 + t * 5.5) * 0.025 * lod5;
+        waveNz += cos(qz * 17.0 - qx * 6.0 + t * 6.0) * 0.022 * lod5;
         // Octave 6: fine ripples
         let lod6 = clamp(1.0 - camDist / 120.0, 0.0, 1.0);
-        waveNx += cos(wp.x * 30.0 - wp.z * 12.0 + t * 7.5) * 0.015 * lod6;
-        waveNz += cos(wp.z * 35.0 + wp.x * 10.0 + t * 8.2) * 0.013 * lod6;
+        waveNx += cos(qx * 30.0 - qz * 12.0 + t * 7.5) * 0.015 * lod6;
+        waveNz += cos(qz * 35.0 + qx * 10.0 + t * 8.2) * 0.013 * lod6;
         // Octave 7: micro ripples
         let lod7 = clamp(1.0 - camDist / 60.0, 0.0, 1.0);
-        waveNx += cos(wp.x * 60.0 + wp.z * 25.0 + t * 10.0) * 0.008 * lod7;
-        waveNz += cos(wp.z * 70.0 - wp.x * 20.0 + t * 11.5) * 0.007 * lod7;
+        waveNx += cos(qx * 60.0 + qz * 25.0 + t * 10.0) * 0.008 * lod7;
+        waveNz += cos(qz * 70.0 - qx * 20.0 + t * 11.5) * 0.007 * lod7;
         // Octave 8: ultra-fine shimmer (closest only)
         let lod8 = clamp(1.0 - camDist / 30.0, 0.0, 1.0);
-        waveNx += cos(wp.x * 120.0 - wp.z * 50.0 + t * 14.0) * 0.004 * lod8;
-        waveNz += cos(wp.z * 140.0 + wp.x * 45.0 + t * 16.0) * 0.0035 * lod8;
+        waveNx += cos(qx * 120.0 - qz * 50.0 + t * 14.0) * 0.004 * lod8;
+        waveNz += cos(qz * 140.0 + qx * 45.0 + t * 16.0) * 0.0035 * lod8;
 
         N = normalize(vec3<f32>(waveNx, 1.0, waveNz));
 

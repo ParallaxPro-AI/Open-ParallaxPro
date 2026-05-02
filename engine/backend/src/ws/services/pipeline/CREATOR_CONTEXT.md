@@ -290,6 +290,8 @@ For primitive meshes:
 
 `mesh_override` on the def merges with `material_overrides` on the placement; placement wins. Currently supports:
 - `textureBundle`: path to a prototype-grid or tileable texture asset.
+- `waterEffect: true`: turn the whole mesh into animated water — multi-octave directional waves driven by a `time` uniform, depth-based blue→turquoise color, foam at wave crests, sun specular, fresnel reflection. No asset needed; works on any mesh type but planes are the obvious fit (oceans, lakes, swamps, river surfaces). The shader replaces the base color, so `mesh.color` becomes irrelevant when this is on. Reference example: `buccaneer_bay/02_entities.json` `ocean_surface`.
+- `waterScale`: number (default `1.0`). Wavelength multiplier paired with `waterEffect`. `1.0` is the original tuning. **Less than 1 = waves appear smaller/denser** (more ripples visible at once — "ocean seen from a distance" look, good for big open water like `buccaneer_bay`'s 320m sea, which uses `0.5`). **Greater than 1 = waves appear bigger/fewer** (each wave fills more screen — close-up swell, more magnified). Only applies when `waterEffect: true`.
 
 ### Labels
 

@@ -127,7 +127,8 @@
       ],
       "label": false,
       "mesh_override": {
-        "textureBundle": "/assets/kenney/textures/prototype_textures/Purple/texture_03.png"
+        "waterEffect": true,
+        "waterScale": 0.5
       }
     },
     "ocean_floor": {

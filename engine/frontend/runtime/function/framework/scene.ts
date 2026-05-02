@@ -646,6 +646,7 @@ export class Scene {
                         drawIndexCount: sub.indexCount,
                         alphaMode: sub.alphaMode,
                         waterEffect: overrides.waterEffect ?? false,
+                        waterScale: overrides.waterScale ?? 1.0,
                         jointMatricesBuffer,
                     });
                 }
@@ -664,6 +665,7 @@ export class Scene {
                     normalMapTexture: mr.gpuNormalMapTexture ?? undefined,
                     waterEffect: overrides.waterEffect ?? false,
                     waterLevel: overrides.waterLevel,
+                    waterScale: overrides.waterScale ?? 1.0,
                     uvScaleX: overrides.uvScaleX ?? 1.0,
                     uvScaleY: overrides.uvScaleY ?? 1.0,
                     jointMatricesBuffer,

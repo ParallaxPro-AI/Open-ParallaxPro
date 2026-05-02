@@ -29,7 +29,7 @@ export class GeometryPass {
     private _cameraUniformScratch = new Float32Array(104);
     private _lightUniformScratch = new Float32Array(180);
     private _lightUniformU32 = new Uint32Array(this._lightUniformScratch.buffer);
-    private _terrainMaterialScratch = new Float32Array(16);
+    private _terrainMaterialScratch = new Float32Array(20);
     private _terrainMaterialU32 = new Uint32Array(this._terrainMaterialScratch.buffer);
 
     /** Partition meshes by alphaMode in one pass into reusable scratch
@@ -1552,12 +1552,13 @@ export class GeometryPass {
         const texId = mesh.baseColorTexture ? this.getTextureId(mesh.baseColorTexture) : 'none';
         const nrmId = mesh.normalMapTexture ? this.getTextureId(mesh.normalMapTexture) : 'none';
         const waterLevel = mesh.waterLevel ?? -1e20;
-        const key = `${texId}|${nrmId}|${mesh.baseColor}|${mesh.metallic}|${mesh.roughness}|${mesh.emissive}|${mesh.waterEffect ? 1 : 0}|${waterLevel}`;
+        const waterScale = mesh.waterScale ?? 1.0;
+        const key = `${texId}|${nrmId}|${mesh.baseColor}|${mesh.metallic}|${mesh.roughness}|${mesh.emissive}|${mesh.waterEffect ? 1 : 0}|${waterLevel}|${waterScale}`;
 
         let bg = this.materialBindGroupCache.get(key);
         if (bg) return bg;
 
-        const matData = new Float32Array(16);
+        const matData = new Float32Array(20);
         matData[0] = mesh.baseColor[0];
         matData[1] = mesh.baseColor[1];
         matData[2] = mesh.baseColor[2];
@@ -1575,6 +1576,8 @@ export class GeometryPass {
         matData[13] = mesh.uvScaleX ?? 1.0;
         matData[14] = mesh.uvScaleY ?? 1.0;
         matData[15] = waterLevel;
+        matData[16] = waterScale;
+        // matData[17..19] left as 0 (struct padding)
 
         const matBuffer = this.resources!.createUniformBuffer(MATERIAL_UNIFORM_SIZE, 'material_cached');
         this.device!.queue.writeBuffer(matBuffer, 0, matData);

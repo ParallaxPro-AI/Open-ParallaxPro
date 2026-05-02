@@ -62,6 +62,11 @@ export interface RenderMeshInstance {
      * MaterialUniforms.waterLevel in the PBR shader. Omit or set below all
      * terrain to disable. */
     waterLevel?: number;
+    /** Wavelength multiplier for the water shader. Defaults to 1.0 (the
+     * original tuning). Values <1 shorten wavelengths (more waves on
+     * screen, distant-ocean look); values >1 stretch them (fewer, bigger
+     * waves on screen). */
+    waterScale?: number;
     uvScaleX?: number;
     uvScaleY?: number;
     firstIndex?: number;

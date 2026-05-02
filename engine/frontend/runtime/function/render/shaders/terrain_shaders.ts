@@ -47,6 +47,12 @@ struct MaterialUniforms {
     uvScaleX: f32,
     uvScaleY: f32,
     terrainHeightColor: u32,
+    // Layout-only; mirrors PBR MaterialUniforms (waterScale + 12 bytes pad)
+    // so a single 80-byte uniform buffer feeds either shader.
+    _terrainPadW: f32,
+    _terrainPad0: f32,
+    _terrainPad1: f32,
+    _terrainPad2: f32,
 };
 
 struct DirectionalLight {
