@@ -4,7 +4,10 @@ import { StreamedRoads } from '../../../../everything_game/003_runtime/streaming
 import { StreamedProps } from '../../../../everything_game/003_runtime/streaming/streamed_props.js';
 import { loadTerrainTextureArrays } from '../../../../everything_game/003_runtime/streaming/terrain_texture_cache.js';
 import { loadInlineTerrainTextures } from '../../runtime/function/streaming/terrain_inline_loader.js';
+import { bakeSplatmap } from '../../runtime/function/streaming/terrain_baker.js';
 import type { InlineTerrainSpec } from '../../runtime/function/streaming/terrain_baker.js';
+import type { TerrainGpuTextures } from '../../runtime/function/framework/components/terrain_component.js';
+import { RenderSystemWebGL2 } from '../../runtime/function/render/gl2/render_system_gl2.js';
 import type { EditorContext } from './editor_context.js';
 
 interface HeightmapTerrainSceneCfg {
@@ -114,7 +117,15 @@ export class StreamingManager {
                 this.ctx.ensurePrimitiveMeshes();
                 const device = this.ctx.engine?.globalContext.renderSystem.getDevice();
                 if (!device) {
-                    this.loadTerrainFallbackTexture(terrain, cfg);
+                    if (isInline) {
+                        this.loadInlineTerrainTexturesGL2(terrain, cfg)
+                            .catch(err => {
+                                console.warn('[Terrain] GL2 full texture load failed, falling back:', err);
+                                this.loadTerrainFallbackTexture(terrain, cfg);
+                            });
+                    } else {
+                        this.loadTerrainFallbackTexture(terrain, cfg);
+                    }
                     return;
                 }
 
@@ -243,5 +254,63 @@ export class StreamingManager {
                 terrain.setFallbackTexture(tex, uvScale);
             })
             .catch(err => console.warn('[Terrain] fallback texture failed:', err));
+    }
+
+    private async loadInlineTerrainTexturesGL2(terrain: HeightmapTerrain, cfg: HeightmapTerrainSceneCfg): Promise<void> {
+        if (!this.ctx.engine || !cfg.layers || !cfg.size) return;
+        const rs = this.ctx.engine.globalContext.renderSystem as RenderSystemWebGL2;
+        const res = rs.getGL2ResourceManager();
+
+        const ASSET_BASE = '/assets/';
+        const layers = cfg.layers.slice(0, 4);
+        const padded = [];
+        for (let i = 0; i < 4; i++) padded.push(layers[i] ?? layers[0]);
+
+        const fetchBmp = async (url: string): Promise<ImageBitmap | null> => {
+            try {
+                const r = await fetch(url);
+                if (!r.ok) return null;
+                return createImageBitmap(await r.blob());
+            } catch { return null; }
+        };
+
+        const [diffBitmaps, normBitmaps] = await Promise.all([
+            Promise.all(padded.map(l => fetchBmp(`${ASSET_BASE}poly_haven/textures/${l.dir}/${l.dir}_diff_1k.jpg`))),
+            Promise.all(padded.map(l => fetchBmp(`${ASSET_BASE}poly_haven/textures/${l.dir}/${l.dir}_nor_gl_1k.jpg`))),
+        ]);
+
+        const diffuseArray = res.uploadTexture2DArray(diffBitmaps, { label: 'terrain_diffuse_gl2' });
+        const normalArray = res.uploadTexture2DArray(normBitmaps, { label: 'terrain_normal_gl2' });
+
+        for (const b of diffBitmaps) b?.close();
+        for (const b of normBitmaps) b?.close();
+
+        const layerProps = new Float32Array(8 * 4);
+        for (let i = 0; i < 4; i++) layerProps[i * 4] = 1.0 / padded[i].uvMetersPerTile;
+        layerProps[5 * 4]     = terrain.worldWidth;
+        layerProps[5 * 4 + 1] = terrain.worldDepth;
+        layerProps[5 * 4 + 2] = -terrain.worldWidth / 2;
+        layerProps[5 * 4 + 3] = -terrain.worldDepth / 2;
+        layerProps[6 * 4]     = terrain.worldWidth;
+        layerProps[6 * 4 + 1] = terrain.worldDepth;
+
+        const spec: InlineTerrainSpec = {
+            size: cfg.size,
+            layers: cfg.layers,
+            default_layer: cfg.default_layer ?? cfg.layers[0].name,
+            paints: cfg.paints,
+            paths: cfg.paths,
+            splatmap_resolution: cfg.splatmap_resolution,
+        };
+        const { data: splatData, resolution: splatRes } = bakeSplatmap(spec);
+        const groundTypeMap = res.uploadTexture2DFromRawRGBA(splatData, splatRes, splatRes, { label: 'terrain_splatmap_gl2' });
+
+        const textures: TerrainGpuTextures = {
+            diffuseArray: diffuseArray as unknown as GPUTexture,
+            normalArray: normalArray as unknown as GPUTexture,
+            layerProps,
+            groundTypeMap: groundTypeMap as unknown as GPUTexture,
+        };
+        terrain.applyTerrainTextures(textures);
     }
 }

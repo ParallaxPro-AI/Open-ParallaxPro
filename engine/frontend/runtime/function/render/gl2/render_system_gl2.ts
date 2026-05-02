@@ -20,6 +20,7 @@ import {
     buildShadowVertexShader, buildShadowInstancedVertexShader, SHADOW_FRAGMENT_SHADER,
     SKYBOX_VERTEX_SHADER, SKYBOX_FRAGMENT_SHADER,
     DEBUG_LINES_VERTEX_SHADER, DEBUG_LINES_FRAGMENT_SHADER,
+    buildTerrainVertexShader, TERRAIN_FRAGMENT_SHADER_GL2,
     buildProgram, MAX_JOINTS_GL2, MAX_INSTANCES_GL2,
     MAX_DIR_LIGHTS_GL2, MAX_POINT_LIGHTS_GL2, MAX_SPOT_LIGHTS_GL2,
 } from './shader_library_gl2.js';
@@ -38,6 +39,16 @@ const MATERIAL_UBO_BINDING = 1;
 const JOINTS_UBO_BINDING = 2;
 const INSTANCE_MODELS_UBO_BINDING = 3;
 const INSTANCE_MODELS_UBO_BYTES = MAX_INSTANCES_GL2 * 64;  // mat4[N], 64 bytes each
+const TERRAIN_LAYER_PROPS_UBO_BINDING = 4;
+const TERRAIN_LAYER_PROPS_UBO_BYTES = 8 * 4 * 4;  // 8 vec4 = 128 bytes
+
+const TEXTURE_UNIT_GROUND_DIFFUSE = 3;
+const TEXTURE_UNIT_GROUND_NORMAL = 4;
+const TEXTURE_UNIT_SPLATMAP = 5;
+const TEXTURE_UNIT_ROAD_NEAR = 6;
+const TEXTURE_UNIT_ROAD_FAR = 7;
+const TEXTURE_UNIT_SIDEWALK_DIFF = 8;
+const TEXTURE_UNIT_SIDEWALK_NORM = 9;
 
 // Shadow tuning. Map size varies per quality (low: off, medium: 1024,
 // high: 2048). Half-extent is the same across qualities — gameplay
@@ -107,6 +118,9 @@ export class RenderSystemWebGL2 implements IRenderer {
     private shadowSkinnedProgram: WebGLProgram | null = null;
     private shadowInstancedProgram: WebGLProgram | null = null;
     private skyboxProgram: WebGLProgram | null = null;
+    private terrainProgram: WebGLProgram | null = null;
+    private terrainLayerPropsUBO: GL2Buffer | null = null;
+    private defaultBlackTexture: GL2Texture | null = null;
 
     private frameUBO: GL2Buffer | null = null;
     private materialUBO: GL2Buffer | null = null;
@@ -180,6 +194,7 @@ export class RenderSystemWebGL2 implements IRenderer {
         this.shadowSkinnedProgram = buildProgram(gl, buildShadowVertexShader(true), SHADOW_FRAGMENT_SHADER, 'shadow_skinned');
         this.shadowInstancedProgram = buildProgram(gl, buildShadowInstancedVertexShader(), SHADOW_FRAGMENT_SHADER, 'shadow_instanced');
         this.skyboxProgram = buildProgram(gl, SKYBOX_VERTEX_SHADER, SKYBOX_FRAGMENT_SHADER, 'skybox');
+        this.terrainProgram = buildProgram(gl, buildTerrainVertexShader(), TERRAIN_FRAGMENT_SHADER_GL2, 'terrain');
 
         this.bindUBOBlockBindings(this.litStaticProgram, true);
         this.bindUBOBlockBindings(this.litSkinnedProgram, true);
@@ -188,12 +203,20 @@ export class RenderSystemWebGL2 implements IRenderer {
         this.bindShadowProgramBindings(this.shadowSkinnedProgram);
         this.bindInstancedProgramBindings(this.shadowInstancedProgram);
         this.bindUBOBlockBindings(this.skyboxProgram, false);
+        this.bindUBOBlockBindings(this.terrainProgram, true);
+        {
+            const idx = gl.getUniformBlockIndex(this.terrainProgram, 'TerrainLayerPropsUBO');
+            if (idx !== gl.INVALID_INDEX) gl.uniformBlockBinding(this.terrainProgram, idx, TERRAIN_LAYER_PROPS_UBO_BINDING);
+        }
 
         this.frameUBO = this.resources.createUniformBuffer(FRAME_UBO_BYTES, 'frame_ubo');
         this.materialUBO = this.resources.createUniformBuffer(MATERIAL_UBO_BYTES, 'material_ubo');
         this.instanceModelsUBO = this.resources.createUniformBuffer(INSTANCE_MODELS_UBO_BYTES, 'instance_models_ubo');
+        this.terrainLayerPropsUBO = this.resources.createUniformBuffer(TERRAIN_LAYER_PROPS_UBO_BYTES, 'terrain_layer_props_ubo');
         this.defaultWhiteTexture = this.resources.createDefaultWhiteTexture();
         this.defaultFlatNormalTexture = this.createFlatNormalTexture();
+        this.defaultBlackTexture = this.resources.uploadTexture2DFromRawRGBA(
+            new Uint8Array([0, 0, 0, 0]), 1, 1, { label: 'default_black' });
         this.createShadowFramebuffer();
 
         canvasManager.onResize((w, h) => this.onCanvasResize(w, h));
@@ -381,6 +404,11 @@ export class RenderSystemWebGL2 implements IRenderer {
         // InstanceModelsUBO can't hold more than that.
         for (let i = 0; i < visible.length; ) {
             const m = visible[i];
+            if (m.gpuTerrainTextures) {
+                this.drawTerrainMesh(m);
+                i++;
+                continue;
+            }
             const skinned = !!m.jointMatricesBuffer && !!m.meshHandle.skinBuffer;
             if (!skinned) {
                 let runEnd = i + 1;
@@ -825,6 +853,95 @@ export class RenderSystemWebGL2 implements IRenderer {
         this.stats.triangles += Math.floor(drawCount / 3);
         this.stats.meshesRendered++;
     }
+
+    private drawTerrainMesh(inst: RenderMeshInstance): void {
+        const gl = this.gl!;
+        const handle = inst.meshHandle;
+        const program = this.terrainProgram!;
+        gl.useProgram(program);
+
+        const state = this.getOrCreateMeshState(handle);
+        gl.bindVertexArray(state.vao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, state.iboGL);
+
+        // Material UBO — set road atlas flags in uvScale.zw
+        const buf = this.materialUBOScratch;
+        buf.fill(0);
+        buf[0] = 1; buf[1] = 1; buf[2] = 1; buf[3] = 1; // baseColor white
+        buf[4] = 0; buf[5] = 0.85; buf[6] = 1; buf[7] = 0; // pbr
+        buf[12] = 1; buf[13] = 1; // uvScale xy
+        buf[14] = inst.roadAtlasNear ? 1 : 0;
+        buf[15] = inst.roadAtlasFar ? 1 : 0;
+        buf[16] = 0; buf[17] = inst.waterLevel ?? -1e20; buf[18] = inst.waterScale ?? 1; buf[19] = 0;
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.materialUBO!.glBuffer);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, buf);
+        gl.bindBufferBase(gl.UNIFORM_BUFFER, MATERIAL_UBO_BINDING, this.materialUBO!.glBuffer);
+
+        // Terrain layer props UBO
+        const arrays = inst.gpuTerrainTextures!;
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.terrainLayerPropsUBO!.glBuffer);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, arrays.layerProps, 0, Math.min(arrays.layerProps.length, TERRAIN_LAYER_PROPS_UBO_BYTES / 4));
+        gl.bindBufferBase(gl.UNIFORM_BUFFER, TERRAIN_LAYER_PROPS_UBO_BINDING, this.terrainLayerPropsUBO!.glBuffer);
+
+        const modelLoc = gl.getUniformLocation(program, 'u_modelMatrix');
+        gl.uniformMatrix4fv(modelLoc, false, inst.modelMatrix.data);
+
+        // Shadow map (unit 2 already globally bound)
+        gl.uniform1i(gl.getUniformLocation(program, 'u_shadowMap'), TEXTURE_UNIT_SHADOW);
+
+        // Ground diffuse array (unit 3)
+        const diffTex = asGL2Texture(arrays.diffuseArray);
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_GROUND_DIFFUSE);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, diffTex.glTexture);
+        gl.uniform1i(gl.getUniformLocation(program, 'u_groundDiffuse'), TEXTURE_UNIT_GROUND_DIFFUSE);
+
+        // Ground normal array (unit 4)
+        const normTex = asGL2Texture(arrays.normalArray);
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_GROUND_NORMAL);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, normTex.glTexture);
+        gl.uniform1i(gl.getUniformLocation(program, 'u_groundNormal'), TEXTURE_UNIT_GROUND_NORMAL);
+
+        // Splatmap (unit 5)
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_SPLATMAP);
+        const splatTex = arrays.groundTypeMap ? asGL2Texture(arrays.groundTypeMap) : this.defaultBlackTexture!;
+        gl.bindTexture(gl.TEXTURE_2D, splatTex.glTexture);
+        gl.uniform1i(gl.getUniformLocation(program, 'u_splatmap'), TEXTURE_UNIT_SPLATMAP);
+
+        // Road atlas near (unit 6)
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_ROAD_NEAR);
+        const roadNear = inst.roadAtlasNear && isGL2Texture(inst.roadAtlasNear) ? asGL2Texture(inst.roadAtlasNear) : this.defaultBlackTexture!;
+        gl.bindTexture(gl.TEXTURE_2D, roadNear.glTexture);
+        gl.uniform1i(gl.getUniformLocation(program, 'u_roadAtlasNear'), TEXTURE_UNIT_ROAD_NEAR);
+
+        // Road atlas far (unit 7)
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_ROAD_FAR);
+        const roadFar = inst.roadAtlasFar && isGL2Texture(inst.roadAtlasFar) ? asGL2Texture(inst.roadAtlasFar) : this.defaultBlackTexture!;
+        gl.bindTexture(gl.TEXTURE_2D, roadFar.glTexture);
+        gl.uniform1i(gl.getUniformLocation(program, 'u_roadAtlasFar'), TEXTURE_UNIT_ROAD_FAR);
+
+        // Sidewalk diffuse (unit 8)
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_SIDEWALK_DIFF);
+        const swDiff = arrays.sidewalkDiffuse && isGL2Texture(arrays.sidewalkDiffuse) ? asGL2Texture(arrays.sidewalkDiffuse) : this.defaultWhiteTexture!;
+        gl.bindTexture(gl.TEXTURE_2D, swDiff.glTexture);
+        gl.uniform1i(gl.getUniformLocation(program, 'u_sidewalkDiffuse'), TEXTURE_UNIT_SIDEWALK_DIFF);
+
+        // Sidewalk normal (unit 9)
+        gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT_SIDEWALK_NORM);
+        const swNorm = arrays.sidewalkNormal && isGL2Texture(arrays.sidewalkNormal) ? asGL2Texture(arrays.sidewalkNormal) : this.defaultFlatNormalTexture!;
+        gl.bindTexture(gl.TEXTURE_2D, swNorm.glTexture);
+        gl.uniform1i(gl.getUniformLocation(program, 'u_sidewalkNormal'), TEXTURE_UNIT_SIDEWALK_NORM);
+
+        const firstIndex = inst.firstIndex ?? 0;
+        const drawCount = inst.drawIndexCount ?? handle.indexCount;
+        const indexByteSize = state.indexType === gl.UNSIGNED_SHORT ? 2 : 4;
+        gl.drawElements(gl.TRIANGLES, drawCount, state.indexType, firstIndex * indexByteSize);
+
+        this.stats.drawCalls++;
+        this.stats.triangles += Math.floor(drawCount / 3);
+        this.stats.meshesRendered++;
+    }
+
+    getGL2ResourceManager(): GL2ResourceManager { return this.resources; }
 
     private writeMaterialUBO(inst: RenderMeshInstance): void {
         const gl = this.gl!;

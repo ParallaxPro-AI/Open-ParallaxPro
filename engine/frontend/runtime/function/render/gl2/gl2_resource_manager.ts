@@ -109,6 +109,50 @@ export class GL2ResourceManager {
         return tex;
     }
 
+    uploadTexture2DArray(bitmaps: (ImageBitmap | null)[], params?: { generateMipmaps?: boolean; label?: string }): GL2Texture {
+        const gl = this.getContext();
+        const layerCount = bitmaps.length;
+        const first = bitmaps.find(b => b !== null);
+        if (!first) throw new Error('uploadTexture2DArray: all bitmaps are null');
+        const w = first.width, h = first.height;
+        const mipLevels = params?.generateMipmaps !== false ? Math.floor(Math.log2(Math.max(w, h))) + 1 : 1;
+
+        const tex = makeGL2Texture(gl, gl.TEXTURE_2D_ARRAY, w, h, params?.label ?? `tex_array_${this.nextId++}`);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex.glTexture);
+        gl.texStorage3D(gl.TEXTURE_2D_ARRAY, mipLevels, gl.RGBA8, w, h, layerCount);
+
+        for (let i = 0; i < layerCount; i++) {
+            if (bitmaps[i]) {
+                gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, i, w, h, 1, gl.RGBA, gl.UNSIGNED_BYTE, bitmaps[i]!);
+            }
+        }
+
+        gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        if (mipLevels > 1) {
+            gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+        } else {
+            gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        }
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
+        return tex;
+    }
+
+    uploadTexture2DFromRawRGBA(data: Uint8Array, width: number, height: number, params?: { label?: string }): GL2Texture {
+        const gl = this.getContext();
+        const tex = makeGL2Texture(gl, gl.TEXTURE_2D, width, height, params?.label ?? `tex_raw_${this.nextId++}`);
+        gl.bindTexture(gl.TEXTURE_2D, tex.glTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        return tex;
+    }
+
     shutdown(): void {
         this.gl = null;
     }
