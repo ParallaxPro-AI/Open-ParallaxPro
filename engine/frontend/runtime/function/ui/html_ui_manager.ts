@@ -169,10 +169,11 @@ export class HTMLUIManager {
      *    - skip the 1920px design-width down-scale (they author for the
      *      real device viewport using rem/clamp/% directly).
      *    - get the responsive base CSS injected by the wrapper, which
-     *      defines `--pp-bottom-clear` (joystick reserve), font-size
-     *      clamp, and safe-area padding. The base rules fire only
-     *      under `@media (pointer: coarse)`, so desktop renders the
-     *      same HTML at full size with no platform branching. */
+     *      defines `--pp-top-clear` (notch/safe-area), font-size clamp,
+     *      and safe-area padding. The mobile-control footprint is NOT
+     *      auto-reserved — projects that want their UI to clear the
+     *      joystick or rail use `var(--pp-joystick-h)` /
+     *      `var(--pp-rail-h)` directly. */
     private responsivePaths: Set<string> = new Set();
     private static readonly RESPONSIVE_META_RE = /<meta\s+[^>]*name\s*=\s*["']pp-responsive["']/i;
 
@@ -287,8 +288,10 @@ button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:bri
 /* Responsive base, scoped per-section so a single bundle can mix
    responsive HUDs with legacy non-responsive ones safely. The
    non-responsive sections inherit nothing from these vars/media
-   rules. Desktop sees --pp-bottom-clear=0; mobile sees ~160px
-   reserved for the joystick + button-rail footprint. */
+   rules. --pp-bottom-clear is 0 on both desktop and mobile —
+   project authors who want their UI to clear the joystick or
+   action rail opt in by using var(--pp-joystick-h) /
+   var(--pp-rail-h) directly in their own CSS. */
 section[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:0px;}
 /* desktop-only / mobile-only visibility helpers. Universal — apply
    regardless of responsive opt-in so legacy panels can use them too. */
@@ -301,27 +304,6 @@ section[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:0px;}
 @media (pointer: coarse){
 section[data-pp-responsive]{--pp-joystick-h:0px;--pp-rail-h:0px;--pp-bottom-clear:0px;--pp-top-clear:max(56px,env(safe-area-inset-top));padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
 section[data-pp-responsive] button,section[data-pp-responsive] [role="button"],section[data-pp-responsive] [data-interactive]{min-height:44px;min-width:44px;}
-/* Two-tier corner-lift: bottom-LEFT clears the joystick (~140px); the
-   bottom-RIGHT action rail stacks 4+ buttons in two columns (~280px)
-   and needs more lift. Anchored neither-side defaults to joystick-side. */
-section[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-joystick-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 0px)))!important;
-}
-section[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-rail-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-rail-h, 0px)))!important;
-}
-section[data-pp-responsive] [style*="position:fixed"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position: fixed"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position:absolute"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
-section[data-pp-responsive] [style*="position: absolute"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-joystick-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 0px)))!important;
-}
 /* Universal width cap to prevent horizontal overflow of fixed-width
    panels designed at 1920px on small viewports. */
 section[data-pp-responsive] [style*="position:fixed"][style*="right"]:not([data-pp-no-cap]),
@@ -647,38 +629,9 @@ button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:bri
 [data-pp-mobile-only],.pp-mobile-only{display:none!important;}
 }
 @media (pointer: coarse){
-:root[data-pp-responsive]{--pp-bottom-clear:var(--pp-joystick-h, 0px);--pp-top-clear:max(56px,env(safe-area-inset-top));}
+:root[data-pp-responsive]{--pp-bottom-clear:0px;--pp-top-clear:max(56px,env(safe-area-inset-top));}
 :root[data-pp-responsive] body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-top:env(safe-area-inset-top);}
 :root[data-pp-responsive] button,:root[data-pp-responsive] [role="button"],:root[data-pp-responsive] [data-interactive]{min-height:44px;min-width:44px;}
-/* Universal corner-lift: bottom-anchored fixed/absolute elements in a
-   responsive panel get pushed above the joystick + action-rail
-   footprint on mobile. Two-tier because the action rail (bottom-right)
-   stacks 4+ buttons in two columns and is much taller than the
-   single-element joystick (bottom-left). !important beats inline
-   declarations; panels can opt out per-element via [data-pp-no-lift]. */
-/* Bottom-LEFT: above joystick (~140px + safe-area). 200px reserve. */
-:root[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="left"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="left"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-joystick-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 0px)))!important;
-}
-/* Bottom-RIGHT: above the taller action rail (~280px). */
-:root[data-pp-responsive] [style*="position:fixed"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position: fixed"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position:absolute"][style*="bottom"][style*="right"]:not([style*="bottom:0"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position: absolute"][style*="bottom"][style*="right"]:not([style*="bottom: 0"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-rail-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-rail-h, 0px)))!important;
-}
-/* Bottom-anchored without explicit left/right (centered or grid-placed):
-   default to the smaller joystick-side reserve; safer than over-lifting
-   centered HUDs. */
-:root[data-pp-responsive] [style*="position:fixed"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position: fixed"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position:absolute"][style*="bottom"]:not([style*="bottom:0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]),
-:root[data-pp-responsive] [style*="position: absolute"][style*="bottom"]:not([style*="bottom: 0"]):not([style*="left"]):not([style*="right"]):not([data-pp-no-lift]){
-bottom:max(var(--pp-joystick-h, 0px),calc(env(safe-area-inset-bottom) + var(--pp-joystick-h, 0px)))!important;
-}
 /* Universal width cap: any inline-positioned fixed/absolute element
    gets max-width capped to viewport so panels designed at 1920px never
    overflow on a phone. Author can opt out per-element with [data-pp-no-cap]
