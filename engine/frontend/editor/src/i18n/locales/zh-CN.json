@@ -195,6 +195,7 @@
     "setThumbnail": "设置缩略图",
     "removeThumbnail": "移除缩略图",
     "viewPublishedGame": "查看已发布的游戏",
+    "updatePublish": "发布新版本",
     "unpublish": "取消发布",
     "delete": "删除",
     "clickToOpen": "点击卡片打开",

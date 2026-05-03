@@ -195,6 +195,7 @@
     "setThumbnail": "サムネイルを設定",
     "removeThumbnail": "サムネイルを削除",
     "viewPublishedGame": "公開済みゲームを表示",
+    "updatePublish": "新しいバージョンを公開",
     "unpublish": "非公開にする",
     "delete": "削除",
     "clickToOpen": "カードをクリックして開く",

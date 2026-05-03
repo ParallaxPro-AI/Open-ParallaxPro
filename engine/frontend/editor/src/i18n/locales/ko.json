@@ -195,6 +195,7 @@
     "setThumbnail": "썸네일 설정",
     "removeThumbnail": "썸네일 제거",
     "viewPublishedGame": "게시된 게임 보기",
+    "updatePublish": "새 버전 게시",
     "unpublish": "게시 취소",
     "delete": "삭제",
     "clickToOpen": "카드를 클릭하여 열기",
