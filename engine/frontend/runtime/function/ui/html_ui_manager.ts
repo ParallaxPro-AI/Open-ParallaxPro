@@ -837,7 +837,7 @@ ${wrapperScript}
      */
     private flagFor(path: string): { name: string; flag: string; isHud: boolean } {
         const name = path.replace('ui/', '').replace('.html', '');
-        const isHud = name.startsWith('hud/') || name === 'game_hud';
+        const isHud = name === 'hud' || name.startsWith('hud/') || name === 'game_hud';
         const flag = name.replace(/[^a-zA-Z0-9_]/g, '') + 'Visible';
         return { name, flag, isHud };
     }
