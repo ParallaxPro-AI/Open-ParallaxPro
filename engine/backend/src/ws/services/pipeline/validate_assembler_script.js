@@ -837,11 +837,47 @@ if (eventData) {
         return out;
     }
 
+    function checkKeysAgainstReserved(keys, scriptKey, hudErrors) {
+        for (var ki = 0; ki < keys.length; ki++) {
+            if (reservedKeys.has(keys[ki])) {
+                var keyName = keys[ki];
+                var fix = keyName === 'phase'
+                    ? 'Rename the HUD-side key (the engine reserves "phase" for the FSM\'s current state name).'
+                    : 'Rename the HUD-side key (e.g. "display' + keyName.charAt(0).toUpperCase() + keyName.slice(1) +
+                      '" or "' + keyName + '_display") OR rename the FSM var in 01_flow.json. ' +
+                      'They live in different namespaces but share the lookup table — the FSM var ' +
+                      'shadows your HUD value and the panel never sees your update.';
+                hudErrors.push(
+                    scriptKey + ': hud_update key "' + keyName + '" collides with FSM var "' + keyName + '" ' +
+                    '(set in 01_flow.json via set:' + keyName + '=...). ' + fix
+                );
+            }
+        }
+    }
+
+    // Find the object literal body for a `var <name> = { ... }` declaration.
+    function findVarObjectLiteral(source, varName) {
+        var pat = new RegExp('(?:var|let|const)\\s+' + varName + '\\s*=\\s*\\{', 'g');
+        var m;
+        while ((m = pat.exec(source)) !== null) {
+            var openIdx = m.index + m[0].length - 1;
+            var depth = 0, end = -1;
+            for (var i = openIdx; i < source.length; i++) {
+                if (source[i] === '{') depth++;
+                else if (source[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+            }
+            if (end >= 0) return source.slice(openIdx, end + 1);
+        }
+        return null;
+    }
+
     var hudErrors = [];
     var scriptEntries = Object.entries(allScripts);
     for (var sei = 0; sei < scriptEntries.length; sei++) {
         var scriptKey = scriptEntries[sei][0];
         var source = scriptEntries[sei][1];
+
+        // Case 1: inline object literal — emit("hud_update", { ... })
         var re = /events\.ui\.emit\s*\(\s*['"]hud_update['"]\s*,\s*\{/g;
         var match;
         while ((match = re.exec(source)) !== null) {
@@ -854,21 +890,19 @@ if (eventData) {
             if (end < 0) continue;
             var literal = source.slice(openIdx, end + 1);
             var keys = topLevelKeys(literal);
-            for (var ki = 0; ki < keys.length; ki++) {
-                if (reservedKeys.has(keys[ki])) {
-                    var keyName = keys[ki];
-                    var fix = keyName === 'phase'
-                        ? 'Rename the HUD-side key (the engine reserves "phase" for the FSM\'s current state name).'
-                        : 'Rename the HUD-side key (e.g. "display' + keyName.charAt(0).toUpperCase() + keyName.slice(1) +
-                          '" or "' + keyName + '_display") OR rename the FSM var in 01_flow.json. ' +
-                          'They live in different namespaces but share the lookup table — the FSM var ' +
-                          'shadows your HUD value and the panel never sees your update.';
-                    hudErrors.push(
-                        scriptKey + ': hud_update key "' + keyName + '" collides with FSM var "' + keyName + '" ' +
-                        '(set in 01_flow.json via set:' + keyName + '=...). ' + fix
-                    );
-                }
-            }
+            checkKeysAgainstReserved(keys, scriptKey, hudErrors);
+        }
+
+        // Case 2: variable reference — emit("hud_update", someVar)
+        var reVar = /events\.ui\.emit\s*\(\s*['"]hud_update['"]\s*,\s*([A-Za-z_$][\w$]*)\s*\)/g;
+        var matchVar;
+        while ((matchVar = reVar.exec(source)) !== null) {
+            var varName = matchVar[1];
+            if (varName === 'this' || varName === 'undefined' || varName === 'null') continue;
+            var objLiteral = findVarObjectLiteral(source, varName);
+            if (!objLiteral) continue;
+            var keys = topLevelKeys(objLiteral);
+            checkKeysAgainstReserved(keys, scriptKey, hudErrors);
         }
     }
     if (hudErrors.length > 0) {
