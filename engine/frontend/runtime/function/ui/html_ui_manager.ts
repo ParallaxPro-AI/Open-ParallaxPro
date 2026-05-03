@@ -1,5 +1,21 @@
 const INTERACTIVE_SELECTOR = 'button,input,select,a,[data-interactive],[onclick]';
 
+// Panels whose visibility should suspend the mobile-controls overlay
+// (joystick + look pad + action rail). Explicit allowlist instead of
+// "anything that isn't a HUD" — too many user/engine panels (banners,
+// toasts, hud.html itself) were getting misclassified as modals and
+// killing mobile controls behind in-game UI. Add to this list when
+// introducing a new full-screen menu the player can't play through.
+const MODAL_PANEL_NAMES: ReadonlySet<string> = new Set([
+    'main_menu',
+    'pause_menu',
+    'game_over',
+    'lobby_browser',
+    'lobby_room',
+    'lobby_host_config',
+    'host_config',
+]);
+
 // Wheel router for pointer-locked play. In games that lock the pointer
 // to the canvas (FPS-style mouseDelta look), the OS cursor is captured
 // on the canvas and wheel events fire there — never on overlay iframes,
@@ -848,16 +864,13 @@ ${wrapperScript}
      */
     sendState(state: any): void {
         // Detect modal-panel visibility transitions and fan out to the
-        // suspension callback. Walk every loaded panel; if any non-HUD
-        // (lobby_*, main_menu, pause_menu, game_over, host_config, etc)
-        // has its `<name>Visible` flag true in the current state, a modal
-        // is showing and the joystick should suspend. HUDs don't trigger
-        // suspension because their visibility represents in-game state,
-        // not "user is in a UI screen". Edge-triggered.
+        // suspension callback. Only panels in MODAL_PANEL_NAMES count —
+        // anything else (HUDs, banners, toasts, dialogue boxes) leaves
+        // mobile controls visible. Edge-triggered.
         let anyModalVisible = false;
         for (const path of this.cachedContent.keys()) {
             const f = this.flagFor(path);
-            if (!f.isHud && state?.[f.flag] === true) { anyModalVisible = true; break; }
+            if (MODAL_PANEL_NAMES.has(f.name) && state?.[f.flag] === true) { anyModalVisible = true; break; }
         }
         if (anyModalVisible !== this.lastModalVisible) {
             this.lastModalVisible = anyModalVisible;
