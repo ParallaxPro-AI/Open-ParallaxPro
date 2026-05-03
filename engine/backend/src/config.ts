@@ -59,7 +59,7 @@ export const config = {
         maxTokens: envInt('AI_MAX_TOKENS', 8192),
     },
     fixer: {
-        timeout: envInt('FIXER_TIMEOUT', 1200000),
+        timeout: envInt('FIXER_TIMEOUT', 2400000),
     },
 };
 
