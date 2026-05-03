@@ -11,6 +11,7 @@ import { BackendClient } from './backend/backend_client.js';
 import { CloudSync } from './backend/cloud_sync.js';
 import { loadGLB, ParsedMesh, applyFacingTransformToPositions } from './utils/glb_loader.js';
 import { loadScriptClass } from '../../runtime/function/scripting/script_loader.js';
+import { fetchWithRetry } from './utils/fetch_with_retry.js';
 import { ScriptComponent } from '../../runtime/function/framework/components/script_component.js';
 import { GameUISystem } from '../../runtime/function/ui/game_ui.js';
 import { HTMLUIManager } from '../../runtime/function/ui/html_ui_manager.js';
@@ -592,14 +593,23 @@ export class EditorContext extends EventBus {
                 return;
             }
             try {
-                const res = await fetch(url, { cache: 'no-store' });
-                if (res.ok) {
-                    scriptSources.set(url, await res.text());
-                } else {
-                    console.warn(`Failed to fetch script: ${url} (${res.status})`);
-                }
-            } catch (e) {
-                console.warn(`Failed to fetch script: ${url}`, e);
+                // cache: 'no-store' preserved — editor users editing shared
+                // library scripts expect the freshest version on every Play
+                // press. fetchWithRetry adds 3 attempts with backoff so a
+                // transient drop doesn't silently drop the script (which
+                // would leave the entity behavior-less / game broken).
+                const text = await fetchWithRetry(
+                    url,
+                    r => r.text(),
+                    { cache: 'no-store' },
+                    { label: '[script]' },
+                );
+                scriptSources.set(url, text);
+            } catch (e: any) {
+                // After retries exhausted — log clearly so the user can
+                // see why their entity has no behavior. Same fail-soft
+                // behavior as before (silently skip), just with retry.
+                console.warn(`Failed to fetch script after retries: ${url}`, e?.message || e);
             }
         }));
 
@@ -1238,7 +1248,17 @@ export class EditorContext extends EventBus {
                 }
             }
         }).catch((err) => {
-            console.error(`[EditorContext] Failed to load mesh asset: ${url}`, err);
+            // Tolerate missing assets — entity just renders without its mesh,
+            // game continues. 404s are common (deleted/renamed/typo'd asset
+            // in a project) and shouldn't scream from the console at users
+            // who can't act on them. Real errors (network/parse) keep
+            // error-level so they're discoverable in dev/debug.
+            const msg = String(err?.message || err);
+            if (/HTTP 404/.test(msg)) {
+                console.warn(`[EditorContext] Mesh asset 404 (entity will render without it): ${url}`);
+            } else {
+                console.error(`[EditorContext] Failed to load mesh asset: ${url}`, err);
+            }
             this.loadingAssets.delete(url);
             if (this.loadingAssets.size === 0) this._assetLoadBatchTotal = 0;
             this._emitAssetLoadProgress();

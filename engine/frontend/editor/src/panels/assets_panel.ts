@@ -296,11 +296,30 @@ export class AssetsPanel {
 
                 if (mr?.materialOverrides?.textureBundle) {
                     const texName = mr.materialOverrides.textureBundle;
-                    const texUrl = `/assets/poly_haven/textures/${texName}/${texName}_diff_1k.jpg`;
-                    categorized.get('Textures')!.set(texName, {
-                        name: texName, category: 'Textures', extension: 'jpg', fileUrl: texUrl,
-                        thumbnailUrl: `/assets/thumbnails/poly_haven/textures/${texName}.png`,
-                    });
+                    // textureBundle can be either a bare poly_haven pack name
+                    // ("wood_floor") OR a full asset path ("/assets/kenney/...
+                    // /texture_01.png"). The old code blindly templated the
+                    // poly_haven URL pattern, producing broken double-prefix
+                    // thumbnails like "/assets/thumbnails/poly_haven/textures/
+                    // /assets/kenney/.../texture_01.png.png" that 404 with
+                    // every asset-panel render.
+                    if (texName.startsWith('/')) {
+                        // Full path — use the texture itself as both source
+                        // and thumbnail. Doesn't depend on poly_haven layout.
+                        const fname = texName.split('/').pop() || texName;
+                        const ext = (fname.split('.').pop() || 'png').toLowerCase();
+                        categorized.get('Textures')!.set(texName, {
+                            name: fname.replace(/\.[^.]+$/, ''),
+                            category: 'Textures', extension: ext, fileUrl: texName,
+                            thumbnailUrl: texName,
+                        });
+                    } else {
+                        const texUrl = `/assets/poly_haven/textures/${texName}/${texName}_diff_1k.jpg`;
+                        categorized.get('Textures')!.set(texName, {
+                            name: texName, category: 'Textures', extension: 'jpg', fileUrl: texUrl,
+                            thumbnailUrl: `/assets/thumbnails/poly_haven/textures/${texName}.png`,
+                        });
+                    }
                 }
             }
 

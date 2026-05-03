@@ -11,6 +11,7 @@ import { ParallaxEditor } from './editor.js';
 import { EditorContext } from './editor_context.js';
 import { StreamingManager } from './streaming_manager.js';
 import { isMobile as detectMobile } from './utils/mobile.js';
+import { fetchWithRetry } from './utils/fetch_with_retry.js';
 
 const splashScreen = document.getElementById('splash-screen')!;
 const loadingScreen = document.getElementById('loading-screen')!;
@@ -25,7 +26,7 @@ const loadingText = document.querySelector('#loading-screen .loading-text') as H
 
 const SPLASH_DURATION = 2600;
 
-function showError(message: string): void {
+function showError(message: string, opts?: { allowReload?: boolean }): void {
     splashScreen.style.display = 'none';
     loadingScreen.style.display = 'none';
     errorDetail.textContent = message;
@@ -33,6 +34,18 @@ function showError(message: string): void {
     const homeLink = document.getElementById('error-home-link') as HTMLAnchorElement | null;
     if (homeLink) {
         homeLink.href = '/';
+    }
+    // For network failures (the most common reason a bad-wifi user lands
+    // here), surface a "Try again" button that just reloads the page.
+    // Static page errors ("game removed", "no game specified") shouldn't
+    // get the button since reloading won't change anything.
+    if (opts?.allowReload && !document.getElementById('error-reload-btn')) {
+        const btn = document.createElement('button');
+        btn.id = 'error-reload-btn';
+        btn.textContent = 'Try again';
+        btn.style.cssText = 'margin-top:16px;padding:8px 20px;background:#8648e6;color:white;border:0;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;';
+        btn.addEventListener('click', () => window.location.reload());
+        errorScreen.appendChild(btn);
     }
 }
 
@@ -378,15 +391,23 @@ async function boot(): Promise<void> {
 
     if (isMultiplayerJoin) {
         try {
-            const res = await fetch(`/api/engine/multiplayer/rooms/${roomId}/project`);
-            if (res.ok) {
-                gameData = await res.json();
-            } else {
+            gameData = await fetchWithRetry(
+                `/api/engine/multiplayer/rooms/${roomId}/project`,
+                r => r.json(),
+                undefined,
+                { label: '[mp-room]' },
+            );
+        } catch (e: any) {
+            // 404 means the room is gone — no point retrying further or
+            // showing a Try-again button. fetchWithRetry surfaces 4xx
+            // immediately so we hit this branch right after the first
+            // attempt for those cases.
+            const msg = String(e?.message || '');
+            if (msg.includes('HTTP 404')) {
                 showError('This multiplayer room no longer exists. The host may have left or the session has ended.');
-                return;
+            } else {
+                showError('Network error loading the game. Check your connection.', { allowReload: true });
             }
-        } catch {
-            showError('Network error. Please try again.');
             return;
         }
     } else if (bootstrap?.game) {
@@ -400,18 +421,23 @@ async function boot(): Promise<void> {
         try {
             const headers: Record<string, string> = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
-            const res = await fetch(`/api/engine/games/${owner}/${slug}`, { headers });
-            if (!res.ok) {
-                if (res.status === 404) {
-                    showError('This game may have been removed or made private.');
-                } else {
-                    showError(`Failed to load game (${res.status}).`);
-                }
-                return;
+            gameData = await fetchWithRetry(
+                `/api/engine/games/${owner}/${slug}`,
+                r => r.json(),
+                { headers },
+                { label: '[gameData]' },
+            );
+        } catch (e: any) {
+            const msg = String(e?.message || '');
+            if (msg.includes('HTTP 404')) {
+                showError('This game may have been removed or made private.');
+            } else if (/HTTP 4\d\d/.test(msg)) {
+                showError(`Failed to load game (${msg.match(/HTTP (\d+)/)?.[1] ?? '?'}).`);
+            } else {
+                // Network error / 5xx / timeout after retries — let the
+                // user retry by reloading. Most common bad-wifi failure.
+                showError('Network error loading the game. Check your connection.', { allowReload: true });
             }
-            gameData = await res.json();
-        } catch {
-            showError('Network error. Please try again.');
             return;
         }
 
@@ -540,17 +566,35 @@ async function boot(): Promise<void> {
     splashScreen.style.display = 'none';
     loadingScreen.style.display = 'flex';
 
+    // Track when loading started so we can surface a "slow connection"
+    // hint past 20 s — bad-wifi users used to see the same "Loading
+    // assets (5/12)" stuck indefinitely with no idea what's going on.
+    const loadStartedAt = Date.now();
+    let slowHintShown = false;
     const updateProgress = () => {
         const progress = ctx.getAssetLoadProgress();
         if (progress.total > 0) {
             const pct = Math.round((progress.loaded / progress.total) * 90);
             progressFill.style.width = `${pct}%`;
-            loadingText.textContent = `Loading assets (${progress.loaded}/${progress.total})`;
+            const elapsed = Date.now() - loadStartedAt;
+            if (elapsed > 20_000 && !slowHintShown) {
+                slowHintShown = true;
+                loadingText.textContent = `Slow connection — still loading (${progress.loaded}/${progress.total})...`;
+            } else if (slowHintShown) {
+                loadingText.textContent = `Slow connection — still loading (${progress.loaded}/${progress.total})...`;
+            } else {
+                loadingText.textContent = `Loading assets (${progress.loaded}/${progress.total})`;
+            }
         }
     };
     const progressInterval = setInterval(updateProgress, 100);
 
-    await ctx.waitForAllAssetsLoaded();
+    // Bumped from default 15 s → 180 s so loadGLB's 3 retry attempts
+    // (each up to 60 s) have room to complete on slow connections. Past
+    // 180 s a single asset is genuinely stuck — we still resolve and let
+    // the game start with whatever's loaded (failed-asset entities just
+    // don't render their meshes; rest of the game still works).
+    await ctx.waitForAllAssetsLoaded(180_000);
     clearInterval(progressInterval);
 
     progressFill.style.width = '95%';

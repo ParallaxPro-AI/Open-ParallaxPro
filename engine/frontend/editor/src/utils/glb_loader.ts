@@ -8,6 +8,8 @@
  *   forward = -Z, up = +Y, right = +X, units = meters, origin = bottom-center.
  */
 
+import { fetchWithRetry } from './fetch_with_retry.js';
+
 // ── Facing registry (MODEL_FACING.json) ──────────────────────────────────
 //
 // Fetched once per session from /assets/MODEL_FACING.json and cached.
@@ -361,17 +363,13 @@ export async function loadGLB(url: string): Promise<ParsedMesh> {
         // Legacy path — no registry fetch, no transforms applied. Identical to
         // pre-registry behavior so existing projects continue to render exactly
         // as their hand-tuned mesh.scale / modelRotationY expect.
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`Failed to fetch GLB: ${resp.status}`);
-        const buffer = await resp.arrayBuffer();
+        const buffer = await fetchWithRetry(url, r => r.arrayBuffer(), undefined, { label: '[loadGLB]' });
         return parseGLB(buffer, url);
     }
-    const [resp, registry] = await Promise.all([
-        fetch(url),
+    const [buffer, registry] = await Promise.all([
+        fetchWithRetry(url, r => r.arrayBuffer(), undefined, { label: '[loadGLB]' }),
         getFacingRegistry(),
     ]);
-    if (!resp.ok) throw new Error(`Failed to fetch GLB: ${resp.status}`);
-    const buffer = await resp.arrayBuffer();
     const parsed = parseGLB(buffer, url);
 
     const keyInfo = packKeyFromUrl(url);
