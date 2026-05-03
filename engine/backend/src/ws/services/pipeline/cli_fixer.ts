@@ -24,8 +24,10 @@ import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { assembleGame } from './level_assembler.js';
-import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult, pickModel } from './cli_runner.js';
+import { writeAgentInstructions, CLIName } from './agent_instructions.js';
 import { forkSession, warmIfNeeded, forkPreviousFixSession, registerFixSession } from './session_warmer.js';
+import { recordFixSession, getRecordedFixSession, forgetFixSession } from './cli_session_resume.js';
 import { registerActiveJob, unregisterActiveJob, preemptProjectJob, updateJobSessionType } from './cli_active_jobs.js';
 import type { SessionType } from './cli_active_jobs.js';
 import { preemptGenerationJob } from './generation_jobs.js';
@@ -144,7 +146,7 @@ export async function runFixer(
 
     try {
         sendStatus?.('Setting up sandbox...');
-        await createSandbox(sandboxDir, projectFiles, description);
+        await createSandbox(sandboxDir, projectFiles, description, resolveCLI(cliOverride));
 
         // Drop the config where validate_assembler.js can find it. Done
         // after createSandbox so the sandbox dir is guaranteed to exist.
@@ -171,6 +173,7 @@ export async function runFixer(
         const cliResult = await spawnCLI(sandboxDir, sendStatus, localSignal, cliOverride, { jobId, projectId });
 
         try { registerFixSession(projectId, sandboxDir); } catch {}
+        try { recordFixSession(resolveCLI(cliOverride), projectId, cliResult.sessionId); } catch {}
 
         sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectFiles);
@@ -228,6 +231,7 @@ async function createSandbox(
     sandboxDir: string,
     projectFiles: ProjectFiles,
     description: string,
+    cli: CLIName,
 ): Promise<void> {
     // sandboxDir is freshly created by mkdtempSync in the caller — already
     // exists and is empty, so no nuke-and-recreate needed here.
@@ -255,13 +259,15 @@ async function createSandbox(
     if (fs.existsSync(evtDefs)) fs.copyFileSync(evtDefs, path.join(refDir, 'event_definitions.ts'));
 
     // Auto-loaded agent instructions. Each CLI picks up its own convention
-    // (claude → CLAUDE.md, codex/opencode/copilot → AGENTS.md) without a
-    // tool-call Read, which saves a turn per run and lets Claude's prompt
-    // cache hit across sessions since the system prefix becomes stable.
+    // (claude → CLAUDE.md, codex/opencode → AGENTS.md, copilot →
+    // .github/copilot-instructions.md). For non-Claude CLIs the engine doc
+    // is prepended with a tool-specific PREAMBLE that translates Claude-isms
+    // (PascalCase tool names, "MULTIPLE tool_use blocks per message", the
+    // 15-turn budget, CLAUDE_CODE_MAX_OUTPUT_TOKENS) to that tool's surface.
+    // Claude path stays byte-equivalent to preserve the warm-session hash.
     if (fs.existsSync(FIXER_CONTEXT_PATH)) {
         const ctx = fs.readFileSync(FIXER_CONTEXT_PATH, 'utf-8');
-        fs.writeFileSync(path.join(sandboxDir, 'CLAUDE.md'), ctx);
-        fs.writeFileSync(path.join(sandboxDir, 'AGENTS.md'), ctx);
+        writeAgentInstructions(sandboxDir, cli, ctx);
     }
 
     const assetsDir = path.join(sandboxDir, 'assets');
@@ -295,7 +301,7 @@ function fixerStatus(activity: CLIActivity): string | undefined {
 
 const FIXER_PROMPT_RESUME = `You previously worked on this project. The project files in project/ may have changed since your last session — re-read any files you need before editing. Read TASK.md for the new bug report. Fix the bug — edit template files only. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; usedWarmSession?: boolean; resumedPrevious?: boolean }> {
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; sessionId?: string; usedWarmSession?: boolean; resumedPrevious?: boolean }> {
     const cli = resolveCLI(cliOverride);
     const projectId = capture?.projectId;
     const jobId = capture?.jobId;
@@ -319,9 +325,41 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     cliOverride,
                     capture: capture ? { ...capture, kind: 'fix' } : undefined,
                 });
-                return { text: result.text, costUsd: result.costUsd, usedWarmSession: false, resumedPrevious: true };
+                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, resumedPrevious: true };
             } catch (e: any) {
                 console.warn(`[CLIFixer] Resume from previous session failed, trying warm fork:`, e?.message);
+            }
+        }
+    }
+
+    // Codex / opencode / copilot resume: if we recorded a session ID from a
+    // prior fix on the same project, reuse it. Mirrors the claude path above
+    // but uses each CLI's native resume flag (set inside spawnCLIAgent based
+    // on resumeSessionId). Cold start on failure — forgetFixSession so next
+    // attempt isn't stuck retrying a dead ID.
+    if ((cli === 'codex' || cli === 'opencode' || cli === 'copilot') && projectId) {
+        const prevSessionId = getRecordedFixSession(cli, projectId);
+        if (prevSessionId) {
+            try {
+                sendStatus?.('Resuming from previous fix session...');
+                if (jobId) updateJobSessionType(jobId, 'resume');
+                const result = await spawnCLIAgent({
+                    sandboxDir,
+                    prompt: FIXER_PROMPT_RESUME,
+                    maxTurns: 60,
+                    model: pickModel(cli, 'fixer'),
+                    resumeSessionId: prevSessionId,
+                    sessionType: 'resume',
+                    statusMapper: fixerStatus,
+                    sendStatus,
+                    abortSignal,
+                    cliOverride,
+                    capture: capture ? { ...capture, kind: 'fix' } : undefined,
+                });
+                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, resumedPrevious: true };
+            } catch (e: any) {
+                console.warn(`[CLIFixer] ${cli} resume failed, falling back to cold start:`, e?.message);
+                forgetFixSession(cli, projectId);
             }
         }
     }
@@ -347,11 +385,83 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     cliOverride,
                     capture: capture ? { ...capture, kind: 'fix' } : undefined,
                 });
-                return { text: result.text, costUsd: result.costUsd, usedWarmSession: true };
+                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true };
             } catch (e: any) {
                 console.warn(`[CLIFixer] Warm fork failed, falling back to cold start:`, e?.message);
                 sendStatus?.('Warm session failed — starting fresh...');
             }
+        }
+    }
+
+    // Codex warm-fork — JSONL copy with fresh UUID since codex has no
+    // native fork primitive. Best-effort, falls through to cold start.
+    if (cli === 'codex') {
+        try {
+            const { warmCodexIfNeeded, forkCodexWarmSession } = await import('./codex_session_warmer.js');
+            sendStatus?.('Waiting for warm session...');
+            await Promise.race([warmCodexIfNeeded('fixer'), new Promise(r => setTimeout(r, 60_000))]);
+            const forkedId = forkCodexWarmSession('fixer');
+            if (forkedId) {
+                try {
+                    sendStatus?.('Using pre-warmed session...');
+                    if (jobId) updateJobSessionType(jobId, 'warm_fork');
+                    const result = await spawnCLIAgent({
+                        sandboxDir,
+                        prompt: FIXER_PROMPT_WARM,
+                        maxTurns: 60,
+                        model: pickModel(cli, 'fixer'),
+                        resumeSessionId: forkedId,
+                        sessionType: 'warm_fork',
+                        statusMapper: fixerStatus,
+                        sendStatus,
+                        abortSignal,
+                        cliOverride,
+                        capture: capture ? { ...capture, kind: 'fix' } : undefined,
+                    });
+                    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true };
+                } catch (e: any) {
+                    console.warn(`[CLIFixer] codex warm fork failed, falling back to cold start:`, e?.message);
+                    sendStatus?.('Warm session failed — starting fresh...');
+                }
+            }
+        } catch (e: any) {
+            console.warn(`[CLIFixer] codex warmer unavailable:`, e?.message);
+        }
+    }
+
+    // OpenCode warm-fork — same shape as the claude branch above but uses
+    // --session <warm_id> --fork instead of JSONL copy. Best-effort.
+    if (cli === 'opencode') {
+        try {
+            const { warmOpencodeIfNeeded, getOpencodeWarmSessionId } = await import('./opencode_session_warmer.js');
+            sendStatus?.('Waiting for warm session...');
+            await Promise.race([warmOpencodeIfNeeded('fixer'), new Promise(r => setTimeout(r, 60_000))]);
+            const warmId = getOpencodeWarmSessionId('fixer');
+            if (warmId) {
+                try {
+                    sendStatus?.('Using pre-warmed session...');
+                    if (jobId) updateJobSessionType(jobId, 'warm_fork');
+                    const result = await spawnCLIAgent({
+                        sandboxDir,
+                        prompt: FIXER_PROMPT_WARM,
+                        maxTurns: 60,
+                        model: pickModel(cli, 'fixer'),
+                        resumeSessionId: warmId,
+                        sessionType: 'warm_fork',
+                        statusMapper: fixerStatus,
+                        sendStatus,
+                        abortSignal,
+                        cliOverride,
+                        capture: capture ? { ...capture, kind: 'fix' } : undefined,
+                    });
+                    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true };
+                } catch (e: any) {
+                    console.warn(`[CLIFixer] opencode warm fork failed, falling back to cold start:`, e?.message);
+                    sendStatus?.('Warm session failed — starting fresh...');
+                }
+            }
+        } catch (e: any) {
+            console.warn(`[CLIFixer] opencode warmer unavailable:`, e?.message);
         }
     }
 
@@ -360,14 +470,16 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         sandboxDir,
         prompt: FIXER_PROMPT,
         maxTurns: 60,
-        claudeModel: 'sonnet',
+        // pickModel routes per-CLI: claude → sonnet, codex → gpt-5.4,
+        // opencode/copilot → undefined (use the CLI's own default).
+        model: pickModel(cli, 'fixer'),
         statusMapper: fixerStatus,
         sendStatus,
         abortSignal,
         cliOverride,
         capture: capture ? { ...capture, kind: 'fix' } : undefined,
     });
-    return { text: result.text, costUsd: result.costUsd, usedWarmSession: false };
+    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false };
 }
 
 // ─── Read changes ──────────────────────────────────────────────────────────

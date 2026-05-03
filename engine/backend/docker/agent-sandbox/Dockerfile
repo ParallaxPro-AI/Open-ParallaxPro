@@ -1,4 +1,4 @@
-# Sandbox image for the editing agents (claude-code, codex, opencode).
+# Sandbox image for the editing agents (claude-code, codex, opencode, copilot).
 # Used only when DOCKER_SANDBOX=1 is set on the host backend.
 #
 # Build:
@@ -17,10 +17,13 @@ RUN apt-get update \
         git \
     && rm -rf /var/lib/apt/lists/*
 
-# Claude Code + Codex install cleanly via npm.
+# Claude Code + Codex + GitHub Copilot CLI install cleanly via npm.
+# (`@github/copilot` is the agentic Copilot CLI binary — same package the
+# brew cask `copilot-cli` ships, just installed via npm in the container.)
 RUN npm install -g --no-fund --no-audit \
     @anthropic-ai/claude-code \
-    @openai/codex
+    @openai/codex \
+    @github/copilot
 
 # OpenCode ships its own installer that writes to /root/.opencode/bin. Move
 # it to /opt so uid 1001 (the host user we spawn as) can traverse + execute

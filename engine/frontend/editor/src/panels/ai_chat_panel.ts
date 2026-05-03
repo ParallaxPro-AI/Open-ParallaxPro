@@ -89,6 +89,12 @@ export class AiChatPanel {
     private selectedAgent: string = 'auto';
     private agentSelect: HTMLSelectElement | null = null;
     private agentCaption: HTMLElement | null = null;
+    // Live indicator showing which CLI will run the next FIX_GAME / CREATE_GAME
+    // (separate from the chat-agent picker, since the chat agent decides
+    // *whether* to call those tools, but the editing agent decides which CLI
+    // does the actual work). Only rendered when 2+ CLI agents are installed.
+    // Stays in sync via a custom event dispatched from the Settings dropdown.
+    private editingAgentBadge: HTMLElement | null = null;
     private regenMenu: HTMLElement | null = null;
     // When the AI emits <<<OFFER_CREATE_GAME description="...">>> the
     // backend fires a `create_game_offer` event *before* the matching
@@ -197,7 +203,19 @@ export class AiChatPanel {
         this.agentCaption.className = 'chat-agent-caption';
         inputArea.appendChild(this.agentCaption);
 
+        this.editingAgentBadge = document.createElement('div');
+        this.editingAgentBadge.className = 'chat-editing-agent-badge';
+        this.editingAgentBadge.title = 'Which CLI handles CREATE_GAME / FIX_GAME — change in Settings';
+        inputArea.appendChild(this.editingAgentBadge);
+
         this.rebuildAgentOptions();
+        this.updateEditingAgentBadge();
+
+        // Keep the badge in sync when Settings changes the editing agent
+        // (custom event dispatched from toolbar.ts on dropdown change).
+        window.addEventListener('parallaxpro:editing-agent-changed', () => {
+            this.updateEditingAgentBadge();
+        });
 
         this.sessionIdLabel = document.createElement('div');
         this.sessionIdLabel.className = 'chat-session-id';
@@ -250,6 +268,7 @@ export class AiChatPanel {
                 this.availableCLIAgents = data.availableAgents as AgentOption[];
                 this.ctx.state.availableAgents = data.availableAgents;
                 this.rebuildAgentOptions();
+                this.updateEditingAgentBadge();
             }
             if (typeof data.llmApiAvailable === 'boolean') {
                 this.ctx.state.llmApiAvailable = data.llmApiAvailable;
@@ -617,6 +636,26 @@ export class AiChatPanel {
         return cliIds.includes('claude') ? 'claude' : cliIds[0];
     }
 
+    /** Render the live "Editor: <CLI>" badge under the input. Hides when
+     *  fewer than 2 CLIs are installed (no choice to make) or the backend
+     *  hasn't reported the agent list yet. Idempotent — safe to call on
+     *  every relevant state change. */
+    private updateEditingAgentBadge(): void {
+        if (!this.editingAgentBadge) return;
+        const cliAgents = this.ctx.state.availableAgents ?? this.availableCLIAgents;
+        if (cliAgents.length < 2) {
+            this.editingAgentBadge.classList.remove('visible');
+            this.editingAgentBadge.textContent = '';
+            return;
+        }
+        const id = this.pickEditingAgent();
+        // Backend labels already start with "Editing Agent: " (see
+        // cli_availability.ts PROBES) — use as-is to avoid duplication.
+        const label = cliAgents.find(a => a.id === id)?.label || `Editing Agent: ${id || '?'}`;
+        this.editingAgentBadge.textContent = label;
+        this.editingAgentBadge.classList.add('visible');
+    }
+
     /** Rebuild <option> nodes in the picker. Runs at startup + after the
      *  connected event gives us the backend's availableAgents list. */
     private rebuildAgentOptions(): void {
@@ -872,7 +911,12 @@ export class AiChatPanel {
             btn.disabled = true;
             labelEl.textContent = 'Starting...';
             badgeEl.remove();
-            this.ctx.backend.sendWsMessage('confirm_create_game', { description });
+            // Send the LIVE editing-agent selection — `client.editingAgent`
+            // on the backend is only refreshed by chat sends, so without
+            // this the CREATE_GAME would use whatever was active at the
+            // user's last chat message, ignoring any dropdown switch made
+            // between the AI's offer and this click.
+            this.ctx.backend.sendWsMessage('confirm_create_game', { description, editingAgent: this.pickEditingAgent() });
         });
         last.appendChild(btn);
         this.scrollToBottom();

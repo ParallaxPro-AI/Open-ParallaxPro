@@ -29,7 +29,8 @@ import {
     ENGINE_MACHINERY,
 } from './project_files.js';
 import db from '../../../db/connection.js';
-import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult, pickModel } from './cli_runner.js';
+import { writeAgentInstructions, CLIName } from './agent_instructions.js';
 import { forkSession, warmIfNeeded } from './session_warmer.js';
 import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
 import { registerSandboxToken, unregisterSandboxToken } from './sandbox_validator.js';
@@ -172,7 +173,7 @@ export async function runCreator(
     try {
       finalResult = await (async (): Promise<CreatorResult> => {
         sendStatus?.('Setting up creation sandbox...');
-        await createSandbox(sandboxDir, description, previousProjectFiles);
+        await createSandbox(sandboxDir, description, previousProjectFiles, resolveCLI(cliOverride));
 
         // Drop the config where validate_assembler.js can find it. Done
         // after createSandbox (which rewrites assets) so we don't race
@@ -521,6 +522,7 @@ async function createSandbox(
     sandboxDir: string,
     description: string,
     previousProjectFiles: ProjectFiles | null,
+    cli: CLIName,
 ): Promise<void> {
     // sandboxDir is freshly created by mkdtempSync in the caller — already
     // exists and is empty, so no nuke-and-recreate needed here.
@@ -583,13 +585,15 @@ async function createSandbox(
     }
 
     // Auto-loaded agent instructions. Each CLI picks up its own convention
-    // (claude → CLAUDE.md, codex/opencode/copilot → AGENTS.md) without a
-    // tool-call Read, saving a turn per run and letting Claude's prompt
-    // cache hit across sessions.
+    // (claude → CLAUDE.md, codex/opencode → AGENTS.md, copilot →
+    // .github/copilot-instructions.md). For non-Claude CLIs the engine doc
+    // is prepended with a tool-specific PREAMBLE that translates Claude-isms
+    // (PascalCase tool names, "MULTIPLE tool_use blocks per message", the
+    // 15-turn budget, CLAUDE_CODE_MAX_OUTPUT_TOKENS) to that tool's surface.
+    // Claude path stays byte-equivalent to preserve the warm-session hash.
     if (fs.existsSync(CREATOR_CONTEXT_PATH)) {
         const ctx = fs.readFileSync(CREATOR_CONTEXT_PATH, 'utf-8');
-        fs.writeFileSync(path.join(sandboxDir, 'CLAUDE.md'), ctx);
-        fs.writeFileSync(path.join(sandboxDir, 'AGENTS.md'), ctx);
+        writeAgentInstructions(sandboxDir, cli, ctx);
     }
 
     // Asset catalogs.
@@ -879,6 +883,81 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         }
     }
 
+    // Codex warm-fork: copy the warm JSONL with a fresh UUID, then
+    // resume by that UUID. Codex has no native fork primitive, so we
+    // synthesize one. Best-effort — failures fall through to cold.
+    if (cli === 'codex') {
+        try {
+            const { warmCodexIfNeeded, forkCodexWarmSession } = await import('./codex_session_warmer.js');
+            sendStatus?.('Waiting for warm session...');
+            await Promise.race([warmCodexIfNeeded('creator'), new Promise(r => setTimeout(r, 60_000))]);
+            const forkedId = forkCodexWarmSession('creator');
+            if (forkedId) {
+                try {
+                    sendStatus?.('Using pre-warmed session...');
+                    const result = await spawnCLIAgent({
+                        sandboxDir,
+                        prompt: CREATOR_PROMPT_WARM,
+                        maxTurns: 120,
+                        timeout: 45 * 60 * 1000,
+                        model: pickModel(cli, 'creator'),
+                        resumeSessionId: forkedId,
+                        sessionType: 'warm_fork',
+                        statusMapper: creatorStatus,
+                        sendStatus,
+                        cliOverride,
+                        abortSignal,
+                        capture: capture ? { ...capture, kind: 'create' } : undefined,
+                    });
+                    usedWarmSession = true;
+                    return { text: result.text || 'Template created.', costUsd: result.costUsd, sessionCapturePath: result.sessionCapturePath, usedWarmSession };
+                } catch (e: any) {
+                    console.warn(`[CLICreator] codex warm fork failed, falling back to cold:`, e?.message);
+                }
+            }
+        } catch (e: any) {
+            console.warn(`[CLICreator] codex warmer unavailable:`, e?.message);
+        }
+    }
+
+    // OpenCode warm-fork: --session <warm_id> --fork inherits the prefix
+    // (engine docs + 2 exemplar templates pre-read) without copying any
+    // files — the SQLite session lives on opencode's side. Best-effort:
+    // failures fall through to cold start.
+    if (cli === 'opencode') {
+        try {
+            const { warmOpencodeIfNeeded, getOpencodeWarmSessionId } = await import('./opencode_session_warmer.js');
+            sendStatus?.('Waiting for warm session...');
+            await Promise.race([warmOpencodeIfNeeded('creator'), new Promise(r => setTimeout(r, 60_000))]);
+            const warmId = getOpencodeWarmSessionId('creator');
+            if (warmId) {
+                try {
+                    sendStatus?.('Using pre-warmed session...');
+                    const result = await spawnCLIAgent({
+                        sandboxDir,
+                        prompt: CREATOR_PROMPT_WARM,
+                        maxTurns: 120,
+                        timeout: 45 * 60 * 1000,
+                        model: pickModel(cli, 'creator'),
+                        resumeSessionId: warmId,
+                        sessionType: 'warm_fork',
+                        statusMapper: creatorStatus,
+                        sendStatus,
+                        cliOverride,
+                        abortSignal,
+                        capture: capture ? { ...capture, kind: 'create' } : undefined,
+                    });
+                    usedWarmSession = true;
+                    return { text: result.text || 'Template created.', costUsd: result.costUsd, sessionCapturePath: result.sessionCapturePath, usedWarmSession };
+                } catch (e: any) {
+                    console.warn(`[CLICreator] opencode warm fork failed, falling back to cold:`, e?.message);
+                }
+            }
+        } catch (e: any) {
+            console.warn(`[CLICreator] opencode warmer unavailable:`, e?.message);
+        }
+    }
+
     const { text, costUsd, sessionCapturePath } = await spawnCLIAgent({
         sandboxDir,
         prompt: CREATOR_PROMPT,
@@ -888,7 +967,9 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         // sandbox image carries the playtest binary.
         maxTurns: 120,
         timeout: 45 * 60 * 1000,
-        claudeModel: 'claude-opus-4-7[1m]',
+        // pickModel routes per-CLI: claude → opus-4-7, codex → gpt-5.5,
+        // opencode/copilot → undefined (use the CLI's own default).
+        model: pickModel(cli, 'creator'),
         statusMapper: creatorStatus,
         sendStatus,
         cliOverride,

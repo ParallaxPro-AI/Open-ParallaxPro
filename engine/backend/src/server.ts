@@ -467,6 +467,19 @@ export async function startEngine(server: http.Server, plugins: EnginePlugin[] =
                 initWarmer();
             }).catch(e => console.warn('[SessionWarmer] Init failed (non-fatal):', e?.message));
 
+            // Same for opencode — uses --session <warm_id> --fork instead
+            // of Claude's JSONL-copy mechanism. Warming is best-effort;
+            // failures fall back to cold start at run time.
+            import('./ws/services/pipeline/opencode_session_warmer.js').then(({ initOpencodeWarmer }) => {
+                initOpencodeWarmer();
+            }).catch(e => console.warn('[OpencodeWarmer] Init failed (non-fatal):', e?.message));
+
+            // And codex — forks per-run by copying the warm JSONL with a
+            // fresh UUID (codex has no native fork primitive).
+            import('./ws/services/pipeline/codex_session_warmer.js').then(({ initCodexWarmer }) => {
+                initCodexWarmer();
+            }).catch(e => console.warn('[CodexWarmer] Init failed (non-fatal):', e?.message));
+
             // If DOCKER_SANDBOX=1, confirm docker + the sandbox image are
             // available and log the outcome so misconfigurations don't go
             // unnoticed (the fixer still runs unsandboxed if probe fails).

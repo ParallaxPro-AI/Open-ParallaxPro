@@ -1081,6 +1081,14 @@ async function handleConfirmCreateGame(client: EditorClient, data: any): Promise
         return;
     }
 
+    // Pick up any live editing-agent override the button-click sent. The
+    // chat-message path keeps client.editingAgent in sync, but a switch made
+    // between the AI's OFFER_CREATE_GAME and the button click never goes
+    // through that path. Update here so the dropdown is always honored.
+    if (typeof data?.editingAgent === 'string' && data.editingAgent) {
+        client.editingAgent = data.editingAgent;
+    }
+
     // Anonymous users can't trigger CREATE_GAME — it spawns a CLI for
     // tens of minutes and costs real money. Editor catches this event
     // and surfaces a sign-up modal.

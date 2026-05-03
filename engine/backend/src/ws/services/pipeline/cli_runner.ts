@@ -130,6 +130,15 @@ export interface CLIRunResult {
      * Admin-only — do NOT leak to user-facing routes or chat dialogue.
      */
     sessionCapturePath?: string | null;
+    /**
+     * CLI-emitted session ID, used by cli_session_resume to attempt a
+     * per-(cli, projectId) resume on the next fix. May be undefined if the
+     * CLI didn't expose one in its event stream. Currently captured for
+     * codex (`thread.started.thread_id`), opencode (`step_start.sessionID`),
+     * and claude (top-level `session_id` on system events). Copilot's ID is
+     * not yet captured — see cli_session_resume.ts header.
+     */
+    sessionId?: string;
 }
 
 export type StatusMapper = (activity: CLIActivity) => string | undefined;
@@ -166,10 +175,19 @@ export interface SpawnOptions {
      */
     timeout?: number;
     /**
-     * Claude only — override the `--model` flag. Accepts any alias Claude
-     * CLI understands (e.g. 'sonnet', 'opus', 'haiku', or a full model ID).
-     * Defaults to 'sonnet'. Ignored for other CLIs.
+     * Override the model for the chosen CLI. The accepted format depends on
+     * the CLI:
+     *   - claude:   alias ('sonnet', 'opus', 'haiku') or full ID
+     *   - codex:    OpenAI model name (e.g. 'gpt-5.4', 'gpt-5.5')
+     *   - opencode: 'provider/model' (e.g. 'anthropic/claude-sonnet-4-5')
+     *   - copilot:  short name (e.g. 'claude-sonnet-4.5', 'gpt-5')
+     * If unset, each spawn function picks an appropriate per-CLI default.
      */
+    model?: string;
+    /** @deprecated — use `model` instead. Retained as an alias for callers
+     *  that still pass `claudeModel`. Wins over `model` for the claude
+     *  spawn only, so existing callers that hard-coded a Claude model don't
+     *  need a flag day to migrate. */
     claudeModel?: string;
     /**
      * Claude only — when true, adds `--continue --fork-session` to continue
@@ -177,6 +195,15 @@ export interface SpawnOptions {
      * copied into the sandbox's Claude project dir before spawning.
      */
     continueForked?: boolean;
+    /**
+     * codex / opencode — resume a previously recorded session by ID.
+     *   - codex:    rewrites `codex exec ...` → `codex exec resume <id> ...`
+     *   - opencode: adds `--session <id> --fork` so the resumed run gets a
+     *     fresh session ID and the original is preserved.
+     * Ignored for claude (use `continueForked` + the JSONL-copy path) and
+     * copilot (not yet wired — see cli_session_resume.ts).
+     */
+    resumeSessionId?: string;
     /** How the session was started — logged in session capture's result.json. */
     sessionType?: 'resume' | 'warm_fork' | 'cold';
     /**
@@ -194,7 +221,31 @@ export interface SpawnOptions {
     };
 }
 
-type CLIName = 'claude' | 'codex' | 'opencode' | 'copilot';
+export type CLIName = 'claude' | 'codex' | 'opencode' | 'copilot';
+
+/**
+ * Per-(cli, kind) model defaults. Tuned to:
+ *   - claude:   opus-4-7[1M] for the heavier creator synthesis, sonnet for fixer
+ *   - codex:    gpt-5.5 (frontier) for creator, gpt-5.4 (cheaper) for fixer
+ *   - opencode: undefined → user's opencode config default (often a fast
+ *               hosted model like groq/kimi-k2 — we don't override unless
+ *               the caller explicitly asks)
+ *   - copilot:  undefined → CLI default (claude-sonnet-4.5)
+ *
+ * Caller passes `model: pickModel(cli, kind)` into spawnCLIAgent. The spawn
+ * functions skip the --model flag when the value is undefined, falling
+ * back to each CLI's built-in default.
+ */
+const MODEL_BY_CLI: Record<CLIName, { creator: string | undefined; fixer: string | undefined }> = {
+    claude:   { creator: 'claude-opus-4-7[1m]',  fixer: 'sonnet' },
+    codex:    { creator: 'gpt-5.5',              fixer: 'gpt-5.4' },
+    opencode: { creator: undefined,              fixer: undefined },
+    copilot:  { creator: undefined,              fixer: undefined },
+};
+
+export function pickModel(cli: CLIName, kind: 'creator' | 'fixer'): string | undefined {
+    return MODEL_BY_CLI[cli][kind];
+}
 
 const VALID_CLI_NAMES: ReadonlySet<CLIName> = new Set(['claude', 'codex', 'opencode', 'copilot']);
 
@@ -322,7 +373,12 @@ export async function spawnCLIAgent(opts: SpawnOptions): Promise<CLIRunResult> {
                 costUsd: result.costUsd,
                 text: result.text,
                 aborted: !!opts.abortSignal?.aborted,
-                sessionType: opts.continueForked ? (opts.sessionType || 'warm_fork') : 'cold',
+                // Prefer the caller-declared sessionType when set — the
+                // warm-fork branches for codex/opencode pass
+                // `sessionType: 'warm_fork'` without setting `continueForked`
+                // (Claude-only flag). Without this fall-through to opts.sessionType,
+                // those runs got mislabeled `cold` in session captures.
+                sessionType: opts.sessionType ?? (opts.continueForked ? 'warm_fork' : 'cold'),
                 remoteRetry: isRemoteRetry,
                 numTurns: result.numTurns,
             });
@@ -344,7 +400,7 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
             '-p', opts.prompt,
             '--output-format', 'stream-json',
             '--verbose',
-            '--model', opts.claudeModel ?? 'sonnet',
+            '--model', opts.claudeModel ?? opts.model ?? 'sonnet',
             '--dangerously-skip-permissions',
             '--max-turns', String(opts.maxTurns),
             // Trimmed CLI baseline (vs. the 31-tool default). Bash for our
@@ -374,9 +430,11 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
         let resultText = '';
         let costUsd = 0;
         let numTurns: number | undefined;
+        let sessionId: string | undefined;
         let stderr = '';
 
         streamJSONL(proc.stdout, (event: any) => {
+            if (typeof event.session_id === 'string' && !sessionId) sessionId = event.session_id;
             if (event.type === 'assistant') {
                 const content = event.message?.content;
                 if (!Array.isArray(content)) return;
@@ -398,7 +456,7 @@ function spawnClaude(opts: SpawnOptions, capture: CaptureHandle | null): Promise
 
         proc.on('close', (code) => {
             if (code === 0 || code === null) {
-                resolve({ text: resultText || 'Changes applied.', costUsd, numTurns });
+                resolve({ text: resultText || 'Changes applied.', costUsd, numTurns, sessionId });
             } else {
                 console.error(`[CLIRunner] claude exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
                 reject(new Error(`Fixer CLI exited with code ${code}`));
@@ -433,16 +491,33 @@ function spawnCodex(opts: SpawnOptions, capture: CaptureHandle | null): Promise<
         // Pin model to gpt-5.4 and reasoning effort to medium so a user's
         // global config.toml (often high effort) doesn't make every fix take
         // 10+ minutes of hidden thinking time.
-        const args = [
-            'exec',
-            '--json',
-            '--skip-git-repo-check',
-            '--dangerously-bypass-approvals-and-sandbox',
-            '-c', 'model="gpt-5.4"',
-            '-c', 'model_reasoning_effort="medium"',
-            '-C', opts.sandboxDir,
-            opts.prompt,
-        ];
+        const codexModel = opts.model ?? 'gpt-5.4';
+        // exec resume <id> appends to the same JSONL session (no fork
+        // primitive). Per-project locking in cli_fixer prevents concurrent
+        // appends. Note: `codex exec resume` does NOT accept `-C`/--cd —
+        // the cwd flows in via the spawn() `cwd:` option below, which
+        // codex correctly honors over the resumed session's original cwd
+        // (verified empirically — see tools/cli_probe_findings.md §G).
+        const args = opts.resumeSessionId
+            ? [
+                'exec', 'resume', opts.resumeSessionId,
+                '--json',
+                '--skip-git-repo-check',
+                '--dangerously-bypass-approvals-and-sandbox',
+                '-c', `model="${codexModel}"`,
+                '-c', 'model_reasoning_effort="medium"',
+                opts.prompt,
+              ]
+            : [
+                'exec',
+                '--json',
+                '--skip-git-repo-check',
+                '--dangerously-bypass-approvals-and-sandbox',
+                '-c', `model="${codexModel}"`,
+                '-c', 'model_reasoning_effort="medium"',
+                '-C', opts.sandboxDir,
+                opts.prompt,
+              ];
 
         const { command, args: spawnArgs } = wrapSpawn('codex', 'codex', args, opts.sandboxDir);
         const proc = spawn(command, spawnArgs, {
@@ -455,9 +530,14 @@ function spawnCodex(opts: SpawnOptions, capture: CaptureHandle | null): Promise<
         wireAbort(proc, opts.abortSignal, reject);
 
         let lastMessage = '';
+        let sessionId: string | undefined;
         let stderr = '';
 
         streamJSONL(proc.stdout, (event: any) => {
+            // thread.started carries the session UUID we'll need for resume.
+            if (event.type === 'thread.started' && typeof event.thread_id === 'string') {
+                sessionId = event.thread_id;
+            }
             // Codex emits item.started / item.completed with a handful of item
             // kinds we care about:
             //   - command_execution: a shell command (cat, sed, bash ...)
@@ -512,7 +592,7 @@ function spawnCodex(opts: SpawnOptions, capture: CaptureHandle | null): Promise<
 
         proc.on('close', (code) => {
             if (code === 0 || code === null) {
-                resolve({ text: lastMessage || 'Changes applied.', costUsd: 0 });
+                resolve({ text: lastMessage || 'Changes applied.', costUsd: 0, sessionId });
             } else {
                 console.error(`[CLIRunner] codex exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
                 reject(new Error(`Fixer CLI exited with code ${code}`));
@@ -573,8 +653,26 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
             'run',
             '--format', 'json',
             '--dir', opts.sandboxDir,
-            opts.prompt,
+            // Mirror claude/codex/copilot — bypass opencode's permission
+            // prompts so non-interactive runs don't auto-reject. Critical
+            // for warm-fork: the resumed session's context references files
+            // at the warm sandbox dir (/tmp/parallaxpro-warm-opencode/...)
+            // which is outside the new --dir; without this flag opencode
+            // auto-rejects those reads as `external_directory` and the
+            // agent silently dies after one tool call.
+            '--dangerously-skip-permissions',
         ];
+        // Only pin a model if the caller explicitly asked. opencode's
+        // built-in default is usually a fast hosted model (groq kimi-k2,
+        // etc.) and pinning to anthropic/* removes the speed advantage.
+        if (opts.model) args.push('--model', opts.model);
+        // --fork creates a fresh sessionID derived from the prior session,
+        // so the recorded sessionId stays usable for the original cold run
+        // and concurrent resumed runs each get their own fork.
+        if (opts.resumeSessionId) {
+            args.push('--session', opts.resumeSessionId, '--fork');
+        }
+        args.push(opts.prompt);
 
         const { command, args: spawnArgs } = wrapSpawn('opencode', 'opencode', args, opts.sandboxDir);
         const proc = spawn(command, spawnArgs, {
@@ -588,6 +686,7 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
 
         let lastText = '';
         let costUsd = 0;
+        let sessionId: string | undefined;
         let stderr = '';
         let sawError: string | null = null;
 
@@ -635,7 +734,10 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
             // general case, but explicit keys are a touch more reliable.
             const id = event.sessionID || event.sessionId || event.session_id
                 || event.part?.sessionID || event.part?.sessionId;
-            if (typeof id === 'string') capture?.noteOpencodeSessionID(id);
+            if (typeof id === 'string') {
+                capture?.noteOpencodeSessionID(id);
+                if (!sessionId) sessionId = id;
+            }
         }, capture);
 
         proc.stderr.on('data', (c: Buffer) => { stderr += c.toString(); capture?.tapStderr(c); });
@@ -645,11 +747,11 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
                 // opencode sometimes emits an error event mid-run but still
                 // exits 0 with a partial fix; prefer the last text when present.
                 if (lastText) {
-                    resolve({ text: lastText, costUsd });
+                    resolve({ text: lastText, costUsd, sessionId });
                 } else if (sawError) {
                     reject(new Error(`opencode reported an error: ${sawError}`));
                 } else {
-                    resolve({ text: 'Changes applied.', costUsd });
+                    resolve({ text: 'Changes applied.', costUsd, sessionId });
                 }
             } else {
                 console.error(`[CLIRunner] opencode exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
@@ -696,6 +798,13 @@ function spawnCopilot(opts: SpawnOptions, capture: CaptureHandle | null): Promis
             '--log-level', 'none',
             '--add-dir', opts.sandboxDir,
         ];
+        // Default copilot is `claude-sonnet-4.5`; only override if asked.
+        if (opts.model) { args.push('--model', opts.model); }
+        // Copilot --resume APPENDS to the existing session-state dir (no
+        // fork primitive). Safe under per-project locking from cli_fixer.
+        // Resume correctly honors the new cwd over the recorded one
+        // (verified empirically — see tools/cli_probe_findings.md §G).
+        if (opts.resumeSessionId) { args.push('--resume', opts.resumeSessionId); }
 
         const { command, args: spawnArgs } = wrapSpawn('copilot', 'copilot', args, opts.sandboxDir);
         const proc = spawn(command, spawnArgs, {
@@ -708,9 +817,13 @@ function spawnCopilot(opts: SpawnOptions, capture: CaptureHandle | null): Promis
         wireAbort(proc, opts.abortSignal, reject);
 
         let lastFinalText = '';
+        let sessionId: string | undefined;
         let stderr = '';
 
         streamJSONL(proc.stdout, (event: any) => {
+            // Copilot stamps a top-level `sessionId` UUID on every event —
+            // capture it for per-(cli, projectId) resume tracking.
+            if (typeof event.sessionId === 'string' && !sessionId) sessionId = event.sessionId;
             // tool.execution_start fires once per tool call with { toolName,
             // arguments }. We map the tool name to an activity for status.
             if (event.type === 'tool.execution_start') {
@@ -753,7 +866,7 @@ function spawnCopilot(opts: SpawnOptions, capture: CaptureHandle | null): Promis
             if (code === 0 || code === null) {
                 // Copilot doesn't report a dollar cost (only premiumRequests
                 // in the final `result` event), so costUsd stays 0.
-                resolve({ text: lastFinalText || 'Changes applied.', costUsd: 0 });
+                resolve({ text: lastFinalText || 'Changes applied.', costUsd: 0, sessionId });
             } else {
                 console.error(`[CLIRunner] copilot exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
                 reject(new Error(`Fixer CLI exited with code ${code}`));

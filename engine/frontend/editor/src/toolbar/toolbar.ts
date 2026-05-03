@@ -1145,6 +1145,14 @@ export class Toolbar {
                 if (a.id === currentAgent) opt.selected = true;
                 agentSelect.appendChild(opt);
             }
+            // Apply on change so the AI panel's live "Editing Agent: ..."
+            // badge updates immediately. The Save button still commits;
+            // Cancel / X / backdrop restore the original value via the
+            // onClose handler below (see editingAgentOriginal capture).
+            agentSelect.addEventListener('change', () => {
+                localStorage.setItem('editing_agent', agentSelect!.value);
+                window.dispatchEvent(new CustomEvent('parallaxpro:editing-agent-changed', { detail: { value: agentSelect!.value } }));
+            });
             const agentHint = document.createElement('span');
             agentHint.style.cssText = 'font-size:11px;color:var(--text-disabled);';
             agentHint.textContent = t('settings.editingAgentHint');
@@ -1210,17 +1218,40 @@ export class Toolbar {
             body.appendChild(cloudRow);
         }
 
+        // Snapshot the editing agent BEFORE opening so Cancel / X / backdrop
+        // can revert the apply-on-change writes. null = key wasn't present
+        // (we'll remove it again on revert rather than writing 'null').
+        const editingAgentOriginal = localStorage.getItem('editing_agent');
+        let editingAgentSaved = false;
+
         const { close } = showModal({
             title: t('toolbar.settings'),
             body,
             width: '400px',
             closeOnBackdrop: false,
+            onClose: () => {
+                // Dismissed without saving (Cancel button, X, or backdrop)
+                // — undo the live-preview write so the user's prior choice
+                // is preserved. Re-fire the change event so the live badge
+                // in the AI panel snaps back too.
+                if (editingAgentSaved) return;
+                if (!agentSelect) return;
+                const current = localStorage.getItem('editing_agent');
+                if (current === editingAgentOriginal) return;
+                if (editingAgentOriginal === null) {
+                    localStorage.removeItem('editing_agent');
+                } else {
+                    localStorage.setItem('editing_agent', editingAgentOriginal);
+                }
+                window.dispatchEvent(new CustomEvent('parallaxpro:editing-agent-changed', { detail: { value: editingAgentOriginal } }));
+            },
             buttons: [
                 { label: t('settings.cancel'), action: () => close() },
                 {
                     label: t('settings.save'),
                     primary: true,
                     action: () => {
+                        editingAgentSaved = true;
                         if (agentSelect) localStorage.setItem('editing_agent', agentSelect.value);
                         if (chatSelect) localStorage.setItem('chat_agent', chatSelect.value);
                         const selectedQuality = gfxSelect.value as 'low' | 'medium' | 'high';
