@@ -1231,6 +1231,7 @@ git checkout da571fe   # last commit before template unification`;
                         window.open(`${origin}/games/${project.publishedOwner}/${project.publishedSlug}`, '_blank');
                     },
                 });
+                items.push({ label: t('projectList.updatePublish'), action: () => this.publishProject(project) });
                 items.push({ label: t('projectList.unpublish'), action: () => this.unpublishProject(project) });
             } else {
                 items.push({ label: t('toolbar.publish'), action: () => this.publishProject(project) });
