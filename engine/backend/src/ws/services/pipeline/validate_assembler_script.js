@@ -2087,4 +2087,65 @@ function extractMethodBody(src, name) {
 })();
 
 
+// ═════════════════════════════════════════════════════════════════════
+// 18. MP lobby flow wiring — mp_bridge active + lobby gate transition
+// ═════════════════════════════════════════════════════════════════════
+// A multiplayer game must (a) keep mp_bridge in some state's
+// active_systems so MP events fire, and (b) gate gameplay entry on
+// mp_event:phase_in_game so a lobby state actually exists. Bug we hit:
+// learning-quest-heroes had multiplayer.enabled=true and the lobby UI
+// HTML files, but the FSM jumped main_menu → gameplay on a plain
+// ui_event, so the lobby browser/room screens were never reached and
+// no remote players ever joined. Every shipping MP template (14 of
+// them) follows this pattern; if mpEnabled and either piece is
+// missing, the FSM is broken even though show_ui:hud/voice_chat etc.
+// look right (caught by section 17).
+(function() {
+    if (!mpEnabled || !flow || !flow.states) return;
+
+    var hasMpBridge = false;
+    var hasPhaseInGame = false;
+
+    function walk(states) {
+        var names = Object.keys(states);
+        for (var ni = 0; ni < names.length; ni++) {
+            var st = states[names[ni]];
+            var as = st.active_systems || [];
+            for (var i = 0; i < as.length; i++) {
+                if (String(as[i]) === 'mp_bridge') hasMpBridge = true;
+            }
+            var ts = st.transitions || [];
+            for (var ti = 0; ti < ts.length; ti++) {
+                var w = String(ts[ti].when || '');
+                if (w.indexOf('mp_event:phase_in_game') === 0) hasPhaseInGame = true;
+            }
+            if (st.substates) walk(st.substates);
+        }
+    }
+    walk(flow.states);
+
+    if (!hasMpBridge) {
+        console.error(
+            'MP flow wiring: multiplayer.enabled=true but no state lists "mp_bridge" ' +
+            'in active_systems. Without mp_bridge running, no mp_event:* fires and the ' +
+            'lobby UI never advances. Add "active_systems": ["mp_bridge", ...] to your ' +
+            'main_menu, lobby_browser, lobby_room, and gameplay states (see template ' +
+            'multiplayer_coin_grab/01_flow.json).'
+        );
+        process.exit(1);
+    }
+    if (!hasPhaseInGame) {
+        console.error(
+            'MP flow wiring: multiplayer.enabled=true but no transition uses ' +
+            '"when": "mp_event:phase_in_game". The FSM is jumping straight into ' +
+            'gameplay on a ui_event, skipping the host/join lobby. Insert ' +
+            'lobby_browser and lobby_room states between main_menu and gameplay, ' +
+            'and gate gameplay entry on mp_event:phase_in_game from lobby_room ' +
+            '(see template multiplayer_coin_grab/01_flow.json).'
+        );
+        process.exit(1);
+    }
+})();
+
+
 console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
