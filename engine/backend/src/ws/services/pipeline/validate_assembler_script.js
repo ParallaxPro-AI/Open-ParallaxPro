@@ -2032,4 +2032,59 @@ function extractMethodBody(src, name) {
 })();
 
 
+// ═════════════════════════════════════════════════════════════════════
+// 17. MP UI panel consistency — voice_chat, text_chat, ping
+// ═════════════════════════════════════════════════════════════════════
+// These three engine-owned panels are multiplayer infrastructure.
+// Multiplayer games must show all three; single-player games must not
+// show any of them.
+(function() {
+    if (!flow || !flow.states) return;
+
+    var MP_PANELS = ['hud/voice_chat', 'hud/text_chat', 'hud/ping'];
+    var found = {};
+    for (var i = 0; i < MP_PANELS.length; i++) found[MP_PANELS[i]] = false;
+
+    // Walk all actions in all states looking for show_ui: references
+    function walkActions(states) {
+        var names = Object.keys(states);
+        for (var ni = 0; ni < names.length; ni++) {
+            var st = states[names[ni]];
+            var actions = [].concat(st.on_enter || [], st.on_exit || [], st.on_update || []);
+            for (var ai = 0; ai < actions.length; ai++) {
+                var a = String(actions[ai]);
+                if (a.indexOf('show_ui:') === 0) {
+                    var panel = a.slice(8);
+                    if (found.hasOwnProperty(panel)) found[panel] = true;
+                }
+            }
+            if (st.substates) walkActions(st.substates);
+        }
+    }
+    walkActions(flow.states);
+
+    var present = MP_PANELS.filter(function(p) { return found[p]; });
+    var missing = MP_PANELS.filter(function(p) { return !found[p]; });
+
+    if (mpEnabled && missing.length > 0) {
+        console.error(
+            'MP UI panel mismatch: game is multiplayer but missing show_ui for: ' +
+            missing.map(function(p) { return '"' + p + '"'; }).join(', ') + '. ' +
+            'Multiplayer games must show all three (voice_chat, text_chat, ping). ' +
+            'Add show_ui:' + missing[0] + ' to your gameplay state\'s on_enter.'
+        );
+        process.exit(1);
+    }
+    if (!mpEnabled && present.length > 0) {
+        console.error(
+            'MP UI panel mismatch: game is single-player but shows MP-only panels: ' +
+            present.map(function(p) { return '"' + p + '"'; }).join(', ') + '. ' +
+            'Either make the game multiplayer (add "multiplayer": { "enabled": true, ... } ' +
+            'to 01_flow.json) or remove the show_ui:' + present[0] + ' actions from the flow.'
+        );
+        process.exit(1);
+    }
+})();
+
+
 console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
