@@ -29,6 +29,17 @@ if (!process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
     process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = '100000';
 }
 
+// Cap Sonnet's per-turn extended-thinking budget. Without this, a hard
+// fix prompt can send the model into back-to-back 32K-token thinking
+// turns that produce zero tool_use and silently eat the wall timeout
+// (observed on a Kards redesign fix — two consecutive max_tokens turns
+// of pure thinking before the 20-min worker timeout fired). 8K is
+// enough headroom for normal reasoning while bounding worst-case
+// stuck-thinking turns to ~90s instead of ~7 min.
+if (!process.env.MAX_THINKING_TOKENS) {
+    process.env.MAX_THINKING_TOKENS = '8000';
+}
+
 // ─── Concurrency gate ───────────────────────────────────────────────────────
 //
 // Per-CLI in-flight caps, shared across `runFixer` and `runCreator`. Callers
