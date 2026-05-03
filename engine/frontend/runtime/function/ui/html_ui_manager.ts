@@ -133,6 +133,21 @@ export class HTMLUIManager {
      *  cached between frames). On a churning ref we fall through to the
      *  JSON.stringify hash and behavior is identical to before. */
     private lastLobbiesRef: any = null;
+    /** Per-non-HUD-modal-panel hash of the last gameState payload we
+     *  postMessaged into that iframe. Skipping the postMessage when the
+     *  payload is byte-identical prevents iframes that rebuild their DOM
+     *  on every gameState push (innerHTML='' + appendChild loop) from
+     *  churning at 60Hz. The lobby_browser case was patched specifically
+     *  via lastLobbiesHash; this map generalizes the same dedupe to any
+     *  modal panel so AI-generated dialogue / shop / quest / settings
+     *  panels don't have to know about the iOS WebKit click-suppression
+     *  quirk (Safari + WKWebView both suppress the synthesized click
+     *  after touchend when DOM mutates between the two events). HUDs are
+     *  intentionally excluded — they often render frame-locked values
+     *  (timers, bars, scores) and don't have buttons that get tapped
+     *  mid-frame. Cleared in unloadUI/destroyAll so a re-attached panel
+     *  receives the current state on its first frame. */
+    private lastPostStateHashByPath: Map<string, string> = new Map();
     /** Panels that opted into the cross-platform layout via
      *  `<meta name="pp-responsive">` in their HTML. These panels:
      *    - skip the 1920px design-width down-scale (they author for the
@@ -880,6 +895,19 @@ ${wrapperScript}
                 }
             }
         }
+        // Serialize the post-payload once per frame for the per-panel
+        // dedupe below. Same payload goes to every iframe in this tick,
+        // so one stringify is enough; per-iframe we just compare the
+        // string against the last one we sent that panel.
+        // try/catch: today's state is JSON-safe (ui_bridge only puts
+        // primitives/plain objects/arrays on it), but a future game
+        // script could attach a circular ref or DOM node. Stringify
+        // failure must NOT break UI updates — fall back to null so the
+        // dedupe is a no-op (every iframe gets the postMessage like
+        // before) and the frame's UI work proceeds normally.
+        let postStateJson: string | null = null;
+        try { postStateJson = JSON.stringify(postState); } catch { postStateJson = null; }
+
         if (this.isMobile) {
             // Mobile path: HUDs share ONE bundle iframe (memory savings);
             // non-HUD modal panels still get one-iframe-each but get
@@ -910,7 +938,20 @@ ${wrapperScript}
                     if (this.focusedIframe === existing) this.focusedIframe = null;
                     this.unloadUI(path);
                 } else if (existing) {
-                    try { existing.contentWindow?.postMessage({ type: 'gameState', state: postState }, '*'); } catch {}
+                    // Non-HUD modal: dedupe identical payloads to avoid
+                    // 60Hz DOM churn inside iframes that re-render on
+                    // every gameState push (see lastPostStateHashByPath).
+                    // postStateJson === null means stringify failed; in
+                    // that case fall back to unconditional post.
+                    let shouldPost = true;
+                    if (postStateJson !== null) {
+                        const last = this.lastPostStateHashByPath.get(path);
+                        if (last === postStateJson) shouldPost = false;
+                        else this.lastPostStateHashByPath.set(path, postStateJson);
+                    }
+                    if (shouldPost) {
+                        try { existing.contentWindow?.postMessage({ type: 'gameState', state: postState }, '*'); } catch {}
+                    }
                 }
             }
 
@@ -921,11 +962,24 @@ ${wrapperScript}
             }
         } else {
         for (const [path, iframe] of this.overlays.entries()) {
-            try {
-                iframe.contentWindow?.postMessage({ type: 'gameState', state: postState }, '*');
-            } catch { /* iframe may be unloaded */ }
-
             const { flag, isHud } = this.flagFor(path);
+
+            // HUDs always get the postMessage (frame-locked rendering of
+            // timers/bars/scores). Non-HUD modals are deduped against
+            // the last payload we sent them — see lastPostStateHashByPath.
+            // postStateJson === null means stringify failed; in that
+            // case fall back to unconditional post.
+            let shouldPost = true;
+            if (!isHud && postStateJson !== null) {
+                const last = this.lastPostStateHashByPath.get(path);
+                if (last === postStateJson) shouldPost = false;
+                else this.lastPostStateHashByPath.set(path, postStateJson);
+            }
+            if (shouldPost) {
+                try {
+                    iframe.contentWindow?.postMessage({ type: 'gameState', state: postState }, '*');
+                } catch { /* iframe may be unloaded */ }
+            }
 
             // HUD components (hud/*.html) — each shown only by its own flag
             if (isHud) {
@@ -1044,6 +1098,10 @@ ${wrapperScript}
             iframe.remove();
             this.overlays.delete(path);
         }
+        // Drop the dedupe entry so a re-attached iframe receives the
+        // current state on its first frame instead of having its
+        // initial postMessage skipped against a stale hash.
+        this.lastPostStateHashByPath.delete(path);
     }
 
     destroyAll(): void {
@@ -1063,6 +1121,7 @@ ${wrapperScript}
         this.hudBundleAttachedPaths.clear();
         this.hudBundlePendingMessages = [];
         this.responsivePaths.clear();
+        this.lastPostStateHashByPath.clear();
         if (this.resizeObserver) { this.resizeObserver.disconnect(); this.resizeObserver = null; }
         if (this.tabInterceptor) { document.removeEventListener('keydown', this.tabInterceptor, true); this.tabInterceptor = null; }
         const vc = document.getElementById('__virtual_cursor__');
