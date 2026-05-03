@@ -1915,4 +1915,121 @@ function extractMethodBody(src, name) {
 })();
 
 
+// ═════════════════════════════════════════════════════════════════════
+// 16. Stale guard flag — script owns modal lifecycle but ignores close
+// ═════════════════════════════════════════════════════════════════════
+// If a FSM substate has BOTH a ui_event:<panel>:close exit AND a
+// game_event:<Y> exit, and the script that emits the entry game_event
+// also emits <Y> (proving it owns the lifecycle), it MUST also listen
+// for ui_event:<panel>:close. Otherwise, closing the modal via the UI
+// button leaves the script's guard flag set and blocks re-interaction.
+(function() {
+    if (!flow || !flow.states) return;
+
+    // Collect substates with both close + game_event exits, plus what
+    // game_event enters them (from sibling transitions).
+    var candidates = []; // { state, closeEvent, gameExit, entryEvent }
+
+    function findEntryEvents(substates) {
+        // Map: stateName → list of game_events that transition INTO it
+        var entryMap = {};
+        var names = Object.keys(substates);
+        for (var ni = 0; ni < names.length; ni++) {
+            var sName = names[ni];
+            var transitions = substates[sName].transitions || [];
+            for (var ti = 0; ti < transitions.length; ti++) {
+                var when = transitions[ti].when || '';
+                var goto_ = transitions[ti]['goto'] || '';
+                if (when.indexOf('game_event:') === 0 && goto_) {
+                    if (!entryMap[goto_]) entryMap[goto_] = [];
+                    entryMap[goto_].push(when.replace('game_event:', ''));
+                }
+            }
+        }
+        return entryMap;
+    }
+
+    function walkForCandidates(states) {
+        var stateNames = Object.keys(states);
+        for (var si = 0; si < stateNames.length; si++) {
+            var st = states[stateNames[si]];
+            if (st.substates) {
+                var entryMap = findEntryEvents(st.substates);
+                var subNames = Object.keys(st.substates);
+                for (var ssi = 0; ssi < subNames.length; ssi++) {
+                    var sub = st.substates[subNames[ssi]];
+                    var transitions = sub.transitions || [];
+                    var closeExits = [];
+                    var gameExits = [];
+                    for (var ti = 0; ti < transitions.length; ti++) {
+                        var when = transitions[ti].when || '';
+                        if (when.indexOf('ui_event:') === 0 && when.indexOf(':close') > 0) {
+                            closeExits.push(when);
+                        } else if (when.indexOf('game_event:') === 0) {
+                            gameExits.push(when.replace('game_event:', ''));
+                        }
+                    }
+                    if (closeExits.length > 0 && gameExits.length > 0) {
+                        var entries = entryMap[subNames[ssi]] || [];
+                        for (var ei = 0; ei < entries.length; ei++) {
+                            for (var ci = 0; ci < closeExits.length; ci++) {
+                                candidates.push({
+                                    state: subNames[ssi],
+                                    closeEvent: closeExits[ci],
+                                    gameExits: gameExits,
+                                    entryEvent: entries[ei]
+                                });
+                            }
+                        }
+                    }
+                }
+                walkForCandidates(st.substates);
+            }
+        }
+    }
+    walkForCandidates(flow.states);
+
+    if (candidates.length === 0) return;
+
+    // For each candidate, find the script that emits the entry event AND
+    // one of the game exits. If it doesn't listen for the close event, error.
+    var errors = [];
+    var scriptEntries = Object.entries(allScripts);
+    for (var ci = 0; ci < candidates.length; ci++) {
+        var cand = candidates[ci];
+        var entryRe = new RegExp('emit\\s*\\(\\s*["\']' + cand.entryEvent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '["\']');
+        var closeListenRe = new RegExp('on\\s*\\(\\s*["\']' + cand.closeEvent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '["\']');
+
+        for (var sei = 0; sei < scriptEntries.length; sei++) {
+            var scriptKey = scriptEntries[sei][0];
+            var source = scriptEntries[sei][1];
+            if (ENGINE_MACHINERY_RE.test(scriptKey)) continue;
+            if (!entryRe.test(source)) continue;
+            // Script emits the entry event. Does it also emit one of the game exits?
+            var ownsExit = false;
+            for (var ge = 0; ge < cand.gameExits.length; ge++) {
+                var exitRe = new RegExp('emit\\s*\\(\\s*["\']' + cand.gameExits[ge].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '["\']');
+                if (exitRe.test(source)) { ownsExit = true; break; }
+            }
+            if (!ownsExit) continue;
+            // Script owns both entry and exit. Does it listen for the close event?
+            if (!closeListenRe.test(source)) {
+                errors.push(
+                    scriptKey + ': emits "' + cand.entryEvent + '" (enters FSM state "' +
+                    cand.state + '") and emits the resolution event, but does not handle "' +
+                    cand.closeEvent + '". When the user closes the modal via the UI button, ' +
+                    'internal guard flags (like _activeQuestion) stay set and block future ' +
+                    'interactions. Add a listener: this.scene.events.ui.on("' +
+                    cand.closeEvent + '", function() { self._clear...; });'
+                );
+            }
+        }
+    }
+    if (errors.length > 0) {
+        console.error('Stale guard flag: ' + errors.length + ' error(s). ' + errors[0]);
+        process.exit(1);
+    }
+})();
+
+
 console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
