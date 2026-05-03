@@ -9,6 +9,9 @@ class ChaseCameraBehavior extends GameScript {
     _camX = 0;
     _camY = 6;
     _camZ = 12;
+    _lookX = 0;
+    _lookY = 2;
+    _lookZ = 0;
 
     onStart() {
         var player = this.scene.findEntityByName("Player Car");
@@ -17,6 +20,9 @@ class ChaseCameraBehavior extends GameScript {
             this._camX = pp.x;
             this._camY = pp.y + this._height;
             this._camZ = pp.z + this._distance;
+            this._lookX = pp.x;
+            this._lookY = pp.y + this._lookHeight;
+            this._lookZ = pp.z;
         }
     }
 
@@ -32,15 +38,25 @@ class ChaseCameraBehavior extends GameScript {
         var targetY = pp.y + this._height;
         var targetZ = pp.z + Math.cos(yaw) * this._distance;
 
-        // Exponential smooth interpolation
-        var t = 1 - Math.exp(-this._smoothSpeed * dt);
-        this._camX += (targetX - this._camX) * t;
-        this._camY += (targetY - this._camY) * t;
-        this._camZ += (targetZ - this._camZ) * t;
+        // Horizontal follows at configured speed; vertical uses a slower
+        // rate so physics micro-bounces don't transfer to camera shake.
+        var tXZ = 1 - Math.exp(-this._smoothSpeed * dt);
+        var tY = 1 - Math.exp(-this._smoothSpeed * 0.3 * dt);
+        this._camX += (targetX - this._camX) * tXZ;
+        this._camY += (targetY - this._camY) * tY;
+        this._camZ += (targetZ - this._camZ) * tXZ;
 
         this.scene.setPosition(this.entity.id, this._camX, this._camY, this._camZ);
 
-        // Look at a point above the car
-        this.entity.transform.lookAt(pp.x, pp.y + this._lookHeight, pp.z);
+        // Smooth look target to prevent rotational jitter
+        var lookTargetX = pp.x;
+        var lookTargetY = pp.y + this._lookHeight;
+        var lookTargetZ = pp.z;
+        var tLook = 1 - Math.exp(-this._smoothSpeed * 0.6 * dt);
+        this._lookX += (lookTargetX - this._lookX) * tLook;
+        this._lookY += (lookTargetY - this._lookY) * tLook;
+        this._lookZ += (lookTargetZ - this._lookZ) * tLook;
+
+        this.entity.transform.lookAt(this._lookX, this._lookY, this._lookZ);
     }
 }
