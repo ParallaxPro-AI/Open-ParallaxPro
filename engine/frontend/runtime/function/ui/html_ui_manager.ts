@@ -429,12 +429,22 @@ function __ppAddPanel(path, html, responsive){
     });
     s.innerHTML = html;
     document.body.appendChild(s);
+    // Wrap each panel's classic script in an IIFE before reactivating.
+    // All HUD panels in the bundle share ONE window, so top-level
+    // function/var declarations become window properties and clobber
+    // each other across panels — only the last-attached panel's
+    // update() survives, so the others' message listeners end up
+    // calling the wrong update and their content stays empty. Modules
+    // have their own scope; leave them alone.
     var scripts = s.querySelectorAll('script');
     for (var i = 0; i < scripts.length; i++) {
         var orig = scripts[i];
         var copy = document.createElement('script');
         for (var j = 0; j < orig.attributes.length; j++) copy.setAttribute(orig.attributes[j].name, orig.attributes[j].value);
-        copy.text = orig.text;
+        var t = copy.type;
+        var isClassic = !t || t === 'text/javascript' || t === 'application/javascript';
+        // Trailing \\n guards against scripts ending in a // comment.
+        copy.text = isClassic ? '(function(){' + orig.text + '\\n})();' : orig.text;
         orig.parentNode.replaceChild(copy, orig);
     }
     s.querySelectorAll('button,input,select,a,[onclick],[data-interactive]').forEach(function(el){ el.style.pointerEvents='auto'; });
