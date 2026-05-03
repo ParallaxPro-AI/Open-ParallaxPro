@@ -548,6 +548,27 @@ speed, etc.) — don't edit the script body. If your game has a novel camera nee
 that doesn't match any of the above (rail camera, fixed-angle, etc.), you may
 write your own — but for standard orbit + camera-relative movement, ALWAYS pin.
 
+### Camera smoothSpeed tuning — MUST follow
+
+The `smoothSpeed` param on chase/third-person cameras controls how quickly the
+camera converges on its target position via exponential interpolation
+(`t = 1 - exp(-smoothSpeed * dt)`). **Keep it between 3 and 8.** Values above
+10 make the camera nearly rigid to the target — any physics micro-bounce on the
+followed entity (dynamic rigidbody settling on ground) passes through as visible
+jitter/shake. The player experiences this as an uncomfortably jerky camera.
+
+| smoothSpeed | Feel | Use case |
+| --- | --- | --- |
+| 3–4 | Cinematic, floaty lag | Slow-paced exploration, puzzle |
+| 5–6 | Balanced, natural follow | Racing, action, RPG (default) |
+| 7–8 | Tight, responsive | Fast twitchy games, small arenas |
+| >10 | **BAD — jittery** | Never use. Passes physics noise straight through. |
+
+**Never set smoothSpeed above 8.** If the camera feels "laggy" at 6, the fix is
+NOT to crank smoothSpeed — it's to reduce the camera distance or adjust height
+so the player doesn't notice the slight lag. High smoothSpeed is the #1 cause
+of "camera feels shakey" bugs in shipped games.
+
 ## Script Rules — CRITICAL
 
 1. Use `var` instead of `let`/`const`
