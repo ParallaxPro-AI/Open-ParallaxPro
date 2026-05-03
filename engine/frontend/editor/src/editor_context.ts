@@ -1142,6 +1142,19 @@ export class EditorContext extends EventBus {
             mr.gpuNormalMapTexture = this.gpuNormalMapCache.get(url) ?? null;
             mr.gpuSubMeshes = this.gpuSubMeshesCache.get(url) ?? null;
 
+            const cachedParsed = this.parsedMeshCache.get(url);
+
+            // Assign meshData FIRST so autoFitCollider's MESH branch can read positions/indices to build collisionPositions; otherwise the trimesh stays null and physics falls back to an AABB cuboid.
+            if (cachedParsed) {
+                const scene = this.getActiveScene();
+                if (scene) {
+                    for (const e of scene.entities.values()) {
+                        const comp = e.getComponent('MeshRendererComponent') as any;
+                        if (comp && comp.meshAsset === url) comp.meshData = cachedParsed;
+                    }
+                }
+            }
+
             if (cached.boundMin && cached.boundMax) {
                 const scene = this.getActiveScene();
                 if (scene) {
@@ -1152,26 +1165,12 @@ export class EditorContext extends EventBus {
                 }
             }
 
-            const cachedParsed = this.parsedMeshCache.get(url);
             if (cachedParsed?.hasSkin && cachedParsed?.skeleton && cachedParsed?.animationClips?.length) {
                 const scene = this.getActiveScene();
                 if (scene) {
                     for (const e of scene.entities.values()) {
                         const comp = e.getComponent('MeshRendererComponent') as any;
                         if (comp && comp.meshAsset === url) this.setupAnimatorFromGLB(e, cachedParsed, this.engine!.globalContext.renderSystem);
-                    }
-                }
-            }
-            // Surface the facing-registry transform (only set on skinned meshes by
-            // the loader) so scene.ts can compose it into the per-entity mesh
-            // transform at render time. Static meshes have it baked into vertices
-            // already, so meshData stays null for them and there's nothing to do.
-            if (cachedParsed) {
-                const scene = this.getActiveScene();
-                if (scene) {
-                    for (const e of scene.entities.values()) {
-                        const comp = e.getComponent('MeshRendererComponent') as any;
-                        if (comp && comp.meshAsset === url) comp.meshData = cachedParsed;
                     }
                 }
             }
@@ -1208,7 +1207,8 @@ export class EditorContext extends EventBus {
             }
 
             this.gpuMeshCache.set(url, gpuHandle);
-            if (meshData.hasSkin) this.parsedMeshCache.set(url, meshData);
+            // Cache for static too: cache-path entities need meshData.positions/indices for autoFitCollider's MESH branch to build the trimesh; otherwise physics falls back to an AABB cuboid that overshoots non-cuboid GLBs.
+            this.parsedMeshCache.set(url, meshData);
 
             this.loadLODSidecars(url, renderSystem);
 

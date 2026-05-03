@@ -325,7 +325,10 @@ export class PhysicsSystem {
         const mrForCenter = entity.getComponent('MeshRendererComponent') as any;
         const gmForCenter = mrForCenter?.gpuMesh;
         let centerLocal: { x: number; y: number; z: number };
-        if (gmForCenter?.boundMin && gmForCenter?.boundMax) {
+        if (collider?.shapeType === ShapeType.MESH) {
+            // Trimesh vertices are absolute mesh-local positions (bottom-centered by glb_loader); the AABB-midpoint shift would float the trimesh up by half the mesh height — player drives through the bottom half of every building.
+            centerLocal = { x: 0, y: 0, z: 0 };
+        } else if (gmForCenter?.boundMin && gmForCenter?.boundMax) {
             centerLocal = {
                 x: (gmForCenter.boundMin.x + gmForCenter.boundMax.x) * 0.5,
                 y: (gmForCenter.boundMin.y + gmForCenter.boundMax.y) * 0.5,
