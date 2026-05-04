@@ -182,7 +182,7 @@ export async function runFixer(
         const cliResult = await spawnCLI(sandboxDir, sendStatus, localSignal, cliOverride, { jobId, projectId }, forceHost);
 
         try { registerFixSession(projectId, sandboxDir); } catch {}
-        try { recordFixSession(resolveCLI(cliOverride), projectId, cliResult.sessionId); } catch {}
+        try { recordFixSession(resolveCLI(cliOverride), projectId, cliResult.sessionId, forceHost); } catch {}
 
         // Context-window guard for opencode: if the cumulative session has
         // grown past 70% of deepseek-v4-pro's 1M window, drop the recorded
@@ -354,12 +354,15 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
     }
 
     // Codex / opencode / copilot resume: if we recorded a session ID from a
-    // prior fix on the same project, reuse it. Mirrors the claude path above
-    // but uses each CLI's native resume flag (set inside spawnCLIAgent based
-    // on resumeSessionId). Cold start on failure — forgetFixSession so next
-    // attempt isn't stuck retrying a dead ID.
+    // prior fix on the same project AND that session lives on the host the
+    // matrix just picked, reuse it. Cross-host resumes used to fail with a
+    // 4s "Session not found" round-trip and a wasteful retry — passing
+    // `forceHost` to getRecordedFixSession scopes the lookup to the right
+    // host so we cleanly fall through to warm-fork instead. Cold start on
+    // run failure — forgetFixSession so next attempt isn't stuck retrying
+    // a dead ID.
     if ((cli === 'codex' || cli === 'opencode' || cli === 'copilot') && projectId) {
-        const prevSessionId = getRecordedFixSession(cli, projectId);
+        const prevSessionId = getRecordedFixSession(cli, projectId, forceHost);
         if (prevSessionId) {
             try {
                 sendStatus?.('Resuming from previous fix session...');

@@ -26,6 +26,12 @@ import type { CLIName } from './cli_runner.js';
 interface ProjectSession {
     cli: CLIName;
     sessionId: string;
+    /** Host that owns the session. opencode/codex/copilot store sessions in
+     *  per-host SQLite/JSONL files — a session ID emitted on host A is
+     *  meaningless on host B. We record this so the resume lookup can
+     *  refuse cross-host resumes (which would 4s-fail with "Session not
+     *  found" then retry locally). 'local' or a worker name. */
+    host: string;
     recordedAt: number;
 }
 
@@ -38,16 +44,25 @@ const key = (cli: CLIName, projectId: string): string => `${cli}:${projectId}`;
  * this. Pass `null`/`undefined` sessionId to silently no-op (e.g. when the
  * runner couldn't extract one).
  */
-export function recordFixSession(cli: CLIName, projectId: string, sessionId: string | null | undefined): void {
+export function recordFixSession(cli: CLIName, projectId: string, sessionId: string | null | undefined, host?: string): void {
     if (!sessionId || !projectId) return;
     if (cli === 'claude') return;  // see file header — claude uses its own JSONL-copy path
-    sessions.set(key(cli, projectId), { cli, sessionId, recordedAt: Date.now() });
+    sessions.set(key(cli, projectId), { cli, sessionId, host: host ?? 'local', recordedAt: Date.now() });
 }
 
-/** Look up the previously recorded session ID for (cli, projectId), if any. */
-export function getRecordedFixSession(cli: CLIName, projectId: string): string | null {
+/** Look up the previously recorded session ID for (cli, projectId, host).
+ *  When `host` is provided, returns null if the recorded session lives on a
+ *  different host — opencode/codex/copilot sessions are per-host SQLite/
+ *  JSONL state and resuming cross-host triggers a 4s "Session not found"
+ *  failure then a wasteful retry. Callers that don't pass a host get the
+ *  legacy "any-host" lookup (preserves behavior for self-hosters with no
+ *  routing matrix). */
+export function getRecordedFixSession(cli: CLIName, projectId: string, host?: string): string | null {
     if (cli === 'claude') return null;
-    return sessions.get(key(cli, projectId))?.sessionId ?? null;
+    const rec = sessions.get(key(cli, projectId));
+    if (!rec) return null;
+    if (host !== undefined && rec.host !== host) return null;
+    return rec.sessionId;
 }
 
 /** Drop a recorded session — call when a resume attempt fails so the next
@@ -57,12 +72,12 @@ export function forgetFixSession(cli: CLIName, projectId: string): void {
 }
 
 /** Snapshot for admin/debug. */
-export function listRecordedSessions(): Array<{ cli: CLIName; projectId: string; sessionId: string; ageMs: number }> {
+export function listRecordedSessions(): Array<{ cli: CLIName; projectId: string; sessionId: string; host: string; ageMs: number }> {
     const now = Date.now();
-    const out: Array<{ cli: CLIName; projectId: string; sessionId: string; ageMs: number }> = [];
+    const out: Array<{ cli: CLIName; projectId: string; sessionId: string; host: string; ageMs: number }> = [];
     for (const [k, v] of sessions.entries()) {
         const projectId = k.slice(v.cli.length + 1);
-        out.push({ cli: v.cli, projectId, sessionId: v.sessionId, ageMs: now - v.recordedAt });
+        out.push({ cli: v.cli, projectId, sessionId: v.sessionId, host: v.host, ageMs: now - v.recordedAt });
     }
     return out;
 }
