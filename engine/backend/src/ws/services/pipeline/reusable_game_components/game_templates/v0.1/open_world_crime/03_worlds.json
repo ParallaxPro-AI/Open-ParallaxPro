@@ -21,20 +21,26 @@
         ]
       },
       "heightmapTerrain": {
-        "size": [200, 200],
+        "size": [600, 600],
         "elevation": {
-          "resolution": 128,
-          "noise": { "seed": 17, "octaves": 4, "frequency": 0.025, "amplitude": 4 },
+          "resolution": 256,
+          "noise": { "seed": 17, "octaves": 5, "frequency": 0.012, "amplitude": 9 },
           "hills": [
-            { "shape": "circle", "center": [-85, -85], "radius": 18, "height": 10, "feather": 14 },
-            { "shape": "circle", "center": [ 85, -85], "radius": 16, "height":  8, "feather": 12 },
-            { "shape": "circle", "center": [-85,  85], "radius": 20, "height": 12, "feather": 16 },
-            { "shape": "circle", "center": [ 85,  85], "radius": 14, "height":  7, "feather": 10 }
+            { "shape": "circle", "center": [-260, -260], "radius": 60, "height": 55, "feather": 40 },
+            { "shape": "circle", "center": [ 260, -260], "radius": 50, "height": 45, "feather": 35 },
+            { "shape": "circle", "center": [-260,  260], "radius": 70, "height": 60, "feather": 45 },
+            { "shape": "circle", "center": [ 260,  260], "radius": 45, "height": 35, "feather": 30 },
+            { "shape": "circle", "center": [   0, -240], "radius": 35, "height": 25, "feather": 25 },
+            { "shape": "circle", "center": [   0,  240], "radius": 35, "height": 28, "feather": 25 },
+            { "shape": "circle", "center": [-240,    0], "radius": 35, "height": 22, "feather": 25 },
+            { "shape": "circle", "center": [ 240,    0], "radius": 35, "height": 24, "feather": 25 },
+            { "shape": "circle", "center": [-150, -180], "radius": 25, "height": 12, "feather": 18 },
+            { "shape": "circle", "center": [ 170,  150], "radius": 22, "height": 10, "feather": 15 }
           ],
           "flat_zones": [
-            { "shape": "rect", "center": [0, 0], "size": [160, 160], "feather": 12 }
+            { "shape": "rect", "center": [0, 0], "size": [180, 180], "feather": 20 }
           ],
-          "max_height": 14
+          "max_height": 70
         },
         "layers": [
           {"name": "grass", "dir": "leafy_grass", "uvMetersPerTile": 5},

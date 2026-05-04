@@ -259,7 +259,13 @@ export class HeightmapTerrain {
         entity.addComponent('ColliderComponent', { shapeType: 'terrain' });
 
         const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
-        if (terrain) terrain.lodEnabled = true;
+        // LOD off for inline terrain. The LOD generator has a bug that
+        // surfaces at world sizes ≥ ~400m (the first LOD ring boundary):
+        // a mirrored copy of the terrain appears above the player, like
+        // an Inception fold. Inline terrains stay ≤1km in practice and
+        // the full-res mesh (256² = ~131k tris) is well within budget,
+        // so we drop LOD until the generator is fixed.
+        if (terrain) terrain.lodEnabled = false;
 
         this.heightData = heightData;
         this.res = res;
