@@ -433,6 +433,43 @@ Paths draw a smooth Catmull-Rom spline through the control points. The engine an
 - **Road width**: car road = 6–8 m, footpath = 2–3 m, highway = 12 m
 - **Biome patch radius**: 20–60 m for distinct regions, 8–15 m for small patches
 
+#### Elevation — making terrain go up and down
+
+By default the terrain is **dead flat** (Y = 0 everywhere). To get hills, valleys, mountains, or flat building zones, add an `elevation` block as a sibling of `layers` / `paints`. All three sub-fields are optional and stack additively in this order: noise → hills → flat_zones.
+
+```json
+"heightmapTerrain": {
+  "size": [400, 400],
+  "elevation": {
+    "noise":      { "seed": 7, "octaves": 4, "frequency": 0.015, "amplitude": 6 },
+    "hills": [
+      {"shape": "circle", "center": [120, -80], "radius": 40, "height": 25, "feather": 20},
+      {"shape": "rect",   "center": [-100, 60], "size": [80, 50], "height": -3, "feather": 10}
+    ],
+    "flat_zones": [
+      {"shape": "rect", "center": [0, 0], "size": [40, 40], "feather": 8}
+    ]
+  },
+  "layers": [...],
+  "default_layer": "grass",
+  "paints": [...]
+}
+```
+
+- **`noise`** — gentle background rolls. `amplitude` is the peak-to-peak height in meters. `frequency` ≈ 0.005 (broad rolling hills) to 0.05 (small bumps every few meters). `seed` is a small integer; same seed = same shape.
+- **`hills`** — explicit bumps or pits. Same `shape` / `center` / `radius` / `size` as paints. `height` in meters: positive = mountain, negative = pit. `feather` is the soft-edge falloff width in meters (default 8).
+- **`flat_zones`** — applied **last**, force a region back to a target height (default 0). Use this to keep player spawn / building footprints / sports courts on flat ground. `feather` controls the blend back to the underlying terrain.
+- **`max_height`** (optional) — symmetric clamp on the final height.
+- **`resolution`** (optional, default 128, max 512) — heightmap grid samples per side. Bump up to 256 only when you need crisp small features; 128 is plenty for most rolling terrain.
+
+Physics colliders read the same heightmap automatically — players walk and vehicles drive over the actual surface, no extra setup.
+
+When you don't want any elevation at all, omit the `elevation` block entirely (don't pass `amplitude: 0` etc.) — it's faster.
+
+#### Advanced: TerrainComponent direct authoring
+
+The `elevation` block above covers virtually every game. Only reach for `TerrainComponent` directly when you need a topology the procedural API can't express (e.g. a player-imported heightmap, a hand-tweaked staircase carved into the surface). Place an entity in `02_entities.json` with a `TerrainComponent` whose `heightData` is a flat `number[]` of length `resolution * resolution`. This is large (256 × 256 = 65 536 floats) and hand-authoring it in JSON is error-prone — prefer `elevation` unless you have a specific reason.
+
 #### Example: racing game terrain
 
 ```json

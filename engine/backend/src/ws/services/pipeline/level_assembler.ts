@@ -1318,6 +1318,47 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
         terrainErrors.push('heightmapTerrain path must have at least 2 points');
       }
     }
+    // Elevation: optional. Validate the same shape the runtime baker
+    // expects so stale/typo'd configs trip here instead of producing
+    // silently-flat ground at runtime.
+    if (ht.elevation) {
+      const ev = ht.elevation;
+      if (typeof ev !== 'object' || Array.isArray(ev)) {
+        terrainErrors.push('heightmapTerrain.elevation must be an object');
+      } else {
+        if (ev.resolution !== undefined && (typeof ev.resolution !== 'number' || ev.resolution < 32 || ev.resolution > 512)) {
+          terrainErrors.push('heightmapTerrain.elevation.resolution must be a number 32–512');
+        }
+        if (ev.max_height !== undefined && (typeof ev.max_height !== 'number' || ev.max_height <= 0)) {
+          terrainErrors.push('heightmapTerrain.elevation.max_height must be a positive number');
+        }
+        if (ev.noise) {
+          if (typeof ev.noise !== 'object') terrainErrors.push('heightmapTerrain.elevation.noise must be an object');
+          else if (typeof ev.noise.amplitude !== 'number' || ev.noise.amplitude < 0) {
+            terrainErrors.push('heightmapTerrain.elevation.noise.amplitude must be a non-negative number');
+          }
+        }
+        for (const hill of (ev.hills || [])) {
+          if (hill.shape !== 'circle' && hill.shape !== 'rect') {
+            terrainErrors.push(`heightmapTerrain.elevation.hills[].shape must be "circle" or "rect" (got "${hill.shape}")`);
+          }
+          if (typeof hill.height !== 'number') {
+            terrainErrors.push('heightmapTerrain.elevation.hills[].height must be a number (negative = depression)');
+          }
+          if (!Array.isArray(hill.center) || hill.center.length !== 2) {
+            terrainErrors.push('heightmapTerrain.elevation.hills[].center must be [x, z]');
+          }
+        }
+        for (const zone of (ev.flat_zones || [])) {
+          if (zone.shape !== 'circle' && zone.shape !== 'rect') {
+            terrainErrors.push(`heightmapTerrain.elevation.flat_zones[].shape must be "circle" or "rect" (got "${zone.shape}")`);
+          }
+          if (!Array.isArray(zone.center) || zone.center.length !== 2) {
+            terrainErrors.push('heightmapTerrain.elevation.flat_zones[].center must be [x, z]');
+          }
+        }
+      }
+    }
     if (terrainErrors.length > 0) {
       console.error(`[Assembler] Inline terrain validation errors:\n  ${terrainErrors.join('\n  ')}`);
       throw new Error(`Inline terrain validation failed: ${terrainErrors.length} error(s). ${terrainErrors[0]}`);

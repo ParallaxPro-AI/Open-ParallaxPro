@@ -21,6 +21,7 @@ interface HeightmapTerrainSceneCfg {
     paints?: InlineTerrainSpec['paints'];
     paths?: InlineTerrainSpec['paths'];
     splatmap_resolution?: number;
+    elevation?: InlineTerrainSpec['elevation'];
 }
 
 /**
@@ -101,7 +102,8 @@ export class StreamingManager {
                     inline: {
                         worldWidth: cfg.size![0],
                         worldDepth: cfg.size![1],
-                        resolution: 128,
+                        resolution: cfg.elevation?.resolution ?? 128,
+                        elevation: cfg.elevation,
                     },
                     baseColor: cfg.baseColor,
                     waterLevel: cfg.waterLevel,

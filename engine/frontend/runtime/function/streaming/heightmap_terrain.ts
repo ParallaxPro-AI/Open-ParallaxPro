@@ -15,6 +15,7 @@
 
 import { Scene } from '../framework/scene.js';
 import { TerrainComponent, TerrainGpuTextures } from '../framework/components/terrain_component.js';
+import { bakeHeightmap, type ElevationSpec } from './terrain_baker.js';
 
 export interface HeightmapTerrainConfig {
     /** URL of the heightmap meta JSON. The binary is resolved relative
@@ -30,13 +31,15 @@ export interface HeightmapTerrainConfig {
      * the LOD contour-lock level to keep the shoreline crisp. */
     waterLevel?: number;
 
-    /** Inline terrain: flat mesh, no external heightmap file needed.
-     *  When set, metaUrl is ignored and a flat terrain of the given
-     *  world-space dimensions is generated directly. */
+    /** Inline terrain: mesh generated directly from declarative spec, no
+     *  external heightmap file needed. When `elevation` is provided the
+     *  heightData is baked from noise + hills + flat_zones; otherwise the
+     *  surface is flat (zeros). */
     inline?: {
         worldWidth: number;
         worldDepth: number;
         resolution?: number;
+        elevation?: ElevationSpec;
     };
 }
 
@@ -207,7 +210,28 @@ export class HeightmapTerrain {
         const worldW = cfg.worldWidth;
         const worldD = cfg.worldDepth;
         const res = Math.min(cfg.resolution ?? 128, MAX_LOD_RESOLUTION);
-        const heightData = new Float32Array(res * res);
+        let heightData: Float32Array;
+        if (cfg.elevation) {
+            const baked = bakeHeightmap(cfg.elevation, worldW, worldD);
+            // The baker honors its own resolution cap; if it returned a
+            // different res from our LOD-clamped one, downsample/upsample
+            // by nearest-neighbor so the TerrainComponent gets exactly res*res.
+            if (baked.resolution === res) {
+                heightData = baked.data;
+            } else {
+                heightData = new Float32Array(res * res);
+                const ratio = baked.resolution / res;
+                for (let i = 0; i < res; i++) {
+                    const si = Math.min(baked.resolution - 1, Math.floor(i * ratio));
+                    for (let j = 0; j < res; j++) {
+                        const sj = Math.min(baked.resolution - 1, Math.floor(j * ratio));
+                        heightData[i * res + j] = baked.data[si * baked.resolution + sj];
+                    }
+                }
+            }
+        } else {
+            heightData = new Float32Array(res * res);
+        }
 
         const entity = this.scene.createEntity('Terrain', this.parentId);
         entity.addTag('heightmap_terrain');

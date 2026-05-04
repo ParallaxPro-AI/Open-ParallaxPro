@@ -37,6 +37,61 @@ export interface PathSpec {
     feather?: number;
 }
 
+/** Elevation building blocks. Stack noise + hills + flat_zones to shape
+ *  the ground. All heights are in meters; coordinates are world-space XZ
+ *  matching the splatmap (positive Y = up). See bakeHeightmap for order. */
+export interface NoiseElevation {
+    /** Integer seed; same seed = same terrain across reloads. */
+    seed?: number;
+    /** Octaves of fBm. 3–5 is plenty for natural-looking rolls. */
+    octaves?: number;
+    /** Higher = more bumps per meter. ~0.005–0.05 is typical. */
+    frequency?: number;
+    /** Peak-to-peak height in meters of the noise contribution. */
+    amplitude?: number;
+}
+
+export interface HillSpec {
+    shape: 'circle' | 'rect';
+    /** World-space XZ. */
+    center: [number, number];
+    /** circle */
+    radius?: number;
+    /** rect */
+    size?: [number, number];
+    /** Height in meters at the center. Negative = depression / pit. */
+    height: number;
+    /** Soft-edge falloff width in meters from the shape edge outward.
+     *  Default 8. Inside the shape: full height; in the feather band:
+     *  raised cosine fade to 0; beyond: 0. */
+    feather?: number;
+}
+
+export interface FlatZoneSpec {
+    shape: 'circle' | 'rect';
+    center: [number, number];
+    radius?: number;
+    size?: [number, number];
+    /** Forced height in meters. Default 0. */
+    height?: number;
+    /** Feather band where the surface blends from forced height back to
+     *  whatever's underneath. Default 6. */
+    feather?: number;
+}
+
+export interface ElevationSpec {
+    /** Heightmap grid resolution. Higher = sharper hills, more memory.
+     *  Default 128. Capped to 512. */
+    resolution?: number;
+    /** Optional symmetric clamp on the final height in meters. */
+    max_height?: number;
+    noise?: NoiseElevation;
+    hills?: HillSpec[];
+    /** Force regions to a specific height after noise + hills (e.g. for
+     *  starting areas, building footprints, courts). Applied last. */
+    flat_zones?: FlatZoneSpec[];
+}
+
 export interface InlineTerrainSpec {
     size: [number, number];
     layers: TerrainLayerSpec[];
@@ -44,6 +99,7 @@ export interface InlineTerrainSpec {
     paints?: PaintSpec[];
     paths?: PathSpec[];
     splatmap_resolution?: number;
+    elevation?: ElevationSpec;
 }
 
 // ── Bake ────────────────────────────────────────────────────────
@@ -331,4 +387,141 @@ function blendWeight(
             weights[off + c] *= scale;
         }
     }
+}
+
+// ── Heightmap bake ──────────────────────────────────────────────
+//
+// Bakes a Float32Array(res*res) of vertex heights from a declarative
+// `ElevationSpec`. Sample order matches the splatmap: row-major, top-to-
+// bottom in world XZ. Cell (i, j) maps to world (x, z) where
+//   x = -worldW/2 + (j + 0.5) * worldW/res
+//   z = -worldD/2 + (i + 0.5) * worldD/res
+// Same convention used by HeightmapTerrain's bilinear lookup so collision
+// and rendering agree.
+
+const MAX_HEIGHTMAP_RES = 512;
+
+export function bakeHeightmap(
+    spec: ElevationSpec,
+    worldWidth: number,
+    worldDepth: number,
+): { data: Float32Array; resolution: number } {
+    const res = Math.min(spec.resolution ?? 128, MAX_HEIGHTMAP_RES);
+    const data = new Float32Array(res * res);
+    const halfW = worldWidth / 2;
+    const halfD = worldDepth / 2;
+
+    const noise = spec.noise;
+    const seed = noise?.seed ?? 1337;
+    const octaves = Math.max(1, Math.min(8, noise?.octaves ?? 4));
+    const freq = noise?.frequency ?? 0.02;
+    const amp = noise?.amplitude ?? 0;
+
+    for (let i = 0; i < res; i++) {
+        const z = -halfD + (i + 0.5) * worldDepth / res;
+        for (let j = 0; j < res; j++) {
+            const x = -halfW + (j + 0.5) * worldWidth / res;
+            let h = 0;
+            if (amp > 0) h += fbm2(x * freq, z * freq, seed, octaves) * amp;
+            if (spec.hills) {
+                for (const hill of spec.hills) h += hillContribution(hill, x, z);
+            }
+            data[i * res + j] = h;
+        }
+    }
+
+    // flat_zones blend the existing surface toward a forced height. Inside
+    // the shape: snap to height; in the feather band: lerp; outside: pass
+    // through untouched. Applied last so it always wins where requested.
+    if (spec.flat_zones) {
+        for (const zone of spec.flat_zones) {
+            for (let i = 0; i < res; i++) {
+                const z = -halfD + (i + 0.5) * worldDepth / res;
+                for (let j = 0; j < res; j++) {
+                    const x = -halfW + (j + 0.5) * worldWidth / res;
+                    const t = flatZoneWeight(zone, x, z);
+                    if (t <= 0) continue;
+                    const target = zone.height ?? 0;
+                    const idx = i * res + j;
+                    data[idx] = data[idx] * (1 - t) + target * t;
+                }
+            }
+        }
+    }
+
+    if (typeof spec.max_height === 'number' && spec.max_height > 0) {
+        const cap = spec.max_height;
+        for (let k = 0; k < data.length; k++) {
+            if (data[k] > cap) data[k] = cap;
+            else if (data[k] < -cap) data[k] = -cap;
+        }
+    }
+
+    return { data, resolution: res };
+}
+
+// Cheap deterministic 2D hash → [-1, 1].
+function hash2(ix: number, iy: number, seed: number): number {
+    let h = (Math.imul(ix | 0, 374761393) ^ Math.imul(iy | 0, 668265263) ^ (seed | 0)) >>> 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+    h = (h ^ (h >>> 16)) >>> 0;
+    return (h / 0x80000000) - 1;
+}
+
+function smoothFade(t: number): number { return t * t * (3 - 2 * t); }
+
+function valueNoise(x: number, y: number, seed: number): number {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const a = hash2(xi, yi, seed);
+    const b = hash2(xi + 1, yi, seed);
+    const c = hash2(xi, yi + 1, seed);
+    const d = hash2(xi + 1, yi + 1, seed);
+    const u = smoothFade(xf);
+    const v = smoothFade(yf);
+    return a + (b - a) * u + (c - a + (a - b - c + d) * u) * v;
+}
+
+function fbm2(x: number, y: number, seed: number, octaves: number): number {
+    let total = 0, amp = 1, fr = 1, max = 0;
+    for (let i = 0; i < octaves; i++) {
+        total += valueNoise(x * fr, y * fr, seed + i * 1013) * amp;
+        max += amp;
+        amp *= 0.5;
+        fr *= 2;
+    }
+    return max > 0 ? total / max : 0;
+}
+
+function shapeSignedDistance(shape: 'circle' | 'rect', cx: number, cz: number, radius: number | undefined, size: [number, number] | undefined, x: number, z: number): number {
+    if (shape === 'circle') {
+        const r = radius ?? 0;
+        return Math.hypot(x - cx, z - cz) - r;
+    }
+    const w = (size?.[0] ?? 0) / 2;
+    const d = (size?.[1] ?? 0) / 2;
+    const dx = Math.max(Math.abs(x - cx) - w, 0);
+    const dz = Math.max(Math.abs(z - cz) - d, 0);
+    const outside = Math.hypot(dx, dz);
+    const inside = Math.min(Math.max(Math.abs(x - cx) - w, Math.abs(z - cz) - d), 0);
+    return outside + inside;
+}
+
+function hillContribution(hill: HillSpec, x: number, z: number): number {
+    const feather = Math.max(0.0001, hill.feather ?? 8);
+    const sd = shapeSignedDistance(hill.shape, hill.center[0], hill.center[1], hill.radius, hill.size, x, z);
+    if (sd >= feather) return 0;
+    if (sd <= 0) return hill.height;
+    const t = sd / feather;
+    const fall = (1 + Math.cos(Math.PI * t)) / 2;
+    return hill.height * fall;
+}
+
+function flatZoneWeight(zone: FlatZoneSpec, x: number, z: number): number {
+    const feather = Math.max(0.0001, zone.feather ?? 6);
+    const sd = shapeSignedDistance(zone.shape, zone.center[0], zone.center[1], zone.radius, zone.size, x, z);
+    if (sd >= feather) return 0;
+    if (sd <= 0) return 1;
+    const t = sd / feather;
+    return (1 + Math.cos(Math.PI * t)) / 2;
 }
