@@ -2148,4 +2148,108 @@ function extractMethodBody(src, name) {
 })();
 
 
+// ═════════════════════════════════════════════════════════════════════
+// 18. heightmapTerrain validation
+// ═════════════════════════════════════════════════════════════════════
+// Mirrors the inline-terrain checks in level_assembler.ts so malformed
+// terrain blocks (unknown layer refs, bad elevation shapes, missing
+// path points) fail in-sandbox instead of slipping through to the real
+// assembler at publish time.
+(function() {
+    var w = loadJSON('03_worlds.json');
+    var ht = w && w.worlds && w.worlds[0] && w.worlds[0].heightmapTerrain;
+    if (!ht || !ht.layers || !ht.size) return;
+    var errors = [];
+
+    if (!Array.isArray(ht.size) || ht.size.length !== 2 || ht.size[0] <= 0 || ht.size[1] <= 0) {
+        errors.push('heightmapTerrain.size must be [width, depth] with positive values');
+    }
+    if (!Array.isArray(ht.layers) || ht.layers.length < 1 || ht.layers.length > 4) {
+        errors.push('heightmapTerrain.layers must have 1-4 entries');
+    }
+    var layerNames = {};
+    if (Array.isArray(ht.layers)) {
+        for (var li = 0; li < ht.layers.length; li++) {
+            var L = ht.layers[li];
+            if (!L.name || !L.dir) {
+                errors.push('heightmapTerrain layer missing "name" or "dir": ' + JSON.stringify(L));
+            } else {
+                layerNames[L.name] = true;
+            }
+            if (typeof L.uvMetersPerTile !== 'number' || L.uvMetersPerTile <= 0) {
+                errors.push('heightmapTerrain layer "' + L.name + '": uvMetersPerTile must be a positive number');
+            }
+        }
+    }
+    if (ht.default_layer && !layerNames[ht.default_layer]) {
+        errors.push('heightmapTerrain.default_layer "' + ht.default_layer + '" not found in layers');
+    }
+    var paints = ht.paints || [];
+    for (var pi = 0; pi < paints.length; pi++) {
+        if (!layerNames[paints[pi].layer]) {
+            errors.push('heightmapTerrain paint references unknown layer "' + paints[pi].layer + '"');
+        }
+    }
+    var paths = ht.paths || [];
+    for (var pi2 = 0; pi2 < paths.length; pi2++) {
+        if (!layerNames[paths[pi2].layer]) {
+            errors.push('heightmapTerrain path references unknown layer "' + paths[pi2].layer + '"');
+        }
+        if (!Array.isArray(paths[pi2].points) || paths[pi2].points.length < 2) {
+            errors.push('heightmapTerrain path must have at least 2 points');
+        }
+    }
+
+    // Elevation block (optional). Same checks as level_assembler.
+    var ev = ht.elevation;
+    if (ev) {
+        if (typeof ev !== 'object' || Array.isArray(ev)) {
+            errors.push('heightmapTerrain.elevation must be an object');
+        } else {
+            if (ev.resolution !== undefined && (typeof ev.resolution !== 'number' || ev.resolution < 32 || ev.resolution > 512)) {
+                errors.push('heightmapTerrain.elevation.resolution must be a number 32-512');
+            }
+            if (ev.max_height !== undefined && (typeof ev.max_height !== 'number' || ev.max_height <= 0)) {
+                errors.push('heightmapTerrain.elevation.max_height must be a positive number');
+            }
+            if (ev.noise) {
+                if (typeof ev.noise !== 'object') errors.push('heightmapTerrain.elevation.noise must be an object');
+                else if (typeof ev.noise.amplitude !== 'number' || ev.noise.amplitude < 0) {
+                    errors.push('heightmapTerrain.elevation.noise.amplitude must be a non-negative number');
+                }
+            }
+            var hills = ev.hills || [];
+            for (var hi = 0; hi < hills.length; hi++) {
+                var H = hills[hi];
+                if (H.shape !== 'circle' && H.shape !== 'rect') {
+                    errors.push('heightmapTerrain.elevation.hills[].shape must be "circle" or "rect" (got "' + H.shape + '")');
+                }
+                if (typeof H.height !== 'number') {
+                    errors.push('heightmapTerrain.elevation.hills[].height must be a number (negative = depression)');
+                }
+                if (!Array.isArray(H.center) || H.center.length !== 2) {
+                    errors.push('heightmapTerrain.elevation.hills[].center must be [x, z]');
+                }
+            }
+            var fzs = ev.flat_zones || [];
+            for (var zi = 0; zi < fzs.length; zi++) {
+                var Z = fzs[zi];
+                if (Z.shape !== 'circle' && Z.shape !== 'rect') {
+                    errors.push('heightmapTerrain.elevation.flat_zones[].shape must be "circle" or "rect" (got "' + Z.shape + '")');
+                }
+                if (!Array.isArray(Z.center) || Z.center.length !== 2) {
+                    errors.push('heightmapTerrain.elevation.flat_zones[].center must be [x, z]');
+                }
+            }
+        }
+    }
+
+    if (errors.length > 0) {
+        console.error('heightmapTerrain validation failed:');
+        for (var ei = 0; ei < errors.length; ei++) console.error('  - ' + errors[ei]);
+        process.exit(1);
+    }
+})();
+
+
 console.log('Assembler check passed (' + Object.keys(allScripts).length + ' scripts, ' + Object.keys(uiFiles).length + ' UI panels checked).');
