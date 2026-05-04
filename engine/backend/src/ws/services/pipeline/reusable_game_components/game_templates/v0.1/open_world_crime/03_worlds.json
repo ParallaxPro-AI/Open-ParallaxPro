@@ -22,6 +22,20 @@
       },
       "heightmapTerrain": {
         "size": [200, 200],
+        "elevation": {
+          "resolution": 128,
+          "noise": { "seed": 17, "octaves": 4, "frequency": 0.025, "amplitude": 4 },
+          "hills": [
+            { "shape": "circle", "center": [-85, -85], "radius": 18, "height": 10, "feather": 14 },
+            { "shape": "circle", "center": [ 85, -85], "radius": 16, "height":  8, "feather": 12 },
+            { "shape": "circle", "center": [-85,  85], "radius": 20, "height": 12, "feather": 16 },
+            { "shape": "circle", "center": [ 85,  85], "radius": 14, "height":  7, "feather": 10 }
+          ],
+          "flat_zones": [
+            { "shape": "rect", "center": [0, 0], "size": [160, 160], "feather": 12 }
+          ],
+          "max_height": 14
+        },
         "layers": [
           {"name": "grass", "dir": "leafy_grass", "uvMetersPerTile": 5},
           {"name": "road", "dir": "brushed_concrete", "uvMetersPerTile": 3},

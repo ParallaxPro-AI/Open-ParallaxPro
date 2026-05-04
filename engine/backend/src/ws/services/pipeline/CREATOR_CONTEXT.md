@@ -462,7 +462,7 @@ By default the terrain is **dead flat** (Y = 0 everywhere). To get hills, valley
 - **`max_height`** (optional) — symmetric clamp on the final height.
 - **`resolution`** (optional, default 128, max 512) — heightmap grid samples per side. Bump up to 256 only when you need crisp small features; 128 is plenty for most rolling terrain.
 
-Physics colliders read the same heightmap automatically — players walk and vehicles drive over the actual surface, no extra setup.
+**Physics matches automatically.** The terrain entity gets a static rigidbody + trimesh collider built from the same heightData, so players walk and vehicles drive over the bumps you authored. Do **not** add a separate `ground_collider` / ground plane entity — it'll either pop through the bumpy surface where the noise dips below 0, or sit unused at the wrong height. The terrain IS the ground and IS the collider.
 
 When you don't want any elevation at all, omit the `elevation` block entirely (don't pass `amplitude: 0` etc.) — it's faster.
 

@@ -644,17 +644,48 @@ export class PhysicsSystem {
             case ShapeType.TERRAIN: {
                 const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
                 if (terrain && terrain.heightData) {
-                    const res = terrain.resolution ?? 64;
-                    const heights = new Float32Array(res * res);
-                    for (let i = 0; i < Math.min(heights.length, terrain.heightData.length); i++) {
-                        heights[i] = terrain.heightData[i] * (terrain.heightScale ?? 1);
+                    // Trimesh collider built from heightData — same vertex
+                    // layout as TerrainComponent.generateMesh so collision
+                    // exactly matches what's rendered. RAPIER's heightfield
+                    // primitive traps on this WASM build, so we use trimesh
+                    // which is well-supported. To keep the physics cost
+                    // bounded the collider is downsampled to at most 96
+                    // samples per side (~18k tris) regardless of render res.
+                    const renderRes = terrain.resolution ?? 64;
+                    const w = terrain.width ?? 100;
+                    const d = terrain.depth ?? 100;
+                    const hs = terrain.heightScale ?? 1;
+                    const PHYS_MAX = 96;
+                    const physRes = Math.min(renderRes, PHYS_MAX);
+                    const halfW = w / 2;
+                    const halfD = d / 2;
+                    const verts = new Float32Array(physRes * physRes * 3);
+                    for (let z = 0; z < physRes; z++) {
+                        const fz = z / (physRes - 1);
+                        const sz = Math.min(renderRes - 1, Math.round(fz * (renderRes - 1)));
+                        for (let x = 0; x < physRes; x++) {
+                            const fx = x / (physRes - 1);
+                            const sx = Math.min(renderRes - 1, Math.round(fx * (renderRes - 1)));
+                            const vi = (z * physRes + x) * 3;
+                            verts[vi] = fx * w - halfW;
+                            verts[vi + 1] = terrain.heightData[sz * renderRes + sx] * hs;
+                            verts[vi + 2] = fz * d - halfD;
+                        }
                     }
-                    const scale = new RAPIER.Vector3(
-                        (terrain.width ?? 100) / (res - 1),
-                        1,
-                        (terrain.depth ?? 100) / (res - 1)
-                    );
-                    return RAPIER.ColliderDesc.heightfield(res, res, heights, scale);
+                    const triCount = (physRes - 1) * (physRes - 1) * 2;
+                    const indices = new Uint32Array(triCount * 3);
+                    let ii = 0;
+                    for (let z = 0; z < physRes - 1; z++) {
+                        for (let x = 0; x < physRes - 1; x++) {
+                            const tl = z * physRes + x;
+                            const tr = tl + 1;
+                            const bl = (z + 1) * physRes + x;
+                            const br = bl + 1;
+                            indices[ii++] = tl; indices[ii++] = bl; indices[ii++] = tr;
+                            indices[ii++] = tr; indices[ii++] = bl; indices[ii++] = br;
+                        }
+                    }
+                    return RAPIER.ColliderDesc.trimesh(verts, indices);
                 }
                 return RAPIER.ColliderDesc.cuboid(50, 0.5, 50);
             }

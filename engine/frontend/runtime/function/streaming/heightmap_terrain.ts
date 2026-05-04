@@ -251,6 +251,13 @@ export class HeightmapTerrain {
             waterLevel: this.config.waterLevel,
         });
 
+        // Static rigidbody + terrain trimesh collider so physics tracks the
+        // rendered surface exactly. physics_system's TERRAIN path builds a
+        // trimesh from heightData, downsampled to ≤96 samples/side to keep
+        // the collider tri count bounded.
+        entity.addComponent('RigidbodyComponent', { bodyType: 'static' });
+        entity.addComponent('ColliderComponent', { shapeType: 'terrain' });
+
         const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
         if (terrain) terrain.lodEnabled = true;
 
