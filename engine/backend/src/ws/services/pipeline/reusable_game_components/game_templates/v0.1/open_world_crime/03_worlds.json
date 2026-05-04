@@ -63,10 +63,6 @@
       },
       "placements": [
         {
-          "ref": "ground_collider",
-          "position": [0, -0.01, 0]
-        },
-        {
           "ref": "camera",
           "position": [
             0,

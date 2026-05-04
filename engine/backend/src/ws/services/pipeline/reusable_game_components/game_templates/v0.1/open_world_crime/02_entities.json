@@ -472,15 +472,6 @@
       ],
       "label": false
     },
-    "ground_collider": {
-      "mesh": {
-        "type": "plane",
-        "color": [0.3, 0.45, 0.25, 1],
-        "scale": [200, 1, 200]
-      },
-      "tags": ["ground"],
-      "label": false
-    },
     "traffic_light": {
       "mesh": {
         "type": "custom",
