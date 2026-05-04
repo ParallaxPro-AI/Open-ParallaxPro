@@ -14,6 +14,7 @@
  */
 
 import { Scene } from '../framework/scene.js';
+import { Entity } from '../framework/entity.js';
 import { TerrainComponent, TerrainGpuTextures } from '../framework/components/terrain_component.js';
 import { bakeHeightmap, type ElevationSpec } from './terrain_baker.js';
 
@@ -70,6 +71,86 @@ interface HeightmapMeta {
 /** Cap the LOD grid at this many samples per axis. Keeps the working
  * vertex budget bounded even for large source heightmaps. */
 const MAX_LOD_RESOLUTION = 1024;
+
+/** Spec for the bare-minimum inline-terrain entity. Same fields the
+ *  HeightmapTerrain inline path uses, plus an optional parentId so
+ *  callers can attach the entity under a wrapper (editor) or at the
+ *  scene root (headless). */
+export interface CreateInlineHeightmapOpts {
+    worldWidth: number;
+    worldDepth: number;
+    resolution?: number;
+    elevation?: ElevationSpec;
+    baseColor?: [number, number, number, number];
+    waterLevel?: number;
+    parentId?: number;
+}
+
+/** Creates a Terrain entity with TerrainComponent + static Rigidbody +
+ *  terrain Collider in the given scene. Shared by:
+ *    - StreamingManager (frontend editor / play)
+ *    - Headless playtest runtime
+ *  so collision exists wherever the engine runs, not just where the
+ *  streaming-manager pipeline does. Pure entity construction — no
+ *  texture loading, no LOD wiring (those layer on in the editor path). */
+export function createInlineHeightmapEntity(
+    scene: Scene,
+    opts: CreateInlineHeightmapOpts,
+): { entity: Entity; heightData: Float32Array; res: number } {
+    const worldW = opts.worldWidth;
+    const worldD = opts.worldDepth;
+    const res = Math.min(opts.resolution ?? 128, MAX_LOD_RESOLUTION);
+    let heightData: Float32Array;
+    if (opts.elevation) {
+        const baked = bakeHeightmap(opts.elevation, worldW, worldD);
+        if (baked.resolution === res) {
+            heightData = baked.data;
+        } else {
+            heightData = new Float32Array(res * res);
+            const ratio = baked.resolution / res;
+            for (let i = 0; i < res; i++) {
+                const si = Math.min(baked.resolution - 1, Math.floor(i * ratio));
+                for (let j = 0; j < res; j++) {
+                    const sj = Math.min(baked.resolution - 1, Math.floor(j * ratio));
+                    heightData[i * res + j] = baked.data[si * baked.resolution + sj];
+                }
+            }
+        }
+    } else {
+        heightData = new Float32Array(res * res);
+    }
+
+    const entity = scene.createEntity('Terrain', opts.parentId);
+    entity.addTag('heightmap_terrain');
+    entity.addComponent('TransformComponent', { position: { x: 0, y: 0, z: 0 } });
+    entity.addComponent('TerrainComponent', {
+        width: worldW,
+        depth: worldD,
+        resolution: res,
+        heightScale: 1.0,
+        heightData,
+        baseColor: opts.baseColor ?? [0.45, 0.55, 0.35, 1],
+        roughness: 0.9,
+        metallic: 0.0,
+        waterLevel: opts.waterLevel,
+    });
+    // Static rigidbody + terrain trimesh collider so physics tracks the
+    // rendered surface exactly. physics_system's TERRAIN path builds a
+    // trimesh from heightData, downsampled to ≤96 samples/side to keep
+    // the collider tri count bounded.
+    entity.addComponent('RigidbodyComponent', { bodyType: 'static' });
+    entity.addComponent('ColliderComponent', { shapeType: 'terrain' });
+    // LOD off for inline terrain. The LOD generator has a bug at world
+    // sizes ≥ ~400m (the first LOD ring boundary): a mirrored copy of
+    // the terrain appears above the player, like an Inception fold.
+    // Inline terrains stay ≤1km in practice and the full-res mesh
+    // (256² = ~131k tris) is well within budget, so we drop LOD until
+    // the generator is fixed.
+    const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
+    if (terrain) terrain.lodEnabled = false;
+
+    return { entity, heightData, res };
+}
 
 export class HeightmapTerrain {
     private scene: Scene;
@@ -207,76 +288,26 @@ export class HeightmapTerrain {
     }
 
     private createInlineTerrain(cfg: NonNullable<HeightmapTerrainConfig['inline']>): void {
-        const worldW = cfg.worldWidth;
-        const worldD = cfg.worldDepth;
-        const res = Math.min(cfg.resolution ?? 128, MAX_LOD_RESOLUTION);
-        let heightData: Float32Array;
-        if (cfg.elevation) {
-            const baked = bakeHeightmap(cfg.elevation, worldW, worldD);
-            // The baker honors its own resolution cap; if it returned a
-            // different res from our LOD-clamped one, downsample/upsample
-            // by nearest-neighbor so the TerrainComponent gets exactly res*res.
-            if (baked.resolution === res) {
-                heightData = baked.data;
-            } else {
-                heightData = new Float32Array(res * res);
-                const ratio = baked.resolution / res;
-                for (let i = 0; i < res; i++) {
-                    const si = Math.min(baked.resolution - 1, Math.floor(i * ratio));
-                    for (let j = 0; j < res; j++) {
-                        const sj = Math.min(baked.resolution - 1, Math.floor(j * ratio));
-                        heightData[i * res + j] = baked.data[si * baked.resolution + sj];
-                    }
-                }
-            }
-        } else {
-            heightData = new Float32Array(res * res);
-        }
-
-        const entity = this.scene.createEntity('Terrain', this.parentId);
-        entity.addTag('heightmap_terrain');
-        this.terrainEntityId = entity.id;
-        entity.addComponent('TransformComponent', {
-            position: { x: 0, y: 0, z: 0 },
-        });
-        entity.addComponent('TerrainComponent', {
-            width: worldW,
-            depth: worldD,
-            resolution: res,
-            heightScale: 1.0,
-            heightData,
-            baseColor: this.config.baseColor ?? [0.45, 0.55, 0.35, 1],
-            roughness: 0.9,
-            metallic: 0.0,
+        const { entity, heightData, res } = createInlineHeightmapEntity(this.scene, {
+            worldWidth: cfg.worldWidth,
+            worldDepth: cfg.worldDepth,
+            resolution: cfg.resolution,
+            elevation: cfg.elevation,
+            baseColor: this.config.baseColor,
             waterLevel: this.config.waterLevel,
+            parentId: this.parentId,
         });
-
-        // Static rigidbody + terrain trimesh collider so physics tracks the
-        // rendered surface exactly. physics_system's TERRAIN path builds a
-        // trimesh from heightData, downsampled to ≤96 samples/side to keep
-        // the collider tri count bounded.
-        entity.addComponent('RigidbodyComponent', { bodyType: 'static' });
-        entity.addComponent('ColliderComponent', { shapeType: 'terrain' });
-
-        const terrain = entity.getComponent('TerrainComponent') as TerrainComponent | null;
-        // LOD off for inline terrain. The LOD generator has a bug that
-        // surfaces at world sizes ≥ ~400m (the first LOD ring boundary):
-        // a mirrored copy of the terrain appears above the player, like
-        // an Inception fold. Inline terrains stay ≤1km in practice and
-        // the full-res mesh (256² = ~131k tris) is well within budget,
-        // so we drop LOD until the generator is fixed.
-        if (terrain) terrain.lodEnabled = false;
-
+        this.terrainEntityId = entity.id;
         this.heightData = heightData;
         this.res = res;
-        this.worldWidth = worldW;
-        this.worldDepth = worldD;
+        this.worldWidth = cfg.worldWidth;
+        this.worldDepth = cfg.worldDepth;
         this.centerX = 0;
         this.centerZ = 0;
-        this.originX = -worldW / 2;
-        this.originZ = -worldD / 2;
-        this.contentWidth = worldW;
-        this.contentDepth = worldD;
+        this.originX = -cfg.worldWidth / 2;
+        this.originZ = -cfg.worldDepth / 2;
+        this.contentWidth = cfg.worldWidth;
+        this.contentDepth = cfg.worldDepth;
     }
 
     private async createTerrain(meta: HeightmapMeta): Promise<void> {

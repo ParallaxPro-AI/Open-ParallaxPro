@@ -39,6 +39,7 @@ import { loadScriptClass } from '../../frontend/runtime/function/scripting/scrip
 import { buildScriptScene } from '../../shared/scripting/script_scene_builder.js';
 import { Vec3 } from '../../frontend/runtime/core/math/vec3.js';
 import { assembleGame } from '../../backend/src/ws/services/pipeline/level_assembler.js';
+import { createInlineHeightmapEntity } from '../../frontend/runtime/function/streaming/heightmap_terrain.js';
 
 import { HeadlessUI } from './ui.js';
 import { GameFiles } from './loader.js';
@@ -191,6 +192,28 @@ export class Runtime {
     // Build the Scene from assembled entities.
     this.scene = Scene.fromJSON(this.toSceneJSON(assembled));
     this.worldManager.setActiveScene(this.scene.id);
+
+    // If the assembled scene declares a heightmapTerrain block, create
+    // the terrain entity (TerrainComponent + static rigidbody + terrain
+    // collider) so playtest physics has actual ground to stand on. The
+    // editor / play frontends do this through StreamingManager which we
+    // don't load here; createInlineHeightmapEntity is the bare-minimum
+    // shared path.
+    const ht = assembled.heightmapTerrain;
+    if (ht && Array.isArray(ht.size) && Array.isArray(ht.layers) && ht.layers.length > 0) {
+      try {
+        createInlineHeightmapEntity(this.scene, {
+          worldWidth: ht.size[0],
+          worldDepth: ht.size[1],
+          resolution: ht.elevation?.resolution,
+          elevation: ht.elevation,
+          baseColor: ht.baseColor,
+          waterLevel: ht.waterLevel,
+        });
+      } catch (e: any) {
+        console.warn('[headless] heightmap terrain create failed:', e?.message);
+      }
+    }
 
     // Register FSM start state from 01_flow.json if present (the game's
     // fsm_driver.ts system will actually drive the FSM, but tests want to
