@@ -273,7 +273,18 @@ const VALID_CLI_NAMES: ReadonlySet<CLIName> = new Set(['claude', 'codex', 'openc
  *     order: claude → codex → opencode → copilot).
  *   - Nothing installed → throw.
  */
-export function resolveCLI(cliOverride?: string): CLIName {
+/** Hook for hosted deployments to force a CLI per kind, ignoring the user's
+ *  pick. Open-source / self-hosted users leave this unset and keep the
+ *  user-chooses-anything behavior. Return undefined to fall through. */
+export type CliOverriderFn = (kind: 'creator' | 'fixer', userPick: string | undefined) => string | undefined;
+let _cliOverrider: CliOverriderFn | null = null;
+export function setCliOverrider(fn: CliOverriderFn | null): void { _cliOverrider = fn; }
+
+export function resolveCLI(cliOverride?: string, kind?: 'creator' | 'fixer'): CLIName {
+    if (kind && _cliOverrider) {
+        const forced = _cliOverrider(kind, cliOverride);
+        if (forced) cliOverride = forced;
+    }
     if (cliOverride) {
         if (!VALID_CLI_NAMES.has(cliOverride as CLIName)) {
             throw new Error(`Unknown editing agent "${cliOverride}". Valid values: ${Array.from(VALID_CLI_NAMES).join(', ')}.`);

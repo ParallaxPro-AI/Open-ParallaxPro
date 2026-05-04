@@ -101,6 +101,8 @@ export async function runFixer(
 
     const jobId = randomUUID();
 
+    cliOverride = resolveCLI(cliOverride, 'fixer');
+
     // Register BEFORE acquireCLISlot so the per-project lock holds even
     // while we're queued. Without this, two fixes on the same project
     // could both enter the queue and only start racing once both got

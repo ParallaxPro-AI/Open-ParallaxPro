@@ -106,6 +106,8 @@ export async function runCreator(
     }
     const localSignal = abortController.signal;
 
+    cliOverride = resolveCLI(cliOverride, 'creator');
+
     await acquireCLISlot({ cliOverride, sendStatus, jobId });
     const templateId = deriveTemplateId(description);
     // Random suffix per run so concurrent creates on the same projectId don't
