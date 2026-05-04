@@ -250,7 +250,7 @@ export type CLIName = 'claude' | 'codex' | 'opencode' | 'copilot';
 const MODEL_BY_CLI: Record<CLIName, { creator: string | undefined; fixer: string | undefined }> = {
     claude:   { creator: 'claude-opus-4-7[1m]',  fixer: 'sonnet' },
     codex:    { creator: 'gpt-5.5',              fixer: 'gpt-5.4' },
-    opencode: { creator: undefined,              fixer: undefined },
+    opencode: { creator: 'deepseek/deepseek-v4-pro', fixer: 'deepseek/deepseek-v4-pro' },
     copilot:  { creator: undefined,              fixer: undefined },
 };
 

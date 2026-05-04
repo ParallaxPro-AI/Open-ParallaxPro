@@ -239,6 +239,7 @@ function runWarmAgent(kind: WarmKind): Promise<string> {
         const args = [
             'run',
             '--format', 'json',
+            '--model', 'deepseek/deepseek-v4-pro',
             '--dir', state.sandboxDir,
             '--dangerously-skip-permissions',
             prompt,

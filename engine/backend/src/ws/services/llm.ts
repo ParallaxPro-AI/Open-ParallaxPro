@@ -394,7 +394,7 @@ function buildCLIInvocation(cli: FallbackCLI, prompt: string): CLIInvocation {
     }
     if (cli === 'opencode') {
         return {
-            args: ['run', '--format', 'json', prompt],
+            args: ['run', '--format', 'json', '--model', 'deepseek/deepseek-v4-pro', prompt],
             extract: (event) => {
                 if (event.type !== 'text') return null;
                 const t = event.part?.text;
