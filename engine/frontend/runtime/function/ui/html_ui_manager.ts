@@ -53,7 +53,18 @@ if (typeof window !== 'undefined' && !(window as any).__ppWheelRouterInstalled) 
         const vcRect = vc.getBoundingClientRect();
         const vcX = vcRect.left + vcRect.width / 2;
         const vcY = vcRect.top + vcRect.height / 2;
-        for (const f of Array.from(document.querySelectorAll('iframe'))) {
+        // Reverse DOM order: later-appended iframes paint on top (same
+        // z-index), so the visually-topmost panel is checked first. A
+        // miss falls through to iframes beneath rather than dropping
+        // the wheel — without this, a full-screen HUD iterated before
+        // a modal swallowed every wheel event for any modal underneath
+        // it (HUD has no scrollable at the cursor → return killed the
+        // loop), and even within a single panel, scrolling only worked
+        // when the cursor happened to land outside HUD's interactive
+        // hit-testable regions.
+        const iframes = Array.from(document.querySelectorAll('iframe'));
+        for (let idx = iframes.length - 1; idx >= 0; idx--) {
+            const f = iframes[idx];
             if ((f as HTMLElement).style.display === 'none') continue;
             const ir = f.getBoundingClientRect();
             if (vcX < ir.left || vcX > ir.right || vcY < ir.top || vcY > ir.bottom) continue;
@@ -68,7 +79,7 @@ if (typeof window !== 'undefined' && !(window as any).__ppWheelRouterInstalled) 
             const sx = ir.width / (win.innerWidth || ir.width) || 1;
             const sy = ir.height / (win.innerHeight || ir.height) || 1;
             const target = findScrollableAt(doc, win, (vcX - ir.left) / sx, (vcY - ir.top) / sy);
-            if (!target) return; // over iframe but no scrollable — leave canvas zoom alone
+            if (!target) continue; // try iframes beneath this one
             const lineH = 16;
             target.scrollLeft += (e.deltaMode === 1 ? e.deltaX * lineH : e.deltaX) / sx;
             target.scrollTop  += (e.deltaMode === 1 ? e.deltaY * lineH : e.deltaY) / sy;
