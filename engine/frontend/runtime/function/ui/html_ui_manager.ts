@@ -1132,7 +1132,18 @@ ${wrapperScript}
         const zoom = this.currentZoom || 1;
         const ix = x / zoom;
         const iy = y / zoom;
-        for (const iframe of this.overlays.values()) {
+        // Reverse insertion order so the topmost iframe is checked first.
+        // Real DOM hit-testing picks the LATER sibling at the same z-index
+        // (browser stacking context). The virtual cursor must mirror that
+        // — otherwise it routes hovers / clicks to whichever modal happened
+        // to load first, which on AI-generated games means an always-on
+        // HUD intercepting clicks intended for a between-waves modal that
+        // opens on top of it. The HUD's interactive children
+        // (.mtd-field, .mtd-cell, etc.) have pointer-events:auto so
+        // elementFromPoint inside the HUD iframe finds them and the click
+        // never reaches the modal sitting above in DOM order.
+        const iframes = [...this.overlays.values()].reverse();
+        for (const iframe of iframes) {
             // Skip only truly hidden iframes. HUDs default to
             // pointer-events:none (so real mouse click-throughs to the 3D
             // scene) — but the virtual cursor is a separate input path and
@@ -1152,7 +1163,11 @@ ${wrapperScript}
     }
 
     private virtualClick(x: number, y: number): void {
-        for (const iframe of this.overlays.values()) {
+        // Same reverse-insertion-order rationale as getElementAtCursor:
+        // mirrors real DOM hit-test semantics so a modal opened on top of
+        // a HUD wins the click.
+        const iframes = [...this.overlays.values()].reverse();
+        for (const iframe of iframes) {
             // See getElementAtCursor for rationale — gate on visibility,
             // not pointer-events, so HUDs can receive virtual-cursor clicks.
             if (iframe.style.display === 'none') continue;
