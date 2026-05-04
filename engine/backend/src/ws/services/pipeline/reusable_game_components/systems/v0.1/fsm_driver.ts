@@ -58,6 +58,45 @@ class FSMDriver extends GameScript {
             })(evName);
         }
 
+        // ── Engine-level retry guarantee ────────────────────────────────
+        // Whenever any code (a `restart` flow action, the legacy
+        // `emit:game.restart_game`, or a bespoke system) fires the
+        // game-bus `restart_game` event, every FSMInst on this driver
+        // resets its `_vars` to the defaults declared in `cfg.vars`.
+        // Without this, a Play Again button that does `goto:playing`
+        // carries `score`, `lives`, `wave`, and any `_collected` /
+        // `_consumed` flags from the prior run — the original cause of
+        // "retry doesn't actually retry."
+        //
+        // Also auto-destroys entities tagged `runtime` so spawned
+        // pickups, enemies, projectiles, and effects don't accumulate
+        // across replays. Tag opt-in: existing games are unaffected;
+        // new games declare `tags: ["runtime"]` on runtime-spawned
+        // entities to get the cleanup for free.
+        var gameBus = self.scene && self.scene.events && self.scene.events.game;
+        if (gameBus && typeof gameBus.on === "function") {
+            try {
+                gameBus.on("restart_game", function() {
+                    for (var ri = 0; ri < self._instances.length; ri++) {
+                        self._instances[ri]._resetVars();
+                    }
+                    var sc = self.scene;
+                    if (sc && typeof sc.findEntitiesByTag === "function" && typeof sc.destroyEntity === "function") {
+                        var runtimeEnts = sc.findEntitiesByTag("runtime") || [];
+                        // Snapshot ids first — destroyEntity mutates the index.
+                        var ids = [];
+                        for (var ei = 0; ei < runtimeEnts.length; ei++) {
+                            var e = runtimeEnts[ei];
+                            if (e && typeof e.id === "number") ids.push(e.id);
+                        }
+                        for (var di = 0; di < ids.length; di++) {
+                            try { sc.destroyEntity(ids[di]); } catch(e) {}
+                        }
+                    }
+                });
+            } catch(e) {}
+        }
+
         this._initialized = true;
     }
 
@@ -142,6 +181,18 @@ class FSMInst {
         if (this._cfg.start && this._cfg.states && this._cfg.states[this._cfg.start]) {
             this._enterState(this._cfg.start);
         }
+    }
+
+    // Reset _vars to the defaults from cfg.vars. Called by the FSMDriver's
+    // engine-level `restart_game` listener so Play Again is a guaranteed
+    // clean slate without each flow having to author `set:score=0`,
+    // `set:lives=3`, etc. on the retry transition.
+    _resetVars() {
+        this._vars = {};
+        if (this._cfg && this._cfg.vars) {
+            for (var k in this._cfg.vars) this._vars[k] = this._cfg.vars[k];
+        }
+        this._eventFlags = [];
     }
 
     // ─── State management ───────────────────────────────────────────────
@@ -447,6 +498,18 @@ class FSMInst {
             if (dotIdx > 0) {
                 this._emitBus(emitArg.substring(0, dotIdx), emitArg.substring(dotIdx + 1), eventData || {});
             }
+            return;
+        }
+
+        // ── Restart shorthand ──
+        // `restart` emits the canonical game.restart_game event. The
+        // FSMDriver's engine-level listener auto-resets every instance's
+        // _vars to defaults and destroys entities tagged "runtime";
+        // behaviors subscribed to `restart_game` clear their own flags.
+        // Use this in a play_again transition's "actions" — pair with
+        // `goto:` back to the gameplay state.
+        if (action === "restart") {
+            this._emitBus("game", "restart_game", {});
             return;
         }
 

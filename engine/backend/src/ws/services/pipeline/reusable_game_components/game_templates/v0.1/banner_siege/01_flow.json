@@ -249,7 +249,10 @@
       "transitions": [
         {
           "when": "ui_event:game_over:play_again",
-          "goto": "lobby_room"
+          "goto": "lobby_room",
+          "actions": [
+            "restart"
+          ]
         },
         {
           "when": "ui_event:game_over:main_menu",

@@ -884,6 +884,117 @@ function walkTsFiles(dir: string, visit: (fullPath: string, relPath: string) => 
     }
 }
 
+/**
+ * Retry / Game-Over wiring validator.
+ *
+ * Targets the two specific failure modes user complaints map to:
+ *   (a) Play Again button is wired but does nothing (panel emits a
+ *       different action name than the flow listens for).
+ *   (b) Play Again button transitions back to gameplay but doesn't
+ *       reset state — score / lives / spawned entities carry over
+ *       from the previous run ("retry doesn't actually retry").
+ *
+ * The check keys off transitions that *look like* Play Again — those
+ * with `when: "ui_event:<panel>:<action>"` where the action name
+ * matches `play_again` / `retry` / `restart` / `new_game` / `new_match`
+ * / `again`. Any such transition MUST include `actions: ["restart"]`
+ * (or the equivalent `emit:game.restart_game`).
+ *
+ * This deliberately does NOT flag per-life respawn states (timer-based
+ * auto-transitions out of a `death_pause` / `wasted` / `death_respawn`
+ * state) — those legitimately keep score and partial state since the
+ * player is just losing a life, not finishing the run.
+ *
+ * Runs inside `assembleGame` so any flow that ships through the CLI
+ * sandbox or template_health surfaces errors with a clear, fixable
+ * message instead of silently building a broken game.
+ */
+const PLAY_AGAIN_ACTION_RE = /^(play_again|playagain|retry|restart|new_game|new_match|again|replay)$/i;
+
+interface FlowState {
+    transitions?: Array<{ when?: string; goto?: string | string[]; actions?: string[] }>;
+    on_enter?: any[];
+    on_exit?: any[];
+    substates?: Record<string, FlowState>;
+    [k: string]: any;
+}
+
+export function checkRetryFlowWiring(projectDir: string): string[] {
+    const errors: string[] = [];
+    const flowPath = path.join(projectDir, '01_flow.json');
+    if (!fs.existsSync(flowPath)) return errors;
+    let flow: any;
+    try { flow = JSON.parse(fs.readFileSync(flowPath, 'utf-8')); } catch { return errors; }
+    if (!flow?.states) return errors;
+
+    // Collect panel emits: every emit('<action>') literal in ui/*.html.
+    const uiDir = path.join(projectDir, 'ui');
+    const panelEmits = new Map<string, Set<string>>();
+    if (fs.existsSync(uiDir)) {
+        const collect = (dir: string, prefix = '') => {
+            for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, e.name);
+                if (e.isDirectory()) {
+                    collect(full, prefix + e.name + '/');
+                } else if (e.name.endsWith('.html')) {
+                    const key = prefix + e.name.replace(/\.html$/, '');
+                    let src: string;
+                    try { src = fs.readFileSync(full, 'utf-8'); } catch { continue; }
+                    const found = new Set<string>();
+                    const re = /emit\s*\(\s*['"`]([^'"`]+)['"`]\s*[,)]/g;
+                    let m: RegExpExecArray | null;
+                    while ((m = re.exec(src)) !== null) found.add(m[1]);
+                    panelEmits.set(key, found);
+                }
+            }
+        };
+        try { collect(uiDir); } catch {}
+    }
+
+    function transitionHasRestart(t: { actions?: any[] }): boolean {
+        const acts = t.actions || [];
+        return acts.some((a: any) => a === 'restart' || a === 'emit:game.restart_game');
+    }
+
+    function walkAndCheck(states: Record<string, FlowState>, parentName: string) {
+        for (const [name, s] of Object.entries(states)) {
+            for (const t of s.transitions || []) {
+                const w = t.when || '';
+                if (!w.startsWith('ui_event:')) continue;
+                const parts = w.slice('ui_event:'.length).split(':');
+                if (parts.length < 2) continue;
+                const panel = parts[0];
+                const action = parts[1];
+
+                // Rule 1: panel-button-name wiring check.
+                // The panel HTML must emit('<action>') literally; otherwise
+                // the click fires a different action and the transition
+                // never matches — silent dead button.
+                const emits = panelEmits.get(panel);
+                if (emits && emits.size > 0 && !emits.has(action)) {
+                    const inWhere = parentName ? ` (in state "${name}", parent "${parentName}")` : ` (in state "${name}")`;
+                    errors.push(
+                        `RETRY/UI-WIRING ERROR: flow listens for ui_event:${panel}:${action}${inWhere} but ui/${panel}.html never calls emit('${action}'). The button is wired to the wrong action name — pressing it does nothing. Either rename the panel's emit('...') to match, or update the transition's "when" to one of: ${Array.from(emits).map(x => `'${x}'`).join(', ') || '(panel emits nothing)'}.`
+                    );
+                }
+
+                // Rule 2: Play-Again-shaped transitions MUST include the
+                // restart action. Skips per-life respawns (those use
+                // timer / score / event triggers, not a Play Again button).
+                if (PLAY_AGAIN_ACTION_RE.test(action) && !transitionHasRestart(t)) {
+                    errors.push(
+                        `RETRY/GAME-OVER ERROR: transition "ui_event:${panel}:${action}" in state "${name}" looks like a Play Again button but its "actions" array does not include "restart" (or "emit:game.restart_game"). Without it, score, lives, and spawned entities from the previous run carry into the next — the classic "retry doesn't actually retry" bug. Add "restart" to the transition's "actions": [..., "restart"].`
+                    );
+                }
+            }
+            if (s.substates) walkAndCheck(s.substates, name);
+        }
+    }
+    walkAndCheck(flow.states, '');
+
+    return errors;
+}
+
 function seedScriptFields(inst: any): void {
     inst.entity = {
         id: 0, name: '', active: true, tags: new Set<string>(),

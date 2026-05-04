@@ -138,7 +138,10 @@
           "transitions": [
             {
               "when": "ui_event:game_over:play_again",
-              "goto": "kickoff"
+              "goto": "kickoff",
+              "actions": [
+                "restart"
+              ]
             }
           ]
         }

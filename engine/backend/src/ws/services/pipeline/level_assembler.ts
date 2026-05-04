@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateControlManifest } from '../../../../../shared/input/control_manifest.js';
+import { checkRetryFlowWiring } from './sandbox_validate.js';
 
 export interface MultiplayerConfig {
   enabled?: boolean;
@@ -615,6 +616,17 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   // is derived from the raw panel string) and defeats validation below. Must
   // run before generateFSMDriver bakes the flow into the runtime script.
   if (flow?.states) normalizeFlowUIActions(flow.states);
+
+  // Retry / Game-Over wiring check. Surfaces "no game-over screen" and
+  // "play_again button is broken" as a hard build error so the bug is
+  // caught at create/fix time instead of slipping into a shipped game.
+  // Skipped entirely on flows with no death/lose path — pure menu /
+  // sandbox games don't need retry. See `checkRetryFlowWiring` for the
+  // exact rules.
+  const retryErrors = checkRetryFlowWiring(gamePath);
+  if (retryErrors.length > 0) {
+    throw new Error('Retry / Game-Over wiring errors:\n  - ' + retryErrors.join('\n  - '));
+  }
 
   const entities: any[] = [];
   const scripts: Record<string, string> = {};

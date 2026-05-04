@@ -163,7 +163,11 @@ Behaviors, systems, and UI panels are NOT in `reference/` — they live behind `
           "active_behaviors": [],
           "on_enter": ["show_ui:game_over", "show_cursor"],
           "on_exit": ["hide_ui:game_over", "hide_cursor"],
-          "transitions": [{ "when": "ui_event:game_over:play_again", "goto": "playing" }]
+          "transitions": [
+            { "when": "ui_event:game_over:play_again",
+              "goto": "playing",
+              "actions": ["restart"] }
+          ]
         }
       },
       "transitions": [{ "when": "ui_event:game_over:main_menu", "goto": "main_menu" }]
@@ -981,6 +985,75 @@ Above: a tower-defense game with tower cards (Digit1-4), spot navigation (Q/E), 
 
 ## Transitions & FSM actions
 
+### Required: retry / game-over wiring — MANDATORY
+
+If your game has any way for the player to lose (death, time-out, fail
+state, defeat condition, run-ended, "you ran out of fuel"), it MUST
+include a `game_over` state with a working Play Again button. The
+assembler enforces this — a flow with a death/lose path but no usable
+retry transition fails the build with a clear error.
+
+**The canonical shape:**
+
+```json
+"playing": {
+  ...
+  "transitions": [
+    { "when": "game_event:player_died", "goto": "game_over" }
+  ]
+},
+"game_over": {
+  "active_behaviors": [],
+  "on_enter": ["show_ui:game_over", "show_cursor"],
+  "on_exit":  ["hide_ui:game_over", "hide_cursor"],
+  "transitions": [
+    { "when": "ui_event:game_over:play_again",
+      "goto": "playing",
+      "actions": ["restart"] },
+    { "when": "ui_event:game_over:main_menu",
+      "goto": "main_menu",
+      "actions": ["restart"] }
+  ]
+}
+```
+
+**Two non-negotiable rules:**
+
+1. **Every transition out of a lose state MUST include `"actions":
+   ["restart"]`.** This is the new shorthand for "reset everything."
+   The engine's FSM driver listens for the resulting `game.restart_game`
+   event and: (a) resets every flow var (`score`, `lives`, `wave`, …)
+   to its `cfg.vars` default, (b) destroys every entity tagged
+   `runtime`, (c) lets behaviors clear their own internal flags.
+   Without `restart`, the prior run's state leaks into the next one —
+   the textbook "retry doesn't actually retry" bug.
+
+2. **The transition's `when` panel-action name MUST match an
+   `emit('<action>')` literal in the panel's HTML.** The stock
+   `game_over` panel emits `play_again` and `main_menu`. If you wire
+   `ui_event:game_over:retry`, the button does nothing — the panel
+   never emits `retry`. The validator catches this mismatch.
+
+**Tag entities you spawn at runtime with `runtime`.** Pickups, enemy
+prefabs, projectiles, particle effects spawned via
+`scene.spawnEntity(...)` should declare `tags: ["runtime"]` (either in
+the prefab's `02_entities.json` definition or via `entity.addTag` after
+spawn). The engine's restart sweep destroys them in one shot, so you
+don't have to write tear-down code in every gameplay system. Entities
+that should *survive* a restart (player, terrain, lights, the camera
+rig) leave the tag off.
+
+**For behaviors with stateful flags** (`_collected`, `_consumed`,
+`_triggered`, `_exploded`), still subscribe to `restart_game` and reset
+the flag yourself — the engine resets *flow* vars and despawns
+*runtime* entities, but it cannot see private behavior fields:
+
+```js
+this.scene.events.game.on("restart_game", function() {
+    self._collected = false;
+});
+```
+
 ### Transition `when` formats
 
 A transition fires when its `when` condition matches. Supported forms:
@@ -1023,8 +1096,21 @@ the target state:
 
 ```json
 { "when": "ui_event:game_over:play_again", "goto": "playing",
-  "actions": ["emit:game.restart_game", "set:score=0"] }
+  "actions": ["restart"] }
 ```
+
+The `restart` verb is the canonical Play Again wiring. The engine's FSM
+driver listens for the `restart_game` event it emits and:
+  - resets every flow var (`score`, `lives`, `wave`, …) back to the
+    defaults declared in `cfg.vars`,
+  - destroys every entity tagged `runtime` (spawned pickups, enemies,
+    projectiles), and
+  - notifies behaviors so they can clear their own internal flags.
+
+This replaces the older verbose pattern of
+`["emit:game.restart_game", "set:score=0", "set:lives=3", …]` — those
+explicit `set:` actions are no longer needed and will be overridden by
+the engine's auto-reset anyway. **Always use `restart` on Play Again.**
 
 ### Flow action verbs
 
@@ -1065,6 +1151,10 @@ Events:
 - `emit:ui.<event>` — emit on the ui bus (mainly for HUD updates).
 - `emit:net.<event>` — broadcast to all peers (multiplayer only). Peers
   receive it as `game_event:net_<event>`.
+- `restart` — emit `game.restart_game`. Engine auto-resets all flow vars
+  to their `cfg.vars` defaults and destroys every `runtime`-tagged
+  entity. Use on every Play Again / Retry transition (see "Required:
+  retry / game-over wiring" below).
 
 Multiplayer lobby shortcuts:
 - `mp:show_browser` / `mp:hide_browser` — open/close the lobby browser UI.
@@ -2330,6 +2420,7 @@ Quick mental checklist when something looks wrong but the validator passes:
 - [ ] Every `ui_event:panel:action` transition matches an `emit('action')` literal in that panel's HTML.
 - [ ] Every `game_event:<name>` matches an event declared in `project/systems/event_definitions.ts`.
 - [ ] The root flow has `start`, and every compound state has its own `start`.
+- [ ] If your game has any death/lose path, a `game_over`-style state exists with at least one exit transition whose `actions` include `restart` (see "Required: retry / game-over wiring").
 
 **Aspirational (good games have these, but validator won't fail without them):**
 - [ ] Flow has boot → main_menu → gameplay → game_over.
@@ -2337,4 +2428,4 @@ Quick mental checklist when something looks wrong but the validator passes:
 - [ ] Camera entity with camera behavior.
 - [ ] At least one gameplay mechanic (enemies, objectives, etc.).
 - [ ] HUD shows relevant info (health, score, timer, etc.).
-- [ ] Game-over condition exists.
+- [ ] Runtime-spawned entities (pickups, enemy prefabs, projectiles) declare `tags: ["runtime"]` so they're auto-cleaned on Play Again.

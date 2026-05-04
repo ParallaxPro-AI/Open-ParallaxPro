@@ -98,7 +98,8 @@
               "when": "ui_event:game_over:play_again",
               "goto": "playing",
               "actions": [
-                "emit:game.game_ready"
+                "emit:game.game_ready",
+                "restart"
               ]
             }
           ]
