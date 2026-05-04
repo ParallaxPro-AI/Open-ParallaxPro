@@ -2214,18 +2214,35 @@ function extractMethodBody(src, name) {
             }
             if (ev.noise) {
                 if (typeof ev.noise !== 'object') errors.push('heightmapTerrain.elevation.noise must be an object');
-                else if (typeof ev.noise.amplitude !== 'number' || ev.noise.amplitude < 0) {
-                    errors.push('heightmapTerrain.elevation.noise.amplitude must be a non-negative number');
+                else {
+                    if (typeof ev.noise.amplitude !== 'number' || ev.noise.amplitude < 0) {
+                        errors.push('heightmapTerrain.elevation.noise.amplitude must be a non-negative number');
+                    }
+                    if (ev.noise.seed !== undefined && (typeof ev.noise.seed !== 'number' || !isFinite(ev.noise.seed))) {
+                        errors.push('heightmapTerrain.elevation.noise.seed must be a finite number');
+                    }
+                    if (ev.noise.octaves !== undefined && (typeof ev.noise.octaves !== 'number' || ev.noise.octaves < 1 || ev.noise.octaves > 8)) {
+                        errors.push('heightmapTerrain.elevation.noise.octaves must be a number 1-8');
+                    }
+                    if (ev.noise.frequency !== undefined && (typeof ev.noise.frequency !== 'number' || ev.noise.frequency <= 0 || ev.noise.frequency > 0.5)) {
+                        errors.push('heightmapTerrain.elevation.noise.frequency must be a number > 0 and <= 0.5 (typical 0.005-0.05)');
+                    }
                 }
             }
             var hills = ev.hills || [];
             for (var hi = 0; hi < hills.length; hi++) {
                 var H = hills[hi];
                 if (H.shape !== 'circle' && H.shape !== 'rect') {
-                    errors.push('heightmapTerrain.elevation.hills[].shape must be "circle" or "rect" (got "' + H.shape + '")');
+                    errors.push('heightmapTerrain.elevation.hills[].shape must be "circle" or "rect" — "polygon" is not supported here (got "' + H.shape + '")');
                 }
-                if (typeof H.height !== 'number') {
-                    errors.push('heightmapTerrain.elevation.hills[].height must be a number (negative = depression)');
+                if (H.shape === 'circle' && (typeof H.radius !== 'number' || H.radius <= 0)) {
+                    errors.push('heightmapTerrain.elevation.hills[]: circle requires a positive "radius"');
+                }
+                if (H.shape === 'rect' && (!Array.isArray(H.size) || H.size.length !== 2 || H.size[0] <= 0 || H.size[1] <= 0)) {
+                    errors.push('heightmapTerrain.elevation.hills[]: rect requires "size": [width, depth] with positive values');
+                }
+                if (typeof H.height !== 'number' || !isFinite(H.height)) {
+                    errors.push('heightmapTerrain.elevation.hills[].height must be a finite number (negative = depression)');
                 }
                 if (!Array.isArray(H.center) || H.center.length !== 2) {
                     errors.push('heightmapTerrain.elevation.hills[].center must be [x, z]');
@@ -2235,7 +2252,16 @@ function extractMethodBody(src, name) {
             for (var zi = 0; zi < fzs.length; zi++) {
                 var Z = fzs[zi];
                 if (Z.shape !== 'circle' && Z.shape !== 'rect') {
-                    errors.push('heightmapTerrain.elevation.flat_zones[].shape must be "circle" or "rect" (got "' + Z.shape + '")');
+                    errors.push('heightmapTerrain.elevation.flat_zones[].shape must be "circle" or "rect" — "polygon" is not supported here (got "' + Z.shape + '")');
+                }
+                if (Z.shape === 'circle' && (typeof Z.radius !== 'number' || Z.radius <= 0)) {
+                    errors.push('heightmapTerrain.elevation.flat_zones[]: circle requires a positive "radius"');
+                }
+                if (Z.shape === 'rect' && (!Array.isArray(Z.size) || Z.size.length !== 2 || Z.size[0] <= 0 || Z.size[1] <= 0)) {
+                    errors.push('heightmapTerrain.elevation.flat_zones[]: rect requires "size": [width, depth] with positive values');
+                }
+                if (Z.height !== undefined && (typeof Z.height !== 'number' || !isFinite(Z.height))) {
+                    errors.push('heightmapTerrain.elevation.flat_zones[].height must be a finite number');
                 }
                 if (!Array.isArray(Z.center) || Z.center.length !== 2) {
                     errors.push('heightmapTerrain.elevation.flat_zones[].center must be [x, z]');

@@ -1334,16 +1334,33 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
         }
         if (ev.noise) {
           if (typeof ev.noise !== 'object') terrainErrors.push('heightmapTerrain.elevation.noise must be an object');
-          else if (typeof ev.noise.amplitude !== 'number' || ev.noise.amplitude < 0) {
-            terrainErrors.push('heightmapTerrain.elevation.noise.amplitude must be a non-negative number');
+          else {
+            if (typeof ev.noise.amplitude !== 'number' || ev.noise.amplitude < 0) {
+              terrainErrors.push('heightmapTerrain.elevation.noise.amplitude must be a non-negative number');
+            }
+            if (ev.noise.seed !== undefined && (typeof ev.noise.seed !== 'number' || !isFinite(ev.noise.seed))) {
+              terrainErrors.push('heightmapTerrain.elevation.noise.seed must be a finite number');
+            }
+            if (ev.noise.octaves !== undefined && (typeof ev.noise.octaves !== 'number' || ev.noise.octaves < 1 || ev.noise.octaves > 8)) {
+              terrainErrors.push('heightmapTerrain.elevation.noise.octaves must be a number 1–8');
+            }
+            if (ev.noise.frequency !== undefined && (typeof ev.noise.frequency !== 'number' || ev.noise.frequency <= 0 || ev.noise.frequency > 0.5)) {
+              terrainErrors.push('heightmapTerrain.elevation.noise.frequency must be a number > 0 and ≤ 0.5 (typical 0.005–0.05)');
+            }
           }
         }
         for (const hill of (ev.hills || [])) {
           if (hill.shape !== 'circle' && hill.shape !== 'rect') {
-            terrainErrors.push(`heightmapTerrain.elevation.hills[].shape must be "circle" or "rect" (got "${hill.shape}")`);
+            terrainErrors.push(`heightmapTerrain.elevation.hills[].shape must be "circle" or "rect" — "polygon" is not supported here (got "${hill.shape}")`);
           }
-          if (typeof hill.height !== 'number') {
-            terrainErrors.push('heightmapTerrain.elevation.hills[].height must be a number (negative = depression)');
+          if (hill.shape === 'circle' && (typeof hill.radius !== 'number' || hill.radius <= 0)) {
+            terrainErrors.push('heightmapTerrain.elevation.hills[]: circle requires a positive "radius"');
+          }
+          if (hill.shape === 'rect' && (!Array.isArray(hill.size) || hill.size.length !== 2 || hill.size[0] <= 0 || hill.size[1] <= 0)) {
+            terrainErrors.push('heightmapTerrain.elevation.hills[]: rect requires "size": [width, depth] with positive values');
+          }
+          if (typeof hill.height !== 'number' || !isFinite(hill.height)) {
+            terrainErrors.push('heightmapTerrain.elevation.hills[].height must be a finite number (negative = depression)');
           }
           if (!Array.isArray(hill.center) || hill.center.length !== 2) {
             terrainErrors.push('heightmapTerrain.elevation.hills[].center must be [x, z]');
@@ -1351,7 +1368,16 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
         }
         for (const zone of (ev.flat_zones || [])) {
           if (zone.shape !== 'circle' && zone.shape !== 'rect') {
-            terrainErrors.push(`heightmapTerrain.elevation.flat_zones[].shape must be "circle" or "rect" (got "${zone.shape}")`);
+            terrainErrors.push(`heightmapTerrain.elevation.flat_zones[].shape must be "circle" or "rect" — "polygon" is not supported here (got "${zone.shape}")`);
+          }
+          if (zone.shape === 'circle' && (typeof zone.radius !== 'number' || zone.radius <= 0)) {
+            terrainErrors.push('heightmapTerrain.elevation.flat_zones[]: circle requires a positive "radius"');
+          }
+          if (zone.shape === 'rect' && (!Array.isArray(zone.size) || zone.size.length !== 2 || zone.size[0] <= 0 || zone.size[1] <= 0)) {
+            terrainErrors.push('heightmapTerrain.elevation.flat_zones[]: rect requires "size": [width, depth] with positive values');
+          }
+          if (zone.height !== undefined && (typeof zone.height !== 'number' || !isFinite(zone.height))) {
+            terrainErrors.push('heightmapTerrain.elevation.flat_zones[].height must be a finite number');
           }
           if (!Array.isArray(zone.center) || zone.center.length !== 2) {
             terrainErrors.push('heightmapTerrain.elevation.flat_zones[].center must be [x, z]');

@@ -456,11 +456,15 @@ By default the terrain is **dead flat** (Y = 0 everywhere). To get hills, valley
 }
 ```
 
-- **`noise`** — gentle background rolls. `amplitude` is the peak-to-peak height in meters. `frequency` ≈ 0.005 (broad rolling hills) to 0.05 (small bumps every few meters). `seed` is a small integer; same seed = same shape.
-- **`hills`** — explicit bumps or pits. Same `shape` / `center` / `radius` / `size` as paints. `height` in meters: positive = mountain, negative = pit. `feather` is the soft-edge falloff width in meters (default 8).
-- **`flat_zones`** — applied **last**, force a region back to a target height (default 0). Use this to keep player spawn / building footprints / sports courts on flat ground. `feather` controls the blend back to the underlying terrain.
-- **`max_height`** (optional) — symmetric clamp on the final height.
-- **`resolution`** (optional, default 128, max 512) — heightmap grid samples per side. Bump up to 256 only when you need crisp small features; 128 is plenty for most rolling terrain.
+- **`noise`** — gentle background rolls.
+  - `amplitude` (required if `noise` present) — peak-to-peak height in meters. Must be ≥ 0.
+  - `frequency` (default `0.02`, range `(0, 0.5]`) — ~0.005 = broad rolling hills, ~0.05 = small bumps every few meters.
+  - `octaves` (default `4`, range `1–8`) — how many layered noise frequencies to sum. More = more detail.
+  - `seed` (default `1337`) — integer; same seed → same terrain across reloads.
+- **`hills`** — explicit bumps or pits. `shape` is `"circle"` (with positive `radius`) or `"rect"` (with `size: [width, depth]`). `polygon` is **not** supported here even though it's allowed in `paints`. `center` is `[x, z]`. `height` in meters: positive = mountain, negative = pit. `feather` (default `8`) is the soft-edge falloff width in meters.
+- **`flat_zones`** — applied **last**, force a region back to a target height. Same `shape` / `center` / `radius` / `size` rules as hills (no polygon). `height` (default `0`). `feather` (default `6`, note this is smaller than the hills default — flat zones blend more tightly). Use to keep player spawn / building footprints / sports courts on flat ground.
+- **`max_height`** (optional) — symmetric clamp on the **final** height after noise + hills + flat_zones are all applied. Authoring `noise.amplitude: 20` with `max_height: 5` will silently flatten most of the noise — pick `max_height` ≥ the tallest feature you want.
+- **`resolution`** (default `128`, range `32–512`) — heightmap grid samples per side. Bump up to 256 only when you need crisp small features; 128 is plenty for most rolling terrain.
 
 **Physics matches automatically.** The terrain entity gets a static rigidbody + trimesh collider built from the same heightData, so players walk and vehicles drive over the bumps you authored. Do **not** add a separate `ground_collider` / ground plane entity — it'll either pop through the bumpy surface where the noise dips below 0, or sit unused at the wrong height. The terrain IS the ground and IS the collider.
 
