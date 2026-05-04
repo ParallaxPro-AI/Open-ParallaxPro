@@ -626,7 +626,19 @@ try { window.parent.postMessage({type:'__pp_bundleReady'}, '*'); } catch(_){}
         const htmlAttrs = isResponsive ? ' data-pp-responsive="1"' : '';
         const wrapped = `<!DOCTYPE html><html${htmlAttrs}><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover"><style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:none;font-family:'Segoe UI',sans-serif;color:white;}
+/* body uses pointer-events:auto so iOS Safari's "find a scrollable
+   ancestor" walk for native touch scrolling reaches the panel's
+   <div style="overflow-y:auto"> container. iOS specifically blocks
+   that walk when ANY ancestor up to <html> has pointer-events:none
+   (Android Chrome doesn't apply that restriction — same panel scrolls
+   fine on Android, was unscrollable on iPhone Safari/WKWebView).
+   Click-through is still handled at the iframe level: when the
+   iframe itself is pointer-events:none (HUD click-through) the
+   body's pointer-events doesn't matter; when the iframe is
+   pointer-events:auto (modal showing) the user can't click-through
+   to canvas anyway, so the auto-on-body change is a no-op for
+   click-through behavior. */
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:auto;font-family:'Segoe UI',sans-serif;color:white;}
 button,input,select,a,[data-interactive]{cursor:pointer;}
 .virtual-hover{filter:brightness(1.3) !important;outline:1px solid rgba(255,255,255,0.3) !important;}
 button.virtual-hover,a.virtual-hover,[data-interactive].virtual-hover{filter:brightness(1.4) !important;outline:1px solid rgba(255,255,255,0.5) !important;}
