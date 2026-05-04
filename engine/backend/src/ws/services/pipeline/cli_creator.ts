@@ -29,7 +29,7 @@ import {
     ENGINE_MACHINERY,
 } from './project_files.js';
 import db from '../../../db/connection.js';
-import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult, pickModel } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult, pickModel, pickRouting } from './cli_runner.js';
 import { writeAgentInstructions, CLIName } from './agent_instructions.js';
 import { forkSession, warmIfNeeded } from './session_warmer.js';
 import { registerActiveJob, unregisterActiveJob, preemptProjectJob } from './cli_active_jobs.js';
@@ -106,7 +106,14 @@ export async function runCreator(
     }
     const localSignal = abortController.signal;
 
-    cliOverride = resolveCLI(cliOverride, 'creator');
+    let forceHost: string | undefined;
+    const picked = await pickRouting('creator', cliOverride);
+    if (picked) {
+        cliOverride = picked.cli;
+        forceHost = picked.host;
+    } else {
+        cliOverride = resolveCLI(cliOverride, 'creator');
+    }
 
     await acquireCLISlot({ cliOverride, sendStatus, jobId });
     const templateId = deriveTemplateId(description);
@@ -213,7 +220,7 @@ export async function runCreator(
         fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), taskContent);
 
         sendStatus?.('Creator agent is building the game...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId });
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId }, forceHost);
 
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
@@ -275,7 +282,7 @@ export async function runCreator(
                 // second capture dir (the first is still on disk under its
                 // own timestamped name). We swap cliResult's path to point
                 // at the retry's capture so admins land on the last run.
-                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: projectId });
+                retryResult = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: projectId }, forceHost);
             } catch (e: any) {
                 return {
                     success: false,
@@ -399,7 +406,7 @@ export async function runCreator(
 
             let retry: { text: string; costUsd: number; sessionCapturePath?: string | null };
             try {
-                retry = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: projectId });
+                retry = await spawnCLI(sandboxDir, sendStatus, cliOverride, localSignal, { jobId: registryJobId, projectId: projectId }, forceHost);
             } catch (e: any) {
                 return {
                     success: false,
@@ -840,7 +847,7 @@ function creatorStatus(activity: CLIActivity): string | undefined {
     }
 }
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }): Promise<{
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, cliOverride?: string, abortSignal?: AbortSignal, capture?: { jobId: string; projectId: string; userId?: number; username?: string }, forceHost?: string): Promise<{
     text: string;
     costUsd: number;
     sessionCapturePath?: string | null;
@@ -872,7 +879,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     sessionType: 'warm_fork',
                     statusMapper: creatorStatus,
                     sendStatus,
-                    cliOverride,
+                    cliOverride, forceHost,
                     abortSignal,
                     capture: capture ? { ...capture, kind: 'create' } : undefined,
                 });
@@ -907,7 +914,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                         sessionType: 'warm_fork',
                         statusMapper: creatorStatus,
                         sendStatus,
-                        cliOverride,
+                        cliOverride, forceHost,
                         abortSignal,
                         capture: capture ? { ...capture, kind: 'create' } : undefined,
                     });
@@ -945,7 +952,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                         sessionType: 'warm_fork',
                         statusMapper: creatorStatus,
                         sendStatus,
-                        cliOverride,
+                        cliOverride, forceHost,
                         abortSignal,
                         capture: capture ? { ...capture, kind: 'create' } : undefined,
                     });
@@ -974,7 +981,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         model: pickModel(cli, 'creator'),
         statusMapper: creatorStatus,
         sendStatus,
-        cliOverride,
+        cliOverride, forceHost,
         abortSignal,
         capture: capture ? { ...capture, kind: 'create' } : undefined,
     });

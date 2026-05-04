@@ -237,6 +237,12 @@ export interface SpawnOptions {
         username?: string;
         kind: 'fix' | 'create';
     };
+    /** Hosted routing only: pin this run to a specific host. 'local' forces
+     *  the local engine; any other string is a worker name. The hosted
+     *  routing plugin pre-picks (cli, host) per kind and sets this so
+     *  remote_cli.ts skips its own weighted pick. Open-source / self-hosted
+     *  users leave it unset and the original local↔worker logic runs. */
+    forceHost?: string;
 }
 
 export type CLIName = 'claude' | 'codex' | 'opencode' | 'copilot';
@@ -286,6 +292,20 @@ const VALID_CLI_NAMES: ReadonlySet<CLIName> = new Set(['claude', 'codex', 'openc
 export type CliOverriderFn = (kind: 'creator' | 'fixer', userPick: string | undefined) => string | undefined;
 let _cliOverrider: CliOverriderFn | null = null;
 export function setCliOverrider(fn: CliOverriderFn | null): void { _cliOverrider = fn; }
+
+/** Hook for hosted deployments that want to pick BOTH the cli and the host
+ *  atomically per kind (e.g. weighted-matrix routing). Returns a guaranteed-
+ *  available (cli, host) pair — the picker is responsible for waiting until
+ *  one is free. When set, takes precedence over setCliOverrider for the
+ *  CLI choice and bypasses remote_cli's own weighted host pick. host is
+ *  'local' or a worker name. */
+export type RoutingPickerFn = (kind: 'creator' | 'fixer', userPickCli: string | undefined) => Promise<{ cli: CLIName; host: string }>;
+let _routingPicker: RoutingPickerFn | null = null;
+export function setRoutingPicker(fn: RoutingPickerFn | null): void { _routingPicker = fn; }
+export async function pickRouting(kind: 'creator' | 'fixer', userPickCli: string | undefined): Promise<{ cli: CLIName; host: string } | null> {
+    if (!_routingPicker) return null;
+    return await _routingPicker(kind, userPickCli);
+}
 
 export function resolveCLI(cliOverride?: string, kind?: 'creator' | 'fixer'): CLIName {
     if (kind && _cliOverrider) {

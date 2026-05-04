@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { assembleGame } from './level_assembler.js';
-import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult, pickModel } from './cli_runner.js';
+import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult, pickModel, pickRouting } from './cli_runner.js';
 import { writeAgentInstructions, CLIName } from './agent_instructions.js';
 import { forkSession, warmIfNeeded, forkPreviousFixSession, registerFixSession } from './session_warmer.js';
 import { recordFixSession, getRecordedFixSession, forgetFixSession } from './cli_session_resume.js';
@@ -101,7 +101,14 @@ export async function runFixer(
 
     const jobId = randomUUID();
 
-    cliOverride = resolveCLI(cliOverride, 'fixer');
+    let forceHost: string | undefined;
+    const picked = await pickRouting('fixer', cliOverride);
+    if (picked) {
+        cliOverride = picked.cli;
+        forceHost = picked.host;
+    } else {
+        cliOverride = resolveCLI(cliOverride, 'fixer');
+    }
 
     // Register BEFORE acquireCLISlot so the per-project lock holds even
     // while we're queued. Without this, two fixes on the same project
@@ -172,7 +179,7 @@ export async function runFixer(
         fs.writeFileSync(path.join(sandboxDir, 'TASK.md'), taskContent);
 
         sendStatus?.('Editing Agent is analyzing and coding...');
-        const cliResult = await spawnCLI(sandboxDir, sendStatus, localSignal, cliOverride, { jobId, projectId });
+        const cliResult = await spawnCLI(sandboxDir, sendStatus, localSignal, cliOverride, { jobId, projectId }, forceHost);
 
         try { registerFixSession(projectId, sandboxDir); } catch {}
         try { recordFixSession(resolveCLI(cliOverride), projectId, cliResult.sessionId); } catch {}
@@ -315,7 +322,7 @@ function fixerStatus(activity: CLIActivity): string | undefined {
 
 const FIXER_PROMPT_RESUME = `You previously worked on this project. The project files in project/ may have changed since your last session — re-read any files you need before editing. Read TASK.md for the new bug report. Fix the bug — edit template files only. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; sessionId?: string; usedWarmSession?: boolean; resumedPrevious?: boolean; tokensTotal?: number }> {
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }, forceHost?: string): Promise<{ text: string; costUsd: number; sessionId?: string; usedWarmSession?: boolean; resumedPrevious?: boolean; tokensTotal?: number }> {
     const cli = resolveCLI(cliOverride);
     const projectId = capture?.projectId;
     const jobId = capture?.jobId;
@@ -336,7 +343,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     statusMapper: fixerStatus,
                     sendStatus,
                     abortSignal,
-                    cliOverride,
+                    cliOverride, forceHost,
                     capture: capture ? { ...capture, kind: 'fix' } : undefined,
                 });
                 return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, resumedPrevious: true, tokensTotal: result.tokensTotal };
@@ -367,7 +374,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     statusMapper: fixerStatus,
                     sendStatus,
                     abortSignal,
-                    cliOverride,
+                    cliOverride, forceHost,
                     capture: capture ? { ...capture, kind: 'fix' } : undefined,
                 });
                 return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, resumedPrevious: true, tokensTotal: result.tokensTotal };
@@ -396,7 +403,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     statusMapper: fixerStatus,
                     sendStatus,
                     abortSignal,
-                    cliOverride,
+                    cliOverride, forceHost,
                     capture: capture ? { ...capture, kind: 'fix' } : undefined,
                 });
                 return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true, tokensTotal: result.tokensTotal };
@@ -429,7 +436,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                         statusMapper: fixerStatus,
                         sendStatus,
                         abortSignal,
-                        cliOverride,
+                        cliOverride, forceHost,
                         capture: capture ? { ...capture, kind: 'fix' } : undefined,
                     });
                     return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true, tokensTotal: result.tokensTotal };
@@ -465,7 +472,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                         statusMapper: fixerStatus,
                         sendStatus,
                         abortSignal,
-                        cliOverride,
+                        cliOverride, forceHost,
                         capture: capture ? { ...capture, kind: 'fix' } : undefined,
                     });
                     return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true, tokensTotal: result.tokensTotal };
@@ -490,7 +497,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         statusMapper: fixerStatus,
         sendStatus,
         abortSignal,
-        cliOverride,
+        cliOverride, forceHost,
         capture: capture ? { ...capture, kind: 'fix' } : undefined,
     });
     return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, tokensTotal: result.tokensTotal };
