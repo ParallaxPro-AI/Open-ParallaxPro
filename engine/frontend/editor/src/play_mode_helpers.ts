@@ -144,8 +144,16 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
         state,
         uiSendState: deps.uiSendState,
 
-        raycast: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number) => {
-            const player = (scene as any).getEntityByName?.('Player') ?? [...scene.entities.values()].find(e => e.name === 'Player');
+        raycast: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number, ignoreEntityId?: number) => {
+            // Optional 8th arg: ignore a specific entity (e.g. shooter, vehicle
+            // doing wheel raycasts) so the ray doesn't hit its own collider.
+            // When omitted, defaults to ignoring the Player — preserves the
+            // historical behavior for callers that don't pass an id.
+            let ignoreId: number | undefined = ignoreEntityId;
+            if (ignoreId === undefined) {
+                const player = (scene as any).getEntityByName?.('Player') ?? [...scene.entities.values()].find(e => e.name === 'Player');
+                ignoreId = player?.id;
+            }
             // Physics raycast first — collider-based, doesn't care about
             // gpuMesh load state, and respects kinematic proxy colliders
             // that the mesh-AABB path never sees. Falls through to the
@@ -155,7 +163,7 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
             const phys = engine.globalContext.physicsSystem;
             if (phys && (phys as any).raycastWorld) {
                 const hit = (phys as any).raycastWorld(
-                    new Vec3(ox, oy, oz), new Vec3(dx, dy, dz), maxDist, player?.id,
+                    new Vec3(ox, oy, oz), new Vec3(dx, dy, dz), maxDist, ignoreId,
                 );
                 if (hit) {
                     const ent = scene.entities.get(hit.entityId);
@@ -168,7 +176,7 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
                     };
                 }
             }
-            return doRaycast(scene, ox, oy, oz, dx, dy, dz, maxDist, player?.id);
+            return doRaycast(scene, ox, oy, oz, dx, dy, dz, maxDist, ignoreId);
         },
 
         screenToWorldRay: (screenX: number, screenY: number) =>

@@ -215,11 +215,21 @@ export class PhysicsSystem {
             { x: direction.x, y: direction.y, z: direction.z }
         );
 
-        const hit = this.world.castRay(ray, maxDist, true);
+        // Exclude via RAPIER's body filter — without this, when the ray's
+        // first hit IS the excluded entity, castRay returns the excluded
+        // hit and our post-filter throws it away with no continuation,
+        // looking like "ray missed everything." Passing the excluded body
+        // makes RAPIER skip its colliders during the cast itself, so the
+        // ray correctly continues to whatever's behind it (terrain, etc).
+        let excludeBody: RAPIER.RigidBody | undefined;
+        if (excludeEntityId !== undefined) {
+            excludeBody = this.entityToBody.get(excludeEntityId);
+        }
+        const hit = this.world.castRay(ray, maxDist, true, undefined, undefined, undefined, excludeBody);
         if (!hit) return null;
 
         const entityId = this.colliderHandleToEntity.get(hit.collider.handle);
-        if (entityId === undefined || entityId === excludeEntityId) return null;
+        if (entityId === undefined) return null;
 
         const toi = hit.timeOfImpact;
         const point = new Vec3(

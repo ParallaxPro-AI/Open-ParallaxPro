@@ -87,7 +87,7 @@ export interface ScriptScene {
     spawnEntity(name: string): ScriptEntity;
     destroyEntity(id: number): void;
     setMeshData(entityId: number, positions: Float32Array, normals: Float32Array, uvs: Float32Array, indices: Uint32Array): void;
-    raycast(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): RaycastHit | null;
+    raycast(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number, ignoreEntityId?: number): RaycastHit | null;
     events: EventRegistry;
 
     // -- Entity convenience methods (ID-based) --
