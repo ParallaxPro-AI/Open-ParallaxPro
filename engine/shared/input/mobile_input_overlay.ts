@@ -226,7 +226,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
 
     // Track which Touch.identifier each widget owns + the keys it pressed.
     type FingerState = {
-        widget: 'joystick' | 'look' | 'action' | 'hotbar' | 'system' | 'viewport';
+        widget: 'joystick' | 'look' | 'action' | 'hotbar' | 'system' | 'viewport' | 'scroll';
         keys: Set<string>; // keyboard codes (incl. Mouse* tokens we routed)
         mouseButton?: number;
         lastX: number;
@@ -234,6 +234,13 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         startX: number;
         startY: number;
         target?: any;
+        // 'scroll' widget: the in-iframe element being scrolled, plus the
+        // iframe's visual→layout scale so deltas in client-space map to
+        // the right number of layout pixels regardless of how shrunk the
+        // iframe was by applyScale (e.g. 0.62× for mobile responsive).
+        scrollEl?: HTMLElement;
+        scrollSx?: number;
+        scrollSy?: number;
     };
     const fingers: Map<number, FingerState> = new Map();
 
@@ -1082,6 +1089,60 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
         return null;
     };
 
+    /**
+     * Companion to findInteractiveHudElement for scrollable HUD content.
+     * The bundle iframe (mobile HUD path) is permanently pointer-events:
+     * none and the per-iframe HUDs default the same way, so any touch
+     * that lands on a scrollable region of a HUD falls through to the
+     * canvas and gets eaten as a world-tap by viewport handling. The
+     * desktop side has a wheel router for the same reason; this is the
+     * touch equivalent.
+     *
+     * Walks up from elementFromPoint looking for the nearest ancestor
+     * whose computed overflow is auto/scroll AND whose content actually
+     * overflows. Modal-style iframes (pointer-events:auto) are skipped:
+     * native iOS scroll handles those inside their own document.
+     *
+     * Iterates iframes in reverse DOM order so visually-topmost stacked
+     * panels (later-appended HUDs paint on top at the same z-index) are
+     * matched first.
+     */
+    const findScrollableHudElement = (x: number, y: number): { el: HTMLElement; sx: number; sy: number } | null => {
+        const iframes = document.getElementsByTagName('iframe');
+        for (let i = iframes.length - 1; i >= 0; i--) {
+            const frame = iframes[i] as HTMLIFrameElement;
+            if (frame.style.display === 'none') continue;
+            // Modal iframes accept native pointer events — touches inside
+            // them don't surface to this handler at all, but the guard is
+            // here for symmetry with findInteractiveHudElement.
+            if (frame.style.pointerEvents === 'auto') continue;
+            const rect = frame.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
+            try {
+                const iDoc = frame.contentDocument;
+                const iWin = frame.contentWindow;
+                if (!iDoc || !iWin) continue;
+                const sx = rect.width / (iWin.innerWidth || rect.width) || 1;
+                const sy = rect.height / (iWin.innerHeight || rect.height) || 1;
+                const ix = (x - rect.left) / sx;
+                const iy = (y - rect.top) / sy;
+                const inner = iDoc.elementFromPoint(ix, iy);
+                if (!inner) continue;
+                let cur: Element | null = inner;
+                while (cur && cur !== iDoc.documentElement) {
+                    const cs = iWin.getComputedStyle(cur);
+                    const el = cur as HTMLElement;
+                    const oy = (cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
+                    const ox = (cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth;
+                    if (oy || ox) return { el, sx, sy };
+                    cur = cur.parentElement;
+                }
+            } catch { /* cross-origin or sandboxed — skip */ }
+        }
+        return null;
+    };
+
     // ── Touch listeners (capture so HUD iframes don't swallow first) ─────
     const synthHudClick = (hudEl: HTMLElement) => {
         try {
@@ -1127,6 +1188,24 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
                 consumed = true;
                 continue;
             }
+            // Scrollable HUD content (no interactive element matched).
+            // Claim the finger as a 'scroll' widget so subsequent
+            // touchmoves drive the iframe's scrollTop/scrollLeft instead
+            // of being classified as a world-drag by the viewport path.
+            const hudScrollable = findScrollableHudElement(t.clientX, t.clientY);
+            if (hudScrollable) {
+                const scrollState: FingerState = {
+                    widget: 'scroll', keys: new Set(),
+                    lastX: t.clientX, lastY: t.clientY,
+                    startX: t.clientX, startY: t.clientY,
+                    scrollEl: hudScrollable.el,
+                    scrollSx: hudScrollable.sx,
+                    scrollSy: hudScrollable.sy,
+                };
+                fingers.set(t.identifier, scrollState);
+                consumed = true;
+                continue;
+            }
             if (w) {
                 consumed = true;
                 w.onStart(t);
@@ -1156,6 +1235,21 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
                 case 'hotbar': /* no-op */ break;
                 case 'system': /* no-op */ break;
                 case 'viewport': viewportMove(t, state); break;
+                case 'scroll': {
+                    if (state.scrollEl) {
+                        const dx = state.lastX - t.clientX;
+                        const dy = state.lastY - t.clientY;
+                        // Divide by iframe scale: 8px of finger movement on
+                        // a 0.62×-scaled iframe should advance scrollTop by
+                        // 8 / 0.62 layout pixels so the visible content
+                        // tracks the finger 1:1.
+                        state.scrollEl.scrollLeft += dx / (state.scrollSx ?? 1);
+                        state.scrollEl.scrollTop  += dy / (state.scrollSy ?? 1);
+                        state.lastX = t.clientX;
+                        state.lastY = t.clientY;
+                    }
+                    break;
+                }
             }
         }
         if (manifest.scroll?.type === 'pinch') pinchMove(e.touches);
@@ -1193,6 +1287,7 @@ export function attachMobileInputOverlay(opts: MobileInputOverlayOptions): Mobil
                     break;
                 }
                 case 'viewport': viewportEnd(state); break;
+                case 'scroll': /* no keys held; nothing to release */ break;
             }
             fingers.delete(t.identifier);
         }
