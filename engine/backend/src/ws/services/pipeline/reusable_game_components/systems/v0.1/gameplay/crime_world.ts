@@ -117,6 +117,8 @@ class CrimeWorldSystem extends GameScript {
         this._vehicleEntity = car;
         this._vehicleSpeed = 0;
         this._vehicleYaw = 0;
+        this._vehiclePitch = 0;
+        this._vehicleRoll = 0;
         this.scene._inVehicle = true;
         this.scene._vehicleEntity = car;
         this.scene._carYaw = 0;
@@ -211,7 +213,32 @@ class CrimeWorldSystem extends GameScript {
         }
 
         this.scene.setVelocity(this._vehicleEntity.id, { x: vx, y: vy, z: vz });
-        this._vehicleEntity.transform.setRotationEuler(0, -this._vehicleYaw, 0);
+
+        // Pitch + roll the car along the slope under it so it tilts on
+        // hills instead of clipping/floating with a perfectly horizontal
+        // body. Sample terrain heights at four points around the car and
+        // derive Euler angles. Rotation order is (pitch, yaw, roll) so the
+        // yaw stays driver-controlled and pitch/roll come from the surface.
+        // No-op (smoothly degrades to 0,0) when there's no heightmap.
+        var cp = this._vehicleEntity.transform.position;
+        var halfWheelBase = 1.4;   // ~front-rear distance / 2 for a sedan
+        var halfTrackWidth = 0.9;  // ~left-right distance / 2
+        var fwdX = Math.sin(yawRad), fwdZ = -Math.cos(yawRad);
+        var rightX = Math.cos(yawRad), rightZ = Math.sin(yawRad);
+        var hF = this.scene.getTerrainHeight ? this.scene.getTerrainHeight(cp.x + fwdX * halfWheelBase, cp.z + fwdZ * halfWheelBase) : 0;
+        var hB = this.scene.getTerrainHeight ? this.scene.getTerrainHeight(cp.x - fwdX * halfWheelBase, cp.z - fwdZ * halfWheelBase) : 0;
+        var hR = this.scene.getTerrainHeight ? this.scene.getTerrainHeight(cp.x + rightX * halfTrackWidth, cp.z + rightZ * halfTrackWidth) : 0;
+        var hL = this.scene.getTerrainHeight ? this.scene.getTerrainHeight(cp.x - rightX * halfTrackWidth, cp.z - rightZ * halfTrackWidth) : 0;
+        var pitchDeg = Math.atan2(hF - hB, halfWheelBase * 2) * 180 / Math.PI;
+        var rollDeg = Math.atan2(hL - hR, halfTrackWidth * 2) * 180 / Math.PI;
+        // Lerp toward target tilt each frame (~10 Hz response) so curb hops
+        // and terrain quantization don't make the car snap-jitter.
+        if (typeof this._vehiclePitch !== 'number') this._vehiclePitch = 0;
+        if (typeof this._vehicleRoll !== 'number') this._vehicleRoll = 0;
+        var lerp = Math.min(1, dt * 10);
+        this._vehiclePitch += (pitchDeg - this._vehiclePitch) * lerp;
+        this._vehicleRoll += (rollDeg - this._vehicleRoll) * lerp;
+        this._vehicleEntity.transform.setRotationEuler(this._vehiclePitch, -this._vehicleYaw, this._vehicleRoll);
 
         this.scene._carYaw = this._vehicleYaw;
 
