@@ -177,6 +177,18 @@ export async function runFixer(
         try { registerFixSession(projectId, sandboxDir); } catch {}
         try { recordFixSession(resolveCLI(cliOverride), projectId, cliResult.sessionId); } catch {}
 
+        // Context-window guard for opencode: if the cumulative session has
+        // grown past 70% of deepseek-v4-pro's 1M window, drop the recorded
+        // session so the next fix warm-forks instead of resuming. Without
+        // this, the resumed conversation eventually trips a 400 from the
+        // model and we waste one fix per project lifecycle on the failure.
+        const OPENCODE_TOKENS_RESET_AT = 700_000;
+        const resolvedCli = resolveCLI(cliOverride);
+        if (resolvedCli === 'opencode' && typeof cliResult.tokensTotal === 'number' && cliResult.tokensTotal > OPENCODE_TOKENS_RESET_AT) {
+            console.log(`[CLIFixer] opencode session for ${projectId} at ${cliResult.tokensTotal} tokens — dropping recorded session so next fix warm-forks.`);
+            try { forgetFixSession(resolvedCli, projectId); } catch {}
+        }
+
         sendStatus?.('Reading changes...');
         const changes = readChanges(sandboxDir, projectFiles);
 
@@ -303,7 +315,7 @@ function fixerStatus(activity: CLIActivity): string | undefined {
 
 const FIXER_PROMPT_RESUME = `You previously worked on this project. The project files in project/ may have changed since your last session — re-read any files you need before editing. Read TASK.md for the new bug report. Fix the bug — edit template files only. Run "bash validate.sh" when done. Be concise — fix the bug, don't refactor. If the user's request in TASK.md is in a non-English language, write any new in-game UI text in that same language.`;
 
-async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; sessionId?: string; usedWarmSession?: boolean; resumedPrevious?: boolean }> {
+async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, abortSignal?: AbortSignal, cliOverride?: string, capture?: { jobId: string; projectId: string }): Promise<{ text: string; costUsd: number; sessionId?: string; usedWarmSession?: boolean; resumedPrevious?: boolean; tokensTotal?: number }> {
     const cli = resolveCLI(cliOverride);
     const projectId = capture?.projectId;
     const jobId = capture?.jobId;
@@ -327,7 +339,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     cliOverride,
                     capture: capture ? { ...capture, kind: 'fix' } : undefined,
                 });
-                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, resumedPrevious: true };
+                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, resumedPrevious: true, tokensTotal: result.tokensTotal };
             } catch (e: any) {
                 console.warn(`[CLIFixer] Resume from previous session failed, trying warm fork:`, e?.message);
             }
@@ -358,7 +370,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     cliOverride,
                     capture: capture ? { ...capture, kind: 'fix' } : undefined,
                 });
-                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, resumedPrevious: true };
+                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, resumedPrevious: true, tokensTotal: result.tokensTotal };
             } catch (e: any) {
                 console.warn(`[CLIFixer] ${cli} resume failed, falling back to cold start:`, e?.message);
                 forgetFixSession(cli, projectId);
@@ -387,7 +399,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                     cliOverride,
                     capture: capture ? { ...capture, kind: 'fix' } : undefined,
                 });
-                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true };
+                return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true, tokensTotal: result.tokensTotal };
             } catch (e: any) {
                 console.warn(`[CLIFixer] Warm fork failed, falling back to cold start:`, e?.message);
                 sendStatus?.('Warm session failed — starting fresh...');
@@ -420,7 +432,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                         cliOverride,
                         capture: capture ? { ...capture, kind: 'fix' } : undefined,
                     });
-                    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true };
+                    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true, tokensTotal: result.tokensTotal };
                 } catch (e: any) {
                     console.warn(`[CLIFixer] codex warm fork failed, falling back to cold start:`, e?.message);
                     sendStatus?.('Warm session failed — starting fresh...');
@@ -456,7 +468,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
                         cliOverride,
                         capture: capture ? { ...capture, kind: 'fix' } : undefined,
                     });
-                    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true };
+                    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: true, tokensTotal: result.tokensTotal };
                 } catch (e: any) {
                     console.warn(`[CLIFixer] opencode warm fork failed, falling back to cold start:`, e?.message);
                     sendStatus?.('Warm session failed — starting fresh...');
@@ -481,7 +493,7 @@ async function spawnCLI(sandboxDir: string, sendStatus?: (msg: string) => void, 
         cliOverride,
         capture: capture ? { ...capture, kind: 'fix' } : undefined,
     });
-    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false };
+    return { text: result.text, costUsd: result.costUsd, sessionId: result.sessionId, usedWarmSession: false, tokensTotal: result.tokensTotal };
 }
 
 // ─── Read changes ──────────────────────────────────────────────────────────

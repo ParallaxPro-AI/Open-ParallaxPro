@@ -56,7 +56,7 @@ if (!process.env.MAX_THINKING_TOKENS) {
 const MAX_PER_CLI: Record<CLIName, number> = {
     claude: 8,
     codex: 8,
-    opencode: 64,
+    opencode: 32,
     copilot: 8,
 };
 
@@ -135,6 +135,13 @@ export interface CLIRunResult {
      * round-trips. Undefined for CLIs that don't report it.
      */
     numTurns?: number;
+    /**
+     * Cumulative session token count reported by the CLI on its last
+     * step_finish event. Currently populated for opencode only — used by
+     * cli_fixer to detect when the resumed session is approaching the
+     * model's context window and force a warm-fork on the next run.
+     */
+    tokensTotal?: number;
     /**
      * Absolute path to the session-capture dir on disk. Present only when
      * the caller passed `capture` in SpawnOptions AND capture init succeeded.
@@ -633,7 +640,7 @@ function spawnCodex(opts: SpawnOptions, capture: CaptureHandle | null): Promise<
  * through /bin/sh -lc, so we peek at the leading executable to guess
  * whether it's reading / editing / searching / running bash.
  */
-function codexCommandToActivity(command: string): CLIActivity['kind'] {
+export function codexCommandToActivity(command: string): CLIActivity['kind'] {
     // Strip the shell wrapper: `/bin/zsh -lc 'cat foo'` → `cat foo`
     const stripped = command.replace(/^\S*sh\s+-[lc]+\s+['"]?/, '').trim();
     const head = stripped.split(/\s+/)[0] || '';
@@ -655,17 +662,15 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
         // fast groq model like kimi-k2) is far snappier than `opencode/*`
         // hosted options, and users can swap it via their own opencode config.
         //
-        // Drop an opencode.json in the sandbox that bumps the default `build`
-        // agent's step budget to 20. Default is ~15, which weaker models (e.g.
-        // gpt-oss-20b) exhaust while still planning — see projectId de549996:
-        // the agent spent 16 steps exploring and writing zero files before
-        // hitting the cap. 20 gives a modest extra headroom; relying on more
-        // budget to paper over weak models isn't the fix — the real lever is
-        // trimming exploration via AGENTS.md / template pre-seeding.
+        // Drop an opencode.json in the sandbox that pins the `build` agent's
+        // step budget to opts.maxTurns. Mirrors the claude `--max-turns` flag
+        // so creator (120) and fixer (60) get the same effective cap as
+        // claude. Without this, opencode falls back to its built-in default
+        // (~15) which weaker models exhaust while still planning.
         try {
             fs.writeFileSync(
                 path.join(opts.sandboxDir, 'opencode.json'),
-                JSON.stringify({ agent: { build: { steps: 20 } } }),
+                JSON.stringify({ agent: { build: { steps: opts.maxTurns } } }),
             );
         } catch (e: any) {
             console.warn(`[CLIRunner] Failed to write opencode.json: ${e.message}`);
@@ -711,8 +716,11 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
         let sessionId: string | undefined;
         let stderr = '';
         let sawError: string | null = null;
+        let numTurns = 0;
+        let tokensTotal: number | undefined;
 
         streamJSONL(proc.stdout, (event: any) => {
+            if (event.type === 'step_start') numTurns++;
             // opencode emits step_start / step_finish / tool_use / text / error
             // events. `part.tool` names the tool for tool_use; `part.text` is
             // the assistant message; `part.cost` is on step_finish.
@@ -743,6 +751,10 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
             if (event.type === 'step_finish') {
                 const c = event.part?.cost;
                 if (typeof c === 'number') costUsd += c;
+                // tokens.total is the cumulative session size reported by
+                // opencode after each step. Last value wins (it's monotonic).
+                const t = event.part?.tokens?.total;
+                if (typeof t === 'number') tokensTotal = t;
                 return;
             }
 
@@ -769,11 +781,11 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
                 // opencode sometimes emits an error event mid-run but still
                 // exits 0 with a partial fix; prefer the last text when present.
                 if (lastText) {
-                    resolve({ text: lastText, costUsd, sessionId });
+                    resolve({ text: lastText, costUsd, sessionId, numTurns, tokensTotal });
                 } else if (sawError) {
                     reject(new Error(`opencode reported an error: ${sawError}`));
                 } else {
-                    resolve({ text: 'Changes applied.', costUsd, sessionId });
+                    resolve({ text: 'Changes applied.', costUsd, sessionId, numTurns, tokensTotal });
                 }
             } else {
                 console.error(`[CLIRunner] opencode exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
@@ -788,7 +800,7 @@ function spawnOpenCode(opts: SpawnOptions, capture: CaptureHandle | null): Promi
     });
 }
 
-function opencodeToolToActivity(name: string): CLIActivity['kind'] {
+export function opencodeToolToActivity(name: string): CLIActivity['kind'] {
     const lower = name.toLowerCase();
     if (lower === 'read') return 'read';
     if (lower === 'edit' || lower === 'patch') return 'edit';
@@ -902,7 +914,7 @@ function spawnCopilot(opts: SpawnOptions, capture: CaptureHandle | null): Promis
     });
 }
 
-function copilotToolToActivity(name: string): CLIActivity['kind'] {
+export function copilotToolToActivity(name: string): CLIActivity['kind'] {
     const lower = name.toLowerCase();
     // Observed copilot tool names: `view` (read), `str_replace_editor` /
     // `edit` (edit), `create` (write), `bash` (shell), `grep` / `glob`
