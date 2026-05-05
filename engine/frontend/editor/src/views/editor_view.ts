@@ -95,7 +95,14 @@ export class EditorView {
             if (id === 'gen') this.modelGen.onShow();
             // Session button only makes sense on the Chat tab.
             this.chat.sessionBtn.style.display = id === 'chat' ? '' : 'none';
+            // Persist so a refresh keeps the same tab.
+            try { localStorage.setItem('ai_panel_tab', id); } catch {}
         });
+        // Restore last selected tab on mount.
+        try {
+            const saved = localStorage.getItem('ai_panel_tab');
+            if (saved === 'chat' || saved === 'gen') this.chatTabs.setActiveTab(saved);
+        } catch {}
         wrapper.appendChild(this.chatTabs.el);
 
         this.chatTabsEl = wrapper;
