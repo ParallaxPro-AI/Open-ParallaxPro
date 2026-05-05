@@ -23,6 +23,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
+import { bakeGeneratedAssetScales } from './bake_generated_asset_scales.js';
 import { assembleGame } from './level_assembler.js';
 import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult, pickModel, pickRouting } from './cli_runner.js';
 import { writeAgentInstructions, CLIName } from './agent_instructions.js';
@@ -517,6 +518,7 @@ interface Changes {
 function readChanges(sandboxDir: string, original: ProjectFiles): Changes {
     const projectDir = path.join(sandboxDir, 'project');
     const newFiles = readFilesFromDir(projectDir);
+    bakeGeneratedAssetScales(newFiles);
 
     const changedFiles: Record<string, string> = {};
     const deletedFiles: string[] = [];

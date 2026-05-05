@@ -28,6 +28,7 @@ import {
     isLegacyProjectData,
     ENGINE_MACHINERY,
 } from './project_files.js';
+import { bakeGeneratedAssetScales } from './bake_generated_asset_scales.js';
 import db from '../../../db/connection.js';
 import { spawnCLIAgent, CLIActivity, acquireCLISlot, releaseCLISlot, resolveCLI, CLIRunResult, pickModel, pickRouting } from './cli_runner.js';
 import { writeAgentInstructions, CLIName } from './agent_instructions.js';
@@ -225,6 +226,7 @@ export async function runCreator(
         sendStatus?.('Reading created files...');
         const projectDir = path.join(sandboxDir, 'project');
         let files = readFilesFromDir(projectDir);
+        bakeGeneratedAssetScales(files);
 
         if (!files['01_flow.json'] || !files['02_entities.json']) {
             return { success: false, summary: 'Creator did not produce required template files.', templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
@@ -303,6 +305,7 @@ export async function runCreator(
 
             sendStatus?.('Reading retried files...');
             files = readFilesFromDir(projectDir);
+            bakeGeneratedAssetScales(files);
             if (!files['01_flow.json'] || !files['02_entities.json']) {
                 return { success: false, summary: `Retry removed required template files. Original error: ${assembleErr.message}`, templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
             }
@@ -420,6 +423,7 @@ export async function runCreator(
             if (retry.sessionCapturePath) cliResult.sessionCapturePath = retry.sessionCapturePath;
 
             files = readFilesFromDir(projectDir);
+            bakeGeneratedAssetScales(files);
             if (!files['01_flow.json'] || !files['02_entities.json']) {
                 return { success: false, summary: `Playtest retry removed required files.`, templateId, files, costUsd: cliResult.costUsd, sessionCapturePath: cliResult.sessionCapturePath };
             }
@@ -451,6 +455,7 @@ export async function runCreator(
                     // Refresh the in-memory file map so the orchestrator
                     // writes the updated file out to the artifact dir.
                     files = readFilesFromDir(projectDir);
+                    bakeGeneratedAssetScales(files);
                 }
             } catch (syncErr: any) {
                 console.warn(`[CLICreator] syncEventDefinitions failed: ${syncErr?.message}`);
