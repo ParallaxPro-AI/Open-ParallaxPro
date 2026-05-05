@@ -255,14 +255,10 @@ export class ModelGenPanel {
         if (disabled) {
             // Visually-present-but-unclickable state. Blur + low opacity +
             // not-allowed cursor signal "off"; tab stays in the bar so users
-            // see the feature is on the roadmap.
+            // see the feature is on the roadmap. No click handler — clicks
+            // are inert.
             btn.textContent = label;
             btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#666;border-radius:4px;cursor:not-allowed;font-size:12px;filter:blur(1.2px);opacity:0.5';
-            btn.title = 'Image-to-3D is rolling out soon — text-to-3D for now';
-            btn.addEventListener('click', () => {
-                this.statusBar.textContent = 'Image-to-3D coming soon — use text-to-3D for now';
-                this.statusBar.style.color = '#fbbf24';
-            });
         } else {
             btn.textContent = label;
             btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#888;border-radius:4px;cursor:pointer;font-size:12px';
