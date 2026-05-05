@@ -422,7 +422,9 @@ export class ModelGenPanel {
                 });
                 this.renderActive();
                 this.startPolling();
-                this.statusBar.textContent = `Job queued${resp.queue_position != null ? ` — position #${resp.queue_position + 1}` : ''}.`;
+                // No status text — the In-flight section below already
+                // shows "<prompt> — queue #N" for this job.
+                this.statusBar.textContent = '';
             }
             // Reset form back to idle
             this.step = 'idle';
