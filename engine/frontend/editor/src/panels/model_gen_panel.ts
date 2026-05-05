@@ -104,7 +104,10 @@ export class ModelGenPanel {
     private step: Step = 'idle';
     private currentPreviewUrl: string | null = null;
     private currentPrompt: string | null = null;
-    private currentQuality: string = 'standard';
+    /** Hardcoded for now — UI surfaced quality presets felt like clutter
+     *  for the default user. Backend still accepts the param if we ever
+     *  want to expose Fast / Standard / High again. */
+    private readonly currentQuality: string = 'standard';
 
     private pollTimer: number | null = null;
     private activeJobs = new Map<string, ActiveJob>();
@@ -245,19 +248,7 @@ export class ModelGenPanel {
         this.formArea.appendChild(promptInput);
 
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;gap:8px;align-items:center';
-
-        const qLabel = document.createElement('span');
-        qLabel.textContent = 'Quality:';
-        qLabel.style.cssText = 'font-size:12px;color:#aaa';
-        row.appendChild(qLabel);
-
-        const qSelect = this.makeQualitySelect();
-        row.appendChild(qSelect);
-
-        const spacer = document.createElement('div');
-        spacer.style.flex = '1';
-        row.appendChild(spacer);
+        row.style.cssText = 'display:flex;justify-content:flex-end';
 
         const previewBtn = document.createElement('button');
         previewBtn.textContent = 'Preview Image';
@@ -266,13 +257,12 @@ export class ModelGenPanel {
             const prompt = promptInput.value.trim();
             if (!prompt) { this.statusBar.textContent = 'Enter a prompt first.'; return; }
             this.currentPrompt = prompt;
-            this.currentQuality = qSelect.value;
             previewBtn.disabled = true;
             this.statusBar.textContent = 'Generating preview…';
             try {
                 const resp = await api<any>('/preview/text', {
                     method: 'POST',
-                    body: JSON.stringify({ prompt, quality: qSelect.value }),
+                    body: JSON.stringify({ prompt, quality: this.currentQuality }),
                 });
                 if (resp.cache_hit && resp.model) {
                     this.statusBar.textContent = '✓ Found a matching shared model — added to library.';
@@ -320,15 +310,6 @@ export class ModelGenPanel {
         });
 
         this.formArea.appendChild(dropZone);
-
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;gap:8px;align-items:center';
-        const qLabel = document.createElement('span');
-        qLabel.textContent = 'Quality:';
-        qLabel.style.cssText = 'font-size:12px;color:#aaa';
-        row.appendChild(qLabel);
-        row.appendChild(this.makeQualitySelect());
-        this.formArea.appendChild(row);
     }
 
     private async handleImageUpload(file?: File | null): Promise<void> {
@@ -348,20 +329,6 @@ export class ModelGenPanel {
         } catch (e: any) {
             this.statusBar.textContent = `Error: ${e.message || 'upload failed'}`;
         }
-    }
-
-    private makeQualitySelect(): HTMLSelectElement {
-        const sel = document.createElement('select');
-        sel.style.cssText = 'background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:4px 8px;font-size:12px';
-        for (const [v, l] of [['fast', 'Fast (~10s)'], ['standard', 'Standard (~50s)'], ['high', 'High (~70s)']]) {
-            const opt = document.createElement('option');
-            opt.value = v;
-            opt.textContent = l;
-            if (v === this.currentQuality) opt.selected = true;
-            sel.appendChild(opt);
-        }
-        sel.addEventListener('change', () => { this.currentQuality = sel.value; });
-        return sel;
     }
 
     // ── Preview + confirm ────────────────────────────────────────────
