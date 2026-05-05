@@ -644,7 +644,14 @@ export function applySceneSnapshot(files: ProjectFiles, sceneJson: any): Snapsho
             const created = createPlacementFromEntity(entity, entitiesDef, placements);
             if (created) {
                 placements.push(created.placement);
-                placementByName.set(created.placement.name, created.placement);
+                // Deliberately NOT updating placementByName here — if the
+                // user dragged in N copies of the same asset, the editor
+                // sends them all under the same `entity.name` ("Apple",
+                // "Apple", "Apple"). Adding the first one to the map
+                // would route the next two into the update-existing
+                // branch and lose them. Falling through to a fresh
+                // createPlacement call lets each iteration's unique-name
+                // suffix logic (Apple_2, Apple_3, …) keep them distinct.
                 if (created.newDef) {
                     entitiesDef[created.placement.ref] = created.newDef;
                     entitiesDirty = true;
