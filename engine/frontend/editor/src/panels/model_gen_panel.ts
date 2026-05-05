@@ -524,7 +524,7 @@ export class ModelGenPanel {
             label = 'Offline — no GPU workers connected';
         } else {
             color = '#4ade80';
-            label = `Online · ${online} GPU worker${online === 1 ? '' : 's'}` + (queue > 0 ? ` · ${queue} queued` : '');
+            label = `Online · ${online} worker${online === 1 ? '' : 's'}` + (queue > 0 ? ` · ${queue} queued` : '');
         }
         this.healthBanner.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${color}"></span><span>${escapeHtml(label)}</span>`;
     }
