@@ -1232,7 +1232,7 @@ export class Toolbar {
         const creditsBody = document.createElement('div');
         creditsBody.style.cssText = 'font-size:11px;color:var(--text-disabled);line-height:1.7;';
         creditsBody.innerHTML = `
-            <div><b>3D model generation:</b> Built with TRELLIS.2 · DINOv3 · FLUX.1 [schnell]</div>
+            <div><b>3D model generation:</b> Built with TRELLIS.2 · DINOv3 · FLUX.1</div>
             <div><b>Asset libraries:</b> Kenney · Poly Haven · Quaternius</div>
         `;
         creditsRow.appendChild(creditsBody);
