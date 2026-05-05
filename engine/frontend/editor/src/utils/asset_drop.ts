@@ -25,16 +25,30 @@ function alignmentRotation(forwardAxis: string | undefined): { x: number; y: num
     }
 }
 
+/** Uniform scale to apply on spawn so a generated asset renders at its
+ *  predicted real-world size. TRELLIS-generated GLBs land in a ~1m unit
+ *  cube; multiplying by est_scale_m makes the longest axis equal that
+ *  many meters. Pack assets (kenney / poly_haven / quaternius) get their
+ *  scale from MODEL_FACING.json on load and shouldn't be re-scaled here
+ *  — gated on the path prefix. Returns 1 (no-op) for everything else. */
+function generatedAssetScale(asset: { fileUrl?: string; est_scale_m?: number | null }): number {
+    if (!asset?.fileUrl?.startsWith('/assets/generated/')) return 1;
+    const est = Number(asset.est_scale_m);
+    if (!Number.isFinite(est) || est <= 0) return 1;
+    return est;
+}
+
 export function buildComponentsForAsset(
-    asset: { name: string; category: string; extension: string; fileUrl: string; forward_axis?: string },
+    asset: { name: string; category: string; extension: string; fileUrl: string; forward_axis?: string; est_scale_m?: number | null },
     pos: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 },
 ): { type: string; data?: Record<string, any> }[] {
+    const s = generatedAssetScale(asset);
     const transform = {
         type: 'TransformComponent',
         data: {
             position: { x: pos.x, y: pos.y, z: pos.z },
             rotation: alignmentRotation(asset.forward_axis),
-            scale: { x: 1, y: 1, z: 1 },
+            scale: { x: s, y: s, z: s },
         },
     };
 
