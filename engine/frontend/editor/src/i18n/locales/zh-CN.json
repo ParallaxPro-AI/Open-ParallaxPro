@@ -383,5 +383,74 @@
     "cancel": "取消",
     "ok": "确定",
     "confirm": "确认"
+  },
+  "modelGen": {
+    "health": {
+      "checking": "检查中…",
+      "unavailable": "GPU 服务不可用",
+      "offline": "离线 — 无可用工作节点",
+      "onlineSingular": "在线 · {count} 个工作节点可用",
+      "onlinePlural": "在线 · {count} 个工作节点可用",
+      "queuedSuffix": " · 排队 {count} 个"
+    },
+    "notice": {
+      "searchFirstBold": "请先搜索社区。",
+      "searchFirstBody": "在生成之前，先在下方社区库浏览现有的 3D 模型 — 这是即时的，并能节省 GPU 时间。",
+      "publicBold": "所有生成内容均为公开。",
+      "publicBody": "您的提示词及生成的模型对其他用户可见。请勿包含个人信息或受版权保护的内容。"
+    },
+    "mode": {
+      "fromText": "文字生成",
+      "fromImage": "图片生成"
+    },
+    "text": {
+      "label": "描述一个 3D 模型：",
+      "placeholder": "例如：\"木桶\"、\"低面树\"、\"动漫风格的剑\"",
+      "previewBtn": "预览图片",
+      "needPrompt": "请先输入提示词。",
+      "generating": "正在生成预览…",
+      "previewFailed": "预览失败"
+    },
+    "image": {
+      "label": "上传主体图片：",
+      "dropPrimary": "点击选择或拖入图片",
+      "dropHint": "PNG、JPG 或 WEBP — 最大 8MB",
+      "tooLarge": "图片必须小于 8MB。",
+      "uploading": "上传中…",
+      "uploadFailed": "上传失败"
+    },
+    "preview": {
+      "labelText": "预览 — 确认后将根据此图片生成 3D 模型：",
+      "labelImage": "预览 — 确认即可生成：",
+      "refinePrompt": "优化提示词",
+      "chooseDifferent": "选择其他文件",
+      "confirm": "确认并生成 3D"
+    },
+    "submit": {
+      "submitting": "提交中…",
+      "submitFailed": "提交失败",
+      "cacheHit": "✓ 找到匹配的共享模型 — 已添加到库中。"
+    },
+    "active": {
+      "header": "进行中",
+      "uploadedImage": "（上传的图片）",
+      "stageQueued": "排队中",
+      "stageStarting": "启动中",
+      "stageFetching": "获取图片中",
+      "stageGenerating": "生成中",
+      "stageUploading": "上传中",
+      "stageOrienting": "调整方向中"
+    },
+    "library": {
+      "scopeMine": "我的生成",
+      "scopeCommunity": "社区",
+      "refresh": "刷新库",
+      "search": "搜索生成…",
+      "empty": "暂无生成内容。",
+      "emptyMatches": "无匹配结果。",
+      "emptyCommunity": "社区暂无生成内容。",
+      "notAvailable": "此后端不支持 3D 模型生成。"
+    },
+    "errorPrefix": "错误：{message}"
   }
 }

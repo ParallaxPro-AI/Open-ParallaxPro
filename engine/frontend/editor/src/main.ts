@@ -13,6 +13,7 @@ import './styles/properties.css';
 import './styles/viewport.css';
 import './styles/assets.css';
 import './styles/chat.css';
+import './styles/model_gen.css';
 import './styles/widgets.css';
 import './styles/fields.css';
 import './styles/project-list.css';

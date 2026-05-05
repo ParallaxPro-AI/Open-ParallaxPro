@@ -384,5 +384,74 @@
     "cancel": "Cancel",
     "ok": "OK",
     "confirm": "Confirm"
+  },
+  "modelGen": {
+    "health": {
+      "checking": "checking…",
+      "unavailable": "GPU service unavailable",
+      "offline": "Offline — no worker available",
+      "onlineSingular": "Online · {count} worker available",
+      "onlinePlural": "Online · {count} workers available",
+      "queuedSuffix": " · {count} queued"
+    },
+    "notice": {
+      "searchFirstBold": "Search Community first.",
+      "searchFirstBody": "Browse existing 3D models in the Community library below before generating — it's instant and saves GPU time.",
+      "publicBold": "All generations are public.",
+      "publicBody": "Your prompt and the resulting model are visible to other users. Don't include personal info or copyrighted work."
+    },
+    "mode": {
+      "fromText": "From Text",
+      "fromImage": "From Image"
+    },
+    "text": {
+      "label": "Describe a 3D model:",
+      "placeholder": "e.g. \"wooden barrel\", \"low-poly tree\", \"anime sword\"",
+      "previewBtn": "Preview Image",
+      "needPrompt": "Enter a prompt first.",
+      "generating": "Generating preview…",
+      "previewFailed": "preview failed"
+    },
+    "image": {
+      "label": "Upload an image of the subject:",
+      "dropPrimary": "Click to choose or drag an image",
+      "dropHint": "PNG, JPG, or WEBP — up to 8MB",
+      "tooLarge": "Image must be under 8MB.",
+      "uploading": "Uploading…",
+      "uploadFailed": "upload failed"
+    },
+    "preview": {
+      "labelText": "Preview — confirm to generate the 3D model from this image:",
+      "labelImage": "Preview — confirm to generate:",
+      "refinePrompt": "Refine prompt",
+      "chooseDifferent": "Choose different file",
+      "confirm": "Confirm & Generate 3D"
+    },
+    "submit": {
+      "submitting": "Submitting…",
+      "submitFailed": "submit failed",
+      "cacheHit": "✓ Found a matching shared model — added to library."
+    },
+    "active": {
+      "header": "In flight",
+      "uploadedImage": "(uploaded image)",
+      "stageQueued": "queued",
+      "stageStarting": "starting",
+      "stageFetching": "fetching image",
+      "stageGenerating": "generating",
+      "stageUploading": "uploading",
+      "stageOrienting": "orienting"
+    },
+    "library": {
+      "scopeMine": "My Generations",
+      "scopeCommunity": "Community",
+      "refresh": "Refresh library",
+      "search": "Search generations…",
+      "empty": "No generations yet.",
+      "emptyMatches": "No matches.",
+      "emptyCommunity": "No community generations yet.",
+      "notAvailable": "3D model generation isn't available on this backend."
+    },
+    "errorPrefix": "Error: {message}"
   }
 }

@@ -11,6 +11,8 @@
  * scene with the same payload shape as curated 3D assets.
  */
 
+import { t } from '../i18n/index.js';
+
 interface GeneratedModel {
     id: string;
     glb_path: string;
@@ -130,7 +132,7 @@ export class ModelGenPanel {
 
     constructor() {
         this.el = document.createElement('div');
-        this.el.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:12px;gap:12px';
+        this.el.className = 'mg-panel';
         this.buildUI();
     }
 
@@ -151,18 +153,18 @@ export class ModelGenPanel {
     private buildUI(): void {
         // GPU pool health banner — small dot + label at top of the tab.
         this.healthBanner = document.createElement('div');
-        this.healthBanner.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;color:#666';
-        this.healthBanner.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#666"></span><span>checking…</span>';
+        this.healthBanner.className = 'mg-health';
+        this.healthBanner.innerHTML = `<span class="mg-health-dot unknown"></span><span>${escapeHtml(t('modelGen.health.checking'))}</span>`;
         this.el.appendChild(this.healthBanner);
 
         // Sharing notice — two practical things the user needs to know:
         // (1) check Community before generating, and (2) generated content
         // is public.
         const notice = document.createElement('div');
-        notice.style.cssText = 'background:#3a2a14;border:1px solid #6b4a1a;border-radius:6px;padding:8px 10px;font-size:11px;color:#fbbf24;line-height:1.5';
+        notice.className = 'mg-notice';
         notice.innerHTML =
-            '<b>Search Community first.</b> Browse existing 3D models in the Community library below before generating — it\'s instant and saves GPU time.<br>' +
-            '<b>All generations are public.</b> Your prompt and the resulting model are visible to other users. Don\'t include personal info or copyrighted work.';
+            `<b>${escapeHtml(t('modelGen.notice.searchFirstBold'))}</b> ${escapeHtml(t('modelGen.notice.searchFirstBody'))}<br>` +
+            `<b>${escapeHtml(t('modelGen.notice.publicBold'))}</b> ${escapeHtml(t('modelGen.notice.publicBody'))}`;
         this.el.appendChild(notice);
 
         // Mode tabs (Text / Image). Image is disabled for now — TRELLIS.2's
@@ -171,59 +173,61 @@ export class ModelGenPanel {
         // us validate generations end-to-end before users can upload arbitrary
         // images). Re-enable by removing the disabled flag.
         this.modeTabs = document.createElement('div');
-        this.modeTabs.style.cssText = 'display:flex;gap:6px';
-        const textBtn = this.makeModeButton('text', 'From Text');
-        const imageBtn = this.makeModeButton('image', 'From Image', true);
+        this.modeTabs.className = 'mg-mode-tabs';
+        const textBtn = this.makeModeButton('text', t('modelGen.mode.fromText'));
+        const imageBtn = this.makeModeButton('image', t('modelGen.mode.fromImage'), true);
         this.modeTabs.appendChild(textBtn);
         this.modeTabs.appendChild(imageBtn);
         this.el.appendChild(this.modeTabs);
 
         // Form area (varies by mode + step)
         this.formArea = document.createElement('div');
-        this.formArea.style.cssText = 'display:flex;flex-direction:column;gap:8px;background:#141420;border:1px solid #222;border-radius:8px;padding:10px';
+        this.formArea.className = 'mg-card';
         this.el.appendChild(this.formArea);
 
         // Preview area (shown when step = previewed)
         this.previewArea = document.createElement('div');
-        this.previewArea.style.cssText = 'display:none;flex-direction:column;gap:8px;background:#141420;border:1px solid #222;border-radius:8px;padding:10px';
+        this.previewArea.className = 'mg-card';
+        this.previewArea.style.display = 'none';
         this.el.appendChild(this.previewArea);
 
         // Status bar (errors, info)
         this.statusBar = document.createElement('div');
-        this.statusBar.style.cssText = 'font-size:11px;color:#888;min-height:14px';
+        this.statusBar.className = 'mg-status';
         this.el.appendChild(this.statusBar);
 
         // Active jobs list
         this.activeSection = document.createElement('div');
-        this.activeSection.style.cssText = 'display:none;flex-direction:column;gap:4px';
+        this.activeSection.className = 'mg-section';
+        this.activeSection.style.display = 'none';
         const activeHeader = document.createElement('div');
-        activeHeader.textContent = 'In flight';
-        activeHeader.style.cssText = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.4px';
+        activeHeader.textContent = t('modelGen.active.header');
+        activeHeader.className = 'mg-section-header';
         this.activeSection.appendChild(activeHeader);
         this.activeList = document.createElement('div');
-        this.activeList.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+        this.activeList.className = 'mg-section';
         this.activeSection.appendChild(this.activeList);
         this.el.appendChild(this.activeSection);
 
         // Library scope tabs (My / Community) + refresh
         const libHeader = document.createElement('div');
-        libHeader.style.cssText = 'display:flex;align-items:center;gap:6px';
+        libHeader.className = 'mg-lib-header';
         const makeScopeBtn = (s: 'mine' | 'community', label: string) => {
             const b = document.createElement('button');
             b.textContent = label;
             b.dataset.scope = s;
-            b.style.cssText = 'flex:1;padding:6px 8px;background:#141420;border:1px solid #222;color:#888;border-radius:4px;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:0.4px';
+            b.className = 'mg-scope-tab';
             b.addEventListener('click', () => this.setLibraryScope(s));
             return b;
         };
-        const myBtn = makeScopeBtn('mine', 'My Generations');
-        const commBtn = makeScopeBtn('community', 'Community');
+        const myBtn = makeScopeBtn('mine', t('modelGen.library.scopeMine'));
+        const commBtn = makeScopeBtn('community', t('modelGen.library.scopeCommunity'));
         libHeader.appendChild(myBtn);
         libHeader.appendChild(commBtn);
         const refreshBtn = document.createElement('button');
         refreshBtn.textContent = '↻';
-        refreshBtn.title = 'Refresh library';
-        refreshBtn.style.cssText = 'background:none;border:0;color:#888;cursor:pointer;font-size:14px;flex:none;padding:0 4px';
+        refreshBtn.title = t('modelGen.library.refresh');
+        refreshBtn.className = 'mg-lib-refresh';
         refreshBtn.addEventListener('click', () => this.refreshLibrary());
         libHeader.appendChild(refreshBtn);
         this.el.appendChild(libHeader);
@@ -233,8 +237,8 @@ export class ModelGenPanel {
         // the recent-first list.
         this.librarySearchInput = document.createElement('input');
         this.librarySearchInput.type = 'search';
-        this.librarySearchInput.placeholder = 'Search generations…';
-        this.librarySearchInput.style.cssText = 'width:100%;background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:6px 10px;font-size:12px';
+        this.librarySearchInput.placeholder = t('modelGen.library.search');
+        this.librarySearchInput.className = 'mg-search';
         this.librarySearchInput.addEventListener('input', () => {
             if (this.librarySearchTimer != null) window.clearTimeout(this.librarySearchTimer);
             this.librarySearchTimer = window.setTimeout(() => this.refreshLibrary(), 250);
@@ -242,8 +246,8 @@ export class ModelGenPanel {
         this.el.appendChild(this.librarySearchInput);
 
         this.libraryGrid = document.createElement('div');
-        this.libraryGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px';
-        this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">No generations yet.</div>';
+        this.libraryGrid.className = 'mg-lib-grid';
+        this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${escapeHtml(t('modelGen.library.empty'))}</div>`;
         this.el.appendChild(this.libraryGrid);
 
         this.renderForm();
@@ -252,18 +256,13 @@ export class ModelGenPanel {
     private makeModeButton(mode: Mode, label: string, disabled = false): HTMLButtonElement {
         const btn = document.createElement('button');
         btn.dataset.mode = mode;
-        if (disabled) {
-            // Visually-present-but-unclickable state. Blur + low opacity +
-            // not-allowed cursor signal "off"; tab stays in the bar so users
-            // see the feature is on the roadmap. No click handler — clicks
-            // are inert.
-            btn.textContent = label;
-            btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#666;border-radius:4px;cursor:not-allowed;font-size:12px;filter:blur(1.2px);opacity:0.5';
-        } else {
-            btn.textContent = label;
-            btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#888;border-radius:4px;cursor:pointer;font-size:12px';
-            btn.addEventListener('click', () => this.setMode(mode));
-        }
+        btn.textContent = label;
+        // Visually-present-but-unclickable state. Blur + low opacity +
+        // not-allowed cursor signal "off"; tab stays in the bar so users
+        // see the feature is on the roadmap. No click handler — clicks
+        // are inert.
+        btn.className = disabled ? 'mg-mode-tab disabled' : 'mg-mode-tab';
+        if (!disabled) btn.addEventListener('click', () => this.setMode(mode));
         return btn;
     }
 
@@ -274,13 +273,15 @@ export class ModelGenPanel {
         this.currentPrompt = null;
         this.statusBar.textContent = '';
         this.previewArea.style.display = 'none';
-        for (const el of Array.from(this.modeTabs.children) as HTMLButtonElement[]) {
-            const isActive = el.dataset.mode === mode;
-            el.style.background = isActive ? '#6366f1' : '#141420';
-            el.style.color = isActive ? '#fff' : '#888';
-            el.style.borderColor = isActive ? '#6366f1' : '#222';
-        }
+        this.updateModeTabs();
         this.renderForm();
+    }
+
+    private updateModeTabs(): void {
+        for (const el of Array.from(this.modeTabs.children) as HTMLButtonElement[]) {
+            const isActive = el.dataset.mode === this.mode;
+            el.classList.toggle('active', isActive);
+        }
     }
 
     // ── Form (varies by mode) ────────────────────────────────────────
@@ -289,52 +290,45 @@ export class ModelGenPanel {
         this.formArea.innerHTML = '';
         if (this.mode === 'text') this.renderTextForm();
         else this.renderImageForm();
-
-        // Mode button styling
-        for (const el of Array.from(this.modeTabs.children) as HTMLButtonElement[]) {
-            const isActive = el.dataset.mode === this.mode;
-            el.style.background = isActive ? '#6366f1' : '#141420';
-            el.style.color = isActive ? '#fff' : '#888';
-            el.style.borderColor = isActive ? '#6366f1' : '#222';
-        }
+        this.updateModeTabs();
     }
 
     private renderTextForm(): void {
         const label = document.createElement('label');
-        label.textContent = 'Describe a 3D model:';
-        label.style.cssText = 'font-size:12px;color:#aaa';
+        label.textContent = t('modelGen.text.label');
+        label.className = 'mg-label';
         this.formArea.appendChild(label);
 
         const promptInput = document.createElement('textarea');
-        promptInput.placeholder = 'e.g. "wooden barrel", "low-poly tree", "anime sword"';
+        promptInput.placeholder = t('modelGen.text.placeholder');
         promptInput.maxLength = 300;
         promptInput.rows = 2;
         promptInput.value = this.currentPrompt ?? '';
-        promptInput.style.cssText = 'background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:8px;font-family:inherit;font-size:13px;resize:vertical';
+        promptInput.className = 'mg-textarea';
         promptInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); previewBtn.click(); }
         });
         this.formArea.appendChild(promptInput);
 
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:flex-end';
+        row.className = 'mg-row end';
 
         const previewBtn = document.createElement('button');
-        previewBtn.textContent = 'Preview Image';
-        previewBtn.style.cssText = 'background:#6366f1;color:#fff;border:0;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer';
+        previewBtn.textContent = t('modelGen.text.previewBtn');
+        previewBtn.className = 'primary';
         previewBtn.addEventListener('click', async () => {
             const prompt = promptInput.value.trim();
-            if (!prompt) { this.statusBar.textContent = 'Enter a prompt first.'; return; }
+            if (!prompt) { this.statusBar.textContent = t('modelGen.text.needPrompt'); return; }
             this.currentPrompt = prompt;
             previewBtn.disabled = true;
-            this.statusBar.textContent = 'Generating preview…';
+            this.statusBar.textContent = t('modelGen.text.generating');
             try {
                 const resp = await api<any>('/preview/text', {
                     method: 'POST',
                     body: JSON.stringify({ prompt, quality: this.currentQuality }),
                 });
                 if (resp.cache_hit && resp.model) {
-                    this.statusBar.textContent = '✓ Found a matching shared model — added to library.';
+                    this.statusBar.textContent = t('modelGen.submit.cacheHit');
                     setTimeout(() => { this.statusBar.textContent = ''; }, 4000);
                     this.refreshLibrary();
                     return;
@@ -344,7 +338,7 @@ export class ModelGenPanel {
                 this.statusBar.textContent = '';
                 this.showPreview();
             } catch (e: any) {
-                this.statusBar.textContent = `Error: ${e.message || 'preview failed'}`;
+                this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.text.previewFailed'));
             } finally {
                 previewBtn.disabled = false;
             }
@@ -355,13 +349,13 @@ export class ModelGenPanel {
 
     private renderImageForm(): void {
         const label = document.createElement('label');
-        label.textContent = 'Upload an image of the subject:';
-        label.style.cssText = 'font-size:12px;color:#aaa';
+        label.textContent = t('modelGen.image.label');
+        label.className = 'mg-label';
         this.formArea.appendChild(label);
 
         const dropZone = document.createElement('label');
-        dropZone.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:120px;border:1px dashed #444;border-radius:6px;cursor:pointer;background:#0e0e18';
-        dropZone.innerHTML = '<div style="font-size:13px;color:#aaa">Click to choose or drag an image</div><div style="font-size:11px;color:#666">PNG, JPG, or WEBP — up to 8MB</div>';
+        dropZone.className = 'mg-dropzone';
+        dropZone.innerHTML = `<div class="mg-dropzone-primary">${escapeHtml(t('modelGen.image.dropPrimary'))}</div><div class="mg-dropzone-hint">${escapeHtml(t('modelGen.image.dropHint'))}</div>`;
 
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
@@ -370,11 +364,11 @@ export class ModelGenPanel {
         fileInput.addEventListener('change', () => this.handleImageUpload(fileInput.files?.[0]));
         dropZone.appendChild(fileInput);
 
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#6366f1'; });
-        dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#444'; });
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
-            dropZone.style.borderColor = '#444';
+            dropZone.classList.remove('drag-over');
             this.handleImageUpload(e.dataTransfer?.files?.[0]);
         });
 
@@ -384,10 +378,10 @@ export class ModelGenPanel {
     private async handleImageUpload(file?: File | null): Promise<void> {
         if (!file) return;
         if (file.size > 8 * 1024 * 1024) {
-            this.statusBar.textContent = 'Image must be under 8MB.';
+            this.statusBar.textContent = t('modelGen.image.tooLarge');
             return;
         }
-        this.statusBar.textContent = 'Uploading…';
+        this.statusBar.textContent = t('modelGen.image.uploading');
         try {
             const resp = await uploadImage(file);
             this.currentPreviewUrl = resp.preview_url;
@@ -396,7 +390,7 @@ export class ModelGenPanel {
             this.statusBar.textContent = '';
             this.showPreview();
         } catch (e: any) {
-            this.statusBar.textContent = `Error: ${e.message || 'upload failed'}`;
+            this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.image.uploadFailed'));
         }
     }
 
@@ -407,21 +401,21 @@ export class ModelGenPanel {
         this.previewArea.style.display = 'flex';
 
         const label = document.createElement('div');
-        label.textContent = this.mode === 'text' ? 'Preview — confirm to generate the 3D model from this image:' : 'Preview — confirm to generate:';
-        label.style.cssText = 'font-size:12px;color:#aaa';
+        label.textContent = this.mode === 'text' ? t('modelGen.preview.labelText') : t('modelGen.preview.labelImage');
+        label.className = 'mg-label';
         this.previewArea.appendChild(label);
 
         const img = document.createElement('img');
         img.src = this.currentPreviewUrl ?? '';
-        img.style.cssText = 'max-width:100%;max-height:280px;align-self:center;border-radius:6px;background:#0e0e18';
+        img.className = 'mg-preview-img';
         this.previewArea.appendChild(img);
 
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;gap:8px';
+        row.className = 'mg-row';
 
         const refineBtn = document.createElement('button');
-        refineBtn.textContent = this.mode === 'text' ? 'Refine prompt' : 'Choose different file';
-        refineBtn.style.cssText = 'flex:1;background:#222;color:#ccc;border:0;border-radius:4px;padding:8px;font-size:13px;cursor:pointer';
+        refineBtn.textContent = this.mode === 'text' ? t('modelGen.preview.refinePrompt') : t('modelGen.preview.chooseDifferent');
+        refineBtn.style.flex = '1';
         refineBtn.addEventListener('click', () => {
             this.step = 'idle';
             this.currentPreviewUrl = null;
@@ -431,8 +425,9 @@ export class ModelGenPanel {
         row.appendChild(refineBtn);
 
         const confirmBtn = document.createElement('button');
-        confirmBtn.textContent = 'Confirm & Generate 3D';
-        confirmBtn.style.cssText = 'flex:1;background:#6366f1;color:#fff;border:0;border-radius:4px;padding:8px;font-size:13px;cursor:pointer';
+        confirmBtn.textContent = t('modelGen.preview.confirm');
+        confirmBtn.className = 'primary';
+        confirmBtn.style.flex = '1';
         confirmBtn.addEventListener('click', () => this.confirm());
         row.appendChild(confirmBtn);
         this.previewArea.appendChild(row);
@@ -441,7 +436,7 @@ export class ModelGenPanel {
     private async confirm(): Promise<void> {
         if (!this.currentPreviewUrl) return;
         this.step = 'submitting';
-        this.statusBar.textContent = 'Submitting…';
+        this.statusBar.textContent = t('modelGen.submit.submitting');
         try {
             const body: any = {
                 preview_url: this.currentPreviewUrl,
@@ -453,7 +448,7 @@ export class ModelGenPanel {
                 body: JSON.stringify(body),
             });
             if (resp.cache_hit && resp.model) {
-                this.statusBar.textContent = '✓ Found a matching shared model — added to library.';
+                this.statusBar.textContent = t('modelGen.submit.cacheHit');
                 this.refreshLibrary();
             } else {
                 this.activeJobs.set(resp.job_id, {
@@ -474,7 +469,7 @@ export class ModelGenPanel {
             this.previewArea.style.display = 'none';
             this.renderForm();
         } catch (e: any) {
-            this.statusBar.textContent = `Error: ${e.message || 'submit failed'}`;
+            this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.submit.submitFailed'));
             this.step = 'previewed';
         }
     }
@@ -546,14 +541,16 @@ export class ModelGenPanel {
     private stageInfo(j: ActiveJob): { label: string; index: number; total: number } | null {
         const lp = (j.last_progress || '').toLowerCase();
         const T = 5;
-        if (j.status === 'queued') return { label: 'queued', index: 1, total: T };
-        if (j.status === 'claimed') return { label: 'starting', index: 2, total: T };
-        if (j.status === 'uploading') return { label: 'uploading', index: 5, total: T };
-        if (j.status === 'orienting') return { label: 'orienting', index: 5, total: T };
+        if (j.status === 'queued') return { label: t('modelGen.active.stageQueued'), index: 1, total: T };
+        if (j.status === 'claimed') return { label: t('modelGen.active.stageStarting'), index: 2, total: T };
+        if (j.status === 'uploading') return { label: t('modelGen.active.stageUploading'), index: 5, total: T };
+        if (j.status === 'orienting') return { label: t('modelGen.active.stageOrienting'), index: 5, total: T };
         if (j.status === 'generating') {
-            if (lp.includes('download')) return { label: 'fetching image', index: 3, total: T };
-            if (lp.includes('running') || lp === '') return { label: 'generating', index: 4, total: T };
-            return { label: lp || 'generating', index: 4, total: T };
+            if (lp.includes('download')) return { label: t('modelGen.active.stageFetching'), index: 3, total: T };
+            if (lp.includes('running') || lp === '') return { label: t('modelGen.active.stageGenerating'), index: 4, total: T };
+            // Server-supplied free-form progress text (e.g. step counts);
+            // pass through untranslated.
+            return { label: lp || t('modelGen.active.stageGenerating'), index: 4, total: T };
         }
         return null;
     }
@@ -569,12 +566,12 @@ export class ModelGenPanel {
         this.activeList.innerHTML = '';
         for (const j of this.activeJobs.values()) {
             const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;background:#141420;border:1px solid #222;border-radius:4px;font-size:12px';
+            row.className = 'mg-job-row';
             const dot = document.createElement('span');
-            dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#fbbf24;flex:none;animation:mg-pulse 1s infinite';
+            dot.className = 'mg-job-dot';
             row.appendChild(dot);
             const text = document.createElement('span');
-            text.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+            text.className = 'mg-job-text';
             const stage = this.stageInfo(j);
             // Always show position when queued (#1, #2, ...). When 0
             // jobs are ahead this is "#1", which is more honest than
@@ -585,7 +582,7 @@ export class ModelGenPanel {
                 ? `[${stage.index}/${stage.total}] ${stage.label}${queuedHint}`
                 : (j.last_progress || j.status);
             const elapsed = j.stage_started_at ? Math.max(0, Math.floor((Date.now() - j.stage_started_at) / 1000)) : 0;
-            text.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '(uploaded image)')}</span> <span style="color:#888">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
+            text.innerHTML = `${escapeHtml(j.prompt || t('modelGen.active.uploadedImage'))} <span class="mg-job-stage">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
             row.appendChild(text);
             this.activeList.appendChild(row);
         }
@@ -626,7 +623,7 @@ export class ModelGenPanel {
                 ? `[${stage.index}/${stage.total}] ${stage.label}${queuedHint}`
                 : (j.last_progress || j.status);
             const elapsed = j.stage_started_at ? Math.max(0, Math.floor((Date.now() - j.stage_started_at) / 1000)) : 0;
-            span.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '(uploaded image)')}</span> <span style="color:#888">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
+            span.innerHTML = `${escapeHtml(j.prompt || '(uploaded image)')} <span class="mg-job-stage">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
         }
     }
 
@@ -642,18 +639,20 @@ export class ModelGenPanel {
     }
 
     private renderHealth(online: number, queue: number): void {
-        let color: string, label: string;
+        let cls: string, label: string;
         if (online === -1) {
-            color = '#666';
-            label = 'GPU service unavailable';
+            cls = 'unknown';
+            label = t('modelGen.health.unavailable');
         } else if (online === 0) {
-            color = '#fca5a5';
-            label = 'Offline — no worker connected';
+            cls = 'offline';
+            label = t('modelGen.health.offline');
         } else {
-            color = '#4ade80';
-            label = `Online · ${online} worker${online === 1 ? '' : 's'}` + (queue > 0 ? ` · ${queue} queued` : '');
+            cls = 'online';
+            const key = online === 1 ? 'modelGen.health.onlineSingular' : 'modelGen.health.onlinePlural';
+            label = t(key).replace('{count}', String(online));
+            if (queue > 0) label += t('modelGen.health.queuedSuffix').replace('{count}', String(queue));
         }
-        this.healthBanner.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${color}"></span><span>${escapeHtml(label)}</span>`;
+        this.healthBanner.innerHTML = `<span class="mg-health-dot ${cls}"></span><span>${escapeHtml(label)}</span>`;
     }
 
     private setLibraryScope(scope: 'mine' | 'community'): void {
@@ -665,10 +664,7 @@ export class ModelGenPanel {
 
     private updateScopeButtons(): void {
         for (const btn of Array.from(this.el.querySelectorAll('button[data-scope]')) as HTMLButtonElement[]) {
-            const active = btn.dataset.scope === this.libraryScope;
-            btn.style.background = active ? '#6366f1' : '#141420';
-            btn.style.color = active ? '#fff' : '#888';
-            btn.style.borderColor = active ? '#6366f1' : '#222';
+            btn.classList.toggle('active', btn.dataset.scope === this.libraryScope);
         }
     }
 
@@ -687,7 +683,7 @@ export class ModelGenPanel {
             this.renderLibrary(q.length > 0);
         } catch (e: any) {
             if ((e as any).status === 404) {
-                this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#888;font-size:12px;text-align:center;padding:24px;line-height:1.6">3D model generation isn\'t available on this backend.</div>';
+                this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${escapeHtml(t('modelGen.library.notAvailable'))}</div>`;
             }
         }
     }
@@ -721,9 +717,9 @@ export class ModelGenPanel {
         const successful = this.library.filter(it => it.model);
         if (successful.length === 0) {
             const msg = isSearch
-                ? 'No matches.'
-                : (this.libraryScope === 'community' ? 'No community generations yet.' : 'No generations yet.');
-            this.libraryGrid.innerHTML = `<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">${msg}</div>`;
+                ? t('modelGen.library.emptyMatches')
+                : (this.libraryScope === 'community' ? t('modelGen.library.emptyCommunity') : t('modelGen.library.empty'));
+            this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${escapeHtml(msg)}</div>`;
             return;
         }
         for (const item of successful) this.libraryGrid.appendChild(this.buildLibraryCard(item));
@@ -732,10 +728,9 @@ export class ModelGenPanel {
     private buildLibraryCard(item: LibraryItem): HTMLElement {
         const m = item.model!;
         const card = document.createElement('div');
-        card.className = 'asset-card';
+        card.className = 'mg-lib-card';
         card.title = item.prompt || '';
         card.draggable = true;
-        card.style.cssText = 'background:#141420;border:1px solid #222;border-radius:6px;cursor:grab;overflow:hidden';
 
         const dragAsset = {
             name: (item.prompt || 'generated').replace(/[^\w\-_ ]/g, '').trim().slice(0, 40) || 'generated',
@@ -758,24 +753,21 @@ export class ModelGenPanel {
         // thumb invisible). Also gives an onerror hook if the URL is
         // unreachable.
         const thumb = document.createElement('div');
-        thumb.style.cssText = 'aspect-ratio:1;background:#0e0e18;border-bottom:1px solid #222;display:flex;align-items:center;justify-content:center;overflow:hidden';
+        thumb.className = 'mg-lib-card-thumb';
         if (m.thumb_path) {
             const img = document.createElement('img');
             img.src = m.thumb_path;
             img.alt = item.prompt || '';
             img.loading = 'lazy';
-            img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
             img.onerror = () => { img.style.display = 'none'; };
             thumb.appendChild(img);
         } else {
             thumb.textContent = '□';
-            thumb.style.color = '#444';
-            thumb.style.fontSize = '24px';
         }
         card.appendChild(thumb);
 
         const label = document.createElement('div');
-        label.style.cssText = 'padding:4px 6px;font-size:11px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+        label.className = 'mg-lib-card-label';
         label.textContent = item.prompt || '—';
         card.appendChild(label);
         return card;
@@ -784,11 +776,4 @@ export class ModelGenPanel {
 
 function escapeHtml(s: string): string {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-}
-
-if (typeof document !== 'undefined' && !document.getElementById('mg-pulse-css')) {
-    const style = document.createElement('style');
-    style.id = 'mg-pulse-css';
-    style.textContent = `@keyframes mg-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`;
-    document.head.appendChild(style);
 }

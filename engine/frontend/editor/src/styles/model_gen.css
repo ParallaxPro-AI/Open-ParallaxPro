@@ -1,0 +1,344 @@
+/* "3D Model Generate" tab in the AI Assistant column. */
+
+.mg-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+    gap: var(--spacing-md);
+}
+
+/* Health banner — small dot + label, top of the tab. */
+.mg-health {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.mg-health-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-disabled);
+    flex: none;
+}
+
+.mg-health-dot.online { background: var(--success); }
+.mg-health-dot.offline { background: var(--danger); }
+.mg-health-dot.unknown { background: var(--text-disabled); }
+
+/* Sharing notice. Uses warning accent without screaming yellow. */
+.mg-notice {
+    background: rgba(255, 152, 0, 0.08);
+    border: 1px solid rgba(255, 152, 0, 0.35);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--warning);
+    line-height: 1.5;
+}
+
+.mg-notice b { color: var(--text-primary); font-weight: 600; }
+
+/* Mode tabs (From Text / From Image). Mirrors .tab-item. */
+.mg-mode-tabs {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+
+.mg-mode-tab {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    transition: all var(--transition-fast);
+}
+
+.mg-mode-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.mg-mode-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: transparent;
+}
+
+.mg-mode-tab.disabled {
+    cursor: not-allowed;
+    filter: blur(1.2px);
+    opacity: 0.5;
+}
+
+.mg-mode-tab.disabled:hover {
+    color: var(--text-secondary);
+    background: transparent;
+}
+
+/* Form / preview blocks share the panel-card look. */
+.mg-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+}
+
+.mg-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.mg-textarea {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: inherit;
+    font-size: var(--font-size-md);
+    resize: vertical;
+    transition: border-color var(--transition-fast);
+}
+
+.mg-textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(134, 72, 230, 0.2);
+}
+
+.mg-row {
+    display: flex;
+    gap: var(--spacing-md);
+}
+
+.mg-row.end { justify-content: flex-end; }
+
+/* Drop zone. */
+.mg-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    height: 120px;
+    border: 1px dashed var(--border-light);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.mg-dropzone:hover { background: var(--bg-hover); }
+.mg-dropzone.drag-over { border-color: var(--accent); }
+
+.mg-dropzone-primary {
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+}
+
+.mg-dropzone-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-disabled);
+}
+
+/* Preview image. */
+.mg-preview-img {
+    max-width: 100%;
+    max-height: 280px;
+    align-self: center;
+    border-radius: var(--radius-md);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+}
+
+/* Status bar. */
+.mg-status {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    min-height: 14px;
+}
+
+/* In-flight section. */
+.mg-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.mg-section-header {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-disabled);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.mg-job-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+}
+
+.mg-job-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warning);
+    flex: none;
+    animation: mg-pulse 1s infinite;
+}
+
+.mg-job-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+
+.mg-job-text .mg-job-stage { color: var(--text-secondary); }
+
+@keyframes mg-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* Library scope row. */
+.mg-lib-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    border-bottom: 1px solid var(--border);
+}
+
+.mg-scope-tab {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    transition: all var(--transition-fast);
+}
+
+.mg-scope-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.mg-scope-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.mg-lib-refresh {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-lg);
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.mg-lib-refresh:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+/* Library search. */
+.mg-search {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
+    transition: border-color var(--transition-fast);
+}
+
+.mg-search:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(134, 72, 230, 0.2);
+}
+
+/* Library grid. */
+.mg-lib-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.mg-lib-empty {
+    grid-column: 1 / -1;
+    color: var(--text-disabled);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    padding: var(--spacing-xl);
+    line-height: 1.6;
+}
+
+.mg-lib-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: grab;
+    overflow: hidden;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.mg-lib-card:hover {
+    border-color: var(--border-light);
+    background: var(--bg-hover);
+}
+
+.mg-lib-card-thumb {
+    aspect-ratio: 1;
+    background: var(--bg-input);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--text-disabled);
+    font-size: 24px;
+}
+
+.mg-lib-card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.mg-lib-card-label {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

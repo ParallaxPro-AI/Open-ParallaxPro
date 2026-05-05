@@ -383,5 +383,74 @@
     "cancel": "キャンセル",
     "ok": "OK",
     "confirm": "確認"
+  },
+  "modelGen": {
+    "health": {
+      "checking": "確認中…",
+      "unavailable": "GPU サービスが利用できません",
+      "offline": "オフライン — 利用可能なワーカーがありません",
+      "onlineSingular": "オンライン · {count} 個のワーカーが利用可能",
+      "onlinePlural": "オンライン · {count} 個のワーカーが利用可能",
+      "queuedSuffix": " · {count} 個待機中"
+    },
+    "notice": {
+      "searchFirstBold": "まずコミュニティを検索してください。",
+      "searchFirstBody": "生成する前に、下のコミュニティライブラリで既存の 3D モデルを確認してください — 即座に表示され、GPU 時間を節約できます。",
+      "publicBold": "すべての生成物は公開されます。",
+      "publicBody": "プロンプトと生成されたモデルは他のユーザーから閲覧可能です。個人情報や著作権で保護されたコンテンツは含めないでください。"
+    },
+    "mode": {
+      "fromText": "テキストから",
+      "fromImage": "画像から"
+    },
+    "text": {
+      "label": "3D モデルを説明してください：",
+      "placeholder": "例：\"木の樽\"、\"ローポリの木\"、\"アニメ調の剣\"",
+      "previewBtn": "画像をプレビュー",
+      "needPrompt": "まずプロンプトを入力してください。",
+      "generating": "プレビューを生成中…",
+      "previewFailed": "プレビューに失敗しました"
+    },
+    "image": {
+      "label": "対象の画像をアップロード：",
+      "dropPrimary": "クリックして選択またはドラッグ",
+      "dropHint": "PNG、JPG、WEBP — 最大 8MB",
+      "tooLarge": "画像は 8MB 以下にしてください。",
+      "uploading": "アップロード中…",
+      "uploadFailed": "アップロードに失敗しました"
+    },
+    "preview": {
+      "labelText": "プレビュー — 確認するとこの画像から 3D モデルを生成します：",
+      "labelImage": "プレビュー — 確認して生成：",
+      "refinePrompt": "プロンプトを修正",
+      "chooseDifferent": "別のファイルを選択",
+      "confirm": "確認して 3D を生成"
+    },
+    "submit": {
+      "submitting": "送信中…",
+      "submitFailed": "送信に失敗しました",
+      "cacheHit": "✓ 一致する共有モデルが見つかりました — ライブラリに追加しました。"
+    },
+    "active": {
+      "header": "進行中",
+      "uploadedImage": "（アップロード画像）",
+      "stageQueued": "待機中",
+      "stageStarting": "開始中",
+      "stageFetching": "画像取得中",
+      "stageGenerating": "生成中",
+      "stageUploading": "アップロード中",
+      "stageOrienting": "向き調整中"
+    },
+    "library": {
+      "scopeMine": "自分の生成",
+      "scopeCommunity": "コミュニティ",
+      "refresh": "ライブラリを更新",
+      "search": "生成を検索…",
+      "empty": "まだ生成されていません。",
+      "emptyMatches": "一致する結果がありません。",
+      "emptyCommunity": "コミュニティに生成物がまだありません。",
+      "notAvailable": "このバックエンドでは 3D モデル生成は利用できません。"
+    },
+    "errorPrefix": "エラー：{message}"
   }
 }

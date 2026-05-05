@@ -383,5 +383,74 @@
     "cancel": "취소",
     "ok": "확인",
     "confirm": "확인"
+  },
+  "modelGen": {
+    "health": {
+      "checking": "확인 중…",
+      "unavailable": "GPU 서비스를 사용할 수 없습니다",
+      "offline": "오프라인 — 사용 가능한 워커 없음",
+      "onlineSingular": "온라인 · {count}개 워커 사용 가능",
+      "onlinePlural": "온라인 · {count}개 워커 사용 가능",
+      "queuedSuffix": " · {count}개 대기 중"
+    },
+    "notice": {
+      "searchFirstBold": "먼저 커뮤니티를 검색하세요.",
+      "searchFirstBody": "생성하기 전에 아래 커뮤니티 라이브러리에서 기존 3D 모델을 둘러보세요 — 즉시 사용할 수 있으며 GPU 시간을 절약할 수 있습니다.",
+      "publicBold": "모든 생성물은 공개됩니다.",
+      "publicBody": "프롬프트와 생성된 모델은 다른 사용자가 볼 수 있습니다. 개인정보나 저작권 보호 콘텐츠를 포함하지 마세요."
+    },
+    "mode": {
+      "fromText": "텍스트로",
+      "fromImage": "이미지로"
+    },
+    "text": {
+      "label": "3D 모델을 설명해 주세요:",
+      "placeholder": "예: \"나무 통\", \"로우폴리 나무\", \"애니메이션 검\"",
+      "previewBtn": "이미지 미리보기",
+      "needPrompt": "먼저 프롬프트를 입력하세요.",
+      "generating": "미리보기 생성 중…",
+      "previewFailed": "미리보기 실패"
+    },
+    "image": {
+      "label": "대상 이미지를 업로드하세요:",
+      "dropPrimary": "클릭하여 선택하거나 이미지를 드래그하세요",
+      "dropHint": "PNG, JPG 또는 WEBP — 최대 8MB",
+      "tooLarge": "이미지는 8MB 이하여야 합니다.",
+      "uploading": "업로드 중…",
+      "uploadFailed": "업로드 실패"
+    },
+    "preview": {
+      "labelText": "미리보기 — 확인하면 이 이미지로 3D 모델을 생성합니다:",
+      "labelImage": "미리보기 — 확인하여 생성:",
+      "refinePrompt": "프롬프트 수정",
+      "chooseDifferent": "다른 파일 선택",
+      "confirm": "확인 및 3D 생성"
+    },
+    "submit": {
+      "submitting": "제출 중…",
+      "submitFailed": "제출 실패",
+      "cacheHit": "✓ 일치하는 공유 모델을 찾았습니다 — 라이브러리에 추가되었습니다."
+    },
+    "active": {
+      "header": "진행 중",
+      "uploadedImage": "(업로드된 이미지)",
+      "stageQueued": "대기 중",
+      "stageStarting": "시작 중",
+      "stageFetching": "이미지 가져오는 중",
+      "stageGenerating": "생성 중",
+      "stageUploading": "업로드 중",
+      "stageOrienting": "방향 조정 중"
+    },
+    "library": {
+      "scopeMine": "내 생성",
+      "scopeCommunity": "커뮤니티",
+      "refresh": "라이브러리 새로 고침",
+      "search": "생성 검색…",
+      "empty": "아직 생성된 항목이 없습니다.",
+      "emptyMatches": "일치하는 결과가 없습니다.",
+      "emptyCommunity": "커뮤니티에 아직 생성된 항목이 없습니다.",
+      "notAvailable": "이 백엔드에서는 3D 모델 생성을 사용할 수 없습니다."
+    },
+    "errorPrefix": "오류: {message}"
   }
 }

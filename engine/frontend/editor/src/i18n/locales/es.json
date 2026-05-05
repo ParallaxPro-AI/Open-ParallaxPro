@@ -383,5 +383,74 @@
     "cancel": "Cancelar",
     "ok": "OK",
     "confirm": "Confirmar"
+  },
+  "modelGen": {
+    "health": {
+      "checking": "comprobando…",
+      "unavailable": "Servicio de GPU no disponible",
+      "offline": "Sin conexión — no hay workers disponibles",
+      "onlineSingular": "En línea · {count} worker disponible",
+      "onlinePlural": "En línea · {count} workers disponibles",
+      "queuedSuffix": " · {count} en cola"
+    },
+    "notice": {
+      "searchFirstBold": "Busca primero en la Comunidad.",
+      "searchFirstBody": "Explora los modelos 3D existentes en la biblioteca de la comunidad antes de generar — es instantáneo y ahorra tiempo de GPU.",
+      "publicBold": "Todas las generaciones son públicas.",
+      "publicBody": "Tu prompt y el modelo resultante son visibles para otros usuarios. No incluyas información personal ni contenido con derechos de autor."
+    },
+    "mode": {
+      "fromText": "Desde texto",
+      "fromImage": "Desde imagen"
+    },
+    "text": {
+      "label": "Describe un modelo 3D:",
+      "placeholder": "p. ej. \"barril de madera\", \"árbol low-poly\", \"espada de anime\"",
+      "previewBtn": "Previsualizar imagen",
+      "needPrompt": "Introduce un prompt primero.",
+      "generating": "Generando vista previa…",
+      "previewFailed": "vista previa fallida"
+    },
+    "image": {
+      "label": "Sube una imagen del sujeto:",
+      "dropPrimary": "Haz clic para elegir o arrastra una imagen",
+      "dropHint": "PNG, JPG o WEBP — hasta 8 MB",
+      "tooLarge": "La imagen debe pesar menos de 8 MB.",
+      "uploading": "Subiendo…",
+      "uploadFailed": "subida fallida"
+    },
+    "preview": {
+      "labelText": "Vista previa — confirma para generar el modelo 3D a partir de esta imagen:",
+      "labelImage": "Vista previa — confirma para generar:",
+      "refinePrompt": "Ajustar prompt",
+      "chooseDifferent": "Elegir otro archivo",
+      "confirm": "Confirmar y generar 3D"
+    },
+    "submit": {
+      "submitting": "Enviando…",
+      "submitFailed": "envío fallido",
+      "cacheHit": "✓ Se encontró un modelo compartido coincidente — añadido a la biblioteca."
+    },
+    "active": {
+      "header": "En curso",
+      "uploadedImage": "(imagen subida)",
+      "stageQueued": "en cola",
+      "stageStarting": "iniciando",
+      "stageFetching": "obteniendo imagen",
+      "stageGenerating": "generando",
+      "stageUploading": "subiendo",
+      "stageOrienting": "orientando"
+    },
+    "library": {
+      "scopeMine": "Mis generaciones",
+      "scopeCommunity": "Comunidad",
+      "refresh": "Actualizar biblioteca",
+      "search": "Buscar generaciones…",
+      "empty": "Aún no hay generaciones.",
+      "emptyMatches": "Sin coincidencias.",
+      "emptyCommunity": "Aún no hay generaciones de la comunidad.",
+      "notAvailable": "La generación de modelos 3D no está disponible en este backend."
+    },
+    "errorPrefix": "Error: {message}"
   }
 }

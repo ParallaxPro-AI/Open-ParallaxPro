@@ -383,5 +383,74 @@
     "cancel": "取消",
     "ok": "確定",
     "confirm": "確認"
+  },
+  "modelGen": {
+    "health": {
+      "checking": "檢查中…",
+      "unavailable": "GPU 服務不可用",
+      "offline": "離線 — 無可用工作節點",
+      "onlineSingular": "在線 · {count} 個工作節點可用",
+      "onlinePlural": "在線 · {count} 個工作節點可用",
+      "queuedSuffix": " · 排隊 {count} 個"
+    },
+    "notice": {
+      "searchFirstBold": "請先搜尋社群。",
+      "searchFirstBody": "在生成之前，先在下方社群庫瀏覽現有的 3D 模型 — 這是即時的，並能節省 GPU 時間。",
+      "publicBold": "所有生成內容均為公開。",
+      "publicBody": "您的提示詞及生成的模型對其他使用者可見。請勿包含個人資訊或受版權保護的內容。"
+    },
+    "mode": {
+      "fromText": "文字生成",
+      "fromImage": "圖片生成"
+    },
+    "text": {
+      "label": "描述一個 3D 模型：",
+      "placeholder": "例如：\"木桶\"、\"低面樹\"、\"動漫風格的劍\"",
+      "previewBtn": "預覽圖片",
+      "needPrompt": "請先輸入提示詞。",
+      "generating": "正在生成預覽…",
+      "previewFailed": "預覽失敗"
+    },
+    "image": {
+      "label": "上傳主體圖片：",
+      "dropPrimary": "點擊選擇或拖入圖片",
+      "dropHint": "PNG、JPG 或 WEBP — 最大 8MB",
+      "tooLarge": "圖片必須小於 8MB。",
+      "uploading": "上傳中…",
+      "uploadFailed": "上傳失敗"
+    },
+    "preview": {
+      "labelText": "預覽 — 確認後將根據此圖片生成 3D 模型：",
+      "labelImage": "預覽 — 確認即可生成：",
+      "refinePrompt": "優化提示詞",
+      "chooseDifferent": "選擇其他檔案",
+      "confirm": "確認並生成 3D"
+    },
+    "submit": {
+      "submitting": "提交中…",
+      "submitFailed": "提交失敗",
+      "cacheHit": "✓ 找到匹配的共享模型 — 已新增至庫中。"
+    },
+    "active": {
+      "header": "進行中",
+      "uploadedImage": "（上傳的圖片）",
+      "stageQueued": "排隊中",
+      "stageStarting": "啟動中",
+      "stageFetching": "取得圖片中",
+      "stageGenerating": "生成中",
+      "stageUploading": "上傳中",
+      "stageOrienting": "調整方向中"
+    },
+    "library": {
+      "scopeMine": "我的生成",
+      "scopeCommunity": "社群",
+      "refresh": "重新整理庫",
+      "search": "搜尋生成…",
+      "empty": "尚無生成內容。",
+      "emptyMatches": "無匹配結果。",
+      "emptyCommunity": "社群尚無生成內容。",
+      "notAvailable": "此後端不支援 3D 模型生成。"
+    },
+    "errorPrefix": "錯誤：{message}"
   }
 }
