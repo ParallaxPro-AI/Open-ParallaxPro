@@ -521,7 +521,7 @@ export class ModelGenPanel {
             label = 'GPU service unavailable';
         } else if (online === 0) {
             color = '#fca5a5';
-            label = 'Offline — no GPU workers connected';
+            label = 'Offline — no worker connected';
         } else {
             color = '#4ade80';
             label = `Online · ${online} worker${online === 1 ? '' : 's'}` + (queue > 0 ? ` · ${queue} queued` : '');
