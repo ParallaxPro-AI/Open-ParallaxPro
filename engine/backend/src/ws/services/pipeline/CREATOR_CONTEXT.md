@@ -207,6 +207,18 @@ For `custom` meshes:
 - `scale`: **OMIT.** The engine reads `MODEL_FACING.json` and auto-scales every model to its real-world meter size (4.5 m sedan, 1.75 m human, 8 m tree, …). Don't pass `scale` to "fix" a model that looks tiny or huge — that's a registry gap; flag it and the registry will cover all assets in that pack forever. Use placement-level `scale` in 03_worlds.json only for per-instance tweaks (e.g. one giant boss enemy).
 - **Orientation**: don't worry about it. The engine auto-rotates every model so it faces canonical −Z. To make an entity face a specific direction in the world, set `placement.rotation: [0, yawDegrees, 0]` in 03_worlds.json — yaw 0 = facing −Z.
 
+#### Community / AI-generated assets
+
+`search_assets.sh` also returns AI-generated GLBs from the community pool — same response format, but the path looks like `/assets/generated/aa/bb/<32-hex-token>.glb` and the line ends with the original generation prompt as a label:
+
+```
+/assets/generated/12/3a/abc...glb  (3D Models, community)  4.20x1.50x2.10m  [50K verts]  — "small red sports car, low poly"
+```
+
+Treat them exactly like pack assets: drop the path into `mesh.asset`, omit `scale`, omit rotation. The label is the generator's prompt — use it to confirm a result actually matches what you searched for (a "soldier" search might return a tangentially-relevant generated model; the label tells you for sure).
+
+If the user prepended an `[Attached 3D models]` block to their message, **use those paths first** — they pinned them specifically. Search for additional assets only if the pinned set doesn't cover what the game needs.
+
 ### Canonical convention (the engine guarantees this for every loaded model)
 
 | Axis     | Direction | Meaning                                     |

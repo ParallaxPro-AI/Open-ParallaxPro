@@ -992,13 +992,25 @@ if (eventData) {
     // `return` (not process.exit) so subsequent checks below still run.
     if (allAssets.size === 0) return;
 
+    // Generated/community assets surfaced by search_assets.sh use opaque
+    // token paths (not in any catalog file). Token format is locked to
+    // /assets/generated/<2hex>/<2hex>/<32hex>.glb — anything matching
+    // this regex is accepted at sandbox-validate time. Final existence
+    // check happens at project-write time on the backend.
+    function isGeneratedAssetPath(p) {
+        return typeof p === 'string' && /^\/assets\/generated\/[a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]{32}\.glb$/.test(p);
+    }
+
     var assetErrors = [];
 
     // Check mesh.asset in entity definitions (recurse into children)
     function checkDefAssets(def, defName) {
         if (def && def.mesh && def.mesh.asset) {
             var asset = def.mesh.asset;
-            if (audioPaths.has(asset) || texturePaths.has(asset)) {
+            if (isGeneratedAssetPath(asset)) {
+                // Community / AI-generated GLB. Token format already
+                // checked; existence is verified backend-side.
+            } else if (audioPaths.has(asset) || texturePaths.has(asset)) {
                 assetErrors.push(
                     '02_entities.json "' + defName + '": mesh asset "' + asset + '" is not a 3D model. ' +
                     'mesh.asset must be a .glb file from assets/3D_MODELS.md, not an audio or texture file.'

@@ -9,6 +9,7 @@ import {
 } from '../embedding_service.js';
 import { tryConsumeEmbedBudget } from '../middleware/embed_rate_limit.js';
 import { getCanonicalSize, getCanonicalVertexCount } from '../services/asset_sizes.js';
+import { runAssetSearchExtensions } from '../services/asset_search_extensions.js';
 
 const router = Router();
 
@@ -234,7 +235,30 @@ export function assetExists(assetPath: string): boolean {
  * Search assets programmatically (used by AI tool calls).
  * Uses semantic embedding search when available, falls back to substring matching.
  */
-export async function searchAssets(opts: { category?: string; search?: string; source?: string; pack?: string; limit?: number }): Promise<{ name: string; path: string; category: string; pack: string; size?: [number, number, number]; vertices?: number }[]> {
+export interface AssetSearchHit {
+    name: string;
+    path: string;
+    category: string;
+    pack: string;
+    size?: [number, number, number];
+    vertices?: number;
+    /** Free-text label shown alongside the path. Pack assets leave this
+     *  blank because the path is self-descriptive (e.g. .../Soldier.glb).
+     *  Plugin extensions (model_gen) populate it with the original prompt
+     *  so the AI can read what an opaque random-token path represents. */
+    description?: string;
+}
+
+export async function searchAssets(opts: {
+    category?: string;
+    search?: string;
+    source?: string;
+    pack?: string;
+    limit?: number;
+    /** Forwarded to plugin extensions so per-user private assets surface
+     *  for the requesting user (and only them). Pack search ignores it. */
+    userId?: number | null;
+}): Promise<AssetSearchHit[]> {
     let filtered = assetCache;
     if (opts.category) filtered = filtered.filter(a => a.category === opts.category);
     if (opts.source) filtered = filtered.filter(a => a.source === opts.source);
@@ -242,6 +266,7 @@ export async function searchAssets(opts: { category?: string; search?: string; s
 
     const max = Math.min(opts.limit ?? 20, 50);
 
+    let packResults: AssetSearchHit[];
     if (opts.search && embeddingsReady) {
         const queryVec = await embedQuery(opts.search);
         const scored = filtered
@@ -252,7 +277,7 @@ export async function searchAssets(opts: { category?: string; search?: string; s
             .filter(s => s.score > 0.15)
             .sort((a, b) => b.score - a.score);
 
-        return scored.slice(0, max).map(s => ({
+        packResults = scored.slice(0, max).map(s => ({
             name: s.asset.name,
             path: `/assets/${s.asset.filePath}`,
             category: s.asset.category,
@@ -260,21 +285,49 @@ export async function searchAssets(opts: { category?: string; search?: string; s
             size: getCanonicalSize(s.asset.filePath) ?? undefined,
             vertices: getCanonicalVertexCount(s.asset.filePath) ?? undefined,
         }));
-    }
-
-    // Fallback: substring matching
-    if (opts.search) {
+    } else if (opts.search) {
+        // Fallback: substring matching
         const s = opts.search.toLowerCase();
         filtered = filtered.filter(a => a.name.toLowerCase().includes(s) || a.pack.toLowerCase().includes(s));
+        packResults = filtered.slice(0, max).map(a => ({
+            name: a.name,
+            path: `/assets/${a.filePath}`,
+            category: a.category,
+            pack: a.pack,
+            size: getCanonicalSize(a.filePath) ?? undefined,
+            vertices: getCanonicalVertexCount(a.filePath) ?? undefined,
+        }));
+    } else {
+        // No search query — just first N filtered.
+        packResults = filtered.slice(0, max).map(a => ({
+            name: a.name,
+            path: `/assets/${a.filePath}`,
+            category: a.category,
+            pack: a.pack,
+            size: getCanonicalSize(a.filePath) ?? undefined,
+            vertices: getCanonicalVertexCount(a.filePath) ?? undefined,
+        }));
     }
-    return filtered.slice(0, max).map(a => ({
-        name: a.name,
-        path: `/assets/${a.filePath}`,
-        category: a.category,
-        pack: a.pack,
-        size: getCanonicalSize(a.filePath) ?? undefined,
-        vertices: getCanonicalVertexCount(a.filePath) ?? undefined,
-    }));
+
+    // Plugin extensions add their own asset pools (model_gen → community
+    // generated assets). These come AFTER pack hits so curated assets
+    // win ties; AI sees them as supplementary options. Limit applies
+    // per-source so a flood of community results can't drown the packs.
+    let extResults: AssetSearchHit[] = [];
+    if (opts.search) {
+        try {
+            extResults = await runAssetSearchExtensions({
+                query: opts.search,
+                category: opts.category,
+                limit: Math.ceil(max / 2),
+                userId: opts.userId ?? null,
+            });
+        } catch (e) {
+            console.error('[searchAssets] extensions failed:', e);
+        }
+    }
+
+    return [...packResults, ...extResults].slice(0, max);
 }
 console.log(`[Assets] ${assetCache.length} assets scanned`);
 

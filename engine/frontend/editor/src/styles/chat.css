@@ -177,6 +177,96 @@
     border-top: 1px solid var(--border);
 }
 
+/* Asset chips staged above the input — populated by ModelGenPanel's
+ * "Use in chat" button. Cleared on send. */
+.chat-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
+.chat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px 3px 3px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    max-width: 220px;
+    font-size: 11px;
+    color: var(--text-primary);
+}
+
+.chat-chip-thumb {
+    width: 22px;
+    height: 22px;
+    object-fit: cover;
+    border-radius: 50%;
+    flex: none;
+    background: var(--bg-input);
+}
+
+.chat-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chat-chip-remove {
+    flex: none;
+    background: none;
+    border: none;
+    color: var(--text-disabled);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    transition: color var(--transition-fast);
+}
+
+.chat-chip-remove:hover {
+    color: var(--danger);
+}
+
+/* Inline chip cards inside a user-message bubble (re-rendered from
+ * persisted chat history). */
+.chat-message-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+}
+
+.chat-message-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px 3px 3px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 14px;
+    max-width: 220px;
+    font-size: 11px;
+    color: var(--text-primary);
+}
+
+.chat-message-chip-thumb {
+    width: 22px;
+    height: 22px;
+    object-fit: cover;
+    border-radius: 50%;
+    flex: none;
+    background: var(--bg-input);
+}
+
+.chat-message-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .chat-input-wrapper {
     position: relative;
     display: flex;

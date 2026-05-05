@@ -299,23 +299,22 @@ export class ModelGenPanel {
         label.className = 'mg-label';
         this.formArea.appendChild(label);
 
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mg-input-wrapper';
+
         const promptInput = document.createElement('textarea');
         promptInput.placeholder = t('modelGen.text.placeholder');
         promptInput.maxLength = 300;
-        promptInput.rows = 2;
         promptInput.value = this.currentPrompt ?? '';
         promptInput.className = 'mg-textarea';
         promptInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); previewBtn.click(); }
         });
-        this.formArea.appendChild(promptInput);
-
-        const row = document.createElement('div');
-        row.className = 'mg-row end';
+        wrapper.appendChild(promptInput);
 
         const previewBtn = document.createElement('button');
         previewBtn.textContent = t('modelGen.text.previewBtn');
-        previewBtn.className = 'primary';
+        previewBtn.className = 'mg-preview-btn';
         previewBtn.addEventListener('click', async () => {
             const prompt = promptInput.value.trim();
             if (!prompt) { this.statusBar.textContent = t('modelGen.text.needPrompt'); return; }
@@ -343,8 +342,8 @@ export class ModelGenPanel {
                 previewBtn.disabled = false;
             }
         });
-        row.appendChild(previewBtn);
-        this.formArea.appendChild(row);
+        wrapper.appendChild(previewBtn);
+        this.formArea.appendChild(wrapper);
     }
 
     private renderImageForm(): void {
@@ -765,6 +764,39 @@ export class ModelGenPanel {
             thumb.textContent = '□';
         }
         card.appendChild(thumb);
+
+        // "Use in chat" button — overlaid on the thumbnail. Posts a
+        // document-level CustomEvent that AiChatPanel listens for. Stops
+        // propagation so the card's drag handler doesn't fire on click.
+        const useBtn = document.createElement('button');
+        useBtn.type = 'button';
+        useBtn.className = 'mg-lib-card-use';
+        useBtn.title = 'Add this model as a hint for the AI Assistant';
+        useBtn.textContent = '+ chat';
+        useBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const detail = {
+                id: m.id,
+                path: m.glb_path,
+                thumbUrl: m.thumb_path,
+                prompt: item.prompt || 'generated model',
+                upAxis: m.up_axis,
+                forwardAxis: m.forward_axis,
+                estScaleM: m.est_scale_m ?? null,
+                bbox: m.bbox ?? null,
+            };
+            document.dispatchEvent(new CustomEvent('parallax:chat-attach-asset', { detail }));
+            // Visual feedback — flip the button briefly to confirm.
+            const originalText = useBtn.textContent;
+            useBtn.textContent = 'added';
+            useBtn.classList.add('mg-lib-card-use-added');
+            window.setTimeout(() => {
+                useBtn.textContent = originalText;
+                useBtn.classList.remove('mg-lib-card-use-added');
+            }, 1200);
+        });
+        thumb.appendChild(useBtn);
 
         const label = document.createElement('div');
         label.className = 'mg-lib-card-label';

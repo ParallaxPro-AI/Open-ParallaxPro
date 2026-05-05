@@ -183,7 +183,15 @@ else {
         // / FIXER_CONTEXT vertex budget guidelines for rules of thumb.
         var vc = '';
         if (typeof r.vertices === 'number') vc = '  [' + fmtVerts(r.vertices) + ']';
-        console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')' + sz + vc);
+        // Community/AI-generated assets have opaque random-hex paths that
+        // tell the AI nothing — surface the original prompt as the
+        // readable label so it can pick the right one.
+        var desc = '';
+        if (typeof r.description === 'string' && r.description.length > 0) {
+            var d = r.description.length > 120 ? r.description.slice(0, 117) + '...' : r.description;
+            desc = '  — "' + d.replace(/"/g, '\\\\"') + '"';
+        }
+        console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')' + sz + vc + desc);
     }
 }
 " "\$RESP" "\$QUERY"

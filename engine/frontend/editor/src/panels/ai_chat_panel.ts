@@ -16,6 +16,29 @@ interface ChatMessage {
     offerCreateGameDescription?: string | null;
 }
 
+/**
+ * Asset chip — a 3D model the user "added to chat" from ModelGenPanel.
+ *
+ * The user sees the chip (thumb + label, never a path); the AI sees the
+ * path inlined into the message body via formatChipsForAI(). Persisted
+ * inside the message text using a parseable prefix block, so chat
+ * history re-renders correctly after refresh without a schema change.
+ */
+interface AssetAttachment {
+    /** generated_models.id — 32-hex token. */
+    id: string;
+    /** /assets/generated/aa/bb/<id>.glb — what gets passed to the AI. */
+    path: string;
+    /** Derived thumbnail URL — same dir, .thumb.webp suffix. */
+    thumbUrl: string;
+    /** Original generation prompt. Doubles as the chip's label. */
+    prompt: string;
+    upAxis?: string;
+    forwardAxis?: string;
+    estScaleM?: number | null;
+    bbox?: any;
+}
+
 interface FileChange {
     path: string;
     // 'template_load' is a destructive full-tree replace (LOAD_TEMPLATE);
@@ -51,6 +74,56 @@ const enum State {
     STREAMING,
 }
 
+/** Marker tags wrapping the attached-assets block in a user message.
+ *  Stable strings so renderMessageEl can strip them on chat-history
+ *  re-render and surface chip cards in their place. */
+const ATTACH_OPEN = '[Attached 3D models — strongly prefer these over searching]';
+const ATTACH_CLOSE = '[/Attached 3D models]';
+/** Per-line format inside the block. AI parses this verbatim; renderer
+ *  parses the same regex below to rebuild chips. */
+const ATTACH_LINE_RE = /^- "([^"]+)" — path: (\/assets\/generated\/[a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]{32}\.glb)\b/;
+
+/** Build the attachment-block prefix that gets prepended to the user's
+ *  text on send. AI sees this; user-visible message strips it back to
+ *  chips at render time. */
+function formatChipsForAI(chips: AssetAttachment[]): string {
+    if (chips.length === 0) return '';
+    const lines = chips.map(c => {
+        let line = `- "${c.prompt.replace(/"/g, '\\"')}" — path: ${c.path}`;
+        if (c.estScaleM != null) line += ` (est_scale_m=${c.estScaleM})`;
+        return line;
+    });
+    return `${ATTACH_OPEN}\n${lines.join('\n')}\n${ATTACH_CLOSE}\n\n`;
+}
+
+/** Inverse of formatChipsForAI — extracts chips from a stored message
+ *  for re-render on chat history reload. Returns the chips parsed plus
+ *  the user-facing text with the block stripped. Tolerant of malformed
+ *  blocks (returns no chips, leaves text intact). */
+function parseChipsFromContent(content: string): { chips: AssetAttachment[]; cleanText: string } {
+    const open = content.indexOf(ATTACH_OPEN);
+    if (open !== 0) return { chips: [], cleanText: content };
+    const close = content.indexOf(ATTACH_CLOSE, open);
+    if (close < 0) return { chips: [], cleanText: content };
+
+    const block = content.slice(open + ATTACH_OPEN.length, close).trim();
+    const chips: AssetAttachment[] = [];
+    for (const line of block.split('\n')) {
+        const m = line.match(ATTACH_LINE_RE);
+        if (!m) continue;
+        const path = m[2];
+        chips.push({
+            id: path.replace(/^.*\//, '').replace(/\.glb$/, ''),
+            path,
+            thumbUrl: path.replace(/\.glb$/, '.thumb.webp'),
+            prompt: m[1].replace(/\\"/g, '"'),
+        });
+    }
+    // Strip the block + the trailing blank line(s).
+    const after = content.slice(close + ATTACH_CLOSE.length).replace(/^\s*\n+/, '');
+    return { chips, cleanText: after };
+}
+
 export class AiChatPanel {
     readonly el: HTMLElement;
 
@@ -84,6 +157,19 @@ export class AiChatPanel {
     private rawFilesOverlay: HTMLElement | null = null;
     private rawFilesContainer: HTMLElement | null = null;
     private rawFilesRefreshTimer: number = 0;
+
+    /** "Use in chat" attachments staged for the next sendMessage().
+     *  Cleared on send. Persisted in sessionStorage so a refresh
+     *  mid-compose doesn't lose them. */
+    private chips: AssetAttachment[] = [];
+    private chipsContainer: HTMLElement | null = null;
+    /** sessionStorage key — scoped per project so two open tabs on
+     *  different projects don't share staged chips. Resolved lazily
+     *  because ctx.state.projectId may not be set at constructor time. */
+    private chipsStorageKey(): string {
+        const pid = (this.ctx as any)?.state?.projectId ?? 'default';
+        return `parallax:chat-chips:${pid}`;
+    }
 
     // Agent picker — populated from the `connected` WS event. Starts empty;
     // once the backend responds with availableAgents we fill in claude/codex
@@ -167,6 +253,14 @@ export class AiChatPanel {
         // Input area
         const inputArea = document.createElement('div');
         inputArea.className = 'chat-input-area';
+
+        // Asset chips row — shows above the textarea when the user has
+        // staged "Use in chat" attachments from ModelGenPanel. Rendered
+        // first so chips visually anchor above the input.
+        this.chipsContainer = document.createElement('div');
+        this.chipsContainer.className = 'chat-chips';
+        this.chipsContainer.style.display = 'none';
+        inputArea.appendChild(this.chipsContainer);
 
         const inputWrapper = document.createElement('div');
         inputWrapper.className = 'chat-input-wrapper';
@@ -263,7 +357,103 @@ export class AiChatPanel {
             this.closeSessionMenu();
         });
 
+        // ModelGenPanel posts this when a user clicks "+ chat" on a
+        // library card. Decoupled via document event so the two panels
+        // don't need refs to each other.
+        document.addEventListener('parallax:chat-attach-asset', (e) => {
+            const detail = (e as CustomEvent).detail as Partial<AssetAttachment> | undefined;
+            if (!detail || !detail.id || !detail.path) return;
+            this.addChip({
+                id: detail.id,
+                path: detail.path,
+                thumbUrl: detail.thumbUrl ?? detail.path.replace(/\.glb$/, '.thumb.webp'),
+                prompt: detail.prompt ?? 'generated model',
+                upAxis: detail.upAxis,
+                forwardAxis: detail.forwardAxis,
+                estScaleM: detail.estScaleM ?? null,
+                bbox: detail.bbox ?? null,
+            });
+        });
+
+        this.restoreChipsFromStorage();
+
         this.showEmptyState();
+    }
+
+    // ── Asset chips (attached models) ───────────────────────────────
+
+    /** Add a chip if not already attached. Dedupes by id. */
+    private addChip(chip: AssetAttachment): void {
+        if (this.chips.some(c => c.id === chip.id)) return;
+        this.chips.push(chip);
+        this.renderChips();
+        this.persistChips();
+    }
+
+    private removeChip(id: string): void {
+        this.chips = this.chips.filter(c => c.id !== id);
+        this.renderChips();
+        this.persistChips();
+    }
+
+    private renderChips(): void {
+        if (!this.chipsContainer) return;
+        this.chipsContainer.innerHTML = '';
+        if (this.chips.length === 0) {
+            this.chipsContainer.style.display = 'none';
+            return;
+        }
+        this.chipsContainer.style.display = '';
+        for (const chip of this.chips) {
+            const el = document.createElement('div');
+            el.className = 'chat-chip';
+            el.title = chip.prompt;
+
+            const img = document.createElement('img');
+            img.className = 'chat-chip-thumb';
+            img.src = chip.thumbUrl;
+            img.alt = chip.prompt;
+            img.loading = 'lazy';
+            img.onerror = () => { img.style.display = 'none'; };
+            el.appendChild(img);
+
+            const label = document.createElement('span');
+            label.className = 'chat-chip-label';
+            label.textContent = chip.prompt.length > 40 ? chip.prompt.slice(0, 38) + '…' : chip.prompt;
+            el.appendChild(label);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'chat-chip-remove';
+            removeBtn.textContent = '×';
+            removeBtn.title = 'Remove';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeChip(chip.id);
+            });
+            el.appendChild(removeBtn);
+
+            this.chipsContainer.appendChild(el);
+        }
+    }
+
+    private persistChips(): void {
+        try {
+            if (this.chips.length === 0) sessionStorage.removeItem(this.chipsStorageKey());
+            else sessionStorage.setItem(this.chipsStorageKey(), JSON.stringify(this.chips));
+        } catch { /* sessionStorage may be disabled in private mode */ }
+    }
+
+    private restoreChipsFromStorage(): void {
+        try {
+            const raw = sessionStorage.getItem(this.chipsStorageKey());
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                this.chips = parsed.filter((c: any) => c && typeof c.id === 'string' && typeof c.path === 'string');
+                this.renderChips();
+            }
+        } catch { /* ignore */ }
     }
 
     // ── WebSocket event handlers ────────────────────────────────────
@@ -783,9 +973,21 @@ export class AiChatPanel {
 
         this.hideEmptyState();
 
-        const msg: ChatMessage = { role: 'user', content: text };
+        // Chips are attached as a parseable prefix block. AI sees the
+        // paths inline; the user-visible bubble strips the block back to
+        // chip cards in renderMessageEl. We persist the combined text
+        // (block + user text) so chat history reload reproduces both.
+        const chipBlock = formatChipsForAI(this.chips);
+        const composed = chipBlock + text;
+
+        const msg: ChatMessage = { role: 'user', content: composed };
         this.messages.push(msg);
         this.renderMessageEl(msg);
+
+        // Clear the staging area now that the chips have shipped.
+        this.chips = [];
+        this.renderChips();
+        this.persistChips();
 
         this.textarea.value = '';
         this.textarea.style.height = 'auto';
@@ -793,7 +995,7 @@ export class AiChatPanel {
         this.transitionTo(State.STREAMING);
         this.pendingChunks = '';
         this.showTypingIndicator();
-        this.ctx.backend.sendChatMessage(text, this.selectedAgent, this.pickChatAgent(), this.pickEditingAgent());
+        this.ctx.backend.sendChatMessage(composed, this.selectedAgent, this.pickChatAgent(), this.pickEditingAgent());
         this.scrollToBottom();
     }
 
@@ -1097,6 +1299,39 @@ export class AiChatPanel {
 
         let displayContent = msg.content;
         displayContent = displayContent.replace(/\[SYSTEM\][\s\S]*$/, '').trim();
+
+        // User messages may have an attached-assets prefix block — strip
+        // it here and render chip cards above the text bubble. Assistant
+        // messages are not parsed (the AI doesn't generate this format).
+        let bubbleChips: AssetAttachment[] = [];
+        if (msg.role === 'user') {
+            const parsed = parseChipsFromContent(displayContent);
+            bubbleChips = parsed.chips;
+            displayContent = parsed.cleanText;
+        }
+
+        if (bubbleChips.length > 0) {
+            const chipsRow = document.createElement('div');
+            chipsRow.className = 'chat-message-chips';
+            for (const chip of bubbleChips) {
+                const el = document.createElement('div');
+                el.className = 'chat-message-chip';
+                el.title = chip.prompt;
+                const img = document.createElement('img');
+                img.className = 'chat-message-chip-thumb';
+                img.src = chip.thumbUrl;
+                img.alt = chip.prompt;
+                img.loading = 'lazy';
+                img.onerror = () => { img.style.display = 'none'; };
+                el.appendChild(img);
+                const label = document.createElement('span');
+                label.className = 'chat-message-chip-label';
+                label.textContent = chip.prompt.length > 40 ? chip.prompt.slice(0, 38) + '…' : chip.prompt;
+                el.appendChild(label);
+                chipsRow.appendChild(el);
+            }
+            messageEl.appendChild(chipsRow);
+        }
 
         const bubble = document.createElement('div');
         bubble.className = 'chat-message-bubble';

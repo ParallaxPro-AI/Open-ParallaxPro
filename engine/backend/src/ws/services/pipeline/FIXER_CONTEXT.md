@@ -425,6 +425,10 @@ bash search_assets.sh "grass ground texture" --category Textures --limit 5
 
 The returned `path` values are exactly what you use in entity defs (`mesh.asset`) and scripts (`playSound`/`playMusic`).
 
+`search_assets.sh` also returns AI-generated GLBs from the community pool. Their paths look like `/assets/generated/aa/bb/<32-hex>.glb` and each line ends with the original prompt label (e.g. `— "small red sports car"`). Drop them in like any other asset — same `mesh.asset` field, same auto-scale, same auto-orient.
+
+If the user's request begins with an `[Attached 3D models]` block, those are paths the user pinned from their library — **use them first** before searching. The block format is a heading line followed by `- "label" — path: /assets/...glb` lines.
+
 ## Library tool — `library.sh`
 
 The shared library of game code (behaviors, systems, UI panels, 40 game templates) is served by `bash library.sh` — NOT pre-copied into the sandbox. Use it to index, search, and fetch on demand. It's faster, costs fewer tokens, and batches cleanly.
