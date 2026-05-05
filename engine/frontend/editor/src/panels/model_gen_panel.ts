@@ -55,6 +55,9 @@ const POLL_INTERVAL_MS = 3000;
 const LIBRARY_PAGE_SIZE = 50;
 /** Pixels-from-bottom that triggers a loadMore. */
 const SCROLL_LOAD_THRESHOLD_PX = 200;
+/** Mirror of MIN_PROMPT_LEN on the server. Backend rejects shorter
+ *  prompts; we gate the button so users get instant feedback. */
+const MIN_PROMPT_LEN = 10;
 
 type Mode = 'text' | 'image';
 type Step = 'idle' | 'previewed' | 'submitting';
@@ -335,6 +338,10 @@ export class ModelGenPanel {
         previewBtn.addEventListener('click', async () => {
             const prompt = promptInput.value.trim();
             if (!prompt) { this.statusBar.textContent = t('modelGen.text.needPrompt'); return; }
+            if (prompt.length < MIN_PROMPT_LEN) {
+                this.statusBar.textContent = t('modelGen.text.tooShort').replace('{min}', String(MIN_PROMPT_LEN));
+                return;
+            }
             this.currentPrompt = prompt;
             previewBtn.disabled = true;
             this.statusBar.textContent = t('modelGen.text.generating');

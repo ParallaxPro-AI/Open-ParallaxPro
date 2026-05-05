@@ -408,6 +408,7 @@
       "placeholder": "예: \"나무 통\", \"로우폴리 나무\", \"애니메이션 검\"",
       "previewBtn": "이미지 미리보기",
       "needPrompt": "먼저 프롬프트를 입력하세요.",
+      "tooShort": "프롬프트는 최소 {min}자 이상이어야 합니다.",
       "generating": "미리보기 생성 중…",
       "previewFailed": "미리보기 실패"
     },

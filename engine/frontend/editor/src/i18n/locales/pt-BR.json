@@ -408,6 +408,7 @@
       "placeholder": "ex.: \"barril de madeira\", \"árvore low-poly\", \"espada de anime\"",
       "previewBtn": "Pré-visualizar imagem",
       "needPrompt": "Digite um prompt primeiro.",
+      "tooShort": "O prompt deve ter pelo menos {min} caracteres.",
       "generating": "Gerando pré-visualização…",
       "previewFailed": "falha na pré-visualização"
     },

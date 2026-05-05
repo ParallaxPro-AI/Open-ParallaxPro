@@ -408,6 +408,7 @@
       "placeholder": "例如：\"木桶\"、\"低面树\"、\"动漫风格的剑\"",
       "previewBtn": "预览图片",
       "needPrompt": "请先输入提示词。",
+      "tooShort": "提示词至少需要 {min} 个字符。",
       "generating": "正在生成预览…",
       "previewFailed": "预览失败"
     },

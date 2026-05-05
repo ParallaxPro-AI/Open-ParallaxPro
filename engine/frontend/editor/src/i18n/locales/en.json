@@ -409,6 +409,7 @@
       "placeholder": "e.g. \"wooden barrel\", \"low-poly tree\", \"anime sword\"",
       "previewBtn": "Preview Image",
       "needPrompt": "Enter a prompt first.",
+      "tooShort": "Prompt must be at least {min} characters.",
       "generating": "Generating preview…",
       "previewFailed": "preview failed"
     },

@@ -408,6 +408,7 @@
       "placeholder": "例如：\"木桶\"、\"低面樹\"、\"動漫風格的劍\"",
       "previewBtn": "預覽圖片",
       "needPrompt": "請先輸入提示詞。",
+      "tooShort": "提示詞至少需要 {min} 個字元。",
       "generating": "正在生成預覽…",
       "previewFailed": "預覽失敗"
     },
