@@ -34,6 +34,18 @@ class CameraFPSBehavior extends GameScript {
         var player = this._findLocalPlayer();
         if (!player) return;
 
+        // Tell the engine which entity this camera is following. Scene's
+        // hideFromOwner pass walks `_cameraFollowsId` from the active
+        // camera so the player's mesh is suppressed deterministically —
+        // before this hint, the engine relied on a geometric "is the
+        // camera inside the player's collider" test that briefly fails
+        // at sprint speeds when the camera lags behind the player
+        // by more than the AABB pad, producing a 1-frame body flicker.
+        // The id is stable across the match, but re-publishing on each
+        // tick covers the case where _findLocalPlayer returned null on
+        // the first frame (player hadn't spawned yet).
+        this.entity._cameraFollowsId = player.id;
+
         var delta = this.input.getMouseDelta();
         this._yawDeg += delta.x * this._sensitivity;
         this._pitchDeg -= delta.y * this._sensitivity;

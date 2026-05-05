@@ -498,6 +498,32 @@ export class Scene {
                     cameraOwnerChain.add(cur.id);
                     cur = cur.parent ?? null;
                 }
+                // Explicit follow link from the camera behavior (opt-in).
+                // Position-follow cameras (FPS, head-mount, etc.) snap the
+                // camera to a target entity each tick instead of parenting,
+                // so the parent walk above doesn't reach the followed entity.
+                // The geometric `_cameraInsideEntity` test in the loop below
+                // catches this for slow movement, but at sprint speeds the
+                // camera lags far enough out of the AABB that hideFromOwner
+                // briefly fails for a frame or two — visible body flicker.
+                //
+                // Behaviors that follow a specific entity declare it via
+                // `entity._cameraFollowsId = followedEntity.id`. We walk that
+                // entity's parent chain too so the followed entity (and any
+                // ancestors in a prefab tree) get owner-suppressed
+                // deterministically, regardless of camera-follow lag.
+                //
+                // Backward compat: if a behavior doesn't set the field, this
+                // block is a no-op and the existing parent-chain + geometric
+                // checks handle it as before.
+                const followedId = (e as any)._cameraFollowsId;
+                if (typeof followedId === 'number' && followedId >= 0) {
+                    let f: any = this.entities.get(followedId) ?? null;
+                    while (f) {
+                        cameraOwnerChain.add(f.id);
+                        f = f.parent ?? null;
+                    }
+                }
                 break;
             }
         }
