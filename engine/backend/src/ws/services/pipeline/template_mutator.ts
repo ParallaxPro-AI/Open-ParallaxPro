@@ -662,6 +662,14 @@ export function applySceneSnapshot(files: ProjectFiles, sceneJson: any): Snapsho
             continue;
         }
 
+        // Consume the placement from the lookup so a subsequent
+        // identically-named entity (3 dragged "An Apple"s, all sharing
+        // the same prettified name) doesn't bind to the same row again.
+        // Without this, only the first iteration writes meaningfully —
+        // every later same-name entity just overwrites the same placement's
+        // position, last write wins, peers vanish.
+        placementByName.delete(entity.name);
+
         const def = entitiesDef[p.ref] || {};
         let touched = false;
 
