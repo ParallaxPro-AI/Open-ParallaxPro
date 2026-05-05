@@ -402,7 +402,7 @@ function walkGLBFiles(dir: string): string[] {
     if (!fs.existsSync(dir)) return results;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
-        if (entry.isDirectory() && entry.name !== 'thumbnails') {
+        if (entry.isDirectory() && entry.name !== 'thumbnails' && entry.name !== 'generated' && entry.name !== 'previews') {
             results.push(...walkGLBFiles(full));
         } else if (entry.name.endsWith('.glb')) {
             results.push(full);

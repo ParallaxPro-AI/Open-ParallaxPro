@@ -55,8 +55,11 @@ function scanAssets(): ScannedAsset[] {
     const results: ScannedAsset[] = [];
     if (!fs.existsSync(assetsDir)) return results;
 
+    // 'thumbnails' is the generator output cache; 'generated' / 'previews'
+    // are private user-generated content that should not appear in the
+    // public asset catalog (see model_gen plugin).
     const sources = fs.readdirSync(assetsDir, { withFileTypes: true })
-        .filter(d => d.isDirectory() && d.name !== 'thumbnails');
+        .filter(d => d.isDirectory() && d.name !== 'thumbnails' && d.name !== 'generated' && d.name !== 'previews');
 
     for (const source of sources) {
         const sourcePath = path.join(assetsDir, source.name);

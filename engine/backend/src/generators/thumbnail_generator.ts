@@ -111,7 +111,7 @@ function walkFiles(dir: string, ext: RegExp, skip?: (name: string) => boolean): 
     if (!fs.existsSync(dir)) return results;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
-        if (entry.isDirectory() && entry.name !== 'thumbnails') {
+        if (entry.isDirectory() && entry.name !== 'thumbnails' && entry.name !== 'generated' && entry.name !== 'previews') {
             results.push(...walkFiles(full, ext, skip));
         } else if (entry.isFile() && ext.test(entry.name)) {
             if (skip && skip(entry.name)) continue;
