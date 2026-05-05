@@ -377,7 +377,13 @@ export class ModelGenPanel {
             } catch (e: any) {
                 if (e?.status === 429 && e?.payload?.error === 'daily_limit_reached') {
                     this.statusBar.textContent = e.message;
-                    if (typeof e.payload.usage_pct === 'number') this.renderUsage(e.payload.usage_pct, e.payload.limit_pct ?? 100);
+                    if (typeof e.payload.usage_pct === 'number') this.renderUsage(e.payload.usage_pct, e.payload.limit_pct ?? 100, null);
+                } else if (e?.status === 402 && e?.payload?.error === 'signup_required') {
+                    // Anonymous users hit this from requireRealUser. Use the
+                    // server's friendly message verbatim — it already nudges
+                    // them to sign up.
+                    this.statusBar.textContent = e.payload.message || 'Sign up for a free account to use 3D model generation.';
+                    this.statusBar.style.color = '#fbbf24';
                 } else {
                     this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.text.previewFailed'));
                 }
@@ -517,7 +523,10 @@ export class ModelGenPanel {
         } catch (e: any) {
             if (e?.status === 429 && e?.payload?.error === 'daily_limit_reached') {
                 this.statusBar.textContent = e.message;
-                if (typeof e.payload.usage_pct === 'number') this.renderUsage(e.payload.usage_pct, e.payload.limit_pct ?? 100);
+                if (typeof e.payload.usage_pct === 'number') this.renderUsage(e.payload.usage_pct, e.payload.limit_pct ?? 100, null);
+            } else if (e?.status === 402 && e?.payload?.error === 'signup_required') {
+                this.statusBar.textContent = e.payload.message || 'Sign up for a free account to use 3D model generation.';
+                this.statusBar.style.color = '#fbbf24';
             } else {
                 this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.submit.submitFailed'));
             }
@@ -752,6 +761,11 @@ export class ModelGenPanel {
         this.healthLeft.innerHTML = `<span class="mg-health-dot ${cls}"></span><span>${escapeHtml(label)}</span>`;
     }
 
+    /** Anonymous users have a 0% cap — server hard-blocks /preview and
+     *  /generate. We track this so click handlers can short-circuit
+     *  with a friendly sign-up prompt instead of the bare 402 error. */
+    private isAnonymousTier = false;
+
     /** Refresh the "daily N%" label. Called on tab show + after every
      *  preview/generate/cancel response (those carry usage_pct so we
      *  could update without an extra fetch — but keeping the GET as
@@ -759,24 +773,34 @@ export class ModelGenPanel {
     private async refreshUsage(): Promise<void> {
         try {
             const r = await fetch(API_BASE + '/usage', { headers: authHeaders() });
-            if (!r.ok) { this.renderUsage(null, null); return; }
-            const { usage_pct, limit_pct } = await r.json();
-            this.renderUsage(usage_pct, limit_pct);
+            if (!r.ok) { this.renderUsage(null, null, null); return; }
+            const { usage_pct, limit_pct, tier } = await r.json();
+            this.renderUsage(usage_pct, limit_pct, tier ?? null);
         } catch {
-            this.renderUsage(null, null);
+            this.renderUsage(null, null, null);
         }
     }
 
-    private renderUsage(used: number | null, limit: number | null): void {
+    private renderUsage(used: number | null, limit: number | null, tier: string | null): void {
+        this.isAnonymousTier = tier === 'anonymous';
+        if (this.isAnonymousTier) {
+            this.usageLabel.textContent = 'Sign up to use';
+            this.usageLabel.classList.remove('mg-usage-warn');
+            this.usageLabel.classList.add('mg-usage-cap');
+            this.usageLabel.title = 'Anonymous users can browse the community library but need a free account to generate.';
+            return;
+        }
         if (used == null || limit == null) {
             this.usageLabel.textContent = '';
             this.usageLabel.classList.remove('mg-usage-warn', 'mg-usage-cap');
+            this.usageLabel.title = 'Daily generation budget. Resets at midnight UTC.';
             return;
         }
         const remaining = Math.max(0, limit - used);
         this.usageLabel.textContent = `daily ${Math.round(used)}% / ${limit}%`;
         this.usageLabel.classList.toggle('mg-usage-warn', remaining < 10 && remaining > 0);
         this.usageLabel.classList.toggle('mg-usage-cap', remaining <= 0);
+        this.usageLabel.title = `Daily generation budget (${tier ?? 'free'} tier). Resets at midnight UTC.`;
     }
 
     private setLibraryScope(scope: 'mine' | 'community'): void {
