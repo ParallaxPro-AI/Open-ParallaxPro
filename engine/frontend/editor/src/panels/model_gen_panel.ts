@@ -229,7 +229,7 @@ export class ModelGenPanel {
         // the recent-first list.
         this.librarySearchInput = document.createElement('input');
         this.librarySearchInput.type = 'search';
-        this.librarySearchInput.placeholder = 'Search your generations…';
+        this.librarySearchInput.placeholder = 'Search generations…';
         this.librarySearchInput.style.cssText = 'width:100%;background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:6px 10px;font-size:12px';
         this.librarySearchInput.addEventListener('input', () => {
             if (this.librarySearchTimer != null) window.clearTimeout(this.librarySearchTimer);
