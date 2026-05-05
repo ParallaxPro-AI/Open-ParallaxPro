@@ -504,16 +504,24 @@ function parseGLB(buffer: ArrayBuffer, glbUrl?: string): ParsedMesh {
             Math.round(effectiveAlpha * 255),
         ];
 
+        // EXT_texture_webp puts the image source inside the extension
+        // object (no top-level `source`) — TRELLIS.2 GLBs follow this
+        // pattern. Fall back through the extension when `source` is
+        // missing, otherwise the texture goes unread and the material
+        // renders with just its (often white) baseColorFactor.
+        const textureSource = (tex: any): number | undefined =>
+            tex?.source ?? tex?.extensions?.EXT_texture_webp?.source;
+
         let normalBlob: Blob | null = null;
         const normalTexIdx = mat?.normalTexture?.index;
         if (normalTexIdx !== undefined && gltf.textures?.[normalTexIdx]) {
-            const normalImgIdx = gltf.textures[normalTexIdx].source;
+            const normalImgIdx = textureSource(gltf.textures[normalTexIdx]);
             if (normalImgIdx !== undefined) normalBlob = extractImageBlob(normalImgIdx);
         }
 
         let imgIdx: number | undefined;
         if (texIdxVal !== undefined && gltf.textures?.[texIdxVal]) {
-            imgIdx = gltf.textures[texIdxVal].source;
+            imgIdx = textureSource(gltf.textures[texIdxVal]);
         }
 
         if (imgIdx !== undefined) {
@@ -695,7 +703,8 @@ function parseGLB(buffer: ArrayBuffer, glbUrl?: string): ParsedMesh {
         const firstMat = gltf.materials?.[0];
         const texIdxFb = firstMat?.pbrMetallicRoughness?.baseColorTexture?.index;
         if (texIdxFb !== undefined && gltf.textures?.[texIdxFb]) {
-            const imgIdx = gltf.textures[texIdxFb].source;
+            const tex = gltf.textures[texIdxFb];
+            const imgIdx = tex.source ?? tex.extensions?.EXT_texture_webp?.source;
             const img = gltf.images?.[imgIdx];
             if (img?.uri && glbUrl) {
                 const base = glbUrl.substring(0, glbUrl.lastIndexOf('/') + 1);
