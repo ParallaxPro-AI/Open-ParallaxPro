@@ -1218,6 +1218,26 @@ export class Toolbar {
             body.appendChild(cloudRow);
         }
 
+        // Credits / attributions. License obligations from the asset and
+        // model providers we ship — DINOv3's license requires a
+        // user-visible "Built with DINOv3" notice; the asset libraries
+        // (Kenney, Poly Haven, Quaternius) ship under CC0 / CC-BY where
+        // attribution is either required or polite.
+        const creditsRow = document.createElement('div');
+        creditsRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--bg-secondary);border-radius:6px;';
+        const creditsLabel = document.createElement('div');
+        creditsLabel.textContent = 'Credits';
+        creditsLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary);';
+        creditsRow.appendChild(creditsLabel);
+        const creditsBody = document.createElement('div');
+        creditsBody.style.cssText = 'font-size:11px;color:var(--text-disabled);line-height:1.7;';
+        creditsBody.innerHTML = `
+            <div><b>3D model generation:</b> Built with <a href="https://github.com/microsoft/TRELLIS.2" target="_blank" rel="noopener" style="color:#9ab4ff">TRELLIS.2</a> · <a href="https://ai.meta.com/dinov3/" target="_blank" rel="noopener" style="color:#9ab4ff">DINOv3</a> · <a href="https://blackforestlabs.ai/" target="_blank" rel="noopener" style="color:#9ab4ff">FLUX.1 [schnell]</a></div>
+            <div><b>Asset libraries:</b> <a href="https://kenney.nl/" target="_blank" rel="noopener" style="color:#9ab4ff">Kenney</a> · <a href="https://polyhaven.com/" target="_blank" rel="noopener" style="color:#9ab4ff">Poly Haven</a> · <a href="https://quaternius.com/" target="_blank" rel="noopener" style="color:#9ab4ff">Quaternius</a></div>
+        `;
+        creditsRow.appendChild(creditsBody);
+        body.appendChild(creditsRow);
+
         // Snapshot the editing agent BEFORE opening so Cancel / X / backdrop
         // can revert the apply-on-change writes. null = key wasn't present
         // (we'll remove it again on revert rather than writing 'null').
