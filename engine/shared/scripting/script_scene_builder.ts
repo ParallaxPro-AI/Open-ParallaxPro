@@ -309,7 +309,15 @@ export function buildScriptScene(deps: ScriptSceneDeps): { scriptScene: any; mak
 
       removeComponent: (type: string) => { entity.removeComponent?.(type); },
       setActive: (active: boolean) => entity.setActive(active),
-      setParent: (parentOrNull: any) => { entity.setParent?.(parentOrNull); },
+      setParent: (parentOrNull: any) => {
+        if (parentOrNull == null) { entity.setParent?.(null); return; }
+        // Scripts hand us a ScriptEntity wrapper, not the real Entity. Unwrap
+        // by id — passing the wrapper directly leaves entity.parent pointing
+        // at a plain object with no .children/.transform, which crashes
+        // setParent (push on undefined) and every subsequent transform tick.
+        const real = scene.entities?.get?.(resolveId(parentOrNull)) ?? parentOrNull;
+        entity.setParent?.(real);
+      },
       getScript: (className: string) => scriptSystem.findScript(entity.id, className),
 
       setMaterialColor: (r: number, g: number, b: number, a?: number) => {
