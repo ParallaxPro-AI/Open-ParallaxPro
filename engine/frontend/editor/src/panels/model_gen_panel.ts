@@ -119,6 +119,10 @@ export class ModelGenPanel {
      *  want to expose Fast / Standard / High again. */
     private readonly currentQuality: string = 'standard';
 
+    /** Which library scope to render — user's own generations vs the
+     *  full shared community pool. */
+    private libraryScope: 'mine' | 'community' = 'mine';
+
     private pollTimer: number | null = null;
     private activeJobs = new Map<string, ActiveJob>();
     private library: LibraryItem[] = [];
@@ -197,20 +201,29 @@ export class ModelGenPanel {
         this.activeSection.appendChild(this.activeList);
         this.el.appendChild(this.activeSection);
 
-        // Library header + search
+        // Library scope tabs (My / Community) + refresh
         const libHeader = document.createElement('div');
-        libHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px';
-        const libTitle = document.createElement('div');
-        libTitle.textContent = 'My Generations';
-        libTitle.style.cssText = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.4px;flex:none';
-        libHeader.appendChild(libTitle);
+        libHeader.style.cssText = 'display:flex;align-items:center;gap:6px';
+        const makeScopeBtn = (s: 'mine' | 'community', label: string) => {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.dataset.scope = s;
+            b.style.cssText = 'flex:1;padding:6px 8px;background:#141420;border:1px solid #222;color:#888;border-radius:4px;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:0.4px';
+            b.addEventListener('click', () => this.setLibraryScope(s));
+            return b;
+        };
+        const myBtn = makeScopeBtn('mine', 'My Generations');
+        const commBtn = makeScopeBtn('community', 'Community');
+        libHeader.appendChild(myBtn);
+        libHeader.appendChild(commBtn);
         const refreshBtn = document.createElement('button');
         refreshBtn.textContent = '↻';
         refreshBtn.title = 'Refresh library';
-        refreshBtn.style.cssText = 'background:none;border:0;color:#888;cursor:pointer;font-size:14px;flex:none';
+        refreshBtn.style.cssText = 'background:none;border:0;color:#888;cursor:pointer;font-size:14px;flex:none;padding:0 4px';
         refreshBtn.addEventListener('click', () => this.refreshLibrary());
         libHeader.appendChild(refreshBtn);
         this.el.appendChild(libHeader);
+        this.updateScopeButtons();
 
         // Multi-lingual search input. Debounced; empty value falls back to
         // the recent-first list.
@@ -630,19 +643,34 @@ export class ModelGenPanel {
         this.healthBanner.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${color}"></span><span>${escapeHtml(label)}</span>`;
     }
 
+    private setLibraryScope(scope: 'mine' | 'community'): void {
+        if (scope === this.libraryScope) return;
+        this.libraryScope = scope;
+        this.updateScopeButtons();
+        this.refreshLibrary();
+    }
+
+    private updateScopeButtons(): void {
+        for (const btn of Array.from(this.el.querySelectorAll('button[data-scope]')) as HTMLButtonElement[]) {
+            const active = btn.dataset.scope === this.libraryScope;
+            btn.style.background = active ? '#6366f1' : '#141420';
+            btn.style.color = active ? '#fff' : '#888';
+            btn.style.borderColor = active ? '#6366f1' : '#222';
+        }
+    }
+
     private async refreshLibrary(): Promise<void> {
         const q = this.librarySearchInput?.value?.trim() ?? '';
+        const base = this.libraryScope === 'community' ? '/community' : '/library';
         const url = q
-            ? `/library?limit=100&q=${encodeURIComponent(q)}`
-            : '/library?limit=100';
+            ? `${base}?limit=100&q=${encodeURIComponent(q)}`
+            : `${base}?limit=100`;
         try {
             const resp = await api<any>(url);
             this.library = resp.items ?? [];
-            // Rehydrate in-flight jobs after a page refresh — without
-            // this, jobs the user submitted before refreshing vanish
-            // from the UI even though they're still running. Skips when
-            // a search is active (search results are completed models).
-            if (!q) this.rehydrateActiveJobs();
+            // Rehydrate in-flight jobs from /library only — community
+            // doesn't include in-flight rows for other users.
+            if (!q && this.libraryScope === 'mine') this.rehydrateActiveJobs();
             this.renderLibrary(q.length > 0);
         } catch (e: any) {
             if ((e as any).status === 404) {
@@ -679,7 +707,9 @@ export class ModelGenPanel {
         this.libraryGrid.innerHTML = '';
         const successful = this.library.filter(it => it.model);
         if (successful.length === 0) {
-            const msg = isSearch ? 'No matches.' : 'No generations yet.';
+            const msg = isSearch
+                ? 'No matches.'
+                : (this.libraryScope === 'community' ? 'No community generations yet.' : 'No generations yet.');
             this.libraryGrid.innerHTML = `<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">${msg}</div>`;
             return;
         }
