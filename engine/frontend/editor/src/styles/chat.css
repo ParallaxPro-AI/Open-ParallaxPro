@@ -267,19 +267,29 @@
     white-space: nowrap;
 }
 
+/* The wrapper IS the visible textbox — border, bg, radius. The
+ * textarea inside is borderless/transparent so it blends in, and the
+ * action row sits below it (not overlaid) so text never runs into
+ * the send button or agent picker. */
 .chat-input-wrapper {
-    position: relative;
     display: flex;
     flex-direction: column;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    transition: border-color var(--transition-fast);
+}
+
+.chat-input-wrapper:focus-within {
+    border-color: var(--accent);
 }
 
 .chat-textarea {
     resize: none;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: transparent;
+    border: none;
     padding: var(--spacing-md);
-    padding-bottom: 36px;
+    padding-bottom: 0;
     font-size: var(--font-size-sm);
     color: var(--text-primary);
     min-height: 60px;
@@ -293,14 +303,22 @@
     color: var(--text-disabled);
 }
 
+/* Suppress the global textarea:focus ring — the wrapper handles
+ * the focus visual via :focus-within. */
 .chat-textarea:focus {
-    border-color: var(--accent);
+    border: none;
+    box-shadow: none;
+}
+
+.chat-input-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
 }
 
 .chat-send-btn {
-    position: absolute;
-    bottom: 6px;
-    right: 6px;
     padding: 4px 14px;
     background: var(--accent);
     color: #fff;
@@ -331,9 +349,6 @@
 }
 
 .chat-agent-select {
-    position: absolute;
-    bottom: 6px;
-    left: 6px;
     padding: 3px 6px;
     background: var(--bg-input);
     color: var(--text-secondary);

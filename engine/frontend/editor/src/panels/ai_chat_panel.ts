@@ -289,9 +289,13 @@ export class AiChatPanel {
         });
 
         inputWrapper.appendChild(this.textarea);
-        inputWrapper.appendChild(this.sendBtn);
 
-        // Agent picker — sits bottom-left of the input, mirroring send button.
+        // Action row — agent picker on the left, send button on the right.
+        // Lives inside the wrapper but below the textarea so text never
+        // runs into either control.
+        const inputActions = document.createElement('div');
+        inputActions.className = 'chat-input-actions';
+
         this.agentSelect = document.createElement('select');
         this.agentSelect.className = 'chat-agent-select';
         this.agentSelect.title = 'Which agent handles this message';
@@ -299,7 +303,10 @@ export class AiChatPanel {
             this.selectedAgent = this.agentSelect!.value;
             this.updateAgentCaption();
         });
-        inputWrapper.appendChild(this.agentSelect);
+        inputActions.appendChild(this.agentSelect);
+        inputActions.appendChild(this.sendBtn);
+
+        inputWrapper.appendChild(inputActions);
         inputArea.appendChild(inputWrapper);
 
         this.agentCaption = document.createElement('div');

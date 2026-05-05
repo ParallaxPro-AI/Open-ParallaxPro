@@ -359,7 +359,10 @@ export class ModelGenPanel {
                 previewBtn.disabled = false;
             }
         });
-        wrapper.appendChild(previewBtn);
+        const actions = document.createElement('div');
+        actions.className = 'mg-input-actions';
+        actions.appendChild(previewBtn);
+        wrapper.appendChild(actions);
         this.formArea.appendChild(wrapper);
     }
 
