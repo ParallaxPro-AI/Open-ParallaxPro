@@ -107,7 +107,9 @@ export class ModelGenPanel {
     readonly el: HTMLElement;
 
     private healthBanner!: HTMLDivElement;
+    private healthLeft!: HTMLSpanElement;
     private healthTimer: number | null = null;
+    private usageLabel!: HTMLSpanElement;
     private modeTabs!: HTMLDivElement;
     private formArea!: HTMLDivElement;
     private previewArea!: HTMLDivElement;
@@ -153,6 +155,7 @@ export class ModelGenPanel {
             this.mounted = true;
             this.refreshLibrary();
             this.refreshHealth();
+            this.refreshUsage();
         }
         // Re-check health every 30s while the tab is visible.
         if (this.healthTimer == null) {
@@ -164,9 +167,19 @@ export class ModelGenPanel {
 
     private buildUI(): void {
         // GPU pool health banner — small dot + label at top of the tab.
+        // Right side carries the user's "daily N%" usage so they always
+        // see how much budget is left without leaving the panel.
         this.healthBanner = document.createElement('div');
         this.healthBanner.className = 'mg-health';
-        this.healthBanner.innerHTML = `<span class="mg-health-dot unknown"></span><span>${escapeHtml(t('modelGen.health.checking'))}</span>`;
+        this.healthLeft = document.createElement('span');
+        this.healthLeft.className = 'mg-health-left';
+        this.healthLeft.innerHTML = `<span class="mg-health-dot unknown"></span><span>${escapeHtml(t('modelGen.health.checking'))}</span>`;
+        this.healthBanner.appendChild(this.healthLeft);
+        this.usageLabel = document.createElement('span');
+        this.usageLabel.className = 'mg-usage';
+        this.usageLabel.textContent = '';
+        this.usageLabel.title = 'Daily generation budget. Resets at midnight UTC.';
+        this.healthBanner.appendChild(this.usageLabel);
         this.el.appendChild(this.healthBanner);
 
         // Sharing notice — two practical things the user needs to know:
@@ -350,6 +363,7 @@ export class ModelGenPanel {
                     method: 'POST',
                     body: JSON.stringify({ prompt, quality: this.currentQuality }),
                 });
+                if (typeof resp.usage_pct === 'number') this.renderUsage(resp.usage_pct, resp.limit_pct ?? 100);
                 if (resp.cache_hit && resp.model) {
                     this.statusBar.textContent = t('modelGen.submit.cacheHit');
                     setTimeout(() => { this.statusBar.textContent = ''; }, 4000);
@@ -361,7 +375,12 @@ export class ModelGenPanel {
                 this.statusBar.textContent = '';
                 this.showPreview();
             } catch (e: any) {
-                this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.text.previewFailed'));
+                if (e?.status === 429 && e?.payload?.error === 'daily_limit_reached') {
+                    this.statusBar.textContent = e.message;
+                    if (typeof e.payload.usage_pct === 'number') this.renderUsage(e.payload.usage_pct, e.payload.limit_pct ?? 100);
+                } else {
+                    this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.text.previewFailed'));
+                }
             } finally {
                 previewBtn.disabled = false;
             }
@@ -473,6 +492,7 @@ export class ModelGenPanel {
                 method: 'POST',
                 body: JSON.stringify(body),
             });
+            if (typeof resp.usage_pct === 'number') this.renderUsage(resp.usage_pct, resp.limit_pct ?? 100);
             if (resp.cache_hit && resp.model) {
                 this.statusBar.textContent = t('modelGen.submit.cacheHit');
                 this.refreshLibrary();
@@ -495,7 +515,12 @@ export class ModelGenPanel {
             this.previewArea.style.display = 'none';
             this.renderForm();
         } catch (e: any) {
-            this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.submit.submitFailed'));
+            if (e?.status === 429 && e?.payload?.error === 'daily_limit_reached') {
+                this.statusBar.textContent = e.message;
+                if (typeof e.payload.usage_pct === 'number') this.renderUsage(e.payload.usage_pct, e.payload.limit_pct ?? 100);
+            } else {
+                this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.submit.submitFailed'));
+            }
             this.step = 'previewed';
         }
     }
@@ -637,12 +662,16 @@ export class ModelGenPanel {
 
     private async cancelJob(jobId: string): Promise<void> {
         try {
-            await api(`/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
+            const resp = await api<any>(`/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
             // Optimistic local removal — server has flipped status to
             // 'canceled', the next /library poll won't include it.
             this.activeJobs.delete(jobId);
             this.renderActive();
-            this.statusBar.textContent = 'Canceled.';
+            // Server refunded 2% — refresh the daily-usage label so the
+            // user sees their budget go back up.
+            if (typeof resp?.usage_pct === 'number') this.renderUsage(resp.usage_pct, 100);
+            else this.refreshUsage();
+            this.statusBar.textContent = `Canceled. Refunded ${resp?.refunded_pct ?? 2}%.`;
         } catch (e: any) {
             if (e?.status === 409) {
                 // Worker claimed between render and click. Show a
@@ -717,7 +746,37 @@ export class ModelGenPanel {
             label = t(key).replace('{count}', String(online));
             if (queue > 0) label += t('modelGen.health.queuedSuffix').replace('{count}', String(queue));
         }
-        this.healthBanner.innerHTML = `<span class="mg-health-dot ${cls}"></span><span>${escapeHtml(label)}</span>`;
+        // Update only the LEFT portion — the right side (usage label)
+        // is independent and shouldn't get clobbered on every health
+        // refresh poll.
+        this.healthLeft.innerHTML = `<span class="mg-health-dot ${cls}"></span><span>${escapeHtml(label)}</span>`;
+    }
+
+    /** Refresh the "daily N%" label. Called on tab show + after every
+     *  preview/generate/cancel response (those carry usage_pct so we
+     *  could update without an extra fetch — but keeping the GET as
+     *  the source of truth covers refunds + edge cases). */
+    private async refreshUsage(): Promise<void> {
+        try {
+            const r = await fetch(API_BASE + '/usage', { headers: authHeaders() });
+            if (!r.ok) { this.renderUsage(null, null); return; }
+            const { usage_pct, limit_pct } = await r.json();
+            this.renderUsage(usage_pct, limit_pct);
+        } catch {
+            this.renderUsage(null, null);
+        }
+    }
+
+    private renderUsage(used: number | null, limit: number | null): void {
+        if (used == null || limit == null) {
+            this.usageLabel.textContent = '';
+            this.usageLabel.classList.remove('mg-usage-warn', 'mg-usage-cap');
+            return;
+        }
+        const remaining = Math.max(0, limit - used);
+        this.usageLabel.textContent = `daily ${Math.round(used)}% / ${limit}%`;
+        this.usageLabel.classList.toggle('mg-usage-warn', remaining < 10 && remaining > 0);
+        this.usageLabel.classList.toggle('mg-usage-cap', remaining <= 0);
     }
 
     private setLibraryScope(scope: 'mine' | 'community'): void {

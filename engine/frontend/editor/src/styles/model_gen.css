@@ -10,14 +10,31 @@
     gap: var(--spacing-md);
 }
 
-/* Health banner — small dot + label, top of the tab. */
+/* Health banner — small dot + label on the left, daily-usage chip on
+ * the right. Use space-between so the usage hugs the right edge. */
 .mg-health {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: var(--spacing-sm);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
 }
+
+.mg-health-left {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.mg-usage {
+    font-size: var(--font-size-xs);
+    color: var(--text-disabled);
+    font-variant-numeric: tabular-nums;
+}
+
+.mg-usage.mg-usage-warn { color: var(--warning); }
+.mg-usage.mg-usage-cap  { color: var(--danger); font-weight: 600; }
 
 .mg-health-dot {
     width: 8px;
