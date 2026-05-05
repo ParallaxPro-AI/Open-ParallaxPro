@@ -257,7 +257,7 @@ export class ModelGenPanel {
             // not-allowed cursor signal "off"; tab stays in the bar so users
             // see the feature is on the roadmap.
             btn.textContent = label;
-            btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#666;border-radius:4px;cursor:not-allowed;font-size:12px;filter:blur(0.4px);opacity:0.55';
+            btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#666;border-radius:4px;cursor:not-allowed;font-size:12px;filter:blur(2px);opacity:0.5';
             btn.title = 'Image-to-3D is rolling out soon — text-to-3D for now';
             btn.addEventListener('click', () => {
                 this.statusBar.textContent = 'Image-to-3D coming soon — use text-to-3D for now';
