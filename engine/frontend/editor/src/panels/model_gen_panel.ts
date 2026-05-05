@@ -155,14 +155,14 @@ export class ModelGenPanel {
         this.healthBanner.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#666"></span><span>checking…</span>';
         this.el.appendChild(this.healthBanner);
 
-        // Sharing notice — generated models are shared across all users
-        // by content hash, which lets identical prompts skip GPU time
-        // for the second submitter. This is a deliberate cost-saver, but
-        // users need to know not to put personal info in the prompt
-        // since the resulting model (and prompt) is visible to others.
+        // Sharing notice — two practical things the user needs to know:
+        // (1) check Community before generating, and (2) generated content
+        // is public.
         const notice = document.createElement('div');
         notice.style.cssText = 'background:#3a2a14;border:1px solid #6b4a1a;border-radius:6px;padding:8px 10px;font-size:11px;color:#fbbf24;line-height:1.5';
-        notice.innerHTML = '<b>⚠ Generations are public.</b> All 3D models you create are shared with other users so identical prompts don\'t waste GPU time on a re-generation. Don\'t include personal info, copyrighted work, or anything you don\'t want visible to others.';
+        notice.innerHTML =
+            '<b>Search Community first.</b> Browse existing 3D models in the Community library below before generating — it\'s instant and saves GPU time.<br>' +
+            '<b>All generations are public.</b> Your prompt and the resulting model are visible to other users. Don\'t include personal info or copyrighted work.';
         this.el.appendChild(notice);
 
         // Mode tabs (Text / Image)
