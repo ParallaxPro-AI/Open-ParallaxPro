@@ -217,7 +217,13 @@ class NeonCyclesMatchSystem extends GameScript {
             this.scene._neonCycles = this.scene._neonCycles || {};
             this.scene._neonCycles.colorByPeer = colorByPeer;
             this.scene._neonCycles.slotByPeer = slotByPeer;
-            this.scene._neonCycles.bikes = this.scene._neonCycles.bikes || {};
+            // Force-clear (NOT `|| {}`). Stale entries from the previous
+            // match map peerIds → ghost positions / scales / alive
+            // flags, and the chase camera + trail emitter look up by
+            // peerId — so without this they spectate ghosts on Play
+            // Again. Behaviors will re-register on their next
+            // round_started / match_started handler.
+            this.scene._neonCycles.bikes = {};
         }
 
         this._positionLocalPlayer();

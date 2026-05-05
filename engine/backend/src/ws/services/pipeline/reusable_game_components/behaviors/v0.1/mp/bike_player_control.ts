@@ -58,7 +58,28 @@ class BikePlayerControlBehavior extends GameScript {
         this._registerSelf();
 
         // ── Round / match coordination ──
-        this.scene.events.game.on("round_started", function() {
+        // The match system positions the local bike inside _initMatch (on
+        // match_started) and again inside _applyRoundStartedRemote (on
+        // round_started, host) / net_round_started (peers). Both paths
+        // call setRotationEuler on the entity. We MUST re-read yaw
+        // afterwards or onUpdate's `setRotationEuler(0, _yawDeg + 180, 0)`
+        // will write the previous round's stale yaw back next frame —
+        // the "bike points in the opposite direction" bug.
+        //
+        // Also re-capture peerId / isLocal on each handler. The local
+        // placement bike's NetworkIdentityComponent.ownerId is set BY the
+        // match system inside _initMatch — which runs after onStart. So
+        // _peerId captured in onStart is empty for the local bike on
+        // match 1. Refreshing here fixes _registerSelf writing registry
+        // entries under "" instead of the real peerId (which the chase
+        // camera and trail emitter look up by).
+        var refreshIdentity = function() {
+            var ni = self.entity.getComponent ? self.entity.getComponent("NetworkIdentityComponent") : null;
+            if (ni && ni.ownerId) self._peerId = ni.ownerId;
+            self._isLocal = !!(ni && ni.isLocalPlayer);
+        };
+        var resetForFreshSpawn = function() {
+            refreshIdentity();
             self._alive = true;
             self._canControl = false;
             self._boost = self._boostMax;
@@ -70,7 +91,8 @@ class BikePlayerControlBehavior extends GameScript {
             self._yawDeg = y;
             self._lastTurnSampleYaw = y;
             self._registerSelf();
-        });
+        };
+        this.scene.events.game.on("round_started", resetForFreshSpawn);
         this.scene.events.game.on("countdown_done", function() {
             self._canControl = true;
         });
@@ -93,13 +115,12 @@ class BikePlayerControlBehavior extends GameScript {
             self._handleCrash(d.peerId || "");
         });
 
-        // Match restart from game-over screen → reset everything.
-        this.scene.events.game.on("match_started", function() {
-            self._alive = true;
-            self._boost = self._boostMax;
-            self._canControl = false;
-            self.scene.setScale && self.scene.setScale(self.entity.id, 1, 1, 1);
-        });
+        // Match restart from game-over screen → reset everything,
+        // including the yaw + identity. Without the yaw refresh, after
+        // Play Again the bike re-renders pointing in whatever direction
+        // it was facing when the prior match ended — even though
+        // _positionLocalPlayer just rotated it to its new spawn slot.
+        this.scene.events.game.on("match_started", resetForFreshSpawn);
     }
 
     onUpdate(dt) {
