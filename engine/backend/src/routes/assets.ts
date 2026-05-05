@@ -10,6 +10,7 @@ import {
 import { tryConsumeEmbedBudget } from '../middleware/embed_rate_limit.js';
 import { getCanonicalSize, getCanonicalVertexCount } from '../services/asset_sizes.js';
 import { runAssetSearchExtensions } from '../services/asset_search_extensions.js';
+import { resolveGeneratedAssetMeta } from '../services/generated_asset_meta_extensions.js';
 
 const router = Router();
 
@@ -228,7 +229,13 @@ async function buildAssetEmbeddings(): Promise<void> {
 export function assetExists(assetPath: string): boolean {
     if (!assetPath) return false;
     const rel = assetPath.replace(/^\/assets\//, '');
-    return assetCache.some(a => a.filePath === rel);
+    if (assetCache.some(a => a.filePath === rel)) return true;
+    // Community/AI-generated assets aren't in the static cache (per-user
+    // tokens, not curated packs). Plugin-registered resolvers (model_gen)
+    // know about them — when no plugin is registered the registry call
+    // returns null and we fall back to false.
+    if (resolveGeneratedAssetMeta(assetPath) !== null) return true;
+    return false;
 }
 
 /**

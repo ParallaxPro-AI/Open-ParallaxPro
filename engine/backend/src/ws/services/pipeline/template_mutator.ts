@@ -23,6 +23,7 @@
 
 import { getQuickJS } from 'quickjs-emscripten';
 import { assetExists } from '../../../routes/assets.js';
+import { resolveGeneratedAssetMeta } from '../../../services/generated_asset_meta_extensions.js';
 import { ProjectFiles } from './project_files.js';
 import { buildProject } from './project_builder.js';
 
@@ -142,7 +143,21 @@ export function runEditScript(
                     throw new Error(`addEntity("${name}"): meshAsset "${options.meshAsset}" not found.`);
                 }
                 def.mesh = { type: 'custom', asset: options.meshAsset };
-                if (scale) def.mesh.scale = scale;
+                if (scale) {
+                    def.mesh.scale = scale;
+                } else {
+                    // Generated assets land in the unit cube — without an
+                    // explicit scale they'd render at ~1m regardless of
+                    // their real-world size. Auto-apply est_scale_m as a
+                    // uniform scale so the AI can spawn an apple or sedan
+                    // at the right size with one call. Explicit options.scale
+                    // still wins (above) for the rare per-instance override.
+                    const meta = resolveGeneratedAssetMeta(options.meshAsset);
+                    if (meta && meta.est_scale_m > 0) {
+                        const s = meta.est_scale_m;
+                        def.mesh.scale = [s, s, s];
+                    }
+                }
             } else if (type === 'camera') {
                 def.camera = { fov: options.cameraData?.fov ?? 60 };
                 def.tags = ['camera'];
