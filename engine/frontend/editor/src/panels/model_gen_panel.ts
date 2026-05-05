@@ -363,7 +363,7 @@ export class ModelGenPanel {
                     method: 'POST',
                     body: JSON.stringify({ prompt, quality: this.currentQuality }),
                 });
-                if (typeof resp.usage_pct === 'number') this.renderUsage(resp.usage_pct, resp.limit_pct ?? 100);
+                if (typeof resp.usage_pct === 'number') this.renderUsage(resp.usage_pct, resp.limit_pct ?? 100, null);
                 if (resp.cache_hit && resp.model) {
                     this.statusBar.textContent = t('modelGen.submit.cacheHit');
                     setTimeout(() => { this.statusBar.textContent = ''; }, 4000);
@@ -506,7 +506,7 @@ export class ModelGenPanel {
                 method: 'POST',
                 body: JSON.stringify(body),
             });
-            if (typeof resp.usage_pct === 'number') this.renderUsage(resp.usage_pct, resp.limit_pct ?? 100);
+            if (typeof resp.usage_pct === 'number') this.renderUsage(resp.usage_pct, resp.limit_pct ?? 100, null);
             if (resp.cache_hit && resp.model) {
                 this.statusBar.textContent = t('modelGen.submit.cacheHit');
                 this.refreshLibrary();
@@ -686,7 +686,7 @@ export class ModelGenPanel {
             this.renderActive();
             // Server refunded 2% — refresh the daily-usage label so the
             // user sees their budget go back up.
-            if (typeof resp?.usage_pct === 'number') this.renderUsage(resp.usage_pct, 100);
+            if (typeof resp?.usage_pct === 'number') this.renderUsage(resp.usage_pct, 100, null);
             else this.refreshUsage();
             this.statusBar.textContent = `Canceled. Refunded ${resp?.refunded_pct ?? 2}%.`;
         } catch (e: any) {
