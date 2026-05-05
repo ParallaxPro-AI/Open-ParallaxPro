@@ -537,11 +537,35 @@ export class ModelGenPanel {
         try {
             const resp = await api<any>(url);
             this.library = resp.items ?? [];
+            // Rehydrate in-flight jobs after a page refresh — without
+            // this, jobs the user submitted before refreshing vanish
+            // from the UI even though they're still running. Skips when
+            // a search is active (search results are completed models).
+            if (!q) this.rehydrateActiveJobs();
             this.renderLibrary(q.length > 0);
         } catch (e: any) {
             if ((e as any).status === 404) {
                 this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#888;font-size:12px;text-align:center;padding:24px;line-height:1.6">3D model generation isn\'t available on this backend.</div>';
             }
+        }
+    }
+
+    private rehydrateActiveJobs(): void {
+        const ACTIVE = new Set(['queued', 'claimed', 'generating', 'orienting', 'uploading']);
+        let changed = false;
+        for (const it of this.library) {
+            if (!ACTIVE.has(it.status)) continue;
+            if (this.activeJobs.has(it.job_id)) continue;
+            this.activeJobs.set(it.job_id, {
+                job_id: it.job_id,
+                status: it.status,
+                prompt: it.prompt,
+            });
+            changed = true;
+        }
+        if (changed) {
+            this.renderActive();
+            this.startPolling();
         }
     }
 
