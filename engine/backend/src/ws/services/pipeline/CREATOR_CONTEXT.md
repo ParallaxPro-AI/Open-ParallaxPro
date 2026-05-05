@@ -289,6 +289,28 @@ Vertex count is roughly proportional to GPU vertex-shader work and per-mesh VRAM
 For primitive meshes:
 - `color`: `[r, g, b, a]` 0–1. Applied to the mesh's default material.
 - `scale`: same as above.
+- `basePivot: true` (optional, default `false`): switch a vertical-axis primitive from centered pivot to base-grounded pivot. **Use this for towers, mountains, trees, pillars, fence posts, traffic cones, distant ridges — anything where "the base sits on the ground and the height grows up".**
+
+  By default, primitives are **centered on the entity origin**: cone with `scale: [10, 200, 10]` extends 100 units below AND 100 above. Authors who picture "200-meter mountain at world Y=0" instead get half the mountain buried at Y=−100 to Y=0. The collider AABB tightly tracks the (centered) mesh, so it appears to extend below the visible cone — looks like the box is "twice the cone."
+
+  With `basePivot: true`, the primitive's mesh data is translated up by half-height at upload time. The base sits at local Y=0 and the apex extends up to local Y=1 (height after scale). The cone's base lands at the entity's `position.y` and the apex grows `scale.y` units upward. The auto-fit collider follows the new bounds — box AABB lines up with the visible mesh exactly.
+
+  Applies to `cone`, `cylinder`, `cube` / `box`, `capsule`. Ignored on `sphere` and `plane` (no meaningful "base" axis). Ignored on `custom` GLBs (use the asset's authored pivot via `MODEL_FACING.json`, not this flag).
+
+  ```json
+  "distant_mountain": {
+    "mesh": {
+      "type": "cone",
+      "color": [0.36, 0.42, 0.48, 1],
+      "scale": [90, 200, 90],
+      "basePivot": true
+    },
+    "tags": ["decoration_only"],
+    "physics": false
+  }
+  ```
+
+  Default-off so existing games keep their centered-pivot convention. Opt in per-mesh.
 
 ### Material overrides
 

@@ -46,6 +46,29 @@ export class MeshRendererComponent extends Component {
     /** Model-space vertical offset (pre-scale), aligns mesh center with entity position */
     modelOffsetY: number = 0;
 
+    /**
+     * Primitive base-pivot opt-in. Default false (= legacy centered pivot:
+     * cone / cylinder / capsule / cube live with their geometric center at
+     * the entity origin, scaling Y extends in BOTH directions).
+     *
+     * When true, the primitive's mesh data is translated at upload time so
+     * its base sits at local y=0 and the apex/top grows upward. Scaling Y
+     * then does what authors expect for towers, mountains, trees, pillars:
+     * the base stays anchored at the entity position and the top extends
+     * `scale.y` units upward — never below.
+     *
+     * Only meaningful for primitives with a vertical axis (cone, cylinder,
+     * capsule, cube/box). Ignored on sphere / plane (no "base" axis).
+     * Custom GLB meshes use their own authored pivot — this flag is a
+     * no-op for `meshType: "custom"`.
+     *
+     * The collider auto-fit + physics center-offset both read from
+     * `gpuMesh.boundMin/boundMax`, which already reflect the translated
+     * positions, so the box collider lines up with the visible mesh
+     * automatically.
+     */
+    basePivot: boolean = false;
+
     // -- Runtime State (set by engine systems) --------------------------------
 
     meshData: any = null;
@@ -129,6 +152,7 @@ export class MeshRendererComponent extends Component {
         this.modelRotationX = data.modelRotationX ?? 0;
         this.modelRotationY = data.modelRotationY ?? 0;
         this.modelRotationZ = data.modelRotationZ ?? 0;
+        this.basePivot = data.basePivot ?? false;
         this.markDirty();
     }
 
@@ -153,6 +177,7 @@ export class MeshRendererComponent extends Component {
             modelRotationX: this.modelRotationX,
             modelRotationY: this.modelRotationY,
             modelRotationZ: this.modelRotationZ,
+            basePivot: this.basePivot,
         };
     }
 }

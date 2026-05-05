@@ -579,6 +579,7 @@ For `custom` meshes:
 For primitive meshes:
 - `color`: `[r, g, b, a]` 0–1. Applied to the mesh's default material.
 - `scale`: required — primitives have no source dimensions; their `scale` IS their size in meters.
+- `basePivot: true` (optional, default `false`): switches a vertical-axis primitive (cone, cylinder, cube, capsule) from **centered** pivot to **base-grounded** pivot. Default centered behavior extends the mesh half above and half below the entity origin — fine for spheres or floating boxes, surprising for towers/mountains/trees. With `basePivot: true`, the base sits at local Y=0 and the apex grows up to local Y=1. Auto-fit collider follows the translated bounds, so the box AABB lines up with the visible mesh exactly. **When the user reports "my tower / mountain / tree is half-buried" or "the box collider extends below the visible mesh", this flag is the fix.** Apply on the def's `mesh` block in `02_entities.json` and verify the placement's `position.y` no longer compensates with a half-height offset.
 
 ### Canonical convention (the engine guarantees this for every loaded model)
 

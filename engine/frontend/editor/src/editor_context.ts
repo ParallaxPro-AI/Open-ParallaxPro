@@ -1066,12 +1066,21 @@ export class EditorContext extends EventBus {
 
             if (!mr.meshType) continue;
 
-            let gpuHandle = this.gpuMeshCache.get(mr.meshType);
+            // Cache key includes basePivot so the centered (default) and
+            // base-grounded variants of the same primitive each get their
+            // own gpuMesh handle. Critical: the gpuMesh's boundMin/boundMax
+            // is what autoFitCollider + physics center-offset both read,
+            // and the two variants have different bounds (e.g. cone
+            // centered → y in [-0.5, 0.5]; base → y in [0, 1]). Sharing
+            // a single handle would make the collider misalign with the
+            // visible mesh on whichever variant lost the cache race.
+            const cacheKey = mr.basePivot ? `${mr.meshType}:base` : mr.meshType;
+            let gpuHandle = this.gpuMeshCache.get(cacheKey);
             if (!gpuHandle) {
-                const meshData = this.createPrimitiveMeshData(mr.meshType);
+                const meshData = this.createPrimitiveMeshData(mr.meshType, mr.basePivot);
                 if (!meshData) continue;
                 gpuHandle = renderSystem.uploadMesh(meshData);
-                this.gpuMeshCache.set(mr.meshType, gpuHandle);
+                this.gpuMeshCache.set(cacheKey, gpuHandle);
             }
             mr.gpuMesh = gpuHandle;
             // Primitives (cube/sphere/plane/cylinder/capsule) used to skip
@@ -1678,16 +1687,38 @@ export class EditorContext extends EventBus {
         return renderSystem.uploadTexture(atlasBitmap, { label, generateMipmaps: true });
     }
 
-    private createPrimitiveMeshData(meshType: string): { positions: Float32Array; normals: Float32Array; uvs: Float32Array; indices: Uint32Array } | null {
+    private createPrimitiveMeshData(meshType: string, basePivot: boolean = false): { positions: Float32Array; normals: Float32Array; uvs: Float32Array; indices: Uint32Array } | null {
+        let m: { positions: Float32Array; normals: Float32Array; uvs: Float32Array; indices: Uint32Array } | null = null;
         switch (meshType) {
-            case 'cube': case 'box': { const m = MeshData.createBox(1, 1, 1); return { positions: m.positions, normals: m.normals, uvs: m.uvs, indices: m.indices }; }
-            case 'sphere': { const m = MeshData.createSphere(0.5, 32); return { positions: m.positions, normals: m.normals, uvs: m.uvs, indices: m.indices }; }
-            case 'plane': { const m = MeshData.createPlane(1, 1); return { positions: m.positions, normals: m.normals, uvs: m.uvs, indices: m.indices }; }
-            case 'cylinder': { const m = MeshData.createCylinder(0.5, 0.5, 1, 32); return { positions: m.positions, normals: m.normals, uvs: m.uvs, indices: m.indices }; }
-            case 'cone': { const m = MeshData.createCylinder(0, 0.5, 1, 32); return { positions: m.positions, normals: m.normals, uvs: m.uvs, indices: m.indices }; }
-            case 'capsule': { const m = MeshData.createCapsule(0.5, 2, 32); return { positions: m.positions, normals: m.normals, uvs: m.uvs, indices: m.indices }; }
+            case 'cube': case 'box':  m = MeshData.createBox(1, 1, 1); break;
+            case 'sphere':            m = MeshData.createSphere(0.5, 32); break;
+            case 'plane':             m = MeshData.createPlane(1, 1); break;
+            case 'cylinder':          m = MeshData.createCylinder(0.5, 0.5, 1, 32); break;
+            case 'cone':              m = MeshData.createCylinder(0, 0.5, 1, 32); break;
+            case 'capsule':           m = MeshData.createCapsule(0.5, 2, 32); break;
             default: return null;
         }
+        if (!m) return null;
+        // basePivot opt-in: primitives with a vertical axis (cone, cylinder,
+        // capsule, cube) get their mesh data translated up by half-height so
+        // the base lands at local y=0 and the apex grows upward. This makes
+        // scaling Y on towers / mountains / trees / pillars do what authors
+        // expect (base stays grounded, top extends up) instead of the
+        // centered-pivot behavior where Y scaling extends both up and down
+        // from the entity origin. Sphere and plane don't have a meaningful
+        // vertical "base" so basePivot is a no-op.
+        if (basePivot && (meshType === 'cone' || meshType === 'cylinder' || meshType === 'cube' || meshType === 'box' || meshType === 'capsule')) {
+            const positions = new Float32Array(m.positions);
+            // Half-height differs per primitive: cone/cylinder/cube use 0.5
+            // (createBox/createCylinder both author at +/- 0.5). Capsule uses
+            // 1.0 because createCapsule(0.5, 2, 32) authors at +/- 1.0
+            // (full height 2). Translate by +halfHeight so y range becomes
+            // [0, fullHeight].
+            const halfHeight = (meshType === 'capsule') ? 1.0 : 0.5;
+            for (let i = 1; i < positions.length; i += 3) positions[i] += halfHeight;
+            return { positions, normals: m.normals, uvs: m.uvs, indices: m.indices };
+        }
+        return m;
     }
 
     // ── Focus ──

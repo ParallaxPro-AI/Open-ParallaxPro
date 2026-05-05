@@ -347,6 +347,12 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     if (def.mesh.modelRotationX) meshData.modelRotationX = def.mesh.modelRotationX;
     if (def.mesh.modelRotationY) meshData.modelRotationY = def.mesh.modelRotationY;
     if (def.mesh.modelRotationZ) meshData.modelRotationZ = def.mesh.modelRotationZ;
+    // basePivot opt-in for vertical-axis primitives. Forwards to
+    // MeshRendererComponent so the editor's primitive-mesh factory can
+    // upload a base-grounded variant (translated +halfHeight in Y so the
+    // base sits at local y=0 and the apex extends upward). Default false
+    // = legacy centered pivot; existing games unaffected.
+    if (def.mesh.basePivot) meshData.basePivot = true;
     // hideFromOwner — controls whether the mesh is rendered when the
     // active camera is "inside" this entity (e.g. FPS camera at the
     // player's head). Needs to be forwarded to MeshRendererComponent
