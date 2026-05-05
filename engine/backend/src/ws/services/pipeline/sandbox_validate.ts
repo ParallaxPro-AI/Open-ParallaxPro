@@ -885,29 +885,32 @@ function walkTsFiles(dir: string, visit: (fullPath: string, relPath: string) => 
 }
 
 /**
- * Retry / Game-Over wiring validator.
+ * Retry / Game-Over wiring — auto-heal + validate.
  *
  * Targets the two specific failure modes user complaints map to:
- *   (a) Play Again button is wired but does nothing (panel emits a
- *       different action name than the flow listens for).
- *   (b) Play Again button transitions back to gameplay but doesn't
+ *   (a) Play Again button transitions back to gameplay but doesn't
  *       reset state — score / lives / spawned entities carry over
  *       from the previous run ("retry doesn't actually retry").
+ *   (b) Play Again button is wired but does nothing because the panel
+ *       emits a different action name than the flow listens for.
  *
- * The check keys off transitions that *look like* Play Again — those
- * with `when: "ui_event:<panel>:<action>"` where the action name
- * matches `play_again` / `retry` / `restart` / `new_game` / `new_match`
- * / `again`. Any such transition MUST include `actions: ["restart"]`
- * (or the equivalent `emit:game.restart_game`).
+ * Failure mode (a) is auto-healable: `normalizeRetryFlow` mutates the
+ * flow object in place, appending the `restart` action to any
+ * Play-Again-shaped transition that lacks it. Original `01_flow.json`
+ * on disk is untouched — only the in-memory flow that drives the
+ * assembled FSM driver. This means existing user games that ship with
+ * the bug pick up the fix automatically on their next build.
  *
- * This deliberately does NOT flag per-life respawn states (timer-based
- * auto-transitions out of a `death_pause` / `wasted` / `death_respawn`
- * state) — those legitimately keep score and partial state since the
- * player is just losing a life, not finishing the run.
+ * Failure mode (b) is NOT auto-healable — we don't know what the user
+ * meant. `checkRetryFlowWiring` returns it as a hard error.
  *
- * Runs inside `assembleGame` so any flow that ships through the CLI
- * sandbox or template_health surfaces errors with a clear, fixable
- * message instead of silently building a broken game.
+ * "Play-Again-shaped" = a transition with `when: "ui_event:<panel>:<a>"`
+ * where `<a>` matches `play_again` / `retry` / `restart` / `new_game`
+ * / `new_match` / `again` / `replay`. Per-life respawn states
+ * (timer-based auto-transitions out of `death_pause` / `wasted` /
+ * `death_respawn`) are deliberately untouched — those legitimately
+ * keep partial state since the player is losing a life, not finishing
+ * the run.
  */
 const PLAY_AGAIN_ACTION_RE = /^(play_again|playagain|retry|restart|new_game|new_match|again|replay)$/i;
 
@@ -919,6 +922,45 @@ interface FlowState {
     [k: string]: any;
 }
 
+/**
+ * Walk the flow's states and append `restart` to every Play-Again-shaped
+ * transition's `actions` array if it's missing. Mutates `flow` in place.
+ * Returns the number of transitions healed (for logging / debugging).
+ */
+export function normalizeRetryFlow(flow: any): number {
+    if (!flow?.states) return 0;
+    let healed = 0;
+
+    function transitionHasRestart(t: { actions?: any[] }): boolean {
+        const acts = t.actions || [];
+        return acts.some((a: any) => a === 'restart' || a === 'emit:game.restart_game');
+    }
+
+    function walk(states: Record<string, FlowState>) {
+        for (const s of Object.values(states)) {
+            for (const t of s.transitions || []) {
+                const w = t.when || '';
+                if (!w.startsWith('ui_event:')) continue;
+                const parts = w.slice('ui_event:'.length).split(':');
+                if (parts.length < 2) continue;
+                const action = parts[1];
+                if (!PLAY_AGAIN_ACTION_RE.test(action)) continue;
+                if (transitionHasRestart(t)) continue;
+                t.actions = [...(t.actions || []), 'restart'];
+                healed++;
+            }
+            if (s.substates) walk(s.substates);
+        }
+    }
+    walk(flow.states);
+    return healed;
+}
+
+/**
+ * Hard-error check for things the assembler can't auto-heal — currently
+ * just panel-button-name mismatches. Returns a list of error messages;
+ * callers throw if non-empty.
+ */
 export function checkRetryFlowWiring(projectDir: string): string[] {
     const errors: string[] = [];
     const flowPath = path.join(projectDir, '01_flow.json');
@@ -951,12 +993,7 @@ export function checkRetryFlowWiring(projectDir: string): string[] {
         try { collect(uiDir); } catch {}
     }
 
-    function transitionHasRestart(t: { actions?: any[] }): boolean {
-        const acts = t.actions || [];
-        return acts.some((a: any) => a === 'restart' || a === 'emit:game.restart_game');
-    }
-
-    function walkAndCheck(states: Record<string, FlowState>, parentName: string) {
+    function walk(states: Record<string, FlowState>) {
         for (const [name, s] of Object.entries(states)) {
             for (const t of s.transitions || []) {
                 const w = t.when || '';
@@ -966,31 +1003,24 @@ export function checkRetryFlowWiring(projectDir: string): string[] {
                 const panel = parts[0];
                 const action = parts[1];
 
-                // Rule 1: panel-button-name wiring check.
-                // The panel HTML must emit('<action>') literally; otherwise
-                // the click fires a different action and the transition
-                // never matches — silent dead button.
+                // Panel-button-name wiring check. Panel HTML must
+                // emit('<action>') literally; otherwise the click fires
+                // a different action and the transition never matches —
+                // silent dead button. Only flagged when the panel
+                // exists AND emits at least one action; panels that
+                // emit nothing are HUDs / overlays without buttons and
+                // are out of scope for this check.
                 const emits = panelEmits.get(panel);
                 if (emits && emits.size > 0 && !emits.has(action)) {
-                    const inWhere = parentName ? ` (in state "${name}", parent "${parentName}")` : ` (in state "${name}")`;
                     errors.push(
-                        `RETRY/UI-WIRING ERROR: flow listens for ui_event:${panel}:${action}${inWhere} but ui/${panel}.html never calls emit('${action}'). The button is wired to the wrong action name — pressing it does nothing. Either rename the panel's emit('...') to match, or update the transition's "when" to one of: ${Array.from(emits).map(x => `'${x}'`).join(', ') || '(panel emits nothing)'}.`
-                    );
-                }
-
-                // Rule 2: Play-Again-shaped transitions MUST include the
-                // restart action. Skips per-life respawns (those use
-                // timer / score / event triggers, not a Play Again button).
-                if (PLAY_AGAIN_ACTION_RE.test(action) && !transitionHasRestart(t)) {
-                    errors.push(
-                        `RETRY/GAME-OVER ERROR: transition "ui_event:${panel}:${action}" in state "${name}" looks like a Play Again button but its "actions" array does not include "restart" (or "emit:game.restart_game"). Without it, score, lives, and spawned entities from the previous run carry into the next — the classic "retry doesn't actually retry" bug. Add "restart" to the transition's "actions": [..., "restart"].`
+                        `RETRY/UI-WIRING ERROR: flow listens for ui_event:${panel}:${action} (in state "${name}") but ui/${panel}.html never calls emit('${action}'). The button is wired to the wrong action name — pressing it does nothing. Either rename the panel's emit('...') to match, or update the transition's "when" to one of: ${Array.from(emits).map(x => `'${x}'`).join(', ')}.`
                     );
                 }
             }
-            if (s.substates) walkAndCheck(s.substates, name);
+            if (s.substates) walk(s.substates);
         }
     }
-    walkAndCheck(flow.states, '');
+    walk(flow.states);
 
     return errors;
 }

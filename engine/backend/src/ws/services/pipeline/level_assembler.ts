@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateControlManifest } from '../../../../../shared/input/control_manifest.js';
-import { checkRetryFlowWiring } from './sandbox_validate.js';
+import { checkRetryFlowWiring, normalizeRetryFlow } from './sandbox_validate.js';
 
 export interface MultiplayerConfig {
   enabled?: boolean;
@@ -617,15 +617,23 @@ export function assembleGame(gamePath: string, baseDirs?: { behaviors: string; s
   // run before generateFSMDriver bakes the flow into the runtime script.
   if (flow?.states) normalizeFlowUIActions(flow.states);
 
-  // Retry / Game-Over wiring check. Surfaces "no game-over screen" and
-  // "play_again button is broken" as a hard build error so the bug is
-  // caught at create/fix time instead of slipping into a shipped game.
-  // Skipped entirely on flows with no death/lose path — pure menu /
-  // sandbox games don't need retry. See `checkRetryFlowWiring` for the
-  // exact rules.
+  // Auto-heal Play-Again-shaped transitions that don't reset state. Many
+  // existing user games (and 17 shipped templates pre-fix) wired
+  // `ui_event:game_over:play_again → playing` without `restart` in the
+  // actions array, so score / lives / spawned entities leaked across
+  // runs. We append `restart` in-memory so the assembled FSM driver
+  // emits `game.restart_game` on Play Again, which triggers the
+  // engine-level _vars reset + `runtime`-tagged-entity sweep. The
+  // user's `01_flow.json` on disk is not modified.
+  if (flow?.states) normalizeRetryFlow(flow);
+
+  // Hard-error check for things we can't auto-heal: panel-button-name
+  // mismatches (the flow listens for ui_event:<panel>:<action> but the
+  // panel HTML doesn't emit that action). Pressing the button does
+  // nothing — silent dead UI.
   const retryErrors = checkRetryFlowWiring(gamePath);
   if (retryErrors.length > 0) {
-    throw new Error('Retry / Game-Over wiring errors:\n  - ' + retryErrors.join('\n  - '));
+    throw new Error('Retry / UI-wiring errors:\n  - ' + retryErrors.join('\n  - '));
   }
 
   const entities: any[] = [];
