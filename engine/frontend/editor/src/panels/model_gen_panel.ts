@@ -52,6 +52,9 @@ interface ActiveJob {
 
 const API_BASE = '/api/engine/models';
 const POLL_INTERVAL_MS = 3000;
+const LIBRARY_PAGE_SIZE = 50;
+/** Pixels-from-bottom that triggers a loadMore. */
+const SCROLL_LOAD_THRESHOLD_PX = 200;
 
 type Mode = 'text' | 'image';
 type Step = 'idle' | 'previewed' | 'submitting';
@@ -129,6 +132,12 @@ export class ModelGenPanel {
     private activeJobs = new Map<string, ActiveJob>();
     private library: LibraryItem[] = [];
     private mounted = false;
+
+    /** Cursor-based infinite scroll state for the current scope/search.
+     *  Reset on scope change, search input, or manual refresh. */
+    private libraryOldestTs: number | null = null;
+    private libraryExhausted = false;
+    private libraryLoading = false;
 
     constructor() {
         this.el = document.createElement('div');
@@ -249,6 +258,14 @@ export class ModelGenPanel {
         this.libraryGrid.className = 'mg-lib-grid';
         this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${escapeHtml(t('modelGen.library.empty'))}</div>`;
         this.el.appendChild(this.libraryGrid);
+
+        // Infinite scroll on the panel's own scroll container. Search
+        // mode skips loadMore (semantic search returns ranked top-N,
+        // doesn't paginate cleanly).
+        this.el.addEventListener('scroll', () => {
+            const remaining = this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight;
+            if (remaining < SCROLL_LOAD_THRESHOLD_PX) this.loadMoreLibrary();
+        });
 
         this.renderForm();
     }
@@ -668,21 +685,80 @@ export class ModelGenPanel {
     }
 
     private async refreshLibrary(): Promise<void> {
+        // Reset pagination state for the new fetch context.
+        this.libraryOldestTs = null;
+        this.libraryExhausted = false;
+        this.libraryLoading = false;
+
         const q = this.librarySearchInput?.value?.trim() ?? '';
         const base = this.libraryScope === 'community' ? '/community' : '/library';
+        // Search uses the larger ranked-top-N response; default view
+        // pages with the smaller LIBRARY_PAGE_SIZE.
         const url = q
             ? `${base}?limit=100&q=${encodeURIComponent(q)}`
-            : `${base}?limit=100`;
+            : `${base}?limit=${LIBRARY_PAGE_SIZE}`;
         try {
             const resp = await api<any>(url);
             this.library = resp.items ?? [];
             // Rehydrate in-flight jobs from /library only — community
             // doesn't include in-flight rows for other users.
             if (!q && this.libraryScope === 'mine') this.rehydrateActiveJobs();
+            // Search results are ranked top-N — never paginate them.
+            // Default view: track the oldest ts as the next-page cursor;
+            // if we got a partial page, mark exhausted.
+            if (q) {
+                this.libraryExhausted = true;
+            } else {
+                this.updateLibraryCursor(this.library);
+                if (this.library.length < LIBRARY_PAGE_SIZE) this.libraryExhausted = true;
+            }
             this.renderLibrary(q.length > 0);
         } catch (e: any) {
             if ((e as any).status === 404) {
                 this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${escapeHtml(t('modelGen.library.notAvailable'))}</div>`;
+                this.libraryExhausted = true;
+            }
+        }
+    }
+
+    private async loadMoreLibrary(): Promise<void> {
+        if (this.libraryLoading || this.libraryExhausted) return;
+        if (this.libraryOldestTs == null) return;
+        // No infinite scroll while searching — backend returns ranked
+        // top-N for search and re-fetching with a cursor would mix
+        // ordering semantics.
+        const q = this.librarySearchInput?.value?.trim() ?? '';
+        if (q) return;
+
+        this.libraryLoading = true;
+        const base = this.libraryScope === 'community' ? '/community' : '/library';
+        const url = `${base}?limit=${LIBRARY_PAGE_SIZE}&before_ts=${this.libraryOldestTs}`;
+        try {
+            const resp = await api<any>(url);
+            const items: LibraryItem[] = resp.items ?? [];
+            if (items.length === 0) {
+                this.libraryExhausted = true;
+                return;
+            }
+            this.library.push(...items);
+            this.updateLibraryCursor(items);
+            if (items.length < LIBRARY_PAGE_SIZE) this.libraryExhausted = true;
+            this.appendLibraryItems(items);
+        } catch {
+            // Network blip — leave state alone so next scroll retries.
+        } finally {
+            this.libraryLoading = false;
+        }
+    }
+
+    /** Track the oldest created_at across `items` so the next fetch
+     *  can ask for rows older than that. Items arrive newest-first. */
+    private updateLibraryCursor(items: LibraryItem[]): void {
+        for (const it of items) {
+            const ts = it.created_at;
+            if (typeof ts !== 'number') continue;
+            if (this.libraryOldestTs == null || ts < this.libraryOldestTs) {
+                this.libraryOldestTs = ts;
             }
         }
     }
@@ -722,6 +798,14 @@ export class ModelGenPanel {
             return;
         }
         for (const item of successful) this.libraryGrid.appendChild(this.buildLibraryCard(item));
+    }
+
+    /** Append-only render for new pages. Skips the empty-state path. */
+    private appendLibraryItems(items: LibraryItem[]): void {
+        for (const item of items) {
+            if (!item.model) continue;
+            this.libraryGrid.appendChild(this.buildLibraryCard(item));
+        }
     }
 
     private buildLibraryCard(item: LibraryItem): HTMLElement {
