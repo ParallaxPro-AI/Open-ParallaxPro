@@ -359,13 +359,31 @@ export interface ParsedAnimationClip {
 }
 
 export async function loadGLB(url: string): Promise<ParsedMesh> {
-    if (!_useFacingRegistry) {
+    // Generated assets (TRELLIS output) have no MODEL_FACING.json entry —
+    // they're per-user and arrive at runtime. Build a synthetic facing
+    // entry from the backend's est_scale_m / forward_axis and bake it
+    // into the geometry just like a pack asset would. This keeps the
+    // entity contract identical to kenney/poly_haven: TC.scale=(1,1,1),
+    // TC.rotation=identity, mesh.scale absent. Runs even when
+    // useFacingRegistry is off so EDIT-API spawned community assets
+    // still render at real-world size.
+    const generatedEntry = isGeneratedAssetUrl(url) ? await getGeneratedAssetEntry(url) : null;
+
+    if (!_useFacingRegistry && !generatedEntry) {
         // Legacy path — no registry fetch, no transforms applied. Identical to
         // pre-registry behavior so existing projects continue to render exactly
         // as their hand-tuned mesh.scale / modelRotationY expect.
         const buffer = await fetchWithRetry(url, r => r.arrayBuffer(), undefined, { label: '[loadGLB]' });
         return parseGLB(buffer, url);
     }
+
+    if (generatedEntry) {
+        const buffer = await fetchWithRetry(url, r => r.arrayBuffer(), undefined, { label: '[loadGLB]' });
+        const parsed = parseGLB(buffer, url);
+        applyFacingTransformInPlace(parsed, generatedEntry);
+        return parsed;
+    }
+
     const [buffer, registry] = await Promise.all([
         fetchWithRetry(url, r => r.arrayBuffer(), undefined, { label: '[loadGLB]' }),
         getFacingRegistry(),
@@ -383,6 +401,83 @@ export async function loadGLB(url: string): Promise<ParsedMesh> {
     return parsed;
 }
 
+// ── Generated-asset meta resolver ────────────────────────────────────────
+//
+// /assets/generated/<2hex>/<2hex>/<32hex>.glb URLs aren't in MODEL_FACING.
+// Their scale + axes live in the model_gen DB and the backend exposes
+// them at /api/engine/models/asset-meta?path=… — the loader fetches once
+// per path and caches in-memory.
+
+const _generatedMetaCache = new Map<string, FacingEntry | null>();
+const _generatedMetaInflight = new Map<string, Promise<FacingEntry | null>>();
+const GENERATED_PATH_RE = /\/assets\/generated\/[a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]{32}\.glb(\?|$|#)/;
+
+function isGeneratedAssetUrl(url: string): boolean {
+    return GENERATED_PATH_RE.test(url);
+}
+
+function isAxisLabel(s: string | undefined): s is AxisLabel {
+    return s === '+x' || s === '-x' || s === '+y' || s === '-y' || s === '+z' || s === '-z';
+}
+
+/** Worker historically writes axes as 'y' / 'z' (no sign) and 'm:y' /
+ *  'm:z' for explicit positives. Normalize so anything resolvable maps
+ *  to the +-labelled enum the rest of the loader expects. Anything else
+ *  returns undefined (skipped — no rotation applied). */
+function coerceAxis(s: string | undefined | null): AxisLabel | undefined {
+    if (!s) return undefined;
+    const trimmed = s.trim().toLowerCase();
+    if (isAxisLabel(trimmed)) return trimmed;
+    // Bare letter → assume positive ('y' → '+y').
+    if (trimmed === 'x' || trimmed === 'y' || trimmed === 'z') return ('+' + trimmed) as AxisLabel;
+    return undefined;
+}
+
+async function getGeneratedAssetEntry(url: string): Promise<FacingEntry | null> {
+    const path = url.split('?')[0].split('#')[0];
+    if (_generatedMetaCache.has(path)) return _generatedMetaCache.get(path) ?? null;
+    if (_generatedMetaInflight.has(path)) return _generatedMetaInflight.get(path)!;
+
+    const promise = (async () => {
+        try {
+            const r = await fetch(`/api/engine/models/asset-meta?path=${encodeURIComponent(path)}`);
+            if (!r.ok) {
+                _generatedMetaCache.set(path, null);
+                return null;
+            }
+            const j = await r.json() as { est_scale_m?: number; up_axis?: string; forward_axis?: string };
+            const entry: FacingEntry = {};
+            if (typeof j.est_scale_m === 'number' && j.est_scale_m > 0) {
+                entry.scale_to_meters = { axis: 'longest', target_meters: j.est_scale_m };
+            }
+            // TRELLIS output puts the model's "front" along its +Z axis;
+            // the engine's canonical forward is -Z. front+up here drive
+            // the loader's rotation matrix the same way pack assets'
+            // MODEL_FACING.json front/up do, so the geometry comes out
+            // facing the engine's -Z naturally.
+            //
+            // The worker writes axes as bare letters ('y') for the up
+            // axis and signed labels ('+z') for forward. coerceAxis
+            // normalizes both. If either side comes back unrecognized,
+            // we fall back to '+z'/'+y' — TRELLIS's documented default
+            // — rather than dropping rotation entirely (which would
+            // leave the model facing the wrong way).
+            entry.front = coerceAxis(j.forward_axis) ?? '+z';
+            entry.up    = coerceAxis(j.up_axis)      ?? '+y';
+            const out = (entry.scale_to_meters || entry.front) ? entry : null;
+            _generatedMetaCache.set(path, out);
+            return out;
+        } catch {
+            _generatedMetaCache.set(path, null);
+            return null;
+        } finally {
+            _generatedMetaInflight.delete(path);
+        }
+    })();
+    _generatedMetaInflight.set(path, promise);
+    return promise;
+}
+
 /**
  * Apply the same facing transform the visible mesh receives, but to a flat
  * Float32Array of positions (e.g. .collision.bin contents). Used by the
@@ -393,11 +488,27 @@ export async function loadGLB(url: string): Promise<ParsedMesh> {
  * cached AABBs derived from the positions).
  */
 export async function applyFacingTransformToPositions(positions: Float32Array, glbUrl: string): Promise<boolean> {
-    if (!_useFacingRegistry) return false;
-    const registry = await getFacingRegistry();
-    const keyInfo = packKeyFromUrl(glbUrl);
-    if (!keyInfo) return false;
-    const entry = effectiveEntry(registry[keyInfo.packKey], keyInfo.fileName);
+    // Resolve the FacingEntry from the same source the visible-mesh
+    // loader used: generated assets (synthetic from /asset-meta) win
+    // before consulting MODEL_FACING.json. CRITICAL — if we fall
+    // through to the static registry for a generated path, the visible
+    // mesh gets scaled+rotated but the collision positions don't, and
+    // the collider drifts away from the rendered geometry. (See memory:
+    // colliders auto-fit to the visible mesh — never let them diverge.)
+    let entry: FacingEntry | null = null;
+    if (isGeneratedAssetUrl(glbUrl)) {
+        entry = await getGeneratedAssetEntry(glbUrl);
+    } else if (_useFacingRegistry) {
+        const registry = await getFacingRegistry();
+        const keyInfo = packKeyFromUrl(glbUrl);
+        if (!keyInfo) return false;
+        const packEntry = registry[keyInfo.packKey];
+        if (!packEntry) return false;
+        entry = effectiveEntry(packEntry, keyInfo.fileName);
+    } else {
+        return false;
+    }
+    if (!entry) return false;
     if (!entry.front && !entry.scale_to_meters && !entry.scale_multiplier) return false;
     // Reuse the same in-place pipeline by wrapping positions in a tiny ParsedMesh-like shim.
     // Normals don't exist on collision data; pass an empty Float32Array to skip the normal pass.
