@@ -97,6 +97,8 @@ export class ModelGenPanel {
     private previewArea!: HTMLDivElement;
     private statusBar!: HTMLDivElement;
     private libraryGrid!: HTMLDivElement;
+    private librarySearchInput!: HTMLInputElement;
+    private librarySearchTimer: number | null = null;
     private activeSection!: HTMLDivElement;
     private activeList!: HTMLDivElement;
 
@@ -166,20 +168,32 @@ export class ModelGenPanel {
         this.activeSection.appendChild(this.activeList);
         this.el.appendChild(this.activeSection);
 
-        // Library
+        // Library header + search
         const libHeader = document.createElement('div');
-        libHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between';
+        libHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px';
         const libTitle = document.createElement('div');
         libTitle.textContent = 'My Generations';
-        libTitle.style.cssText = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.4px';
+        libTitle.style.cssText = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.4px;flex:none';
         libHeader.appendChild(libTitle);
         const refreshBtn = document.createElement('button');
         refreshBtn.textContent = '↻';
         refreshBtn.title = 'Refresh library';
-        refreshBtn.style.cssText = 'background:none;border:0;color:#888;cursor:pointer;font-size:14px';
+        refreshBtn.style.cssText = 'background:none;border:0;color:#888;cursor:pointer;font-size:14px;flex:none';
         refreshBtn.addEventListener('click', () => this.refreshLibrary());
         libHeader.appendChild(refreshBtn);
         this.el.appendChild(libHeader);
+
+        // Multi-lingual search input. Debounced; empty value falls back to
+        // the recent-first list.
+        this.librarySearchInput = document.createElement('input');
+        this.librarySearchInput.type = 'search';
+        this.librarySearchInput.placeholder = 'Search your generations…';
+        this.librarySearchInput.style.cssText = 'width:100%;background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:6px 10px;font-size:12px';
+        this.librarySearchInput.addEventListener('input', () => {
+            if (this.librarySearchTimer != null) window.clearTimeout(this.librarySearchTimer);
+            this.librarySearchTimer = window.setTimeout(() => this.refreshLibrary(), 250);
+        });
+        this.el.appendChild(this.librarySearchInput);
 
         this.libraryGrid = document.createElement('div');
         this.libraryGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px';
@@ -477,10 +491,14 @@ export class ModelGenPanel {
     }
 
     private async refreshLibrary(): Promise<void> {
+        const q = this.librarySearchInput?.value?.trim() ?? '';
+        const url = q
+            ? `/library?limit=100&q=${encodeURIComponent(q)}`
+            : '/library?limit=100';
         try {
-            const resp = await api<any>('/library?limit=100');
+            const resp = await api<any>(url);
             this.library = resp.items ?? [];
-            this.renderLibrary();
+            this.renderLibrary(q.length > 0);
         } catch (e: any) {
             if ((e as any).status === 404) {
                 this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#888;font-size:12px;text-align:center;padding:24px;line-height:1.6">3D model generation isn\'t available on this backend.</div>';
@@ -488,11 +506,12 @@ export class ModelGenPanel {
         }
     }
 
-    private renderLibrary(): void {
+    private renderLibrary(isSearch = false): void {
         this.libraryGrid.innerHTML = '';
         const successful = this.library.filter(it => it.model);
         if (successful.length === 0) {
-            this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">No generations yet.</div>';
+            const msg = isSearch ? 'No matches.' : 'No generations yet.';
+            this.libraryGrid.innerHTML = `<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">${msg}</div>`;
             return;
         }
         for (const item of successful) this.libraryGrid.appendChild(this.buildLibraryCard(item));
