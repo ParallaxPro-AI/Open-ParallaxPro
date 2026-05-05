@@ -479,7 +479,15 @@ export class ModelGenPanel {
         confirmBtn.textContent = t('modelGen.preview.confirm');
         confirmBtn.className = 'primary';
         confirmBtn.style.flex = '1';
-        confirmBtn.addEventListener('click', () => this.confirm());
+        confirmBtn.addEventListener('click', async () => {
+            if (confirmBtn.disabled) return;
+            confirmBtn.disabled = true;
+            try {
+                await this.confirm();
+            } finally {
+                confirmBtn.disabled = false;
+            }
+        });
         row.appendChild(confirmBtn);
         this.previewArea.appendChild(row);
     }
