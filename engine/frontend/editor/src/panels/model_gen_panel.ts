@@ -40,11 +40,11 @@ interface ActiveJob {
     queue_position?: number;
     last_progress?: string | null;
     prompt: string | null;
-    /** Concatenated key (status + last_progress) of the current stage. When
-     *  this changes between polls, stage_started_at is reset so the timer
-     *  in the in-flight row reflects time-in-current-stage. */
+    /** Concatenated key (status + last_progress) of the current stage. */
     stage_key?: string;
-    /** Wall-clock ms when the current stage was first observed. */
+    /** Server-side wall-clock ms when the current stage actually started.
+     *  Comes from last_progress_at / claimed_at / created_at depending
+     *  on stage. Survives page refresh — timer keeps counting. */
     stage_started_at?: number;
 }
 
@@ -472,7 +472,10 @@ export class ModelGenPanel {
                 if (j.status === 'done') libraryDirty = true;
             } else {
                 const newKey = `${j.status}|${j.last_progress || ''}`;
-                const stageChanged = newKey !== existing.stage_key;
+                // Server-supplied timestamps so the timer reflects
+                // actual wall-clock time, not when the editor first
+                // observed the stage. Refresh-safe.
+                const serverStart = (j.last_progress_at ?? j.claimed_at ?? j.created_at) as number | undefined;
                 this.activeJobs.set(j.job_id, {
                     job_id: j.job_id,
                     status: j.status,
@@ -480,7 +483,7 @@ export class ModelGenPanel {
                     last_progress: j.last_progress,
                     prompt: existing.prompt,
                     stage_key: newKey,
-                    stage_started_at: stageChanged ? Date.now() : existing.stage_started_at,
+                    stage_started_at: serverStart ?? existing.stage_started_at,
                 });
             }
         }
@@ -635,10 +638,15 @@ export class ModelGenPanel {
         for (const it of this.library) {
             if (!ACTIVE.has(it.status)) continue;
             if (this.activeJobs.has(it.job_id)) continue;
+            // Library payload only has created_at; the first /jobs/:id
+            // poll fills in last_progress_at / claimed_at. Seed the
+            // timer with created_at so refresh shows non-zero "Ns"
+            // immediately rather than 0s for one poll cycle.
             this.activeJobs.set(it.job_id, {
                 job_id: it.job_id,
                 status: it.status,
                 prompt: it.prompt,
+                stage_started_at: (it as any).created_at,
             });
             changed = true;
         }
