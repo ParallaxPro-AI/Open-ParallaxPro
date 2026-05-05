@@ -683,9 +683,25 @@ export class ModelGenPanel {
             e.dataTransfer?.setData('application/x-parallax-asset', JSON.stringify(dragAsset));
         });
 
+        // <img> is more reliable than background-image (the `background:`
+        // shorthand resets background-image; ordering bugs leave the
+        // thumb invisible). Also gives an onerror hook if the URL is
+        // unreachable.
         const thumb = document.createElement('div');
-        thumb.style.cssText = 'aspect-ratio:1;background:#0e0e18 center/cover no-repeat;border-bottom:1px solid #222';
-        if (m.thumb_path) thumb.style.backgroundImage = `url(${m.thumb_path})`;
+        thumb.style.cssText = 'aspect-ratio:1;background:#0e0e18;border-bottom:1px solid #222;display:flex;align-items:center;justify-content:center;overflow:hidden';
+        if (m.thumb_path) {
+            const img = document.createElement('img');
+            img.src = m.thumb_path;
+            img.alt = item.prompt || '';
+            img.loading = 'lazy';
+            img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+            img.onerror = () => { img.style.display = 'none'; };
+            thumb.appendChild(img);
+        } else {
+            thumb.textContent = '□';
+            thumb.style.color = '#444';
+            thumb.style.fontSize = '24px';
+        }
         card.appendChild(thumb);
 
         const label = document.createElement('div');
