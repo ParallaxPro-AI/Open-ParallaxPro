@@ -1137,6 +1137,48 @@ These are NOT caught by `validate.sh` — the game appears to run but the broken
 
 ## Common Bugs to Check
 
+### MANDATORY auto-fix — first-person `hideFromOwner`
+
+**Before any other fix work**, if the project uses `camera_fps.ts` (or
+any other camera behavior whose entity sits inside / is parented to the
+player), inspect the player's mesh for `"hideFromOwner": true`. If it
+is missing, add it — even when the user did NOT report "I can see my
+own model." This is the single most common AI-generation regression in
+FPS games and the user often perceives it as a different bug ("the game
+feels broken", "I die instantly", "the screen is blocked"). Apply the
+fix proactively in `02_entities.json`:
+
+```json
+"player": {
+  "mesh": {
+    "type": "custom",
+    "asset": "/assets/.../Character.glb",
+    "hideFromOwner": true     // ← add this
+  },
+  ...
+}
+```
+
+If the visible mesh is bound via `extra_components` in
+`03_worlds.json`, the flag goes inside the override:
+
+```json
+"extra_components": [
+  { "type": "MeshRendererComponent", "data": { "hideFromOwner": true } }
+]
+```
+
+**Forbidden alternatives:** removing the mesh (breaks multiplayer
+visibility for remote peers), toggling visibility from a script
+(races the render pass and produces flicker), `setActive(false)` on
+the mesh (also hides it from remote peers and breaks animation).
+`hideFromOwner` is the only correct path.
+
+If the camera is third-person / top-down / fixed (NOT inside the
+player entity), `hideFromOwner` is irrelevant — leave it off.
+
+---
+
 1. **Entity not moving**: Using `setPosition` on dynamic body (fights physics). Use `setVelocity` instead.
 2. **Wrong event bus**: Game events on `events.ui` instead of `events.game`, or vice versa.
 3. **Missing animation**: Wrong clip name for the model. Check what clips the GLB actually has.
@@ -1147,7 +1189,7 @@ These are NOT caught by `validate.sh` — the game appears to run but the broken
 
 13. **"The player falls through the terrain" / "ground has no collision" with `heightmapTerrain`**: if a project predates the auto-collider change, the agent likely added a separate ground plane entity for collision. Delete the standalone ground entity from `02_entities.json` and its placement in `03_worlds.json`. The `heightmapTerrain` block now produces both the visual mesh and the static trimesh collider in one entity — extra ground entities are stale and either no-op or fight the terrain.
 5. **Script not running**: Entity is inactive, or behavior's `_behaviorName` doesn't match flow's `active_behaviors`.
-6. **First-person game shows your own player model**: In an FPS the camera sits at the player's eye height, so a visible player `mesh` renders from the inside (giant body parts blocking the view, head clipping the near plane). Fix: set `"hideFromOwner": true` on the player's mesh in `03_worlds.json` — either directly on the `mesh` field, or as `extra_components: [{ type: "MeshRendererComponent", data: { hideFromOwner: true } }]` if the mesh is a sub-component. The engine skips rendering that mesh when the active camera is the same entity or its descendant; other players / spectators / death-cam still see the full model. **Rule: any first-person game must have this set — if you're fixing an FPS and it's missing, add it even if the user didn't explicitly report it.** Don't try to hide the model by deleting the mesh (breaks multiplayer) or by toggling visibility from a script (races the render pass).
+6. **First-person game shows your own player model**: see the **"MANDATORY auto-fix — first-person `hideFromOwner`"** callout at the top of this section. If the FPS player's mesh is missing `"hideFromOwner": true`, add it — even if the user didn't directly report it.
 7. **Camera jitter / shaky follow**: `smoothSpeed` param on the chase or third-person camera is too high (>8). The exponential interpolation (`t = 1 - exp(-smoothSpeed * dt)`) passes physics micro-bounces straight through when smoothSpeed is large. Fix: lower `smoothSpeed` in `02_entities.json` camera params to 5–6 (never above 8). If the user reports "camera is shakey" or "jittery driving", this is almost always the cause. Do NOT try to fix it by changing physics settings or adding extra damping scripts — just lower smoothSpeed.
 
 ## Reference Templates

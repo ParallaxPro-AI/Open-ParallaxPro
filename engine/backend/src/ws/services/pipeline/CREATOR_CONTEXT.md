@@ -584,7 +584,7 @@ get them wrong (inverted Y, mirrored A/D, W moves opposite the camera).
   `library.sh show behaviors/camera/camera_third_person.ts behaviors/movement/third_person_movement.ts`
 - **First-person (mouse-look + WASD)** — pin both:
   `library.sh show behaviors/camera/camera_fps.ts behaviors/movement/fps_movement.ts`
-  **First-person games MUST also set `"hideFromOwner": true`** on the player's mesh in `03_worlds.json` (the camera sits at eye height inside the player entity, so without this you render your own model from the inside — see Common Bug #10 below for the exact JSON shape). This is non-negotiable for any FPS — apply it up front, don't wait for it to surface as a bug.
+  Then **read the next subsection — "HARD RULE — first-person players MUST hide their own mesh"** — and apply `hideFromOwner: true` IN THE SAME EDIT that adds the FPS camera. There is no scenario where an FPS game ships without this and works.
 - **Isometric RPG / action-RPG orbit** — pin both:
   `library.sh show behaviors/camera/camera_rpg.ts behaviors/movement/rpg_movement.ts`
 
@@ -592,6 +592,67 @@ Tweak tunables via `params` in `02_entities.json` (distance, height, sensitivity
 speed, etc.) — don't edit the script body. If your game has a novel camera need
 that doesn't match any of the above (rail camera, fixed-angle, etc.), you may
 write your own — but for standard orbit + camera-relative movement, ALWAYS pin.
+
+### HARD RULE — first-person players MUST hide their own mesh
+
+If your game uses `behaviors/camera/camera_fps.ts` (or any camera that
+sits at the player's eye height inside the player entity), the
+player's visible mesh renders from the **inside** on the local
+screen — chest fills the view, neck clips the near plane, the GLB's
+head is mounted to the camera. **The player will see "my own body
+blocking the screen" the instant they hit Play.** This is the single
+most common visible regression for AI-generated FPS games.
+
+**Every first-person game MUST set `"hideFromOwner": true` on the
+player entity's mesh in `02_entities.json`:**
+
+```json
+"player": {
+  "mesh": {
+    "type": "custom",
+    "asset": "/assets/quaternius/characters/.../Worker_Male.glb",
+    "hideFromOwner": true
+  },
+  "tags": ["player"],
+  ...
+}
+```
+
+The engine skips rendering the mesh when the active camera is the
+same entity (or its descendant). Remote peers, spectators, and the
+death-cam still see the full model — `hideFromOwner` ONLY hides it
+for the local player on the local screen.
+
+**Apply this in the same edit that adds the FPS camera.** Do NOT wait
+for the user to report "I can see my arms"; by then the game is
+shipped and broken. The `library.sh show behaviors/camera/camera_fps.ts`
+recipe and this rule are inseparable.
+
+**Forbidden alternatives** (every one of these has shipped as a bug):
+- Omitting the player mesh entirely. Breaks multiplayer — remote peers
+  see invisible players. The mesh must exist for `syncTransform` to
+  have an entity to drive.
+- Hiding the mesh from a script via `setActive(false)` or
+  `mr.visible = false`. Races the render pass; produces a 1-frame flash
+  on every state transition; also hides the mesh for remote peers
+  observing this entity.
+- Adding a separate "first-person arms" mesh entity and disabling the
+  full body. The `hideFromOwner` flag exists specifically so you can
+  ship one mesh that does both jobs.
+
+**Sub-component edge case**: if the visible mesh is attached as an
+`extra_components` entry in `03_worlds.json` (rather than the def's
+top-level `mesh` field), the flag goes inside the override:
+
+```json
+"extra_components": [
+  { "type": "MeshRendererComponent", "data": { "hideFromOwner": true } }
+]
+```
+
+If your game has a third-person, top-down, or fixed-camera view (camera
+is NOT inside the player entity), `hideFromOwner` is unnecessary —
+omit it.
 
 ### Camera smoothSpeed tuning — MUST follow
 
@@ -2117,7 +2178,7 @@ Quick mental checklist when something looks wrong but the validator passes:
 7. **Car / character drives backwards**: Your behavior script hardcodes a heading default (e.g. `_heading = 180`) that doesn't agree with the placement's rotation. The mesh is already normalized to canonical −Z forward by the engine, so you do NOT need `modelRotationY` (leave it at 0 / omit it). To make a vehicle/character face a non-default direction, set `placement.rotation: [0, yawDegrees, 0]` in 03_worlds.json and in your script's `onStart`, read it back via `var e = this.entity.transform.getRotationEuler(); this._heading = e.y;`. Do NOT bake the same rotation into both the placement AND the script state — you'll double-compensate. Symptom: pressing W moves the car ass-first, and A/D feel swapped because your perspective of the car is reversed.
 8. **Advertised key does nothing**: Your HUD HTML has `<span class="kbd">P</span> pause` or `Press X to do Y` text, but pressing that key has no effect. Root cause: the key must both (a) be handled by a system that emits an event (ui_bridge.ts already handles P by emitting `keyboard:pause` / `keyboard:resume`), AND (b) have a transition in `01_flow.json` that listens on the event and moves to the right state. A HUD hint without a matching flow transition is a lie. If you advertise P for pause, your flow needs a `pause` state with `transitions: [{ "when": "ui_event:pause:resume", "goto": "gameplay" }, ...]` AND a transition FROM `gameplay` that listens on whatever event the bridge emits. Check what events the pinned ui_bridge / bridges emit before advertising the key.
 9. **Walls / ramps / pickups have no collision**: You set `physics: false` on interactive entities (walls the player bumps into, ramps they roll up, coins they collect). The assembler skips collider creation entirely for `physics: false`, so the player's rigidbody passes straight through. **Rule: `physics: false` is only correct for pure decoration the player can never touch** — ambient particles, skybox quads, HUD-only entities. Walls, ramps, platforms, fences, bumpers, coins, gems, hazards, enemies, triggers — these ALL need physics. Minimum safe default for static geometry: `"physics": { "type": "static", "collider": "box" }` (the engine auto-fits the box collider to the visible mesh's AABB). For trigger volumes (pickups, damage zones, zone detectors): add `"is_trigger": true` so they fire collision events without blocking movement. The `interactive_entities_have_colliders` playtest invariant flags any entity whose name matches wall/ramp/pickup/coin/hazard/enemy/fence that's missing a collider.
-10. **First-person game shows your own player model**: In FPS games the camera sits at the player's eye height, so if the player entity has a visible `mesh`, you see your own body from the inside. **Rule: every first-person game MUST set `"hideFromOwner": true` on the player's mesh — apply it up front, never skip it.** Set it on the player entity's mesh field directly (or, if the mesh is attached as a sub-component, under `extra_components: [{ type: "MeshRendererComponent", data: { hideFromOwner: true } }]` in 03_worlds.json). The engine skips rendering that mesh when the active camera is the same entity or its descendant. Other players / spectators / death-cam still see the full model. **This is the ONLY supported way** to hide the player from themselves — don't omit the mesh entirely (then you have no model for multiplayer), and don't hide at script level (races with render pass).
+10. **First-person game shows your own player model**: see the dedicated **"HARD RULE — first-person players MUST hide their own mesh"** section above. Set `"hideFromOwner": true` on the player's mesh in the same edit that adds the FPS camera; never wait for it to surface as a bug.
 11. **Behavior state doesn't reset on replay (main_menu → play again)**: Behaviors that track per-instance state like `_collected`, `_consumed`, `_triggered`, `_exploded` must reset that state when the player restarts a match — NOT just in `onStart`. The FSM's restart transition fires a `restart_game` event but does NOT re-call `onStart` on behaviors; scripts stay attached and `_behaviorActive` toggles, but private fields persist. Rule: any behavior that mutates a one-shot flag must subscribe to `restart_game` in `onStart` and reset the flag there. Example:
 
     ```ts
@@ -2421,6 +2482,7 @@ Quick mental checklist when something looks wrong but the validator passes:
 - [ ] Every `game_event:<name>` matches an event declared in `project/systems/event_definitions.ts`.
 - [ ] The root flow has `start`, and every compound state has its own `start`.
 - [ ] If your game has any death/lose path, a `game_over`-style state exists with at least one exit transition whose `actions` include `restart` (see "Required: retry / game-over wiring").
+- [ ] If your game uses `camera_fps.ts` (or any camera that lives inside the player entity), the player's mesh has `"hideFromOwner": true` (see "HARD RULE — first-person players MUST hide their own mesh").
 
 **Aspirational (good games have these, but validator won't fail without them):**
 - [ ] Flow has boot → main_menu → gameplay → game_over.
