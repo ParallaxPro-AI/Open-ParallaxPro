@@ -184,11 +184,11 @@ else {
         var vc = '';
         if (typeof r.vertices === 'number') vc = '  [' + fmtVerts(r.vertices) + ']';
         // Community/AI-generated assets have opaque random-hex paths that
-        // tell the AI nothing — surface the original prompt as the
-        // readable label so it can pick the right one. No surrounding
-        // quotes: the entire script body is wrapped in a bash double-
-        // quoted node -e arg, and a literal " inside the JS would
-        // terminate the bash string and break parsing further down.
+        // tell the AI nothing -- surface the original prompt as a label
+        // so it can pick the right one. No surrounding double-quotes
+        // here: the whole node -e arg is bash double-quoted, so any
+        // literal double-quote on this line would terminate the bash
+        // string and break parsing further down. Stick to single quotes.
         var desc = '';
         if (typeof r.description === 'string' && r.description.length > 0) {
             var d = r.description.replace(/[\\r\\n]+/g, ' ');
