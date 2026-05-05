@@ -92,6 +92,8 @@ async function uploadImage(file: File): Promise<{ preview_url: string }> {
 export class ModelGenPanel {
     readonly el: HTMLElement;
 
+    private healthBanner!: HTMLDivElement;
+    private healthTimer: number | null = null;
     private modeTabs!: HTMLDivElement;
     private formArea!: HTMLDivElement;
     private previewArea!: HTMLDivElement;
@@ -126,12 +128,23 @@ export class ModelGenPanel {
         if (!this.mounted) {
             this.mounted = true;
             this.refreshLibrary();
+            this.refreshHealth();
+        }
+        // Re-check health every 30s while the tab is visible.
+        if (this.healthTimer == null) {
+            this.healthTimer = window.setInterval(() => this.refreshHealth(), 30000);
         }
     }
 
     // ── UI build ─────────────────────────────────────────────────────
 
     private buildUI(): void {
+        // GPU pool health banner — small dot + label at top of the tab.
+        this.healthBanner = document.createElement('div');
+        this.healthBanner.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;color:#666';
+        this.healthBanner.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#666"></span><span>checking…</span>';
+        this.el.appendChild(this.healthBanner);
+
         // Mode tabs (Text / Image)
         this.modeTabs = document.createElement('div');
         this.modeTabs.style.cssText = 'display:flex;gap:6px';
@@ -488,6 +501,32 @@ export class ModelGenPanel {
             row.appendChild(text);
             this.activeList.appendChild(row);
         }
+    }
+
+    private async refreshHealth(): Promise<void> {
+        try {
+            const r = await fetch(API_BASE + '/health', { headers: authHeaders() });
+            if (!r.ok) throw new Error(String(r.status));
+            const { workers_online: n, queue_depth: q } = await r.json();
+            this.renderHealth(n, q);
+        } catch {
+            this.renderHealth(-1, -1);
+        }
+    }
+
+    private renderHealth(online: number, queue: number): void {
+        let color: string, label: string;
+        if (online === -1) {
+            color = '#666';
+            label = 'GPU service unavailable';
+        } else if (online === 0) {
+            color = '#fca5a5';
+            label = 'Offline — no GPU workers connected';
+        } else {
+            color = '#4ade80';
+            label = `Online · ${online} GPU worker${online === 1 ? '' : 's'}` + (queue > 0 ? ` · ${queue} queued` : '');
+        }
+        this.healthBanner.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${color}"></span><span>${escapeHtml(label)}</span>`;
     }
 
     private async refreshLibrary(): Promise<void> {
