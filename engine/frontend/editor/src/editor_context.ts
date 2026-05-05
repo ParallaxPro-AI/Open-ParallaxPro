@@ -974,8 +974,16 @@ export class EditorContext extends EventBus {
             if (pd?.isCloud) {
                 this.cloudSync.schedulePush(this.state.projectId);
             }
-        } catch (e) {
+        } catch (e: any) {
+            // Save errors used to silently log here, leaving the user
+            // staring at a "Save" button that did nothing while the
+            // server returned 409 (legacy / locked project) or 500. Now
+            // emit a 'saveFailed' event so the toolbar / a toast can
+            // surface it. The toolbar already disables the Save button
+            // on dirty state — this gives it the second piece, "save
+            // tried and failed."
             console.error('Failed to save project:', e);
+            this.emit('saveFailed', { error: e?.message ?? String(e) });
         }
     }
 

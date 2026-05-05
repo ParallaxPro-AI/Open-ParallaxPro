@@ -620,9 +620,10 @@ export function applySceneSnapshot(files: ProjectFiles, sceneJson: any): Snapsho
         warnings.push('No worlds[0] in 03_worlds.json — cannot apply snapshot.');
         return { updatedFiles: {}, placementsUpdated: 0, environmentChanged: false, warnings };
     }
-    const entitiesDef = parseJSON(files['02_entities.json'])?.definitions || {};
+    const entitiesDoc = parseJSON(files['02_entities.json']) || {};
+    const entitiesDef: Record<string, any> = entitiesDoc.definitions || {};
     const world = worlds.worlds[0];
-    const placements: any[] = world.placements || [];
+    const placements: any[] = world.placements || (world.placements = []);
 
     // Index placements by their assembled name for O(1) lookup.
     const placementByName = new Map<string, any>();
@@ -630,10 +631,29 @@ export function applySceneSnapshot(files: ProjectFiles, sceneJson: any): Snapsho
 
     let placementsUpdated = 0;
     let dirty = false;
+    let entitiesDirty = false;
 
     for (const entity of sceneJson?.entities || []) {
         const p = placementByName.get(entity.name);
-        if (!p) continue; // auto-injected (manager, light, validator) — skip.
+        if (!p) {
+            // No matching placement. Could be auto-injected (manager,
+            // validator, internal lights) OR an entity the user created
+            // at edit-time (drag from assets panel / model gen library).
+            // Heuristic: persist anything with a custom mesh asset; the
+            // engine-managed entities don't carry one and stay skipped.
+            const created = createPlacementFromEntity(entity, entitiesDef, placements);
+            if (created) {
+                placements.push(created.placement);
+                placementByName.set(created.placement.name, created.placement);
+                if (created.newDef) {
+                    entitiesDef[created.placement.ref] = created.newDef;
+                    entitiesDirty = true;
+                }
+                placementsUpdated++;
+                dirty = true;
+            }
+            continue;
+        }
 
         const def = entitiesDef[p.ref] || {};
         let touched = false;
@@ -668,12 +688,130 @@ export function applySceneSnapshot(files: ProjectFiles, sceneJson: any): Snapsho
 
     if (!dirty) return { updatedFiles: {}, placementsUpdated: 0, environmentChanged: false, warnings };
 
+    const updatedFiles: Record<string, string> = {
+        '03_worlds.json': JSON.stringify(worlds, null, 2),
+    };
+    if (entitiesDirty) {
+        // Preserve sibling fields (events, actions, default_active, …) we
+        // don't touch — only swap definitions.
+        entitiesDoc.definitions = entitiesDef;
+        updatedFiles['02_entities.json'] = JSON.stringify(entitiesDoc, null, 2);
+    }
+
     return {
-        updatedFiles: { '03_worlds.json': JSON.stringify(worlds, null, 2) },
+        updatedFiles,
         placementsUpdated,
         environmentChanged,
         warnings,
     };
+}
+
+/** Build a placement (and a fresh def, when needed) for an entity that
+ *  doesn't match any existing placement. Returns null if the entity
+ *  looks engine-managed (no custom mesh asset) — those stay skipped so
+ *  managers/lights/validators don't end up in placements. */
+function createPlacementFromEntity(
+    entity: any,
+    entitiesDef: Record<string, any>,
+    placements: any[],
+): { placement: any; newDef: any | null } | null {
+    const components: any[] = entity.components || [];
+    const mr = components.find((c: any) => c.type === 'MeshRendererComponent')?.data;
+    const meshAsset: string | undefined = mr?.meshAsset;
+    const meshType: string = mr?.meshType ?? 'custom';
+    // The "this is user content, persist it" signal: a custom mesh with
+    // a real asset URL. Primitive types (cube/sphere) that the user
+    // dragged in are persisted too — they have meshType set even without
+    // an asset, distinguishable from engine entities which have no
+    // MeshRendererComponent at all.
+    const userContent = !!mr;
+    if (!userContent) return null;
+
+    const tc = components.find((c: any) => c.type === 'TransformComponent')?.data;
+    const rb = components.find((c: any) => c.type === 'RigidbodyComponent')?.data;
+    const cc = components.find((c: any) => c.type === 'ColliderComponent')?.data;
+
+    // Pick a unique def name. Prefer something derived from the entity
+    // name so the file stays readable; suffix on collision.
+    const baseDefName = sanitizeIdent(entity.name || (meshAsset ? guessNameFromAsset(meshAsset) : 'imported_entity'));
+    let defName = baseDefName;
+    let suffix = 1;
+    while (entitiesDef[defName]) {
+        defName = `${baseDefName}_${++suffix}`;
+        if (suffix > 1000) return null; // pathological — bail
+    }
+
+    // Pick a unique placement instance name.
+    const usedNames = new Set(placements.map(p => p.name).filter(Boolean));
+    let placementName = entity.name || baseDefName;
+    let psuf = 1;
+    while (usedNames.has(placementName)) placementName = `${entity.name || baseDefName}_${++psuf}`;
+
+    // Build the def. mesh.scale [1,1,1] is the standard; engine consults
+    // MODEL_FACING.json for canonical sizing on custom meshes.
+    const newDef: any = { mesh: buildMeshField(mr, meshType, meshAsset) };
+    if (rb || cc) {
+        newDef.physics = buildPhysicsField(rb, cc);
+    }
+    // Note we deliberately don't try to reverse-engineer behaviors,
+    // animations, network sync, etc. from the runtime entity — those
+    // require domain knowledge the editor can't reliably provide. The
+    // user can edit the def by hand or via FIX_GAME afterwards.
+
+    // Build the placement.
+    const placement: any = { ref: defName, name: placementName };
+    if (tc?.position) {
+        placement.position = [round(tc.position.x ?? 0), round(tc.position.y ?? 0), round(tc.position.z ?? 0)];
+    } else {
+        placement.position = [0, 0, 0];
+    }
+    if (tc?.rotation) {
+        const eul = quatToEulerDegrees(tc.rotation.x ?? 0, tc.rotation.y ?? 0, tc.rotation.z ?? 0, tc.rotation.w ?? 1);
+        const r = [round(eul[0]), round(eul[1]), round(eul[2])];
+        const isZero = Math.abs(r[0]) < 0.01 && Math.abs(r[1]) < 0.01 && Math.abs(r[2]) < 0.01;
+        if (!isZero) placement.rotation = r;
+    }
+    if (tc?.scale) {
+        const s = [round(tc.scale.x ?? 1), round(tc.scale.y ?? 1), round(tc.scale.z ?? 1)];
+        const isUnit = s[0] === 1 && s[1] === 1 && s[2] === 1;
+        if (!isUnit) placement.scale = s;
+    }
+
+    return { placement, newDef };
+}
+
+function buildMeshField(mr: any, meshType: string, meshAsset: string | undefined): any {
+    const mesh: any = { type: meshType };
+    if (meshAsset) mesh.asset = meshAsset;
+    // Don't carry editor-specific fields (gpuMesh, materialOverrides) —
+    // those are runtime-only. Material overrides land on the placement
+    // separately if the user changed them.
+    return mesh;
+}
+
+function buildPhysicsField(rb: any, cc: any): any {
+    const physics: any = {};
+    if (rb?.bodyType) physics.type = rb.bodyType;
+    else if (cc) physics.type = 'static';
+    if (cc?.shapeType) {
+        // Map the runtime shapeType (numeric or string) to the def's
+        // collider name. Most templates use the string form; pass it
+        // through if it already looks like one.
+        physics.collider = typeof cc.shapeType === 'string' ? cc.shapeType : 'mesh';
+    }
+    if (typeof rb?.mass === 'number' && rb.mass !== 1) physics.mass = rb.mass;
+    if (rb?.freezeRotation) physics.freeze_rotation = true;
+    return physics;
+}
+
+function sanitizeIdent(s: string): string {
+    const cleaned = (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return cleaned || 'entity';
+}
+
+function guessNameFromAsset(p: string): string {
+    const m = p.match(/\/([^/]+?)(\.[^./]+)?$/);
+    return m ? m[1] : 'asset';
 }
 
 function updatePos(p: any, pos: any): boolean {

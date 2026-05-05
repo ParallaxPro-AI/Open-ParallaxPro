@@ -619,6 +619,16 @@ export class Toolbar {
             this.showToast(t('toolbar.projectSaved'), 'success');
         });
 
+        // Surface save failures (HTTP 409 from a locked project, 500
+        // from the assembler, network drop, etc.). Without this, errors
+        // were just swallowed by editor_context.saveProject's catch and
+        // logged to the dev console — users saw a save button that did
+        // nothing and silently lost work.
+        this.ctx.on('saveFailed', (data: any) => {
+            const reason = data?.error ?? 'unknown error';
+            this.showToast(`Save failed: ${reason}`, 'error');
+        });
+
         this.ctx.on('collabPresenceChanged', (users: CollabUser[]) => {
             this.collabUsers = users;
             this.renderPresence();
