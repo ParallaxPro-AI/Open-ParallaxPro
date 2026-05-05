@@ -684,10 +684,12 @@ export class ModelGenPanel {
             // 'canceled', the next /library poll won't include it.
             this.activeJobs.delete(jobId);
             this.renderActive();
-            // Server refunded 2% — refresh the daily-usage label so the
-            // user sees their budget go back up.
-            if (typeof resp?.usage_pct === 'number') this.renderUsage(resp.usage_pct, 100, null);
-            else this.refreshUsage();
+            // Server refunded 2% — always pull a fresh /usage so the
+            // displayed N% / 100% normalization uses the right per-tier
+            // limit (cancel response only carries usage_pct, not the
+            // tier limit, so an optimistic update would briefly show
+            // the wrong number for free users).
+            this.refreshUsage();
             this.statusBar.textContent = `Canceled. Refunded ${resp?.refunded_pct ?? 2}%.`;
         } catch (e: any) {
             if (e?.status === 409) {
@@ -798,16 +800,24 @@ export class ModelGenPanel {
             this.usageLabel.title = 'Anonymous users can browse the community library but need a free account to generate.';
             return;
         }
-        if (used == null || limit == null) {
+        if (used == null || limit == null || limit <= 0) {
             this.usageLabel.textContent = '';
             this.usageLabel.classList.remove('mg-usage-warn', 'mg-usage-cap');
             this.usageLabel.title = 'Daily generation budget. Resets at midnight UTC.';
             return;
         }
-        const remaining = Math.max(0, limit - used);
-        this.usageLabel.textContent = `daily ${Math.round(used)}% / ${limit}%`;
-        this.usageLabel.classList.toggle('mg-usage-warn', remaining < 10 && remaining > 0);
-        this.usageLabel.classList.toggle('mg-usage-cap', remaining <= 0);
+        // Normalize the display to "/100%" regardless of tier. Internally
+        // free=25, pro=100; users compared "5%/25%" (free) vs "5%/100%"
+        // (pro) and read the free tier as smaller-than-it-is. Showing
+        // both as fraction-of-100 makes "you've used X% of your daily
+        // budget" mean the same thing for everyone. Warn/cap thresholds
+        // run on the normalized scale so a free user gets the amber
+        // warning at the same proportional usage as a pro user.
+        const displayedUsed = Math.min(100, Math.max(0, Math.round(used * 100 / limit)));
+        const displayedRemaining = 100 - displayedUsed;
+        this.usageLabel.textContent = `daily ${displayedUsed}% / 100%`;
+        this.usageLabel.classList.toggle('mg-usage-warn', displayedRemaining < 10 && displayedRemaining > 0);
+        this.usageLabel.classList.toggle('mg-usage-cap', displayedRemaining <= 0);
         this.usageLabel.title = `Daily generation budget (${tier ?? 'free'} tier). Resets at midnight UTC.`;
     }
 
