@@ -61,14 +61,17 @@
   function emit(action) {
     window.parent.postMessage({ type: 'game_command', action: action }, '*');
   }
-  document.getElementById('cancel').onclick = function () { emit('cancel_connect'); };
+  var cancelEl = document.getElementById('cancel');
+  if (cancelEl) cancelEl.onclick = function () { emit('cancel_connect'); };
 
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'gameState') return;
     var s = e.data.state || {};
     var mp = s.multiplayer || {};
-    if (mp.connectingTitle) document.getElementById('title').textContent = mp.connectingTitle;
-    if (mp.connectingSub) document.getElementById('sub').textContent = mp.connectingSub;
+    var titleEl = document.getElementById('title');
+    var subEl = document.getElementById('sub');
+    if (mp.connectingTitle && titleEl) titleEl.textContent = mp.connectingTitle;
+    if (mp.connectingSub && subEl) subEl.textContent = mp.connectingSub;
   });
 })();
 </script>
