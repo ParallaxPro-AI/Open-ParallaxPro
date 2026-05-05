@@ -8,6 +8,8 @@ import { ObjectPropertiesPanel } from '../panels/object_properties_panel.js';
 import { ViewportPanel } from '../panels/viewport_panel.js';
 import { AssetsPanel } from '../panels/assets_panel.js';
 import { AiChatPanel } from '../panels/ai_chat_panel.js';
+import { ModelGenPanel } from '../panels/model_gen_panel.js';
+import { TabsWidget } from '../widgets/tabs.js';
 import { ShortcutManager } from '../input/shortcut_manager.js';
 import { isMobile } from '../utils/mobile.js';
 import { t } from '../i18n/index.js';
@@ -24,6 +26,12 @@ export class EditorView {
     private viewport: ViewportPanel;
     private assets: AssetsPanel | null = null;
     private chat: AiChatPanel;
+    private modelGen: ModelGenPanel;
+    /** Tabs wrapper around chat + modelGen — what actually mounts in the
+     *  layout slot. `chat` and `modelGen` are kept as fields so other
+     *  callers (sendInitialChatMessage, mobile reparent) keep working. */
+    private chatTabs: TabsWidget;
+    private chatTabsEl: HTMLElement;
     private shortcuts: ShortcutManager | null = null;
     private beforeUnloadHandler: (e: BeforeUnloadEvent) => void;
 
@@ -47,20 +55,63 @@ export class EditorView {
         this.el.appendChild(this.connectionBanner);
 
         this.viewport = new ViewportPanel();
-        this.chat = new AiChatPanel();
+        // Chat panel is built without its own panel-header; we hoist the
+        // session button into the wrapper's header below so the layout
+        // matches the assets panel (panel-header + tabs underneath).
+        this.chat = new AiChatPanel({ headlessHeader: true });
+        this.modelGen = new ModelGenPanel();
+
+        // Wrapper panel: matches assets panel structure
+        //   <div class="panel ai-panel">
+        //     <div class="panel-header"> "AI Assistant" + sessionBtn </div>
+        //     <TabsWidget> [Chat, 3D Model Generate] </TabsWidget>
+        //   </div>
+        const wrapper = document.createElement('div');
+        wrapper.className = 'panel ai-panel';
+        // Mirror .assets-panel sizing so the wrapper fills the right column
+        // (the base .panel rule has display:flex+column but no flex:1).
+        wrapper.style.flex = '1';
+        wrapper.style.minHeight = '0';
+
+        const wrapperHeader = document.createElement('div');
+        wrapperHeader.className = 'panel-header';
+        wrapperHeader.style.position = 'relative';
+        const wrapperTitle = document.createElement('span');
+        wrapperTitle.className = 'panel-title';
+        wrapperTitle.textContent = t('chat.title', 'AI Assistant');
+        wrapperHeader.appendChild(wrapperTitle);
+        // Hoist the session "+" button so it sits in the panel header,
+        // not inside the chat tab body. Click handler still fires from
+        // the original AiChatPanel binding.
+        wrapperHeader.appendChild(this.chat.sessionBtn);
+        wrapper.appendChild(wrapperHeader);
+
+        this.chatTabs = new TabsWidget();
+        this.chatTabs.setTabs([
+            { id: 'chat', label: t('chat.tabAssistant', 'Chat'), content: this.chat.el },
+            { id: 'gen', label: t('chat.tabGenerate', '3D Model Generate'), content: this.modelGen.el },
+        ]);
+        this.chatTabs.onChange(id => {
+            if (id === 'gen') this.modelGen.onShow();
+            // Session button only makes sense on the Chat tab.
+            this.chat.sessionBtn.style.display = id === 'chat' ? '' : 'none';
+        });
+        wrapper.appendChild(this.chatTabs.el);
+
+        this.chatTabsEl = wrapper;
 
         if (isMobile()) {
             this.mobileLayout = new MobileEditorLayout();
             this.mobileLayout.viewportContainer.appendChild(this.viewport.el);
-            this.mobileLayout.chatContainer.appendChild(this.chat.el);
+            this.mobileLayout.chatContainer.appendChild(this.chatTabsEl);
 
             // Landscape chat sheet gets a clone of the chat panel — reparented on orientation change
             const landscapeQuery = window.matchMedia('(orientation: landscape)');
             const reparentChat = () => {
                 if (landscapeQuery.matches) {
-                    this.mobileLayout!.getChatSheetContent().appendChild(this.chat.el);
+                    this.mobileLayout!.getChatSheetContent().appendChild(this.chatTabsEl);
                 } else {
-                    this.mobileLayout!.chatContainer.appendChild(this.chat.el);
+                    this.mobileLayout!.chatContainer.appendChild(this.chatTabsEl);
                 }
             };
             landscapeQuery.addEventListener('change', reparentChat);
@@ -105,7 +156,7 @@ export class EditorView {
             this.layout.leftBottom.appendChild(this.properties.el);
             this.layout.centerTop.appendChild(this.viewport.el);
             this.layout.centerBottom.appendChild(this.assets.el);
-            this.layout.rightColumn.appendChild(this.chat.el);
+            this.layout.rightColumn.appendChild(this.chatTabsEl);
 
             this.el.appendChild(this.layout.el);
 

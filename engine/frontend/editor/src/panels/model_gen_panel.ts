@@ -1,17 +1,14 @@
 /**
- * model_gen_panel.ts — "AI Generate" tab in the assets panel.
+ * model_gen_panel.ts — "3D Model Generate" tab in the AI Assistant column.
  *
- * Self-contained: a simple input + status list + library grid that calls
- * /api/engine/models/* on the hosted backend. On a self-hosted clone of
- * Open-ParallaxPro that doesn't run the model_gen plugin, the first fetch
- * returns 404 and we render a friendly "feature not available" stub
- * instead of breaking the panel.
+ * Two-step flow:
+ *   1. Preview — fal.ai text-to-image OR user upload — show as preview.
+ *   2. Confirm — TRELLIS image-to-3D, queued and polled.
  *
- * Generated GLBs drop into the scene via the same drag payload shape as
- * curated 3D models (`application/x-parallax-asset`), so the existing
- * drop handler picks them up without changes. Scale + orientation
- * defaults to Y-up / -Z-forward; users adjust with the standard transform
- * tools after the asset lands in the scene.
+ * Self-contained. On a self-hosted Open-ParallaxPro clone without the
+ * model_gen plugin, the first /preview call returns 404 and the panel
+ * renders a "feature not available" stub. Generated GLBs drag into the
+ * scene with the same payload shape as curated 3D assets.
  */
 
 interface GeneratedModel {
@@ -48,17 +45,20 @@ interface ActiveJob {
 const API_BASE = '/api/engine/models';
 const POLL_INTERVAL_MS = 3000;
 
-function getAuthHeaders(): Record<string, string> {
+type Mode = 'text' | 'image';
+type Step = 'idle' | 'previewed' | 'submitting';
+
+function authHeaders(): Record<string, string> {
     const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token');
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) h['Authorization'] = `Bearer ${token}`;
     return h;
 }
 
-async function api<T = any>(path: string, opts?: RequestInit): Promise<T> {
+async function api<T = any>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(API_BASE + path, {
-        ...opts,
-        headers: { ...getAuthHeaders(), ...(opts?.headers as Record<string, string> ?? {}) },
+        ...init,
+        headers: { ...authHeaders(), ...(init?.headers as Record<string, string> ?? {}) },
     });
     if (res.status === 404) {
         const err = new Error('not_available');
@@ -75,30 +75,48 @@ async function api<T = any>(path: string, opts?: RequestInit): Promise<T> {
     return res.json();
 }
 
+async function uploadImage(file: File): Promise<{ preview_url: string }> {
+    const fd = new FormData();
+    fd.append('image', file);
+    const token = localStorage.getItem('auth_token') ?? localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/preview/upload`, { method: 'POST', headers, body: fd });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || body?.error || `upload failed ${res.status}`);
+    }
+    return res.json();
+}
+
 export class ModelGenPanel {
     readonly el: HTMLElement;
-    private libraryGrid!: HTMLDivElement;
-    private activeList!: HTMLDivElement;
-    private activeSection!: HTMLDivElement;
-    private promptInput!: HTMLTextAreaElement;
-    private qualitySelect!: HTMLSelectElement;
-    private submitBtn!: HTMLButtonElement;
+
+    private modeTabs!: HTMLDivElement;
+    private formArea!: HTMLDivElement;
+    private previewArea!: HTMLDivElement;
     private statusBar!: HTMLDivElement;
+    private libraryGrid!: HTMLDivElement;
+    private activeSection!: HTMLDivElement;
+    private activeList!: HTMLDivElement;
+
+    private mode: Mode = 'text';
+    private step: Step = 'idle';
+    private currentPreviewUrl: string | null = null;
+    private currentPrompt: string | null = null;
+    private currentQuality: string = 'standard';
+
     private pollTimer: number | null = null;
     private activeJobs = new Map<string, ActiveJob>();
     private library: LibraryItem[] = [];
     private mounted = false;
-    private featureUnavailable = false;
 
     constructor() {
         this.el = document.createElement('div');
-        this.el.className = 'model-gen-panel';
-        this.el.style.padding = '12px';
-        this.el.style.overflowY = 'auto';
+        this.el.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;padding:12px;gap:12px';
         this.buildUI();
     }
 
-    /** Called once when the tab content is first shown. */
     onShow(): void {
         if (!this.mounted) {
             this.mounted = true;
@@ -106,86 +124,52 @@ export class ModelGenPanel {
         }
     }
 
+    // ── UI build ─────────────────────────────────────────────────────
+
     private buildUI(): void {
-        // ── Generate form ─────────────────────────────────────────
-        const form = document.createElement('div');
-        form.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;padding:10px;background:#141420;border:1px solid #222;border-radius:8px';
+        // Mode tabs (Text / Image)
+        this.modeTabs = document.createElement('div');
+        this.modeTabs.style.cssText = 'display:flex;gap:6px';
+        const textBtn = this.makeModeButton('text', 'From Text');
+        const imageBtn = this.makeModeButton('image', 'From Image');
+        this.modeTabs.appendChild(textBtn);
+        this.modeTabs.appendChild(imageBtn);
+        this.el.appendChild(this.modeTabs);
 
-        const promptLabel = document.createElement('label');
-        promptLabel.textContent = 'Generate a 3D model from a text prompt:';
-        promptLabel.style.cssText = 'font-size:12px;color:#aaa';
-        form.appendChild(promptLabel);
+        // Form area (varies by mode + step)
+        this.formArea = document.createElement('div');
+        this.formArea.style.cssText = 'display:flex;flex-direction:column;gap:8px;background:#141420;border:1px solid #222;border-radius:8px;padding:10px';
+        this.el.appendChild(this.formArea);
 
-        this.promptInput = document.createElement('textarea');
-        this.promptInput.placeholder = 'e.g. "wooden barrel", "low-poly tree", "anime sword"';
-        this.promptInput.maxLength = 300;
-        this.promptInput.rows = 2;
-        this.promptInput.style.cssText = 'background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:8px;font-family:inherit;font-size:13px;resize:vertical';
-        this.promptInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.submit(); }
-        });
-        form.appendChild(this.promptInput);
+        // Preview area (shown when step = previewed)
+        this.previewArea = document.createElement('div');
+        this.previewArea.style.cssText = 'display:none;flex-direction:column;gap:8px;background:#141420;border:1px solid #222;border-radius:8px;padding:10px';
+        this.el.appendChild(this.previewArea);
 
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;gap:8px;align-items:center';
-
-        const qualityLabel = document.createElement('span');
-        qualityLabel.textContent = 'Quality:';
-        qualityLabel.style.cssText = 'font-size:12px;color:#aaa';
-        row.appendChild(qualityLabel);
-
-        this.qualitySelect = document.createElement('select');
-        this.qualitySelect.style.cssText = 'background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:4px 8px;font-size:12px';
-        for (const [value, label] of [['fast', 'Fast (~10s)'], ['standard', 'Standard (~50s)'], ['high', 'High (~70s)']]) {
-            const opt = document.createElement('option');
-            opt.value = value;
-            opt.textContent = label;
-            if (value === 'standard') opt.selected = true;
-            this.qualitySelect.appendChild(opt);
-        }
-        row.appendChild(this.qualitySelect);
-
-        const spacer = document.createElement('div');
-        spacer.style.flex = '1';
-        row.appendChild(spacer);
-
-        this.submitBtn = document.createElement('button');
-        this.submitBtn.textContent = 'Generate';
-        this.submitBtn.style.cssText = 'background:#6366f1;color:#fff;border:0;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer';
-        this.submitBtn.addEventListener('click', () => this.submit());
-        row.appendChild(this.submitBtn);
-        form.appendChild(row);
-
+        // Status bar (errors, info)
         this.statusBar = document.createElement('div');
         this.statusBar.style.cssText = 'font-size:11px;color:#888;min-height:14px';
-        form.appendChild(this.statusBar);
+        this.el.appendChild(this.statusBar);
 
-        this.el.appendChild(form);
-
-        // ── Active jobs ────────────────────────────────────────────
+        // Active jobs list
         this.activeSection = document.createElement('div');
-        this.activeSection.style.cssText = 'margin-bottom:12px;display:none';
-
+        this.activeSection.style.cssText = 'display:none;flex-direction:column;gap:4px';
         const activeHeader = document.createElement('div');
         activeHeader.textContent = 'In flight';
-        activeHeader.style.cssText = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px';
+        activeHeader.style.cssText = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.4px';
         this.activeSection.appendChild(activeHeader);
-
         this.activeList = document.createElement('div');
         this.activeList.style.cssText = 'display:flex;flex-direction:column;gap:4px';
         this.activeSection.appendChild(this.activeList);
-
         this.el.appendChild(this.activeSection);
 
-        // ── Library grid ───────────────────────────────────────────
+        // Library
         const libHeader = document.createElement('div');
-        libHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px';
-
+        libHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between';
         const libTitle = document.createElement('div');
         libTitle.textContent = 'My Generations';
         libTitle.style.cssText = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.4px';
         libHeader.appendChild(libTitle);
-
         const refreshBtn = document.createElement('button');
         refreshBtn.textContent = '↻';
         refreshBtn.title = 'Refresh library';
@@ -196,56 +180,273 @@ export class ModelGenPanel {
 
         this.libraryGrid = document.createElement('div');
         this.libraryGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px';
-        this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">No generations yet. Try a prompt above.</div>';
+        this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">No generations yet.</div>';
         this.el.appendChild(this.libraryGrid);
+
+        this.renderForm();
     }
 
-    private async submit(): Promise<void> {
-        const prompt = this.promptInput.value.trim();
-        if (!prompt) { this.statusBar.textContent = 'Enter a prompt first.'; return; }
-        const quality = this.qualitySelect.value;
+    private makeModeButton(mode: Mode, label: string): HTMLButtonElement {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        btn.dataset.mode = mode;
+        btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#888;border-radius:4px;cursor:pointer;font-size:12px';
+        btn.addEventListener('click', () => this.setMode(mode));
+        return btn;
+    }
 
-        this.submitBtn.disabled = true;
-        this.statusBar.textContent = 'Submitting…';
+    private setMode(mode: Mode): void {
+        this.mode = mode;
+        this.step = 'idle';
+        this.currentPreviewUrl = null;
+        this.currentPrompt = null;
+        this.statusBar.textContent = '';
+        this.previewArea.style.display = 'none';
+        for (const el of Array.from(this.modeTabs.children) as HTMLButtonElement[]) {
+            const isActive = el.dataset.mode === mode;
+            el.style.background = isActive ? '#6366f1' : '#141420';
+            el.style.color = isActive ? '#fff' : '#888';
+            el.style.borderColor = isActive ? '#6366f1' : '#222';
+        }
+        this.renderForm();
+    }
 
-        try {
-            const resp = await api<any>('/generate', {
-                method: 'POST',
-                body: JSON.stringify({ prompt, quality }),
-            });
-            this.statusBar.textContent = '';
-            this.promptInput.value = '';
+    // ── Form (varies by mode) ────────────────────────────────────────
 
-            if (resp.cache_hit && resp.model) {
-                // Free, instant. Drop straight into the library.
-                this.statusBar.textContent = '✓ Found a matching shared model — added to library.';
-                setTimeout(() => { this.statusBar.textContent = ''; }, 4000);
-                this.refreshLibrary();
-                return;
-            }
+    private renderForm(): void {
+        this.formArea.innerHTML = '';
+        if (this.mode === 'text') this.renderTextForm();
+        else this.renderImageForm();
 
-            this.activeJobs.set(resp.job_id, {
-                job_id: resp.job_id,
-                status: 'queued',
-                queue_position: resp.queue_position,
-                prompt,
-            });
-            this.renderActive();
-            this.startPolling();
-        } catch (e: any) {
-            const msg = (e as any)?.payload?.message || e.message || 'Failed to submit.';
-            this.statusBar.textContent = `Error: ${msg}`;
-            if ((e as any).status === 404) this.featureUnavailable = true;
-        } finally {
-            this.submitBtn.disabled = false;
+        // Mode button styling
+        for (const el of Array.from(this.modeTabs.children) as HTMLButtonElement[]) {
+            const isActive = el.dataset.mode === this.mode;
+            el.style.background = isActive ? '#6366f1' : '#141420';
+            el.style.color = isActive ? '#fff' : '#888';
+            el.style.borderColor = isActive ? '#6366f1' : '#222';
         }
     }
+
+    private renderTextForm(): void {
+        const label = document.createElement('label');
+        label.textContent = 'Describe a 3D model:';
+        label.style.cssText = 'font-size:12px;color:#aaa';
+        this.formArea.appendChild(label);
+
+        const promptInput = document.createElement('textarea');
+        promptInput.placeholder = 'e.g. "wooden barrel", "low-poly tree", "anime sword"';
+        promptInput.maxLength = 300;
+        promptInput.rows = 2;
+        promptInput.value = this.currentPrompt ?? '';
+        promptInput.style.cssText = 'background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:8px;font-family:inherit;font-size:13px;resize:vertical';
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); previewBtn.click(); }
+        });
+        this.formArea.appendChild(promptInput);
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center';
+
+        const qLabel = document.createElement('span');
+        qLabel.textContent = 'Quality:';
+        qLabel.style.cssText = 'font-size:12px;color:#aaa';
+        row.appendChild(qLabel);
+
+        const qSelect = this.makeQualitySelect();
+        row.appendChild(qSelect);
+
+        const spacer = document.createElement('div');
+        spacer.style.flex = '1';
+        row.appendChild(spacer);
+
+        const previewBtn = document.createElement('button');
+        previewBtn.textContent = 'Preview Image';
+        previewBtn.style.cssText = 'background:#6366f1;color:#fff;border:0;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer';
+        previewBtn.addEventListener('click', async () => {
+            const prompt = promptInput.value.trim();
+            if (!prompt) { this.statusBar.textContent = 'Enter a prompt first.'; return; }
+            this.currentPrompt = prompt;
+            this.currentQuality = qSelect.value;
+            previewBtn.disabled = true;
+            this.statusBar.textContent = 'Generating preview…';
+            try {
+                const resp = await api<any>('/preview/text', {
+                    method: 'POST',
+                    body: JSON.stringify({ prompt, quality: qSelect.value }),
+                });
+                if (resp.cache_hit && resp.model) {
+                    this.statusBar.textContent = '✓ Found a matching shared model — added to library.';
+                    setTimeout(() => { this.statusBar.textContent = ''; }, 4000);
+                    this.refreshLibrary();
+                    return;
+                }
+                this.currentPreviewUrl = resp.preview_url;
+                this.step = 'previewed';
+                this.statusBar.textContent = '';
+                this.showPreview();
+            } catch (e: any) {
+                this.statusBar.textContent = `Error: ${e.message || 'preview failed'}`;
+            } finally {
+                previewBtn.disabled = false;
+            }
+        });
+        row.appendChild(previewBtn);
+        this.formArea.appendChild(row);
+    }
+
+    private renderImageForm(): void {
+        const label = document.createElement('label');
+        label.textContent = 'Upload an image of the subject:';
+        label.style.cssText = 'font-size:12px;color:#aaa';
+        this.formArea.appendChild(label);
+
+        const dropZone = document.createElement('label');
+        dropZone.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:120px;border:1px dashed #444;border-radius:6px;cursor:pointer;background:#0e0e18';
+        dropZone.innerHTML = '<div style="font-size:13px;color:#aaa">Click to choose or drag an image</div><div style="font-size:11px;color:#666">PNG, JPG, or WEBP — up to 8MB</div>';
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/png,image/jpeg,image/webp';
+        fileInput.style.display = 'none';
+        fileInput.addEventListener('change', () => this.handleImageUpload(fileInput.files?.[0]));
+        dropZone.appendChild(fileInput);
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#6366f1'; });
+        dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#444'; });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#444';
+            this.handleImageUpload(e.dataTransfer?.files?.[0]);
+        });
+
+        this.formArea.appendChild(dropZone);
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center';
+        const qLabel = document.createElement('span');
+        qLabel.textContent = 'Quality:';
+        qLabel.style.cssText = 'font-size:12px;color:#aaa';
+        row.appendChild(qLabel);
+        row.appendChild(this.makeQualitySelect());
+        this.formArea.appendChild(row);
+    }
+
+    private async handleImageUpload(file?: File | null): Promise<void> {
+        if (!file) return;
+        if (file.size > 8 * 1024 * 1024) {
+            this.statusBar.textContent = 'Image must be under 8MB.';
+            return;
+        }
+        this.statusBar.textContent = 'Uploading…';
+        try {
+            const resp = await uploadImage(file);
+            this.currentPreviewUrl = resp.preview_url;
+            this.currentPrompt = null;
+            this.step = 'previewed';
+            this.statusBar.textContent = '';
+            this.showPreview();
+        } catch (e: any) {
+            this.statusBar.textContent = `Error: ${e.message || 'upload failed'}`;
+        }
+    }
+
+    private makeQualitySelect(): HTMLSelectElement {
+        const sel = document.createElement('select');
+        sel.style.cssText = 'background:#0e0e18;border:1px solid #333;color:#e0e0e0;border-radius:4px;padding:4px 8px;font-size:12px';
+        for (const [v, l] of [['fast', 'Fast (~10s)'], ['standard', 'Standard (~50s)'], ['high', 'High (~70s)']]) {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = l;
+            if (v === this.currentQuality) opt.selected = true;
+            sel.appendChild(opt);
+        }
+        sel.addEventListener('change', () => { this.currentQuality = sel.value; });
+        return sel;
+    }
+
+    // ── Preview + confirm ────────────────────────────────────────────
+
+    private showPreview(): void {
+        this.previewArea.innerHTML = '';
+        this.previewArea.style.display = 'flex';
+
+        const label = document.createElement('div');
+        label.textContent = this.mode === 'text' ? 'Preview — confirm to generate the 3D model from this image:' : 'Preview — confirm to generate:';
+        label.style.cssText = 'font-size:12px;color:#aaa';
+        this.previewArea.appendChild(label);
+
+        const img = document.createElement('img');
+        img.src = this.currentPreviewUrl ?? '';
+        img.style.cssText = 'max-width:100%;max-height:280px;align-self:center;border-radius:6px;background:#0e0e18';
+        this.previewArea.appendChild(img);
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px';
+
+        const refineBtn = document.createElement('button');
+        refineBtn.textContent = this.mode === 'text' ? 'Refine prompt' : 'Choose different file';
+        refineBtn.style.cssText = 'flex:1;background:#222;color:#ccc;border:0;border-radius:4px;padding:8px;font-size:13px;cursor:pointer';
+        refineBtn.addEventListener('click', () => {
+            this.step = 'idle';
+            this.currentPreviewUrl = null;
+            this.previewArea.style.display = 'none';
+            this.statusBar.textContent = '';
+        });
+        row.appendChild(refineBtn);
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Confirm & Generate 3D';
+        confirmBtn.style.cssText = 'flex:1;background:#6366f1;color:#fff;border:0;border-radius:4px;padding:8px;font-size:13px;cursor:pointer';
+        confirmBtn.addEventListener('click', () => this.confirm());
+        row.appendChild(confirmBtn);
+        this.previewArea.appendChild(row);
+    }
+
+    private async confirm(): Promise<void> {
+        if (!this.currentPreviewUrl) return;
+        this.step = 'submitting';
+        this.statusBar.textContent = 'Submitting…';
+        try {
+            const body: any = {
+                preview_url: this.currentPreviewUrl,
+                quality: this.currentQuality,
+            };
+            if (this.currentPrompt) body.prompt = this.currentPrompt;
+            const resp = await api<any>('/generate', {
+                method: 'POST',
+                body: JSON.stringify(body),
+            });
+            if (resp.cache_hit && resp.model) {
+                this.statusBar.textContent = '✓ Found a matching shared model — added to library.';
+                this.refreshLibrary();
+            } else {
+                this.activeJobs.set(resp.job_id, {
+                    job_id: resp.job_id,
+                    status: 'queued',
+                    queue_position: resp.queue_position,
+                    prompt: this.currentPrompt,
+                });
+                this.renderActive();
+                this.startPolling();
+                this.statusBar.textContent = `Job queued${resp.queue_position != null ? ` — position #${resp.queue_position + 1}` : ''}.`;
+            }
+            // Reset form back to idle
+            this.step = 'idle';
+            this.currentPreviewUrl = null;
+            this.previewArea.style.display = 'none';
+            this.renderForm();
+        } catch (e: any) {
+            this.statusBar.textContent = `Error: ${e.message || 'submit failed'}`;
+            this.step = 'previewed';
+        }
+    }
+
+    // ── Polling + library (unchanged from v1) ─────────────────────────
 
     private startPolling(): void {
         if (this.pollTimer != null) return;
         this.pollTimer = window.setInterval(() => this.pollAll(), POLL_INTERVAL_MS);
     }
-
     private stopPolling(): void {
         if (this.pollTimer != null) { window.clearInterval(this.pollTimer); this.pollTimer = null; }
     }
@@ -289,7 +490,7 @@ export class ModelGenPanel {
             this.activeList.innerHTML = '';
             return;
         }
-        this.activeSection.style.display = '';
+        this.activeSection.style.display = 'flex';
         this.activeList.innerHTML = '';
         for (const j of this.activeJobs.values()) {
             const row = document.createElement('div');
@@ -302,7 +503,7 @@ export class ModelGenPanel {
             const detail = j.status === 'queued' && j.queue_position != null
                 ? `queue #${j.queue_position + 1}`
                 : (j.last_progress || j.status);
-            text.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '')}</span> <span style="color:#888">— ${escapeHtml(detail)}</span>`;
+            text.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '(uploaded image)')}</span> <span style="color:#888">— ${escapeHtml(detail)}</span>`;
             row.appendChild(text);
             this.activeList.appendChild(row);
         }
@@ -315,20 +516,18 @@ export class ModelGenPanel {
             this.renderLibrary();
         } catch (e: any) {
             if ((e as any).status === 404) {
-                this.featureUnavailable = true;
-                this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#888;font-size:12px;text-align:center;padding:24px;line-height:1.6">3D model generation isn\'t available on this backend.<br><span style="color:#666">Run the hosted server with the model_gen plugin enabled.</span></div>';
+                this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#888;font-size:12px;text-align:center;padding:24px;line-height:1.6">3D model generation isn\'t available on this backend.</div>';
             }
         }
     }
 
     private renderLibrary(): void {
         this.libraryGrid.innerHTML = '';
-        if (this.library.length === 0) {
-            this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">No generations yet. Try a prompt above.</div>';
+        const successful = this.library.filter(it => it.model);
+        if (successful.length === 0) {
+            this.libraryGrid.innerHTML = '<div style="grid-column:1/-1;color:#666;font-size:12px;text-align:center;padding:24px">No generations yet.</div>';
             return;
         }
-        // Show only successful items in the grid; in-flight jobs show in the active list above.
-        const successful = this.library.filter(it => it.model);
         for (const item of successful) this.libraryGrid.appendChild(this.buildLibraryCard(item));
     }
 
@@ -340,8 +539,6 @@ export class ModelGenPanel {
         card.draggable = true;
         card.style.cssText = 'background:#141420;border:1px solid #222;border-radius:6px;cursor:grab;overflow:hidden';
 
-        // Match the curated-asset drag payload shape so the existing scene
-        // drop handler doesn't need to know this came from generation.
         const dragAsset = {
             name: (item.prompt || 'generated').replace(/[^\w\-_ ]/g, '').trim().slice(0, 40) || 'generated',
             category: '3D Models',
@@ -367,7 +564,6 @@ export class ModelGenPanel {
         label.style.cssText = 'padding:4px 6px;font-size:11px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
         label.textContent = item.prompt || '—';
         card.appendChild(label);
-
         return card;
     }
 }
@@ -376,7 +572,6 @@ function escapeHtml(s: string): string {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-// One-time keyframes injection for the pulse animation.
 if (typeof document !== 'undefined' && !document.getElementById('mg-pulse-css')) {
     const style = document.createElement('style');
     style.id = 'mg-pulse-css';

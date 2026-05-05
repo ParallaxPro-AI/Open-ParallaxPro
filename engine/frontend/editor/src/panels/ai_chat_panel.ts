@@ -58,7 +58,10 @@ export class AiChatPanel {
     private readonly messagesContainer: HTMLElement;
     private readonly textarea: HTMLTextAreaElement;
     private readonly sendBtn: HTMLButtonElement;
-    private readonly sessionBtn: HTMLButtonElement;
+    /** Public so a wrapper (e.g. EditorView's ai-panel tabs) can hoist
+     *  this button into its own panel-header when constructed with
+     *  `headlessHeader: true`. */
+    readonly sessionBtn: HTMLButtonElement;
     private readonly sessionIdLabel: HTMLElement;
 
     private messages: ChatMessage[] = [];
@@ -124,14 +127,18 @@ export class AiChatPanel {
         return msg;
     };
 
-    constructor() {
+    constructor(options?: { headlessHeader?: boolean }) {
         this.ctx = EditorContext.instance;
         this.el = document.createElement('div');
         this.el.className = 'panel chat-panel';
 
         window.addEventListener('beforeunload', this.onBeforeUnload);
 
-        // Header
+        // Build the header DOM either way — sessionBtn must exist so
+        // headless callers (EditorView's tabs wrapper) can hoist it into
+        // their own panel-header. When `headlessHeader` is true we do NOT
+        // append the header div to this.el; the caller is responsible for
+        // putting the title + sessionBtn somewhere visible.
         const header = document.createElement('div');
         header.className = 'panel-header';
         header.style.position = 'relative';
@@ -148,7 +155,9 @@ export class AiChatPanel {
         this.sessionBtn.addEventListener('click', () => this.toggleSessionMenu());
         header.appendChild(this.sessionBtn);
 
-        this.el.appendChild(header);
+        if (!options?.headlessHeader) {
+            this.el.appendChild(header);
+        }
 
         // Messages
         this.messagesContainer = document.createElement('div');
@@ -1635,7 +1644,9 @@ export class AiChatPanel {
 
     // ── Session menu ────────────────────────────────────────────────
 
-    private toggleSessionMenu(): void {
+    /** Public so a wrapper that hoists sessionBtn into its own header can
+     *  re-bind the click — the original onClick still fires here unchanged. */
+    toggleSessionMenu(): void {
         if (this.sessionMenu) {
             this.closeSessionMenu();
         } else {
@@ -1695,8 +1706,13 @@ export class AiChatPanel {
             this.sessionMenu.appendChild(item);
         }
 
-        const header = this.el.querySelector('.panel-header') as HTMLElement;
-        if (header) header.appendChild(this.sessionMenu);
+        // Mount the dropdown next to whichever header actually owns the
+        // session button — this works whether the header lives inside
+        // this.el or has been hoisted into a wrapper (tabs panel).
+        const host = this.sessionBtn.parentElement
+            ?? (this.el.querySelector('.panel-header') as HTMLElement | null)
+            ?? this.el;
+        host.appendChild(this.sessionMenu);
     }
 
     private formatDate(dateStr: string): string {
