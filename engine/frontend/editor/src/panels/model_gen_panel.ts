@@ -40,6 +40,12 @@ interface ActiveJob {
     queue_position?: number;
     last_progress?: string | null;
     prompt: string | null;
+    /** Concatenated key (status + last_progress) of the current stage. When
+     *  this changes between polls, stage_started_at is reset so the timer
+     *  in the in-flight row reflects time-in-current-stage. */
+    stage_key?: string;
+    /** Wall-clock ms when the current stage was first observed. */
+    stage_started_at?: number;
 }
 
 const API_BASE = '/api/engine/models';
@@ -465,25 +471,52 @@ export class ModelGenPanel {
                 toRemove.push(j.job_id);
                 if (j.status === 'done') libraryDirty = true;
             } else {
+                const newKey = `${j.status}|${j.last_progress || ''}`;
+                const stageChanged = newKey !== existing.stage_key;
                 this.activeJobs.set(j.job_id, {
                     job_id: j.job_id,
                     status: j.status,
                     queue_position: j.queue_position,
                     last_progress: j.last_progress,
                     prompt: existing.prompt,
+                    stage_key: newKey,
+                    stage_started_at: stageChanged ? Date.now() : existing.stage_started_at,
                 });
             }
         }
         for (const id of toRemove) this.activeJobs.delete(id);
         this.renderActive();
         if (libraryDirty) this.refreshLibrary();
-        if (this.activeJobs.size === 0) this.stopPolling();
+        if (this.activeJobs.size === 0) {
+            this.stopPolling();
+            this.stopActiveTimerTick();
+        }
+    }
+
+    /** Stage classification mirrors the worker's progress() calls:
+     *    1/3  downloading source image
+     *    2/3  generating mesh
+     *    3/3  uploading
+     *  Plus queued/claimed which sit before stage 1. */
+    private stageInfo(j: ActiveJob): { label: string; index: number; total: number } | null {
+        const lp = (j.last_progress || '').toLowerCase();
+        if (j.status === 'queued') return { label: 'queued', index: 0, total: 3 };
+        if (j.status === 'claimed') return { label: 'starting', index: 0, total: 3 };
+        if (j.status === 'uploading') return { label: 'uploading', index: 3, total: 3 };
+        if (j.status === 'generating') {
+            if (lp.includes('download')) return { label: 'fetching image', index: 1, total: 3 };
+            if (lp.includes('running') || lp === '') return { label: 'generating mesh', index: 2, total: 3 };
+            return { label: lp || 'generating', index: 2, total: 3 };
+        }
+        if (j.status === 'orienting') return { label: 'orienting', index: 3, total: 3 };
+        return null;
     }
 
     private renderActive(): void {
         if (this.activeJobs.size === 0) {
             this.activeSection.style.display = 'none';
             this.activeList.innerHTML = '';
+            this.stopActiveTimerTick();
             return;
         }
         this.activeSection.style.display = 'flex';
@@ -496,12 +529,52 @@ export class ModelGenPanel {
             row.appendChild(dot);
             const text = document.createElement('span');
             text.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-            const detail = j.status === 'queued' && j.queue_position != null
-                ? `queue #${j.queue_position + 1}`
+            const stage = this.stageInfo(j);
+            const stageStr = stage
+                ? (stage.index === 0
+                    ? (j.status === 'queued' && j.queue_position != null ? `queue #${j.queue_position + 1}` : stage.label)
+                    : `[${stage.index}/${stage.total}] ${stage.label}`)
                 : (j.last_progress || j.status);
-            text.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '(uploaded image)')}</span> <span style="color:#888">— ${escapeHtml(detail)}</span>`;
+            const elapsed = j.stage_started_at ? Math.max(0, Math.floor((Date.now() - j.stage_started_at) / 1000)) : 0;
+            text.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '(uploaded image)')}</span> <span style="color:#888">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
             row.appendChild(text);
             this.activeList.appendChild(row);
+        }
+        // Tick the stage timer once per second so the "12s" updates without
+        // needing the 3s job poll. Cheap — just re-renders the rows.
+        this.startActiveTimerTick();
+    }
+
+    private activeTimerTimer: number | null = null;
+    private startActiveTimerTick(): void {
+        if (this.activeTimerTimer != null) return;
+        this.activeTimerTimer = window.setInterval(() => {
+            // Only re-render the elapsed numbers; nothing else changes
+            // between polls.
+            this.renderActiveLight();
+        }, 1000);
+    }
+    private stopActiveTimerTick(): void {
+        if (this.activeTimerTimer != null) { window.clearInterval(this.activeTimerTimer); this.activeTimerTimer = null; }
+    }
+    private renderActiveLight(): void {
+        // Re-build innerHTML only for the elapsed cells. Cheaper than
+        // tearing down and re-creating dot/animation/etc.
+        const rows = this.activeList.children;
+        let i = 0;
+        for (const j of this.activeJobs.values()) {
+            const row = rows[i++] as HTMLElement | undefined;
+            if (!row) break;
+            const span = row.children[1] as HTMLElement | undefined;
+            if (!span) continue;
+            const stage = this.stageInfo(j);
+            const stageStr = stage
+                ? (stage.index === 0
+                    ? (j.status === 'queued' && j.queue_position != null ? `queue #${j.queue_position + 1}` : stage.label)
+                    : `[${stage.index}/${stage.total}] ${stage.label}`)
+                : (j.last_progress || j.status);
+            const elapsed = j.stage_started_at ? Math.max(0, Math.floor((Date.now() - j.stage_started_at) / 1000)) : 0;
+            span.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '(uploaded image)')}</span> <span style="color:#888">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
         }
     }
 
