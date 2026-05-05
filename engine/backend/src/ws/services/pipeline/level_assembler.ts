@@ -341,8 +341,14 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
   if (def.mesh) {
     const meshData: any = {
       meshType: def.mesh.type || 'cube',
-      baseColor: def.mesh.color || [0.8, 0.2, 0.2, 1],
     };
+    // Custom GLBs carry their own materials (baseColorFactor + atlasBaseColors);
+    // a default tint here multiplies on top and produces a red wash post-save.
+    if (def.mesh.color) {
+      meshData.baseColor = def.mesh.color;
+    } else if (!isCustomMesh) {
+      meshData.baseColor = [0.8, 0.2, 0.2, 1];
+    }
     if (isCustomMesh) meshData.meshAsset = def.mesh.asset;
     if (def.mesh.modelRotationX) meshData.modelRotationX = def.mesh.modelRotationX;
     if (def.mesh.modelRotationY) meshData.modelRotationY = def.mesh.modelRotationY;
