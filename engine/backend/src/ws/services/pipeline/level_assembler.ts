@@ -370,8 +370,26 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     } });
   }
 
-  // Physics — auto-assigned for all mesh entities (skip cameras)
-  if (def.mesh && !tagSet.has('camera') && def.physics !== false) {
+  // Physics — auto-assigned for all mesh entities (skip cameras).
+  //
+  // Opt-out gates, in order:
+  //   1. `physics: false` or `physics: null` — explicit author opt-out.
+  //   2. `tags: ["decoration_only"]` with no `physics` field — semantic
+  //      opt-out. The `_only` suffix means "purely visual, no collision";
+  //      this is how all 274 decoration_only entities in shipped templates
+  //      already pair with `physics: false`. Authors who write the tag but
+  //      forget the explicit `false` (e.g. AI-generated skybox mountains
+  //      and distant ridges) used to get a default static box collider
+  //      anyway, and a tight AABB box around a tall thin cone reads as a
+  //      "way too big" collider that the user can't walk into but the
+  //      gizmo still draws over the silhouette.
+  //   `tags: ["decoration"]` (without `_only`) is intentionally NOT opted
+  //   out — rocks, crates, stadium stands, etc. legitimately want
+  //   collision and rely on the auto-fit default.
+  const physicsOptOut = def.physics === false
+    || def.physics === null
+    || (def.physics === undefined && tagSet.has('decoration_only'));
+  if (def.mesh && !tagSet.has('camera') && !physicsOptOut) {
     const p = def.physics || {};
     components.push({ type: 'RigidbodyComponent', data: {
       bodyType: p.type || 'static',
