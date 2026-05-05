@@ -493,22 +493,26 @@ export class ModelGenPanel {
         }
     }
 
-    /** Stage classification mirrors the worker's progress() calls:
-     *    1/3  downloading source image
-     *    2/3  generating mesh
-     *    3/3  uploading
-     *  Plus queued/claimed which sit before stage 1. */
+    /** Stage classification, 1..5:
+     *    1  queued
+     *    2  starting (worker just claimed)
+     *    3  fetching source image
+     *    4  generating mesh (TRELLIS)
+     *    5  uploading
+     *  Each transition resets stage_started_at so the per-stage timer
+     *  restarts from 0s. */
     private stageInfo(j: ActiveJob): { label: string; index: number; total: number } | null {
         const lp = (j.last_progress || '').toLowerCase();
-        if (j.status === 'queued') return { label: 'queued', index: 0, total: 3 };
-        if (j.status === 'claimed') return { label: 'starting', index: 0, total: 3 };
-        if (j.status === 'uploading') return { label: 'uploading', index: 3, total: 3 };
+        const T = 5;
+        if (j.status === 'queued') return { label: 'queued', index: 1, total: T };
+        if (j.status === 'claimed') return { label: 'starting', index: 2, total: T };
+        if (j.status === 'uploading') return { label: 'uploading', index: 5, total: T };
+        if (j.status === 'orienting') return { label: 'orienting', index: 5, total: T };
         if (j.status === 'generating') {
-            if (lp.includes('download')) return { label: 'fetching image', index: 1, total: 3 };
-            if (lp.includes('running') || lp === '') return { label: 'generating mesh', index: 2, total: 3 };
-            return { label: lp || 'generating', index: 2, total: 3 };
+            if (lp.includes('download')) return { label: 'fetching image', index: 3, total: T };
+            if (lp.includes('running') || lp === '') return { label: 'generating mesh', index: 4, total: T };
+            return { label: lp || 'generating', index: 4, total: T };
         }
-        if (j.status === 'orienting') return { label: 'orienting', index: 3, total: 3 };
         return null;
     }
 
@@ -530,10 +534,10 @@ export class ModelGenPanel {
             const text = document.createElement('span');
             text.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
             const stage = this.stageInfo(j);
+            const queuedHint = (stage && stage.index === 1 && j.queue_position != null && j.queue_position > 0)
+                ? ` (#${j.queue_position + 1})` : '';
             const stageStr = stage
-                ? (stage.index === 0
-                    ? (j.status === 'queued' && j.queue_position != null ? `queue #${j.queue_position + 1}` : stage.label)
-                    : `[${stage.index}/${stage.total}] ${stage.label}`)
+                ? `[${stage.index}/${stage.total}] ${stage.label}${queuedHint}`
                 : (j.last_progress || j.status);
             const elapsed = j.stage_started_at ? Math.max(0, Math.floor((Date.now() - j.stage_started_at) / 1000)) : 0;
             text.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '(uploaded image)')}</span> <span style="color:#888">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
@@ -568,10 +572,10 @@ export class ModelGenPanel {
             const span = row.children[1] as HTMLElement | undefined;
             if (!span) continue;
             const stage = this.stageInfo(j);
+            const queuedHint = (stage && stage.index === 1 && j.queue_position != null && j.queue_position > 0)
+                ? ` (#${j.queue_position + 1})` : '';
             const stageStr = stage
-                ? (stage.index === 0
-                    ? (j.status === 'queued' && j.queue_position != null ? `queue #${j.queue_position + 1}` : stage.label)
-                    : `[${stage.index}/${stage.total}] ${stage.label}`)
+                ? `[${stage.index}/${stage.total}] ${stage.label}${queuedHint}`
                 : (j.last_progress || j.status);
             const elapsed = j.stage_started_at ? Math.max(0, Math.floor((Date.now() - j.stage_started_at) / 1000)) : 0;
             span.innerHTML = `<span style="color:#e0e0e0">${escapeHtml(j.prompt || '(uploaded image)')}</span> <span style="color:#888">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
