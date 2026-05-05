@@ -3,6 +3,7 @@ import { TabsWidget } from '../widgets/tabs.js';
 import { MeshRendererComponent } from '../../../runtime/function/framework/components/mesh_renderer_component.js';
 import { AudioSourceComponent } from '../../../runtime/function/framework/components/audio_source_component.js';
 import { ProfilerPanel } from './profiler_panel.js';
+import { ModelGenPanel } from './model_gen_panel.js';
 import { t } from '../i18n/index.js';
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -128,6 +129,7 @@ export class AssetsPanel {
     private ctx: EditorContext;
     private tabs: TabsWidget;
     private profiler: ProfilerPanel;
+    private modelGen: ModelGenPanel;
 
     constructor() {
         this.ctx = EditorContext.instance;
@@ -143,14 +145,19 @@ export class AssetsPanel {
         this.el.appendChild(header);
 
         this.profiler = new ProfilerPanel();
+        this.modelGen = new ModelGenPanel();
 
         this.tabs = new TabsWidget();
         this.tabs.setTabs([
             { id: 'files', label: t('assets.projectFiles'), content: this.buildProjectFilesTab() },
             { id: 'library', label: t('assets.assetLibrary'), content: this.buildAssetLibraryTab() },
+            { id: 'generate', label: 'AI Generate', content: this.modelGen.el },
             { id: 'gameflow', label: t('assets.fsm'), content: this.buildGameFlowTab() },
             { id: 'profiler', label: t('assets.performance'), content: this.profiler.el },
         ]);
+        // Lazy-load library on first show so the panel doesn't hit /api/engine/models
+        // on every editor mount.
+        this.tabs.onChange(id => { if (id === 'generate') this.modelGen.onShow(); });
         this.el.appendChild(this.tabs.el);
     }
 
