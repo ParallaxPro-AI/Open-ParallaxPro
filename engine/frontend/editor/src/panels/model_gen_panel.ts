@@ -610,11 +610,50 @@ export class ModelGenPanel {
             const elapsed = j.stage_started_at ? Math.max(0, Math.floor((Date.now() - j.stage_started_at) / 1000)) : 0;
             text.innerHTML = `${escapeHtml(j.prompt || t('modelGen.active.uploadedImage'))} <span class="mg-job-stage">— ${escapeHtml(stageStr)} · ${elapsed}s</span>`;
             row.appendChild(text);
+
+            // Cancel control — only while status is still 'queued' (no
+            // worker has it yet). After a worker claims the job, GPU
+            // time is being spent and it's too late to refund — the
+            // server returns 409 to enforce that, but we hide the
+            // button proactively to avoid the user pressing it in vain.
+            if (j.status === 'queued') {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.type = 'button';
+                cancelBtn.className = 'mg-job-cancel';
+                cancelBtn.textContent = '✕';
+                cancelBtn.title = 'Cancel — only works while still queued';
+                cancelBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.cancelJob(j.job_id);
+                });
+                row.appendChild(cancelBtn);
+            }
             this.activeList.appendChild(row);
         }
         // Tick the stage timer once per second so the "12s" updates without
         // needing the 3s job poll. Cheap — just re-renders the rows.
         this.startActiveTimerTick();
+    }
+
+    private async cancelJob(jobId: string): Promise<void> {
+        try {
+            await api(`/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
+            // Optimistic local removal — server has flipped status to
+            // 'canceled', the next /library poll won't include it.
+            this.activeJobs.delete(jobId);
+            this.renderActive();
+            this.statusBar.textContent = 'Canceled.';
+        } catch (e: any) {
+            if (e?.status === 409) {
+                // Worker claimed between render and click. Show a
+                // gentle hint and re-poll so the row flips out of the
+                // "queued + cancellable" state on the next render.
+                this.statusBar.textContent = 'Too late — a worker just started this job.';
+                this.pollAll();
+            } else {
+                this.statusBar.textContent = `Cancel failed: ${e?.message ?? e}`;
+            }
+        }
     }
 
     private activeTimerTimer: number | null = null;

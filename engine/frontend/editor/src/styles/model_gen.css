@@ -271,6 +271,27 @@
 
 .mg-job-text .mg-job-stage { color: var(--text-secondary); }
 
+/* Cancel button on a queued job row. Visible only while status is
+ * 'queued'; once a worker picks the job up the renderer omits it. */
+.mg-job-cancel {
+    flex: none;
+    padding: 0 6px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-disabled);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    height: 18px;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.mg-job-cancel:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
 @keyframes mg-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
