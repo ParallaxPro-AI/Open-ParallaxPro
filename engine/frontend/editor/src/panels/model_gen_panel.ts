@@ -500,10 +500,13 @@ export class ModelGenPanel {
      *    1  queued
      *    2  starting (worker just claimed)
      *    3  fetching source image
-     *    4  generating mesh (TRELLIS)
+     *    4  generating
      *    5  uploading
-     *  Each transition resets stage_started_at so the per-stage timer
-     *  restarts from 0s. */
+     *
+     *  Status can move BACKWARDS too: if the worker drops mid-job, the
+     *  reaper requeues it (status: generating → queued, worker_id null)
+     *  and the next poll surfaces stage 1 again. This is a feature, not
+     *  a bug — show the user where the job actually is right now. */
     private stageInfo(j: ActiveJob): { label: string; index: number; total: number } | null {
         const lp = (j.last_progress || '').toLowerCase();
         const T = 5;
@@ -513,7 +516,7 @@ export class ModelGenPanel {
         if (j.status === 'orienting') return { label: 'orienting', index: 5, total: T };
         if (j.status === 'generating') {
             if (lp.includes('download')) return { label: 'fetching image', index: 3, total: T };
-            if (lp.includes('running') || lp === '') return { label: 'generating mesh', index: 4, total: T };
+            if (lp.includes('running') || lp === '') return { label: 'generating', index: 4, total: T };
             return { label: lp || 'generating', index: 4, total: T };
         }
         return null;
@@ -537,7 +540,10 @@ export class ModelGenPanel {
             const text = document.createElement('span');
             text.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
             const stage = this.stageInfo(j);
-            const queuedHint = (stage && stage.index === 1 && j.queue_position != null && j.queue_position > 0)
+            // Always show position when queued (#1, #2, ...). When 0
+            // jobs are ahead this is "#1", which is more honest than
+            // hiding the indicator.
+            const queuedHint = (stage && stage.index === 1 && j.queue_position != null)
                 ? ` (#${j.queue_position + 1})` : '';
             const stageStr = stage
                 ? `[${stage.index}/${stage.total}] ${stage.label}${queuedHint}`
@@ -575,7 +581,10 @@ export class ModelGenPanel {
             const span = row.children[1] as HTMLElement | undefined;
             if (!span) continue;
             const stage = this.stageInfo(j);
-            const queuedHint = (stage && stage.index === 1 && j.queue_position != null && j.queue_position > 0)
+            // Always show position when queued (#1, #2, ...). When 0
+            // jobs are ahead this is "#1", which is more honest than
+            // hiding the indicator.
+            const queuedHint = (stage && stage.index === 1 && j.queue_position != null)
                 ? ` (#${j.queue_position + 1})` : '';
             const stageStr = stage
                 ? `[${stage.index}/${stage.total}] ${stage.label}${queuedHint}`
