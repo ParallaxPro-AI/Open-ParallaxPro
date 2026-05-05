@@ -185,11 +185,15 @@ else {
         if (typeof r.vertices === 'number') vc = '  [' + fmtVerts(r.vertices) + ']';
         // Community/AI-generated assets have opaque random-hex paths that
         // tell the AI nothing — surface the original prompt as the
-        // readable label so it can pick the right one.
+        // readable label so it can pick the right one. No surrounding
+        // quotes: the entire script body is wrapped in a bash double-
+        // quoted node -e arg, and a literal " inside the JS would
+        // terminate the bash string and break parsing further down.
         var desc = '';
         if (typeof r.description === 'string' && r.description.length > 0) {
-            var d = r.description.length > 120 ? r.description.slice(0, 117) + '...' : r.description;
-            desc = '  — "' + d.replace(/"/g, '\\\\"') + '"';
+            var d = r.description.replace(/[\\r\\n]+/g, ' ');
+            if (d.length > 120) d = d.slice(0, 117) + '...';
+            desc = '  -- ' + d;
         }
         console.log('  ' + r.path + '  (' + r.category + ', ' + r.pack + ')' + sz + vc + desc);
     }
