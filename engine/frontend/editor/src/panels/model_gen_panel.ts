@@ -165,11 +165,15 @@ export class ModelGenPanel {
             '<b>All generations are public.</b> Your prompt and the resulting model are visible to other users. Don\'t include personal info or copyrighted work.';
         this.el.appendChild(notice);
 
-        // Mode tabs (Text / Image)
+        // Mode tabs (Text / Image). Image is disabled for now — TRELLIS.2's
+        // image-to-3D pipeline is wired up but we want to ship text-only first
+        // (avoids a second NSFW classifier round-trip on every upload + lets
+        // us validate generations end-to-end before users can upload arbitrary
+        // images). Re-enable by removing the disabled flag.
         this.modeTabs = document.createElement('div');
         this.modeTabs.style.cssText = 'display:flex;gap:6px';
         const textBtn = this.makeModeButton('text', 'From Text');
-        const imageBtn = this.makeModeButton('image', 'From Image');
+        const imageBtn = this.makeModeButton('image', 'From Image', true);
         this.modeTabs.appendChild(textBtn);
         this.modeTabs.appendChild(imageBtn);
         this.el.appendChild(this.modeTabs);
@@ -245,12 +249,25 @@ export class ModelGenPanel {
         this.renderForm();
     }
 
-    private makeModeButton(mode: Mode, label: string): HTMLButtonElement {
+    private makeModeButton(mode: Mode, label: string, disabled = false): HTMLButtonElement {
         const btn = document.createElement('button');
-        btn.textContent = label;
         btn.dataset.mode = mode;
-        btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#888;border-radius:4px;cursor:pointer;font-size:12px';
-        btn.addEventListener('click', () => this.setMode(mode));
+        if (disabled) {
+            // Visually-present-but-unclickable state. The blur+opacity makes
+            // it obviously inert without removing it from the tab bar — users
+            // can still see the feature is on the roadmap.
+            btn.innerHTML = `${label} <span style="opacity:0.7;font-size:10px;margin-left:4px">· coming soon</span>`;
+            btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#666;border-radius:4px;cursor:not-allowed;font-size:12px;filter:blur(0.4px);opacity:0.55';
+            btn.title = 'Image-to-3D is rolling out soon — text-to-3D for now';
+            btn.addEventListener('click', () => {
+                this.statusBar.textContent = 'Image-to-3D coming soon — use text-to-3D for now';
+                this.statusBar.style.color = '#fbbf24';
+            });
+        } else {
+            btn.textContent = label;
+            btn.style.cssText = 'flex:1;padding:6px 10px;background:#141420;border:1px solid #222;color:#888;border-radius:4px;cursor:pointer;font-size:12px';
+            btn.addEventListener('click', () => this.setMode(mode));
+        }
         return btn;
     }
 
