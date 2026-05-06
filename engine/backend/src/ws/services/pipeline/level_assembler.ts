@@ -432,22 +432,6 @@ function buildEntity(config: EntityBuildConfig, nextId: { value: number }): any[
     } else {
       colData = buildColliderData(meshFallbackShape, null);
     }
-    // Force `mesh` shape for AI-generated community GLBs. Their silhouettes
-    // are irregular (cars with mirrors/spoilers, characters with outstretched
-    // limbs, props with thin spires) so an auto-fit box AABB adds huge
-    // invisible collision around empty space — players bump into nothing,
-    // projectiles stop mid-air. CREATOR/FIXER prompts teach the rule, this is
-    // the structural backstop in case the agent authors box/sphere/capsule
-    // anyway. Trigger flag is preserved.
-    if (isCustomMesh && typeof def.mesh?.asset === 'string' && def.mesh.asset.startsWith('/assets/generated/')) {
-      if (colData.shapeType !== 'mesh') {
-        console.warn(
-          `[level_assembler] Forcing collider shape to 'mesh' for AI-generated GLB ${def.mesh.asset} ` +
-          `(authored '${colData.shapeType}'). /assets/generated/* paths require triangle-hull colliders.`,
-        );
-        colData.shapeType = 'mesh';
-      }
-    }
     if (p.is_trigger) colData.isTrigger = true;
     components.push({ type: 'ColliderComponent', data: colData });
   }

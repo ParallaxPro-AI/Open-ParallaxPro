@@ -217,11 +217,11 @@ For `custom` meshes:
 
 Treat them exactly like pack assets: drop the path into `mesh.asset`, omit `scale`, omit rotation. The label is the generator's prompt — use it to confirm a result actually matches what you searched for (a "soldier" search might return a tangentially-relevant generated model; the label tells you for sure).
 
-**Collider rule for `/assets/generated/*` — always `"collider": "mesh"`.** AI-generated GLBs have irregular silhouettes (cars with mirrors and spoilers, characters with outstretched limbs, props with thin spires). The default `box` shape would auto-fit to the loose AABB and add huge invisible collision volume around the empty space — players bump into nothing, projectiles stop in mid-air. Use the exact triangle hull instead. The assembler enforces this server-side (any other shape on a `/assets/generated/*` path is rewritten to `mesh` with a stderr warning), but author it correctly up front so the JSON matches what runs:
+**Collider rule for `/assets/generated/*` — always `"collider": "mesh"`.** AI-generated GLBs have irregular silhouettes (cars with mirrors and spoilers, characters with outstretched limbs, props with thin spires). The default `box` shape would auto-fit to the loose AABB and add huge invisible collision volume around the empty space — players bump into nothing, projectiles stop in mid-air. Use the exact triangle hull instead:
 ```json
 "physics": { "type": "static", "collider": "mesh" }
 ```
-Holds for static and kinematic bodies. Avoid generated GLBs for `dynamic` rigidbodies — Rapier's mesh shape isn't supported on dynamic bodies; if you need a moving generated prop, swap to a pack asset with a clean shape.
+`validate.sh` emits a non-fatal `generated-glb-non-mesh-collider` warning for any `/assets/generated/*` entity authored with `box` / `sphere` / `capsule` — fix the JSON when you see it. Holds for static and kinematic bodies. Avoid generated GLBs for `dynamic` rigidbodies — Rapier's mesh shape isn't supported on dynamic bodies; if you need a moving generated prop, swap to a pack asset with a clean shape.
 
 If the user prepended an `[Attached 3D models]` block to their message, **use those paths first** — they pinned them specifically. Search for additional assets only if the pinned set doesn't cover what the game needs.
 
@@ -1689,8 +1689,8 @@ uses — based on how the entity should behave under collision:
   static world geometry where the AABB box would obviously be wrong (terrain
   meshes, complex level geometry) **and required for any `/assets/generated/*`
   AI-generated GLB** (irregular silhouettes — see Community / AI-generated
-  assets above; the assembler force-rewrites other shapes to `mesh` for these
-  paths and logs a warning). Never on dynamic bodies.
+  assets above; `validate.sh` warns when a generated path is authored with
+  `box` / `sphere` / `capsule`). Never on dynamic bodies.
 
 Object form is only useful for the trigger flag:
 

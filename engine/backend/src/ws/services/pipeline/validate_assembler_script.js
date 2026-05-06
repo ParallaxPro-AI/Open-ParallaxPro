@@ -1639,6 +1639,66 @@ function extractMethodBody(src, name) {
 
 
 // ═════════════════════════════════════════════════════════════════════
+// 12d. AI-generated GLB with non-mesh collider — loose AABB ghost-walls
+// ═════════════════════════════════════════════════════════════════════
+// AI-generated community GLBs at /assets/generated/* have irregular
+// silhouettes (cars with mirrors/spoilers, characters with outstretched
+// limbs, props with thin spires). The auto-fit `box` collider tracks the
+// loose AABB and adds a chunky invisible volume around the empty space
+// outside the model — players bump into nothing, projectiles stop
+// mid-air. Same applies to sphere/capsule on irregular hulls. Use the
+// triangle hull instead: `physics.collider: "mesh"`.
+//
+// Warning, not error — same reasoning as 12 / 12c: pre-existing
+// projects authored before this rule shouldn't put cli_fixer into a
+// fail loop on an 02_entities.json it isn't otherwise touching.
+//
+// Static/kinematic only — Rapier mesh shapes aren't valid on dynamic
+// rigidbodies. If a generated GLB needs to be dynamic, swap to a pack
+// asset with a clean primitive shape; the warning still fires so the
+// agent sees the conflict and changes the asset.
+(function warnGeneratedAssetWithNonMeshCollider() {
+    var warnings = [];
+    var defKeys = Object.keys(defs);
+    for (var di = 0; di < defKeys.length; di++) {
+        var key = defKeys[di];
+        var def = defs[key];
+        if (!def || def.physics === false || !def.mesh) continue;
+        if (def.mesh.type !== 'custom') continue;
+        var asset = def.mesh.asset;
+        if (typeof asset !== 'string' || asset.indexOf('/assets/generated/') !== 0) continue;
+        var col = def.physics && def.physics.collider;
+        var actualShape = (typeof col === 'string') ? col
+                        : (col && typeof col === 'object') ? (col.shape || col.shapeType)
+                        : null;
+        // No physics block / no collider field → assembler defaults custom
+        // meshes to 'mesh' shape already (level_assembler.ts meshFallbackShape),
+        // so silence is correct. Only warn when a non-mesh shape was authored.
+        if (!actualShape || actualShape === 'mesh') continue;
+        warnings.push(
+            'entity "' + key + '" uses AI-generated GLB ' + asset +
+            ' but physics.collider="' + actualShape + '" — switch to "mesh". ' +
+            'Generated models have irregular silhouettes; an auto-fit ' + actualShape +
+            ' AABB adds invisible collision around the empty space outside the ' +
+            'visible model (players bump into nothing, projectiles stop mid-air). ' +
+            'Use `"collider": "mesh"` for static/kinematic; if this body must be ' +
+            'dynamic, swap to a pack asset with a clean shape (Rapier mesh shapes ' +
+            'aren\'t valid on dynamic bodies).'
+        );
+    }
+    if (warnings.length > 0) {
+        console.warn(
+            '[validate-assembler] ' + warnings.length +
+            ' generated-glb-non-mesh-collider warning' + (warnings.length > 1 ? 's' : '') +
+            ' (non-fatal):\n  - ' +
+            warnings.slice(0, 3).join('\n  - ') +
+            (warnings.length > 3 ? '\n  - ...(+' + (warnings.length - 3) + ' more)' : ''),
+        );
+    }
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════
 // 12b. decoration_only on physical geometry (no collider) — bug class
 // ═════════════════════════════════════════════════════════════════════
 // `decoration_only` is the agent's escape hatch for "no collision needed —
