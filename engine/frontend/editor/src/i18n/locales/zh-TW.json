@@ -478,8 +478,8 @@
       "tooLong": "剪輯過長({s}秒 > {max}秒)。"
     },
     "record": {
-      "btnStart": "● 錄製",
-      "btnStop": "■ 停止",
+      "btnStart": "錄製",
+      "btnStop": "停止",
       "hint": "錄製將在 10 秒後自動停止。再次點擊可提前停止。",
       "micDenied": "麥克風存取被拒絕:{reason}",
       "recorderUnavailable": "錄音器無法使用:{reason}",

@@ -478,8 +478,8 @@
       "tooLong": "クリップが長すぎます({s}秒 > {max}秒)。"
     },
     "record": {
-      "btnStart": "● 録音",
-      "btnStop": "■ 停止",
+      "btnStart": "録音",
+      "btnStop": "停止",
       "hint": "10秒で自動停止します。再度クリックで早めに停止。",
       "micDenied": "マイクへのアクセスが拒否されました: {reason}",
       "recorderUnavailable": "レコーダーが利用できません: {reason}",

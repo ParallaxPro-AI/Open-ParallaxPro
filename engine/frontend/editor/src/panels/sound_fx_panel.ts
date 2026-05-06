@@ -18,6 +18,7 @@
 
 import { AudioListenerComponent } from '../../../runtime/function/framework/components/audio_listener_component.js';
 import { t } from '../i18n/index.js';
+import { icon, Volume2, Trash2, RefreshCw, Mic, Square } from '../widgets/icons.js';
 
 const API_BASE = '/api/engine/sfx';
 const MAX_DURATION_MS = 10_000;
@@ -203,9 +204,10 @@ export class SoundFxPanel {
         libTitle.style.padding = '4px 8px';
         libHeader.appendChild(libTitle);
         const refreshBtn = document.createElement('button');
-        refreshBtn.textContent = '↻';
         refreshBtn.title = t('soundFx.library.refresh');
         refreshBtn.className = 'mg-lib-refresh';
+        refreshBtn.style.cssText += 'display:inline-flex;align-items:center;justify-content:center;';
+        refreshBtn.appendChild(icon(RefreshCw, 14));
         refreshBtn.addEventListener('click', () => this.refreshLibrary());
         libHeader.appendChild(refreshBtn);
         this.el.appendChild(libHeader);
@@ -319,9 +321,9 @@ export class SoundFxPanel {
         wrap.style.padding = '20px 8px';
 
         const recBtn = document.createElement('button');
-        recBtn.textContent = t('soundFx.record.btnStart');
         recBtn.className = 'primary';
-        recBtn.style.cssText = 'padding:10px 22px;font-size:14px;border-radius:999px;cursor:pointer;';
+        recBtn.style.cssText = 'padding:10px 22px;font-size:14px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;';
+        this.renderRecordBtn(recBtn, /*recording=*/false);
         wrap.appendChild(recBtn);
 
         const timerEl = document.createElement('span');
@@ -373,11 +375,23 @@ export class SoundFxPanel {
         }, MAX_DURATION_MS);
 
         this.recording = { stream, recorder, chunks, startedAt, timerId, autoStopId, recBtn, timerEl };
-        recBtn.textContent = t('soundFx.record.btnStop');
+        this.renderRecordBtn(recBtn, /*recording=*/true);
         recBtn.classList.add('recording');
         this.statusBar.textContent = '';
 
         recorder.start();
+    }
+
+    /** Re-render the record button with the right icon + label for the
+     *  current state. Idle = mic icon + "Record"; recording = stop icon
+     *  + "Stop". Replaces the inner content so the click handler binding
+     *  on the button itself stays intact. */
+    private renderRecordBtn(btn: HTMLButtonElement, recording: boolean): void {
+        btn.innerHTML = '';
+        btn.appendChild(icon(recording ? Square : Mic, 14));
+        const text = document.createElement('span');
+        text.textContent = recording ? t('soundFx.record.btnStop') : t('soundFx.record.btnStart');
+        btn.appendChild(text);
     }
 
     private async stopRecording(save: boolean): Promise<void> {
@@ -400,7 +414,7 @@ export class SoundFxPanel {
         // banner up and Chrome shows a persistent mic indicator.
         r.stream.getTracks().forEach(track => track.stop());
 
-        r.recBtn.textContent = t('soundFx.record.btnStart');
+        this.renderRecordBtn(r.recBtn, /*recording=*/false);
         r.recBtn.classList.remove('recording');
         const elapsedMs = performance.now() - r.startedAt;
         r.timerEl.textContent = `0.0 / ${(MAX_DURATION_MS / 1000).toFixed(1)}s`;
@@ -587,11 +601,11 @@ export class SoundFxPanel {
         card.className = 'mg-lib-card';
         card.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:8px;';
 
-        // Top row: 🔊 icon thumbnail + duration badge.
+        // Top row: speaker icon thumbnail + duration badge.
         const thumb = document.createElement('div');
         thumb.className = 'mg-lib-card-thumb';
-        thumb.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:32px;background:var(--bg-secondary);border-radius:4px;height:80px;position:relative;';
-        thumb.textContent = '🔊';
+        thumb.style.cssText = 'display:flex;align-items:center;justify-content:center;background:var(--bg-secondary);border-radius:4px;height:80px;position:relative;color:var(--text-secondary);';
+        thumb.appendChild(icon(Volume2, 32));
 
         const durBadge = document.createElement('span');
         durBadge.textContent = `${(row.duration_ms / 1000).toFixed(1)}s`;
@@ -643,9 +657,9 @@ export class SoundFxPanel {
         const actions = document.createElement('div');
         actions.style.cssText = 'display:flex;justify-content:flex-end;';
         const delBtn = document.createElement('button');
-        delBtn.textContent = '🗑';
         delBtn.title = t('soundFx.library.deleteTooltip');
-        delBtn.style.cssText = 'background:transparent;border:0;cursor:pointer;color:var(--text-secondary);font-size:14px;padding:2px 6px;';
+        delBtn.style.cssText = 'background:transparent;border:0;cursor:pointer;color:var(--text-secondary);padding:2px 6px;display:inline-flex;align-items:center;';
+        delBtn.appendChild(icon(Trash2, 14));
         delBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (!window.confirm(t('soundFx.library.deleteConfirm').replace('{label}', row.label))) return;

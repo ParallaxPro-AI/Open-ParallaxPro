@@ -478,8 +478,8 @@
       "tooLong": "Clipe muito longo ({s}s > {max}s)."
     },
     "record": {
-      "btnStart": "● Gravar",
-      "btnStop": "■ Parar",
+      "btnStart": "Gravar",
+      "btnStop": "Parar",
       "hint": "A gravação para automaticamente em 10s. Clique de novo para parar antes.",
       "micDenied": "Acesso ao microfone negado: {reason}",
       "recorderUnavailable": "Gravador indisponível: {reason}",

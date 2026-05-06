@@ -479,8 +479,8 @@
       "tooLong": "Clip too long ({s}s > {max}s)."
     },
     "record": {
-      "btnStart": "● Record",
-      "btnStop": "■ Stop",
+      "btnStart": "Record",
+      "btnStop": "Stop",
       "hint": "Recording auto-stops at 10s. Click again to stop early.",
       "micDenied": "Microphone access denied: {reason}",
       "recorderUnavailable": "Recorder unavailable: {reason}",

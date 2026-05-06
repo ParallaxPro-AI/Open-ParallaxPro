@@ -8,6 +8,7 @@ import {
     MousePointer2, Crosshair, Grid3x3, FolderOpen, File, FileCode,
     Send, MoreVertical, X, LogIn, LogOut, ExternalLink,
     ThumbsUp, ThumbsDown, RefreshCw,
+    Mic, Upload,
 } from 'lucide';
 
 /**
@@ -34,4 +35,5 @@ export {
     MousePointer2, Crosshair, Grid3x3, FolderOpen, File, FileCode,
     Send, MoreVertical, X, LogIn, LogOut, ExternalLink,
     ThumbsUp, ThumbsDown, RefreshCw,
+    Mic, Upload,
 };

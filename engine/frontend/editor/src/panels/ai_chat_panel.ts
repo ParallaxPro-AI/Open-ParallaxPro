@@ -1,5 +1,5 @@
 import { EditorContext } from '../editor_context.js';
-import { icon, ThumbsUp, ThumbsDown, RefreshCw, X } from '../widgets/icons.js';
+import { icon, ThumbsUp, ThumbsDown, RefreshCw, X, Volume2 } from '../widgets/icons.js';
 import { showModal } from '../widgets/modal.js';
 import { t } from '../i18n/index.js';
 
@@ -472,14 +472,15 @@ export class AiChatPanel {
             el.className = 'chat-chip';
             el.title = chip.prompt;
 
-            // Audio chips have no thumbnail — show a 🔊 emoji at the same
-            // visual size as the model thumb so the chip row stays uniform.
+            // Audio chips have no thumbnail — render a Volume2 icon at the
+            // same visual size as the model thumb so the chip row stays
+            // uniform.
             if (isAudioChipPath(chip.path)) {
-                const icon = document.createElement('span');
-                icon.className = 'chat-chip-thumb';
-                icon.textContent = '🔊';
-                icon.style.cssText += 'display:inline-flex;align-items:center;justify-content:center;font-size:14px;';
-                el.appendChild(icon);
+                const wrap = document.createElement('span');
+                wrap.className = 'chat-chip-thumb';
+                wrap.style.cssText += 'display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);';
+                wrap.appendChild(icon(Volume2, 14));
+                el.appendChild(wrap);
             } else {
                 const img = document.createElement('img');
                 img.className = 'chat-chip-thumb';
@@ -1391,11 +1392,11 @@ export class AiChatPanel {
                 el.className = 'chat-message-chip';
                 el.title = chip.prompt;
                 if (isAudioChipPath(chip.path)) {
-                    const icon = document.createElement('span');
-                    icon.className = 'chat-message-chip-thumb';
-                    icon.textContent = '🔊';
-                    icon.style.cssText += 'display:inline-flex;align-items:center;justify-content:center;font-size:14px;';
-                    el.appendChild(icon);
+                    const wrap = document.createElement('span');
+                    wrap.className = 'chat-message-chip-thumb';
+                    wrap.style.cssText += 'display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);';
+                    wrap.appendChild(icon(Volume2, 14));
+                    el.appendChild(wrap);
                 } else {
                     const img = document.createElement('img');
                     img.className = 'chat-message-chip-thumb';
