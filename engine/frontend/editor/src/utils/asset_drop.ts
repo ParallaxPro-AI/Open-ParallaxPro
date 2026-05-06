@@ -7,7 +7,7 @@ export function prettifyAssetName(name: string): string {
 }
 
 export function buildComponentsForAsset(
-    asset: { name: string; category: string; extension: string; fileUrl: string; forward_axis?: string; est_scale_m?: number | null },
+    asset: { name: string; category: string; extension: string; fileUrl: string },
     pos: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 },
 ): { type: string; data?: Record<string, any> }[] {
     // Identity transform for ALL asset packs — kenney, poly_haven,

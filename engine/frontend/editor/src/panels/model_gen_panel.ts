@@ -1010,15 +1010,15 @@ export class ModelGenPanel {
         useBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
+            // Scale + facing + bbox aren't passed: the GLB loader bakes
+            // est_scale_m and forward_axis into the geometry at runtime,
+            // so the AI sees a 1m-cube-equivalent attached asset just
+            // like a kenney/poly_haven library asset.
             const detail = {
                 id: m.id,
                 path: m.glb_path,
                 thumbUrl: m.thumb_path,
                 prompt: item.prompt || 'generated model',
-                upAxis: m.up_axis,
-                forwardAxis: m.forward_axis,
-                estScaleM: m.est_scale_m ?? null,
-                bbox: m.bbox ?? null,
             };
             document.dispatchEvent(new CustomEvent('parallax:chat-attach-asset', { detail }));
             // Visual feedback — flip the button briefly to confirm.

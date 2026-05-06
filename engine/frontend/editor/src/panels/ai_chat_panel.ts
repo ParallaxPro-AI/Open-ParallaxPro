@@ -33,10 +33,12 @@ interface AssetAttachment {
     thumbUrl: string;
     /** Original generation prompt. Doubles as the chip's label. */
     prompt: string;
-    upAxis?: string;
-    forwardAxis?: string;
-    estScaleM?: number | null;
-    bbox?: any;
+    // up_axis / forward_axis / est_scale_m / bbox aren't on the chip
+    // anymore: scale + orientation are baked into the GLB geometry by
+    // the loader (TC.scale=(1,1,1), TC.rotation=identity), and bbox is
+    // derived from the mesh — the AI should treat generated assets the
+    // same as kenney/poly_haven library assets, with no per-attachment
+    // size or facing metadata.
 }
 
 interface FileChange {
@@ -88,11 +90,13 @@ const ATTACH_LINE_RE = /^- "([^"]+)" — path: (\/assets\/generated\/[a-f0-9]{2}
  *  chips at render time. */
 function formatChipsForAI(chips: AssetAttachment[]): string {
     if (chips.length === 0) return '';
-    const lines = chips.map(c => {
-        let line = `- "${c.prompt.replace(/"/g, '\\"')}" — path: ${c.path}`;
-        if (c.estScaleM != null) line += ` (est_scale_m=${c.estScaleM})`;
-        return line;
-    });
+    // Lines are just `prompt — path: ...` now. Scale + facing are baked
+    // into the GLB's geometry by the loader, so the AI doesn't need to
+    // see est_scale_m / forward_axis — it treats generated assets the
+    // same way as kenney/poly_haven library assets.
+    const lines = chips.map(c =>
+        `- "${c.prompt.replace(/"/g, '\\"')}" — path: ${c.path}`,
+    );
     return `${ATTACH_OPEN}\n${lines.join('\n')}\n${ATTACH_CLOSE}\n\n`;
 }
 
@@ -375,10 +379,6 @@ export class AiChatPanel {
                 path: detail.path,
                 thumbUrl: detail.thumbUrl ?? detail.path.replace(/\.glb$/, '.thumb.webp'),
                 prompt: detail.prompt ?? 'generated model',
-                upAxis: detail.upAxis,
-                forwardAxis: detail.forwardAxis,
-                estScaleM: detail.estScaleM ?? null,
-                bbox: detail.bbox ?? null,
             });
         });
 
