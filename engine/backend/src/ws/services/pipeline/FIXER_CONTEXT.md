@@ -427,6 +427,8 @@ The returned `path` values are exactly what you use in entity defs (`mesh.asset`
 
 `search_assets.sh` also returns AI-generated GLBs from the community pool. Their paths look like `/assets/generated/aa/bb/<32-hex>.glb` and each line ends with the original prompt label (e.g. `— "small red sports car"`). Drop them in like any other asset — same `mesh.asset` field, same auto-scale, same auto-orient.
 
+**Collider rule for `/assets/generated/*` — always `"collider": "mesh"`.** AI-generated GLBs have irregular silhouettes; a box collider auto-fits to the loose AABB and adds huge invisible collision around empty space (players bump into nothing, projectiles stop in mid-air). The assembler force-rewrites other shapes to `mesh` for these paths and logs a stderr warning, but author it correctly so the JSON matches what runs. Static/kinematic only — Rapier mesh shapes aren't supported on dynamic bodies; if a generated prop needs to be `dynamic`, swap to a pack asset with a clean shape.
+
 If the user's request begins with an `[Attached 3D models]` block, those are paths the user pinned from their library — **use them first** before searching. The block format is a heading line followed by `- "label" — path: /assets/...glb` lines.
 
 ## Library tool — `library.sh`
@@ -1020,6 +1022,9 @@ silently drops `halfExtents` / `size` / `radius` / `height` / `center` /
 - `"collider": "sphere"` — balls, projectiles, anything that should roll.
 - `"collider": "box"` — default for crates, walls, vehicles, props.
 - `"collider": "mesh"` — exact triangle hull (slow; static world geometry only).
+  **Required for any `/assets/generated/*` AI-generated GLB** — irregular
+  silhouettes; the assembler force-rewrites box/sphere/capsule to `mesh` for
+  these paths.
 - **Trigger zones** — `"is_trigger": true` makes the collider non-blocking.
   Scripts see `onTriggerEnter(otherId)` / `onTriggerStay` / `onTriggerExit`.
   The trigger volume still tracks the visible mesh's AABB; if you need a
