@@ -201,15 +201,10 @@ export class ModelGenPanel {
             `<b>${escapeHtml(t('modelGen.notice.publicBold'))}</b> ${escapeHtml(t('modelGen.notice.publicBody'))}`;
         this.el.appendChild(notice);
 
-        // Mode tabs (Text / Image). Image is disabled for now — TRELLIS.2's
-        // image-to-3D pipeline is wired up but we want to ship text-only first
-        // (avoids a second NSFW classifier round-trip on every upload + lets
-        // us validate generations end-to-end before users can upload arbitrary
-        // images). Re-enable by removing the disabled flag.
         this.modeTabs = document.createElement('div');
         this.modeTabs.className = 'mg-mode-tabs';
         const textBtn = this.makeModeButton('text', t('modelGen.mode.fromText'));
-        const imageBtn = this.makeModeButton('image', t('modelGen.mode.fromImage'), true);
+        const imageBtn = this.makeModeButton('image', t('modelGen.mode.fromImage'));
         this.modeTabs.appendChild(textBtn);
         this.modeTabs.appendChild(imageBtn);
         this.el.appendChild(this.modeTabs);
