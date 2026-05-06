@@ -66,7 +66,7 @@ const MIN_PROMPT_LEN = 5;
 /** Mirror of PREVIEW_COOLDOWN_MS on the server. Used as the default
  *  countdown when starting cooldown on a successful preview; the 429
  *  cooldown response carries its own retry_after_ms which wins. */
-const PREVIEW_COOLDOWN_MS = 30_000;
+const PREVIEW_COOLDOWN_MS = 10_000;
 
 type Mode = 'text' | 'image';
 type Step = 'idle' | 'previewed' | 'submitting';
