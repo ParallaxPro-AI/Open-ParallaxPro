@@ -1,6 +1,8 @@
 {
   "chat": {
     "title": "AI 助手",
+    "tabAssistant": "聊天",
+    "tabGenerate": "3D 模型生成",
     "sessionsTooltip": "聊天会话",
     "sessionsLocked": "聊天会话（回复中已锁定）",
     "placeholder": "描述你想创建或修复的内容...",
@@ -419,7 +421,9 @@
       "dropHint": "PNG、JPG 或 WEBP — 最大 8MB",
       "tooLarge": "图片必须小于 8MB。",
       "uploading": "上传中…",
-      "uploadFailed": "上传失败"
+      "uploadFailed": "上传失败",
+      "labelInputLabel": "为该图片添加标签（用于检索）：",
+      "labelInputPlaceholder": "例如：「红苹果」「中世纪头盔」"
     },
     "preview": {
       "labelText": "预览 — 确认后将根据此图片生成 3D 模型：",

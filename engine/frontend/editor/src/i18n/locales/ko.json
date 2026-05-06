@@ -1,6 +1,8 @@
 {
   "chat": {
     "title": "AI 어시스턴트",
+    "tabAssistant": "채팅",
+    "tabGenerate": "3D 모델 생성",
     "sessionsTooltip": "채팅 세션",
     "sessionsLocked": "채팅 세션 (응답 중 잠김)",
     "placeholder": "만들고 싶거나 수정하고 싶은 것을 설명하세요...",
@@ -419,7 +421,9 @@
       "dropHint": "PNG, JPG 또는 WEBP — 최대 8MB",
       "tooLarge": "이미지는 8MB 이하여야 합니다.",
       "uploading": "업로드 중…",
-      "uploadFailed": "업로드 실패"
+      "uploadFailed": "업로드 실패",
+      "labelInputLabel": "이 이미지에 라벨을 붙이세요 (검색에 사용됩니다):",
+      "labelInputPlaceholder": "예: \"빨간 사과\", \"중세 투구\""
     },
     "preview": {
       "labelText": "미리보기 — 확인하면 이 이미지로 3D 모델을 생성합니다:",

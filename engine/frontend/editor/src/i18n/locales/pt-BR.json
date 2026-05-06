@@ -1,6 +1,8 @@
 {
   "chat": {
     "title": "Assistente AI",
+    "tabAssistant": "Chat",
+    "tabGenerate": "Gerar modelo 3D",
     "sessionsTooltip": "Sessões de chat",
     "sessionsLocked": "Sessões de chat (bloqueado enquanto responde)",
     "placeholder": "Descreva o que você quer criar ou corrigir...",
@@ -419,7 +421,9 @@
       "dropHint": "PNG, JPG ou WEBP — até 8 MB",
       "tooLarge": "A imagem deve ter menos de 8 MB.",
       "uploading": "Enviando…",
-      "uploadFailed": "falha no envio"
+      "uploadFailed": "falha no envio",
+      "labelInputLabel": "Rotule esta imagem (para que ela possa ser pesquisada):",
+      "labelInputPlaceholder": "ex.: \"maçã vermelha\", \"elmo medieval\""
     },
     "preview": {
       "labelText": "Pré-visualização — confirme para gerar o modelo 3D a partir desta imagem:",

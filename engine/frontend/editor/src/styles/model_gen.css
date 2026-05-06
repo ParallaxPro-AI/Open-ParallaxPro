@@ -168,6 +168,26 @@
     padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
 }
 
+.mg-label-input {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.mg-label-input::placeholder {
+    color: var(--text-disabled);
+}
+
+.mg-label-input:focus {
+    border-color: var(--accent);
+}
+
 .mg-preview-btn {
     padding: 4px 14px;
     background: var(--accent);

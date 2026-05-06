@@ -1,6 +1,8 @@
 {
   "chat": {
     "title": "ผู้ช่วย AI",
+    "tabAssistant": "แชท",
+    "tabGenerate": "สร้างโมเดล 3D",
     "sessionsTooltip": "เซสชันแชท",
     "sessionsLocked": "เซสชันแชท (ล็อกระหว่างตอบ)",
     "placeholder": "อธิบายสิ่งที่คุณต้องการสร้างหรือแก้ไข...",
@@ -419,7 +421,9 @@
       "dropHint": "PNG, JPG หรือ WEBP — สูงสุด 8MB",
       "tooLarge": "รูปภาพต้องมีขนาดน้อยกว่า 8MB",
       "uploading": "กำลังอัปโหลด…",
-      "uploadFailed": "การอัปโหลดล้มเหลว"
+      "uploadFailed": "การอัปโหลดล้มเหลว",
+      "labelInputLabel": "ใส่ป้ายกำกับให้รูปภาพนี้ (ใช้เพื่อให้ค้นหาได้):",
+      "labelInputPlaceholder": "เช่น \"แอปเปิลแดง\", \"หมวกยุคกลาง\""
     },
     "preview": {
       "labelText": "ตัวอย่าง — ยืนยันเพื่อสร้างโมเดล 3D จากรูปภาพนี้:",

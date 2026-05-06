@@ -480,6 +480,25 @@ export class ModelGenPanel {
         img.className = 'mg-preview-img';
         this.previewArea.appendChild(img);
 
+        // Label input for image-uploaded previews. Required because the
+        // backend embeds this string for semantic search — without it the
+        // resulting model is invisible to /q= queries and to the AI's
+        // search_assets.sh tool. Text-mode jobs already have a prompt.
+        let labelInput: HTMLInputElement | null = null;
+        if (this.mode === 'image') {
+            const labelLbl = document.createElement('label');
+            labelLbl.textContent = t('modelGen.image.labelInputLabel');
+            labelLbl.className = 'mg-label';
+            this.previewArea.appendChild(labelLbl);
+            labelInput = document.createElement('input');
+            labelInput.type = 'text';
+            labelInput.placeholder = t('modelGen.image.labelInputPlaceholder');
+            labelInput.maxLength = 100;
+            labelInput.className = 'mg-label-input';
+            labelInput.value = this.currentPrompt ?? '';
+            this.previewArea.appendChild(labelInput);
+        }
+
         const row = document.createElement('div');
         row.className = 'mg-row';
 
@@ -489,6 +508,7 @@ export class ModelGenPanel {
         refineBtn.addEventListener('click', () => {
             this.step = 'idle';
             this.currentPreviewUrl = null;
+            this.currentPrompt = null;
             this.previewArea.style.display = 'none';
             this.statusBar.textContent = '';
         });
@@ -498,6 +518,17 @@ export class ModelGenPanel {
         confirmBtn.textContent = t('modelGen.preview.confirm');
         confirmBtn.className = 'primary';
         confirmBtn.style.flex = '1';
+        // Image mode: gate Confirm until the user types a label of
+        // MIN_PROMPT_LEN+ characters. Text mode: prompt is already set
+        // from the preview step, so no gating needed.
+        if (this.mode === 'image' && labelInput) {
+            confirmBtn.disabled = (labelInput.value.trim().length < MIN_PROMPT_LEN);
+            labelInput.addEventListener('input', () => {
+                const v = labelInput!.value.trim();
+                this.currentPrompt = v || null;
+                confirmBtn.disabled = (v.length < MIN_PROMPT_LEN);
+            });
+        }
         confirmBtn.addEventListener('click', async () => {
             if (confirmBtn.disabled) return;
             confirmBtn.disabled = true;
@@ -521,6 +552,11 @@ export class ModelGenPanel {
                 quality: this.currentQuality,
             };
             if (this.currentPrompt) body.prompt = this.currentPrompt;
+            // Tag image-mode confirms so the backend skips its prompt-based
+            // cache lookup (the user wants their specific image converted,
+            // not a cache hit on someone else's text-generated model with
+            // the same label). Server still embeds the label for search.
+            if (this.mode === 'image') body.from_image = true;
             const resp = await api<any>('/generate', {
                 method: 'POST',
                 body: JSON.stringify(body),

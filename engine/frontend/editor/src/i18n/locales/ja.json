@@ -1,6 +1,8 @@
 {
   "chat": {
     "title": "AIアシスタント",
+    "tabAssistant": "チャット",
+    "tabGenerate": "3Dモデル生成",
     "sessionsTooltip": "チャットセッション",
     "sessionsLocked": "チャットセッション（応答中のためロック）",
     "placeholder": "作りたいものや修正したいことを説明してください...",
@@ -419,7 +421,9 @@
       "dropHint": "PNG、JPG、WEBP — 最大 8MB",
       "tooLarge": "画像は 8MB 以下にしてください。",
       "uploading": "アップロード中…",
-      "uploadFailed": "アップロードに失敗しました"
+      "uploadFailed": "アップロードに失敗しました",
+      "labelInputLabel": "この画像にラベルを付けてください（検索に使われます）：",
+      "labelInputPlaceholder": "例：「赤いリンゴ」「中世の兜」"
     },
     "preview": {
       "labelText": "プレビュー — 確認するとこの画像から 3D モデルを生成します：",

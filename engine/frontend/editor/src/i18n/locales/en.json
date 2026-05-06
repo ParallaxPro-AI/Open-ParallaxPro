@@ -1,6 +1,8 @@
 {
   "chat": {
     "title": "AI Assistant",
+    "tabAssistant": "Chat",
+    "tabGenerate": "3D Model Generate",
     "sessionsTooltip": "Chat sessions",
     "sessionsLocked": "Chat sessions (locked while responding)",
     "placeholder": "Describe what you want to build or fix...",
@@ -420,7 +422,9 @@
       "dropHint": "PNG, JPG, or WEBP — up to 8MB",
       "tooLarge": "Image must be under 8MB.",
       "uploading": "Uploading…",
-      "uploadFailed": "upload failed"
+      "uploadFailed": "upload failed",
+      "labelInputLabel": "Label this image (used to make it searchable):",
+      "labelInputPlaceholder": "e.g. \"red apple\", \"medieval helmet\""
     },
     "preview": {
       "labelText": "Preview — confirm to generate the 3D model from this image:",
