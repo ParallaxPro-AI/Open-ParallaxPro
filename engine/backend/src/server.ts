@@ -84,7 +84,15 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
     // which add their own `Access-Control-Allow-Origin: *`. Letting cors()
     // also echo the request Origin produces two ACAO header values in one
     // response, which the browser rejects.
-    const corsMiddleware = cors({ origin: config.corsOrigins, credentials: true });
+    const corsMiddleware = cors({
+        origin: config.corsOrigins,
+        credentials: true,
+        // Expose X-Refreshed-Token so the editor frontend (and any browser-
+        // hosted client) can read the sliding-refresh header. Mobile apps
+        // see all headers regardless of CORS, but the editor needs the
+        // explicit allowlist to receive it via fetch().
+        exposedHeaders: ['X-Refreshed-Token'],
+    });
     app.use((req, res, next) => {
         if (req.path.startsWith('/assets')) return next();
         return corsMiddleware(req, res, next);

@@ -22,6 +22,41 @@ declare global {
     }
 }
 
+/** Mirror of TOKEN_EXPIRY in landing_page/backend/routes/auth.js. Keep in sync —
+ *  the two services share the same JWT_SECRET so a refresh issued here is
+ *  honored by every consumer. */
+const TOKEN_EXPIRY = '90d';
+
+interface DecodedJwt {
+    id: number;
+    email: string;
+    username: string;
+    isAnonymous?: boolean;
+    iat?: number;
+    exp?: number;
+}
+
+/** Set X-Refreshed-Token on the response when the incoming JWT is past
+ *  the midpoint of its lifetime. Any authenticated request anywhere
+ *  in the engine API counts as activity that bumps the user's expiry —
+ *  active users effectively never sign in again. Mirrors the landing
+ *  backend's maybeRefreshToken. */
+function maybeRefreshToken(res: Response, decoded: DecodedJwt): void {
+    if (typeof decoded.exp !== 'number' || typeof decoded.iat !== 'number') return;
+    const now = Math.floor(Date.now() / 1000);
+    const total = decoded.exp - decoded.iat;
+    if (total <= 0) return;
+    if (now - decoded.iat < total / 2) return;
+    const payload: Record<string, unknown> = {
+        id: decoded.id,
+        email: decoded.email,
+        username: decoded.username,
+    };
+    if (decoded.isAnonymous) payload.isAnonymous = true;
+    const fresh = jwt.sign(payload, config.jwtSecret, { expiresIn: TOKEN_EXPIRY });
+    res.setHeader('X-Refreshed-Token', fresh);
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
     const authHeader = req.headers.authorization;
 
@@ -37,13 +72,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
     const token = authHeader.split(' ')[1];
     try {
-        const decoded = jwt.verify(token, config.jwtSecret) as AuthUser;
+        const decoded = jwt.verify(token, config.jwtSecret) as DecodedJwt;
         req.user = {
             id: decoded.id,
             email: decoded.email,
             username: decoded.username,
             isAnonymous: !!decoded.isAnonymous,
         };
+        maybeRefreshToken(res, decoded);
         next();
     } catch {
         res.status(401).json({ error: 'Invalid token.' });
