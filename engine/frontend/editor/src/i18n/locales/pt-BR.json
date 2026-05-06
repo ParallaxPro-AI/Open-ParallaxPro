@@ -396,8 +396,8 @@
     "notice": {
       "searchFirstBold": "Pesquise na Comunidade primeiro.",
       "searchFirstBody": "Explore os modelos 3D existentes na biblioteca da comunidade abaixo antes de gerar — é instantâneo e economiza tempo de GPU.",
-      "publicBold": "Todas as gerações são públicas.",
-      "publicBody": "Seu prompt e o modelo resultante são visíveis para outros usuários. Não inclua informações pessoais ou conteúdo com direitos autorais."
+      "publicBold": "Podemos tornar suas gerações públicas.",
+      "publicBody": "Após revisão e recomendação, seu prompt e o modelo resultante são visíveis para outros usuários. Não inclua informações pessoais ou conteúdo com direitos autorais."
     },
     "mode": {
       "fromText": "Do texto",
