@@ -294,7 +294,23 @@ export class SoundFxPanel {
         }
 
         this.statusBar.textContent = t('soundFx.upload.reading');
-        const durationMs = await probeAudioDurationMs(file).catch(() => 0);
+
+        // Decode → trim leading/trailing silence → re-encode as 22.05 kHz
+        // mono WAV. Same pipeline the recorder uses, so every clip in the
+        // library is normalized: no leading silence delaying triggers
+        // in-game, no trailing silence dragging out a one-shot SFX.
+        // If decode fails (rare format, corrupt file), fall back to the
+        // legacy path of submitting the original bytes; the server's
+        // music-metadata gate is still the source of truth.
+        let blob: Blob = file;
+        let durationMs = 0;
+        try {
+            const out = await decodeTrimEncodeWav(file);
+            blob = out.blob;
+            durationMs = out.durationMs;
+        } catch {
+            durationMs = await probeAudioDurationMs(file).catch(() => 0);
+        }
         if (!durationMs) {
             this.statusBar.textContent = t('soundFx.upload.parseFailed');
             return;
@@ -307,7 +323,7 @@ export class SoundFxPanel {
         }
 
         this.statusBar.textContent = '';
-        this.stageForSave(file, durationMs, 'upload');
+        this.stageForSave(blob, durationMs, 'upload');
     }
 
     // ── Record mode ──────────────────────────────────────────────────────
@@ -723,10 +739,20 @@ async function probeAudioDurationMs(file: File): Promise<number> {
 }
 
 /** Decode a MediaRecorder blob via decodeAudioData, downsample to 22.05 kHz
- *  mono, then encode WAV. Cross-browser: any format the browser will record
- *  (webm/Opus, mp4/AAC) is also one it can decode here. The output is WAV,
- *  which the engine's audio loader supports natively (assets.ts:39). */
+ *  mono, trim leading/trailing silence, then encode WAV. Cross-browser:
+ *  any format the browser will record (webm/Opus, mp4/AAC) is also one it
+ *  can decode here. The output is WAV, which the engine's audio loader
+ *  supports natively (assets.ts:39). */
 async function encodeRecordingToWav(blob: Blob): Promise<Blob> {
+    const out = await decodeTrimEncodeWav(blob);
+    return out.blob;
+}
+
+/** Generic blob → 22.05 kHz mono trimmed WAV pipeline used by both the
+ *  upload and record paths. Returns the encoded blob and the (post-trim)
+ *  duration so callers can re-validate against the 10s cap. Throws on
+ *  decode failure — callers fall back to passing the original file. */
+async function decodeTrimEncodeWav(blob: Blob): Promise<{ blob: Blob; durationMs: number }> {
     const ctx = AudioListenerComponent.getAudioContext();
     if (!ctx) throw new Error('AudioContext unavailable');
     const arr = await blob.arrayBuffer();
@@ -735,14 +761,47 @@ async function encodeRecordingToWav(blob: Blob): Promise<Blob> {
     // Downsample / mono-mix via OfflineAudioContext. Length is computed in
     // target-rate frames so the rendered buffer's sample count matches.
     const targetRate = TARGET_SAMPLE_RATE;
-    const targetLen = Math.max(1, Math.round((decoded.duration) * targetRate));
+    const targetLen = Math.max(1, Math.round(decoded.duration * targetRate));
     const offline = new OfflineAudioContext(1, targetLen, targetRate);
     const src = offline.createBufferSource();
     src.buffer = decoded;
     src.connect(offline.destination);
     src.start();
     const rendered = await offline.startRendering();
-    return encodePCMToWav(rendered.getChannelData(0), targetRate);
+    const samples = trimSilenceSamples(rendered.getChannelData(0), targetRate);
+    const durationMs = Math.round((samples.length / targetRate) * 1000);
+    return { blob: encodePCMToWav(samples, targetRate), durationMs };
+}
+
+/** Drop leading + trailing samples whose absolute amplitude is below
+ *  TRIM_THRESHOLD. Keeps a small pad on each side so transient attacks
+ *  aren't clipped and the trimmed clip doesn't start with a click.
+ *  Returns the input unchanged if the entire buffer is silent (the user
+ *  should hear the silence and re-record / re-upload rather than us
+ *  silently producing a 0-sample clip). */
+function trimSilenceSamples(samples: Float32Array, sampleRate: number): Float32Array {
+    const TRIM_THRESHOLD = 0.01;            // ≈ -40 dBFS — above typical mic noise floor
+    const TRIM_PAD_MS = 30;
+    const padSamples = Math.round(sampleRate * TRIM_PAD_MS / 1000);
+    const len = samples.length;
+
+    let firstNonSilent = -1;
+    for (let i = 0; i < len; i++) {
+        if (Math.abs(samples[i]) > TRIM_THRESHOLD) { firstNonSilent = i; break; }
+    }
+    if (firstNonSilent < 0) return samples;
+
+    let lastNonSilent = len - 1;
+    for (let i = len - 1; i >= 0; i--) {
+        if (Math.abs(samples[i]) > TRIM_THRESHOLD) { lastNonSilent = i; break; }
+    }
+
+    const start = Math.max(0, firstNonSilent - padSamples);
+    const end = Math.min(len, lastNonSilent + padSamples + 1);
+    if (start === 0 && end === len) return samples;
+    // subarray returns a view; slice forces a copy so the encoder doesn't
+    // hold a reference to the longer source buffer.
+    return samples.slice(start, end);
 }
 
 /** Encode a Float32 PCM buffer to a 16-bit mono WAV Blob. Inline encoder
