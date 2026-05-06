@@ -22,6 +22,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import db from '../../../db/connection.js';
 import { ProjectFiles, writeFilesToDir, readFilesFromDir } from './project_files.js';
 import { bakeGeneratedAssetScales } from './bake_generated_asset_scales.js';
 import { assembleGame } from './level_assembler.js';
@@ -167,9 +168,20 @@ export async function runFixer(
         const searchPublicUrl = config.isHosted
             ? config.assetsCdn
             : `http://localhost:${config.port}`;
+        // Look up project owner so search_assets.sh can include their
+        // pending / rejected generated models (admin-approval gate).
+        // Best-effort: a missing project row, schema drift, or DB lock
+        // just falls back to null and the endpoint serves public-only.
+        let ownerId: number | null = null;
+        try {
+            const row = db.prepare('SELECT user_id FROM projects WHERE id = ?').get(projectId) as { user_id?: number } | undefined;
+            if (row && typeof row.user_id === 'number') ownerId = row.user_id;
+        } catch (e: any) {
+            console.warn(`[cli_fixer] project owner lookup failed: ${e?.message ?? e}`);
+        }
         fs.writeFileSync(
             path.join(sandboxDir, '.search_config.json'),
-            JSON.stringify({ url: validateBackendUrl, fallbackUrl: searchPublicUrl, token: process.env.INTERNAL_API_TOKEN || '' }),
+            JSON.stringify({ url: validateBackendUrl, fallbackUrl: searchPublicUrl, token: process.env.INTERNAL_API_TOKEN || '', userId: ownerId }),
         );
 
         const projectSummary = buildProjectSummary(sandboxDir, projectFiles, activeSceneKey);

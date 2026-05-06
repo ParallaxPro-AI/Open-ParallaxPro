@@ -197,7 +197,14 @@ export async function runCreator(
             : `http://localhost:${config.port}`;
         fs.writeFileSync(
             path.join(sandboxDir, '.search_config.json'),
-            JSON.stringify({ url: validateBackendUrl, fallbackUrl: searchPublicUrl, token: process.env.INTERNAL_API_TOKEN || '' }),
+            // userId scopes the asset search so model_gen's extension
+            // can include the project owner's own pending / rejected
+            // generated models (admin-approval gate) — without it,
+            // search_assets.sh only sees public-approved community
+            // models. May be undefined on orphan-job recovery (e.g.
+            // resumeOrphans in generation_jobs) where the owner isn't
+            // wired through; the endpoint falls back to public-only.
+            JSON.stringify({ url: validateBackendUrl, fallbackUrl: searchPublicUrl, token: process.env.INTERNAL_API_TOKEN || '', userId: userId ?? null }),
         );
 
         // Seed TASK.md with the baseline event list so the agent knows

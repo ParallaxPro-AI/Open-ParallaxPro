@@ -333,8 +333,19 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         const q = (req.query.q as string) || '';
         const category = (req.query.category as string) || '';
         const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+        // X-User-Id arrives from the sandbox's search_assets.sh, which
+        // reads it out of .search_config.json (written by cli_creator /
+        // cli_fixer with the project owner's user_id). Without this,
+        // model_gen's asset_index extension can't surface the user's
+        // own pending/private generated models — the admin-approval gate
+        // would silently hide them from CREATE_GAME / FIX_GAME runs on
+        // the user's own project.
+        const userIdRaw = req.headers['x-user-id'];
+        const userId = typeof userIdRaw === 'string' && /^\d+$/.test(userIdRaw)
+            ? Number(userIdRaw)
+            : null;
         if (!q) { res.json({ results: [] }); return; }
-        const results = await searchAssets({ search: q, category: category || undefined, limit });
+        const results = await searchAssets({ search: q, category: category || undefined, limit, userId });
         res.json({ results });
     });
 

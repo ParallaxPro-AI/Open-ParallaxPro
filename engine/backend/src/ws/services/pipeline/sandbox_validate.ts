@@ -124,6 +124,12 @@ fi
 URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.url||'')")
 FALLBACK_URL=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.fallbackUrl||'')")
 TOKEN=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.token||'')")
+# userId is the project owner — written by cli_creator / cli_fixer.
+# Forwarded as X-User-Id so the model_gen asset_index extension can
+# include the owner's pending / rejected generated models alongside
+# the admin-approved public ones. Empty in dev or for orphan-job
+# resumption; the endpoint just falls back to public-only in that case.
+USER_ID=\$(node -e "const c=JSON.parse(require('fs').readFileSync('.search_config.json','utf-8'));process.stdout.write(c.userId==null?'':String(c.userId))")
 
 if [ -z "\$URL" ] && [ -z "\$FALLBACK_URL" ]; then
     exit 0
@@ -132,6 +138,11 @@ fi
 ENCODED_CAT=""
 if [ -n "\$CATEGORY" ]; then
     ENCODED_CAT=\$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "\$CATEGORY")
+fi
+
+USER_HEADER=()
+if [ -n "\$USER_ID" ]; then
+    USER_HEADER=(-H "X-User-Id: \$USER_ID")
 fi
 
 for QUERY in "\${QUERIES[@]}"; do
@@ -143,10 +154,10 @@ for QUERY in "\${QUERIES[@]}"; do
 
     RESP=""
     if [ -n "\$URL" ]; then
-        RESP=\$(curl -sf --max-time 3 -H "X-Internal-Token: \$TOKEN" "\$URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
+        RESP=\$(curl -sf --max-time 3 -H "X-Internal-Token: \$TOKEN" "\${USER_HEADER[@]}" "\$URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
     fi
     if [ -z "\$RESP" ] && [ -n "\$FALLBACK_URL" ]; then
-        RESP=\$(curl -sf --max-time 5 -H "X-Internal-Token: \$TOKEN" "\$FALLBACK_URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
+        RESP=\$(curl -sf --max-time 5 -H "X-Internal-Token: \$TOKEN" "\${USER_HEADER[@]}" "\$FALLBACK_URL/api/engine/internal/search-assets?\$PARAMS" 2>/dev/null)
     fi
 
     if [ -z "\$RESP" ]; then

@@ -1714,7 +1714,12 @@ function buildExecContext(client: EditorClient, abortSignal?: AbortSignal): Exec
         reloadScene: (sceneKey, sceneData) => {
             send(client, 'scene_reload', { sceneKey, sceneData });
         },
-        searchAssets,
+        // Bind the calling user's id so the chat AI's LIST_ASSETS tool
+        // surfaces the owner's pending / rejected generated models
+        // alongside public-approved ones (admin-approval gate). Without
+        // this wrapper, ctx.searchAssets would receive undefined userId
+        // and the model_gen extension would only return public rows.
+        searchAssets: (opts: any) => searchAssets({ ...opts, userId: client.userId }),
         abortSignal,
         onFixerCost: (costUsd: number) => {
             for (const p of _plugins) {
