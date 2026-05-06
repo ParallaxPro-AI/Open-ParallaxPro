@@ -361,6 +361,25 @@ export async function searchAssets(opts: {
         return { name, path, category, pack, size, vertices, description };
     });
 }
+
+/** Pack-asset existence check. Returns true iff `fullPath`
+ *  (`/assets/<pack>/.../foo.glb`) is in the scanned-on-disk catalog.
+ *  Intentionally does NOT cover `/assets/generated/...` — those are
+ *  validated against the generated_models DB by the model_gen plugin
+ *  via its own asset_index extension. Use validateAssetPaths() for
+ *  the combined pack + generated check. */
+export function isKnownPackPath(fullPath: string): boolean {
+    if (!fullPath.startsWith('/assets/')) return false;
+    const rel = fullPath.replace(/^\/assets\//, '');
+    // O(n) over the cache — n is in the low thousands and validate
+    // calls are infrequent (once per FIX_GAME / CREATE_GAME / EDIT
+    // commit). A precomputed set would need invalidation on every CDN
+    // refresh; not worth the complexity at this scale.
+    for (const a of assetCache) {
+        if (a.filePath === rel) return true;
+    }
+    return false;
+}
 console.log(`[Assets] ${assetCache.length} assets scanned`);
 
 async function fetchCdnCatalog(cdnBase: string): Promise<void> {

@@ -349,6 +349,58 @@ export async function createEngine(plugins: EnginePlugin[] = []): Promise<{
         res.json({ results });
     });
 
+    // Asset-path existence + visibility check used by validate.sh
+    // (CREATE_GAME / FIX_GAME) and the chat AI's <<<EDIT>>> commit
+    // path. Pre-deploy, generated-asset paths were validated by a
+    // regex-only whitelist, so an LLM-hallucinated token like
+    // /assets/generated/00/01/0123...beef.glb passed validation
+    // and shipped into project files where it silently failed at
+    // runtime. This endpoint actually looks each generated path up
+    // in the DB (via the plugin-registered validators) and verifies
+    // pack paths against the on-disk catalog.
+    //
+    // Body: { paths: string[], userId?: number | null }
+    // Response: { missing: string[] }   subset of `paths` that
+    //                                   isn't accessible — caller
+    //                                   reports those as invalid.
+    app.post('/api/engine/internal/validate-asset-paths', async (req, res) => {
+        const expected = process.env.INTERNAL_API_TOKEN;
+        if (expected) {
+            const provided = req.headers['x-internal-token'];
+            if (provided !== expected) {
+                res.status(401).json({ error: 'Unauthorized' });
+                return;
+            }
+        }
+        const paths = Array.isArray(req.body?.paths) ? req.body.paths : null;
+        if (!paths || paths.some((p: any) => typeof p !== 'string')) {
+            res.status(400).json({ error: 'paths must be string[]' });
+            return;
+        }
+        const userIdRaw = req.body?.userId;
+        const userId = typeof userIdRaw === 'number' && Number.isFinite(userIdRaw) && userIdRaw > 0
+            ? userIdRaw
+            : null;
+
+        // Step 1: ask plugin validators (model_gen recognizes
+        // /assets/generated/...). Anything they recognize is real.
+        const { runAssetPathValidators } = await import('./services/asset_path_validators.js');
+        const recognized = await runAssetPathValidators({ paths, userId });
+
+        // Step 2: anything left over has to be a known pack asset
+        // (`/assets/kenney/...` etc.). isKnownPackPath checks the
+        // scanned-on-disk catalog. Anything still unrecognized is
+        // missing.
+        const { isKnownPackPath } = await import('./routes/assets.js');
+        const missing: string[] = [];
+        for (const p of paths) {
+            if (recognized.has(p)) continue;
+            if (isKnownPackPath(p)) continue;
+            missing.push(p);
+        }
+        res.json({ missing });
+    });
+
     app.post('/api/engine/internal/validate-sandbox/:token', async (req, res) => {
         const { lookupSandboxToken } = await import('./ws/services/pipeline/sandbox_validator.js');
         const { assembleGame } = await import('./ws/services/pipeline/level_assembler.js');

@@ -994,11 +994,26 @@ if (eventData) {
 
     // Generated/community assets surfaced by search_assets.sh use opaque
     // token paths (not in any catalog file). Token format is locked to
-    // /assets/generated/<2hex>/<2hex>/<32hex>.glb — anything matching
-    // this regex is accepted at sandbox-validate time. Final existence
-    // check happens at project-write time on the backend.
+    // /assets/generated/<2hex>/<2hex>/<32hex>.glb — well-formed
+    // shape is necessary but NOT sufficient. The token must also map
+    // to a real generated_models row that the requesting user is
+    // allowed to reference (admin-approved public, OR creator's own).
+    // We collect every well-formed generated path the project mentions
+    // and batch-validate them against the backend's
+    // /api/engine/internal/validate-asset-paths endpoint after the
+    // pack-catalog walk finishes (one HTTP round-trip total).
     function isGeneratedAssetPath(p) {
         return typeof p === 'string' && /^\/assets\/generated\/[a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]{32}\.glb$/.test(p);
+    }
+
+    // Pending-validation set: well-formed generated paths whose
+    // existence we still need to confirm with the backend. Map keeps
+    // each path's first reference site so the assetErrors line we emit
+    // for a hallucination is actionable (tells the agent WHICH file
+    // / def named the bad token).
+    var pendingGeneratedRefs = Object.create(null);
+    function recordGeneratedRef(path, where) {
+        if (!pendingGeneratedRefs[path]) pendingGeneratedRefs[path] = where;
     }
 
     var assetErrors = [];
@@ -1008,8 +1023,9 @@ if (eventData) {
         if (def && def.mesh && def.mesh.asset) {
             var asset = def.mesh.asset;
             if (isGeneratedAssetPath(asset)) {
-                // Community / AI-generated GLB. Token format already
-                // checked; existence is verified backend-side.
+                // Generated GLB — defer to the backend existence
+                // check so we can reject hallucinated tokens.
+                recordGeneratedRef(asset, '02_entities.json "' + defName + '" (mesh.asset)');
             } else if (audioPaths.has(asset) || texturePaths.has(asset)) {
                 assetErrors.push(
                     '02_entities.json "' + defName + '": mesh asset "' + asset + '" is not a 3D model. ' +
@@ -1090,6 +1106,75 @@ if (eventData) {
                     'Check assets/AUDIO.md for available audio files.'
                 );
             }
+        }
+    }
+
+    // Generated-asset existence + visibility check. We collected every
+    // well-formed /assets/generated/<token>.glb the project references;
+    // ask the backend whether each token maps to a real row this user
+    // is allowed to use. Anything the backend reports `missing` is a
+    // hallucinated or unauthorized reference — reject so the agent can
+    // pick a real asset and retry.
+    var pendingPaths = Object.keys(pendingGeneratedRefs);
+    if (pendingPaths.length > 0) {
+        var validateConfig = null;
+        try {
+            validateConfig = JSON.parse(fs.readFileSync('.search_config.json', 'utf-8'));
+        } catch (e) {
+            // No config — soft-fail open. We can't validate without it,
+            // and blocking the build would be worse than letting the
+            // (rare) self-hosted-without-config path run unchecked.
+            // Hosted prod always has this file; it's only missing on
+            // orphan-job recovery or very dev setups.
+        }
+        if (validateConfig && validateConfig.url) {
+            var execSync = require('child_process').execSync;
+            var bodyJson = JSON.stringify({
+                paths: pendingPaths,
+                userId: validateConfig.userId == null ? null : Number(validateConfig.userId),
+            });
+            var url = validateConfig.url + '/api/engine/internal/validate-asset-paths';
+            var fallbackUrl = validateConfig.fallbackUrl
+                ? validateConfig.fallbackUrl + '/api/engine/internal/validate-asset-paths'
+                : null;
+            var token = validateConfig.token || '';
+            // curl: read body from stdin (-d @-) so we don't shell-escape
+            // a possibly-large list. Output is JSON; failures hit stderr.
+            // 5s timeout is generous; the endpoint is in-memory + a few
+            // SQLite point-lookups.
+            function callEndpoint(target) {
+                try {
+                    var out = execSync(
+                        'curl -sf --max-time 5 -X POST '
+                        + '-H "X-Internal-Token: ' + token.replace(/"/g, '\\"') + '" '
+                        + '-H "Content-Type: application/json" '
+                        + '--data-binary @- '
+                        + JSON.stringify(target),
+                        { input: bodyJson, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                    );
+                    return JSON.parse(out);
+                } catch (e) {
+                    return null;
+                }
+            }
+            var resp = callEndpoint(url);
+            if (!resp && fallbackUrl) resp = callEndpoint(fallbackUrl);
+            if (resp && Array.isArray(resp.missing)) {
+                for (var pi = 0; pi < resp.missing.length; pi++) {
+                    var miss = resp.missing[pi];
+                    var where = pendingGeneratedRefs[miss] || '(unknown reference site)';
+                    assetErrors.push(
+                        where + ': generated asset "' + miss + '" does not exist or is not accessible. '
+                        + 'Use bash search_assets.sh "<your query>" to discover real /assets/generated/... paths — '
+                        + 'do NOT fabricate token-shaped paths.'
+                    );
+                }
+            }
+            // resp === null means the endpoint was unreachable AND the
+            // fallback was unreachable (or absent). We don't fail the
+            // build in that case — same soft-fail policy as the
+            // missing-config branch above. The reaper / runtime will
+            // catch genuinely-bad references downstream.
         }
     }
 

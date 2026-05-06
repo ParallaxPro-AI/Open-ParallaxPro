@@ -15,6 +15,8 @@ import { seedFromTemplate } from '../services/pipeline/project_seeder.js';
 import type { BuildResult } from '../services/pipeline/project_builder.js';
 import type { ProjectFiles } from '../services/pipeline/project_files.js';
 import { runEditScript } from '../services/pipeline/template_mutator.js';
+import { isKnownPackPath } from '../../routes/assets.js';
+import { runAssetPathValidators } from '../../services/asset_path_validators.js';
 
 export interface ExecutionContext {
     sendToFrontend: (type: string, data: any) => void;
@@ -148,6 +150,82 @@ export async function execute(ast: ASTNode[], ctx: ExecutionContext): Promise<Ex
     return result;
 }
 
+/** Walk the files an EDIT block is about to commit, collect every
+ *  /assets/... reference, and return the ones that don't actually
+ *  resolve. Closes the LLM-hallucination hole — pre-fix, an EDIT could
+ *  emit `mesh.asset: "/assets/imaginary_pack/foo.glb"` and ship without
+ *  ever bouncing the error back to the AI.
+ *
+ *  Pack assets (`/assets/kenney/...`) are checked against the in-memory
+ *  catalog scanned from disk. Generated paths
+ *  (`/assets/generated/<token>.glb`) go through registered validators
+ *  (model_gen plugin maps tokens to DB rows + visibility-checks them
+ *  against the editing user). */
+async function findHallucinatedAssetPaths(
+    updatedFiles: Record<string, string | null>,
+    userId: number | null,
+): Promise<Array<{ path: string; where: string }>> {
+    const refs: Array<{ path: string; where: string }> = [];
+
+    function fileBase(name: string): string {
+        const ix = name.lastIndexOf('/');
+        return ix >= 0 ? name.slice(ix + 1) : name;
+    }
+
+    function walkEntityDef(def: any, defName: string, filename: string): void {
+        if (!def || typeof def !== 'object') return;
+        if (def.mesh && typeof def.mesh.asset === 'string' && def.mesh.asset.startsWith('/assets/')) {
+            refs.push({ path: def.mesh.asset, where: `${filename} "${defName}" (mesh.asset)` });
+        }
+        if (def.mesh_override && typeof def.mesh_override.textureBundle === 'string'
+            && def.mesh_override.textureBundle.startsWith('/assets/')) {
+            refs.push({ path: def.mesh_override.textureBundle, where: `${filename} "${defName}" (textureBundle)` });
+        }
+        if (Array.isArray(def.children)) {
+            for (const c of def.children) walkEntityDef(c, defName + '/' + (c?.name ?? 'child'), filename);
+        }
+    }
+
+    for (const [filename, content] of Object.entries(updatedFiles)) {
+        if (content == null) continue; // deletion — nothing to validate
+        const base = fileBase(filename);
+
+        if (base === '02_entities.json') {
+            try {
+                const defs = JSON.parse(content);
+                for (const k of Object.keys(defs ?? {})) walkEntityDef(defs[k], k, base);
+            } catch { /* JSON error gets caught downstream by the build */ }
+        } else if (base === '01_flow.json') {
+            // Flow `play_sound:/assets/...` actions, same regex the
+            // sandbox validator uses.
+            for (const m of content.matchAll(/play_sound:(\/assets\/[^"' ,]+)/g)) {
+                refs.push({ path: m[1], where: `${base} (play_sound)` });
+            }
+        } else if (base.endsWith('.ts') || base.endsWith('.js')) {
+            for (const m of content.matchAll(/\.(?:playSound|playMusic|preload)\s*\(\s*["']([^"']+)["']/g)) {
+                if (m[1].startsWith('/assets/')) {
+                    refs.push({ path: m[1], where: `${filename} (${m[0].slice(1, m[0].indexOf('('))})` });
+                }
+            }
+        }
+    }
+
+    if (refs.length === 0) return [];
+
+    // Generated paths: ask plugin validators (model_gen). Pack paths:
+    // check against the on-disk catalog. Anything claimed by neither
+    // is a hallucination.
+    const allPaths = refs.map(r => r.path);
+    const recognized = await runAssetPathValidators({ paths: allPaths, userId });
+    const missing: Array<{ path: string; where: string }> = [];
+    for (const r of refs) {
+        if (recognized.has(r.path)) continue;
+        if (isKnownPackPath(r.path)) continue;
+        missing.push(r);
+    }
+    return missing;
+}
+
 async function executeEditNode(node: EditNode, ctx: ExecutionContext, result: ExecutionResult): Promise<void> {
     const view = ctx.getProjectData();
     const files = (view?.files || {}) as ProjectFiles;
@@ -166,6 +244,21 @@ async function executeEditNode(node: EditNode, ctx: ExecutionContext, result: Ex
         if (mut.warnings.length > 0) {
             result.errors.push(`EDIT block did not modify the project. Warnings:\n${mut.warnings.join('\n')}`);
         }
+        return;
+    }
+
+    // Reject hallucinated asset paths BEFORE commit so the AI can read
+    // the error and retry with a real path. Without this, an EDIT
+    // referencing a fictional asset would commit cleanly and ship
+    // broken — the runtime would fail to load and the user would see
+    // an invisible mesh / no audio with no diagnostic.
+    const missingAssets = await findHallucinatedAssetPaths(mut.updatedFiles, ctx.userId ?? null);
+    if (missingAssets.length > 0) {
+        result.errors.push(
+            `EDIT rejected — ${missingAssets.length} asset path(s) do not exist:\n`
+            + missingAssets.map(m => `  ${m.where}: ${m.path}`).join('\n')
+            + `\nDo NOT fabricate paths. Use LIST_ASSETS (or bash search_assets.sh in CLI agents) to find real /assets/... paths and retry.`
+        );
         return;
     }
 
