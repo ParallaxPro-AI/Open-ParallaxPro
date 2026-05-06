@@ -441,7 +441,10 @@
       "stageFetching": "画像取得中",
       "stageGenerating": "生成中",
       "stageUploading": "アップロード中",
-      "stageOrienting": "向き調整中"
+      "stageOrienting": "向き調整中",
+      "failedLabel": "失敗",
+      "failedUnknown": "不明なエラー",
+      "dismissFailed": "非表示"
     },
     "library": {
       "scopeMine": "自分の生成",

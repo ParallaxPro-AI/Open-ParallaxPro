@@ -441,7 +441,10 @@
       "stageFetching": "이미지 가져오는 중",
       "stageGenerating": "생성 중",
       "stageUploading": "업로드 중",
-      "stageOrienting": "방향 조정 중"
+      "stageOrienting": "방향 조정 중",
+      "failedLabel": "실패",
+      "failedUnknown": "알 수 없는 오류",
+      "dismissFailed": "닫기"
     },
     "library": {
       "scopeMine": "내 생성",

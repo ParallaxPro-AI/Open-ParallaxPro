@@ -441,7 +441,10 @@
       "stageFetching": "obtendo imagem",
       "stageGenerating": "gerando",
       "stageUploading": "enviando",
-      "stageOrienting": "orientando"
+      "stageOrienting": "orientando",
+      "failedLabel": "Falhou",
+      "failedUnknown": "erro desconhecido",
+      "dismissFailed": "Descartar"
     },
     "library": {
       "scopeMine": "Minhas gerações",

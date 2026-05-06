@@ -314,6 +314,19 @@
     50% { opacity: 0.4; }
 }
 
+/* Sticky failure row — kept in the active list after a generation fails
+ * so the user sees the error and dismisses it explicitly via the × on
+ * the right (which shares its layout with the cancel button). No pulse
+ * animation since the state is terminal. */
+.mg-job-row.failed {
+    background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
+    border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+}
+.mg-job-dot.failed {
+    background: var(--danger);
+    animation: none;
+}
+
 /* Library scope row. */
 .mg-lib-header {
     display: flex;

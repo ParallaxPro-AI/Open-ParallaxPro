@@ -48,6 +48,11 @@ interface ActiveJob {
      *  Comes from last_progress_at / claimed_at / created_at depending
      *  on stage. Survives page refresh — timer keeps counting. */
     stage_started_at?: number;
+    /** Server-supplied error string when status === 'failed'. We KEEP the
+     *  job in the activeJobs map after a failure so the user sees it
+     *  failed instead of silently disappearing — they dismiss with a × ;
+     *  removed jobs only become invisible after explicit dismiss. */
+    error?: string | null;
 }
 
 const API_BASE = '/api/engine/models';
@@ -554,9 +559,20 @@ export class ModelGenPanel {
 
     private async pollAll(): Promise<void> {
         if (this.activeJobs.size === 0) { this.stopPolling(); return; }
+        // Only poll non-terminal jobs. Failed jobs sit in activeJobs as
+        // sticky failure rows until the user dismisses them; re-polling
+        // them returns the same error every time.
+        const inflightIds = Array.from(this.activeJobs.values())
+            .filter(j => j.status !== 'failed')
+            .map(j => j.job_id);
+        if (inflightIds.length === 0) {
+            this.stopPolling();
+            this.stopActiveTimerTick();
+            return;
+        }
         const toRemove: string[] = [];
         const updates = await Promise.all(
-            Array.from(this.activeJobs.keys()).map(async id => {
+            inflightIds.map(async id => {
                 try { return await api<any>(`/jobs/${encodeURIComponent(id)}`); }
                 catch { return null; }
             })
@@ -566,9 +582,24 @@ export class ModelGenPanel {
             if (!j) continue;
             const existing = this.activeJobs.get(j.job_id);
             if (!existing) continue;
-            if (j.status === 'done' || j.status === 'failed' || j.status === 'canceled') {
+            if (j.status === 'done' || j.status === 'canceled') {
+                // 'done' moves to library on libraryDirty=true; 'canceled'
+                // is user-initiated so they already know.
                 toRemove.push(j.job_id);
                 if (j.status === 'done') libraryDirty = true;
+            } else if (j.status === 'failed') {
+                // Keep the job visible with a failure indicator + dismiss
+                // button. Update the entry in-place so renderActive picks
+                // up the error message. Stops the spinner via the new
+                // status; the timer tick keeps showing how long it ran.
+                this.activeJobs.set(j.job_id, {
+                    job_id: j.job_id,
+                    status: 'failed',
+                    last_progress: j.last_progress,
+                    prompt: existing.prompt,
+                    stage_started_at: existing.stage_started_at,
+                    error: typeof j.error === 'string' && j.error.length > 0 ? j.error : null,
+                });
             } else {
                 const newKey = `${j.status}|${j.last_progress || ''}`;
                 // Server-supplied timestamps so the timer reflects
@@ -589,7 +620,10 @@ export class ModelGenPanel {
         for (const id of toRemove) this.activeJobs.delete(id);
         this.renderActive();
         if (libraryDirty) this.refreshLibrary();
-        if (this.activeJobs.size === 0) {
+        // Stop polling + timer once no non-terminal jobs remain. Failed
+        // sticky rows can sit indefinitely; they don't need ticks.
+        const stillInflight = Array.from(this.activeJobs.values()).some(j => j.status !== 'failed');
+        if (!stillInflight) {
             this.stopPolling();
             this.stopActiveTimerTick();
         }
@@ -632,14 +666,46 @@ export class ModelGenPanel {
         }
         this.activeSection.style.display = 'flex';
         this.activeList.innerHTML = '';
+        let hasInflight = false;
         for (const j of this.activeJobs.values()) {
             const row = document.createElement('div');
             row.className = 'mg-job-row';
+            if (j.status === 'failed') row.classList.add('failed');
             const dot = document.createElement('span');
             dot.className = 'mg-job-dot';
+            if (j.status === 'failed') dot.classList.add('failed');
             row.appendChild(dot);
             const text = document.createElement('span');
             text.className = 'mg-job-text';
+
+            if (j.status === 'failed') {
+                // Sticky failure row — stays visible until the user
+                // dismisses, so a generation that errored doesn't
+                // silently disappear. The error string comes straight
+                // from the server's job.error column.
+                const reason = (j.error && j.error.trim().length > 0)
+                    ? j.error
+                    : t('modelGen.active.failedUnknown');
+                text.innerHTML =
+                    `${escapeHtml(j.prompt || t('modelGen.active.uploadedImage'))} ` +
+                    `<span class="mg-job-stage">— ${escapeHtml(t('modelGen.active.failedLabel'))}: ${escapeHtml(reason)}</span>`;
+                row.appendChild(text);
+
+                const dismissBtn = document.createElement('button');
+                dismissBtn.type = 'button';
+                dismissBtn.className = 'mg-job-cancel';
+                dismissBtn.textContent = '✕';
+                dismissBtn.title = t('modelGen.active.dismissFailed');
+                dismissBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.dismissJob(j.job_id);
+                });
+                row.appendChild(dismissBtn);
+                this.activeList.appendChild(row);
+                continue;
+            }
+
+            hasInflight = true;
             const stage = this.stageInfo(j);
             // Always show position when queued (#1, #2, ...). When 0
             // jobs are ahead this is "#1", which is more honest than
@@ -672,9 +738,17 @@ export class ModelGenPanel {
             }
             this.activeList.appendChild(row);
         }
-        // Tick the stage timer once per second so the "12s" updates without
-        // needing the 3s job poll. Cheap — just re-renders the rows.
-        this.startActiveTimerTick();
+        // Only tick the stage timer when there's a non-terminal job to
+        // tick for; a list of pure failure rows doesn't need re-renders.
+        if (hasInflight) this.startActiveTimerTick();
+        else this.stopActiveTimerTick();
+    }
+
+    /** Dismiss a sticky failed-job row from the active list. The job row
+     *  in the DB stays — this is purely a session-local UI hide. */
+    private dismissJob(jobId: string): void {
+        this.activeJobs.delete(jobId);
+        this.renderActive();
     }
 
     private async cancelJob(jobId: string): Promise<void> {
@@ -724,6 +798,10 @@ export class ModelGenPanel {
         for (const j of this.activeJobs.values()) {
             const row = rows[i++] as HTMLElement | undefined;
             if (!row) break;
+            // Failed rows are sticky-static — error message is final, no
+            // elapsed counter to refresh. Skip the in-place rewrite so we
+            // don't clobber the rendered failure markup.
+            if (j.status === 'failed') continue;
             const span = row.children[1] as HTMLElement | undefined;
             if (!span) continue;
             const stage = this.stageInfo(j);

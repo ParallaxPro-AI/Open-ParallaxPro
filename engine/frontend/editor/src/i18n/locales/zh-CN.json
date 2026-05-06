@@ -441,7 +441,10 @@
       "stageFetching": "获取图片中",
       "stageGenerating": "生成中",
       "stageUploading": "上传中",
-      "stageOrienting": "调整方向中"
+      "stageOrienting": "调整方向中",
+      "failedLabel": "失败",
+      "failedUnknown": "未知错误",
+      "dismissFailed": "关闭"
     },
     "library": {
       "scopeMine": "我的生成",

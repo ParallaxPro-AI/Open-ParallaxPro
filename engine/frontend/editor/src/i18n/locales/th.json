@@ -441,7 +441,10 @@
       "stageFetching": "กำลังดึงรูปภาพ",
       "stageGenerating": "กำลังสร้าง",
       "stageUploading": "กำลังอัปโหลด",
-      "stageOrienting": "กำลังปรับทิศทาง"
+      "stageOrienting": "กำลังปรับทิศทาง",
+      "failedLabel": "ล้มเหลว",
+      "failedUnknown": "ข้อผิดพลาดที่ไม่ทราบ",
+      "dismissFailed": "ปิด"
     },
     "library": {
       "scopeMine": "การสร้างของฉัน",

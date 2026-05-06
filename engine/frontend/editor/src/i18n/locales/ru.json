@@ -441,7 +441,10 @@
       "stageFetching": "получение изображения",
       "stageGenerating": "генерация",
       "stageUploading": "загрузка",
-      "stageOrienting": "ориентирование"
+      "stageOrienting": "ориентирование",
+      "failedLabel": "Ошибка",
+      "failedUnknown": "неизвестная ошибка",
+      "dismissFailed": "Закрыть"
     },
     "library": {
       "scopeMine": "Мои генерации",
