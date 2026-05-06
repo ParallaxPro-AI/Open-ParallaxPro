@@ -23,7 +23,8 @@
     "rawFilesTitle": "Raw Session Dialogue",
     "rawFilesEmpty": "No files yet in this session.",
     "buildingPlan": "Building Plan",
-    "todoPaused": "Paused"
+    "todoPaused": "Paused",
+    "tabSoundEffects": "Sound Effects"
   },
   "feedback": {
     "titleCreate": "Thanks for trying the builder!",
@@ -454,5 +455,63 @@
       "notAvailable": "3D model generation isn't available on this backend."
     },
     "errorPrefix": "Error: {message}"
+  },
+  "soundFx": {
+    "header": "Sound Effects",
+    "usageTooltip": "Daily upload count. Resets at midnight UTC.",
+    "daily": "Daily: {today}/{limit}",
+    "notice": {
+      "privateBold": "Unlisted, not private.",
+      "privateBody": "Only you can use these clips in chat or in your games — but the audio files themselves are not auth-gated.",
+      "extract": "Anyone with the URL (a friend you shared it with, anyone who gets the link, or anyone who plays a game you publish that uses the clip) can download and reuse the audio.",
+      "tokenHint": "URLs use long random tokens so they're hard to guess, but treat anything you upload here as effectively public — don't upload audio you wouldn't want extracted."
+    },
+    "mode": {
+      "upload": "Upload",
+      "record": "Record"
+    },
+    "upload": {
+      "dropPrimary": "Drop audio file or click to browse",
+      "dropHint": "≤10s · wav, mp3, ogg, flac · max 2 MB",
+      "reading": "Reading file…",
+      "parseFailed": "Could not parse audio file. Try a different format.",
+      "tooLarge": "File too large ({mb} MB > 2 MB).",
+      "tooLong": "Clip too long ({s}s > {max}s)."
+    },
+    "record": {
+      "btnStart": "● Record",
+      "btnStop": "■ Stop",
+      "hint": "Recording auto-stops at 10s. Click again to stop early.",
+      "micDenied": "Microphone access denied: {reason}",
+      "recorderUnavailable": "Recorder unavailable: {reason}",
+      "encoding": "Encoding…",
+      "encodeFailed": "Encoding failed: {reason}",
+      "noAudio": "No audio captured."
+    },
+    "staged": {
+      "headerUpload": "Selected clip",
+      "headerRecording": "Recorded clip",
+      "labelPlaceholder": "Label (e.g. \"explosion\", \"jump\", \"ouch\")",
+      "cancel": "Cancel",
+      "save": "Save",
+      "needLabel": "Please enter a label.",
+      "labelTooLong": "Label too long (max {max})."
+    },
+    "library": {
+      "header": "My clips",
+      "refresh": "Refresh",
+      "empty": "Upload or record to add your first clip.",
+      "loading": "Loading…",
+      "couldNotLoad": "Could not load: {reason}",
+      "deleteConfirm": "Delete \"{label}\"?",
+      "deleteFailed": "Delete failed: {reason}",
+      "addToChatTooltip": "Add this clip as a hint for the AI Assistant",
+      "deleteTooltip": "Delete"
+    },
+    "save": {
+      "uploading": "Uploading…",
+      "saved": "Saved.",
+      "failed": "Save failed: {reason}"
+    }
   }
 }

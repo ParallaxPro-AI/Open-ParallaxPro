@@ -23,7 +23,8 @@
     "rawFilesTitle": "工作階段對話原始資料",
     "rawFilesEmpty": "此工作階段尚無檔案。",
     "buildingPlan": "建構計畫",
-    "todoPaused": "已暫停"
+    "todoPaused": "已暫停",
+    "tabSoundEffects": "音效"
   },
   "feedback": {
     "titleCreate": "感謝你試用建構工具！",
@@ -453,5 +454,63 @@
       "notAvailable": "此後端不支援 3D 模型生成。"
     },
     "errorPrefix": "錯誤：{message}"
+  },
+  "soundFx": {
+    "header": "音效",
+    "usageTooltip": "每日上傳次數。UTC 零點重置。",
+    "daily": "今日: {today}/{limit}",
+    "notice": {
+      "privateBold": "未公開列出,但並非完全私密。",
+      "privateBody": "只有你才能在聊天或遊戲中使用這些剪輯 — 但音訊檔案本身沒有身分驗證保護。",
+      "extract": "任何擁有 URL 的人(你分享給的朋友、取得連結的人、或玩你發布的使用此剪輯的遊戲的人)都可以下載並重新使用該音訊。",
+      "tokenHint": "URL 使用長隨機權杖,難以猜測,但請將上傳到這裡的內容視為實際上公開的 — 不要上傳你不希望被擷取的音訊。"
+    },
+    "mode": {
+      "upload": "上傳",
+      "record": "錄製"
+    },
+    "upload": {
+      "dropPrimary": "拖放音訊檔案或點擊瀏覽",
+      "dropHint": "≤10秒 · wav, mp3, ogg, flac · 最大 2 MB",
+      "reading": "正在讀取檔案…",
+      "parseFailed": "無法解析音訊檔案。請嘗試其他格式。",
+      "tooLarge": "檔案過大({mb} MB > 2 MB)。",
+      "tooLong": "剪輯過長({s}秒 > {max}秒)。"
+    },
+    "record": {
+      "btnStart": "● 錄製",
+      "btnStop": "■ 停止",
+      "hint": "錄製將在 10 秒後自動停止。再次點擊可提前停止。",
+      "micDenied": "麥克風存取被拒絕:{reason}",
+      "recorderUnavailable": "錄音器無法使用:{reason}",
+      "encoding": "編碼中…",
+      "encodeFailed": "編碼失敗:{reason}",
+      "noAudio": "未擷取到音訊。"
+    },
+    "staged": {
+      "headerUpload": "已選擇剪輯",
+      "headerRecording": "已錄製剪輯",
+      "labelPlaceholder": "標籤(如 \"爆炸\"、\"跳躍\"、\"痛\")",
+      "cancel": "取消",
+      "save": "儲存",
+      "needLabel": "請輸入標籤。",
+      "labelTooLong": "標籤過長(最多 {max})。"
+    },
+    "library": {
+      "header": "我的剪輯",
+      "refresh": "重新整理",
+      "empty": "上傳或錄製以新增你的第一個剪輯。",
+      "loading": "載入中…",
+      "couldNotLoad": "無法載入:{reason}",
+      "deleteConfirm": "刪除 \"{label}\" 嗎?",
+      "deleteFailed": "刪除失敗:{reason}",
+      "addToChatTooltip": "將此剪輯作為提示加入給 AI 助手",
+      "deleteTooltip": "刪除"
+    },
+    "save": {
+      "uploading": "上傳中…",
+      "saved": "已儲存。",
+      "failed": "儲存失敗:{reason}"
+    }
   }
 }

@@ -23,7 +23,8 @@
     "rawFilesTitle": "Diálogo bruto da sessão",
     "rawFilesEmpty": "Nenhum arquivo ainda nesta sessão.",
     "buildingPlan": "Plano de construção",
-    "todoPaused": "Pausado"
+    "todoPaused": "Pausado",
+    "tabSoundEffects": "Efeitos sonoros"
   },
   "feedback": {
     "titleCreate": "Obrigado por experimentar o construtor!",
@@ -453,5 +454,63 @@
       "notAvailable": "A geração de modelos 3D não está disponível neste backend."
     },
     "errorPrefix": "Erro: {message}"
+  },
+  "soundFx": {
+    "header": "Efeitos sonoros",
+    "usageTooltip": "Uploads diários. Reinicia à meia-noite UTC.",
+    "daily": "Hoje: {today}/{limit}",
+    "notice": {
+      "privateBold": "Não listado, mas não é privado.",
+      "privateBody": "Apenas você pode usar esses clipes no chat ou nos seus jogos — mas os arquivos de áudio em si não têm autenticação.",
+      "extract": "Qualquer pessoa com a URL (um amigo com quem você compartilhou, alguém que pegou o link ou qualquer pessoa que jogue um jogo publicado seu que usa o clipe) pode baixar e reusar o áudio.",
+      "tokenHint": "As URLs usam tokens aleatórios longos, então são difíceis de adivinhar, mas trate tudo que você sobe aqui como efetivamente público — não envie áudio que você não queira que seja extraído."
+    },
+    "mode": {
+      "upload": "Enviar",
+      "record": "Gravar"
+    },
+    "upload": {
+      "dropPrimary": "Solte o arquivo de áudio ou clique para selecionar",
+      "dropHint": "≤10s · wav, mp3, ogg, flac · máx. 2 MB",
+      "reading": "Lendo arquivo…",
+      "parseFailed": "Não foi possível ler o arquivo de áudio. Tente outro formato.",
+      "tooLarge": "Arquivo muito grande ({mb} MB > 2 MB).",
+      "tooLong": "Clipe muito longo ({s}s > {max}s)."
+    },
+    "record": {
+      "btnStart": "● Gravar",
+      "btnStop": "■ Parar",
+      "hint": "A gravação para automaticamente em 10s. Clique de novo para parar antes.",
+      "micDenied": "Acesso ao microfone negado: {reason}",
+      "recorderUnavailable": "Gravador indisponível: {reason}",
+      "encoding": "Codificando…",
+      "encodeFailed": "Falha na codificação: {reason}",
+      "noAudio": "Nenhum áudio capturado."
+    },
+    "staged": {
+      "headerUpload": "Clipe selecionado",
+      "headerRecording": "Clipe gravado",
+      "labelPlaceholder": "Rótulo (p. ex. \"explosão\", \"pulo\", \"ai\")",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "needLabel": "Por favor digite um rótulo.",
+      "labelTooLong": "Rótulo muito longo (máx. {max})."
+    },
+    "library": {
+      "header": "Meus clipes",
+      "refresh": "Atualizar",
+      "empty": "Envie ou grave para adicionar seu primeiro clipe.",
+      "loading": "Carregando…",
+      "couldNotLoad": "Não foi possível carregar: {reason}",
+      "deleteConfirm": "Excluir \"{label}\"?",
+      "deleteFailed": "Falha ao excluir: {reason}",
+      "addToChatTooltip": "Adicionar este clipe como dica para o AI Assistant",
+      "deleteTooltip": "Excluir"
+    },
+    "save": {
+      "uploading": "Enviando…",
+      "saved": "Salvo.",
+      "failed": "Falha ao salvar: {reason}"
+    }
   }
 }

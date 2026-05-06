@@ -23,7 +23,8 @@
     "rawFilesTitle": "原始会话对话",
     "rawFilesEmpty": "此会话中还没有文件。",
     "buildingPlan": "构建计划",
-    "todoPaused": "已暂停"
+    "todoPaused": "已暂停",
+    "tabSoundEffects": "音效"
   },
   "feedback": {
     "titleCreate": "感谢你试用构建器！",
@@ -453,5 +454,63 @@
       "notAvailable": "此后端不支持 3D 模型生成。"
     },
     "errorPrefix": "错误：{message}"
+  },
+  "soundFx": {
+    "header": "音效",
+    "usageTooltip": "每日上传次数。UTC 零点重置。",
+    "daily": "今日: {today}/{limit}",
+    "notice": {
+      "privateBold": "未公开列表,但并非完全私密。",
+      "privateBody": "只有你才能在聊天或游戏中使用这些剪辑 — 但音频文件本身没有身份验证保护。",
+      "extract": "任何拥有 URL 的人(你分享给的朋友、获取到链接的人、或玩你发布的使用此剪辑的游戏的人)都可以下载并重新使用该音频。",
+      "tokenHint": "URL 使用长随机令牌,难以猜测,但请将上传到这里的内容视为实际上公开的 — 不要上传你不希望被提取的音频。"
+    },
+    "mode": {
+      "upload": "上传",
+      "record": "录制"
+    },
+    "upload": {
+      "dropPrimary": "拖放音频文件或点击浏览",
+      "dropHint": "≤10秒 · wav, mp3, ogg, flac · 最大 2 MB",
+      "reading": "正在读取文件…",
+      "parseFailed": "无法解析音频文件。请尝试其他格式。",
+      "tooLarge": "文件过大({mb} MB > 2 MB)。",
+      "tooLong": "剪辑过长({s}秒 > {max}秒)。"
+    },
+    "record": {
+      "btnStart": "● 录制",
+      "btnStop": "■ 停止",
+      "hint": "录制将在 10 秒后自动停止。再次点击可提前停止。",
+      "micDenied": "麦克风访问被拒绝:{reason}",
+      "recorderUnavailable": "录音器不可用:{reason}",
+      "encoding": "编码中…",
+      "encodeFailed": "编码失败:{reason}",
+      "noAudio": "未捕获到音频。"
+    },
+    "staged": {
+      "headerUpload": "已选择剪辑",
+      "headerRecording": "已录制剪辑",
+      "labelPlaceholder": "标签(如 \"爆炸\"、\"跳跃\"、\"疼\")",
+      "cancel": "取消",
+      "save": "保存",
+      "needLabel": "请输入标签。",
+      "labelTooLong": "标签过长(最多 {max})。"
+    },
+    "library": {
+      "header": "我的剪辑",
+      "refresh": "刷新",
+      "empty": "上传或录制以添加你的第一个剪辑。",
+      "loading": "加载中…",
+      "couldNotLoad": "无法加载:{reason}",
+      "deleteConfirm": "删除 \"{label}\" 吗?",
+      "deleteFailed": "删除失败:{reason}",
+      "addToChatTooltip": "将此剪辑作为提示添加给 AI 助手",
+      "deleteTooltip": "删除"
+    },
+    "save": {
+      "uploading": "上传中…",
+      "saved": "已保存。",
+      "failed": "保存失败:{reason}"
+    }
   }
 }

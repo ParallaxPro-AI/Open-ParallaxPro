@@ -23,7 +23,8 @@
     "rawFilesTitle": "Diálogo sin procesar de la sesión",
     "rawFilesEmpty": "Aún no hay archivos en esta sesión.",
     "buildingPlan": "Plan de construcción",
-    "todoPaused": "Pausado"
+    "todoPaused": "Pausado",
+    "tabSoundEffects": "Efectos de sonido"
   },
   "feedback": {
     "titleCreate": "¡Gracias por probar el constructor!",
@@ -453,5 +454,63 @@
       "notAvailable": "La generación de modelos 3D no está disponible en este backend."
     },
     "errorPrefix": "Error: {message}"
+  },
+  "soundFx": {
+    "header": "Efectos de sonido",
+    "usageTooltip": "Subidas diarias. Se reinicia a medianoche UTC.",
+    "daily": "Hoy: {today}/{limit}",
+    "notice": {
+      "privateBold": "No listado, no privado.",
+      "privateBody": "Solo tú puedes usar estos clips en el chat o en tus juegos — pero los archivos de audio en sí no están protegidos por autenticación.",
+      "extract": "Cualquier persona con la URL (un amigo con quien la compartiste, alguien que obtenga el enlace o cualquiera que juegue un juego publicado tuyo que use el clip) puede descargar y reutilizar el audio.",
+      "tokenHint": "Las URL usan tokens aleatorios largos, así que son difíciles de adivinar, pero trata todo lo que subas aquí como efectivamente público — no subas audio que no quieras que se extraiga."
+    },
+    "mode": {
+      "upload": "Subir",
+      "record": "Grabar"
+    },
+    "upload": {
+      "dropPrimary": "Arrastra un archivo de audio o haz clic para elegir",
+      "dropHint": "≤10s · wav, mp3, ogg, flac · máx 2 MB",
+      "reading": "Leyendo archivo…",
+      "parseFailed": "No se pudo leer el archivo de audio. Prueba con otro formato.",
+      "tooLarge": "Archivo demasiado grande ({mb} MB > 2 MB).",
+      "tooLong": "Clip demasiado largo ({s}s > {max}s)."
+    },
+    "record": {
+      "btnStart": "● Grabar",
+      "btnStop": "■ Detener",
+      "hint": "La grabación se detiene automáticamente a los 10s. Haz clic de nuevo para detenerla antes.",
+      "micDenied": "Acceso al micrófono denegado: {reason}",
+      "recorderUnavailable": "Grabador no disponible: {reason}",
+      "encoding": "Codificando…",
+      "encodeFailed": "Falló la codificación: {reason}",
+      "noAudio": "No se capturó audio."
+    },
+    "staged": {
+      "headerUpload": "Clip seleccionado",
+      "headerRecording": "Clip grabado",
+      "labelPlaceholder": "Etiqueta (p. ej. \"explosión\", \"salto\", \"ay\")",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "needLabel": "Por favor introduce una etiqueta.",
+      "labelTooLong": "Etiqueta demasiado larga (máx. {max})."
+    },
+    "library": {
+      "header": "Mis clips",
+      "refresh": "Actualizar",
+      "empty": "Sube o graba para añadir tu primer clip.",
+      "loading": "Cargando…",
+      "couldNotLoad": "No se pudo cargar: {reason}",
+      "deleteConfirm": "¿Eliminar \"{label}\"?",
+      "deleteFailed": "Falló al eliminar: {reason}",
+      "addToChatTooltip": "Añadir este clip como pista para el AI Assistant",
+      "deleteTooltip": "Eliminar"
+    },
+    "save": {
+      "uploading": "Subiendo…",
+      "saved": "Guardado.",
+      "failed": "Falló al guardar: {reason}"
+    }
   }
 }

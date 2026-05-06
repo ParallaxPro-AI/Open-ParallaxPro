@@ -17,6 +17,7 @@
  */
 
 import { AudioListenerComponent } from '../../../runtime/function/framework/components/audio_listener_component.js';
+import { t } from '../i18n/index.js';
 
 const API_BASE = '/api/engine/sfx';
 const MAX_DURATION_MS = 10_000;
@@ -145,30 +146,30 @@ export class SoundFxPanel {
         this.privacyBanner = document.createElement('div');
         this.privacyBanner.className = 'mg-notice';
         this.privacyBanner.innerHTML =
-            `<b>Unlisted, not private.</b> Only you can use these clips in chat or in your games — but the audio files themselves are <b>not auth-gated</b>. ` +
-            `Anyone with the URL (a friend you shared it with, anyone who gets the link, or anyone who plays a game you publish that uses the clip) can download and reuse the audio. ` +
-            `URLs use long random tokens so they're hard to guess, but treat anything you upload here as effectively public — don't upload audio you wouldn't want extracted.`;
+            `<b>${escapeHtml(t('soundFx.notice.privateBold'))}</b> ${escapeHtml(t('soundFx.notice.privateBody'))} ` +
+            `${escapeHtml(t('soundFx.notice.extract'))} ` +
+            `${escapeHtml(t('soundFx.notice.tokenHint'))}`;
         this.el.appendChild(this.privacyBanner);
 
         // Daily-count badge.
         const usageRow = document.createElement('div');
         usageRow.className = 'mg-health';
         const usageLeft = document.createElement('span');
-        usageLeft.textContent = 'Sound Effects';
+        usageLeft.textContent = t('soundFx.header');
         usageLeft.style.fontWeight = '600';
         usageRow.appendChild(usageLeft);
         this.usageLabel = document.createElement('span');
         this.usageLabel.className = 'mg-usage';
         this.usageLabel.textContent = '';
-        this.usageLabel.title = 'Daily upload count. Resets at midnight UTC.';
+        this.usageLabel.title = t('soundFx.usageTooltip');
         usageRow.appendChild(this.usageLabel);
         this.el.appendChild(usageRow);
 
         // Mode tabs.
         this.modeTabs = document.createElement('div');
         this.modeTabs.className = 'mg-mode-tabs';
-        const uploadBtn = this.makeModeButton('upload', 'Upload');
-        const recordBtn = this.makeModeButton('record', 'Record');
+        const uploadBtn = this.makeModeButton('upload', t('soundFx.mode.upload'));
+        const recordBtn = this.makeModeButton('record', t('soundFx.mode.record'));
         // Hide Record on browsers without getUserMedia.
         if (!navigator.mediaDevices?.getUserMedia) {
             recordBtn.style.display = 'none';
@@ -197,13 +198,13 @@ export class SoundFxPanel {
         const libHeader = document.createElement('div');
         libHeader.className = 'mg-lib-header';
         const libTitle = document.createElement('span');
-        libTitle.textContent = 'My clips';
+        libTitle.textContent = t('soundFx.library.header');
         libTitle.style.fontWeight = '600';
         libTitle.style.padding = '4px 8px';
         libHeader.appendChild(libTitle);
         const refreshBtn = document.createElement('button');
         refreshBtn.textContent = '↻';
-        refreshBtn.title = 'Refresh';
+        refreshBtn.title = t('soundFx.library.refresh');
         refreshBtn.className = 'mg-lib-refresh';
         refreshBtn.addEventListener('click', () => this.refreshLibrary());
         libHeader.appendChild(refreshBtn);
@@ -211,7 +212,7 @@ export class SoundFxPanel {
 
         this.libraryGrid = document.createElement('div');
         this.libraryGrid.className = 'mg-lib-grid';
-        this.libraryGrid.innerHTML = `<div class="mg-lib-empty">Upload or record to add your first clip.</div>`;
+        this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${escapeHtml(t('soundFx.library.empty'))}</div>`;
         this.el.appendChild(this.libraryGrid);
 
         this.el.addEventListener('scroll', () => {
@@ -261,8 +262,8 @@ export class SoundFxPanel {
         const dropZone = document.createElement('label');
         dropZone.className = 'mg-dropzone';
         dropZone.innerHTML =
-            `<div class="mg-dropzone-primary">Drop audio file or click to browse</div>` +
-            `<div class="mg-dropzone-hint">≤10s · wav, mp3, ogg, flac · max 2 MB</div>`;
+            `<div class="mg-dropzone-primary">${escapeHtml(t('soundFx.upload.dropPrimary'))}</div>` +
+            `<div class="mg-dropzone-hint">${escapeHtml(t('soundFx.upload.dropHint'))}</div>`;
 
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
@@ -285,18 +286,21 @@ export class SoundFxPanel {
     private async handleFileSelected(file?: File | null): Promise<void> {
         if (!file) return;
         if (file.size > 2 * 1024 * 1024) {
-            this.statusBar.textContent = `File too large (${(file.size / (1024 * 1024)).toFixed(1)} MB > 2 MB).`;
+            this.statusBar.textContent = t('soundFx.upload.tooLarge')
+                .replace('{mb}', (file.size / (1024 * 1024)).toFixed(1));
             return;
         }
 
-        this.statusBar.textContent = 'Reading file…';
+        this.statusBar.textContent = t('soundFx.upload.reading');
         const durationMs = await probeAudioDurationMs(file).catch(() => 0);
         if (!durationMs) {
-            this.statusBar.textContent = 'Could not parse audio file. Try a different format.';
+            this.statusBar.textContent = t('soundFx.upload.parseFailed');
             return;
         }
         if (durationMs > MAX_DURATION_MS) {
-            this.statusBar.textContent = `Clip too long (${(durationMs / 1000).toFixed(1)}s > ${(MAX_DURATION_MS / 1000)}s).`;
+            this.statusBar.textContent = t('soundFx.upload.tooLong')
+                .replace('{s}', (durationMs / 1000).toFixed(1))
+                .replace('{max}', (MAX_DURATION_MS / 1000).toFixed(0));
             return;
         }
 
@@ -315,7 +319,7 @@ export class SoundFxPanel {
         wrap.style.padding = '20px 8px';
 
         const recBtn = document.createElement('button');
-        recBtn.textContent = '● Record';
+        recBtn.textContent = t('soundFx.record.btnStart');
         recBtn.className = 'primary';
         recBtn.style.cssText = 'padding:10px 22px;font-size:14px;border-radius:999px;cursor:pointer;';
         wrap.appendChild(recBtn);
@@ -326,7 +330,7 @@ export class SoundFxPanel {
         wrap.appendChild(timerEl);
 
         const hint = document.createElement('div');
-        hint.textContent = 'Recording auto-stops at 10s. Click again to stop early.';
+        hint.textContent = t('soundFx.record.hint');
         hint.style.cssText = 'color:var(--text-secondary);font-size:11px;';
         wrap.appendChild(hint);
 
@@ -343,7 +347,7 @@ export class SoundFxPanel {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch (e: any) {
-            this.statusBar.textContent = `Microphone access denied: ${e?.message ?? 'unknown'}`;
+            this.statusBar.textContent = t('soundFx.record.micDenied').replace('{reason}', e?.message ?? 'unknown');
             return;
         }
 
@@ -351,8 +355,8 @@ export class SoundFxPanel {
         try {
             recorder = new MediaRecorder(stream);
         } catch (e: any) {
-            stream.getTracks().forEach(t => t.stop());
-            this.statusBar.textContent = `Recorder unavailable: ${e?.message ?? 'unknown'}`;
+            stream.getTracks().forEach(track => track.stop());
+            this.statusBar.textContent = t('soundFx.record.recorderUnavailable').replace('{reason}', e?.message ?? 'unknown');
             return;
         }
 
@@ -369,7 +373,7 @@ export class SoundFxPanel {
         }, MAX_DURATION_MS);
 
         this.recording = { stream, recorder, chunks, startedAt, timerId, autoStopId, recBtn, timerEl };
-        recBtn.textContent = '■ Stop';
+        recBtn.textContent = t('soundFx.record.btnStop');
         recBtn.classList.add('recording');
         this.statusBar.textContent = '';
 
@@ -394,20 +398,20 @@ export class SoundFxPanel {
 
         // ALWAYS release the mic stream — otherwise iOS leaves the recording
         // banner up and Chrome shows a persistent mic indicator.
-        r.stream.getTracks().forEach(t => t.stop());
+        r.stream.getTracks().forEach(track => track.stop());
 
-        r.recBtn.textContent = '● Record';
+        r.recBtn.textContent = t('soundFx.record.btnStart');
         r.recBtn.classList.remove('recording');
         const elapsedMs = performance.now() - r.startedAt;
         r.timerEl.textContent = `0.0 / ${(MAX_DURATION_MS / 1000).toFixed(1)}s`;
 
         if (!save) return;
         if (r.chunks.length === 0) {
-            this.statusBar.textContent = 'No audio captured.';
+            this.statusBar.textContent = t('soundFx.record.noAudio');
             return;
         }
 
-        this.statusBar.textContent = 'Encoding…';
+        this.statusBar.textContent = t('soundFx.record.encoding');
         try {
             const recBlob = new Blob(r.chunks, { type: r.recorder.mimeType || 'audio/webm' });
             const wav = await encodeRecordingToWav(recBlob);
@@ -415,7 +419,7 @@ export class SoundFxPanel {
             this.statusBar.textContent = '';
             this.stageForSave(wav, Math.round(durationMs), 'recording');
         } catch (e: any) {
-            this.statusBar.textContent = `Encoding failed: ${e?.message ?? 'unknown'}`;
+            this.statusBar.textContent = t('soundFx.record.encodeFailed').replace('{reason}', e?.message ?? 'unknown');
         }
     }
 
@@ -434,7 +438,9 @@ export class SoundFxPanel {
         this.previewArea.style.gap = '8px';
 
         const head = document.createElement('div');
-        head.textContent = source === 'recording' ? 'Recorded clip' : 'Selected clip';
+        head.textContent = source === 'recording'
+            ? t('soundFx.staged.headerRecording')
+            : t('soundFx.staged.headerUpload');
         head.className = 'mg-label';
         this.previewArea.appendChild(head);
 
@@ -451,7 +457,7 @@ export class SoundFxPanel {
 
         const labelInput = document.createElement('input');
         labelInput.type = 'text';
-        labelInput.placeholder = 'Label (e.g. "explosion", "jump", "ouch")';
+        labelInput.placeholder = t('soundFx.staged.labelPlaceholder');
         labelInput.maxLength = MAX_LABEL_LEN;
         labelInput.className = 'mg-textarea';
         labelInput.style.cssText = 'padding:6px 8px;font-size:13px;width:100%;box-sizing:border-box;';
@@ -461,13 +467,13 @@ export class SoundFxPanel {
         row.className = 'mg-row';
 
         const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
+        cancelBtn.textContent = t('soundFx.staged.cancel');
         cancelBtn.style.flex = '1';
         cancelBtn.addEventListener('click', () => this.dismissStaged());
         row.appendChild(cancelBtn);
 
         const saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Save';
+        saveBtn.textContent = t('soundFx.staged.save');
         saveBtn.className = 'primary';
         saveBtn.style.flex = '1';
         saveBtn.addEventListener('click', () => this.saveStaged(labelInput.value, saveBtn));
@@ -494,26 +500,27 @@ export class SoundFxPanel {
         if (!s) return;
         const label = rawLabel.trim();
         if (label.length === 0) {
-            this.statusBar.textContent = 'Please enter a label.';
+            this.statusBar.textContent = t('soundFx.staged.needLabel');
             return;
         }
         if (label.length > MAX_LABEL_LEN) {
-            this.statusBar.textContent = `Label too long (max ${MAX_LABEL_LEN}).`;
+            this.statusBar.textContent = t('soundFx.staged.labelTooLong').replace('{max}', String(MAX_LABEL_LEN));
             return;
         }
         saveBtn.disabled = true;
-        this.statusBar.textContent = 'Uploading…';
+        this.statusBar.textContent = t('soundFx.save.uploading');
         try {
             const row = await uploadClip(s.blob, label, s.source);
             this.library.unshift(row);
             this.libraryOldestTs = row.created_at;
             this.dismissStaged();
             this.renderLibrary();
-            this.statusBar.textContent = 'Saved.';
-            window.setTimeout(() => { if (this.statusBar.textContent === 'Saved.') this.statusBar.textContent = ''; }, 2000);
+            const savedMsg = t('soundFx.save.saved');
+            this.statusBar.textContent = savedMsg;
+            window.setTimeout(() => { if (this.statusBar.textContent === savedMsg) this.statusBar.textContent = ''; }, 2000);
             this.refreshUsage();
         } catch (e: any) {
-            this.statusBar.textContent = `Save failed: ${e?.message ?? 'unknown'}`;
+            this.statusBar.textContent = t('soundFx.save.failed').replace('{reason}', e?.message ?? 'unknown');
         } finally {
             saveBtn.disabled = false;
         }
@@ -526,7 +533,7 @@ export class SoundFxPanel {
         this.libraryOldestTs = null;
         this.libraryExhausted = false;
         this.libraryLoading = false;
-        this.libraryGrid.innerHTML = `<div class="mg-lib-empty">Loading…</div>`;
+        this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${escapeHtml(t('soundFx.library.loading'))}</div>`;
         try {
             const resp = await api<{ items: ClipRow[]; has_more: boolean }>(
                 `/library?limit=${LIBRARY_PAGE_SIZE}`
@@ -538,7 +545,12 @@ export class SoundFxPanel {
             this.libraryExhausted = !resp.has_more;
             this.renderLibrary();
         } catch (e: any) {
-            this.libraryGrid.innerHTML = `<div class="mg-lib-empty">Could not load: ${escapeHtml(e?.message ?? 'unknown')}</div>`;
+            // Escape the localized template + the dynamic reason separately,
+            // then substitute. Avoids double-escaping the user-supplied
+            // reason (escapeHtml(template) leaves '{reason}' alone).
+            const tpl = escapeHtml(t('soundFx.library.couldNotLoad'));
+            const reason = escapeHtml(e?.message ?? 'unknown');
+            this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${tpl.replace('{reason}', reason)}</div>`;
         }
     }
 
@@ -561,7 +573,7 @@ export class SoundFxPanel {
 
     private renderLibrary(): void {
         if (this.library.length === 0) {
-            this.libraryGrid.innerHTML = `<div class="mg-lib-empty">Upload or record to add your first clip.</div>`;
+            this.libraryGrid.innerHTML = `<div class="mg-lib-empty">${escapeHtml(t('soundFx.library.empty'))}</div>`;
             return;
         }
         this.libraryGrid.innerHTML = '';
@@ -591,7 +603,7 @@ export class SoundFxPanel {
         const useBtn = document.createElement('button');
         useBtn.type = 'button';
         useBtn.className = 'mg-lib-card-use';
-        useBtn.title = 'Add this clip as a hint for the AI Assistant';
+        useBtn.title = t('soundFx.library.addToChatTooltip');
         useBtn.textContent = '+ chat';
         useBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -632,11 +644,11 @@ export class SoundFxPanel {
         actions.style.cssText = 'display:flex;justify-content:flex-end;';
         const delBtn = document.createElement('button');
         delBtn.textContent = '🗑';
-        delBtn.title = 'Delete';
+        delBtn.title = t('soundFx.library.deleteTooltip');
         delBtn.style.cssText = 'background:transparent;border:0;cursor:pointer;color:var(--text-secondary);font-size:14px;padding:2px 6px;';
         delBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (!window.confirm(`Delete "${row.label}"?`)) return;
+            if (!window.confirm(t('soundFx.library.deleteConfirm').replace('{label}', row.label))) return;
             delBtn.disabled = true;
             try {
                 await api(`/${row.id}/delete`, { method: 'POST' });
@@ -644,7 +656,7 @@ export class SoundFxPanel {
                 this.renderLibrary();
                 this.refreshUsage();
             } catch (err: any) {
-                this.statusBar.textContent = `Delete failed: ${err?.message ?? 'unknown'}`;
+                this.statusBar.textContent = t('soundFx.library.deleteFailed').replace('{reason}', err?.message ?? 'unknown');
             } finally {
                 delBtn.disabled = false;
             }
@@ -660,7 +672,9 @@ export class SoundFxPanel {
     private async refreshUsage(): Promise<void> {
         try {
             const resp = await api<{ today: number; limit: number }>(`/usage`);
-            this.usageLabel.textContent = `Daily: ${resp.today}/${resp.limit}`;
+            this.usageLabel.textContent = t('soundFx.daily')
+                .replace('{today}', String(resp.today))
+                .replace('{limit}', String(resp.limit));
         } catch {
             this.usageLabel.textContent = '';
         }

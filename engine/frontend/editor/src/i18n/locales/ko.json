@@ -23,7 +23,8 @@
     "rawFilesTitle": "세션 대화 원본",
     "rawFilesEmpty": "이 세션에는 아직 파일이 없습니다.",
     "buildingPlan": "빌드 계획",
-    "todoPaused": "일시 정지"
+    "todoPaused": "일시 정지",
+    "tabSoundEffects": "사운드 이펙트"
   },
   "feedback": {
     "titleCreate": "빌더를 사용해 주셔서 감사합니다!",
@@ -453,5 +454,63 @@
       "notAvailable": "이 백엔드에서는 3D 모델 생성을 사용할 수 없습니다."
     },
     "errorPrefix": "오류: {message}"
+  },
+  "soundFx": {
+    "header": "사운드 이펙트",
+    "usageTooltip": "일일 업로드 횟수. UTC 자정에 초기화됩니다.",
+    "daily": "오늘: {today}/{limit}",
+    "notice": {
+      "privateBold": "공개 목록에 없을 뿐, 비공개는 아닙니다.",
+      "privateBody": "이 클립을 채팅이나 게임에서 사용할 수 있는 사람은 당신뿐이지만 — 오디오 파일 자체에는 인증이 걸려 있지 않습니다.",
+      "extract": "URL 을 가진 사람(공유한 친구, 링크를 입수한 사람, 또는 이 클립을 사용하는 공개 게임을 플레이하는 사람)은 누구나 오디오를 다운로드하고 재사용할 수 있습니다.",
+      "tokenHint": "URL 은 추측하기 어려운 긴 랜덤 토큰을 사용하지만, 여기에 업로드하는 모든 것은 사실상 공개된 것으로 취급하세요 — 추출되어서는 안 되는 오디오는 업로드하지 마세요."
+    },
+    "mode": {
+      "upload": "업로드",
+      "record": "녹음"
+    },
+    "upload": {
+      "dropPrimary": "오디오 파일을 드롭하거나 클릭하여 선택",
+      "dropHint": "10초 이내 · wav, mp3, ogg, flac · 최대 2 MB",
+      "reading": "파일 읽는 중…",
+      "parseFailed": "오디오 파일을 분석할 수 없습니다. 다른 형식으로 시도해 보세요.",
+      "tooLarge": "파일이 너무 큽니다({mb} MB > 2 MB).",
+      "tooLong": "클립이 너무 깁니다({s}초 > {max}초)."
+    },
+    "record": {
+      "btnStart": "● 녹음",
+      "btnStop": "■ 중지",
+      "hint": "10초 후 자동 중지됩니다. 다시 클릭하여 일찍 중지할 수 있습니다.",
+      "micDenied": "마이크 접근이 거부되었습니다: {reason}",
+      "recorderUnavailable": "녹음기를 사용할 수 없습니다: {reason}",
+      "encoding": "인코딩 중…",
+      "encodeFailed": "인코딩에 실패했습니다: {reason}",
+      "noAudio": "오디오가 캡처되지 않았습니다."
+    },
+    "staged": {
+      "headerUpload": "선택한 클립",
+      "headerRecording": "녹음한 클립",
+      "labelPlaceholder": "라벨(예: \"폭발\", \"점프\", \"아얏\")",
+      "cancel": "취소",
+      "save": "저장",
+      "needLabel": "라벨을 입력해 주세요.",
+      "labelTooLong": "라벨이 너무 깁니다(최대 {max})."
+    },
+    "library": {
+      "header": "내 클립",
+      "refresh": "새로 고침",
+      "empty": "업로드하거나 녹음하여 첫 번째 클립을 추가하세요.",
+      "loading": "로딩 중…",
+      "couldNotLoad": "로드할 수 없습니다: {reason}",
+      "deleteConfirm": "\"{label}\" 을(를) 삭제하시겠습니까?",
+      "deleteFailed": "삭제에 실패했습니다: {reason}",
+      "addToChatTooltip": "이 클립을 AI 어시스턴트의 힌트로 추가",
+      "deleteTooltip": "삭제"
+    },
+    "save": {
+      "uploading": "업로드 중…",
+      "saved": "저장됨.",
+      "failed": "저장에 실패했습니다: {reason}"
+    }
   }
 }

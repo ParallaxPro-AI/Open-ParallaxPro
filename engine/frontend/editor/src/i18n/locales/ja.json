@@ -23,7 +23,8 @@
     "rawFilesTitle": "セッション対話の生データ",
     "rawFilesEmpty": "このセッションにはまだファイルがありません。",
     "buildingPlan": "計画を構築中",
-    "todoPaused": "一時停止中"
+    "todoPaused": "一時停止中",
+    "tabSoundEffects": "サウンドエフェクト"
   },
   "feedback": {
     "titleCreate": "ビルダーをお試しいただきありがとうございます！",
@@ -453,5 +454,63 @@
       "notAvailable": "このバックエンドでは 3D モデル生成は利用できません。"
     },
     "errorPrefix": "エラー：{message}"
+  },
+  "soundFx": {
+    "header": "サウンドエフェクト",
+    "usageTooltip": "1日のアップロード数。UTC の午前0時にリセットされます。",
+    "daily": "本日: {today}/{limit}",
+    "notice": {
+      "privateBold": "限定公開（完全な非公開ではありません）。",
+      "privateBody": "これらのクリップをチャットやゲームで使えるのはあなただけです — ただし音声ファイル自体には認証はかかっていません。",
+      "extract": "URL を持っている人(共有した友人、リンクを入手した人、または公開ゲームをプレイする人)は、誰でも音声をダウンロードして再利用できます。",
+      "tokenHint": "URL は推測しにくい長いランダムトークンを使っていますが、ここにアップロードするものは事実上公開されたものと考えてください — 抽出されたくない音声はアップロードしないでください。"
+    },
+    "mode": {
+      "upload": "アップロード",
+      "record": "録音"
+    },
+    "upload": {
+      "dropPrimary": "音声ファイルをドロップ、またはクリックして選択",
+      "dropHint": "10秒以内 · wav, mp3, ogg, flac · 最大 2 MB",
+      "reading": "ファイルを読み込み中…",
+      "parseFailed": "音声ファイルを解析できませんでした。別のフォーマットでお試しください。",
+      "tooLarge": "ファイルが大きすぎます({mb} MB > 2 MB)。",
+      "tooLong": "クリップが長すぎます({s}秒 > {max}秒)。"
+    },
+    "record": {
+      "btnStart": "● 録音",
+      "btnStop": "■ 停止",
+      "hint": "10秒で自動停止します。再度クリックで早めに停止。",
+      "micDenied": "マイクへのアクセスが拒否されました: {reason}",
+      "recorderUnavailable": "レコーダーが利用できません: {reason}",
+      "encoding": "エンコード中…",
+      "encodeFailed": "エンコードに失敗しました: {reason}",
+      "noAudio": "音声がキャプチャされませんでした。"
+    },
+    "staged": {
+      "headerUpload": "選択したクリップ",
+      "headerRecording": "録音したクリップ",
+      "labelPlaceholder": "ラベル(例: \"爆発\", \"ジャンプ\", \"痛い\")",
+      "cancel": "キャンセル",
+      "save": "保存",
+      "needLabel": "ラベルを入力してください。",
+      "labelTooLong": "ラベルが長すぎます(最大 {max})。"
+    },
+    "library": {
+      "header": "マイクリップ",
+      "refresh": "更新",
+      "empty": "アップロードまたは録音して最初のクリップを追加しましょう。",
+      "loading": "読み込み中…",
+      "couldNotLoad": "読み込めませんでした: {reason}",
+      "deleteConfirm": "\"{label}\" を削除しますか?",
+      "deleteFailed": "削除に失敗しました: {reason}",
+      "addToChatTooltip": "このクリップを AI アシスタントへのヒントとして追加",
+      "deleteTooltip": "削除"
+    },
+    "save": {
+      "uploading": "アップロード中…",
+      "saved": "保存しました。",
+      "failed": "保存に失敗しました: {reason}"
+    }
   }
 }
