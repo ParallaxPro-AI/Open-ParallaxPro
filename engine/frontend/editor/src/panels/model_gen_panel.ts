@@ -62,7 +62,7 @@ const LIBRARY_PAGE_SIZE = 50;
 const SCROLL_LOAD_THRESHOLD_PX = 200;
 /** Mirror of MIN_PROMPT_LEN on the server. Backend rejects shorter
  *  prompts; we gate the button so users get instant feedback. */
-const MIN_PROMPT_LEN = 5;
+const MIN_PROMPT_LEN = 2;
 /** Mirror of PREVIEW_COOLDOWN_MS on the server. Used as the default
  *  countdown when starting cooldown on a successful preview; the 429
  *  cooldown response carries its own retry_after_ms which wins. */
