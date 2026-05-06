@@ -9,7 +9,6 @@ import { ASTNode, MessageNode, EditNode, ToolCallNode } from './syntax_tree.js';
 import { config } from '../../config.js';
 import { EDIT_API_DOCS, getProjectSummary } from '../services/chat_protocol.js';
 import { loadTemplateCatalog, formatCatalogForLLM } from '../services/pipeline/template_loader.js';
-import { runFixer } from '../services/pipeline/cli_fixer.js';
 import { startGenerationJob } from '../services/pipeline/generation_jobs.js';
 import { seedFromTemplate } from '../services/pipeline/project_seeder.js';
 import type { BuildResult } from '../services/pipeline/project_builder.js';
@@ -68,13 +67,9 @@ export interface ExecutionContext {
     /**
      * 'mobile', 'desktop', 'ios_app', or 'android_app'. Set from the
      * EditorClient's deviceType, which editor_ws derives from the WS
-     * upgrade User-Agent. FIX_GAME branches on this: desktop runs
-     * runFixer synchronously inline (the user watches progress in the
-     * chat panel); mobile, ios_app, and android_app run it as a
-     * background generation_jobs entry so the user can close their
-     * phone tab/app without aborting the run. The native-app buckets
-     * are functionally equivalent to mobile here — kept distinct only
-     * so admin charts can split native traffic from mobile-browser.
+     * upgrade User-Agent. Plumbed through for downstream consumers
+     * (admin telemetry / per-device prompts) — the executor itself no
+     * longer branches on it.
      */
     deviceType?: 'mobile' | 'desktop' | 'ios_app' | 'android_app';
     /**
@@ -444,96 +439,39 @@ async function executeToolCall(node: ToolCallNode, ctx: ExecutionContext, result
                 break;
             }
 
-            // Mobile: route to background generation_jobs (kind: 'fix').
-            // Mirrors CREATE_GAME's flow — the project locks, the user
-            // bounces to the project list, the build outlives the WS
-            // tab, and on completion the project-list card flips back
-            // to "ready". No email is sent (hosted plugin filters on
-            // kind === 'create'). Desktop falls through to the inline
-            // synchronous runFixer below since the user is sitting in
-            // front of the chat panel watching live progress.
-            if (ctx.deviceType === 'mobile' || ctx.deviceType === 'ios_app' || ctx.deviceType === 'android_app') {
-                try {
-                    const jobId = await startGenerationJob({
-                        projectId: ctx.projectId,
-                        userId: ctx.userId,
-                        username: ctx.username,
-                        authToken: ctx.authToken,
-                        description,
-                        kind: 'fix',
-                        activeSceneKey: ctx.activeSceneKey,
-                        cliOverride: ctx.editingAgent,
-                        chatHistory: ctx.chatHistory,
-                    });
-                    ctx.onJobStarted?.();
-                    ctx.sendToFrontend('generation_started', {
-                        jobId,
-                        projectId: ctx.projectId,
-                        startedAt: new Date().toISOString(),
-                        description,
-                        kind: 'fix',
-                    });
-                    result.toolResults =
-                        `[FIX_GAME] Background fix started (job ${jobId.slice(0, 8)}). ` +
-                        `Reply with a single warm 1–2 sentence { } text block to the user — no tool call. It should say, in your own words: ` +
-                        `"You can safely close the tab while we apply the fix in the background. The project is locked for now — you'll see it ready on the project list when we're done." ` +
-                        `Do NOT mention email, do NOT promise specific generated content.`;
-                } catch (e: any) {
-                    result.toolResults = `[FIX_GAME] Could not start background fix: ${e?.message || 'unknown error'}. Tell the user what went wrong — don't retry automatically.`;
-                }
-                break;
-            }
-
-            const sendStatus = (msg: string) => ctx.sendToFrontend('fix_progress', { text: msg });
-            sendStatus('Dispatching Editing Agent...');
-
+            // Route to background generation_jobs (kind: 'fix') for all
+            // devices. Mirrors CREATE_GAME's flow — the project locks, the
+            // user bounces to the project list, the build outlives the WS
+            // tab, and on completion the project-list card flips back to
+            // "ready". No email is sent (hosted plugin filters on
+            // kind === 'create').
             try {
-                const view = ctx.getProjectData();
-                const fixResult = await runFixer(
-                    ctx.projectId,
+                const jobId = await startGenerationJob({
+                    projectId: ctx.projectId,
+                    userId: ctx.userId,
+                    username: ctx.username,
+                    authToken: ctx.authToken,
                     description,
-                    view.files as ProjectFiles,
-                    ctx.activeSceneKey,
-                    sendStatus,
-                    ctx.abortSignal,
-                    ctx.editingAgent,
-                    ctx.chatHistory,
-                );
-
-                if (fixResult.costUsd && ctx.onFixerCost) ctx.onFixerCost(fixResult.costUsd);
-
-                // If the user hit Stop while the CLI was running, don't
-                // commit partial changes to the project. The outer loop's
-                // post-execute abort check will surface the "Generation
-                // stopped" message to the user.
-                if (ctx.abortSignal?.aborted) {
-                    result.toolResults = '[FIX_GAME] Cancelled by user.';
-                    break;
-                }
-
-                if (fixResult.success && fixResult.filesChanged.length > 0) {
-                    const updates: Record<string, string | null> = {};
-                    for (const [k, v] of Object.entries(fixResult.changedFiles)) updates[k] = v;
-                    for (const k of fixResult.deletedFiles) updates[k] = null;
-                    const built = ctx.commitFiles(updates, { kind: 'fix_game', prompt: description });
-                    if (!built || !built.success) {
-                        // The commit helper already rolled the change back
-                        // (no DB write happened) and re-pushed server
-                        // truth. Tell the LLM in no uncertain terms so its
-                        // follow-up turn doesn't claim success.
-                        result.toolResults = `[FIX_GAME] ROLLED BACK — the agent's files didn't pass assembleGame validation: ${built?.error}. NO changes were applied to the project. In your next response, tell the user the fix attempt did not land, describe what you tried, and ask whether they want you to try again with a different approach. Do NOT claim success.`;
-                        break;
-                    }
-                    result.madeChanges = true;
-                    for (const f of fixResult.filesChanged) result.fileChanges.push({ path: f, type: 'modified' });
-                    result.toolResults = `[FIX_GAME] ${fixResult.summary}. Tell the user the fix has been applied and they can press Play to test.`;
-                } else if (fixResult.success) {
-                    result.toolResults = `[FIX_GAME] ${fixResult.summary}`;
-                } else {
-                    result.toolResults = `[FIX_GAME] Fix failed: ${fixResult.summary}`;
-                }
+                    kind: 'fix',
+                    activeSceneKey: ctx.activeSceneKey,
+                    cliOverride: ctx.editingAgent,
+                    chatHistory: ctx.chatHistory,
+                });
+                ctx.onJobStarted?.();
+                ctx.sendToFrontend('generation_started', {
+                    jobId,
+                    projectId: ctx.projectId,
+                    startedAt: new Date().toISOString(),
+                    description,
+                    kind: 'fix',
+                });
+                result.toolResults =
+                    `[FIX_GAME] Background fix started (job ${jobId.slice(0, 8)}). ` +
+                    `Reply with a single warm 1–2 sentence { } text block to the user — no tool call. It should say, in your own words: ` +
+                    `"You can safely close the tab while we apply the fix in the background. The project is locked for now — you'll see it ready on the project list when we're done." ` +
+                    `Do NOT mention email, do NOT promise specific generated content.`;
             } catch (e: any) {
-                result.toolResults = `[FIX_GAME] Error: ${e.message}`;
+                result.toolResults = `[FIX_GAME] Could not start background fix: ${e?.message || 'unknown error'}. Tell the user what went wrong — don't retry automatically.`;
             }
             break;
         }

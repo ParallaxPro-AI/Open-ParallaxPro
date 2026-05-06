@@ -1902,7 +1902,7 @@ git checkout da571fe   # last commit before template unification`;
 
             const badge = document.createElement('span');
             badge.className = queued ? 'project-generation-badge queued' : 'project-generation-badge running';
-            // 'fix' = mobile-background FIX_GAME (file patch, fast, no email);
+            // 'fix' = background FIX_GAME (file patch, fast, no email);
             // 'create' (default) = full from-scratch CREATE_GAME.
             const isFix = gen.kind === 'fix';
             badge.textContent = queued

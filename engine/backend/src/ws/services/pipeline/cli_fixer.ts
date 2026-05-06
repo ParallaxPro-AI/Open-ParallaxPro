@@ -70,10 +70,10 @@ export async function runFixer(
     abortSignal?: AbortSignal,
     cliOverride?: string,
     chatHistory?: string,
-    /** Skip the per-project preemption inside runFixer. The mobile-
-     *  background FIX_GAME path runs runFixer from inside generation_jobs'
-     *  runJob — by then this very job is already registered in jobs.get(),
-     *  so calling preemptGenerationJob here would abort the run that
+    /** Skip the per-project preemption inside runFixer. The background
+     *  FIX_GAME path runs runFixer from inside generation_jobs' runJob —
+     *  by then this very job is already registered in jobs.get(), so
+     *  calling preemptGenerationJob here would abort the run that
      *  spawned us. generation_jobs.startGenerationJob already preempted
      *  the previous occupant before kicking us off, so the invariant
      *  ("at most one CLI per project") is still upheld. */
