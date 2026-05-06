@@ -63,6 +63,10 @@ const SCROLL_LOAD_THRESHOLD_PX = 200;
 /** Mirror of MIN_PROMPT_LEN on the server. Backend rejects shorter
  *  prompts; we gate the button so users get instant feedback. */
 const MIN_PROMPT_LEN = 5;
+/** Mirror of PREVIEW_COOLDOWN_MS on the server. Used as the default
+ *  countdown when starting cooldown on a successful preview; the 429
+ *  cooldown response carries its own retry_after_ms which wins. */
+const PREVIEW_COOLDOWN_MS = 30_000;
 
 type Mode = 'text' | 'image';
 type Step = 'idle' | 'previewed' | 'submitting';
@@ -363,6 +367,11 @@ export class ModelGenPanel {
             this.currentPrompt = prompt;
             previewBtn.disabled = true;
             this.statusBar.textContent = t('modelGen.text.generating');
+            // Decide in the try/catch whether to start a cooldown after this
+            // press. Cache hits and validation failures don't cool down; a
+            // paid fal call or a server cooldown 429 does. The finally block
+            // either re-enables the button or hands off to the countdown.
+            let cooldownMs = 0;
             try {
                 const resp = await api<any>('/preview/text', {
                     method: 'POST',
@@ -379,8 +388,14 @@ export class ModelGenPanel {
                 this.step = 'previewed';
                 this.statusBar.textContent = '';
                 this.showPreview();
+                cooldownMs = PREVIEW_COOLDOWN_MS;
             } catch (e: any) {
-                if (e?.status === 429 && e?.payload?.error === 'daily_limit_reached') {
+                if (e?.status === 429 && e?.payload?.error === 'preview_cooldown') {
+                    this.statusBar.textContent = e.payload.message || e.message;
+                    cooldownMs = typeof e.payload.retry_after_ms === 'number'
+                        ? e.payload.retry_after_ms
+                        : PREVIEW_COOLDOWN_MS;
+                } else if (e?.status === 429 && e?.payload?.error === 'daily_limit_reached') {
                     this.statusBar.textContent = e.message;
                     if (typeof e.payload.usage_pct === 'number') this.renderUsage(e.payload.usage_pct, e.payload.limit_pct ?? 100, null);
                 } else if (e?.status === 402 && e?.payload?.error === 'signup_required') {
@@ -393,7 +408,11 @@ export class ModelGenPanel {
                     this.statusBar.textContent = t('modelGen.errorPrefix').replace('{message}', e.message || t('modelGen.text.previewFailed'));
                 }
             } finally {
-                previewBtn.disabled = false;
+                if (cooldownMs > 0) {
+                    this.startPreviewCooldown(previewBtn, cooldownMs);
+                } else {
+                    previewBtn.disabled = false;
+                }
             }
         });
         const actions = document.createElement('div');
@@ -853,6 +872,29 @@ export class ModelGenPanel {
      *  /generate. We track this so click handlers can short-circuit
      *  with a friendly sign-up prompt instead of the bare 402 error. */
     private isAnonymousTier = false;
+
+    /** Disable a button and tick down a "(Ns)" suffix once a second
+     *  until the cooldown expires, then restore. Used after a paid
+     *  preview to stop the user from spamming the button while they
+     *  evaluate the result. The button reference may be detached if
+     *  the panel re-renders mid-countdown — the harmless ticks just
+     *  fall off the DOM. */
+    private startPreviewCooldown(btn: HTMLButtonElement, ms: number): void {
+        const originalText = btn.textContent ?? '';
+        btn.disabled = true;
+        let remaining = Math.max(1, Math.ceil(ms / 1000));
+        const tick = (): void => {
+            btn.textContent = `${originalText} (${remaining}s)`;
+            remaining -= 1;
+            if (remaining < 0) {
+                btn.textContent = originalText;
+                btn.disabled = false;
+                return;
+            }
+            setTimeout(tick, 1000);
+        };
+        tick();
+    }
 
     /** Refresh the "daily N%" label. Called on tab show + after every
      *  preview/generate/cancel response (those carry usage_pct so we
