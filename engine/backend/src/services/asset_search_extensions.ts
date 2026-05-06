@@ -32,6 +32,13 @@ export interface AssetSearchResult {
      *  output. Used for community assets where the path token is opaque
      *  and the only readable label is the original generation prompt. */
     description?: string;
+    /** Cosine similarity (multilingual-e5-small) between the search
+     *  query and this hit's prompt embedding. Used by searchAssets()
+     *  to merge extension hits with pack hits in a single score-sorted
+     *  ranking, so a strong community match outranks weak pack
+     *  fuzzies. Optional for forward-compat with extensions that
+     *  don't run an embedding search internally. */
+    score?: number;
 }
 
 export interface AssetSearchOpts {

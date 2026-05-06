@@ -273,40 +273,57 @@ export async function searchAssets(opts: {
 
     const max = Math.min(opts.limit ?? 20, 50);
 
-    let packResults: AssetSearchHit[];
+    // Both pack hits and extension hits are scored against the same
+    // multilingual-e5-small embedding, so we collect them in a single
+    // pool and rank by cosine similarity end-to-end. Whoever matches
+    // the query best wins, regardless of which pool they came from.
+    // Without this merge, weak pack fuzzies (e.g. "flower_heliophila"
+    // for a "helicopter" search) would crowd out a user's much
+    // stronger community match — the previous "pack first, then
+    // truncate" behavior literally dropped the better hit.
+    interface ScoredHit { hit: AssetSearchHit; score: number; }
+    const scored: ScoredHit[] = [];
+
     if (opts.search && embeddingsReady) {
         const queryVec = await embedQuery(opts.search);
-        const scored = filtered
-            .map(a => ({
-                asset: a,
-                score: cosineSimilarity(queryVec, assetEmbeddings.get(a.filePath) ?? []),
-            }))
-            .filter(s => s.score > 0.15)
-            .sort((a, b) => b.score - a.score);
-
-        packResults = scored.slice(0, max).map(s => ({
-            name: s.asset.name,
-            path: `/assets/${s.asset.filePath}`,
-            category: s.asset.category,
-            pack: s.asset.pack,
-            size: getCanonicalSize(s.asset.filePath) ?? undefined,
-            vertices: getCanonicalVertexCount(s.asset.filePath) ?? undefined,
-        }));
+        for (const a of filtered) {
+            const score = cosineSimilarity(queryVec, assetEmbeddings.get(a.filePath) ?? []);
+            if (score <= 0.15) continue;
+            scored.push({
+                hit: {
+                    name: a.name,
+                    path: `/assets/${a.filePath}`,
+                    category: a.category,
+                    pack: a.pack,
+                    size: getCanonicalSize(a.filePath) ?? undefined,
+                    vertices: getCanonicalVertexCount(a.filePath) ?? undefined,
+                },
+                score,
+            });
+        }
     } else if (opts.search) {
-        // Fallback: substring matching
+        // Substring fallback (embedder not ready). No real cosine,
+        // so use a uniform synthetic score below the embed-search
+        // floor so a real embedding hit from an extension still
+        // outranks substring hits.
         const s = opts.search.toLowerCase();
-        filtered = filtered.filter(a => a.name.toLowerCase().includes(s) || a.pack.toLowerCase().includes(s));
-        packResults = filtered.slice(0, max).map(a => ({
-            name: a.name,
-            path: `/assets/${a.filePath}`,
-            category: a.category,
-            pack: a.pack,
-            size: getCanonicalSize(a.filePath) ?? undefined,
-            vertices: getCanonicalVertexCount(a.filePath) ?? undefined,
-        }));
+        for (const a of filtered) {
+            if (!a.name.toLowerCase().includes(s) && !a.pack.toLowerCase().includes(s)) continue;
+            scored.push({
+                hit: {
+                    name: a.name,
+                    path: `/assets/${a.filePath}`,
+                    category: a.category,
+                    pack: a.pack,
+                    size: getCanonicalSize(a.filePath) ?? undefined,
+                    vertices: getCanonicalVertexCount(a.filePath) ?? undefined,
+                },
+                score: 0.1,
+            });
+        }
     } else {
-        // No search query — just first N filtered.
-        packResults = filtered.slice(0, max).map(a => ({
+        // No search query — first-N (no scoring possible).
+        return filtered.slice(0, max).map(a => ({
             name: a.name,
             path: `/assets/${a.filePath}`,
             category: a.category,
@@ -316,25 +333,33 @@ export async function searchAssets(opts: {
         }));
     }
 
-    // Plugin extensions add their own asset pools (model_gen → community
-    // generated assets). These come AFTER pack hits so curated assets
-    // win ties; AI sees them as supplementary options. Limit applies
-    // per-source so a flood of community results can't drown the packs.
-    let extResults: AssetSearchHit[] = [];
+    // Plugin extensions (model_gen → community generated assets +
+    // the user's own private/pending models). They run their own
+    // embedding scoring internally and tag each hit with a `score`,
+    // which we merge into the same ranked pool below.
     if (opts.search) {
         try {
-            extResults = await runAssetSearchExtensions({
+            const extResults = await runAssetSearchExtensions({
                 query: opts.search,
                 category: opts.category,
-                limit: Math.ceil(max / 2),
+                limit: max,
                 userId: opts.userId ?? null,
             });
+            for (const r of extResults) {
+                scored.push({ hit: r, score: typeof r.score === 'number' ? r.score : 0 });
+            }
         } catch (e) {
             console.error('[searchAssets] extensions failed:', e);
         }
     }
 
-    return [...packResults, ...extResults].slice(0, max);
+    scored.sort((a, b) => b.score - a.score);
+    // Strip score from the returned hit — it was an internal ranking
+    // signal, not part of the AssetSearchHit contract callers see.
+    return scored.slice(0, max).map(s => {
+        const { name, path, category, pack, size, vertices, description } = s.hit as AssetSearchHit & { description?: string };
+        return { name, path, category, pack, size, vertices, description };
+    });
 }
 console.log(`[Assets] ${assetCache.length} assets scanned`);
 
