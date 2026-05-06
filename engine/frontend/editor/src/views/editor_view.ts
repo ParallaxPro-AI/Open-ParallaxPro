@@ -9,6 +9,7 @@ import { ViewportPanel } from '../panels/viewport_panel.js';
 import { AssetsPanel } from '../panels/assets_panel.js';
 import { AiChatPanel } from '../panels/ai_chat_panel.js';
 import { ModelGenPanel } from '../panels/model_gen_panel.js';
+import { SoundFxPanel } from '../panels/sound_fx_panel.js';
 import { TabsWidget } from '../widgets/tabs.js';
 import { ShortcutManager } from '../input/shortcut_manager.js';
 import { isMobile } from '../utils/mobile.js';
@@ -27,6 +28,7 @@ export class EditorView {
     private assets: AssetsPanel | null = null;
     private chat: AiChatPanel;
     private modelGen: ModelGenPanel;
+    private soundFx: SoundFxPanel;
     /** Tabs wrapper around chat + modelGen — what actually mounts in the
      *  layout slot. `chat` and `modelGen` are kept as fields so other
      *  callers (sendInitialChatMessage, mobile reparent) keep working. */
@@ -60,6 +62,7 @@ export class EditorView {
         // matches the assets panel (panel-header + tabs underneath).
         this.chat = new AiChatPanel({ headlessHeader: true });
         this.modelGen = new ModelGenPanel();
+        this.soundFx = new SoundFxPanel();
 
         // Wrapper panel: matches assets panel structure
         //   <div class="panel ai-panel">
@@ -90,9 +93,15 @@ export class EditorView {
         this.chatTabs.setTabs([
             { id: 'chat', label: t('chat.tabAssistant', 'Chat'), content: this.chat.el },
             { id: 'gen', label: t('chat.tabGenerate', '3D Model Generate'), content: this.modelGen.el },
+            { id: 'sfx', label: t('chat.tabSoundEffects', 'Sound Effects'), content: this.soundFx.el },
         ]);
         this.chatTabs.onChange(id => {
             if (id === 'gen') this.modelGen.onShow();
+            if (id === 'sfx') this.soundFx.onShow();
+            // Force-stop any in-flight mic recording when leaving the SFX
+            // tab — otherwise the iOS recording banner stays up until panel
+            // destroy.
+            if (id !== 'sfx') this.soundFx.cancelRecording();
             // Session button only makes sense on the Chat tab.
             this.chat.sessionBtn.style.display = id === 'chat' ? '' : 'none';
             // Persist so a refresh keeps the same tab.
@@ -101,7 +110,7 @@ export class EditorView {
         // Restore last selected tab on mount.
         try {
             const saved = localStorage.getItem('ai_panel_tab');
-            if (saved === 'chat' || saved === 'gen') this.chatTabs.setActiveTab(saved);
+            if (saved === 'chat' || saved === 'gen' || saved === 'sfx') this.chatTabs.setActiveTab(saved);
         } catch {}
         wrapper.appendChild(this.chatTabs.el);
 

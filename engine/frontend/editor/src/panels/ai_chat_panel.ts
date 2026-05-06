@@ -85,47 +85,103 @@ const ATTACH_CLOSE = '[/Attached 3D models]';
  *  parses the same regex below to rebuild chips. */
 const ATTACH_LINE_RE = /^- "([^"]+)" — path: (\/assets\/generated\/[a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]{32}\.glb)\b/;
 
+/** Sound-effect attachment markers + line regex. Parallel structure to the
+ *  3D-model block so we can ship audio chips through the same chip array.
+ *  Authority hint mirrors the 3D-model block so the AI prefers attached
+ *  clips over an open `LIST_ASSETS category="Audio"` search. */
+const ATTACH_AUDIO_OPEN = '[Attached sound effects — use these for matching SFX cues, do not search]';
+const ATTACH_AUDIO_CLOSE = '[/Attached sound effects]';
+const ATTACH_AUDIO_LINE_RE = /^- "([^"]+)" — path: (\/assets\/generated-audio\/[a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]{32}\.(?:wav|mp3|ogg|flac))\b/;
+
+/** Path prefix that distinguishes a sound-effect chip from a 3D-model chip. */
+function isAudioChipPath(path: string): boolean {
+    return path.startsWith('/assets/generated-audio/');
+}
+
 /** Build the attachment-block prefix that gets prepended to the user's
  *  text on send. AI sees this; user-visible message strips it back to
- *  chips at render time. */
+ *  chips at render time. Sound effects get their own block so the AI
+ *  unambiguously knows what to do with `audioAssetUUID` vs a model path. */
 function formatChipsForAI(chips: AssetAttachment[]): string {
     if (chips.length === 0) return '';
-    // Lines are just `prompt — path: ...` now. Scale + facing are baked
-    // into the GLB's geometry by the loader, so the AI doesn't need to
-    // see est_scale_m / forward_axis — it treats generated assets the
-    // same way as kenney/poly_haven library assets.
-    const lines = chips.map(c =>
-        `- "${c.prompt.replace(/"/g, '\\"')}" — path: ${c.path}`,
-    );
-    return `${ATTACH_OPEN}\n${lines.join('\n')}\n${ATTACH_CLOSE}\n\n`;
+    const modelChips = chips.filter(c => !isAudioChipPath(c.path));
+    const audioChips = chips.filter(c => isAudioChipPath(c.path));
+    const blocks: string[] = [];
+    if (modelChips.length > 0) {
+        // Lines are just `prompt — path: ...` now. Scale + facing are baked
+        // into the GLB's geometry by the loader, so the AI doesn't need to
+        // see est_scale_m / forward_axis — it treats generated assets the
+        // same way as kenney/poly_haven library assets.
+        const lines = modelChips.map(c =>
+            `- "${c.prompt.replace(/"/g, '\\"')}" — path: ${c.path}`,
+        );
+        blocks.push(`${ATTACH_OPEN}\n${lines.join('\n')}\n${ATTACH_CLOSE}`);
+    }
+    if (audioChips.length > 0) {
+        // For SFX, also include the bare 32-hex id so the AI can drop it
+        // into AudioSourceComponent's `audioAssetUUID` field directly
+        // (audio_source_component.ts:94 reads `data.audioAssetUUID ?? data.clip`).
+        const lines = audioChips.map(c =>
+            `- "${c.prompt.replace(/"/g, '\\"')}" — path: ${c.path} (audioAssetUUID: ${c.id})`,
+        );
+        blocks.push(`${ATTACH_AUDIO_OPEN}\n${lines.join('\n')}\n${ATTACH_AUDIO_CLOSE}`);
+    }
+    return blocks.join('\n') + '\n\n';
 }
 
 /** Inverse of formatChipsForAI — extracts chips from a stored message
  *  for re-render on chat history reload. Returns the chips parsed plus
  *  the user-facing text with the block stripped. Tolerant of malformed
- *  blocks (returns no chips, leaves text intact). */
+ *  blocks (returns no chips, leaves text intact). Handles either or both
+ *  block types in any order. */
 function parseChipsFromContent(content: string): { chips: AssetAttachment[]; cleanText: string } {
-    const open = content.indexOf(ATTACH_OPEN);
-    if (open !== 0) return { chips: [], cleanText: content };
-    const close = content.indexOf(ATTACH_CLOSE, open);
-    if (close < 0) return { chips: [], cleanText: content };
-
-    const block = content.slice(open + ATTACH_OPEN.length, close).trim();
     const chips: AssetAttachment[] = [];
-    for (const line of block.split('\n')) {
-        const m = line.match(ATTACH_LINE_RE);
-        if (!m) continue;
-        const path = m[2];
-        chips.push({
-            id: path.replace(/^.*\//, '').replace(/\.glb$/, ''),
-            path,
-            thumbUrl: path.replace(/\.glb$/, '.thumb.webp'),
-            prompt: m[1].replace(/\\"/g, '"'),
-        });
+    let cur = content;
+    // Up to a few iterations covers any combination of the two block
+    // types in either order; if neither block matches, we exit.
+    for (let i = 0; i < 4; i++) {
+        const stripped = cur.replace(/^\s*\n+/, '');
+        if (stripped.startsWith(ATTACH_OPEN)) {
+            const close = stripped.indexOf(ATTACH_CLOSE, ATTACH_OPEN.length);
+            if (close < 0) { cur = stripped; break; }
+            const block = stripped.slice(ATTACH_OPEN.length, close).trim();
+            for (const line of block.split('\n')) {
+                const m = line.match(ATTACH_LINE_RE);
+                if (!m) continue;
+                const path = m[2];
+                chips.push({
+                    id: path.replace(/^.*\//, '').replace(/\.glb$/, ''),
+                    path,
+                    thumbUrl: path.replace(/\.glb$/, '.thumb.webp'),
+                    prompt: m[1].replace(/\\"/g, '"'),
+                });
+            }
+            cur = stripped.slice(close + ATTACH_CLOSE.length);
+            continue;
+        }
+        if (stripped.startsWith(ATTACH_AUDIO_OPEN)) {
+            const close = stripped.indexOf(ATTACH_AUDIO_CLOSE, ATTACH_AUDIO_OPEN.length);
+            if (close < 0) { cur = stripped; break; }
+            const block = stripped.slice(ATTACH_AUDIO_OPEN.length, close).trim();
+            for (const line of block.split('\n')) {
+                const m = line.match(ATTACH_AUDIO_LINE_RE);
+                if (!m) continue;
+                const path = m[2];
+                const id = path.replace(/^.*\//, '').replace(/\.[a-z0-9]+$/, '');
+                chips.push({
+                    id,
+                    path,
+                    thumbUrl: '',
+                    prompt: m[1].replace(/\\"/g, '"'),
+                });
+            }
+            cur = stripped.slice(close + ATTACH_AUDIO_CLOSE.length);
+            continue;
+        }
+        cur = stripped;
+        break;
     }
-    // Strip the block + the trailing blank line(s).
-    const after = content.slice(close + ATTACH_CLOSE.length).replace(/^\s*\n+/, '');
-    return { chips, cleanText: after };
+    return { chips, cleanText: cur.replace(/^\s*\n+/, '') };
 }
 
 export class AiChatPanel {
@@ -416,13 +472,23 @@ export class AiChatPanel {
             el.className = 'chat-chip';
             el.title = chip.prompt;
 
-            const img = document.createElement('img');
-            img.className = 'chat-chip-thumb';
-            img.src = chip.thumbUrl;
-            img.alt = chip.prompt;
-            img.loading = 'lazy';
-            img.onerror = () => { img.style.display = 'none'; };
-            el.appendChild(img);
+            // Audio chips have no thumbnail — show a 🔊 emoji at the same
+            // visual size as the model thumb so the chip row stays uniform.
+            if (isAudioChipPath(chip.path)) {
+                const icon = document.createElement('span');
+                icon.className = 'chat-chip-thumb';
+                icon.textContent = '🔊';
+                icon.style.cssText += 'display:inline-flex;align-items:center;justify-content:center;font-size:14px;';
+                el.appendChild(icon);
+            } else {
+                const img = document.createElement('img');
+                img.className = 'chat-chip-thumb';
+                img.src = chip.thumbUrl;
+                img.alt = chip.prompt;
+                img.loading = 'lazy';
+                img.onerror = () => { img.style.display = 'none'; };
+                el.appendChild(img);
+            }
 
             const label = document.createElement('span');
             label.className = 'chat-chip-label';
@@ -1324,13 +1390,21 @@ export class AiChatPanel {
                 const el = document.createElement('div');
                 el.className = 'chat-message-chip';
                 el.title = chip.prompt;
-                const img = document.createElement('img');
-                img.className = 'chat-message-chip-thumb';
-                img.src = chip.thumbUrl;
-                img.alt = chip.prompt;
-                img.loading = 'lazy';
-                img.onerror = () => { img.style.display = 'none'; };
-                el.appendChild(img);
+                if (isAudioChipPath(chip.path)) {
+                    const icon = document.createElement('span');
+                    icon.className = 'chat-message-chip-thumb';
+                    icon.textContent = '🔊';
+                    icon.style.cssText += 'display:inline-flex;align-items:center;justify-content:center;font-size:14px;';
+                    el.appendChild(icon);
+                } else {
+                    const img = document.createElement('img');
+                    img.className = 'chat-message-chip-thumb';
+                    img.src = chip.thumbUrl;
+                    img.alt = chip.prompt;
+                    img.loading = 'lazy';
+                    img.onerror = () => { img.style.display = 'none'; };
+                    el.appendChild(img);
+                }
                 const label = document.createElement('span');
                 label.className = 'chat-message-chip-label';
                 label.textContent = chip.prompt.length > 40 ? chip.prompt.slice(0, 38) + '…' : chip.prompt;
